@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}خانه | سامانه آزمون مجازی{% endblock %}
+
+{% block content %}
+<section class="grid gap-6 lg:grid-cols-2">
+    <div class="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <span class="mb-4 inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">نسخه اولیه</span>
+        <h2 class="mb-4 text-3xl font-bold leading-tight">برگزاری امن و ساده آزمون‌های آنلاین</h2>
+        <p class="mb-6 text-slate-600">این ساختار اولیه برای توسعه سامانه امتحانات مجازی با جنگو، پایگاه داده PostgreSQL و Tailwind CSS آماده شده است.</p>
+        <div class="flex gap-3">
+            <a href="/admin/" class="btn-primary">شروع مدیریت</a>
+            <a href="#exam-list" class="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700">مشاهده آزمون‌ها</a>
+        </div>
+    </div>
+    <div class="rounded-2xl bg-slate-900 p-8 text-white shadow-sm">
+        <h3 class="mb-4 text-xl font-semibold">ویژگی‌های فاز اول</h3>
+        <ul class="space-y-3 text-slate-200">
+            <li>• تعریف آزمون و بازه زمانی</li>
+            <li>• پنل مدیریت برای ایجاد آزمون</li>
+            <li>• ساختار آماده برای افزودن سوالات و شرکت‌کنندگان</li>
+            <li>• رابط کاربری مدرن با Tailwind</li>
+        </ul>
+    </div>
+</section>
+
+<section id="exam-list" class="mt-10 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+    <div class="mb-6 flex items-center justify-between">
+        <h3 class="text-xl font-bold">آزمون‌های فعال</h3>
+        <span class="text-sm text-slate-500">آخرین موارد ثبت‌شده</span>
+    </div>
+
+    {% if upcoming_exams %}
+        <div class="grid gap-4 md:grid-cols-2">
+            {% for exam in upcoming_exams %}
+                <article class="rounded-xl border border-slate-200 p-5">
+                    <h4 class="mb-2 text-lg font-semibold">{{ exam.title }}</h4>
+                    <p class="mb-3 text-sm text-slate-600">{{ exam.description|default:'بدون توضیح' }}</p>
+                    <div class="space-y-1 text-sm text-slate-500">
+                        <div>شروع: {{ exam.starts_at }}</div>
+                        <div>پایان: {{ exam.ends_at }}</div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
+            هنوز آزمون فعالی تعریف نشده است.
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

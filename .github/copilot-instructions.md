@@ -1,0 +1,15 @@
+- [x] Verify that the copilot-instructions.md file in the .github directory is created.
+- [x] Clarify Project Requirements
+- [x] Scaffold the Project
+- [x] Customize the Project
+- [x] Install Required Extensions
+- [ ] Compile the Project
+- [ ] Create and Run Task
+- [ ] Launch the Project
+- [ ] Ensure Documentation is Complete
+
+- Project type: Django virtual exam starter
+- Language: Python
+- Database: PostgreSQL via environment variables
+- Styling: Tailwind CSS via CLI build
+- Notes: Initial scaffold created manually in current workspace.
