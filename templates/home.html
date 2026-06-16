@@ -1,51 +1,150 @@
 {% extends 'base.html' %}
 
-{% block title %}خانه | سامانه آزمون مجازی{% endblock %}
+{% block title %}داشبورد | آزمون‌یار{% endblock %}
 
 {% block content %}
-<section class="grid gap-6 lg:grid-cols-2">
-    <div class="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
-        <span class="mb-4 inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">نسخه اولیه</span>
-        <h2 class="mb-4 text-3xl font-bold leading-tight">برگزاری امن و ساده آزمون‌های آنلاین</h2>
-        <p class="mb-6 text-slate-600">این ساختار اولیه برای توسعه سامانه امتحانات مجازی با جنگو، پایگاه داده PostgreSQL و Tailwind CSS آماده شده است.</p>
-        <div class="flex gap-3">
-            <a href="/admin/" class="btn-primary">شروع مدیریت</a>
-            <a href="#exam-list" class="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700">مشاهده آزمون‌ها</a>
+<section id="overview" class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+    <div class="hero-panel overflow-hidden">
+        <div class="relative z-10 max-w-2xl">
+            <span class="eyebrow">نسخه آماده توسعه</span>
+            <h1 class="mt-5 max-w-2xl text-4xl font-black leading-tight text-ink sm:text-5xl lg:text-6xl">
+                آزمون‌ها را با آرامش طراحی، زمان‌بندی و مدیریت کن.
+            </h1>
+            <p class="mt-5 max-w-xl text-base leading-8 text-muted sm:text-lg">
+                یک فضای متمرکز برای ساخت آزمون، کنترل بازه زمانی، مشاهده وضعیت و آماده‌سازی پنل شرکت‌کنندگان.
+            </p>
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a href="/admin/" class="btn-primary justify-center px-6 py-3">
+                    ساخت آزمون جدید
+                    <span aria-hidden="true">←</span>
+                </a>
+                <a href="#exam-list" class="btn-secondary justify-center px-6 py-3">
+                    مشاهده آزمون‌ها
+                </a>
+            </div>
+        </div>
+
+        <div class="exam-ticket" aria-hidden="true">
+            <div class="mb-5 flex items-start justify-between gap-4">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-widest text-teal-700">LIVE EXAM</div>
+                    <div class="mt-2 text-2xl font-black text-ink">ریاضی عمومی</div>
+                </div>
+                <span class="rounded-full bg-teal-100 px-3 py-1 text-xs font-extrabold text-teal-800">فعال</span>
+            </div>
+            <div class="space-y-3">
+                <div class="ticket-row">
+                    <span>شرکت‌کنندگان</span>
+                    <strong>۱۲۸ نفر</strong>
+                </div>
+                <div class="ticket-row">
+                    <span>زمان باقی‌مانده</span>
+                    <strong>۴۵ دقیقه</strong>
+                </div>
+                <div class="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div class="h-full w-2/3 rounded-full bg-teal-600"></div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="rounded-2xl bg-slate-900 p-8 text-white shadow-sm">
-        <h3 class="mb-4 text-xl font-semibold">ویژگی‌های فاز اول</h3>
-        <ul class="space-y-3 text-slate-200">
-            <li>• تعریف آزمون و بازه زمانی</li>
-            <li>• پنل مدیریت برای ایجاد آزمون</li>
-            <li>• ساختار آماده برای افزودن سوالات و شرکت‌کنندگان</li>
-            <li>• رابط کاربری مدرن با Tailwind</li>
-        </ul>
+
+    <aside class="space-y-4">
+        <div class="status-panel bg-ink text-white">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-extrabold">وضعیت سامانه</h2>
+                <span class="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(52,211,153,0.14)]"></span>
+            </div>
+            <div class="mt-8 grid grid-cols-2 gap-3">
+                <div class="metric-card bg-white/10 text-white">
+                    <span>آزمون فعال</span>
+                    <strong>{{ upcoming_exams|length }}</strong>
+                </div>
+                <div class="metric-card bg-white/10 text-white">
+                    <span>پایگاه داده</span>
+                    <strong>آماده</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-panel bg-white/85">
+            <h2 class="text-lg font-extrabold text-ink">مسیرهای سریع</h2>
+            <div class="mt-5 grid gap-3">
+                <a href="/admin/apps/core/exam/add/" class="quick-link">
+                    <span class="quick-icon">＋</span>
+                    <span>
+                        <strong>تعریف آزمون</strong>
+                        <small>عنوان، توضیحات و بازه زمانی</small>
+                    </span>
+                </a>
+                <a href="/admin/apps/core/exam/" class="quick-link">
+                    <span class="quick-icon">⌁</span>
+                    <span>
+                        <strong>مدیریت آزمون‌ها</strong>
+                        <small>ویرایش، فعال‌سازی و بررسی لیست</small>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </aside>
+</section>
+
+<section class="mt-8 grid gap-4 md:grid-cols-3">
+    <div class="feature-strip">
+        <span>01</span>
+        <strong>تعریف ساختار آزمون</strong>
+        <p>پایه مدل آزمون آماده است و می‌شود سؤال، گزینه و شرکت‌کننده را روی آن توسعه داد.</p>
+    </div>
+    <div class="feature-strip">
+        <span>02</span>
+        <strong>زمان‌بندی دقیق</strong>
+        <p>هر آزمون بازه شروع و پایان دارد تا کنترل دسترسی‌ها قابل پیاده‌سازی باشد.</p>
+    </div>
+    <div class="feature-strip">
+        <span>03</span>
+        <strong>آماده استقرار</strong>
+        <p>پروژه هم با SQLite محلی کار می‌کند، هم با دیتابیس PostgreSQL آنلاین.</p>
     </div>
 </section>
 
-<section id="exam-list" class="mt-10 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
-    <div class="mb-6 flex items-center justify-between">
-        <h3 class="text-xl font-bold">آزمون‌های فعال</h3>
-        <span class="text-sm text-slate-500">آخرین موارد ثبت‌شده</span>
+<section id="exam-list" class="mt-10">
+    <div class="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+            <span class="eyebrow">آخرین موارد</span>
+            <h2 class="mt-3 text-2xl font-black text-ink sm:text-3xl">آزمون‌های فعال</h2>
+        </div>
+        <a href="/admin/apps/core/exam/add/" class="btn-secondary w-full justify-center sm:w-auto">افزودن آزمون</a>
     </div>
 
     {% if upcoming_exams %}
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {% for exam in upcoming_exams %}
-                <article class="rounded-xl border border-slate-200 p-5">
-                    <h4 class="mb-2 text-lg font-semibold">{{ exam.title }}</h4>
-                    <p class="mb-3 text-sm text-slate-600">{{ exam.description|default:'بدون توضیح' }}</p>
-                    <div class="space-y-1 text-sm text-slate-500">
-                        <div>شروع: {{ exam.starts_at }}</div>
-                        <div>پایان: {{ exam.ends_at }}</div>
+                <article class="exam-card">
+                    <div class="mb-5 flex items-start justify-between gap-4">
+                        <h3 class="text-lg font-extrabold text-ink">{{ exam.title }}</h3>
+                        <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-800">فعال</span>
+                    </div>
+                    <p class="min-h-14 text-sm leading-7 text-muted">{{ exam.description|default:'برای این آزمون توضیحی ثبت نشده است.' }}</p>
+                    <div class="mt-6 space-y-2 border-t border-slate-200 pt-4 text-sm text-muted">
+                        <div class="flex items-center justify-between gap-3">
+                            <span>شروع</span>
+                            <strong class="text-ink">{{ exam.starts_at }}</strong>
+                        </div>
+                        <div class="flex items-center justify-between gap-3">
+                            <span>پایان</span>
+                            <strong class="text-ink">{{ exam.ends_at }}</strong>
+                        </div>
                     </div>
                 </article>
             {% endfor %}
         </div>
     {% else %}
-        <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
-            هنوز آزمون فعالی تعریف نشده است.
+        <div class="empty-state">
+            <div class="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-teal-100 text-3xl text-teal-800">＋</div>
+            <h3 class="mt-5 text-xl font-black text-ink">هنوز آزمون فعالی تعریف نشده است</h3>
+            <p class="mx-auto mt-3 max-w-md text-sm leading-7 text-muted">
+                اولین آزمون را از پنل مدیریت بساز تا این بخش با کارت‌های واقعی پر شود.
+            </p>
+            <a href="/admin/apps/core/exam/add/" class="btn-primary mt-6 px-6 py-3">تعریف اولین آزمون</a>
         </div>
     {% endif %}
 </section>
