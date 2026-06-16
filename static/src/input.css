@@ -18,12 +18,20 @@
   }
 
   .hero-panel {
-    @apply relative min-h-[520px] rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-soft backdrop-blur-xl sm:p-8 lg:p-10;
+    @apply relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-soft backdrop-blur-xl sm:p-8 lg:p-10;
   }
 
   .hero-panel::after {
     content: '';
-    @apply absolute bottom-0 left-0 h-64 w-64 rounded-full bg-coral/20 blur-3xl;
+    @apply pointer-events-none absolute bottom-0 left-0 h-64 w-64 rounded-full bg-coral/20 blur-3xl;
+  }
+
+  .hero-visual {
+    @apply relative mx-auto grid w-full max-w-xl gap-4;
+  }
+
+  .hero-image {
+    @apply w-full rounded-[1.75rem] border border-white/80 shadow-soft;
   }
 
   .eyebrow {
@@ -31,7 +39,7 @@
   }
 
   .exam-ticket {
-    @apply absolute bottom-6 left-6 right-6 rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-soft backdrop-blur md:right-auto md:w-80 lg:bottom-10 lg:left-10;
+    @apply rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-soft backdrop-blur;
   }
 
   .ticket-row {
@@ -96,5 +104,13 @@
 
   .empty-state {
     @apply rounded-[2rem] border border-dashed border-teal-200 bg-white/75 px-6 py-12 text-center shadow-subtle backdrop-blur;
+  }
+
+  .image-panel {
+    @apply overflow-hidden rounded-[2rem] border border-white/80 bg-white/75 p-4 shadow-soft backdrop-blur;
+  }
+
+  .content-panel {
+    @apply rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-subtle backdrop-blur sm:p-8;
   }
 }

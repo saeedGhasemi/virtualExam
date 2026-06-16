@@ -4,10 +4,11 @@
 
 {% block content %}
 <section id="overview" class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-    <div class="hero-panel overflow-hidden">
-        <div class="relative z-10 max-w-2xl">
+    <div class="hero-panel">
+        <div class="relative z-10 grid gap-8 xl:grid-cols-[0.95fr_1.05fr] xl:items-center">
+            <div class="max-w-2xl">
             <span class="eyebrow">نسخه آماده توسعه</span>
-            <h1 class="mt-5 max-w-2xl text-4xl font-black leading-tight text-ink sm:text-5xl lg:text-6xl">
+            <h1 class="mt-5 max-w-2xl text-4xl font-black leading-tight text-ink sm:text-5xl">
                 آزمون‌ها را با آرامش طراحی، زمان‌بندی و مدیریت کن.
             </h1>
             <p class="mt-5 max-w-xl text-base leading-8 text-muted sm:text-lg">
@@ -22,27 +23,31 @@
                     مشاهده آزمون‌ها
                 </a>
             </div>
-        </div>
-
-        <div class="exam-ticket" aria-hidden="true">
-            <div class="mb-5 flex items-start justify-between gap-4">
-                <div>
-                    <div class="text-xs font-bold uppercase tracking-widest text-teal-700">LIVE EXAM</div>
-                    <div class="mt-2 text-2xl font-black text-ink">ریاضی عمومی</div>
-                </div>
-                <span class="rounded-full bg-teal-100 px-3 py-1 text-xs font-extrabold text-teal-800">فعال</span>
             </div>
-            <div class="space-y-3">
-                <div class="ticket-row">
-                    <span>شرکت‌کنندگان</span>
-                    <strong>۱۲۸ نفر</strong>
-                </div>
-                <div class="ticket-row">
-                    <span>زمان باقی‌مانده</span>
-                    <strong>۴۵ دقیقه</strong>
-                </div>
-                <div class="h-2 overflow-hidden rounded-full bg-slate-200">
-                    <div class="h-full w-2/3 rounded-full bg-teal-600"></div>
+
+            <div class="hero-visual">
+                <img src="/static/img/exam-dashboard.svg" alt="" class="hero-image">
+                <div class="exam-ticket" aria-hidden="true">
+                    <div class="mb-5 flex items-start justify-between gap-4">
+                        <div>
+                            <div class="text-xs font-bold uppercase text-teal-700">LIVE EXAM</div>
+                            <div class="mt-2 text-2xl font-black text-ink">ریاضی عمومی</div>
+                        </div>
+                        <span class="rounded-full bg-teal-100 px-3 py-1 text-xs font-extrabold text-teal-800">فعال</span>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="ticket-row">
+                            <span>شرکت‌کنندگان</span>
+                            <strong>۱۲۸ نفر</strong>
+                        </div>
+                        <div class="ticket-row">
+                            <span>زمان باقی‌مانده</span>
+                            <strong>۴۵ دقیقه</strong>
+                        </div>
+                        <div class="h-2 overflow-hidden rounded-full bg-slate-200">
+                            <div class="h-full w-2/3 rounded-full bg-teal-600"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -103,6 +108,19 @@
         <span>03</span>
         <strong>آماده استقرار</strong>
         <p>پروژه هم با SQLite محلی کار می‌کند، هم با دیتابیس PostgreSQL آنلاین.</p>
+    </div>
+</section>
+
+<section class="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+    <div class="image-panel">
+        <img src="/static/img/exam-session.svg" alt="نمای تصویری از محیط آزمون آنلاین" class="w-full">
+    </div>
+    <div class="content-panel">
+        <span class="eyebrow">تجربه شرکت‌کننده</span>
+        <h2 class="mt-4 text-2xl font-black leading-tight text-ink sm:text-3xl">صفحه آزمون باید آرام، خوانا و بدون شلوغی باشد.</h2>
+        <p class="mt-4 text-sm leading-8 text-muted sm:text-base">
+            این بخش برای توسعه نمای شرکت‌کننده آماده شده است؛ جایی که سؤال‌ها، زمان باقی‌مانده و وضعیت پاسخ‌ها باید واضح و قابل اعتماد دیده شوند.
+        </p>
     </div>
 </section>
 
