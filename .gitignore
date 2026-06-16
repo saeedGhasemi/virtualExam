@@ -7,5 +7,6 @@ __pycache__/
 venv/
 node_modules/
 static/dist/styles.css
+staticfiles/
 .DS_Store
 .vscode/
