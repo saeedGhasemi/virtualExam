@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}تقویم امتحانات | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۱</span><h1>تنظیم تقویم امتحانات</h1></div>
+    <div class="super-admin-card">
+        <form method="post" class="super-admin-form">
+            {% csrf_token %}{{ form.as_p }}
+            <button class="super-admin-primary" type="submit">ثبت برنامه آزمون</button>
+        </form>
+        {% if conflicts %}<ul>{% for item in conflicts %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="super-admin-card"><h2>برنامه آزمون‌ها</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>درس</th><th>استاد</th><th>شروع</th><th>پایان</th><th>وضعیت</th></tr></thead>
+        <tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>{{ exam.course|default:"-" }}</td><td>{{ exam.designer|default:"-" }}</td><td>{{ exam.starts_at }}</td><td>{{ exam.ends_at }}</td><td>{{ exam.get_status_display }}</td></tr>{% empty %}<tr><td colspan="6">برنامه‌ای ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

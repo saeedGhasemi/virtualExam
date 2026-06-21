@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}تأیید آزمون استاد | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۲</span><h1>تأیید آزمون استاد</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>استاد</th><th>زمان</th><th>مدت</th><th>نمره کل</th><th>تصمیم</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in approvals %}<tr><td>{{ item.exam.title }}</td><td>{{ item.requested_by|default:"-" }}</td><td>{{ item.exam.starts_at }}</td><td>{{ item.exam.duration_minutes|default:"-" }}</td><td>{{ item.exam.total_score|default:"-" }}</td><td>{{ item.get_decision_display }}</td><td><a href="{% url 'core:exam_manager_approval_review' item.pk %}">بررسی</a></td></tr>{% empty %}<tr><td colspan="7">درخواستی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

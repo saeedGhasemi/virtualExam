@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}پنل مدیر کل سیستم | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">مدیر کل سیستم</span>
+        <h1>کنترل کل سامانه، کاربران، مؤسسات و آزمون‌ها</h1>
+    </div>
+
+    <nav class="super-admin-actions">
+        <a href="{% url 'core:super_admin_institution_create' %}">ایجاد مؤسسه جدید</a>
+        <a href="{% url 'core:super_admin_users' %}">مدیریت کاربران</a>
+        <a href="{% url 'core:super_admin_roles' %}">نقش‌ها و مجوزها</a>
+        <a href="{% url 'core:super_admin_reports' %}">گزارش کل سامانه</a>
+        <a href="{% url 'core:super_admin_active_exams' %}">توقف اضطراری آزمون</a>
+    </nav>
+
+    <div class="super-admin-metrics">
+        <article><span>کاربران</span><strong>{{ users_count }}</strong></article>
+        <article><span>کاربران فعال</span><strong>{{ active_users_count }}</strong></article>
+        <article><span>مؤسسات</span><strong>{{ institutions_count }}</strong></article>
+        <article><span>نقش‌ها</span><strong>{{ roles_count }}</strong></article>
+        <article><span>آزمون‌ها</span><strong>{{ exams_count }}</strong></article>
+        <article><span>آزمون فعال</span><strong>{{ active_exams_count }}</strong></article>
+    </div>
+
+    <div class="super-admin-card">
+        <h2>آخرین فعالیت‌های سامانه</h2>
+        <div class="super-admin-table-wrap">
+            <table class="super-admin-table">
+                <thead>
+                    <tr>
+                        <th>کاربر</th>
+                        <th>عملیات</th>
+                        <th>توضیح</th>
+                        <th>زمان</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_logs %}
+                        <tr>
+                            <td>{{ log.user }}</td>
+                            <td>{{ log.action }}</td>
+                            <td>{{ log.description }}</td>
+                            <td>{{ log.created_at }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="4">هنوز فعالیتی ثبت نشده است.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

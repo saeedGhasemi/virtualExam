@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}ساختار آموزشی | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۳</span><h1>تعریف ساختار آموزشی</h1></div>
+    <div class="super-admin-card">
+        <form method="post" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="super-admin-primary" type="submit">ذخیره ساختار آموزشی</button>
+        </form>
+    </div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>واحدها</h2>{% for item in units %}<p>{{ item.name }} - {{ item.get_unit_type_display }}</p>{% empty %}<p>ثبت نشده</p>{% endfor %}</article>
+        <article class="super-admin-card"><h2>دروس</h2>{% for item in courses %}<p>{{ item.title }} - {{ item.code }}</p>{% empty %}<p>ثبت نشده</p>{% endfor %}</article>
+    </div>
+    <div class="super-admin-card">
+        <h2>کلاس‌ها</h2>
+        <div class="super-admin-table-wrap"><table class="super-admin-table">
+            <thead><tr><th>کلاس</th><th>درس</th><th>نیم‌سال</th><th>استاد</th></tr></thead>
+            <tbody>{% for item in classes %}<tr><td>{{ item.title }}</td><td>{{ item.course }}</td><td>{{ item.term|default:"-" }}</td><td>{{ item.teacher|default:"-" }}</td></tr>{% empty %}<tr><td colspan="4">کلاسی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+</section>
+{% endblock %}

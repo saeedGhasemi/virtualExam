@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}رسیدگی به پرسش آموزشی | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">پرسش آموزشی</span><h1>{{ item.course|default:item.exam }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>پرسش دانشجو</h2><p>{{ item.question_text }}</p></article>
+        <article class="super-admin-card"><h2>پاسخ یا ارجاع</h2><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ثبت نتیجه</button></form></article>
+    </div>
+</section>
+{% endblock %}

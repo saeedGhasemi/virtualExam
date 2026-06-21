@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}بررسی اعتراض | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">اعتراض دانشجو</span><h1>{{ objection.exam }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>متن اعتراض</h2><p>{{ objection.objection_text }}</p><p>پاسخ صحیح: {{ objection.question.correct_answer|default:"-" }}</p><p>نمره ثبت‌شده: {{ objection.original_score|default:"-" }}</p></article>
+        <article class="super-admin-card"><h2>تصمیم استاد</h2><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ثبت نتیجه برای دانشجو</button></form></article>
+    </div>
+</section>
+{% endblock %}

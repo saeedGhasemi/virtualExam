@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block title %}گزارش کل سامانه | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">سناریو گزارش‌های کل سامانه</span>
+        <h1>گزارش آماری بر اساس بازه زمانی و مؤسسه</h1>
+    </div>
+
+    <div class="super-admin-card">
+        <form method="get" class="super-admin-form super-admin-inline-form">
+            {{ form.as_p }}
+            <button type="submit" class="super-admin-primary">نمایش گزارش</button>
+        </form>
+    </div>
+
+    <div class="super-admin-metrics">
+        <article><span>تعداد کاربران</span><strong>{{ stats.users }}</strong></article>
+        <article><span>تعداد آزمون‌ها</span><strong>{{ stats.exams }}</strong></article>
+        <article><span>آزمون‌های فعال</span><strong>{{ stats.active_exams }}</strong></article>
+        <article><span>داوطلبان</span><strong>{{ stats.candidates }}</strong></article>
+        <article><span>تخلفات</span><strong>{{ stats.violations }}</strong></article>
+        <article><span>مشکلات فنی</span><strong>{{ stats.technical_issues }}</strong></article>
+    </div>
+
+    <div class="super-admin-actions">
+        <a href="?{{ request.GET.urlencode }}&export=excel">دریافت Excel</a>
+        <a href="?{{ request.GET.urlencode }}&export=pdf">دریافت PDF</a>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}ورود سؤال دستیار | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">ارسال برای تأیید</span><h1>ورود سؤال به بانک سؤال</h1></div>
+    <div class="super-admin-card">
+        <form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ارسال برای تأیید استاد</button></form>
+    </div>
+    <div class="super-admin-card"><h2>سؤال‌های ارسال‌شده</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>سؤال</th><th>درس</th><th>وضعیت</th><th>یادداشت استاد</th></tr></thead>
+        <tbody>{% for item in submissions %}<tr><td>{{ item.question.text|truncatechars:90 }}</td><td>{{ item.question.course|default:"-" }}</td><td>{{ item.get_status_display }}</td><td>{{ item.teacher_note|default:"-" }}</td></tr>{% empty %}<tr><td colspan="4">هنوز سؤالی ارسال نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}خطای سامانه | آزمون‌یار{% endblock %}
+{% block page_title %}خطای سامانه{% endblock %}
+
+{% block content %}
+<section class="empty-state">
+    <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 text-2xl font-black text-rose-800">۵۰۰</div>
+    <h2 class="mt-5 text-2xl font-black text-ink">مشکلی در سامانه رخ داد</h2>
+    <p class="mx-auto mt-3 max-w-md text-sm leading-7 text-muted">
+        درخواست شما در حال حاضر قابل پردازش نیست. لطفاً کمی بعد دوباره تلاش کنید.
+    </p>
+    <a href="{% url 'core:home' %}" class="btn-primary mt-6">بازگشت به داشبورد</a>
+</section>
+{% endblock %}

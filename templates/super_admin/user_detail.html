@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}مدیریت {{ profile.full_name }} | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">پرونده کاربر</span>
+        <h1>{{ profile.full_name }}</h1>
+    </div>
+
+    <div class="super-admin-grid">
+        <article class="super-admin-card">
+            <h2>اطلاعات کاربر</h2>
+            <dl class="super-admin-detail">
+                <dt>نام کاربری</dt><dd>{{ profile.user.username }}</dd>
+                <dt>ایمیل</dt><dd>{{ profile.user.email|default:"-" }}</dd>
+                <dt>نقش</dt><dd>{{ profile.role.name }}</dd>
+                <dt>مؤسسه</dt><dd>{{ profile.institution_name|default:"-" }}</dd>
+                <dt>وضعیت</dt><dd>{{ profile.get_account_status_display }}</dd>
+                <dt>آخرین ورود</dt><dd>{{ profile.user.last_login|default:"ثبت نشده" }}</dd>
+            </dl>
+        </article>
+
+        <article class="super-admin-card">
+            <h2>عملیات مدیریتی</h2>
+            <form method="post" class="super-admin-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="super-admin-primary">ذخیره عملیات</button>
+            </form>
+        </article>
+    </div>
+
+    <div class="super-admin-card">
+        <h2>سوابق ورود</h2>
+        <div class="super-admin-table-wrap">
+            <table class="super-admin-table">
+                <thead><tr><th>IP</th><th>دستگاه</th><th>موفق</th><th>زمان</th></tr></thead>
+                <tbody>
+                    {% for item in logins %}
+                        <tr><td>{{ item.ip_address }}</td><td>{{ item.device_name|default:"-" }}</td><td>{{ item.was_successful }}</td><td>{{ item.logged_in_at }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="4">سابقه ورود ثبت نشده است.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="super-admin-card">
+        <h2>گزارش فعالیت‌ها</h2>
+        <div class="super-admin-table-wrap">
+            <table class="super-admin-table">
+                <thead><tr><th>عملیات</th><th>توضیح</th><th>IP</th><th>زمان</th></tr></thead>
+                <tbody>
+                    {% for log in logs %}
+                        <tr><td>{{ log.action }}</td><td>{{ log.description }}</td><td>{{ log.ip_address|default:"-" }}</td><td>{{ log.created_at }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="4">فعالیتی ثبت نشده است.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

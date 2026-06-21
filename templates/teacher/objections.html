@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}اعتراض‌ها | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۷</span><h1>رسیدگی به اعتراض دانشجو</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>دانشجو</th><th>سؤال</th><th>تصمیم</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in objections %}<tr><td>{{ item.exam }}</td><td>{{ item.student }}</td><td>{{ item.question|default:"-" }}</td><td>{{ item.get_decision_display }}</td><td><a href="{% url 'core:teacher_objection_detail' item.pk %}">بررسی</a></td></tr>{% empty %}<tr><td colspan="5">اعتراضی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

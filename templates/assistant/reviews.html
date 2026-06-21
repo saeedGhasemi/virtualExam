@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}تصحیح‌های دستیار | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">تصحیح ناشناس</span><h1>پاسخ‌های اختصاص‌یافته</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>سؤال</th><th>وضعیت</th><th>نمره پیشنهادی</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in assignments %}<tr><td>{{ item.review.exam }}</td><td>{{ item.review.question.text|truncatechars:70 }}</td><td>{{ item.get_status_display }}</td><td>{{ item.proposed_score|default:"-" }}</td><td><a href="{% url 'core:assistant_review_detail' item.pk %}">تصحیح</a></td></tr>{% empty %}<tr><td colspan="5">پاسخی به شما اختصاص داده نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

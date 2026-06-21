@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}پرسش آموزشی | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">دانشجو</span><h1>ثبت پرسش آموزشی</h1></div>
+    <div class="super-admin-card"><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ثبت پرسش</button></form></div>
+    <div class="super-admin-card"><h2>پرسش‌های من</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>درس/آزمون</th><th>پرسش</th><th>وضعیت</th><th>پاسخ</th></tr></thead>
+        <tbody>{% for item in questions %}<tr><td>{{ item.course|default:item.exam }}</td><td>{{ item.question_text|truncatechars:90 }}</td><td>{{ item.get_status_display }}</td><td>{{ item.answer_text|default:"-" }}</td></tr>{% empty %}<tr><td colspan="4">پرسشی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

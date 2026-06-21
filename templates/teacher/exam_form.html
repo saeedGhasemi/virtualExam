@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}ایجاد آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۲</span><h1>ایجاد آزمون جدید</h1></div>
+    <div class="super-admin-card">
+        <form method="post" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <h2>نمره هر سؤال</h2>
+            {{ score_form.as_p }}
+            <button class="super-admin-primary">ذخیره و ارسال برای تأیید</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}بررسی تخلف آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۶</span><h1>بررسی تخلف آزمون</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>عنوان</th><th>آزمون</th><th>دانشجو</th><th>زمان وقوع</th><th>تصمیم</th><th>عملیات</th></tr></thead>
+        <tbody>{% for report in reports %}<tr><td>{{ report.title }}</td><td>{{ report.exam }}</td><td>{{ report.student|default:"-" }}</td><td>{{ report.occurred_at|default:"-" }}</td><td>{{ report.get_decision_display }}</td><td><a href="{% url 'core:institution_violation_decision' report.pk %}">بررسی</a></td></tr>{% empty %}<tr><td colspan="6">گزارش تخلفی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

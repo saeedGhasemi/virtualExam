@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}مدیریت تغییر زمان آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۵</span><h1>مدیریت تغییر زمان آزمون</h1></div>
+    <div class="super-admin-card"><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary" type="submit">ثبت تغییر زمان</button></form>{% if conflicts %}<ul>{% for item in conflicts %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}</div>
+    <div class="super-admin-card"><h2>درخواست‌ها</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>زمان جدید</th><th>وضعیت</th><th>دلیل</th></tr></thead>
+        <tbody>{% for item in requests %}<tr><td>{{ item.exam }}</td><td>{{ item.new_starts_at }} تا {{ item.new_ends_at }}</td><td>{{ item.get_status_display }}</td><td>{{ item.reason }}</td></tr>{% empty %}<tr><td colspan="4">درخواستی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

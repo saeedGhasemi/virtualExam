@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}گزارش برگزاری آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۶</span><h1>تهیه گزارش برگزاری آزمون</h1></div>
+    <div class="super-admin-card"><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary" type="submit">ثبت گزارش و ارسال برای مدیر مؤسسه</button></form></div>
+    <div class="super-admin-card"><h2>گزارش‌های ثبت‌شده</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>شرکت‌کنندگان</th><th>غایبان</th><th>ناقص</th><th>قطعی اینترنت</th><th>تخلفات</th><th>ارسال به مدیر</th></tr></thead>
+        <tbody>{% for item in reports %}<tr><td>{{ item.exam }}</td><td>{{ item.participants_count }}</td><td>{{ item.absent_count }}</td><td>{{ item.incomplete_count }}</td><td>{{ item.internet_disconnects }}</td><td>{{ item.violations_count }}</td><td>{{ item.sent_to_institution_manager }}</td></tr>{% empty %}<tr><td colspan="7">گزارشی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

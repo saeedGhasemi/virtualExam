@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}تصحیح تشریحی | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">تصحیح</span><h1>پاسخ‌های تشریحی</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>دانشجو</th><th>سؤال</th><th>نمره</th><th>مشکوک</th><th>دستیار</th><th>عملیات</th></tr></thead>
+        <tbody>
+            {% for item in reviews %}
+                <tr>
+                    <td>{{ item.exam }}</td>
+                    <td>{{ item.student }}</td>
+                    <td>{{ item.question }}</td>
+                    <td>{{ item.score|default:"-" }}</td>
+                    <td>{{ item.is_suspicious }}</td>
+                    <td>
+                        {% if item.assistant_assignment %}
+                            {{ item.assistant_assignment.assistant.profile.full_name }} - {{ item.assistant_assignment.get_status_display }}
+                        {% else %}
+                            <form method="post" action="{% url 'core:teacher_assign_review' item.pk %}" class="super-admin-form">
+                                {% csrf_token %}
+                                <select name="assistant" class="super-admin-input">
+                                    {% for assistant in assistants %}
+                                        <option value="{{ assistant.pk }}">{{ assistant.full_name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="super-admin-primary">تخصیص</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td><a href="{% url 'core:teacher_review_detail' item.pk %}">تصحیح استاد</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7">پاسخی برای تصحیح وجود ندارد.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table></div></div>
+</section>
+{% endblock %}

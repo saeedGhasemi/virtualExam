@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}جزئیات آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">گزارش آزمون</span><h1>{{ exam.title }}</h1></div>
+    <div class="super-admin-metrics">
+        <article><span>وضعیت</span><strong>{{ exam.get_status_display }}</strong></article>
+        <article><span>نمره کل</span><strong>{{ exam.total_score|default:"-" }}</strong></article>
+        <article><span>تخلفات</span><strong>{{ violations|length }}</strong></article>
+    </div>
+    <div class="super-admin-card">
+        <h2>اطلاعات شرکت‌کنندگان، حضور، مشکلات و نتایج</h2>
+        <p>این بخش به داده‌های پاسخ‌ها و حضور متصل می‌شود؛ فعلاً وضعیت آزمون، تخلفات و تنظیمات اصلی نمایش داده می‌شود.</p>
+        <p>شروع: {{ exam.starts_at }} · پایان: {{ exam.ends_at }}</p>
+        <p>دستورالعمل: {{ exam.instructions|default:"-" }}</p>
+    </div>
+    <div class="super-admin-card">
+        <h2>گزارش تخلفات</h2>
+        {% for report in violations %}<p><a href="{% url 'core:institution_violation_decision' report.pk %}">{{ report.title }}</a> - {{ report.get_decision_display }}</p>{% empty %}<p>تخلفی ثبت نشده است.</p>{% endfor %}
+    </div>
+</section>
+{% endblock %}

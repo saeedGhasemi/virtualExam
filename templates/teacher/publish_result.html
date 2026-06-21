@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}تنظیم نتیجه | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">انتشار نتیجه</span><h1>{{ exam.title }}</h1></div>
+    <div class="super-admin-card super-admin-narrow"><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ذخیره و انتشار</button></form></div>
+</section>
+{% endblock %}

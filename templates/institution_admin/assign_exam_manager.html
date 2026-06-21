@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}تعیین مسئول امتحانات | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۴</span><h1>تعیین مسئول امتحانات</h1></div>
+    <div class="super-admin-card super-admin-narrow">
+        <form method="post" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="super-admin-primary" type="submit">ثبت مسئولیت</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

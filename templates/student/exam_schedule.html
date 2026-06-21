@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}برنامه آزمون‌ها | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">دانشجو</span><h1>برنامه آزمون‌های من</h1></div>
+    <nav class="super-admin-actions">
+        <a href="{% url 'core:student_practice_exam' %}">آزمون آزمایشی</a>
+        <a href="{% url 'core:student_results' %}">نتایج</a>
+        <a href="{% url 'core:student_objections' %}">اعتراض‌ها</a>
+    </nav>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>درس</th><th>استاد</th><th>زمان</th><th>مدت</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+        <tbody>
+            {% for exam in exams %}
+                <tr>
+                    <td>{{ exam.title }}</td>
+                    <td>{{ exam.course|default:"-" }}</td>
+                    <td>{{ exam.designer.profile.full_name|default:"-" }}</td>
+                    <td>{{ exam.starts_at }} تا {{ exam.ends_at }}</td>
+                    <td>{{ exam.duration_minutes|default:"-" }} دقیقه</td>
+                    <td>{{ exam.get_status_display }}</td>
+                    <td><a href="{% url 'core:student_exam_detail' exam.pk %}">مشاهده</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7">آزمونی برای شما ثبت نشده است.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table></div></div>
+</section>
+{% endblock %}

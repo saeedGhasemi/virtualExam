@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}پنل استاد | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">استاد</span><h1>{{ teacher.profile.full_name }}</h1></div>
+    <nav class="super-admin-actions">
+        <a href="{% url 'core:teacher_questions' %}">بانک سؤال</a>
+        <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون</a>
+        <a href="{% url 'core:teacher_exams' %}">پیش‌نمایش آزمون</a>
+        <a href="{% url 'core:teacher_monitoring' %}">نظارت فعال</a>
+        <a href="{% url 'core:teacher_reviews' %}">تصحیح تشریحی</a>
+        <a href="{% url 'core:teacher_results' %}">انتشار نتیجه</a>
+        <a href="{% url 'core:teacher_objections' %}">اعتراض‌ها</a>
+        <a href="{% url 'core:teacher_assistant_requests' %}">درخواست‌های دستیار</a>
+    </nav>
+    <div class="super-admin-metrics">
+        <article><span>سؤال‌ها</span><strong>{{ questions_count }}</strong></article>
+        <article><span>آزمون‌ها</span><strong>{{ exams_count }}</strong></article>
+        <article><span>آزمون فعال</span><strong>{{ active_exams_count }}</strong></article>
+        <article><span>تصحیح‌ها</span><strong>{{ reviews_count }}</strong></article>
+        <article><span>اعتراض‌ها</span><strong>{{ objections_count }}</strong></article>
+        <article><span>سؤال‌های دستیار</span><strong>{{ assistant_questions_count }}</strong></article>
+        <article><span>پیش‌نویس‌های دستیار</span><strong>{{ assistant_drafts_count }}</strong></article>
+        <article><span>تصحیح‌های دستیار</span><strong>{{ assistant_reviews_count }}</strong></article>
+        <article><span>پرسش‌های ارجاع‌شده</span><strong>{{ educational_questions_count }}</strong></article>
+    </div>
+</section>
+{% endblock %}

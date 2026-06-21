@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}بررسی تصحیح دستیار | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">تأیید نمره</span><h1>{{ assignment.review.exam }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>پاسخ دانشجو</h2><p>{{ assignment.review.answer_text }}</p></article>
+        <article class="super-admin-card"><h2>پیشنهاد دستیار</h2><p>نمره: {{ assignment.proposed_score|default:"-" }}</p><p>بازخورد: {{ assignment.feedback|default:"-" }}</p><p>مشکوک: {{ assignment.is_suspicious }}</p></article>
+        <article class="super-admin-card"><h2>تصمیم استاد</h2><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ثبت تصمیم</button></form></article>
+    </div>
+</section>
+{% endblock %}

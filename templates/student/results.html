@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}نتایج آزمون‌ها | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">نتایج منتشرشده</span><h1>نتایج من</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>ارسال</th><th>عملیات</th></tr></thead>
+        <tbody>{% for attempt in attempts %}<tr><td>{{ attempt.exam.title }}</td><td>{{ attempt.submitted_at }}</td><td><a href="{% url 'core:student_result_detail' attempt.pk %}">مشاهده کارنامه</a></td></tr>{% empty %}<tr><td colspan="3">نتیجه منتشرشده‌ای وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

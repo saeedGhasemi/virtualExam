@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}ورود به آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">ورود اصلی</span><h1>{{ exam.title }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>قوانین</h2><p>{{ exam.instructions|default:"قوانین آزمون را مطالعه و تأیید کنید." }}</p></article>
+        <article class="super-admin-card">
+            <h2>احراز هویت و تأیید قوانین</h2>
+            <form method="post" enctype="multipart/form-data" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ثبت تأیید</button></form>
+        </article>
+        <article class="super-admin-card">
+            <h2>شروع آزمون</h2>
+            {% if can_start %}
+                <form method="post" action="{% url 'core:student_exam_start' exam.pk %}">{% csrf_token %}<button class="super-admin-primary">شروع آزمون</button></form>
+            {% else %}
+                <p>پس از تأیید قوانین و احراز هویت، گزینه شروع فعال می‌شود.</p>
+            {% endif %}
+        </article>
+    </div>
+</section>
+{% endblock %}

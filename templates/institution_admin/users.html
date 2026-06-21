@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}کاربران مؤسسه | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۲</span><h1>ثبت کاربران مؤسسه</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card">
+            <h2>ثبت دستی کاربر</h2>
+            <form method="post" class="super-admin-form">
+                {% csrf_token %}<input type="hidden" name="mode" value="manual">
+                {{ form.as_p }}
+                <button class="super-admin-primary" type="submit">ایجاد حساب کاربر</button>
+            </form>
+        </article>
+        <article class="super-admin-card">
+            <h2>ورود گروهی از فایل CSV</h2>
+            <p>ستون‌ها: user_type, username, password, full_name, national_code, email, mobile, student_number</p>
+            <form method="post" enctype="multipart/form-data" class="super-admin-form">
+                {% csrf_token %}<input type="hidden" name="mode" value="import">
+                {{ import_form.as_p }}
+                <button class="super-admin-primary" type="submit">واردکردن فایل</button>
+            </form>
+            {% if import_errors %}
+                <h2>خطاهای فایل</h2>
+                <ul>{% for error in import_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+            {% endif %}
+        </article>
+    </div>
+    <div class="super-admin-card">
+        <h2>کاربران مؤسسه</h2>
+        <div class="super-admin-table-wrap">
+            <table class="super-admin-table">
+                <thead><tr><th>نام</th><th>نام کاربری</th><th>نقش</th><th>کد ملی</th><th>شماره دانشجویی</th><th>وضعیت</th></tr></thead>
+                <tbody>
+                    {% for profile in profiles %}
+                        <tr><td>{{ profile.full_name }}</td><td>{{ profile.user.username }}</td><td>{{ profile.role.name }}</td><td>{{ profile.national_code|default:"-" }}</td><td>{{ profile.student_number|default:"-" }}</td><td>{{ profile.get_account_status_display }}</td></tr>
+                    {% empty %}<tr><td colspan="6">کاربری ثبت نشده است.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

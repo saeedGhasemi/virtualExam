@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}بانک سؤال | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۱</span><h1>ایجاد سؤال در بانک سؤال</h1></div>
+    <div class="super-admin-card"><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ذخیره سؤال</button></form></div>
+    <div class="super-admin-card"><h2>سؤال‌های من</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>متن</th><th>نوع</th><th>دشواری</th><th>فصل</th><th>موضوع</th><th>نمره</th></tr></thead>
+        <tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:80 }}</td><td>{{ q.get_question_type_display }}</td><td>{{ q.get_difficulty_display }}</td><td>{{ q.chapter|default:"-" }}</td><td>{{ q.topic|default:"-" }}</td><td>{{ q.suggested_score }}</td></tr>{% empty %}<tr><td colspan="6">سؤالی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

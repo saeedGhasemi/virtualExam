@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}نظارت آزمون فعال | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۴</span><h1>نظارت بر آزمون فعال</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>آنلاین</th><th>وضعیت اتصال</th><th>پیام‌ها</th><th>تمدید</th></tr></thead>
+        <tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>۰</td><td>پایدار</td><td>ثبت نشده</td><td><form method="post" action="{% url 'core:teacher_extend_exam' exam.pk %}">{% csrf_token %}<input name="minutes" class="super-admin-input" placeholder="دقیقه"><button class="super-admin-primary">تمدید</button></form></td></tr>{% empty %}<tr><td colspan="5">آزمون فعالی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

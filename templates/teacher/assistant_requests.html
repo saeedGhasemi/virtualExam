@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}درخواست‌های دستیار | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">تأیید استاد</span><h1>درخواست‌های دستیاران آموزشی</h1></div>
+
+    <div class="super-admin-card"><h2>سؤال‌های ارسالی</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>دستیار</th><th>سؤال</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in question_submissions %}<tr><td>{{ item.assistant.profile.full_name }}</td><td>{{ item.question.text|truncatechars:80 }}</td><td>{{ item.get_status_display }}</td><td><a href="{% url 'core:teacher_assistant_question_review' item.pk %}">بررسی</a></td></tr>{% empty %}<tr><td colspan="4">درخواستی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+
+    <div class="super-admin-card"><h2>پیشنهادهای اصلاح سؤال</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>دستیار</th><th>سؤال</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in question_suggestions %}<tr><td>{{ item.assistant.profile.full_name }}</td><td>{{ item.question.text|truncatechars:80 }}</td><td>{{ item.get_status_display }}</td><td><a href="{% url 'core:teacher_assistant_suggestion_review' item.pk %}">بررسی</a></td></tr>{% empty %}<tr><td colspan="4">پیشنهادی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+
+    <div class="super-admin-card"><h2>پیش‌نویس‌های آزمون</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>دستیار</th><th>آزمون</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in exam_drafts %}<tr><td>{{ item.assistant.profile.full_name }}</td><td>{{ item.exam.title }}</td><td>{{ item.get_status_display }}</td><td><a href="{% url 'core:teacher_assistant_exam_draft_review' item.pk %}">بررسی</a></td></tr>{% empty %}<tr><td colspan="4">پیش‌نویسی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+
+    <div class="super-admin-card"><h2>تصحیح‌های پیشنهادی</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>دستیار</th><th>آزمون</th><th>نمره پیشنهادی</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in review_assignments %}<tr><td>{{ item.assistant.profile.full_name }}</td><td>{{ item.review.exam }}</td><td>{{ item.proposed_score|default:"-" }}</td><td>{{ item.get_status_display }}</td><td><a href="{% url 'core:teacher_assistant_review_decision' item.pk %}">بررسی</a></td></tr>{% empty %}<tr><td colspan="5">تصحیح پیشنهادی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+
+    <div class="super-admin-card"><h2>پرسش‌های ارجاع‌شده</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>دانشجو</th><th>پرسش</th><th>عملیات</th></tr></thead>
+        <tbody>{% for item in educational_questions %}<tr><td>{{ item.student.profile.full_name }}</td><td>{{ item.question_text|truncatechars:90 }}</td><td><a href="{% url 'core:teacher_educational_question_answer' item.pk %}">پاسخ استاد</a></td></tr>{% empty %}<tr><td colspan="3">پرسش ارجاع‌شده‌ای وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

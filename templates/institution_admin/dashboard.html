@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}پنل مدیر مؤسسه | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">مدیر مؤسسه</span>
+        <h1>{{ institution.name }}</h1>
+    </div>
+    <nav class="super-admin-actions">
+        <a href="{% url 'core:institution_settings' %}">تکمیل اطلاعات مؤسسه</a>
+        <a href="{% url 'core:institution_users' %}">ثبت کاربران</a>
+        <a href="{% url 'core:institution_structure' %}">ساختار آموزشی</a>
+        <a href="{% url 'core:institution_assign_exam_manager' %}">تعیین مسئول امتحانات</a>
+        <a href="{% url 'core:institution_exams' %}">وضعیت آزمون‌ها</a>
+        <a href="{% url 'core:institution_violations' %}">بررسی تخلف‌ها</a>
+    </nav>
+    <div class="super-admin-metrics">
+        <article><span>کاربران مرکز</span><strong>{{ users_count }}</strong></article>
+        <article><span>استادان</span><strong>{{ teachers_count }}</strong></article>
+        <article><span>دانشجویان</span><strong>{{ students_count }}</strong></article>
+        <article><span>دروس</span><strong>{{ courses_count }}</strong></article>
+        <article><span>کلاس‌ها</span><strong>{{ classes_count }}</strong></article>
+        <article><span>آزمون‌ها</span><strong>{{ exams_count }}</strong></article>
+    </div>
+</section>
+{% endblock %}

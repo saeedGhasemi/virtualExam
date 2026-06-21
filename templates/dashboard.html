@@ -1,0 +1,365 @@
+{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ dashboard.title }}</title>
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
+</head>
+<body class="role-dashboard-page">
+    <main class="role-dashboard-shell">
+        <header class="role-dashboard-topbar">
+            <a href="{% url 'core:home' %}" class="role-dashboard-brand" aria-label="صفحه اصلی">
+                <span></span>
+            </a>
+
+            <nav class="role-dashboard-nav" aria-label="ناوبری داشبورد">
+                <a class="is-active" href="{% url 'core:dashboard' %}">داشبورد</a>
+                <a href="/admin/apps/core/exam/">امتحانات</a>
+                <a href="/admin/apps/core/userloginrecord/">تاریخ</a>
+                <a href="{{ profile_edit_url }}">ویرایش مشخصات</a>
+                <a class="role-dashboard-logout" href="{% url 'core:logout' %}">خروج</a>
+            </nav>
+
+            <div class="role-dashboard-user">
+                <span class="role-dashboard-icon" aria-hidden="true">□</span>
+                <span class="role-dashboard-icon has-dot" aria-hidden="true">◦</span>
+                <div class="role-dashboard-avatar" aria-hidden="true">{{ display_name|slice:":1" }}</div>
+                <div>
+                    <strong>{{ display_name }}</strong>
+                    <small>{{ role_name }}</small>
+                </div>
+            </div>
+        </header>
+
+        <section class="role-dashboard-layout">
+            <section class="role-dashboard-main">
+                <div class="role-dashboard-heading">
+                    <span class="role-dashboard-menu" aria-hidden="true">☷</span>
+                    <div>
+                        <h1>{{ dashboard.title }}</h1>
+                        <p>{{ dashboard.breadcrumb }}</p>
+                    </div>
+                </div>
+
+                <article class="role-dashboard-feature">
+                    <div class="role-dashboard-feature-copy">
+                        <span class="role-dashboard-kicker">{{ dashboard.section }}</span>
+                        <h2>{{ dashboard.title }}</h2>
+                        <p>{{ dashboard.description }}</p>
+
+                        <div class="role-dashboard-stats">
+                            {% for stat in dashboard.stats %}
+                                <div class="role-dashboard-stat is-{{ stat.tone }}">
+                                    <span></span>
+                                    <div>
+                                        <small>{{ stat.label }}</small>
+                                        <strong>{{ stat.value }}</strong>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="role-dashboard-actions">
+                            <a href="#">راهنمای آزمون</a>
+                            <button type="button">{{ dashboard.primary_action }} ←</button>
+                        </div>
+                    </div>
+
+                    <div class="role-dashboard-art">
+                        <img src="{% static 'img/exam-dashboard.svg' %}" alt="">
+                    </div>
+                </article>
+
+                <div class="role-dashboard-workgrid">
+                    <article>
+                        <strong>آخرین وضعیت</strong>
+                        <span>حساب فعال و آماده استفاده است</span>
+                    </article>
+                    <article>
+                        <strong>احراز هویت</strong>
+                        <span>{% if profile.two_factor_enabled %}دومرحله‌ای فعال{% else %}دومرحله‌ای غیرفعال{% endif %}</span>
+                    </article>
+                    <article>
+                        <strong>آخرین ورود</strong>
+                        <span>{{ request.user.last_login|default:"ثبت نشده" }}</span>
+                    </article>
+                </div>
+
+                {% if role_panel.type == 'super_admin' %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>پنل مدیر کل سیستم</span>
+                            <strong>نمای عملیاتی سامانه</strong>
+                        </div>
+                        <div class="role-dashboard-workgrid">
+                            <article><strong>{{ role_panel.users_count }}</strong><span>کاربران</span></article>
+                            <article><strong>{{ role_panel.active_users_count }}</strong><span>کاربران فعال</span></article>
+                            <article><strong>{{ role_panel.institutions_count }}</strong><span>مؤسسات</span></article>
+                            <article><strong>{{ role_panel.roles_count }}</strong><span>نقش‌ها</span></article>
+                            <article><strong>{{ role_panel.exams_count }}</strong><span>آزمون‌ها</span></article>
+                            <article><strong>{{ role_panel.active_exams_count }}</strong><span>آزمون فعال</span></article>
+                            <article><strong>{{ role_panel.today_logs_count }}</strong><span>فعالیت امروز</span></article>
+                        </div>
+                        <div class="role-dashboard-tasklist">
+                            {% for log in role_panel.recent_logs %}
+                                <article>
+                                    <div>
+                                        <strong>{{ log.user }} - {{ log.action }}</strong>
+                                        <span>{{ log.description|default:"بدون توضیح" }}</span>
+                                    </div>
+                                    <em>{{ log.created_at }}</em>
+                                </article>
+                            {% empty %}
+                                <article class="is-muted"><div><strong>فعالیتی ثبت نشده است</strong><span>آخرین رویدادهای سامانه اینجا نمایش داده می‌شوند.</span></div></article>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if role_panel.type == 'institution_admin' %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>پنل مدیر مؤسسه</span>
+                            <strong>{{ role_panel.institution.name }}</strong>
+                        </div>
+                        <div class="role-dashboard-workgrid">
+                            <article><strong>{{ role_panel.users_count }}</strong><span>کاربران مرکز</span></article>
+                            <article><strong>{{ role_panel.teachers_count }}</strong><span>استادان</span></article>
+                            <article><strong>{{ role_panel.students_count }}</strong><span>دانشجویان</span></article>
+                            <article><strong>{{ role_panel.courses_count }}</strong><span>دروس</span></article>
+                            <article><strong>{{ role_panel.classes_count }}</strong><span>کلاس‌ها</span></article>
+                            <article><strong>{{ role_panel.exams_count }}</strong><span>آزمون‌ها</span></article>
+                            <article><strong>{{ role_panel.violations_count }}</strong><span>تخلف‌ها</span></article>
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if role_panel.type == 'exam_manager' %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>پنل مسئول امتحانات</span>
+                            <strong>{{ role_panel.institution.name }}</strong>
+                        </div>
+                        <div class="role-dashboard-workgrid">
+                            <article><strong>{{ role_panel.scheduled_count }}</strong><span>زمان‌بندی‌شده</span></article>
+                            <article><strong>{{ role_panel.pending_count }}</strong><span>در انتظار تأیید</span></article>
+                            <article><strong>{{ role_panel.active_count }}</strong><span>فعال</span></article>
+                            <article><strong>{{ role_panel.finished_count }}</strong><span>پایان‌یافته</span></article>
+                            <article><strong>{{ role_panel.reports_count }}</strong><span>گزارش‌ها</span></article>
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if role_panel.type == 'teacher' %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>پنل استاد</span>
+                            <strong>{{ role_panel.teacher.profile.full_name }}</strong>
+                        </div>
+                        <div class="role-dashboard-workgrid">
+                            <article><strong>{{ role_panel.questions_count }}</strong><span>سؤال‌ها</span></article>
+                            <article><strong>{{ role_panel.exams_count }}</strong><span>آزمون‌ها</span></article>
+                            <article><strong>{{ role_panel.active_exams_count }}</strong><span>آزمون فعال</span></article>
+                            <article><strong>{{ role_panel.reviews_count }}</strong><span>تصحیح‌ها</span></article>
+                            <article><strong>{{ role_panel.objections_count }}</strong><span>اعتراض‌ها</span></article>
+                            <article><strong>{{ role_panel.assistant_questions_count }}</strong><span>سؤال‌های دستیار</span></article>
+                            <article><strong>{{ role_panel.assistant_drafts_count }}</strong><span>پیش‌نویس‌های دستیار</span></article>
+                            <article><strong>{{ role_panel.assistant_reviews_count }}</strong><span>تصحیح‌های دستیار</span></article>
+                            <article><strong>{{ role_panel.educational_questions_count }}</strong><span>پرسش‌های ارجاع‌شده</span></article>
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if role_panel.type == 'assistant' %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>پنل دستیار آموزشی</span>
+                            <strong>همکاری با {{ role_panel.teacher.profile.full_name }}</strong>
+                        </div>
+                        <div class="role-dashboard-workgrid">
+                            <article><strong>{{ role_panel.question_submissions_count }}</strong><span>سؤال‌های ارسالی</span></article>
+                            <article><strong>{{ role_panel.pending_questions_count }}</strong><span>در انتظار تأیید</span></article>
+                            <article><strong>{{ role_panel.exam_drafts_count }}</strong><span>پیش‌نویس‌ها</span></article>
+                            <article><strong>{{ role_panel.review_assignments_count }}</strong><span>تصحیح‌ها</span></article>
+                            <article><strong>{{ role_panel.educational_questions_count }}</strong><span>پرسش‌های جدید</span></article>
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if role_panel.type == 'student' %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>پنل دانشجو</span>
+                            <strong>{{ role_panel.student.profile.full_name }}</strong>
+                        </div>
+                        <div class="role-dashboard-workgrid">
+                            <article><strong>{{ role_panel.upcoming_exams_count }}</strong><span>آزمون آینده</span></article>
+                            <article><strong>{{ role_panel.available_exams_count }}</strong><span>آزمون قابل مشاهده</span></article>
+                            <article><strong>{{ role_panel.active_attempts_count }}</strong><span>آزمون در جریان</span></article>
+                            <article><strong>{{ role_panel.published_results_count }}</strong><span>نتیجه منتشرشده</span></article>
+                            <article><strong>{{ role_panel.objections_count }}</strong><span>اعتراض‌ها</span></article>
+                        </div>
+                        <div class="role-dashboard-tasklist">
+                            {% for exam in role_panel.upcoming_exams %}
+                                <article>
+                                    <div>
+                                        <strong>{{ exam.title }}</strong>
+                                        <span>{{ exam.course|default:"-" }} · {{ exam.starts_at }}</span>
+                                    </div>
+                                    <a href="{% url 'core:student_exam_detail' exam.pk %}">مشاهده</a>
+                                </article>
+                            {% empty %}
+                                <article class="is-muted">
+                                    <div>
+                                        <strong>آزمون آینده‌ای ثبت نشده است</strong>
+                                        <span>پس از زمان‌بندی آزمون‌ها، همین‌جا نمایش داده می‌شوند.</span>
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if super_admin_links %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>سناریوهای مدیر کل سیستم</span>
+                            <strong>دسترسی سریع</strong>
+                        </div>
+                        <div class="role-dashboard-quicklink-grid">
+                            {% for item in super_admin_links %}
+                                <a href="{{ item.url }}">{{ item.title }}</a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if institution_admin_links %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>سناریوهای مدیر مؤسسه</span>
+                            <strong>دسترسی سریع</strong>
+                        </div>
+                        <div class="role-dashboard-quicklink-grid">
+                            {% for item in institution_admin_links %}
+                                <a href="{{ item.url }}">{{ item.title }}</a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if exam_manager_links %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>سناریوهای مسئول امتحانات</span>
+                            <strong>دسترسی سریع</strong>
+                        </div>
+                        <div class="role-dashboard-quicklink-grid">
+                            {% for item in exam_manager_links %}
+                                <a href="{{ item.url }}">{{ item.title }}</a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if teacher_links %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>سناریوهای استاد</span>
+                            <strong>دسترسی سریع</strong>
+                        </div>
+                        <div class="role-dashboard-quicklink-grid">
+                            {% for item in teacher_links %}
+                                <a href="{{ item.url }}">{{ item.title }}</a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if assistant_links %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>عملیات دستیار آموزشی</span>
+                            <strong>دسترسی سریع</strong>
+                        </div>
+                        <div class="role-dashboard-quicklink-grid">
+                            {% for item in assistant_links %}
+                                <a href="{{ item.url }}">{{ item.title }}</a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if student_links %}
+                    <section class="role-dashboard-quicklinks">
+                        <div class="role-dashboard-section-title">
+                            <span>عملیات دانشجو</span>
+                            <strong>دسترسی سریع</strong>
+                        </div>
+                        <div class="role-dashboard-quicklink-grid">
+                            {% for item in student_links %}
+                                <a href="{{ item.url }}">{{ item.title }}</a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if dashboard.task_groups %}
+                    <section class="role-dashboard-operations">
+                        <div class="role-dashboard-section-title">
+                            <span>وظایف عملیاتی نقش</span>
+                            <strong>{{ role_name }}</strong>
+                        </div>
+
+                        <div class="role-dashboard-operation-grid">
+                            {% for group in dashboard.task_groups %}
+                                <article>
+                                    <header>
+                                        <span>{{ forloop.counter|stringformat:"02d" }}</span>
+                                        <h2>{{ group.title }}</h2>
+                                    </header>
+                                    <ul>
+                                        {% for item in group.items %}
+                                            <li>{{ item }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+            </section>
+
+            <aside class="role-dashboard-side">
+                <div class="role-dashboard-side-head">
+                    <div>
+                        <h2>{{ dashboard.side_title }}</h2>
+                        <span>{{ dashboard.progress }}٪ تکمیل</span>
+                    </div>
+                    <div class="role-dashboard-progress" style="--progress: {{ dashboard.progress }}%"></div>
+                </div>
+
+                <label class="role-dashboard-search">
+                    <span aria-hidden="true">⌕</span>
+                    <input type="search" placeholder="جستجو">
+                    <small aria-hidden="true">☷</small>
+                </label>
+
+                <div class="role-dashboard-tasklist">
+                    {% for task in dashboard.tasks %}
+                        <article class="{% if task.progress == 0 %}is-muted{% endif %}">
+                            <div>
+                                <strong>{{ forloop.counter }}. {{ task.title }}</strong>
+                                <span>{{ task.meta }}</span>
+                            </div>
+                            <em>{{ task.progress }}٪</em>
+                        </article>
+                    {% endfor %}
+                </div>
+            </aside>
+        </section>
+    </main>
+</body>
+</html>

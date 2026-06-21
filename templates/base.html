@@ -7,9 +7,38 @@
     <title>{% block title %}آزمون‌یار{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900">
-    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {% block content %}{% endblock %}
-    </main>
+<body class="min-h-screen bg-page text-ink antialiased">
+    <div class="site-shell">
+        <header class="site-header">
+            <a href="{% url 'core:home' %}" class="brand-lockup" aria-label="صفحه اصلی آزمون‌یار">
+                <span class="brand-mark">آ</span>
+                <span>آزمون‌یار</span>
+            </a>
+
+            <nav class="site-nav" aria-label="ناوبری اصلی">
+                <a href="#features">امکانات</a>
+                <a href="#steps">مراحل</a>
+                <a href="#exam-list">آزمون‌ها</a>
+                <a href="/admin/">مدیریت</a>
+            </nav>
+
+            <div class="header-actions">
+                <a href="{% url 'core:login' %}" class="login-link">ورود</a>
+                <a href="/admin/apps/core/exam/add/" class="btn-primary">شروع رایگان</a>
+            </div>
+        </header>
+
+        {% if messages %}
+            <section class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+                {% for message in messages %}
+                    <div class="alert-message">{{ message }}</div>
+                {% endfor %}
+            </section>
+        {% endif %}
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
 </body>
 </html>

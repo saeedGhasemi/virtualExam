@@ -1,0 +1,23 @@
+{
+  "name": "virtual-exam-starter",
+  "version": "1.0.0",
+  "description": "A virtual exam platform built with Django and Tailwind CSS.",
+  "main": "src/main.js",
+  "scripts": {
+    "build": "tailwindcss build src/input.css -o dist/output.css",
+    "watch": "tailwindcss build src/input.css -o dist/output.css --watch",
+    "start": "webpack serve --mode development"
+  },
+  "dependencies": {
+    "tailwindcss": "^2.2.19",
+    "postcss": "^8.4.5",
+    "autoprefixer": "^10.4.2"
+  },
+  "devDependencies": {
+    "webpack": "^5.64.4",
+    "webpack-cli": "^4.9.1",
+    "webpack-dev-server": "^4.6.0"
+  },
+  "author": "Your Name",
+  "license": "MIT"
+}

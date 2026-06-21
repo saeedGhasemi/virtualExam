@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}صفحه پیدا نشد | آزمون‌یار{% endblock %}
+{% block page_title %}خطای ۴۰۴{% endblock %}
+
+{% block content %}
+<section class="empty-state">
+    <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-2xl font-black text-amber-800">۴۰۴</div>
+    <h2 class="mt-5 text-2xl font-black text-ink">صفحه مورد نظر پیدا نشد</h2>
+    <p class="mx-auto mt-3 max-w-md text-sm leading-7 text-muted">
+        نشانی وارد شده درست نیست یا صفحه از سامانه حذف شده است.
+    </p>
+    <a href="{% url 'core:home' %}" class="btn-primary mt-6">بازگشت به داشبورد</a>
+</section>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}کارنامه آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">کارنامه</span><h1>{{ attempt.exam.title }}</h1></div>
+    <div class="super-admin-card">
+        {% if publication.show_score %}<p>نمره: {{ score }} از {{ total }}</p>{% endif %}
+        <p>وضعیت: {% if passed %}قبول{% else %}نیازمند تلاش بیشتر{% endif %}</p>
+        {% if publication.show_rank %}<p>رتبه در صورت محاسبه توسط استاد نمایش داده می‌شود.</p>{% endif %}
+    </div>
+    {% if publication.show_correct_answers %}
+        {% for answer in attempt.answers.all %}
+            <article class="super-admin-card"><h2>{{ answer.exam_question.question.text }}</h2><p>پاسخ شما: {{ answer.answer_text|default:"-" }}</p><p>پاسخ صحیح: {{ answer.exam_question.question.correct_answer|default:"-" }}</p></article>
+        {% endfor %}
+    {% endif %}
+</section>
+{% endblock %}

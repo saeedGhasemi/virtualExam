@@ -10,10 +10,11 @@ module.exports = {
           DEFAULT: '#2563eb',
           dark: '#1d4ed8'
         },
-        page: '#f5f7f2',
-        ink: '#14342f',
+        page: '#f8fafc',
+        ink: '#10205f',
         muted: '#64716d',
-        coral: '#d95d39'
+        coral: '#d95d39',
+        lavender: '#f2e2fb'
       },
       boxShadow: {
         soft: '0 24px 70px rgba(20, 52, 47, 0.14)',

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}تصمیم تخلف | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">تصمیم تخلف</span><h1>{{ report.title }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card">
+            <h2>جزئیات تخلف</h2>
+            <p>آزمون: {{ report.exam }}</p>
+            <p>دانشجو: {{ report.student|default:"-" }}</p>
+            <p>زمان وقوع: {{ report.occurred_at|default:"-" }}</p>
+            <p>شرح: {{ report.description }}</p>
+            <p>گزارش ناظر: {{ report.proctor_note|default:"-" }}</p>
+            <p>نظر استاد: {{ report.teacher_note|default:"-" }}</p>
+            {% if report.evidence_file %}<p><a href="{{ report.evidence_file.url }}">مشاهده مستندات</a></p>{% endif %}
+        </article>
+        <article class="super-admin-card">
+            <h2>ثبت تصمیم</h2>
+            <form method="post" class="super-admin-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button class="super-admin-primary" type="submit">ثبت و ارسال نتیجه</button>
+            </form>
+        </article>
+    </div>
+</section>
+{% endblock %}

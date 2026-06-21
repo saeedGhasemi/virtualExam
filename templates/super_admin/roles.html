@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}نقش‌ها و مجوزها | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">سناریو نقش و مجوز</span>
+        <h1>تعریف نقش جدید، تعیین مجوزها و فعال‌سازی نقش</h1>
+    </div>
+
+    <div class="super-admin-grid">
+        <aside class="super-admin-card">
+            <h2>نقش‌های موجود</h2>
+            <div class="super-admin-list">
+                {% for role in roles %}
+                    <a href="{% url 'core:super_admin_roles' %}?role={{ role.pk }}" class="{% if selected_role.pk == role.pk %}is-active{% endif %}">
+                        <strong>{{ role.name }}</strong>
+                        <span>{{ role.code }} · {{ role.users_count }} کاربر</span>
+                    </a>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <article class="super-admin-card">
+            <h2>{% if selected_role %}ویرایش نقش{% else %}ایجاد نقش جدید{% endif %}</h2>
+            <form method="post" class="super-admin-form">
+                {% csrf_token %}
+                {% if selected_role %}<input type="hidden" name="role_id" value="{{ selected_role.pk }}">{% endif %}
+                {{ form.as_p }}
+                <button type="submit" class="super-admin-primary">ذخیره نقش و مجوزها</button>
+            </form>
+        </article>
+    </div>
+</section>
+{% endblock %}

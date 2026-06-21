@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}ایجاد مؤسسه جدید | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">سناریو ایجاد مؤسسه</span>
+        <h1>ثبت دانشگاه، مدرسه یا مرکز آموزشی جدید</h1>
+    </div>
+
+    <div class="super-admin-card">
+        <form method="post" enctype="multipart/form-data" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div class="super-admin-form-actions">
+                <button type="submit" class="super-admin-primary">ثبت مؤسسه و فعال‌سازی مدیر</button>
+                <a href="{% url 'core:super_admin_dashboard' %}">بازگشت</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}رسید آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">رسید ثبت</span><h1>{{ attempt.exam.title }}</h1></div>
+    <div class="super-admin-card">
+        <p>وضعیت: {{ attempt.get_status_display }}</p>
+        <p>کد رسید: {{ attempt.receipt_code|default:"-" }}</p>
+        <p>زمان ارسال: {{ attempt.submitted_at|default:"-" }}</p>
+        <p>پاسخ‌نامه قفل شده است.</p>
+    </div>
+</section>
+{% endblock %}

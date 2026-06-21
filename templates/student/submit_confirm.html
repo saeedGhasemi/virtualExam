@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}ارسال نهایی آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">ارسال نهایی</span><h1>{{ attempt.exam.title }}</h1></div>
+    <div class="super-admin-card">
+        <p>تعداد سؤالات بدون پاسخ: {{ unanswered_count }}</p>
+        <p>پس از ارسال نهایی، پاسخ‌نامه قفل می‌شود و امکان تغییر پاسخ‌ها وجود ندارد.</p>
+        <form method="post">{% csrf_token %}<button class="super-admin-primary">تأیید و ارسال نهایی</button></form>
+    </div>
+</section>
+{% endblock %}

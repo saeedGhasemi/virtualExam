@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}آزمون‌های فعال | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">سناریو توقف اضطراری</span>
+        <h1>بررسی وضعیت آزمون‌های فعال و زمان‌بندی‌شده</h1>
+    </div>
+
+    <div class="super-admin-card">
+        <div class="super-admin-table-wrap">
+            <table class="super-admin-table">
+                <thead>
+                    <tr>
+                        <th>عنوان</th>
+                        <th>مؤسسه</th>
+                        <th>درس</th>
+                        <th>شروع</th>
+                        <th>پایان</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exam in exams %}
+                        <tr>
+                            <td>{{ exam.title }}</td>
+                            <td>{{ exam.institution|default:"-" }}</td>
+                            <td>{{ exam.course|default:"-" }}</td>
+                            <td>{{ exam.starts_at }}</td>
+                            <td>{{ exam.ends_at }}</td>
+                            <td>{{ exam.get_status_display }}</td>
+                            <td>
+                                {% if exam.status == 'paused' %}
+                                    <a href="{% url 'core:super_admin_resolve_emergency' exam.pk 'resume' %}">ادامه</a>
+                                    <a href="{% url 'core:super_admin_resolve_emergency' exam.pk 'cancel' %}">لغو</a>
+                                {% else %}
+                                    <a href="{% url 'core:super_admin_emergency_stop' exam.pk %}">توقف اضطراری</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="7">آزمون فعالی برای نمایش وجود ندارد.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

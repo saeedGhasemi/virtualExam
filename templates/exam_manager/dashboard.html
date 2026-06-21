@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}پنل مسئول امتحانات | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">مسئول امتحانات</span><h1>{{ institution.name }}</h1></div>
+    <nav class="super-admin-actions">
+        <a href="{% url 'core:exam_manager_calendar' %}">تنظیم تقویم</a>
+        <a href="{% url 'core:exam_manager_approvals' %}">تأیید آزمون استاد</a>
+        <a href="{% url 'core:exam_manager_proctors' %}">تعیین ناظر</a>
+        <a href="{% url 'core:exam_manager_active_exams' %}">کنترل شروع</a>
+        <a href="{% url 'core:exam_manager_reschedule' %}">تغییر زمان</a>
+        <a href="{% url 'core:exam_manager_reports' %}">گزارش برگزاری</a>
+    </nav>
+    <div class="super-admin-metrics">
+        <article><span>زمان‌بندی‌شده</span><strong>{{ scheduled_count }}</strong></article>
+        <article><span>در انتظار تأیید</span><strong>{{ pending_count }}</strong></article>
+        <article><span>فعال</span><strong>{{ active_count }}</strong></article>
+        <article><span>پایان‌یافته</span><strong>{{ finished_count }}</strong></article>
+        <article><span>گزارش‌ها</span><strong>{{ reports_count }}</strong></article>
+    </div>
+</section>
+{% endblock %}

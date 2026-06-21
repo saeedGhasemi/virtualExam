@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}آزمون‌های استاد | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">آزمون‌ها</span><h1>آزمون‌های طراحی‌شده</h1></div>
+    <nav class="super-admin-actions"><a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون جدید</a></nav>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>عنوان</th><th>درس</th><th>شروع</th><th>پایان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+        <tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>{{ exam.course|default:"-" }}</td><td>{{ exam.starts_at }}</td><td>{{ exam.ends_at }}</td><td>{{ exam.get_status_display }}</td><td><a href="{% url 'core:teacher_exam_preview' exam.pk %}">پیش‌نمایش</a> <a href="{% url 'core:teacher_publish_result' exam.pk %}">نتیجه</a></td></tr>{% empty %}<tr><td colspan="6">آزمونی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

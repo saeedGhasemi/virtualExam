@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}پیش‌نویس آزمون دستیار | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">پیش‌نویس</span><h1>آماده‌سازی آزمون برای استاد</h1></div>
+    <div class="super-admin-card">
+        <form method="post" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <h2>نمره هر سؤال</h2>
+            {{ score_form.as_p }}
+            <button class="super-admin-primary">ذخیره و ارسال پیش‌نویس</button>
+        </form>
+    </div>
+    <div class="super-admin-card"><h2>پیش‌نویس‌های من</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>درس</th><th>وضعیت</th><th>یادداشت استاد</th></tr></thead>
+        <tbody>{% for item in drafts %}<tr><td>{{ item.exam.title }}</td><td>{{ item.exam.course|default:"-" }}</td><td>{{ item.get_status_display }}</td><td>{{ item.teacher_note|default:"-" }}</td></tr>{% empty %}<tr><td colspan="4">پیش‌نویسی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}پیش‌نمایش آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۳</span><h1>پیش‌نمایش {{ exam.title }}</h1></div>
+    <div class="super-admin-card"><p>زمان: {{ exam.duration_minutes|default:"-" }} دقیقه</p><p>قوانین: {{ exam.instructions|default:"-" }}</p></div>
+    {% for item in exam.exam_questions.all %}
+        <article class="super-admin-card"><h2>{{ forloop.counter }}. {{ item.question.text }}</h2><p>نوع: {{ item.question.get_question_type_display }} · نمره: {{ item.score }}</p>{% for option in item.question.options %}<p>{{ option }}</p>{% endfor %}</article>
+    {% empty %}<div class="super-admin-card">سؤالی برای آزمون انتخاب نشده است.</div>{% endfor %}
+    <form method="post">{% csrf_token %}<button class="super-admin-primary">ثبت نسخه نهایی</button></form>
+</section>
+{% endblock %}

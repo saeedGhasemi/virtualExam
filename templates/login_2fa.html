@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}تأیید دومرحله‌ای | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-card super-admin-narrow">
+        <span class="super-admin-kicker">ورود امن</span>
+        <h1>کد تأیید دومرحله‌ای را وارد کنید</h1>
+        <p>برای محیط آزمایشی، کد در پیام بالای صفحه نمایش داده می‌شود.</p>
+        <form method="post" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="super-admin-primary">تأیید و ورود</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

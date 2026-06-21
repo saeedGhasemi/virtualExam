@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}آزمون آزمایشی | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">آمادگی</span><h1>آزمون آزمایشی و بررسی تجهیزات</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card">
+            <h2>بررسی تجهیزات</h2>
+            <form method="post" class="super-admin-form" id="practice-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button class="super-admin-primary">ثبت نتیجه آزمایشی</button>
+            </form>
+        </article>
+        <article class="super-admin-card">
+            <h2>آخرین نتیجه</h2>
+            {% if latest_check %}
+                <p>مرورگر: {{ latest_check.browser_ok }}</p>
+                <p>اینترنت: {{ latest_check.internet_ok }}</p>
+                <p>دوربین: {{ latest_check.camera_ok }}</p>
+                <p>میکروفن: {{ latest_check.microphone_ok }}</p>
+                <p>نمره سؤال‌های آزمایشی: {{ latest_check.sample_score }} از ۲</p>
+                {% for issue in latest_check.issues %}<p>{{ issue }}</p>{% empty %}<p>مشکل خاصی ثبت نشده است.</p>{% endfor %}
+            {% else %}
+                <p>هنوز آزمون آزمایشی انجام نشده است.</p>
+            {% endif %}
+        </article>
+    </div>
+</section>
+<script>
+(() => {
+    const form = document.getElementById('practice-form');
+    if (!form) return;
+    const browser = form.querySelector('[name="browser_ok"]');
+    const internet = form.querySelector('[name="internet_ok"]');
+    const camera = form.querySelector('[name="camera_ok"]');
+    const microphone = form.querySelector('[name="microphone_ok"]');
+    if (browser) browser.checked = true;
+    if (internet) internet.checked = navigator.onLine;
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                if (camera) camera.checked = true;
+                if (microphone) microphone.checked = true;
+                stream.getTracks().forEach(track => track.stop());
+            })
+            .catch(() => {});
+    }
+})();
+</script>
+{% endblock %}

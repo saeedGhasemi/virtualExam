@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}پنل دستیار آموزشی | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">دستیار آموزشی</span><h1>همکاری با {{ teacher.profile.full_name }}</h1></div>
+    <nav class="super-admin-actions">
+        <a href="{% url 'core:assistant_questions' %}">ورود سؤال</a>
+        <a href="{% url 'core:assistant_exam_drafts' %}">پیش‌نویس آزمون</a>
+        <a href="{% url 'core:assistant_question_suggestions' %}">بررسی سؤال‌ها</a>
+        <a href="{% url 'core:assistant_reviews' %}">تصحیح‌های اختصاص‌یافته</a>
+        <a href="{% url 'core:assistant_educational_questions' %}">پرسش‌های آموزشی</a>
+    </nav>
+    <div class="super-admin-metrics">
+        <article><span>سؤال‌های ارسالی</span><strong>{{ question_submissions_count }}</strong></article>
+        <article><span>پیش‌نویس‌ها</span><strong>{{ exam_drafts_count }}</strong></article>
+        <article><span>تصحیح‌ها</span><strong>{{ review_assignments_count }}</strong></article>
+        <article><span>پرسش‌های جدید</span><strong>{{ educational_questions_count }}</strong></article>
+    </div>
+</section>
+{% endblock %}

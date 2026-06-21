@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}بررسی اولیه سؤالات | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">بازبینی</span><h1>ثبت پیشنهاد اصلاح سؤال</h1></div>
+    <div class="super-admin-card">
+        <form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ارسال پیشنهاد برای استاد</button></form>
+    </div>
+    <div class="super-admin-card"><h2>پیشنهادهای ثبت‌شده</h2><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>سؤال</th><th>وضعیت</th><th>یادداشت استاد</th></tr></thead>
+        <tbody>{% for item in suggestions %}<tr><td>{{ item.question.text|truncatechars:90 }}</td><td>{{ item.get_status_display }}</td><td>{{ item.teacher_note|default:"-" }}</td></tr>{% empty %}<tr><td colspan="3">پیشنهادی ثبت نشده است.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

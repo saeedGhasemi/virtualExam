@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}صفحه آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl" data-attempt-id="{{ attempt.pk }}">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سؤال {{ current_index }} از {{ total_questions }}</span><h1>{{ attempt.exam.title }}</h1></div>
+    <div class="super-admin-metrics">
+        <article><span>پاسخ‌داده‌شده</span><strong>{{ answered_count }}</strong></article>
+        <article><span>بدون پاسخ</span><strong>{{ unanswered_count }}</strong></article>
+        <article><span>علامت‌گذاری‌شده</span><strong>{{ marked_count }}</strong></article>
+        <article><span>زمان باقی‌مانده</span><strong id="timer">{{ remaining_seconds|default:"-" }}</strong></article>
+    </div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card">
+            <h2>{{ current_index }}. {{ current_answer.exam_question.question.text }}</h2>
+            {% for option in current_answer.exam_question.question.options %}<p>{{ option }}</p>{% endfor %}
+            <form method="post" enctype="multipart/form-data" class="super-admin-form" id="answer-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button name="action" value="previous">قبلی</button>
+                <button class="super-admin-primary" name="action" value="next">ذخیره و بعدی</button>
+                <button name="action" value="submit">پایان آزمون</button>
+            </form>
+            <small id="autosave-state">ذخیره خودکار آماده است.</small>
+        </article>
+        <article class="super-admin-card">
+            <h2>وضعیت سؤالات</h2>
+            {% for answer in answers %}
+                <p><a href="{% url 'core:student_attempt' attempt.pk %}?q={{ forloop.counter }}">سؤال {{ forloop.counter }}</a> - {% if answer.has_answer %}پاسخ‌داده‌شده{% else %}بدون پاسخ{% endif %}{% if answer.marked_for_review %} - مرور{% endif %}</p>
+            {% endfor %}
+            <a class="super-admin-primary" href="{% url 'core:student_attempt_submit' attempt.pk %}">ارسال نهایی</a>
+        </article>
+    </div>
+</section>
+<form method="post" action="{% url 'core:student_attempt_submit' attempt.pk %}" id="auto-submit-form" hidden>{% csrf_token %}<input type="hidden" name="auto" value="1"></form>
+<script>
+(() => {
+    const form = document.getElementById('answer-form');
+    const state = document.getElementById('autosave-state');
+    const timer = document.getElementById('timer');
+    const eventUrl = "{% url 'core:student_attempt_event' attempt.pk %}";
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    let saveTimer;
+    const postEvent = event => fetch(eventUrl, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: new URLSearchParams({ event }) });
+    window.addEventListener('offline', () => postEvent('disconnect'));
+    window.addEventListener('online', () => postEvent('reconnect'));
+    if (form) {
+        form.addEventListener('input', () => {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                const data = new FormData(form);
+                fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: data })
+                    .then(response => {
+                        state.textContent = response.ok ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'ذخیره خودکار ناموفق بود.';
+                    })
+                    .catch(() => { state.textContent = 'ذخیره خودکار ناموفق بود.'; });
+            }, 600);
+        });
+    }
+    let remaining = Number("{{ remaining_seconds|default:0 }}");
+    if (timer && remaining > 0) {
+        setInterval(() => {
+            remaining -= 1;
+            timer.textContent = remaining;
+            if (remaining <= 0) document.getElementById('auto-submit-form').submit();
+        }, 1000);
+    }
+})();
+</script>
+{% endblock %}

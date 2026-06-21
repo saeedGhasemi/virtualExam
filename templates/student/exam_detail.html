@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}جزئیات آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">اطلاعات آزمون</span><h1>{{ exam.title }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>مشخصات</h2><p>نام درس: {{ exam.course|default:"-" }}</p><p>استاد: {{ exam.designer.profile.full_name|default:"-" }}</p><p>تاریخ و ساعت: {{ exam.starts_at }} تا {{ exam.ends_at }}</p><p>مدت آزمون: {{ exam.duration_minutes|default:"-" }} دقیقه</p></article>
+        <article class="super-admin-card"><h2>قوانین و تجهیزات</h2><p>{{ exam.instructions|default:"قوانین خاصی ثبت نشده است." }}</p><p>تجهیزات موردنیاز: مرورگر به‌روز، اینترنت پایدار{% if exam.require_identity_verification %}، ابزار احراز هویت{% endif %}{% if exam.allow_file_upload %}، امکان بارگذاری فایل{% endif %}</p></article>
+        <article class="super-admin-card"><h2>ورود</h2>
+            {% if can_enter %}
+                <a class="super-admin-primary" href="{% url 'core:student_exam_entry' exam.pk %}">ورود به آزمون</a>
+            {% elif entry_expired %}
+                <p>زمان ورود به آزمون گذشته است.</p>
+            {% elif seconds_until_start %}
+                <p>تا شروع آزمون {{ seconds_until_start }} ثانیه باقی مانده است.</p>
+            {% else %}
+                <p>وضعیت فعلی اجازه ورود نمی‌دهد.</p>
+            {% endif %}
+        </article>
+    </div>
+</section>
+{% endblock %}

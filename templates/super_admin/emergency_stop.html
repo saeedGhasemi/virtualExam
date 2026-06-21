@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}توقف اضطراری آزمون | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">توقف اضطراری آزمون</span>
+        <h1>{{ exam.title }}</h1>
+    </div>
+
+    <div class="super-admin-card super-admin-narrow">
+        <p>
+            با ثبت توقف اضطراری، وضعیت آزمون به «متوقف اضطراری» تغییر می‌کند،
+            آزمون از حالت فعال خارج می‌شود و رخداد در گزارش فعالیت‌ها ذخیره خواهد شد.
+        </p>
+        <form method="post" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="super-admin-danger">توقف اضطراری آزمون</button>
+            <a href="{% url 'core:super_admin_active_exams' %}">بازگشت</a>
+        </form>
+    </div>
+</section>
+{% endblock %}

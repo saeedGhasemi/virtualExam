@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}بررسی پیشنهاد اصلاح | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">پیشنهاد اصلاح</span><h1>{{ suggestion.question.text|truncatechars:80 }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>جزئیات پیشنهاد</h2><p>{{ suggestion.note }}</p><p>متن پیشنهادی: {{ suggestion.suggested_text|default:"-" }}</p><p>پاسخ پیشنهادی: {{ suggestion.suggested_correct_answer|default:"-" }}</p><p>موضوع پیشنهادی: {{ suggestion.suggested_topic|default:"-" }}</p></article>
+        <article class="super-admin-card"><h2>تصمیم استاد</h2><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ثبت تصمیم</button></form></article>
+    </div>
+</section>
+{% endblock %}

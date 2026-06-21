@@ -1,0 +1,112 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<div class="module" style="margin-bottom: 24px;">
+    <table>
+        <caption>
+            <a href="{% url 'core:super_admin_dashboard' %}" class="section">سناریوهای مدیر کل سیستم</a>
+        </caption>
+        <tbody>
+            <tr>
+                <th scope="row"><a href="{% url 'core:super_admin_dashboard' %}">پنل مدیر کل</a></th>
+                <td>نمای کلی کاربران، مؤسسات، آزمون‌ها و لاگ‌ها</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:super_admin_institution_create' %}">ایجاد مؤسسه جدید</a></th>
+                <td>ثبت مرکز آموزشی و فعال‌سازی مدیر مرکز</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:super_admin_users' %}">مدیریت کاربران</a></th>
+                <td>فعال‌سازی، غیرفعال‌سازی، مسدودسازی، تغییر نقش و بازنشانی رمز</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:super_admin_roles' %}">نقش‌ها و مجوزها</a></th>
+                <td>تعریف نقش و تعیین مجوزهای دسترسی</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:super_admin_reports' %}">گزارش کل سامانه</a></th>
+                <td>مشاهده آمار و دریافت خروجی Excel یا PDF</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:super_admin_active_exams' %}">توقف اضطراری آزمون</a></th>
+                <td>توقف، ادامه یا لغو آزمون در شرایط اضطراری</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="module" style="margin-bottom: 24px;">
+    <table>
+        <caption>
+            <a href="{% url 'core:institution_admin_dashboard' %}" class="section">سناریوهای مدیر مؤسسه</a>
+        </caption>
+        <tbody>
+            <tr>
+                <th scope="row"><a href="{% url 'core:institution_admin_dashboard' %}">پنل مدیر مؤسسه</a></th>
+                <td>نمای کلی مرکز آموزشی و عملیات اصلی</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:institution_settings' %}">تکمیل اطلاعات مؤسسه</a></th>
+                <td>ثبت تماس، آدرس، لوگو و مشخصات مرکز</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:institution_users' %}">ثبت کاربران مؤسسه</a></th>
+                <td>ثبت دستی یا CSV مسئول امتحانات، استاد، دستیار و دانشجو</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:institution_structure' %}">تعریف ساختار آموزشی</a></th>
+                <td>واحد آموزشی، رشته، نیم‌سال، درس و کلاس</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:institution_assign_exam_manager' %}">تعیین مسئول امتحانات</a></th>
+                <td>اختصاص نقش مسئول امتحانات، محدوده دسترسی و بازه مسئولیت</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:institution_exams' %}">وضعیت آزمون‌های مؤسسه</a></th>
+                <td>مشاهده آزمون‌ها براساس وضعیت و گزارش‌ها</td>
+            </tr>
+            <tr>
+                <th scope="row"><a href="{% url 'core:institution_violations' %}">بررسی تخلف آزمون</a></th>
+                <td>ثبت تصمیم رد، اخطار، کسر نمره، ابطال یا ارجاع</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="module" style="margin-bottom: 24px;">
+    <table>
+        <caption>
+            <a href="{% url 'core:exam_manager_dashboard' %}" class="section">سناریوهای مسئول امتحانات</a>
+        </caption>
+        <tbody>
+            <tr><th scope="row"><a href="{% url 'core:exam_manager_dashboard' %}">پنل مسئول امتحانات</a></th><td>نمای کلی برنامه‌ریزی و اجرای آزمون‌ها</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:exam_manager_calendar' %}">تنظیم تقویم امتحانات</a></th><td>انتخاب نیم‌سال، کلاس و زمان آزمون با کنترل تداخل</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:exam_manager_approvals' %}">تأیید آزمون استاد</a></th><td>تأیید یا بازگشت آزمون برای اصلاح</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:exam_manager_proctors' %}">تعیین ناظر آزمون</a></th><td>انتخاب ناظران و ثبت دریافت مسئولیت</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:exam_manager_active_exams' %}">کنترل شروع آزمون</a></th><td>بررسی حضور، ناظر، استاد و صدور اجازه شروع</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:exam_manager_reschedule' %}">مدیریت تغییر زمان آزمون</a></th><td>ثبت تغییر زمان با کنترل تداخل و اعلان</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:exam_manager_reports' %}">گزارش برگزاری آزمون</a></th><td>ثبت شرکت‌کنندگان، غایبان، قطعی‌ها، تخلفات و گزارش نهایی</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="module" style="margin-bottom: 24px;">
+    <table>
+        <caption>
+            <a href="{% url 'core:teacher_panel' %}" class="section">سناریوهای استاد</a>
+        </caption>
+        <tbody>
+            <tr><th scope="row"><a href="{% url 'core:teacher_panel' %}">پنل استاد</a></th><td>نمای کلی طراحی، تصحیح و انتشار آزمون</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:teacher_questions' %}">بانک سؤال</a></th><td>ایجاد سؤال چهارگزینه‌ای، صحیح/غلط، جای‌خالی، کوتاه، تشریحی و تطبیقی</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون جدید</a></th><td>انتخاب درس، زمان، قوانین، سؤال‌ها و ارسال برای تأیید</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:teacher_exams' %}">پیش‌نمایش و آزمایش آزمون</a></th><td>مشاهده آزمون مثل دانشجو و ثبت نسخه نهایی</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:teacher_monitoring' %}">نظارت بر آزمون فعال</a></th><td>مشاهده وضعیت و تمدید زمان آزمون</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:teacher_reviews' %}">تصحیح پاسخ‌های تشریحی</a></th><td>ثبت نمره، توضیح، علامت مشکوک و نهایی‌سازی</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:teacher_results' %}">انتشار نتیجه</a></th><td>مشاهده آمار نمرات و انتشار نتیجه</td></tr>
+            <tr><th scope="row"><a href="{% url 'core:teacher_objections' %}">رسیدگی به اعتراض</a></th><td>تأیید یا رد اعتراض و اصلاح نمره</td></tr>
+        </tbody>
+    </table>
+</div>
+
+{{ block.super }}
+{% endblock %}

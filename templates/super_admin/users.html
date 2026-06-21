@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}مدیریت کاربران | آزمون‌یار{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">سناریو مدیریت کاربران</span>
+        <h1>جست‌وجو، مشاهده سوابق و اعمال عملیات مدیریتی</h1>
+    </div>
+
+    <form method="get" class="super-admin-search">
+        <input name="q" value="{{ query }}" placeholder="نام، نام کاربری، ایمیل، کد ملی یا مؤسسه">
+        <button type="submit">جست‌وجو</button>
+    </form>
+
+    <div class="super-admin-card">
+        <div class="super-admin-table-wrap">
+            <table class="super-admin-table">
+                <thead>
+                    <tr>
+                        <th>نام</th>
+                        <th>نام کاربری</th>
+                        <th>نقش</th>
+                        <th>مؤسسه</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for profile in profiles %}
+                        <tr>
+                            <td>{{ profile.full_name }}</td>
+                            <td>{{ profile.user.username }}</td>
+                            <td>{{ profile.role.name }}</td>
+                            <td>{{ profile.institution_name|default:"-" }}</td>
+                            <td>{{ profile.get_account_status_display }}</td>
+                            <td><a href="{% url 'core:super_admin_user_detail' profile.pk %}">مشاهده و مدیریت</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6">کاربری یافت نشد.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}تنظیمات مؤسسه | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۱</span><h1>تکمیل اطلاعات مؤسسه</h1></div>
+    <div class="super-admin-card">
+        <form method="post" enctype="multipart/form-data" class="super-admin-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="super-admin-primary" type="submit">ذخیره اطلاعات مؤسسه</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}بررسی آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">بررسی آزمون</span><h1>{{ approval.exam.title }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>مشخصات آزمون</h2><p>زمان: {{ approval.exam.starts_at }} تا {{ approval.exam.ends_at }}</p><p>مدت: {{ approval.exam.duration_minutes|default:"-" }}</p><p>نمره کل: {{ approval.exam.total_score|default:"-" }}</p></article>
+        <article class="super-admin-card"><h2>تصمیم</h2><form method="post" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary" type="submit">ثبت نتیجه برای استاد</button></form></article>
+    </div>
+</section>
+{% endblock %}

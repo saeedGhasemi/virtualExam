@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}کنترل شروع آزمون | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۴</span><h1>کنترل شروع آزمون</h1></div>
+    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
+        <thead><tr><th>آزمون</th><th>شروع</th><th>پایان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+        <tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>{{ exam.starts_at }}</td><td>{{ exam.ends_at }}</td><td>{{ exam.get_status_display }}</td><td><a href="{% url 'core:exam_manager_start_control' exam.pk %}">کنترل آماده‌بودن</a></td></tr>{% empty %}<tr><td colspan="5">آزمون فعالی وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+</section>
+{% endblock %}

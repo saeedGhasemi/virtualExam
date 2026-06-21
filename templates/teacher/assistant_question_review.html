@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}بررسی سؤال دستیار | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">تأیید سؤال</span><h1>{{ submission.assistant.profile.full_name }}</h1></div>
+    <div class="super-admin-card"><form method="post" class="super-admin-form">{% csrf_token %}{{ question_form.as_p }}{{ review_form.as_p }}<button class="super-admin-primary">ثبت تصمیم</button></form></div>
+</section>
+{% endblock %}

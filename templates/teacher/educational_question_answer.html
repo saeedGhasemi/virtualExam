@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}پاسخ استاد به پرسش آموزشی | آزمون‌یار{% endblock %}
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">پرسش ارجاع‌شده</span><h1>{{ item.course|default:item.exam }}</h1></div>
+    <div class="super-admin-grid">
+        <article class="super-admin-card"><h2>پرسش دانشجو</h2><p>{{ item.question_text }}</p><p>یادداشت دستیار: {{ item.answer_text|default:"-" }}</p></article>
+        <article class="super-admin-card"><h2>پاسخ استاد</h2><form method="post" class="super-admin-form">{% csrf_token %}<textarea class="super-admin-input" name="answer_text" rows="6">{{ item.answer_text }}</textarea><button class="super-admin-primary">ارسال پاسخ</button></form></article>
+    </div>
+</section>
+{% endblock %}

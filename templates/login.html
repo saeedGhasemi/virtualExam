@@ -1,0 +1,100 @@
+{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ورود به سیستم</title>
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
+</head>
+<body class="login-page">
+    <main class="login-shell">
+        <header class="login-topbar">
+            <a href="{% url 'core:home' %}" class="login-brand" aria-label="صفحه اصلی">
+                <span class="login-brand-mark" aria-hidden="true"></span>
+            </a>
+            <a href="/admin/" class="login-register-link">ثبت‌نام</a>
+        </header>
+
+        <section class="login-stage" aria-label="ورود">
+            <div class="login-form-panel">
+                <div class="login-heading-row">
+                    <h1>ورود به حساب کاربری</h1>
+                    <div class="login-socials" aria-label="ورود با شبکه‌های اجتماعی">
+                        <span>ورود با</span>
+                        <button type="button" aria-label="Facebook">f</button>
+                        <button type="button" aria-label="Google">G</button>
+                        <button type="button" aria-label="LinkedIn">in</button>
+                    </div>
+                </div>
+
+                {% if form.errors %}
+                    <div class="login-error">نام کاربری یا رمز عبور درست نیست.</div>
+                {% endif %}
+
+                <form method="post" class="login-form">
+                    {% csrf_token %}
+                    {% if next %}
+                        <input type="hidden" name="next" value="{{ next }}">
+                    {% endif %}
+
+                    <label for="{{ form.username.id_for_label }}">ایمیل یا نام کاربری</label>
+                    {{ form.username }}
+
+                    <label for="{{ form.password.id_for_label }}">رمز عبور</label>
+                    <div class="login-password-field">
+                        {{ form.password }}
+                        <span class="login-eye" aria-hidden="true"></span>
+                    </div>
+
+                    <div class="login-form-actions">
+                        <a href="/admin/password_reset/">فراموشی رمز؟</a>
+                        <button type="submit">ورود</button>
+                    </div>
+                </form>
+
+                <div class="login-demo-shortcuts" aria-label="ورود سریع نقش‌ها">
+                    <span>ورود سریع</span>
+                    <div>
+                        <button type="button" data-login-user="super_admin" data-login-pass="Demo@12345">مدیر کل</button>
+                        <button type="button" data-login-user="institution_admin" data-login-pass="Demo@12345">مدیر مؤسسه</button>
+                        <button type="button" data-login-user="exam_manager" data-login-pass="Demo@12345">مسئول امتحانات</button>
+                        <button type="button" data-login-user="teacher" data-login-pass="Demo@12345">استاد</button>
+                        <button type="button" data-login-user="teaching_assistant" data-login-pass="Demo@12345">دستیار</button>
+                        <button type="button" data-login-user="student" data-login-pass="Demo@12345">دانشجو</button>
+                    </div>
+                    <small>رمز همه نقش‌های نمونه: Demo@12345</small>
+                </div>
+            </div>
+
+            <div class="login-art" aria-hidden="true">
+                <img src="{% static 'img/login-illustration.png' %}" alt="">
+            </div>
+        </section>
+
+        <footer class="login-footer">
+            <span>© ۲۰۲۶ تمامی حقوق محفوظ است</span>
+            <a href="#">شرایط استفاده</a>
+            <a href="#">حریم خصوصی</a>
+            <a href="#">راهنما</a>
+            <div class="login-dots" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </footer>
+    </main>
+    <script>
+        document.querySelectorAll('[data-login-user]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const form = document.querySelector('.login-form');
+                const username = form.querySelector('input[name="username"]');
+                const password = form.querySelector('input[name="password"]');
+                username.value = button.dataset.loginUser;
+                password.value = button.dataset.loginPass;
+                form.requestSubmit();
+            });
+        });
+    </script>
+</body>
+</html>
