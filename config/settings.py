@@ -14,6 +14,10 @@ RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME', '').strip()
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
+RAILWAY_PUBLIC_DOMAIN = os.getenv('RAILWAY_PUBLIC_DOMAIN', '').strip()
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
+
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
@@ -21,6 +25,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+if RAILWAY_PUBLIC_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
 
 HAS_WHITENOISE = importlib.util.find_spec('whitenoise') is not None
 
@@ -97,6 +103,17 @@ elif DB_ENGINE == 'postgres':
             'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
             'HOST': os.getenv('POSTGRES_HOST', '127.0.0.1'),
             'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        }
+    }
+elif os.getenv('PGHOST', '').strip():
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('PGDATABASE', 'railway'),
+            'USER': os.getenv('PGUSER', 'postgres'),
+            'PASSWORD': os.getenv('PGPASSWORD', ''),
+            'HOST': os.getenv('PGHOST', ''),
+            'PORT': os.getenv('PGPORT', '5432'),
         }
     }
 else:

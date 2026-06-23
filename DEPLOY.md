@@ -2,6 +2,8 @@
 
 این پروژه برای deploy روی Render آماده شده است. Render به پروژه یک آدرس عمومی مثل `https://virtual-exam.onrender.com` می‌دهد و دیتابیس PostgreSQL آنلاین را هم می‌سازد.
 
+اگر Render را نمی‌خواهید، فایل `RAILWAY.md` مسیر Railway را توضیح داده است.
+
 ## مراحل پیشنهادی
 
 1. پروژه را روی GitHub push کنید.
