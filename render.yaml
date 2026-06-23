@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: virtual-exam
+    runtime: python
+    plan: free
+    buildCommand: "bash ./build.sh"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: virtual-exam-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: SECURE_HSTS_SECONDS
+        value: "3600"
+      - key: OPENAI_API_KEY
+        sync: false
+
+databases:
+  - name: virtual-exam-db
+    plan: free
