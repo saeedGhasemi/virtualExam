@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -100,16 +101,44 @@ class AcademicUnit(models.Model):
     unit_type = models.CharField(max_length=30, choices=UnitType.choices, default=UnitType.DEPARTMENT)
     manager = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_units')
     is_active = models.BooleanField(default=True)
+    # مسیر ماتریالایز‌شده برای کوئری سریع زیرشاخه‌ها بدون CTE بازگشتی
+    # (جایگزین _erd_manager_scope_cte در لایه‌ی خام). با هر ذخیره به‌روزرسانی
+    # می‌شود، مثال: "1/4/17/" یعنی واحد ۱۷ زیرمجموعه‌ی ۴ زیرمجموعه‌ی ۱ است.
+    path = models.CharField(max_length=1024, editable=False, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['institution__name', 'name']
         unique_together = ('institution', 'code')
+        indexes = [models.Index(fields=['path'])]
         verbose_name = 'واحد آموزشی'
         verbose_name_plural = 'واحدهای آموزشی'
 
     def __str__(self):
         return f'{self.name} - {self.institution}'
+
+    def clean(self):
+        if self.parent_id:
+            node = self.parent
+            while node is not None:
+                if node.pk == self.pk:
+                    raise ValidationError('امکان ایجاد حلقه در ساختار سازمانی وجود ندارد.')
+                node = node.parent
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        new_path = f'{self.parent.path}{self.pk}/' if self.parent_id else f'{self.pk}/'
+        if new_path != self.path:
+            AcademicUnit.objects.filter(pk=self.pk).update(path=new_path)
+            self.path = new_path
+
+    def descendant_ids(self, include_self=True):
+        """لیست id همه‌ی زیرشاخه‌ها (برای فیلتر کوئری‌ست‌ها) — جایگزین CTE خام."""
+        qs = AcademicUnit.objects.filter(path__startswith=self.path)
+        ids = list(qs.values_list('id', flat=True))
+        if not include_self and self.pk in ids:
+            ids.remove(self.pk)
+        return ids
 
 
 class Course(models.Model):
@@ -178,11 +207,13 @@ class CourseClass(models.Model):
 class Question(models.Model):
     class QuestionType(models.TextChoices):
         MULTIPLE_CHOICE = 'multiple_choice', 'چهارگزینه‌ای'
+        MULTI_SELECT = 'multi_select', 'چندپاسخی'
         TRUE_FALSE = 'true_false', 'صحیح و غلط'
         FILL_BLANK = 'fill_blank', 'جای‌خالی'
         SHORT_ANSWER = 'short_answer', 'پاسخ کوتاه'
         DESCRIPTIVE = 'descriptive', 'تشریحی'
         MATCHING = 'matching', 'تطبیقی'
+        ORDERING = 'ordering', 'مرتب‌سازی'
 
     class Difficulty(models.TextChoices):
         EASY = 'easy', 'آسان'
@@ -363,6 +394,49 @@ class InstitutionAdminProfile(models.Model):
 
     def __str__(self):
         return f'{self.profile.full_name} - {self.institution}'
+
+
+class ExamManagerProfile(models.Model):
+    """پروفایل مدیر آموزشی — تا‌کنون در ORM وجود نداشت (بخش ۳ گزارش فاز اول).
+
+    دسترسی از طریق managed_units (چند-به-چند) محدود می‌شود، نه کل مؤسسه:
+    داده‌ی واقعی نشان می‌دهد یک مدیر می‌تواند به چند زیردرخت ناهم‌بسته
+    هم‌زمان دسترسی داشته باشد (معادل جدول خام academic_manager_scopes)،
+    برخلاف InstitutionAdminProfile که تک-مؤسسه‌ای است.
+    """
+
+    profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='exam_manager_profile')
+    institution = models.ForeignKey(AcademicInstitution, on_delete=models.PROTECT, related_name='exam_managers')
+    managed_units = models.ManyToManyField(
+        AcademicUnit,
+        blank=True,
+        related_name='exam_managers',
+        help_text='واحدهای سازمانی (و همه‌ی زیرشاخه‌های هرکدام) که این مدیر آموزشی به آن‌ها دسترسی دارد.',
+    )
+    employee_code = models.CharField(max_length=40, blank=True)
+    position_title = models.CharField(max_length=120, blank=True)
+    can_manage_teachers = models.BooleanField(default=True)
+    can_manage_students = models.BooleanField(default=True)
+    can_schedule_exams = models.BooleanField(default=True)
+    can_view_reports = models.BooleanField(default=True)
+    appointment_started_at = models.DateField(null=True, blank=True)
+    appointment_ended_at = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'پروفایل مدیر آموزشی'
+        verbose_name_plural = 'پروفایل‌های مدیران آموزشی'
+
+    def __str__(self):
+        return f'{self.profile.full_name} - {self.institution}'
+
+    def accessible_unit_ids(self, include_self=True):
+        """id همه‌ی واحدهای مجاز به‌همراه زیرشاخه‌هایشان، برای فیلتر کوئری‌ست‌ها."""
+        ids = set()
+        for unit in self.managed_units.all():
+            ids.update(unit.descendant_ids(include_self=include_self))
+        return ids
 
 
 class TeacherProfile(models.Model):

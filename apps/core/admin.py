@@ -13,6 +13,7 @@ from .models import (
     EducationalQuestion,
     Exam,
     ExamApproval,
+    ExamManagerProfile,
     ExamExecutionReport,
     ExamQuestion,
     ExamProctorProfile,
@@ -218,6 +219,15 @@ class SystemAdminProfileAdmin(admin.ModelAdmin):
 class InstitutionAdminProfileAdmin(admin.ModelAdmin):
     list_display = ('profile', 'institution', 'employee_code', 'position_title', 'can_schedule_exams')
     list_filter = ('institution', 'can_approve_users', 'can_manage_teachers', 'can_manage_students', 'can_schedule_exams')
+    search_fields = ('profile__full_name', 'profile__user__username', 'employee_code', 'position_title', 'institution__name')
+    autocomplete_fields = ('profile', 'institution', 'managed_units')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(ExamManagerProfile)
+class ExamManagerProfileAdmin(admin.ModelAdmin):
+    list_display = ('profile', 'institution', 'employee_code', 'position_title', 'can_schedule_exams')
+    list_filter = ('institution', 'can_manage_teachers', 'can_manage_students', 'can_schedule_exams', 'can_view_reports')
     search_fields = ('profile__full_name', 'profile__user__username', 'employee_code', 'position_title', 'institution__name')
     autocomplete_fields = ('profile', 'institution', 'managed_units')
     readonly_fields = ('created_at', 'updated_at')
