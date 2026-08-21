@@ -75,6 +75,10 @@ class AcademicInstitution(models.Model):
     max_exams = models.PositiveIntegerField(null=True, blank=True)
     subscription_started_at = models.DateField(null=True, blank=True)
     subscription_ended_at = models.DateField(null=True, blank=True)
+    # id رکورد منبع در جدول خام org_units (ریشه‌ی درخت) که این رکورد از آن
+    # مهاجرت داده شده — برای مهاجرت idempotent (management command
+    # migrate_erd_to_orm)، نه برای استفاده در منطق برنامه.
+    legacy_erd_id = models.CharField(max_length=64, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -105,6 +109,8 @@ class AcademicUnit(models.Model):
     # (جایگزین _erd_manager_scope_cte در لایه‌ی خام). با هر ذخیره به‌روزرسانی
     # می‌شود، مثال: "1/4/17/" یعنی واحد ۱۷ زیرمجموعه‌ی ۴ زیرمجموعه‌ی ۱ است.
     path = models.CharField(max_length=1024, editable=False, blank=True)
+    # id رکورد منبع در جدول خام org_units — برای مهاجرت idempotent، نه منطق برنامه.
+    legacy_erd_id = models.CharField(max_length=64, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -151,6 +157,8 @@ class Course(models.Model):
     semester = models.CharField(max_length=40, blank=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    # id رکورد منبع در جدول خام courses — برای مهاجرت idempotent، نه منطق برنامه.
+    legacy_erd_id = models.CharField(max_length=64, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -170,6 +178,8 @@ class AcademicTerm(models.Model):
     starts_at = models.DateField(null=True, blank=True)
     ends_at = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    # id رکورد منبع در جدول خام academic_terms — برای مهاجرت idempotent، نه منطق برنامه.
+    legacy_erd_id = models.CharField(max_length=64, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -192,6 +202,8 @@ class CourseClass(models.Model):
     students = models.ManyToManyField('StudentProfile', blank=True, related_name='classes')
     capacity = models.PositiveIntegerField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    # id رکورد منبع در جدول خام student_groups — برای مهاجرت idempotent، نه منطق برنامه.
+    legacy_erd_id = models.CharField(max_length=64, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -231,6 +243,8 @@ class Question(models.Model):
     topic = models.CharField(max_length=160, blank=True)
     suggested_score = models.DecimalField(max_digits=6, decimal_places=2, default=1)
     is_active = models.BooleanField(default=True)
+    # id رکورد منبع در جدول خام questions — برای مهاجرت idempotent، نه منطق برنامه.
+    legacy_erd_id = models.CharField(max_length=64, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -893,6 +907,8 @@ class Exam(models.Model):
     emergency_resolved_at = models.DateTimeField(null=True, blank=True)
     emergency_resolution_note = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    # id رکورد منبع در جدول خام exams — برای مهاجرت idempotent، نه منطق برنامه.
+    legacy_erd_id = models.CharField(max_length=64, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
