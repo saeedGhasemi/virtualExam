@@ -748,9 +748,15 @@ def erd_roles_for_profile(profile_id):
 
 
 def erd_primary_role(user):
-    cached = getattr(user, '_erd_primary_role_cache', None)
-    if cached:
-        return cached
+    """نقش اصلی کاربر در جدول‌های ERD، یا None اگر هیچ نقشی برایش ثبت نشده باشد.
+
+    قبلاً وقتی پروفایل/نقشی پیدا نمی‌شد، به‌صورت پیش‌فرض 'student' برمی‌گشت که
+    یک حفره‌ی امنیتی بود (کاربر بدون پروفایل، بی‌صدا به‌عنوان دانشجو تلقی
+    می‌شد). فراخوان‌ها باید None را به‌عنوان «بدون نقش/دسترسی رد شود» تلقی
+    کنند، نه اینکه خودشان دوباره پیش‌فرض دیگری جایگزین کنند.
+    """
+    if hasattr(user, '_erd_primary_role_cache'):
+        return user._erd_primary_role_cache
     profile = erd_profile_for_user(user)
     roles = getattr(user, '_erd_roles_cache', None)
     if roles is None:
@@ -760,8 +766,8 @@ def erd_primary_role(user):
         if role in roles:
             user._erd_primary_role_cache = role
             return role
-    user._erd_primary_role_cache = 'student'
-    return 'student'
+    user._erd_primary_role_cache = None
+    return None
 
 
 def erd_role_code(user):
@@ -770,7 +776,7 @@ def erd_role_code(user):
         'academic_manager': 'exam_manager',
         'teacher': 'teacher',
         'student': 'student',
-    }.get(erd_primary_role(user), 'student')
+    }.get(erd_primary_role(user))
 
 
 def erd_role_name(role):
@@ -1325,7 +1331,7 @@ def erd_profile_page_context(user):
         'status_label': status_labels.get(profile.get('status') or profile.get('account_status'), profile.get('status') or '-'),
         'role_details': role_details,
         'last_login_at': profile.get('last_login_at') or user.last_login,
-        'profile_nav_groups': nav_by_role.get(primary_role, nav_by_role['student']),
+        'profile_nav_groups': nav_by_role.get(primary_role, []),
     }
 
 
@@ -11543,6 +11549,10 @@ def _student_dashboard_context(request, profile):
 def dashboard(request):
     erd_profile = erd_profile_for_user(request.user)
     erd_primary = erd_primary_role(request.user)
+    if erd_primary is None:
+        return HttpResponseForbidden(
+            'برای این حساب کاربری نقشی در سامانه تعریف نشده است؛ لطفاً با مدیر سامانه تماس بگیرید.'
+        )
     if erd_primary == 'teacher':
         return redirect('core:teacher_panel')
     role_code = {
@@ -11550,7 +11560,7 @@ def dashboard(request):
         'academic_manager': 'exam_manager',
         'teacher': 'teacher',
         'student': 'student',
-    }.get(erd_primary, 'student')
+    }[erd_primary]
     display_name = (
         erd_profile.get('full_name')
         if erd_profile
