@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}مدیریت درس‌های استاد | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page teacher-course-management-page" dir="rtl">
+    <nav class="teacher-profile-role-tabs" aria-label="تب کاربران">
+        <a href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
+        <a class="is-active" href="{% url 'core:super_admin_users' %}?tab=teachers">اساتید</a>
+        <a href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
+    </nav>
+
+    <a class="teacher-profile-back teacher-course-back" href="{{ profile_url }}">
+        <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+        بازگشت به پروفایل استاد
+    </a>
+
+    <div class="teacher-course-topline">
+        <a class="teacher-course-add" href="{{ new_course_url }}">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            افزودن درس جدید
+        </a>
+        <header class="teacher-course-hero">
+            <div class="teacher-course-hero-id">
+                <div class="teacher-course-avatar">
+                    {% if teacher.avatar_url %}
+                        <img src="{{ teacher.avatar_url }}" alt="{{ teacher.full_name }}">
+                    {% else %}
+                        <span>{{ teacher.full_name|slice:":1"|default:"ا" }}</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <h1>مدیریت درس‌های استاد</h1>
+                    <strong>{{ teacher.full_name|default:"استاد" }}</strong>
+                    <span><b>فعال</b><small></small></span>
+                    <p>استاد {{ teacher.personnel_code|default:"۱۰۲۴"|fa_digits }}</p>
+                    <em>{{ primary_unit.label|fa_digits }}</em>
+                </div>
+            </div>
+        </header>
+    </div>
+
+    <div class="teacher-course-stats">
+        {% for stat in stats %}
+            <article>
+                <em class="is-{{ stat.tone }}">
+                    {% if stat.icon == "users" %}
+                        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+                    {% elif stat.icon == "clipboard" %}
+                        <svg viewBox="0 0 24 24"><path d="M9 5h6"/><path d="M9 12h6M9 16h6"/><rect x="5" y="3" width="14" height="18" rx="2"/></svg>
+                    {% else %}
+                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                    {% endif %}
+                </em>
+                <strong>{{ stat.value }}</strong>
+                <span>{{ stat.label }}</span>
+            </article>
+        {% endfor %}
+    </div>
+
+    <section class="teacher-course-panel">
+        <header>
+            <h2>درس‌های منتسب به استاد</h2>
+            <form method="get" class="teacher-course-filters">
+                <label class="teacher-course-search">
+                    <input name="q" value="{{ query }}" placeholder="جستجو..." type="search">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                </label>
+                <label>
+                    <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                    <select name="term">
+                        <option value="">ترم: نیمسال اول ۱۴۰۵-۱۴۰۶</option>
+                        <option value="نیمسال اول" {% if term == 'نیمسال اول' %}selected{% endif %}>نیمسال اول</option>
+                        <option value="نیمسال دوم" {% if term == 'نیمسال دوم' %}selected{% endif %}>نیمسال دوم</option>
+                    </select>
+                </label>
+                <label>
+                    <select name="status">
+                        <option value="">وضعیت: همه</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>فعال</option>
+                        <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>بایگانی‌شده</option>
+                    </select>
+                </label>
+                <button type="submit">
+                    <svg viewBox="0 0 24 24"><path d="M22 3H2l8 9v7l4 2v-9l8-9Z"/></svg>
+                    فیلترها
+                </button>
+            </form>
+        </header>
+
+        <div class="teacher-course-table-wrap">
+            <table class="teacher-course-table">
+                <thead>
+                    <tr>
+                        <th>درس</th>
+                        <th>کد درس</th>
+                        <th>ترم و گروه ارائه</th>
+                        <th>تعداد دانشجو</th>
+                        <th>آزمون‌ها</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>
+                                <div class="teacher-course-name">
+                                    <i class="is-icon-{{ forloop.counter }}"></i>
+                                    <strong>{{ row.title|fa_digits }}</strong>
+                                </div>
+                            </td>
+                            <td>{{ row.code|default:"-"|fa_digits }}</td>
+                            <td>{{ row.term_label|fa_digits }}</td>
+                            <td>{{ row.students_count }}</td>
+                            <td>{{ row.exams_count }} آزمون</td>
+                            <td><span class="teacher-course-status is-{{ row.status }}">{{ row.status_label }}</span></td>
+                            <td>
+                                <div class="teacher-course-actions">
+                                    {% if forloop.first %}
+                                        <a class="is-danger" href="#" title="حذف انتساب"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>حذف انتساب</a>
+                                        <a href="{% url 'core:super_admin_users' %}?tab=students&q={{ teacher.full_name }}" title="مشاهده دانشجویان"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>مشاهده دانشجویان</a>
+                                        <a href="{% url 'core:super_admin_course_edit' row.id %}" title="ویرایش ارائه"><svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/></svg>ویرایش ارائه</a>
+                                    {% endif %}
+                                    <a class="is-more" href="#" title="بیشتر"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="7">درسی برای این استاد ثبت نشده است.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <footer class="teacher-course-pagination">
+            <span>نمایش ۱ تا {{ rows|length|fa_digits }} از ۱۲ درس</span>
+            <div>
+                <a href="#">قبلی</a>
+                <b>۱</b>
+                <a href="#">۲</a>
+                <a href="#">۳</a>
+                <a href="#">بعدی</a>
+            </div>
+            <label>
+                نمایش ۱۰ ردیف
+                <select><option>۱۰</option><option>۲۰</option></select>
+            </label>
+        </footer>
+
+        <div class="teacher-course-note">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+            حذف انتساب درس، سوابق آزمون‌ها و نمرات قبلی را حذف نمی‌کند.
+        </div>
+    </section>
+</section>
+{% endblock %}

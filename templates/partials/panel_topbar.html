@@ -1,0 +1,37 @@
+{% load core_extras %}
+<header class="panel-topbar" dir="ltr">
+    <div class="panel-date" dir="rtl">
+        <span>تاریخ امروز:</span>
+        <strong>{% jalali_today %}</strong>
+    </div>
+
+    <label class="panel-search" dir="rtl">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"/>
+        </svg>
+        <input type="search" placeholder="جستجو...">
+    </label>
+
+    <div class="panel-top-actions" dir="ltr">
+        <a class="panel-user" href="{% url 'core:profile' %}">
+            <b>
+                {% if panel_avatar_url %}
+                    <img src="{{ panel_avatar_url }}" alt="{{ panel_display_name|default:request.user.username }}">
+                {% elif profile.avatar_url %}
+                    <img src="{{ profile.avatar_url }}" alt="{% if app_display_name %}{{ app_display_name }}{% elif display_name %}{{ display_name }}{% else %}{{ request.user.username }}{% endif %}">
+                {% else %}
+                    {% if panel_display_name %}{{ panel_display_name|slice:":1" }}{% elif app_display_name %}{{ app_display_name|slice:":1" }}{% elif display_name %}{{ display_name|slice:":1" }}{% else %}{{ request.user.username|slice:":1" }}{% endif %}
+                {% endif %}
+            </b>
+            <span>
+                <strong>{% if panel_display_name %}{{ panel_display_name }}{% elif app_display_name %}{{ app_display_name }}{% elif display_name %}{{ display_name }}{% else %}{{ request.user.username }}{% endif %}</strong>
+                <small>{% if panel_role_label %}{{ panel_role_label }}{% elif app_role_name %}{{ app_role_name }}{% elif role_label %}{{ role_label }}{% else %}حساب کاربری{% endif %}</small>
+            </span>
+        </a>
+        <button class="panel-bell" type="button" aria-label="اعلان‌ها">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>
+            </svg>
+        </button>
+    </div>
+</header>

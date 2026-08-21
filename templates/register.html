@@ -1,0 +1,99 @@
+﻿{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ثبت‌نام | متا کوییز</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="shortcut icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="alternate icon" type="image/svg+xml" href="{% static 'img/metaquiz-logo.svg' %}?v=20260805">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
+</head>
+<body class="auth-page auth-register-page">
+    <main class="auth-card">
+        <section class="auth-art" aria-label="تصویر امتحان آنلاین">
+            <a href="{% url 'core:home' %}" class="auth-logo">
+                <span aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+                <strong>متا<br>کوییز</strong>
+            </a>
+
+            <div class="auth-illustration auth-register-illustration">
+                <img src="{% static 'img/register-illustration.png' %}" alt="تصویر سه‌بعدی ساخت حساب کاربری">
+            </div>
+
+            <p class="auth-credit">متا کوییز<br>ثبت‌نام برای امتحان آنلاین</p>
+        </section>
+
+        <section class="auth-login-panel auth-register-panel" aria-labelledby="register-title">
+            <form method="post" class="auth-register-card">
+                {% csrf_token %}
+
+                <div class="auth-register-topline">
+                    <span>قبلاً عضو شده‌اید؟</span>
+                    <a href="{% url 'core:login' %}">ورود</a>
+                </div>
+
+                {% if form.non_field_errors %}
+                    <div class="auth-error">{{ form.non_field_errors|striptags }}</div>
+                {% endif %}
+
+                <h1 id="register-title">ثبت‌نام</h1>
+
+                <div class="auth-register-grid">
+                    <label class="auth-register-field">
+                        <span>نام و نام خانوادگی</span>
+                        <input type="text" name="{{ form.full_name.html_name }}" id="{{ form.full_name.id_for_label }}" value="{{ form.full_name.value|default:'' }}" autocomplete="name" placeholder="نام شما" required>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                        {% if form.full_name.errors %}<small class="auth-field-error">{{ form.full_name.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="auth-register-field">
+                        <span>شماره دانشجویی</span>
+                        <input type="text" name="{{ form.student_number.html_name }}" id="{{ form.student_number.id_for_label }}" value="{{ form.student_number.value|default:'' }}" autocomplete="off" placeholder="اختیاری">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h2M15 13h2M15 9h2"/></svg>
+                        {% if form.student_number.errors %}<small class="auth-field-error">{{ form.student_number.errors|striptags }}</small>{% endif %}
+                    </label>
+                </div>
+
+                <label class="auth-register-field">
+                    <span>ایمیل</span>
+                    <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default:'' }}" autocomplete="email" placeholder="you@example.com" required>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                    {% if form.email.errors %}<small class="auth-field-error">{{ form.email.errors|striptags }}</small>{% endif %}
+                </label>
+
+                <label class="auth-register-field">
+                    <span>رمز عبور</span>
+                    <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" autocomplete="new-password" placeholder="حداقل ۸ کاراکتر" required>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                    {% if form.password.errors %}<small class="auth-field-error">{{ form.password.errors|striptags }}</small>{% endif %}
+                </label>
+
+                <div class="auth-role-picker">
+                    <span>نقش شما</span>
+                    <div>
+                        {% for value, label in form.role.field.choices %}
+                            <label>
+                                <input type="radio" name="{{ form.role.html_name }}" value="{{ value }}" {% if form.role.value == value or not form.role.value and forloop.first %}checked{% endif %}>
+                                <strong>{{ label }}</strong>
+                                {% if value == 'student' %}
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+                                {% else %}
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>
+                                {% endif %}
+                            </label>
+                        {% endfor %}
+                    </div>
+                    {% if form.role.errors %}<small class="auth-field-error">{{ form.role.errors|striptags }}</small>{% endif %}
+                </div>
+
+                <div class="auth-register-actions">
+                    <button type="submit">ساخت حساب</button>
+                    <a href="{% url 'core:login' %}">انصراف</a>
+                </div>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

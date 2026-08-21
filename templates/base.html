@@ -1,44 +1,267 @@
-{% load static %}
+﻿{% load static %}
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}آزمون‌یار{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
+    <title>{% block title %}متا کوییز{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="shortcut icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="alternate icon" type="image/svg+xml" href="{% static 'img/metaquiz-logo.svg' %}?v=20260805">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=teacher-questions-20260808">
+    <style>
+        @font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+        @font-face{font-family:'B Yekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+        @font-face{font-family:'BYekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+        html,body,button,input,select,textarea{font-family:'Vazirmatn','B Yekan',BYekan,Tahoma,Arial,sans-serif!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+        .app-shell,.app-main,.profile-sidebar,.super-admin-chrome,.sys-overview,.edu-dashboard{font-family:'Vazirmatn','B Yekan',BYekan,Tahoma,Arial,sans-serif!important}
+        .app-shell{direction:ltr;grid-template-columns:minmax(0,1fr) 250px;height:100dvh;overflow:hidden}
+        .app-shell>.profile-sidebar{direction:rtl;grid-column:2;grid-row:1;height:100vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;border-left:1px solid #dce3ef;background:#fff;padding:1.75rem 1rem}
+        .app-shell>.app-main{direction:rtl;grid-column:1;grid-row:1;min-width:0;height:100dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+        .profile-brand{display:flex;align-items:center;justify-content:space-between;gap:1rem;font-weight:900;color:#071936}
+        .profile-brand-logo{width:2.35rem;height:2.35rem;display:block;object-fit:contain;border-radius:.85rem;background:#f0f5ff;padding:.35rem}
+        .profile-brand span{display:grid;width:2.8rem;height:2.8rem;place-items:center;border-radius:1rem;background:#7c3aed;color:#fff;font-size:1.4rem}
+        .profile-side-search{margin-top:1.8rem;display:flex;height:2.9rem;align-items:center;gap:.6rem;border:1px solid #e5eaf2;border-radius:1rem;background:#f8fafc;padding:0 .9rem;color:#8a94a6}
+        .profile-side-search input{min-width:0;flex:1;background:transparent;outline:0;font-size:.82rem;font-weight:700}
+        .profile-nav{margin-top:1.25rem;display:grid;gap:.25rem}
+        .profile-nav small{margin:1rem .85rem .35rem;color:#97a1b3;font-size:.72rem;font-weight:800}
+        .profile-nav a{display:flex;align-items:center;gap:.75rem;border-radius:.9rem;padding:.8rem .95rem;color:#3c4658;font-size:.9rem;font-weight:850}
+        .profile-nav a.is-active{background:#edf2fa;color:#142d72}
+        .profile-user{margin-top:auto;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.75rem;border-radius:1.25rem;background:#f7f9fc;padding:.75rem}
+        .profile-user b{display:grid;width:2.75rem;height:2.75rem;place-items:center;border-radius:999px;background:#8759e8;color:#fff;font-weight:900}
+        .profile-user strong,.profile-user small,.profile-user em{display:block;max-width:8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .profile-user small,.profile-user em{margin-top:.15rem;color:#8b94a4;font-size:.72rem;font-style:normal;font-weight:800}
+        .app-shell>.profile-sidebar{height:100dvh;overflow-y:auto;overflow-x:hidden;padding:.65rem .75rem .6rem;scrollbar-width:thin}
+        .profile-brand{min-height:2.45rem}
+        .profile-brand-logo{width:2.35rem;height:2.35rem;display:block;object-fit:contain;border-radius:.85rem;background:#f0f5ff;padding:.35rem}
+        .profile-brand span{width:2.35rem;height:2.35rem;border-radius:.85rem;font-size:1.12rem}
+        .profile-side-search{margin-top:.62rem;height:2.38rem;border-radius:.85rem;padding:0 .7rem}
+        .profile-nav{margin-top:.52rem;gap:.04rem}
+        .profile-nav small{margin:.45rem .6rem .12rem;font-size:.63rem}
+        .profile-nav a{min-height:2.08rem;gap:.52rem;border-radius:.76rem;padding:.4rem .72rem;font-size:.82rem;line-height:1.12}
+        .profile-nav a span{display:grid;width:1.15rem;place-items:center;font-size:1rem;line-height:1}
+        .profile-user{margin-top:auto;gap:.48rem;border-radius:.92rem;padding:.5rem}
+        .profile-user b{width:2.25rem;height:2.25rem}
+        .profile-user strong,.profile-user small,.profile-user em{max-width:6.9rem}
+        .profile-user small,.profile-user em{font-size:.63rem}
+        .app-shell:has(>.profile-sidebar.is-collapsed){grid-template-columns:minmax(0,1fr) 78px!important}
+        .profile-sidebar{position:relative;transition:width .18s ease,padding .18s ease}
+        .profile-sidebar-toggle{position:absolute;top:.95rem;left:.85rem;z-index:4;display:grid;width:1.45rem;height:1.45rem;place-items:center;border:0;background:transparent;color:#667085;box-shadow:none;padding:0}
+        .profile-sidebar-toggle:hover{color:#142d72;background:transparent}
+        .profile-sidebar-toggle svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+        .profile-nav a{position:relative}
+        .profile-nav-icon{display:grid!important;width:1.55rem!important;min-width:1.55rem!important;height:1.55rem;place-items:center;color:#46556a;font-size:1.32rem!important;line-height:1!important}
+        .profile-nav-icon svg{width:1.28rem;height:1.28rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        .profile-nav-text{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;font-size:inherit!important;line-height:inherit!important}
+        .profile-nav-icon:empty:before{content:"•"}
+        .profile-nav-icon:empty[data-icon="dashboard"]:before{content:"▦"}
+        .profile-nav-icon:empty[data-icon="book"]:before{content:"▥"}
+        .profile-nav-icon:empty[data-icon="teacher"]:before{content:"♢"}
+        .profile-nav-icon:empty[data-icon="students"]:before{content:"♟"}
+        .profile-nav-icon:empty[data-icon="groups"]:before{content:"♧"}
+        .profile-nav-icon:empty[data-icon="exam"]:before{content:"▤"}
+        .profile-nav-icon:empty[data-icon="calendar"]:before,.profile-nav-icon:empty[data-icon="term"]:before{content:"◷"}
+        .profile-nav-icon:empty[data-icon="database"]:before{content:"▣"}
+        .profile-nav-icon:empty[data-icon="manager"]:before{content:"♙"}
+        .profile-nav-icon:empty[data-icon="settings"]:before{content:"⚙"}
+        .profile-nav-icon:empty[data-icon="profile"]:before{content:"♙"}
+        .profile-nav-icon:empty[data-icon="logout"]:before{content:"↪"}
+        .profile-nav a.is-active .profile-nav-icon{color:#7c3aed}
+        .profile-sidebar.is-collapsed{align-items:center;padding-right:.65rem!important;padding-left:.65rem!important}
+        .profile-sidebar.is-collapsed .profile-sidebar-toggle{left:50%;transform:translateX(-50%)}
+        .profile-sidebar.is-collapsed .profile-brand{justify-content:center;width:100%;margin-top:2.25rem}
+        .profile-brand-logo{width:2.35rem;height:2.35rem;display:block;object-fit:contain;border-radius:.85rem;background:#f0f5ff;padding:.35rem}
+        .profile-sidebar.is-collapsed .profile-sidebar-label,
+        .profile-sidebar.is-collapsed .profile-side-search,
+        .profile-sidebar.is-collapsed .profile-nav-text,
+        .profile-sidebar.is-collapsed .profile-user-meta,
+        .profile-sidebar.is-collapsed .profile-user-caret{display:none!important}
+        .profile-sidebar.is-collapsed .profile-nav{width:100%;justify-items:center;margin-top:.8rem}
+        .profile-sidebar.is-collapsed .profile-nav a{width:2.8rem;height:2.8rem;min-height:2.8rem;justify-content:center;padding:0!important}
+        .profile-sidebar.is-collapsed .profile-nav-icon{width:1.75rem!important;min-width:1.75rem!important;height:1.75rem;font-size:1.42rem!important}
+        .profile-sidebar.is-collapsed .profile-nav-icon svg{width:1.42rem;height:1.42rem}
+        .profile-sidebar.is-collapsed .profile-user{width:2.9rem;grid-template-columns:1fr;justify-items:center;padding:.35rem!important}
+        .profile-sidebar.is-collapsed .profile-user b{width:2.2rem;height:2.2rem}
+        .profile-sidebar.is-collapsed .profile-nav a:hover:after,
+        .profile-sidebar.is-collapsed .profile-nav a:focus-visible:after{content:attr(data-tooltip);position:absolute;z-index:50;inset-inline-end:calc(100% + .65rem);top:50%;transform:translateY(-50%);width:max-content;max-width:12rem;border:1px solid #dbe3ef;border-radius:.65rem;background:#fff;padding:.45rem .7rem;color:#071936;font-size:.78rem;font-weight:850;box-shadow:0 14px 32px rgba(15,23,42,.14);pointer-events:none;white-space:nowrap}
+        @media (max-width:720px){.app-shell{direction:rtl;grid-template-columns:1fr;height:auto;min-height:100vh;overflow:visible}.app-shell>.profile-sidebar{grid-column:1;grid-row:1;height:auto;overflow:visible;border-left:0;border-bottom:1px solid #dce3ef}.app-shell>.app-main{grid-column:1;grid-row:2;height:auto;overflow:visible}}
+    </style>
 </head>
 <body class="min-h-screen bg-page text-ink antialiased">
-    <div class="site-shell">
-        <header class="site-header">
-            <a href="{% url 'core:home' %}" class="brand-lockup" aria-label="صفحه اصلی آزمون‌یار">
-                <span class="brand-mark">آ</span>
-                <span>آزمون‌یار</span>
-            </a>
+    {% if app_is_shell_page %}
+        <div class="app-shell" data-shell>
+            <input class="app-menu-toggle" id="app-menu-toggle" type="checkbox" aria-label="باز کردن منو">
+            <label class="app-mobile-backdrop" for="app-menu-toggle" aria-hidden="true"></label>
 
-            <nav class="site-nav" aria-label="ناوبری اصلی">
-                <a href="#features">امکانات</a>
-                <a href="#steps">مراحل</a>
-                <a href="#exam-list">آزمون‌ها</a>
-                <a href="/admin/">مدیریت</a>
-            </nav>
+            {% include 'partials/admin_sidebar.html' %}
+            {% if is_super_admin_shell %}
+                {% include 'partials/super_admin_chrome.html' %}
+            {% endif %}
+            <aside class="legacy-app-sidebar" hidden>
+                <div class="app-brand-row">
+                    <a href="{% url 'core:dashboard' %}" class="app-brand" aria-label="داشبورد متا کوییز">
+                        <span class="app-brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+                        <span>متا کوییز</span>
+                    </a>
+                    <label class="app-sidebar-close" for="app-menu-toggle" aria-label="بستن منو">×</label>
+                </div>
 
-            <div class="header-actions">
-                <a href="{% url 'core:login' %}" class="login-link">ورود</a>
-                <a href="/admin/apps/core/exam/add/" class="btn-primary">شروع رایگان</a>
-            </div>
-        </header>
+                <label class="app-search">
+                    <span aria-hidden="true">⌕</span>
+                    <input type="search" placeholder="جست‌وجو">
+                    <kbd>/</kbd>
+                </label>
 
-        {% if messages %}
-            <section class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
-                {% for message in messages %}
-                    <div class="alert-message">{{ message }}</div>
-                {% endfor %}
+                <nav class="app-nav" aria-label="ناوبری اصلی">
+                    {% for group in app_nav_groups %}
+                        <section>
+                            <h2>{{ group.label }}</h2>
+                            {% for item in group.items %}
+                                <a href="{{ item.url }}" class="{% if item.active %}is-active{% endif %}">
+                                    <span aria-hidden="true">{{ item.icon }}</span>
+                                    <strong>{{ item.label }}</strong>
+                                </a>
+                            {% endfor %}
+                        </section>
+                    {% endfor %}
+                    <section>
+                        <h2>سیستم</h2>
+                        <a href="/admin/"><span aria-hidden="true">▦</span><strong>پنل مدیریت</strong></a>
+                        <a href="{% url 'core:logout' %}" class="is-danger"><span aria-hidden="true">↲</span><strong>خروج</strong></a>
+                    </section>
+                </nav>
+
+                <div class="app-user-card">
+                    <div class="app-avatar">{{ app_display_name|default:request.user.username|slice:":1" }}</div>
+                    <div>
+                        <strong>{{ app_display_name|default:request.user.username }}</strong>
+                        <span>{{ app_role_name|default:"کاربر سامانه" }}</span>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="app-main">
+                {% include 'partials/panel_topbar.html' %}
+                <header class="app-topbar">
+                    <label class="app-menu-button" for="app-menu-toggle" aria-label="باز کردن منو">☰</label>
+                    <a href="{% url 'core:dashboard' %}" class="app-topbar-brand">
+                        <span class="app-brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+                        <strong>متا کوییز</strong>
+                    </a>
+                    <a class="app-topbar-link" href="{% url 'core:logout' %}">خروج</a>
+                </header>
+
+                {% if messages %}
+                    <section class="app-messages">
+                        {% for message in messages %}
+                            <div class="alert-message">{{ message }}</div>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+
+                <main class="app-content">
+    {% else %}
+        <div class="site-shell">
+            {% block public_header %}
+            <header class="site-header">
+                <a href="{% url 'core:home' %}" class="brand-lockup" aria-label="صفحه اصلی متا کوییز">
+                    <span class="brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+                    <span>متا کوییز</span>
+                </a>
+
+                <nav class="site-nav" aria-label="ناوبری اصلی">
+                    <a href="{% url 'core:home' %}#features">امکانات</a>
+                    <a href="{% url 'core:home' %}#steps">مراحل</a>
+                    <a href="{% url 'core:home' %}#exam-list">آزمون‌ها</a>
+                    <a href="/admin/">مدیریت</a>
+                </nav>
+
+                <div class="header-actions">
+                    <a href="{% url 'core:login' %}" class="login-link">ورود</a>
+                    <a href="{% url 'core:login' %}" class="btn-primary">شروع</a>
+                </div>
+            </header>
+            {% endblock %}
+
+            {% if messages %}
+                <section class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+                    {% for message in messages %}
+                        <div class="alert-message">{{ message }}</div>
+                    {% endfor %}
+                </section>
+            {% endif %}
+
+            <main>
+    {% endif %}
+                    {% block content %}{% endblock %}
+            </main>
+    {% if app_is_shell_page %}
             </section>
-        {% endif %}
-
-        <main>
-            {% block content %}{% endblock %}
-        </main>
-    </div>
+        </div>
+    {% else %}
+        </div>
+    {% endif %}
+    <script>
+        (() => {
+            const key = 'profileSidebarCollapsed';
+            const syncSidebar = (sidebar, collapsed) => {
+                sidebar.classList.toggle('is-collapsed', collapsed);
+                const button = sidebar.querySelector('[data-profile-sidebar-toggle]');
+                if (button) {
+                    button.setAttribute('aria-label', collapsed ? 'باز کردن منو' : 'جمع کردن منو');
+                    button.setAttribute('title', collapsed ? 'باز کردن منو' : 'جمع کردن منو');
+                    button.classList.toggle('is-collapsed-toggle', collapsed);
+                }
+            };
+            document.querySelectorAll('[data-profile-sidebar]').forEach((sidebar) => {
+                syncSidebar(sidebar, localStorage.getItem(key) === '1');
+                sidebar.querySelector('[data-profile-sidebar-toggle]')?.addEventListener('click', () => {
+                    const next = !sidebar.classList.contains('is-collapsed');
+                    localStorage.setItem(key, next ? '1' : '0');
+                    syncSidebar(sidebar, next);
+                });
+            });
+        })();
+    </script>
+    <script>
+        (() => {
+            const map = {'0':'\u06f0','1':'\u06f1','2':'\u06f2','3':'\u06f3','4':'\u06f4','5':'\u06f5','6':'\u06f6','7':'\u06f7','8':'\u06f8','9':'\u06f9'};
+            const toFa = (value) => value.replace(/[0-9]/g, (digit) => map[digit]);
+            const convertDigits = () => {
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                    acceptNode(node) {
+                        const parent = node.parentElement;
+                        if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT'].includes(parent.tagName)) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        return /[0-9]/.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                    }
+                });
+                let pendingNode = null;
+                const step = () => {
+                    const deadline = performance.now() + 8;
+                    let node = pendingNode || walker.nextNode();
+                    pendingNode = null;
+                    while (node && performance.now() < deadline) {
+                        node.nodeValue = toFa(node.nodeValue);
+                        node = walker.nextNode();
+                    }
+                    if (node) {
+                        pendingNode = node;
+                        schedule(step);
+                    }
+                };
+                step();
+            };
+            const schedule = (callback) => {
+                if ('requestIdleCallback' in window) {
+                    window.requestIdleCallback(callback, {timeout: 600});
+                } else {
+                    window.setTimeout(callback, 16);
+                }
+            };
+            schedule(convertDigits);
+        })();
+    </script>
 </body>
 </html>

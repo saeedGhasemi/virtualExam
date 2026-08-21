@@ -1,0 +1,531 @@
+﻿{% extends 'base_standalone.html' %}
+{% load static core_extras %}
+
+{% block title %}تنظیمات سامانه | متا کوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<main class="settings-glass settings-screen" dir="rtl">
+    <header class="settings-topbar">
+        <a class="settings-brand" href="{% url 'core:super_admin_dashboard' %}">
+            <span class="brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+            <strong>متا کوییز</strong>
+        </a>
+        <nav class="settings-nav" aria-label="ناوبری اصلی">
+            <a href="{% url 'core:super_admin_dashboard' %}">داشبورد</a>
+            <a href="{% url 'core:super_admin_courses' %}">درس‌ها</a>
+            <a href="{% url 'core:super_admin_users' %}?tab=students">کاربران</a>
+            <a href="{% url 'core:super_admin_groups' %}">گروه‌بندی</a>
+            <a href="{% url 'core:super_admin_exams' %}">آزمون</a>
+            <a href="{% url 'core:super_admin_calendar' %}">تقویم آموزشی</a>
+            <a class="is-active" href="{% url 'core:super_admin_settings' %}">تنظیمات سامانه</a>
+            <a href="{% url 'core:profile' %}">پروفایل</a>
+        </nav>
+        <div class="settings-userbar">
+            <button type="button" aria-label="جستجو">
+                <svg viewBox="0 0 24 24"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="7"/></svg>
+            </button>
+            <button type="button" aria-label="اعلان‌ها" class="has-dot">
+                <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+            </button>
+            <div class="settings-user">
+                <span>{{ request.user.get_full_name|default:request.user.username|default:"مدیر"|slice:":1" }}</span>
+                <div>
+                    <b>{{ request.user.get_full_name|default:request.user.username|default:"مدیر سیستم" }}</b>
+                    <small>مدیر کل</small>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <aside class="settings-rail" aria-label="میانبرها">
+        <a class="{% if settings_active_tab == 'terms' %}is-active{% endif %}" href="{% url 'core:super_admin_settings' %}?tab=terms" title="سال تحصیلی و ترم">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        </a>
+        <a class="{% if settings_active_tab == 'org' %}is-active{% endif %}" href="{% url 'core:super_admin_org_units' %}" title="ساختار سازمانی">
+            <svg viewBox="0 0 24 24"><path d="M12 4v5"/><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1"/><path d="M12 9H6v4M12 9h6v4"/></svg>
+        </a>
+        <a class="{% if settings_active_tab == 'other' %}is-active{% endif %}" href="{% url 'core:super_admin_settings' %}?tab=other" title="تنظیمات عمومی">
+            <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.8 1.8 0 0 0-1-1.6 1.8 1.8 0 0 0-2 .4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4 1.8 1.8 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.8 1.8 0 0 0 1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.8 1.8 0 0 0-1.5 1Z"/></svg>
+        </a>
+        <a href="{% url 'core:logout' %}" title="خروج" class="rail-exit">
+            <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg>
+        </a>
+    </aside>
+
+    <section class="settings-hero">
+        <span class="date-pill">تاریخ امروز: {% jalali_today %}</span>
+        <div>
+            <h1>{% if settings_active_tab == 'other' %}تنظیمات سامانه{% else %}تنظیمات سامانه{% endif %}</h1>
+            <p>مدیریت تنظیمات پایه و پیکربندی سامانه</p>
+        </div>
+        <span class="hero-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19 12a7 7 0 0 1-.2 1.6l2 1.5-2 3.4-2.4-1a7 7 0 0 1-2.8 1.6l-.4 2.6H9l-.4-2.6a7 7 0 0 1-2.8-1.6l-2.4 1-2-3.4 2-1.5A7 7 0 0 1 3.2 12c0-.6.1-1.1.2-1.6l-2-1.5 2-3.4 2.4 1a7 7 0 0 1 2.8-1.6L9 2.3h4.2l.4 2.6a7 7 0 0 1 2.8 1.6l2.4-1 2 3.4-2 1.5c.1.5.2 1 .2 1.6Z"/></svg>
+        </span>
+    </section>
+
+    <section class="settings-layout settings-layout-{{ settings_active_tab }}">
+        <aside class="settings-side-card">
+            <h2>{% if settings_active_tab == 'other' %}خلاصه سامانه{% else %}خلاصه تنظیمات{% endif %}<span>i</span></h2>
+            {% if settings_active_tab == 'other' %}
+                <dl>
+                    {% for item in settings_items %}
+                        <div><dt>{{ item.label }}</dt><dd>{% if item.type == 'boolean' %}{{ item.value|yesno:"فعال,غیرفعال" }}{% else %}{{ item.value|fa_digits }}{% endif %}</dd></div>
+                    {% endfor %}
+                </dl>
+            {% else %}
+                <dl>
+                    <div><dt>سال و ترم پیش‌فرض</dt><dd>{{ current_term.year|default:"-"|fa_digits }} / {{ current_term.semester|default:"-"|fa_digits }}</dd></div>
+                    <div><dt>مهلت ثبت‌نام بعدی</dt><dd>{{ settings_summary.registration_deadline|fa_digits }}</dd></div>
+                    <div><dt>ترم‌های فعال</dt><dd>{{ settings_summary.active_terms_count|fa_digits }} ترم</dd></div>
+                </dl>
+            {% endif %}
+            <hr>
+            <h3>دسترسی سریع</h3>
+            <a href="{% url 'core:super_admin_calendar' %}"><span>+</span>تنظیم تقویم آموزشی</a>
+            <a href="{% url 'core:super_admin_settings' %}?tab=terms"><span>+</span>مدیریت بازه‌های ثبت‌نام</a>
+            <a href="{% url 'core:super_admin_settings' %}?tab=other"><span>+</span>تنظیمات پیش‌فرض نمره</a>
+            <a href="{% url 'core:super_admin_settings' %}?tab=other"><span>+</span>الگوهای اطلاع‌رسانی</a>
+        </aside>
+
+        <div class="settings-main-card">
+            <div class="settings-tabs" role="tablist">
+                <a class="{% if settings_active_tab == 'other' %}is-active{% endif %}" href="{% url 'core:super_admin_settings' %}?tab=other">
+                    <svg viewBox="0 0 24 24"><path d="M4 21v-8M4 9V3M12 21v-6M12 11V3M20 21v-4M20 13V3"/><path d="M2 13h4M10 15h4M18 17h4"/></svg>
+                    تنظیمات عمومی
+                </a>
+                <a class="{% if settings_active_tab == 'terms' %}is-active{% endif %}" href="{% url 'core:super_admin_settings' %}?tab=terms">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    سال تحصیلی و ترم
+                </a>
+                <a class="{% if settings_active_tab == 'org' %}is-active{% endif %}" href="{% url 'core:super_admin_org_units' %}">
+                    <svg viewBox="0 0 24 24"><path d="M12 4v5"/><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1"/><path d="M12 9H6v4M12 9h6v4"/></svg>
+                    ساختار سازمانی
+                </a>
+            </div>
+
+            {% if settings_active_tab == 'other' %}
+                <div class="general-settings-board">
+                    <section class="settings-summary-panel">
+                        <h2>خلاصه تنظیمات</h2>
+                        <div class="summary-tile">
+                            <span class="summary-icon blue"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M2 12h20M12 2c2.7 2.9 4 6.2 4 10s-1.3 7.1-4 10c-2.7-2.9-4-6.2-4-10s1.3-7.1 4-10Z"/></svg></span>
+                            <small>زبان پیش‌فرض</small>
+                            <strong>{{ settings_lookup.default_language.value }}</strong>
+                        </div>
+                        <div class="summary-tile">
+                            <span class="summary-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                            <small>منطقه زمانی</small>
+                            <strong>{{ settings_lookup.timezone.value }}</strong>
+                        </div>
+                        <div class="summary-tile">
+                            <span class="summary-icon amber"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.9 4.9 7 7M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></span>
+                            <small>حالت ظاهری</small>
+                            <strong>{{ settings_lookup.theme_mode.value }}</strong>
+                        </div>
+                        <div class="summary-tile">
+                            <span class="summary-icon cyan"><svg viewBox="0 0 24 24"><path d="M20 17.6A4.5 4.5 0 0 0 17 10a6 6 0 0 0-11.4 2A3.5 3.5 0 0 0 6.5 19H18"/></svg></span>
+                            <small>ذخیره خودکار</small>
+                            <strong>{% if settings_lookup.auto_backup.value %}هر ۵ دقیقه{% else %}غیرفعال{% endif %}</strong>
+                        </div>
+                    </section>
+
+                    <form method="post" enctype="multipart/form-data" class="general-settings-content" data-general-settings-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="settings_action" value="bulk_save">
+                        <div class="settings-action-row">
+                            <button type="submit" class="primary-action"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>ذخیره تغییرات</button>
+                            <button type="reset" class="ghost-action" data-settings-reset><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>بازنشانی</button>
+                            <button type="button" class="ghost-action" data-settings-preview><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>پیش‌نمایش</button>
+                        </div>
+
+                        <div class="settings-card-grid">
+                            <section class="settings-panel basic-panel">
+                                <h2><svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19 12a7 7 0 0 1-.2 1.6l2 1.5-2 3.4-2.4-1a7 7 0 0 1-2.8 1.6l-.4 2.6H9l-.4-2.6a7 7 0 0 1-2.8-1.6l-2.4 1-2-3.4 2-1.5A7 7 0 0 1 3.2 12c0-.6.1-1.1.2-1.6l-2-1.5 2-3.4 2.4 1a7 7 0 0 1 2.8-1.6L9 2.3h4.2l.4 2.6a7 7 0 0 1 2.8 1.6l2.4-1 2 3.4-2 1.5c.1.5.2 1 .2 1.6Z"/></svg>تنظیمات پایه سامانه</h2>
+                                {% for item in settings_groups.basic %}
+                                    {% if item.key != 'system_logo' %}
+                                    <div class="compact-setting-row">
+                                        <label>{{ item.label }}</label>
+                                        <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                                <div class="logo-picker">
+                                    <span>لوگو / هویت سامانه</span>
+                                    <input type="hidden" name="settings_system_logo" value="{{ settings_lookup.system_logo.value }}">
+                                    <input type="file" name="system_logo_file" accept="image/*" id="system-logo-file" hidden>
+                                    <button type="button" data-logo-picker>انتخاب لوگو</button>
+                                    <b><svg viewBox="0 0 24 24"><path d="M9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></b>
+                                </div>
+                            </section>
+
+                            <section class="settings-panel security-panel">
+                                <h2><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>تنظیمات امنیتی</h2>
+                                {% for item in settings_groups.security %}
+                                    <div class="compact-setting-row">
+                                        <label>{{ item.label }}</label>
+                                        {% if item.type == 'boolean' %}
+                                            <input type="hidden" name="settings_{{ item.key }}" value="{% if item.value %}on{% else %}off{% endif %}" data-boolean-value>
+                                            <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}"><span></span></button>
+                                        {% elif item.type == 'number' %}
+                                            <input type="number" name="settings_{{ item.key }}" value="{{ item.value }}" min="1" inputmode="numeric">
+                                        {% else %}
+                                            <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </section>
+
+                            <section class="settings-panel notifications-panel">
+                                <h2><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>تنظیمات اعلان‌ها</h2>
+                                {% for item in settings_groups.notifications %}
+                                    <div class="toggle-setting-row">
+                                        <input type="hidden" name="settings_{{ item.key }}" value="{% if item.value %}on{% else %}off{% endif %}" data-boolean-value>
+                                        <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}"><span></span></button>
+                                        <label>{{ item.label }}</label>
+                                    </div>
+                                {% endfor %}
+                            </section>
+
+                            <section class="settings-panel appearance-panel">
+                                <h2><svg viewBox="0 0 24 24"><path d="M4 5h16v10H4z"/><path d="M8 21h8M12 15v6"/></svg>تنظیمات ظاهری</h2>
+                                <input type="hidden" name="settings_theme_mode" value="{{ settings_lookup.theme_mode.value }}" data-theme-mode>
+                                <div class="theme-segment"><button type="button" data-theme-option="تیره" class="{% if settings_lookup.theme_mode.value == 'تیره' %}is-active{% endif %}">تیره</button><button type="button" data-theme-option="روشن" class="{% if settings_lookup.theme_mode.value != 'تیره' %}is-active{% endif %}">روشن</button></div>
+                                <div class="color-row">
+                                    <label>رنگ اصلی سامانه</label>
+                                    <input name="settings_primary_color" value="{{ settings_lookup.primary_color.value }}" data-primary-color>
+                                    <span class="swatches"><i class="is-selected" data-color="#2563EB"></i><i data-color="#8B5CF6"></i><i data-color="#22C55E"></i><i data-color="#F59E0B"></i><i data-color="#F97316"></i><i data-color="#EF4444"></i></span>
+                                </div>
+                                {% for item in settings_groups.appearance %}
+                                    {% if item.key != 'primary_color' and item.key != 'theme_mode' %}
+                                        <div class="compact-setting-row">
+                                            <label>{{ item.label }}</label>
+                                            <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </section>
+
+                            <section class="settings-panel backup-panel">
+                                <h2><svg viewBox="0 0 24 24"><path d="M20 17.6A4.5 4.5 0 0 0 17 10a6 6 0 0 0-11.4 2A3.5 3.5 0 0 0 6.5 19H18"/></svg>ذخیره‌سازی و پشتیبان‌گیری</h2>
+                                {% for item in settings_groups.backup %}
+                                    <div class="compact-setting-row">
+                                        <label>{{ item.label }}</label>
+                                        {% if item.type == 'boolean' %}
+                                            <input type="hidden" name="settings_{{ item.key }}" value="{% if item.value %}on{% else %}off{% endif %}" data-boolean-value>
+                                            <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}"><span></span></button>
+                                        {% elif item.type == 'number' %}
+                                            <input type="number" name="settings_{{ item.key }}" value="{{ item.value }}" min="1" inputmode="numeric">
+                                        {% else %}
+                                            <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                                <button type="submit" class="export-button" name="settings_action" value="export"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>خروجی فایل</button>
+                            </section>
+
+                            <section class="settings-panel exam-panel">
+                                <h2><svg viewBox="0 0 24 24"><path d="M9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>تنظیمات آزمون و ثبت‌نام</h2>
+                                {% for item in settings_groups.exam %}
+                                    <div class="compact-setting-row">
+                                        <label>{{ item.label }}</label>
+                                        {% if item.type == 'boolean' %}
+                                            <input type="hidden" name="settings_{{ item.key }}" value="{% if item.value %}on{% else %}off{% endif %}" data-boolean-value>
+                                            <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}"><span></span></button>
+                                        {% elif item.type == 'number' %}
+                                            <input type="number" name="settings_{{ item.key }}" value="{{ item.value }}" min="1" inputmode="numeric">
+                                        {% else %}
+                                            <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </section>
+                        </div>
+
+                        <section class="settings-changes-panel">
+                            <h2><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>آخرین تغییرات تنظیمات</h2>
+                            <div class="settings-table-wrap">
+                                <table class="settings-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ردیف</th>
+                                            <th>بخش</th>
+                                            <th>تنظیم</th>
+                                            <th>مقدار قبلی</th>
+                                            <th>مقدار جدید</th>
+                                            <th>کاربر</th>
+                                            <th>وضعیت</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td>۱</td><td>تنظیمات امنیتی</td><td>زمان انقضای جلسه</td><td>۲۰ دقیقه</td><td>{{ settings_lookup.session_timeout_minutes.value|fa_digits }} دقیقه</td><td>{{ request.user.get_full_name|default:request.user.username }}</td><td><span class="status-pill green">موفق</span></td></tr>
+                                        <tr><td>۲</td><td>تنظیمات اعلان‌ها</td><td>اعلان‌های ایمیلی</td><td>غیرفعال</td><td>{% if settings_lookup.email_notifications.value %}فعال{% else %}غیرفعال{% endif %}</td><td>{{ request.user.get_full_name|default:request.user.username }}</td><td><span class="status-pill green">موفق</span></td></tr>
+                                        <tr><td>۳</td><td>تنظیمات ظاهری</td><td>رنگ اصلی سامانه</td><td>#7C3AED</td><td>{{ settings_lookup.primary_color.value }}</td><td>{{ request.user.get_full_name|default:request.user.username }}</td><td><span class="status-pill green">موفق</span></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </form>
+                </div>
+                <div class="general-settings-list">
+                    {% for item in settings_items %}
+                        <form method="post" class="glass-setting-row">
+                            {% csrf_token %}
+                            <input type="hidden" name="setting_key" value="{{ item.key }}">
+                            <div>
+                                <h3>{{ item.label }}</h3>
+                                <code>{{ item.key }}</code>
+                            </div>
+                            <div class="setting-control">
+                                {% if item.type == 'boolean' %}
+                                    <input type="hidden" name="value" value="off">
+                                    <label class="switch">
+                                        <input type="checkbox" name="value" value="on" {% if item.value %}checked{% endif %}>
+                                        <span></span>
+                                    </label>
+                                {% else %}
+                                    <input type="number" name="value" value="{{ item.value }}" min="1" inputmode="numeric">
+                                {% endif %}
+                                <button type="submit">ذخیره</button>
+                            </div>
+                        </form>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="terms-toolbar">
+                    <a class="primary-action" href="{% url 'core:super_admin_academic_terms' %}">
+                        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        ایجاد سال/ترم جدید
+                    </a>
+                </div>
+
+                <div class="settings-stats">
+                    <article><span class="blue"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><small>سال تحصیلی جاری</small><strong>{{ current_term.year|default:"-"|fa_digits }}</strong></article>
+                    <article><span class="green"><svg viewBox="0 0 24 24"><path d="m8 5 10 7-10 7V5Z"/></svg></span><small>ترم جاری</small><strong>{{ current_term.semester|default:"-"|fa_digits }}</strong></article>
+                    <article><span class="purple"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><small>سال‌های بایگانی‌شده</small><strong>{{ settings_summary.archived_years_count|fa_digits }} سال</strong></article>
+                    <article><span class="orange"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/></svg></span><small>ترم‌های فعال</small><strong>{{ settings_summary.active_terms_count|fa_digits }} ترم</strong></article>
+                </div>
+
+                <div class="settings-filters">
+                    <button type="button">فیلترهای بیشتر</button>
+                    <button type="button">همه سال‌ها</button>
+                    <button type="button">همه وضعیت‌ها</button>
+                    <label><input data-settings-search placeholder="جستجوی سال، ترم یا وضعیت..."><svg viewBox="0 0 24 24"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="7"/></svg></label>
+                </div>
+
+                <div class="settings-table-wrap">
+                    <table class="settings-table">
+                        <thead>
+                            <tr>
+                                <th>سال تحصیلی</th>
+                                <th>ترم</th>
+                                <th>وضعیت</th>
+                                <th>تاریخ شروع</th>
+                                <th>تاریخ پایان</th>
+                                <th>پیش‌فرض</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for term in terms %}
+                                <tr data-filter-row>
+                                    <td>{{ term.year|fa_digits }}</td>
+                                    <td>{{ term.semester|default:term.label|fa_digits }}</td>
+                                    <td><span class="status-pill {{ term.status_tone }}">{{ term.status_label }}</span></td>
+                                    <td>{{ term.start_date|fa_digits }}</td>
+                                    <td>{{ term.end_date|fa_digits }}</td>
+                                    <td>{% if term.is_current %}<span class="star">★</span>{% else %}—{% endif %}</td>
+                                    <td class="row-actions">
+                                        <button type="button" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 6 4 4"/></svg></button>
+                                        <form method="post" action="{% url 'core:super_admin_academic_terms' %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="term_action" value="delete">
+                                            <input type="hidden" name="term_id" value="{{ term.id }}">
+                                            <button type="submit" class="danger" title="حذف"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="7">هنوز سال/ترمی ثبت نشده است.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</main>
+
+<style>
+    html:has(.settings-glass), body:has(.settings-glass){margin:0!important;padding:0!important;background:#eef4fb!important}
+    .settings-glass{--blue:#2f64f5;--ink:#0b1935;--muted:#627089;--line:rgba(129,153,185,.25);min-height:100dvh;padding:0 7.4rem 2rem 2.2rem;background:radial-gradient(circle at 12% 0,rgba(91,255,216,.2),transparent 29rem),radial-gradient(circle at 85% 4%,rgba(95,135,255,.2),transparent 32rem),#eef4fb;color:var(--ink);font-family:inherit}
+    .settings-topbar{display:grid;grid-template-columns:320px minmax(0,1fr) 320px;align-items:center;height:82px;margin:0 -7.4rem 0 -2.2rem;padding:0 7.4rem 0 2.2rem;background:transparent}
+    .settings-brand{display:flex;align-items:center;gap:.8rem;justify-self:start;text-decoration:none;color:#2362f4;font-size:1.55rem;font-weight:950}.brand-mark{display:grid;width:3rem;height:3rem;place-items:center;border-radius:1.1rem;background:rgba(255,255,255,.56);box-shadow:inset 0 1px 0 #fff}.brand-mark svg{width:1.55rem;height:1.55rem;fill:none;stroke:currentColor;stroke-width:2}.brand-mark img{width:1.65rem;height:1.65rem;display:block;object-fit:contain}
+    .settings-nav{display:flex;justify-content:center;gap:1.35rem}.settings-nav a{padding:.85rem 1.05rem;border-radius:1rem;color:#0b1935;text-decoration:none;font-size:.95rem;font-weight:900;transition:.18s}.settings-nav a:hover,.settings-nav a.is-active{background:rgba(255,255,255,.62);color:#2563eb;box-shadow:inset 0 1px 0 #fff,0 12px 24px rgba(77,112,180,.12)}
+    .settings-userbar{display:flex;align-items:center;justify-content:flex-end;gap:.7rem}.settings-userbar button{position:relative;display:grid;width:3rem;height:3rem;place-items:center;border:1px solid rgba(255,255,255,.72);border-radius:50%;background:rgba(255,255,255,.46);color:#0b1935;box-shadow:inset 0 1px 0 #fff}.settings-userbar button svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:2}.has-dot:after{content:"";position:absolute;top:.55rem;right:.65rem;width:.5rem;height:.5rem;border-radius:50%;background:#ef4444}.settings-user{display:flex;align-items:center;gap:.7rem}.settings-user>span{display:grid;width:3.1rem;height:3.1rem;place-items:center;border-radius:50%;background:linear-gradient(135deg,#7dd3fc,#7c3aed);color:#fff;font-weight:950}.settings-user b,.settings-user small{display:block;line-height:1.45}.settings-user small{color:var(--muted);font-weight:800}
+    .settings-rail{position:fixed;z-index:5;top:7rem;right:1.4rem;bottom:1.2rem;display:flex;flex-direction:column;align-items:center;gap:1rem;width:4.4rem;padding:.95rem .5rem;border:1px solid rgba(255,255,255,.7);border-radius:1.8rem;background:rgba(255,255,255,.5);box-shadow:inset 0 1px 0 #fff,0 22px 70px rgba(54,75,110,.13);backdrop-filter:blur(18px)}.settings-rail a{display:grid;width:2.8rem;height:2.8rem;place-items:center;border-radius:1rem;color:#526582;text-decoration:none}.settings-rail a:hover,.settings-rail a.is-active{background:rgba(255,255,255,.72);color:#2563eb;box-shadow:inset 0 1px 0 #fff,0 12px 25px rgba(47,100,245,.13)}.settings-rail svg{width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-width:2}.rail-exit{margin-top:auto!important}
+    .settings-hero{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:end;margin:1.4rem 0 1.6rem}.settings-hero h1{margin:0;font-size:1.9rem;font-weight:950}.settings-hero p{margin:.45rem 0 0;color:var(--muted);font-weight:800}.date-pill{grid-column:1/-1;justify-self:end;padding:.55rem 1rem;border-radius:999px;background:rgba(255,255,255,.5);color:#53647c;font-weight:900;font-size:.82rem;box-shadow:inset 0 1px 0 #fff}.hero-icon{display:grid;width:3.6rem;height:3.6rem;place-items:center;border-radius:1.25rem;background:rgba(255,255,255,.55);color:#2563eb;box-shadow:inset 0 1px 0 #fff}.hero-icon svg{width:1.6rem;height:1.6rem;fill:none;stroke:currentColor;stroke-width:2}
+    .settings-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:1.35rem;align-items:start;direction:ltr}.settings-layout>*{direction:rtl}.settings-side-card,.settings-main-card,.settings-stats article,.glass-setting-row{border:1px solid rgba(255,255,255,.68);background:rgba(255,255,255,.42);box-shadow:inset 0 1px 0 #fff,0 24px 70px rgba(62,80,111,.1);backdrop-filter:blur(18px)}.settings-side-card{border-radius:1.4rem;padding:1.15rem}.settings-side-card h2,.settings-side-card h3{margin:0 0 1rem;font-size:1rem;font-weight:950}.settings-side-card h2{display:flex;align-items:center;justify-content:space-between}.settings-side-card h2 span{display:grid;width:1.65rem;height:1.65rem;place-items:center;border-radius:50%;background:#dcfce7;color:#10b981}.settings-side-card dl{display:grid;gap:1rem}.settings-side-card div{display:grid;gap:.25rem}.settings-side-card dt{color:#64748b;font-weight:850}.settings-side-card dd{margin:0;color:#0b1935;font-weight:950}.settings-side-card hr{border:0;border-top:1px solid var(--line);margin:1.2rem 0}.settings-side-card a{display:flex;align-items:center;justify-content:space-between;padding:.85rem .9rem;margin:.55rem 0;border-radius:.9rem;background:rgba(255,255,255,.38);color:#2563eb;text-decoration:none;font-weight:900}.settings-side-card a span{font-size:1.2rem}
+    .settings-main-card{border-radius:1.45rem;padding:1rem}.settings-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;padding:.65rem;border-radius:1.25rem;background:rgba(255,255,255,.3)}.settings-tabs a{display:flex;align-items:center;justify-content:center;gap:.55rem;min-height:4.3rem;border:1px solid rgba(255,255,255,.46);border-radius:1rem;background:rgba(255,255,255,.38);color:#0b1935;text-decoration:none;font-weight:950}.settings-tabs a.is-active{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;box-shadow:0 16px 30px rgba(37,99,235,.25)}.settings-tabs svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:2}
+    .terms-toolbar{display:flex;justify-content:flex-start;margin:1.15rem 0}.primary-action,.term-create-panel button,.glass-setting-row button{display:inline-flex;align-items:center;gap:.55rem;border:0;border-radius:.9rem;background:linear-gradient(135deg,#2563eb,#3f5cff);color:#fff;padding:.85rem 1.25rem;font-weight:950;text-decoration:none;box-shadow:0 16px 30px rgba(37,99,235,.24)}.primary-action svg{width:1.15rem;height:1.15rem;stroke:currentColor;stroke-width:2}.term-create-panel{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1rem;padding:1rem;border:1px solid var(--line);border-radius:1rem;background:rgba(255,255,255,.38)}.term-create-panel label,.glass-setting-row label{display:grid;gap:.45rem;font-weight:900}.term-create-panel input,.term-create-panel select,.settings-filters input,.glass-setting-row input{height:2.9rem;border:1px solid #d8e2ef;border-radius:.75rem;background:rgba(255,255,255,.7);padding:0 .85rem;color:#0b1935;font-weight:850}.term-create-panel textarea{min-height:4.8rem;border:1px solid #d8e2ef;border-radius:.75rem;background:rgba(255,255,255,.7);padding:.8rem;color:#0b1935;font-weight:850;resize:vertical}.term-create-panel .wide-field{grid-column:1/-1}.term-create-panel .compact-check{display:flex;align-items:center;gap:.5rem;min-height:2.9rem;border:1px solid #d8e2ef;border-radius:.75rem;background:rgba(255,255,255,.48);padding:0 .85rem}.term-create-panel .compact-check input{width:1rem;height:1rem;padding:0}
+    .term-create-panel[hidden]{display:none!important}.settings-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin:1rem 0}.settings-stats article{display:grid;grid-template-columns:auto 1fr;gap:.25rem .75rem;align-items:center;border-radius:1rem;padding:1rem}.settings-stats span{grid-row:1/3;display:grid;width:3rem;height:3rem;place-items:center;border-radius:1rem}.settings-stats svg{width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-width:2}.settings-stats small{color:#64748b;font-weight:850}.settings-stats strong{font-size:1.08rem}.blue{background:#dbeafe;color:#2563eb}.green{background:#dcfce7;color:#10b981}.purple{background:#ede9fe;color:#8b5cf6}.orange{background:#ffedd5;color:#f59e0b}
+    .settings-filters{display:grid;grid-template-columns:170px 170px 190px minmax(220px,1fr);gap:.75rem;margin:.9rem 0}.settings-filters button,.settings-filters label{height:2.9rem;border:1px solid #d8e2ef;border-radius:.8rem;background:rgba(255,255,255,.48);color:#526582;font-weight:900}.settings-filters label{display:flex;align-items:center;padding:0 .85rem}.settings-filters input{flex:1;border:0;background:transparent;outline:0}.settings-filters svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2}
+    .settings-table-wrap{overflow:hidden;border:1px solid var(--line);border-radius:1rem;background:rgba(255,255,255,.34)}.settings-table{width:100%;border-collapse:collapse}.settings-table th,.settings-table td{padding:.9rem;text-align:right;border-bottom:1px solid var(--line);font-weight:850}.settings-table th{color:#64748b;background:rgba(255,255,255,.24)}.status-pill{display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;padding:.32rem .65rem;font-weight:950}.status-pill.green{background:#d1fae5;color:#059669}.status-pill.slate{background:#e8eef6;color:#526582}.star{color:#2563eb}.row-actions{display:flex;gap:.45rem}.row-actions button{display:grid;width:2rem;height:2rem;place-items:center;border:1px solid #d8e2ef;border-radius:.55rem;background:#fff;color:#2563eb}.row-actions .danger{color:#ff3045}.row-actions svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2}
+    .general-settings-list{display:grid;gap:.9rem;margin-top:1rem}.glass-setting-row{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center;border-radius:1rem;padding:1.1rem}.glass-setting-row h3{margin:0 0 .45rem;font-size:1rem}.glass-setting-row code{color:#526582}.setting-control{display:flex;align-items:center;gap:.75rem}.setting-control input[type=number]{width:9rem;text-align:center}.switch input{display:none}.switch span{display:block;width:3.4rem;height:1.7rem;border-radius:999px;background:#e2e8f0;box-shadow:inset 0 1px 4px rgba(15,23,42,.12)}.switch span:before{content:"";display:block;width:1.35rem;height:1.35rem;margin:.17rem;border-radius:50%;background:#fff;transition:.18s}.switch input:checked+span{background:#2563eb}.switch input:checked+span:before{transform:translateX(-1.7rem)}
+    .general-settings-board+.general-settings-list{display:none}
+    .settings-layout-other{grid-template-columns:minmax(0,1fr)}.settings-layout-other>.settings-side-card{display:none}.settings-layout-other .settings-main-card{background:transparent;border:0;box-shadow:none;backdrop-filter:none;padding:0}
+    .general-settings-board{display:grid;grid-template-columns:280px minmax(0,1fr);gap:1rem;margin-top:1rem;direction:ltr}.general-settings-board>*{direction:rtl}
+    .settings-summary-panel,.settings-panel,.settings-changes-panel{border:1px solid rgba(255,255,255,.5);background:linear-gradient(145deg,rgba(255,255,255,.48),rgba(255,255,255,.22));box-shadow:0 24px 58px rgba(30,55,95,.055),inset 0 1px 0 rgba(255,255,255,.62);backdrop-filter:blur(34px) saturate(170%)}
+    .settings-summary-panel{display:grid;align-content:start;gap:.9rem;border-radius:1.18rem;padding:1rem}.settings-summary-panel h2,.settings-panel h2,.settings-changes-panel h2{display:flex;align-items:center;justify-content:space-between;gap:.7rem;margin:0 0 .6rem;color:#0b1935;font-size:1rem;font-weight:950}.settings-panel h2 svg,.settings-changes-panel h2 svg{width:1.25rem;height:1.25rem;fill:none;stroke:#6366f1;stroke-width:2}
+    .summary-tile{display:grid;grid-template-columns:auto 1fr;gap:.18rem .8rem;align-items:center;min-height:4.85rem;border:1px solid rgba(213,224,239,.75);border-radius:.95rem;background:rgba(255,255,255,.34);padding:.72rem .8rem}.summary-tile small{color:#64748b;font-weight:850}.summary-tile strong{display:block;max-width:10.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#13223f;font-size:.86rem;font-weight:950}.summary-icon{grid-row:1/3;display:grid;width:2.7rem;height:2.7rem;place-items:center;border-radius:50%}.summary-icon svg{width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-width:2}.summary-icon.blue{background:#e5edff;color:#2f64f5}.summary-icon.green{background:#dcfce7;color:#16a34a}.summary-icon.amber{background:#fff4d6;color:#f59e0b}.summary-icon.cyan{background:#dff8fb;color:#0891b2}
+    .general-settings-content{min-width:0}.settings-action-row{display:flex;justify-content:flex-start;gap:.75rem;margin-bottom:.85rem}.ghost-action{display:inline-flex;height:3.15rem;align-items:center;gap:.5rem;border:1px solid rgba(188,203,225,.75);border-radius:.9rem;background:rgba(255,255,255,.42);padding:0 1rem;color:#31415f;font-weight:900;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}.ghost-action svg{width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2}
+    .settings-card-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:.85rem}.settings-panel{min-height:13.2rem;border-radius:1.08rem;padding:1rem}.basic-panel{grid-column:5/span 4}.security-panel{grid-column:9/span 4}.notifications-panel{grid-column:1/span 4;grid-row:1/span 2}.appearance-panel{grid-column:5/span 4}.backup-panel{grid-column:1/span 4}.exam-panel{grid-column:5/span 8}
+    .compact-setting-row,.toggle-setting-row,.color-row,.logo-picker{display:grid;grid-template-columns:1fr minmax(8rem,12.5rem);gap:.75rem;align-items:center;margin:.55rem 0}.compact-setting-row label,.toggle-setting-row label,.color-row label,.logo-picker span{color:#54657f;font-weight:900}.compact-setting-row input,.color-row input{height:2.55rem;min-width:0;border:1px solid #d8e2ef;border-radius:.72rem;background:rgba(255,255,255,.56);padding:0 .8rem;color:#13223f;font-weight:900;text-align:center}.compact-setting-row input[type=number]{direction:ltr}
+    .switch-button{display:block;width:3.1rem;height:1.55rem;justify-self:start;border:0;border-radius:999px;background:#b8c2d2;padding:.17rem;box-shadow:inset 0 1px 5px rgba(15,23,42,.16);cursor:pointer}.switch-button span{display:block;width:1.2rem;height:1.2rem;border-radius:50%;background:#fff;transition:.18s}.switch-button.is-on{background:#3b82f6}.switch-button.is-on span{transform:translateX(-1.5rem)}
+    .toggle-setting-row{grid-template-columns:auto 1fr;justify-content:end}.theme-segment{display:grid;grid-template-columns:1fr 1fr;margin:.4rem 0 .75rem;border:1px solid #d8e2ef;border-radius:.8rem;background:rgba(255,255,255,.42);padding:.16rem}.theme-segment button{height:2.35rem;border:0;border-radius:.65rem;background:transparent;color:#64748b;font-weight:900}.theme-segment .is-active{background:rgba(255,255,255,.78);color:#2563eb;box-shadow:0 8px 18px rgba(37,99,235,.1)}
+    .logo-picker{grid-template-columns:1fr auto auto}.logo-picker button,.export-button{height:2.75rem;border:1px solid #d8e2ef;border-radius:.8rem;background:rgba(255,255,255,.44);padding:0 1rem;color:#334155;font-weight:900}.logo-picker b{display:grid;width:2.75rem;height:2.75rem;place-items:center;border-radius:.85rem;background:#2563eb;color:#fff;box-shadow:0 14px 28px rgba(37,99,235,.22)}.logo-picker svg,.export-button svg{width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2}.export-button{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;margin-top:.3rem}
+    .settings-preview-popover{position:fixed;z-index:130;left:1.4rem;bottom:1.4rem;width:min(360px,calc(100vw - 2rem));border:1px solid rgba(37,99,235,.2);border-radius:1rem;background:rgba(248,251,255,.96);box-shadow:0 24px 70px rgba(30,55,95,.18);padding:1rem;color:#0b1935;backdrop-filter:blur(18px)}.settings-preview-popover h3{margin:0 0 .65rem;font-size:1rem}.settings-preview-popover p{margin:.35rem 0;color:#526582;font-weight:900}
+    .color-row{grid-template-columns:1fr 7.5rem auto}.swatches{display:flex;gap:.48rem;align-items:center;justify-content:flex-start}.swatches i{display:block;width:1.22rem;height:1.22rem;border-radius:.35rem;background:#2563eb;box-shadow:inset 0 0 0 1px rgba(255,255,255,.55)}.swatches i:nth-child(2){background:#8b5cf6}.swatches i:nth-child(3){background:#22c55e}.swatches i:nth-child(4){background:#f59e0b}.swatches i:nth-child(5){background:#f97316}.swatches i:nth-child(6){background:#ef4444}.swatches .is-selected{outline:2px solid #2563eb;outline-offset:2px}
+    .settings-changes-panel{margin-top:.85rem;border-radius:1.08rem;padding:1rem}.settings-changes-panel .settings-table-wrap{background:rgba(255,255,255,.28)}.settings-changes-panel .settings-table th,.settings-changes-panel .settings-table td{padding:.72rem .8rem;font-size:.78rem}
+    .settings-glass{min-height:100dvh;margin-top:0;padding:0;background:radial-gradient(circle at 84% 12%,rgba(49,92,255,.14),transparent 26%),radial-gradient(circle at 22% 4%,rgba(16,185,129,.10),transparent 24%),radial-gradient(circle at 50% 92%,rgba(139,92,246,.10),transparent 34%),linear-gradient(180deg,#f8fbff 0,#eef4fb 100%);font-size:13px;overflow:hidden}
+    .settings-glass *{letter-spacing:0}
+    .settings-topbar{position:sticky;top:0;z-index:20;grid-template-columns:320px minmax(0,1fr) 320px;gap:1rem;height:82px;margin:0;padding:0 1.55rem 0 1.35rem;background:transparent;backdrop-filter:blur(42px) saturate(190%);-webkit-backdrop-filter:blur(42px) saturate(190%);box-shadow:none}
+    .settings-brand{gap:.8rem;font-size:1.55rem}.brand-mark{width:2.5rem;height:2.5rem;border-radius:1rem;background:#f0f5ff;color:#315cff}
+    .settings-nav{gap:.5rem}.settings-nav a{display:inline-flex;height:2.85rem;align-items:center;padding:0 1rem;border-radius:.85rem;font-size:1em;font-weight:850}.settings-nav a:hover{background:rgba(255,255,255,.42);transform:translateY(-1px);box-shadow:0 12px 28px rgba(49,92,255,.08),inset 0 1px 0 rgba(255,255,255,.65)}.settings-nav a.is-active{background:rgba(255,255,255,.48);box-shadow:0 12px 30px rgba(49,92,255,.10),inset 0 1px 0 rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.64);backdrop-filter:blur(18px)}
+    .settings-userbar{justify-content:flex-start;justify-self:start;direction:ltr;gap:.65rem}.settings-user{direction:ltr}.settings-user>div{direction:rtl}.settings-user>span{width:2.75rem;height:2.75rem}.settings-user b{max-width:7.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem}.settings-user small{font-size:.72rem}
+    .settings-userbar button{width:2.65rem;height:2.65rem;border:1px solid rgba(255,255,255,.66);background:rgba(255,255,255,.34);backdrop-filter:blur(22px) saturate(170%);box-shadow:0 12px 26px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.72)}
+    .settings-rail{top:94px;right:1.3rem;bottom:auto;width:72px;height:calc(100dvh - 112px);gap:.55rem;padding:.6rem;border-radius:1.35rem;background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.45));box-shadow:0 22px 55px rgba(30,55,95,.09),inset 0 1px 0 rgba(255,255,255,.88)}.settings-rail a{width:2.85rem;height:2.85rem;border-radius:.95rem}.settings-rail a.is-active{background:#eef4ff;box-shadow:0 10px 22px rgba(49,92,255,.1)}
+    .settings-hero{display:grid;margin:0 0 .85rem;padding:1rem 6.6rem 0 1.3rem}.settings-hero h1{font-size:1.7rem;line-height:1.55}.settings-hero p{font-size:.84rem}.date-pill{height:2rem;margin:0 0 .6rem;padding:0 .75rem;background:rgba(255,255,255,.25);font-size:.72rem}
+    .settings-glass .date-pill,.settings-glass .hero-icon{display:none!important}
+    .settings-glass .settings-hero{grid-template-columns:1fr!important;padding-top:.7rem!important;margin-bottom:.35rem!important}
+    .settings-layout{grid-template-columns:280px minmax(0,1fr);gap:1.15rem;padding:1rem 6.6rem 1.5rem 1.3rem}.settings-side-card,.settings-main-card,.settings-stats article,.glass-setting-row{border:1px solid rgba(255,255,255,.48);background:linear-gradient(145deg,rgba(255,255,255,.42),rgba(255,255,255,.18));backdrop-filter:blur(34px) saturate(170%);box-shadow:0 24px 58px rgba(30,55,95,.055),inset 0 1px 0 rgba(255,255,255,.62)}
+    .settings-side-card,.settings-main-card{border-radius:1.35rem}.settings-main-card{padding:.85rem}.settings-side-card h2,.settings-side-card h3,.settings-table h2{font-size:1.02rem}.settings-tabs{gap:.5rem;padding:.55rem}.settings-tabs a{min-height:3.45rem;border-radius:1rem;font-size:.9rem}
+    .settings-stats{gap:.85rem}.settings-stats article{min-height:122px;border-radius:1.08rem;padding:1rem}.settings-stats span{width:2.65rem;height:2.65rem;border-radius:.95rem}.settings-stats small{font-size:.78rem}.settings-stats strong{font-size:1rem}
+    .settings-filters{gap:.8rem}.settings-filters button,.settings-filters label,.term-create-panel input,.term-create-panel select,.settings-filters input,.glass-setting-row input{height:2.85rem;border-radius:.85rem;font-size:.82rem}.settings-table th{font-size:.75rem}.settings-table td{font-size:.8rem;padding:.78rem .7rem}.status-pill{font-size:.72rem}.primary-action,.term-create-panel button,.glass-setting-row button{height:3.45rem;border-radius:1rem;padding:0 .9rem;font-size:.88rem}
+    .settings-layout.settings-layout-other{grid-template-columns:minmax(0,1fr)!important;direction:rtl}.settings-layout.settings-layout-other>.settings-side-card{display:none!important}.settings-layout.settings-layout-other>.settings-main-card{grid-column:1/-1;width:100%;min-width:0;background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;padding:0!important}.settings-layout-other .general-settings-board{grid-template-columns:280px minmax(0,1fr);width:100%;min-width:0}.settings-layout-other .settings-card-grid{min-width:0}
+    .settings-tabs{direction:ltr!important;overflow:hidden;border:1px solid rgba(207,220,241,.52);background:rgba(255,255,255,.24)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.66)}.settings-tabs>*{direction:rtl}.settings-tabs a{background:rgba(255,255,255,.28)!important;color:#1f2e49!important;border-color:rgba(211,222,239,.55)!important;box-shadow:none!important}.settings-tabs a.is-active{background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(239,246,255,.54))!important;color:#2563eb!important;border-color:#9fc2ff!important;box-shadow:inset 0 0 0 1px rgba(37,99,235,.12),0 10px 26px rgba(37,99,235,.12)!important;outline:0!important}.settings-tabs a.is-active svg{stroke:#2563eb}
+    .settings-tabs{height:3.25rem!important;margin-bottom:.72rem!important;padding:.28rem!important;border-radius:.95rem!important}
+    .settings-tabs a{min-height:2.65rem!important;border-radius:.72rem!important;font-size:.88rem!important;font-weight:950!important;gap:.55rem!important}
+    .settings-tabs svg{width:1.15rem!important;height:1.15rem!important}
+    body:has(.settings-screen) .super-admin-chrome{display:block!important;height:82px!important}
+    body:has(.settings-screen) .super-admin-topbar{position:fixed!important;top:-1px!important;right:0!important;left:0!important;z-index:90!important;display:grid!important;background:linear-gradient(90deg,#e8f7f8 0%,#eef7ff 44%,#eaf2ff 100%)!important;border:0!important;box-shadow:none!important}
+    body:has(.settings-screen) .super-admin-rail{display:flex!important}
+    .settings-screen .settings-topbar,.settings-screen .settings-rail{display:none!important}
+    body:has(.settings-screen),html:has(body .settings-screen){min-height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:none!important;-ms-overflow-style:none!important}
+    body:has(.settings-screen) .app-shell{height:100dvh!important;overflow:hidden!important}
+    body:has(.settings-screen) .app-main{height:calc(100dvh - 82px)!important;min-height:calc(100dvh - 82px)!important;overflow:auto!important;padding:1rem 6.6rem 1.5rem 1.3rem!important;scrollbar-width:none!important;-ms-overflow-style:none!important}
+    body:has(.settings-screen)::-webkit-scrollbar,html:has(body .settings-screen)::-webkit-scrollbar,body:has(.settings-screen) .app-main::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+    .settings-screen.settings-glass{min-height:calc(100dvh - 82px)!important;height:auto!important;padding:0!important;overflow:visible;background:transparent!important}
+    .settings-screen .settings-hero{display:block!important;margin:0!important;padding:1.05rem 8.1rem .8rem 1.75rem!important;text-align:right!important}
+    .settings-screen .settings-hero h1{font-size:1.45rem!important;line-height:1.45!important}
+    .settings-screen .settings-hero p{font-size:.8rem!important;margin-top:.15rem!important}
+    .settings-screen .settings-layout{grid-template-columns:280px minmax(0,1fr)!important;align-items:stretch!important;gap:.7rem!important;padding:0 8.1rem 1.05rem 1.35rem!important;min-height:calc(100dvh - 78px)!important}
+    .settings-screen .settings-side-card{min-height:auto!important;border-radius:1.18rem!important;padding:.75rem!important;background:linear-gradient(145deg,rgba(255,255,255,.62),rgba(255,255,255,.28))!important;box-shadow:0 18px 46px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.72)!important}
+    .settings-screen .settings-side-card h2{height:3.25rem!important;margin:0 0 .75rem!important;padding:0 1rem!important;border-radius:.9rem!important;background:rgba(255,255,255,.42)!important}
+    .settings-screen .settings-side-card dl{gap:.2rem!important}
+    .settings-screen .settings-side-card dl>div{display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:2.72rem!important;border-bottom:1px solid rgba(129,153,185,.16)!important}
+    .settings-screen .settings-side-card dt,.settings-screen .settings-side-card dd{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important}
+    .settings-screen .settings-side-card dt{max-width:54%!important}
+    .settings-screen .settings-side-card dd{max-width:44%!important;text-align:left!important;font-size:.95rem!important;white-space:nowrap!important}
+    .settings-screen .settings-side-card hr,.settings-screen .settings-side-card h3,.settings-screen .settings-side-card a{display:none!important}
+    .settings-screen .settings-main-card{border-radius:1.18rem!important;padding:.72rem!important;background:linear-gradient(145deg,rgba(255,255,255,.58),rgba(255,255,255,.22))!important;box-shadow:0 18px 52px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.75)!important}
+    .settings-screen .settings-tabs{height:3.25rem!important;margin-bottom:.72rem!important;padding:.28rem!important;border-radius:.95rem!important}
+    .settings-screen .settings-tabs a{min-height:2.65rem!important;border-radius:.72rem!important;font-size:.88rem!important}
+    .settings-screen .terms-toolbar,.settings-screen .settings-action-row{display:flex!important;justify-content:flex-start!important;direction:ltr!important;margin:.55rem 0 .78rem!important;gap:.62rem!important}
+    .settings-screen .terms-toolbar>*,.settings-screen .settings-action-row>*{direction:rtl}
+    .settings-screen .primary-action,.settings-screen .ghost-action{height:2.85rem!important;border-radius:.9rem!important;font-size:.88rem!important;box-sizing:border-box!important}
+    .settings-screen .settings-stats{gap:.82rem!important;margin:.45rem 0 .82rem!important}
+    .settings-screen .settings-stats article{min-height:154px!important;border-radius:.95rem!important;background:linear-gradient(145deg,rgba(255,255,255,.7),rgba(255,255,255,.34))!important;box-shadow:0 16px 38px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.75)!important}
+    .settings-screen .settings-filters{margin:.55rem 0 .78rem!important;gap:.62rem!important}
+    .settings-screen .settings-filters button,.settings-screen .settings-filters label{height:2.7rem!important;border-radius:.85rem!important}
+    .settings-layout.settings-layout-other{grid-template-columns:280px minmax(0,1fr)!important;direction:ltr!important}.settings-layout.settings-layout-other>*{direction:rtl}.settings-layout.settings-layout-other>.settings-side-card{display:block!important}.settings-layout.settings-layout-other>.settings-main-card{grid-column:auto;width:auto;background:linear-gradient(145deg,rgba(255,255,255,.42),rgba(255,255,255,.18))!important;border:1px solid rgba(255,255,255,.48)!important;border-radius:1.35rem!important;box-shadow:0 24px 58px rgba(30,55,95,.055),inset 0 1px 0 rgba(255,255,255,.62)!important;backdrop-filter:blur(34px) saturate(170%)!important;padding:.85rem!important}.settings-layout-other .general-settings-board{display:block;width:100%;margin-top:1rem;direction:rtl}.settings-layout-other .settings-summary-panel{display:none!important}.settings-layout-other .settings-side-card dl div:nth-child(n+5){display:none}.settings-layout-other .settings-side-card{max-height:calc(100dvh - 148px);overflow:hidden}
+    .settings-screen .settings-layout.settings-layout-other>.settings-main-card{border-radius:1.18rem!important;padding:.72rem!important;background:linear-gradient(145deg,rgba(255,255,255,.58),rgba(255,255,255,.22))!important;box-shadow:0 18px 52px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.75)!important}
+    .settings-screen,.settings-screen *{box-sizing:border-box}.settings-screen{max-width:100vw;overflow-x:hidden!important}.settings-screen .settings-side-card dl div,.settings-screen .settings-side-card dd{min-width:0}.settings-screen .settings-side-card dd{max-width:100%;overflow-wrap:anywhere;word-break:break-word;line-height:1.65}.settings-screen .settings-layout,.settings-screen .settings-main-card{max-width:100%;min-width:0}
+    @media (max-width:1100px){.settings-glass{padding-right:1rem;overflow:auto}.settings-topbar{grid-template-columns:1fr;margin:0 -1rem;padding:0 1rem}.settings-brand,.settings-userbar{display:none}.settings-layout{grid-template-columns:1fr;padding:1rem}.settings-rail{display:none}.settings-stats,.settings-filters,.term-create-panel{grid-template-columns:1fr}.settings-tabs{grid-template-columns:1fr}.settings-nav{overflow:auto;justify-content:flex-start}}
+</style>
+
+<script>
+    (() => {
+        const search = document.querySelector('[data-settings-search]');
+        search?.addEventListener('input', () => {
+            const q = search.value.trim().toLowerCase();
+            document.querySelectorAll('[data-filter-row]').forEach((row) => {
+                row.hidden = q && !row.textContent.toLowerCase().includes(q);
+            });
+        });
+
+        const form = document.querySelector('[data-general-settings-form]');
+        const syncSwitch = (button) => {
+            const input = button.previousElementSibling?.matches('[data-boolean-value]')
+                ? button.previousElementSibling
+                : null;
+            const isOn = input?.value === 'on';
+            button.classList.toggle('is-on', isOn);
+            button.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        };
+        document.querySelectorAll('[data-boolean-toggle]').forEach((button) => {
+            syncSwitch(button);
+            button.addEventListener('click', () => {
+                const input = button.previousElementSibling?.matches('[data-boolean-value]')
+                    ? button.previousElementSibling
+                    : null;
+                if (!input) return;
+                input.value = input.value === 'on' ? 'off' : 'on';
+                syncSwitch(button);
+            });
+        });
+
+        document.querySelector('[data-logo-picker]')?.addEventListener('click', () => {
+            document.getElementById('system-logo-file')?.click();
+        });
+
+        document.getElementById('system-logo-file')?.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const picker = document.querySelector('[data-logo-picker]');
+            if (picker) picker.textContent = file.name;
+        });
+
+        document.querySelectorAll('[data-theme-option]').forEach((button) => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('[data-theme-option]').forEach((item) => item.classList.remove('is-active'));
+                button.classList.add('is-active');
+                const input = document.querySelector('[data-theme-mode]');
+                if (input) input.value = button.dataset.themeOption || 'روشن';
+            });
+        });
+
+        document.querySelectorAll('[data-color]').forEach((swatch) => {
+            swatch.addEventListener('click', () => {
+                document.querySelectorAll('[data-color]').forEach((item) => item.classList.remove('is-selected'));
+                swatch.classList.add('is-selected');
+                const input = document.querySelector('[data-primary-color]');
+                if (input) input.value = swatch.dataset.color || '#2563EB';
+            });
+        });
+
+        document.querySelector('[data-settings-reset]')?.addEventListener('click', () => {
+            window.setTimeout(() => {
+                document.querySelectorAll('[data-boolean-toggle]').forEach(syncSwitch);
+            }, 0);
+        });
+
+        document.querySelector('[data-settings-preview]')?.addEventListener('click', () => {
+            if (!form) return;
+            document.querySelector('.settings-preview-popover')?.remove();
+            const data = new FormData(form);
+            const preview = document.createElement('section');
+            preview.className = 'settings-preview-popover';
+            preview.innerHTML = `
+                <h3>پیش‌نمایش تنظیمات</h3>
+                <p>نام سامانه: ${data.get('settings_site_name') || '-'}</p>
+                <p>زبان: ${data.get('settings_default_language') || '-'}</p>
+                <p>تم: ${data.get('settings_theme_mode') || '-'}</p>
+                <p>رنگ اصلی: ${data.get('settings_primary_color') || '-'}</p>
+            `;
+            document.body.appendChild(preview);
+            window.setTimeout(() => preview.remove(), 5000);
+        });
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}ورود گروهی اساتید | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page manager-bulk-page teacher-bulk-page" dir="rtl">
+    <header class="manager-bulk-hero">
+        <div class="manager-bulk-title">
+            <span class="manager-bulk-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0"/><circle cx="12" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+            </span>
+            <div>
+                <p>اساتید / ورود گروهی</p>
+                <h1>ورود گروهی اساتید</h1>
+                <span>{% if step == 1 %}بارگذاری فایل Excel یا CSV اساتید{% elif step == 2 %}تطبیق ستون‌های فایل با فیلدهای سامانه{% elif step == 3 %}بررسی و رفع خطاهای فایل{% else %}خلاصه ورود گروهی و ثبت نهایی{% endif %}</span>
+            </div>
+        </div>
+        <a class="manager-bulk-secondary" href="{{ back_url }}">بازگشت به فهرست اساتید</a>
+    </header>
+
+    <ol class="manager-bulk-steps">
+        {% for item in steps %}
+            <li class="{% if item.number < step %}is-done{% elif item.number == step %}is-active{% endif %}">
+                <b>{% if item.number < step %}<svg viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg>{% else %}{{ item.number|fa_digits }}{% endif %}</b>
+                <span>{{ item.label }}</span>
+            </li>
+        {% endfor %}
+    </ol>
+
+    <form method="post" enctype="multipart/form-data" class="manager-bulk-form">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="{{ step }}">
+
+        {% if step == 1 %}
+            <div class="manager-bulk-grid">
+                <section class="manager-bulk-upload">
+                    <h2>بارگذاری فایل اساتید</h2>
+                    <label class="manager-bulk-drop">
+                        <input type="file" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 16.5A4.5 4.5 0 0 0 11.5 13H11a4 4 0 1 0 0 8h9a3 3 0 0 0 0-6Z"/><path d="M12 19v-7"/><path d="m8 16 4-4 4 4"/></svg>
+                        <strong>فایل Excel یا CSV را اینجا رها کنید</strong>
+                        <span>یا برای انتخاب فایل کلیک کنید</span>
+                        <small>حداکثر حجم ۲۰ مگابایت</small>
+                        <em>انتخاب فایل</em>
+                    </label>
+                    <div class="manager-bulk-note">فرمت‌های پشتیبانی‌شده: CSV ،XLS ،XLSX</div>
+                </section>
+                <aside class="manager-bulk-side">
+                    <article>
+                        <h2>قبل از بارگذاری</h2>
+                        <p>ابتدا فایل نمونه را دریافت و تکمیل کنید.</p>
+                        <a href="?bulk_action=sample">دانلود فایل نمونه</a>
+                    </article>
+                    <article>
+                        <h2>ستون‌های فایل</h2>
+                        <div class="manager-bulk-tags">
+                            <strong>الزامی</strong>
+                            {% for field in required_fields %}<span>{{ field.label }}</span>{% endfor %}
+                        </div>
+                        <div class="manager-bulk-tags is-optional">
+                            <strong>اختیاری</strong>
+                            {% for field in optional_fields %}<span>{{ field.label }}</span>{% endfor %}
+                        </div>
+                    </article>
+                </aside>
+            </div>
+
+        {% elif step == 2 %}
+            <div class="manager-bulk-stats">
+                <article><span class="is-blue">{{ headers|length|fa_digits }}</span><b>ستون شناسایی شد</b></article>
+                <article><span class="is-green">{{ matched_headers|fa_digits }}</span><b>ستون تطبیق شد</b></article>
+                <article><span class="is-blue">{{ optional_count|fa_digits }}</span><b>ستون اختیاری</b></article>
+                <article><span class="is-green">✓</span><b>{{ draft.filename }}</b></article>
+            </div>
+            <div class="manager-bulk-map-layout">
+                <section class="manager-bulk-panel">
+                    <h2>تطبیق ستون‌های فایل</h2>
+                    <table class="manager-bulk-map-table">
+                        <thead><tr><th>ستون فایل</th><th>نمونه داده</th><th>فیلد سامانه</th><th>وضعیت</th></tr></thead>
+                        <tbody>
+                            {% for field in field_defs %}
+                                {% with selected=draft.mapping|get_item:field.key %}
+                                <tr>
+                                    <td>{{ selected|default:"-" }}</td>
+                                    <td>{{ first_row|get_item:selected|default:"-"|fa_digits }}</td>
+                                    <td>
+                                        <select name="map_{{ field.key }}" {% if field.required %}required{% endif %}>
+                                            <option value="">انتخاب کنید{% if not field.required %} (اختیاری){% endif %}</option>
+                                            {% for header in headers %}
+                                                <option value="{{ header }}" {% if selected == header %}selected{% endif %}>{{ header }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>{% if selected %}<span class="manager-bulk-status is-ok">تطبیق شد</span>{% elif field.required %}<span class="manager-bulk-status is-error">الزامی</span>{% else %}<span class="manager-bulk-status is-warn">اختیاری</span>{% endif %}</td>
+                                </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </section>
+                <aside class="manager-bulk-help">
+                    <h2>فیلدهای ضروری</h2>
+                    <p>این فیلدها برای ثبت اساتید الزامی هستند.</p>
+                    {% for field in required_fields %}
+                        <div>{{ field.label }}</div>
+                    {% endfor %}
+                </aside>
+            </div>
+
+        {% elif step == 3 %}
+            <div class="manager-bulk-stats">
+                <article><span class="is-blue">{{ draft.total_rows|default:0|fa_digits }}</span><b>ردیف</b></article>
+                <article><span class="is-green">{{ counts.ok|default:0|fa_digits }}</span><b>آماده ثبت</b></article>
+                <article><span class="is-orange">{{ counts.warning|default:0|fa_digits }}</span><b>هشدار</b></article>
+                <article><span class="is-red">{{ counts.error|default:0|fa_digits }}</span><b>خطا</b></article>
+            </div>
+            <section class="manager-bulk-panel">
+                <header class="manager-bulk-panel-head">
+                    <h2>بررسی و رفع خطاها</h2>
+                    <div class="manager-bulk-filters"><span>همه</span><span>سالم</span><span>هشدار</span><span>خطادار</span></div>
+                </header>
+                <table class="manager-bulk-review-table">
+                    <thead><tr><th>ردیف</th><th>نام و نام خانوادگی</th><th>کد ملی</th><th>شماره همراه</th><th>واحد سازمانی</th><th>وضعیت</th><th>پیام</th></tr></thead>
+                    <tbody>
+                        {% for record in records %}
+                            <tr class="is-{{ record.level }}">
+                                <td>{{ forloop.counter|fa_digits }}</td>
+                                <td>{{ record.full_name }}</td>
+                                <td>{{ record.national_id|fa_digits }}</td>
+                                <td>{{ record.phone|fa_digits }}</td>
+                                <td>{{ record.org_unit_label }}</td>
+                                <td><span class="manager-bulk-status is-{{ record.level }}">{% if record.level == 'error' %}خطا{% elif record.level == 'warning' %}هشدار{% else %}سالم{% endif %}</span></td>
+                                <td>{% for issue in record.issues %}{{ issue }}{% if not forloop.last %}، {% endif %}{% empty %}-{% endfor %}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="7">فایلی برای بررسی بارگذاری نشده است.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+        {% else %}
+            <div class="manager-bulk-final">
+                <section class="manager-bulk-panel">
+                    <h2>خلاصه ورود گروهی</h2>
+                    <div class="student-bulk-final-stats">
+                        <article><b>{{ valid_count|fa_digits }}</b><span>استاد آماده ثبت</span></article>
+                        <article><b>{{ counts.warning|default:0|fa_digits }}</b><span>مورد با هشدار</span></article>
+                        <article><b>{{ counts.error|default:0|fa_digits }}</b><span>ردیف ردشده</span></article>
+                    </div>
+                    <h3>فایل بارگذاری‌شده</h3>
+                    <dl><div><dt>فایل</dt><dd>{{ draft.filename }}</dd></div></dl>
+                    <h3>تعداد بر اساس مرتبه علمی</h3>
+                    <ul>{% for label,count in rank_summary.items %}<li><span>{{ label }}</span><b>{{ count|fa_digits }}</b></li>{% endfor %}</ul>
+                </section>
+                <section class="manager-bulk-panel">
+                    <h2>تنظیمات ثبت</h2>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="create_accounts" checked><span></span>ایجاد حساب کاربری برای اساتید جدید</label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="send_activation" checked><span></span>ارسال پیامک اطلاعات ورود</label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="skip_warnings"><span></span>نادیده گرفتن ردیف‌های هشدار</label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="keep_history" checked><span></span>ثبت تاریخچه ورود گروهی</label>
+                    <div class="manager-bulk-note">اساتید جدید پس از ثبت به فهرست اساتید افزوده می‌شوند.</div>
+                    <label class="manager-bulk-confirm"><input type="checkbox" name="confirm_final" required> اطلاعات بررسی شده و مورد تایید است</label>
+                </section>
+            </div>
+        {% endif %}
+
+        <footer class="manager-bulk-actions">
+            {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="manager-bulk-secondary">مرحله قبل</button>{% endif %}
+            <div>
+                <button type="submit" name="wizard_action" value="cancel" class="manager-bulk-link">انصراف</button>
+                <button type="submit" name="wizard_action" value="save_draft" class="manager-bulk-secondary">ذخیره موقت</button>
+                <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="manager-bulk-primary">
+                    {% if step == 1 %}ادامه و تطبیق ستون‌ها{% elif step == 2 %}بررسی اطلاعات{% elif step == 3 %}ادامه به ثبت نهایی{% else %}ثبت نهایی {{ valid_count|fa_digits }} استاد{% endif %}
+                    <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+            </div>
+        </footer>
+    </form>
+</section>
+{% endblock %}

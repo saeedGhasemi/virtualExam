@@ -1,98 +1,100 @@
-{% load static %}
+﻿{% load static %}
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ورود به سیستم</title>
+    <title>ورود | متا کوییز</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="shortcut icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="alternate icon" type="image/svg+xml" href="{% static 'img/metaquiz-logo.svg' %}?v=20260805">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
 </head>
-<body class="login-page">
-    <main class="login-shell">
-        <header class="login-topbar">
-            <a href="{% url 'core:home' %}" class="login-brand" aria-label="صفحه اصلی">
-                <span class="login-brand-mark" aria-hidden="true"></span>
+<body class="auth-page">
+    <main class="auth-card">
+        <section class="auth-art" aria-label="تصویر امتحان آنلاین">
+            <a href="{% url 'core:home' %}" class="auth-logo">
+                <span aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+                <strong>متا<br>کوییز</strong>
             </a>
-            <a href="/admin/" class="login-register-link">ثبت‌نام</a>
-        </header>
 
-        <section class="login-stage" aria-label="ورود">
-            <div class="login-form-panel">
-                <div class="login-heading-row">
-                    <h1>ورود به حساب کاربری</h1>
-                    <div class="login-socials" aria-label="ورود با شبکه‌های اجتماعی">
-                        <span>ورود با</span>
-                        <button type="button" aria-label="Facebook">f</button>
-                        <button type="button" aria-label="Google">G</button>
-                        <button type="button" aria-label="LinkedIn">in</button>
-                    </div>
-                </div>
-
-                {% if form.errors %}
-                    <div class="login-error">نام کاربری یا رمز عبور درست نیست.</div>
-                {% endif %}
-
-                <form method="post" class="login-form">
-                    {% csrf_token %}
-                    {% if next %}
-                        <input type="hidden" name="next" value="{{ next }}">
-                    {% endif %}
-
-                    <label for="{{ form.username.id_for_label }}">ایمیل یا نام کاربری</label>
-                    {{ form.username }}
-
-                    <label for="{{ form.password.id_for_label }}">رمز عبور</label>
-                    <div class="login-password-field">
-                        {{ form.password }}
-                        <span class="login-eye" aria-hidden="true"></span>
-                    </div>
-
-                    <div class="login-form-actions">
-                        <a href="/admin/password_reset/">فراموشی رمز؟</a>
-                        <button type="submit">ورود</button>
-                    </div>
-                </form>
-
-                <div class="login-demo-shortcuts" aria-label="ورود سریع نقش‌ها">
-                    <span>ورود سریع</span>
-                    <div>
-                        <button type="button" data-login-user="super_admin" data-login-pass="Demo@12345">مدیر کل</button>
-                        <button type="button" data-login-user="institution_admin" data-login-pass="Demo@12345">مدیر مؤسسه</button>
-                        <button type="button" data-login-user="exam_manager" data-login-pass="Demo@12345">مسئول امتحانات</button>
-                        <button type="button" data-login-user="teacher" data-login-pass="Demo@12345">استاد</button>
-                        <button type="button" data-login-user="teaching_assistant" data-login-pass="Demo@12345">دستیار</button>
-                        <button type="button" data-login-user="student" data-login-pass="Demo@12345">دانشجو</button>
-                    </div>
-                    <small>رمز همه نقش‌های نمونه: Demo@12345</small>
-                </div>
+            <div class="auth-illustration">
+                <img src="{% static 'img/online-exam-3d.png' %}" alt="تصویر سه‌بعدی امتحان آنلاین">
             </div>
 
-            <div class="login-art" aria-hidden="true">
-                <img src="{% static 'img/login-illustration.png' %}" alt="">
-            </div>
+            <p class="auth-credit">متا کوییز<br>سامانه هوشمند امتحان آنلاین</p>
         </section>
 
-        <footer class="login-footer">
-            <span>© ۲۰۲۶ تمامی حقوق محفوظ است</span>
-            <a href="#">شرایط استفاده</a>
-            <a href="#">حریم خصوصی</a>
-            <a href="#">راهنما</a>
-            <div class="login-dots" aria-hidden="true">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </footer>
+        <section class="auth-login-panel" aria-labelledby="login-title">
+            <form method="post" class="auth-form">
+                {% csrf_token %}
+                {% if next %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
+                {% if request.GET.code %}
+                    <input type="hidden" name="exam_code" value="{{ request.GET.code }}">
+                    <div class="auth-code-alert">کد آزمون: <strong>{{ request.GET.code }}</strong></div>
+                {% endif %}
+                {% if form.errors %}
+                    <div class="auth-error">نام کاربری یا رمز عبور درست نیست.</div>
+                {% endif %}
+
+                <h1 id="login-title">ورود</h1>
+
+                <label class="auth-field">
+                    <span>نام کاربری</span>
+                    <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" placeholder="نام کاربری خود را وارد کنید" required>
+                </label>
+
+                <label class="auth-field">
+                    <span>رمز عبور</span>
+                    <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" autocomplete="current-password" placeholder="رمز عبور خود را وارد کنید" required>
+                </label>
+
+                <a class="auth-forgot" href="/admin/password_reset/">رمز عبور را فراموش کرده‌اید؟</a>
+
+                <button type="submit" class="auth-submit">ورود به سامانه</button>
+
+                <section class="auth-quick-login" aria-label="دسترسی سریع نقش‌ها">
+                    <nav>
+                        <a href="#" data-username="education_manager" data-password="Edu@12345" title="مدیر آموزشی" aria-label="ورود سریع مدیر آموزشی">
+                            <span>▣</span>
+                            <strong>مدیر آموزشی</strong>
+                        </a>
+                        <a href="#" data-username="system_admin" data-password="Admin@12345" title="مدیر سامانه" aria-label="ورود سریع مدیر سامانه">
+                            <span>▢</span>
+                            <strong>مدیر سامانه</strong>
+                        </a>
+                        <a href="#" data-username="student_demo" data-password="Student@12345" title="دانشجو" aria-label="ورود سریع دانشجو">
+                            <span>▱</span>
+                            <strong>دانشجو</strong>
+                        </a>
+                        <a href="#" data-username="teacher_demo" data-password="Teacher@12345" title="استاد" aria-label="ورود سریع استاد">
+                            <span>▥</span>
+                            <strong>استاد</strong>
+                        </a>
+                    </nav>
+                </section>
+
+                <p class="auth-register">
+                    حساب کاربری ندارید؟<br>
+                    <a class="auth-signup-link" href="{% url 'core:register' %}">ثبت‌نام کنید</a>
+                </p>
+            </form>
+
+            <a class="auth-terms" href="{% url 'core:home' %}#faq">قوانین و حریم خصوصی</a>
+            <p class="auth-contact">نیاز به کمک دارید؟<br>support@metaquiz.ir</p>
+        </section>
     </main>
     <script>
-        document.querySelectorAll('[data-login-user]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const form = document.querySelector('.login-form');
-                const username = form.querySelector('input[name="username"]');
-                const password = form.querySelector('input[name="password"]');
-                username.value = button.dataset.loginUser;
-                password.value = button.dataset.loginPass;
-                form.requestSubmit();
+        document.querySelectorAll('.auth-quick-login a[data-username]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                const username = document.getElementById('{{ form.username.id_for_label }}');
+                const password = document.getElementById('{{ form.password.id_for_label }}');
+                username.value = button.dataset.username;
+                password.value = button.dataset.password;
+                document.querySelector('.auth-submit').focus();
             });
         });
     </script>

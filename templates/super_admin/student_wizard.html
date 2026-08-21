@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}افزودن دانشجوی جدید | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page teacher-wizard-page student-wizard-page" dir="rtl">
+    <header class="teacher-wizard-head">
+        <div class="teacher-wizard-title">
+            <span class="teacher-wizard-title-icon"><svg viewBox="0 0 24 24"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg></span>
+            <div>
+                <h1>افزودن دانشجوی جدید</h1>
+                <p>دانشجویان / افزودن دانشجوی جدید</p>
+            </div>
+        </div>
+        <nav class="teacher-profile-role-tabs teacher-wizard-tabs">
+            <a href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
+            <a href="{% url 'core:super_admin_users' %}?tab=teachers">اساتید</a>
+            <a class="is-active" href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
+        </nav>
+    </header>
+
+    <main class="teacher-wizard-card">
+        <a class="teacher-wizard-back" href="{{ back_url }}"><svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>بازگشت به فهرست دانشجویان</a>
+        <ol class="teacher-wizard-steps">
+            {% for item in steps %}
+                <li class="{% if item.number < step %}is-done{% elif item.number == step %}is-active{% endif %}">
+                    <span>{% if item.number < step %}<svg viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg>{% else %}{{ item.number|fa_digits }}{% endif %}</span>
+                    <b>{{ item.label }}</b>
+                </li>
+            {% endfor %}
+        </ol>
+
+        <form method="post" class="teacher-wizard-form">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ step }}">
+
+            {% if step == 1 %}
+                <section class="teacher-wizard-panel">
+                    <header><h2>اطلاعات پایه دانشجو</h2></header>
+                    <div class="teacher-wizard-basic">
+                        <div class="teacher-wizard-photo"><div><span>د</span></div><button type="button">بارگذاری تصویر</button></div>
+                        <div class="teacher-wizard-grid">
+                            <label>نام <input name="first_name" value="{{ draft.first_name|default:'' }}" required></label>
+                            <label>نام خانوادگی <input name="last_name" value="{{ draft.last_name|default:'' }}" required></label>
+                            <label>کد / شماره دانشجویی <input name="student_number" value="{{ draft.student_number|default:'' }}" required></label>
+                            <label>کد ملی <input name="national_id" value="{{ draft.national_id|default:'' }}"></label>
+                            <label>شماره همراه <input name="phone" value="{{ draft.phone|default:'' }}"></label>
+                            <label>ایمیل <input type="email" name="email" value="{{ draft.email|default:'' }}"></label>
+                        </div>
+                    </div>
+                </section>
+            {% elif step == 2 %}
+                <section class="teacher-wizard-panel">
+                    <header><h2>اطلاعات تحصیلی و انتساب سازمانی</h2></header>
+                    <div class="teacher-wizard-grid">
+                        <label>سال ورود <input name="entry_year" value="{{ draft.entry_year|default:'' }}" placeholder="1403" required></label>
+                        <label>نیمسال ورود <select name="semester" required><option value="">انتخاب نیمسال</option><option {% if draft.semester == "نیمسال اول" %}selected{% endif %}>نیمسال اول</option><option {% if draft.semester == "نیمسال دوم" %}selected{% endif %}>نیمسال دوم</option><option {% if draft.semester == "تابستان" %}selected{% endif %}>تابستان</option></select></label>
+                        <label>مقطع تحصیلی <select name="degree" required><option value="">انتخاب مقطع</option><option {% if draft.degree == "کارشناسی" %}selected{% endif %}>کارشناسی</option><option {% if draft.degree == "کارشناسی ارشد" %}selected{% endif %}>کارشناسی ارشد</option><option {% if draft.degree == "دکتری" %}selected{% endif %}>دکتری</option></select></label>
+                        <label>رشته تحصیلی <input name="field_of_study" value="{{ draft.field_of_study|default:'' }}" required></label>
+                        <label>نوع پذیرش <select name="admission_type"><option {% if draft.admission_type == "روزانه" %}selected{% endif %}>روزانه</option><option {% if draft.admission_type == "شبانه" %}selected{% endif %}>شبانه</option><option {% if draft.admission_type == "پردیس" %}selected{% endif %}>پردیس</option></select></label>
+                        <label>وضعیت تحصیلی <select name="academic_status"><option value="active">در حال تحصیل</option><option value="leave">مرخصی</option><option value="graduated">فارغ التحصیل</option><option value="inactive">غیرفعال</option></select></label>
+                        <label class="is-wide">انتساب سازمانی
+                            <select name="org_unit_id">
+                                <option value="">انتخاب از ساختار</option>
+                                {% for unit in org_units %}
+                                    <option value="{{ unit.id }}" {% if draft.org_unit_id == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    </div>
+                </section>
+            {% elif step == 3 %}
+                <section class="teacher-wizard-panel">
+                    <header><h2>گروه و درس‌ها</h2></header>
+                    <div class="student-choice-layout">
+                        <aside class="student-choice-summary">
+                            <strong>خلاصه انتخاب‌ها</strong>
+                            <div><b>{{ selected_group_ids|length|fa_digits }}</b><span>گروه</span></div>
+                            <div><b>{{ selected_course_ids|length|fa_digits }}</b><span>درس</span></div>
+                        </aside>
+                        <div class="student-choice-main">
+                            <strong>عضویت در گروه‌ها</strong>
+                            <div class="student-group-picker">
+                                {% for group in groups %}
+                                    <label><input type="checkbox" name="group_ids" value="{{ group.id }}" {% if group.id|stringformat:"s" in selected_group_ids %}checked{% endif %}> {{ group.group_code|default:"گروه" }} · {{ group.course_name|fa_digits }}</label>
+                                {% empty %}
+                                    <p>گروهی برای انتخاب ثبت نشده است.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="teacher-wizard-table-wrap">
+                        <table class="teacher-wizard-table">
+                            <thead><tr><th>انتخاب</th><th>نام درس</th><th>کد درس</th><th>واحد</th></tr></thead>
+                            <tbody>
+                                {% for course in courses %}
+                                    <tr><td><input type="checkbox" name="course_ids" value="{{ course.id }}" {% if course.id|stringformat:"s" in selected_course_ids %}checked{% endif %}></td><td>{{ course.title|fa_digits }}</td><td>{{ course.code|default:"-"|fa_digits }}</td><td>{{ course.credit_units|default:"-"|fa_digits }}</td></tr>
+                                {% empty %}
+                                    <tr><td colspan="4">درسی برای انتخاب ثبت نشده است.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            {% else %}
+                <section class="teacher-wizard-final">
+                    <article class="teacher-wizard-summary">
+                        <a href="?step=1">ویرایش</a>
+                        <h2>خلاصه اطلاعات دانشجو</h2>
+                        <dl>
+                            <div><dt>نام دانشجو:</dt><dd>{{ draft.first_name }} {{ draft.last_name }}</dd></div>
+                            <div><dt>کد دانشجویی:</dt><dd>{{ draft.student_number|fa_digits }}</dd></div>
+                            <div><dt>رشته تحصیلی:</dt><dd>{{ draft.field_of_study|default:"-" }}</dd></div>
+                            <div><dt>ورودی:</dt><dd>{{ draft.entry_year|default:"-"|fa_digits }}</dd></div>
+                            <div><dt>مسیر سازمانی:</dt><dd>{{ active_unit.label|default:"-" }}</dd></div>
+                            <div><dt>گروه‌ها و درس‌ها:</dt><dd>{{ selected_group_ids|length|fa_digits }} گروه / {{ selected_course_ids|length|fa_digits }} درس</dd></div>
+                        </dl>
+                    </article>
+                    <article class="teacher-wizard-panel">
+                        <header><h2>تنظیم حساب کاربری</h2></header>
+                        <label>نام کاربری <input name="username" value="{{ wizard_username }}" required></label>
+                        <label>روش تعیین رمز عبور <select name="password_method"><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option><option value="sms_code">ارسال کد پیامکی</option></select></label>
+                        <label class="teacher-wizard-switch"><input type="checkbox" name="must_change_password" checked><span></span>اجبار به تغییر رمز در اولین ورود</label>
+                        <label class="teacher-wizard-switch"><input type="checkbox" name="send_welcome_message" checked><span></span>ارسال پیام خوش‌آمدگویی</label>
+                        <label>وضعیت حساب <select name="account_status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
+                        <div class="teacher-wizard-ready">اطلاعات برای ثبت نهایی کامل است.</div>
+                        <label class="teacher-wizard-confirm"><input type="checkbox" name="confirm_final" required> صحت اطلاعات ثبت‌شده را تایید می‌کنم</label>
+                    </article>
+                </section>
+            {% endif %}
+
+            <footer class="teacher-wizard-actions">
+                <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="teacher-wizard-primary">{% if step == 4 %}ثبت نهایی دانشجو{% else %}ذخیره و ادامه{% endif %}<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+                <button type="submit" name="wizard_action" value="save_draft" class="teacher-wizard-secondary">ذخیره موقت</button>
+                {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="teacher-wizard-link">مرحله قبل</button>{% endif %}
+                <button type="submit" name="wizard_action" value="cancel" class="teacher-wizard-link">انصراف</button>
+            </footer>
+        </form>
+    </main>
+</section>
+{% endblock %}

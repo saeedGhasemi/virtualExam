@@ -1,0 +1,284 @@
+﻿{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}{{ title }} | متا کوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<main class="settings-glass settings-screen academic-terms-screen" dir="rtl">
+    <section class="settings-hero terms-hero">
+        <div>
+            <h1>{{ title }}</h1>
+            <p>{{ description }}</p>
+        </div>
+        <a class="terms-back-link" href="{% url 'core:super_admin_settings' %}?tab=terms" data-history-back>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            بازگشت
+        </a>
+    </section>
+
+    <section class="settings-layout terms-layout">
+        <aside class="settings-side-card terms-summary-card">
+            <h2>خلاصه ترم‌ها<span>i</span></h2>
+            <dl>
+                <div><dt>تعداد ترم‌ها</dt><dd>{{ terms|length|fa_digits }}</dd></div>
+                <div><dt>ترم جاری</dt><dd>{{ current_term.semester|default:"-"|fa_digits }}</dd></div>
+                <div><dt>سال جاری</dt><dd>{{ current_term.year|default:"-"|fa_digits }}</dd></div>
+            </dl>
+            <hr>
+            <a href="{% url 'core:super_admin_settings' %}?tab=terms"><span>↩</span>بازگشت به تنظیمات</a>
+        </aside>
+
+        <div class="settings-main-card terms-main-card">
+            <div class="settings-tabs" role="tablist">
+                <a href="{% url 'core:super_admin_settings' %}?tab=other">
+                    <svg viewBox="0 0 24 24"><path d="M4 21v-8M4 9V3M12 21v-6M12 11V3M20 21v-4M20 13V3"/><path d="M2 13h4M10 15h4M18 17h4"/></svg>
+                    تنظیمات عمومی
+                </a>
+                <a class="is-active" href="{% url 'core:super_admin_academic_terms' %}">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    سال تحصیلی و ترم
+                </a>
+                <a href="{% url 'core:super_admin_org_units' %}">
+                    <svg viewBox="0 0 24 24"><path d="M12 4v5"/><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1"/><path d="M12 9H6v4M12 9h6v4"/></svg>
+                    ساختار سازمانی
+                </a>
+            </div>
+
+            <form method="post" class="terms-form-card">
+                {% csrf_token %}
+                <input type="hidden" name="term_action" value="save">
+                <input type="hidden" name="term_id" value="">
+                <h2 data-form-title>افزودن ترم جدید</h2>
+                <div class="terms-form-grid">
+                    <label>
+                        <span>سال تحصیلی</span>
+                        <input name="year" placeholder="مثلا 1403-1404" required>
+                    </label>
+                    <label>
+                        <span>نوع ترم</span>
+                        <select name="semester" required>
+                            <option value="first">نیم‌سال اول</option>
+                            <option value="second">نیم‌سال دوم</option>
+                            <option value="summer">تابستان</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>تاریخ شروع</span>
+                        <input name="start_date" placeholder="1404/07/01">
+                    </label>
+                    <label>
+                        <span>تاریخ پایان</span>
+                        <input name="end_date" placeholder="1404/11/30">
+                    </label>
+                    <label class="wide-field">
+                        <span>عنوان اختیاری</span>
+                        <input name="label" placeholder="مثلا نیم‌سال اول 1403-1404">
+                    </label>
+                    <label class="terms-check">
+                        <input type="checkbox" name="is_current">
+                        <span>ترم جاری / پیش‌فرض</span>
+                    </label>
+                    <label class="terms-check">
+                        <input type="checkbox" name="is_active" checked>
+                        <span>فعال</span>
+                    </label>
+                    <button type="submit" class="terms-submit">
+                        <span aria-hidden="true">+</span>
+                        <span data-submit-label>افزودن</span>
+                    </button>
+                    <button type="button" class="terms-reset" data-reset-term-form hidden>انصراف از ویرایش</button>
+                </div>
+            </form>
+
+            <section class="terms-list-card">
+                <h2>ترم‌های تعریف‌شده</h2>
+                <div class="terms-table-wrap">
+                    <table class="terms-table">
+                        <thead>
+                            <tr>
+                                <th>سال تحصیلی</th>
+                                <th>ترم</th>
+                                <th>تاریخ شروع</th>
+                                <th>تاریخ پایان</th>
+                                <th>پیش‌فرض</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for term in terms %}
+                                <tr>
+                                    <td>{{ term.year|fa_digits }}</td>
+                                    <td>
+                                        <strong>{{ term.label|default:term.semester|default:"ترم تحصیلی"|fa_digits }}</strong>
+                                        <small>{{ term.semester|default:"-"|fa_digits }}</small>
+                                    </td>
+                                    <td>{{ term.start_date|default:"-"|fa_digits }}</td>
+                                    <td>{{ term.end_date|default:"-"|fa_digits }}</td>
+                                    <td>{% if term.is_current %}<span class="term-current">جاری</span>{% else %}<span class="term-muted">-</span>{% endif %}</td>
+                                    <td class="term-actions">
+                                        <button
+                                            type="button"
+                                            class="term-edit-button"
+                                            title="ویرایش ترم"
+                                            data-edit-term
+                                            data-id="{{ term.id }}"
+                                            data-year="{{ term.year|default_if_none:'' }}"
+                                            data-semester="{{ term.semester_value }}"
+                                            data-label="{{ term.label|default_if_none:'' }}"
+                                            data-start-date="{{ term.start_date|default_if_none:'' }}"
+                                            data-end-date="{{ term.end_date|default_if_none:'' }}"
+                                            data-is-current="{% if term.is_current %}true{% else %}false{% endif %}"
+                                            data-is-active="{% if term.is_active %}true{% else %}false{% endif %}"
+                                        >
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 6 4 4"/></svg>
+                                        </button>
+                                        <form method="post" class="term-delete-form">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="term_action" value="delete">
+                                            <input type="hidden" name="term_id" value="{{ term.id }}">
+                                            <button type="submit" title="حذف ترم">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="6"><p class="terms-empty">هنوز ترمی تعریف نشده است.</p></td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </section>
+</main>
+
+<style>
+    html:has(.academic-terms-screen),body:has(.academic-terms-screen){margin:0!important;padding:0!important;background:#eef4fb!important}
+    body:has(.academic-terms-screen) .super-admin-chrome{display:block!important;height:82px!important}
+    body:has(.academic-terms-screen) .super-admin-topbar{position:fixed!important;top:0!important;right:0!important;left:0!important;z-index:90!important;display:grid!important;background:rgba(239,246,255,.72)!important;border-bottom:1px solid rgba(219,228,241,.45)!important}
+    body:has(.academic-terms-screen) .super-admin-rail{display:flex!important}
+    body:has(.academic-terms-screen){min-height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important}
+    .academic-terms-screen{min-height:calc(100dvh - 82px)!important;height:auto!important;padding:0!important;overflow:visible;background:transparent!important;color:#0b1935}
+    .academic-terms-screen .settings-hero{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:1rem;margin:0!important;padding:1.05rem 8.1rem .8rem 1.75rem!important;text-align:right!important}
+    .academic-terms-screen .settings-hero h1{margin:0;font-size:1.45rem!important;line-height:1.45!important;font-weight:950}
+    .academic-terms-screen .settings-hero p{margin:.15rem 0 0;color:#526582;font-size:.8rem!important;font-weight:850}
+    .academic-terms-screen .terms-back-link{display:inline-flex;height:2.75rem;align-items:center;justify-content:center;gap:.45rem;border:1px solid rgba(188,203,225,.75);border-radius:.9rem;background:rgba(255,255,255,.52);padding:0 .95rem;color:#142a5f;text-decoration:none;font-size:.82rem;font-weight:950;box-shadow:inset 0 1px 0 rgba(255,255,255,.72)}
+    .academic-terms-screen .terms-back-link svg,.academic-terms-screen .settings-tabs svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .academic-terms-screen .settings-layout{display:grid;grid-template-columns:280px minmax(0,1fr);align-items:stretch;gap:.7rem;padding:0 8.1rem 1.05rem 1.35rem;min-height:calc(100dvh - 78px);direction:ltr}
+    .academic-terms-screen .settings-layout>*{direction:rtl}
+    .academic-terms-screen .settings-side-card,.academic-terms-screen .settings-main-card{border:1px solid rgba(255,255,255,.48);border-radius:1.18rem;background:linear-gradient(145deg,rgba(255,255,255,.58),rgba(255,255,255,.22));box-shadow:0 18px 52px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.75);backdrop-filter:blur(34px) saturate(170%)}
+    .academic-terms-screen .settings-side-card{padding:.75rem}
+    .academic-terms-screen .settings-main-card{min-width:0;padding:.72rem}
+    .academic-terms-screen .settings-side-card h2{display:flex;height:3.25rem;align-items:center;justify-content:space-between;margin:0 0 .75rem;padding:0 1rem;border-radius:.9rem;background:rgba(255,255,255,.42);font-size:1.02rem;font-weight:950}
+    .academic-terms-screen .settings-side-card h2 span{display:grid;width:1.65rem;height:1.65rem;place-items:center;border-radius:50%;background:#dbeafe;color:#2563eb}
+    .academic-terms-screen .settings-side-card dl{display:grid;gap:.2rem;margin:0}
+    .academic-terms-screen .settings-side-card dl>div{display:flex;min-height:2.72rem;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(129,153,185,.16)}
+    .academic-terms-screen .settings-side-card dt{max-width:54%;overflow:hidden;color:#64748b;text-overflow:ellipsis;white-space:nowrap;font-weight:850}
+    .academic-terms-screen .settings-side-card dd{max-width:44%;margin:0;overflow:hidden;text-align:left;text-overflow:ellipsis;white-space:nowrap;font-weight:950}
+    .academic-terms-screen .settings-side-card hr{border:0;border-top:1px solid rgba(129,153,185,.2);margin:1rem 0}
+    .academic-terms-screen .settings-side-card a{display:flex;height:3rem;align-items:center;justify-content:space-between;border-radius:.9rem;background:rgba(255,255,255,.46);padding:0 .95rem;color:#2563eb;text-decoration:none;font-weight:950}
+    .academic-terms-screen .settings-tabs{display:grid;grid-template-columns:repeat(3,1fr);height:3.25rem;margin-bottom:.72rem;padding:.28rem;gap:.5rem;border:1px solid rgba(207,220,241,.52);border-radius:.95rem;background:rgba(255,255,255,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.66);direction:ltr}
+    .academic-terms-screen .settings-tabs>*{direction:rtl}
+    .academic-terms-screen .settings-tabs a{display:flex;min-height:2.65rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid rgba(211,222,239,.55);border-radius:.72rem;background:rgba(255,255,255,.28);color:#1f2e49;text-decoration:none;font-size:.88rem;font-weight:950}
+    .academic-terms-screen .settings-tabs a.is-active{border-color:#9fc2ff;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(239,246,255,.54));color:#2563eb;box-shadow:inset 0 0 0 1px rgba(37,99,235,.12),0 10px 26px rgba(37,99,235,.12)}
+    .academic-terms-screen .terms-form-card,.academic-terms-screen .terms-list-card{border:1px solid rgba(214,226,242,.62);border-radius:1rem;background:rgba(255,255,255,.34);box-shadow:inset 0 1px 0 rgba(255,255,255,.68)}
+    .academic-terms-screen .terms-form-card{margin:0 0 .8rem;padding:1rem}
+    .academic-terms-screen .terms-form-card h2,.academic-terms-screen .terms-list-card h2{margin:0 0 .85rem;color:#0b1935;font-size:1.03rem;font-weight:950}
+    .academic-terms-screen .terms-form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.72rem;align-items:end}
+    .academic-terms-screen .terms-form-grid label{display:grid;gap:.38rem;color:#526582;font-size:.78rem;font-weight:950}
+    .academic-terms-screen .terms-form-grid input,.academic-terms-screen .terms-form-grid select{height:2.75rem;min-width:0;border:1px solid #d8e2ef;border-radius:.85rem;background:rgba(255,255,255,.72);padding:0 .85rem;color:#0b1935;font:inherit;font-size:.82rem;font-weight:900;outline:0}
+    .academic-terms-screen .terms-form-grid input:focus,.academic-terms-screen .terms-form-grid select:focus{border-color:#9fc2ff;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+    .academic-terms-screen .wide-field{grid-column:span 2}
+    .academic-terms-screen .terms-check{display:flex!important;height:2.75rem;align-items:center;gap:.5rem;border:1px solid #d8e2ef;border-radius:.85rem;background:rgba(255,255,255,.46);padding:0 .85rem;color:#0b1935}
+    .academic-terms-screen .terms-check input{width:1rem;height:1rem;padding:0}
+    .academic-terms-screen .terms-submit{display:inline-flex;height:2.85rem;align-items:center;justify-content:center;gap:.55rem;border:0;border-radius:.9rem;background:linear-gradient(135deg,#2563eb,#3f5cff);color:#fff;padding:0 .9rem;font-size:.88rem;font-weight:950;box-shadow:0 16px 30px rgba(37,99,235,.24)}
+    .academic-terms-screen .terms-reset{display:inline-flex;height:2.85rem;align-items:center;justify-content:center;border:1px solid rgba(214,226,242,.78);border-radius:.9rem;background:rgba(255,255,255,.56);color:#526582;padding:0 .9rem;font-size:.82rem;font-weight:950}
+    .academic-terms-screen .terms-reset[hidden]{display:none}
+    .academic-terms-screen .terms-list-card{padding:1rem}
+    .academic-terms-screen .terms-table-wrap{overflow:auto;border:1px solid rgba(214,226,242,.62);border-radius:.95rem;background:rgba(255,255,255,.26)}
+    .academic-terms-screen .terms-table{width:100%;min-width:720px;border-collapse:separate;border-spacing:0}
+    .academic-terms-screen .terms-table th,.academic-terms-screen .terms-table td{height:2.75rem;padding:.48rem .72rem;border-bottom:1px solid rgba(214,226,242,.62);border-left:1px solid rgba(214,226,242,.52);text-align:center;font-size:.78rem;font-weight:900}
+    .academic-terms-screen .terms-table th{background:rgba(241,246,253,.58);color:#526582;font-size:.75rem;font-weight:950}
+    .academic-terms-screen .terms-table td:first-child,.academic-terms-screen .terms-table th:first-child{text-align:right}
+    .academic-terms-screen .terms-table td:last-child,.academic-terms-screen .terms-table th:last-child{border-left:0}
+    .academic-terms-screen .terms-table tr:last-child td{border-bottom:0}
+    .academic-terms-screen .terms-table strong,.academic-terms-screen .terms-table small{display:block}
+    .academic-terms-screen .terms-table strong{color:#0b1935;font-size:.82rem}
+    .academic-terms-screen .terms-table small{margin-top:.1rem;color:#64748b;font-size:.7rem}
+    .academic-terms-screen .term-current{display:inline-flex;align-items:center;justify-content:center;border-radius:.55rem;background:#d1fae5;padding:.28rem .65rem;color:#059669;font-size:.72rem;font-weight:950}
+    .academic-terms-screen .term-muted{color:#0b1935;font-weight:950}
+    .academic-terms-screen .term-actions{display:flex;align-items:center;justify-content:center;gap:.45rem}
+    .academic-terms-screen .term-delete-form{display:inline-flex;margin:0}
+    .academic-terms-screen .term-edit-button,.academic-terms-screen .term-delete-form button{display:grid;width:1.9rem;height:1.9rem;place-items:center;border-radius:.65rem;background:rgba(255,255,255,.52);padding:0}
+    .academic-terms-screen .term-edit-button{border:1px solid rgba(37,99,235,.18);color:#2563eb}
+    .academic-terms-screen .term-delete-form button{border:1px solid rgba(255,48,69,.18);color:#ff3045}
+    .academic-terms-screen .term-edit-button svg,.academic-terms-screen .term-delete-form svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .academic-terms-screen .terms-empty{margin:0;padding:1rem;text-align:center;color:#64748b;font-weight:950}
+    body:has(.academic-terms-screen)>section:has(.alert-message){position:fixed!important;right:auto!important;bottom:1.4rem!important;left:50%!important;transform:translate(-50%,0)!important;z-index:120!important;width:min(520px,calc(100vw - 2rem))!important;max-width:none!important;padding:0!important;pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+    body:has(.academic-terms-screen)>section:has(.alert-message).is-hiding{opacity:0;transform:translate(-50%,1rem)!important}
+    body:has(.academic-terms-screen)>section:has(.alert-message) .alert-message{margin:0!important;border:1px solid rgba(37,99,235,.25)!important;border-radius:.95rem!important;background:rgba(239,246,255,.94)!important;color:#0b1935!important;box-shadow:0 20px 50px rgba(30,55,95,.16)!important;backdrop-filter:blur(18px);pointer-events:auto;text-align:center}
+    @media (max-width:1100px){
+        .academic-terms-screen .settings-hero{padding:1rem!important}
+        .academic-terms-screen .settings-layout{grid-template-columns:1fr;padding:0 1rem 1rem!important}
+        .academic-terms-screen .settings-side-card{display:none}
+        .academic-terms-screen .terms-form-grid{grid-template-columns:1fr}
+        .academic-terms-screen .wide-field{grid-column:auto}
+        .academic-terms-screen .settings-tabs{height:auto;grid-template-columns:1fr}
+    }
+</style>
+
+<script>
+    (() => {
+        document.querySelector('[data-history-back]')?.addEventListener('click', (event) => {
+            if (window.history.length > 1) {
+                event.preventDefault();
+                window.history.back();
+            }
+        });
+
+        const form = document.querySelector('.academic-terms-screen .terms-form-card');
+        const formTitle = document.querySelector('[data-form-title]');
+        const submitLabel = document.querySelector('[data-submit-label]');
+        const resetButton = document.querySelector('[data-reset-term-form]');
+        const setAddMode = () => {
+            if (!form) return;
+            form.reset();
+            form.elements.term_id.value = '';
+            if (form.elements.is_active) form.elements.is_active.checked = true;
+            if (formTitle) formTitle.textContent = 'افزودن ترم جدید';
+            if (submitLabel) submitLabel.textContent = 'افزودن';
+            if (resetButton) resetButton.hidden = true;
+        };
+
+        document.querySelectorAll('[data-edit-term]').forEach((button) => {
+            button.addEventListener('click', () => {
+                if (!form) return;
+                form.elements.term_id.value = button.dataset.id || '';
+                form.elements.year.value = button.dataset.year || '';
+                form.elements.semester.value = button.dataset.semester || 'first';
+                form.elements.start_date.value = button.dataset.startDate || '';
+                form.elements.end_date.value = button.dataset.endDate || '';
+                form.elements.label.value = button.dataset.label || '';
+                form.elements.is_current.checked = button.dataset.isCurrent === 'true';
+                form.elements.is_active.checked = button.dataset.isActive !== 'false';
+                if (formTitle) formTitle.textContent = 'ویرایش ترم';
+                if (submitLabel) submitLabel.textContent = 'ذخیره تغییرات';
+                if (resetButton) resetButton.hidden = false;
+                form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                form.elements.year.focus({ preventScroll: true });
+            });
+        });
+
+        resetButton?.addEventListener('click', setAddMode);
+
+        document.querySelectorAll('body:has(.academic-terms-screen) > section:has(.alert-message)').forEach((toast) => {
+            window.setTimeout(() => {
+                toast.classList.add('is-hiding');
+                window.setTimeout(() => toast.remove(), 420);
+            }, 4200);
+        });
+    })();
+</script>
+{% endblock %}

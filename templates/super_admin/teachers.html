@@ -1,0 +1,569 @@
+﻿{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}{{ title }} | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page academic-managers-page teachers-page" dir="rtl">
+    <div class="am-toast" id="teacherToast" aria-live="polite" hidden></div>
+    <header class="am-page-header">
+        <div>
+            <h1 class="teacher-title">
+                {{ title }}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></svg>
+            </h1>
+            <p>{{ description }}</p>
+        </div>
+        <div class="am-header-actions">
+            <a class="am-icon-action" href="?teacher_action=sample" data-tooltip="دانلود قالب اکسل برای تکمیل ستون‌های لازم"><span aria-hidden="true">▣</span>نمونه اکسل</a>
+            <a class="am-icon-action" href="?teacher_action=export{% if query %}&q={{ query|urlencode }}{% endif %}" data-tooltip="دریافت خروجی اکسل از اطلاعات نمایش داده‌شده"><span aria-hidden="true">↧</span>خروجی اکسل</a>
+            <a class="am-icon-action" href="{% url 'core:super_admin_teacher_bulk_import' %}" data-tooltip="ورود گروهی اساتید از فایل اکسل یا CSV">
+                <span aria-hidden="true">↥</span>
+                ورود اکسل
+            </a>
+            <a class="am-primary-button" href="{% url 'core:super_admin_teacher_create' %}"><span aria-hidden="true">+</span>افزودن استاد</a>
+        </div>
+    </header>
+
+    <section class="am-table-card">
+        <div class="am-table-toolbar">
+            <div class="am-table-summary"><span aria-hidden="true">♙</span>مجموع اساتید: <b>{{ rows|length|fa_digits }} نفر</b></div>
+            <div class="am-toolbar-actions">
+                <div class="am-view-switch" aria-label="نوع نمایش">
+                    <button type="button" class="is-active" data-teacher-view="table" title="نمایش سطری" aria-label="نمایش سطری"><span aria-hidden="true">☰</span></button>
+                    <button type="button" data-teacher-view="cards" title="نمایش کارتی" aria-label="نمایش کارتی"><span aria-hidden="true">▦</span></button>
+                </div>
+            </div>
+            <form method="get" class="am-search-form" data-teacher-search-form>
+                <button type="button">فیلتر <span aria-hidden="true">⌯</span></button>
+                <label>
+                    <input name="q" value="{{ query }}" placeholder="جست‌وجوی استاد...">
+                    <span aria-hidden="true">⌕</span>
+                </label>
+            </form>
+        </div>
+
+        <div class="am-table-wrap">
+            <table class="am-table teacher-table">
+                <thead>
+                    <tr>
+                        <th class="am-check-cell"><span></span></th>
+                        <th>نام</th>
+                        <th>دانشگاه</th>
+                        <th>دانشکده</th>
+                        <th>گروه آموزشی</th>
+                        <th>دروس</th>
+                        <th>وضعیت</th>
+                        <th>تاریخ ثبت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr data-teacher-row="{{ row.id }}">
+                            <td class="am-check-cell"><span></span></td>
+                            <td>
+                                <div class="am-manager-name">
+                                    <b>{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="{{ row.full_name|default:'استاد' }}" onerror="this.replaceWith(document.createTextNode((this.alt || 'ا').trim().slice(0, 1)))">{% else %}{{ row.full_name|default:"استاد"|fa_digits|slice:":1" }}{% endif %}</b>
+                                    <div><strong>{{ row.full_name|default:"استاد"|fa_digits }}</strong><small>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</small></div>
+                                </div>
+                            </td>
+                            <td><span class="am-pill">{{ row.university|fa_digits }}</span></td>
+                            <td><span class="am-pill">{{ row.faculty|fa_digits }}</span></td>
+                            <td><span class="am-pill">{{ row.department_name|fa_digits }}</span></td>
+                            <td><span class="am-pill teacher-course-pill">{{ row.courses_count|default:0|fa_digits }}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H7a3 3 0 0 0-3 3V5.5Z"/><path d="M4 19a3 3 0 0 1 3-3h13"/></svg></span></td>
+                            <td><span class="am-status is-{{ row.status|default:'active' }}">{% if row.status == 'blocked' %}مسدود{% elif row.status == 'inactive' %}غیرفعال{% else %}فعال{% endif %}</span></td>
+                            <td>{{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</td>
+                            <td>
+                                <div class="am-row-actions">
+                                    <button type="button" class="am-action-icon" data-teacher-details="{{ row.id }}" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button>
+                                    <button type="button"
+                                        class="am-action-icon"
+                                        data-edit-teacher
+                                        data-id="{{ row.id }}"
+                                        data-first-name="{{ row.first_name|default_if_none:'' }}"
+                                        data-last-name="{{ row.last_name|default_if_none:'' }}"
+                                        data-full-name="{{ row.full_name|default_if_none:'' }}"
+                                        data-username="{{ row.username|default_if_none:'' }}"
+                                        data-email="{{ row.email|default_if_none:'' }}"
+                                        data-phone="{{ row.phone|default_if_none:'' }}"
+                                        data-national-id="{{ row.national_id|default_if_none:'' }}"
+                                        data-personnel-code="{{ row.personnel_code|default:row.identifier|default_if_none:'' }}"
+                                        data-status="{{ row.status|default:'active' }}"
+                                        data-approval-status="{{ row.approval_status|default:'approved' }}"
+                                        data-avatar-url="{{ row.avatar_url|default_if_none:'' }}"
+                                        data-org-unit-id="{{ row.org_unit_id|default_if_none:'' }}"
+                                        data-university="{{ row.university|default_if_none:'' }}"
+                                        data-faculty="{{ row.faculty|default_if_none:'' }}"
+                                        data-department="{{ row.department_name|default_if_none:'' }}"
+                                        data-courses-count="{{ row.courses_count|default:0 }}"
+                                        data-created="{{ row.created_display|default_if_none:'' }}"
+                                        data-last-login="{{ row.last_login_display|default_if_none:'' }}"
+                                        title="ویرایش اطلاعات">✎</button>
+                                    <button type="button" class="am-action-icon is-danger" data-delete-teacher="{{ row.id }}" data-teacher-name="{{ row.full_name|default:'استاد' }}" title="حذف استاد"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="9" class="am-empty">موردی برای نمایش وجود ندارد.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="am-card-grid" hidden>
+            {% for row in rows %}
+                <article class="am-person-card" data-teacher-card="{{ row.id }}">
+                    <div class="am-card-top">
+                        <span class="am-status is-{{ row.status|default:'active' }}">{% if row.status == 'blocked' %}مسدود{% elif row.status == 'inactive' %}غیرفعال{% else %}فعال{% endif %}</span>
+                        <div class="am-card-action-icons">
+                            <button type="button" class="am-card-menu is-danger" data-delete-teacher="{{ row.id }}" data-teacher-name="{{ row.full_name|default:'استاد' }}" title="حذف استاد"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+                            <button type="button" class="am-card-menu" data-card-teacher-details="{{ row.id }}" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button>
+                            <button type="button" class="am-card-menu" data-card-teacher-edit="{{ row.id }}" title="ویرایش اطلاعات">✎</button>
+                        </div>
+                    </div>
+                    <div class="am-card-avatar">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="{{ row.full_name|default:'استاد' }}" onerror="this.replaceWith(Object.assign(document.createElement('span'), {textContent: (this.alt || 'ا').trim().slice(0, 1)}))">{% else %}<span>{{ row.full_name|default:"استاد"|fa_digits|slice:":1" }}</span>{% endif %}</div>
+                    <h3>{{ row.full_name|default:"استاد"|fa_digits }}</h3>
+                    <p>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</p>
+                    <div class="am-card-details">
+                        <span><b>#</b><em data-card-field="code">{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</em></span>
+                        <span><b>دانشگاه</b><em data-card-field="university">{{ row.university|fa_digits }}</em></span>
+                        <span><b>دانشکده</b><em data-card-field="faculty">{{ row.faculty|fa_digits }}</em></span>
+                        <span><b>گروه</b><em data-card-field="department">{{ row.department_name|fa_digits }}</em></span>
+                        <span><b>دروس</b><em data-card-field="courses">{{ row.courses_count|default:0|fa_digits }}</em></span>
+                        <span><b>ایمیل</b><em data-card-field="email">{{ row.email|default:"-" }}</em></span>
+                        <span><b>موبایل</b><em data-card-field="phone">{{ row.phone|default:"-"|fa_digits }}</em></span>
+                    </div>
+                    <footer><small>ثبت: {{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</small></footer>
+                </article>
+            {% empty %}
+                <div class="am-card-empty">موردی برای نمایش وجود ندارد.</div>
+            {% endfor %}
+        </div>
+
+        <footer class="am-table-footer">
+            <span>نمایش ۱-{{ rows|length|fa_digits }} از {{ rows|length|fa_digits }}</span>
+            <div><button type="button">‹</button><b>۱</b><button type="button">›</button></div>
+        </footer>
+    </section>
+
+    <div class="am-modal" id="teacherModal" aria-hidden="true">
+        <div class="am-modal-backdrop" data-close-teacher-modal></div>
+        <form method="post" enctype="multipart/form-data" class="am-modal-panel" role="dialog" aria-modal="true">
+            {% csrf_token %}
+            <input type="hidden" name="teacher_action" value="save">
+            <input type="hidden" name="teacher_id" id="teacherId">
+            <input type="hidden" name="org_unit_id" id="teacherOrgUnitId">
+            <button type="button" class="am-modal-close" data-close-teacher-modal>×</button>
+            <h2 id="teacherModalTitle">ویرایش اطلاعات کاربر</h2>
+            <div class="am-meta-box">
+                <span>شناسه کاربر: <b data-meta-id>-</b></span>
+                <span>تاریخ ثبت: <b data-meta-created>-</b></span>
+                <span>آخرین ورود: <b data-meta-login>-</b></span>
+            </div>
+            <div class="am-tabs" role="tablist">
+                <button type="button" data-teacher-tab="security">حساب و امنیت</button>
+                <button type="button" data-teacher-tab="teacher">اطلاعات استاد</button>
+                <button type="button" data-teacher-tab="general" class="is-active">عمومی</button>
+            </div>
+            <section class="am-tab-panel is-active" data-teacher-panel="general">
+                <div class="am-photo-box">
+                    <div class="am-photo-icon" data-teacher-photo><span>▣</span><img alt="" hidden></div>
+                    <div><strong>عکس پروفایل</strong><p>فرمت‌های مجاز JPG، PNG، WebP. حداقل ابعاد ۲۰۰×۲۰۰ پیکسل.</p></div>
+                    <label class="am-upload-button"><input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif">بارگذاری عکس</label>
+                </div>
+                <div class="am-form-grid">
+                    <label>نام<input name="first_name"></label>
+                    <label>نام خانوادگی<input name="last_name"></label>
+                    <label>نام کاربری<input name="username"></label>
+                    <label>شماره موبایل<input name="phone"></label>
+                    <label>کد ملی<input name="national_id"></label>
+                    <label>شناسه (دانشجویی/پرسنلی)<input name="personnel_code"></label>
+                </div>
+            </section>
+            <section class="am-tab-panel" data-teacher-panel="teacher">
+                <div class="am-form-grid">
+                    <label>کد پرسنلی<input name="identifier"></label>
+                    <label>وضعیت تایید<select name="approval_status"><option value="approved">تایید شده</option><option value="pending">در انتظار تایید</option><option value="rejected">رد شده</option></select></label>
+                </div>
+                <div class="am-scope-editor">
+                    <h3>دانشگاه / دانشکده / گروه آموزشی</h3>
+                    <p>ابتدا دانشگاه، سپس دانشکده و در نهایت گروه آموزشی محل خدمت استاد را انتخاب کنید.</p>
+                    <div class="am-scope-grid teacher-scope-grid">
+                        <label>دانشگاه<select id="teacherUniversity"><option value="">انتخاب دانشگاه</option>{% for unit in universities %}<option value="{{ unit.id }}">{{ unit.name }}</option>{% endfor %}</select></label>
+                        <label>دانشکده<select id="teacherFaculty" disabled><option value="">ابتدا سطح بالاتر</option></select></label>
+                        <label>گروه آموزشی<select id="teacherDepartment" disabled><option value="">ابتدا سطح بالاتر</option></select></label>
+                    </div>
+                </div>
+            </section>
+            <section class="am-tab-panel" data-teacher-panel="security">
+                <div class="am-form-grid is-single">
+                    <label>ایمیل (نام کاربری ورود)<input name="email"></label>
+                    <label>رمز عبور جدید (اختیاری)<input name="password" placeholder="در صورت تغییر، حداقل ۶ کاراکتر"></label>
+                    <label>وضعیت حساب<select name="status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
+                </div>
+            </section>
+            <div class="am-modal-actions"><button type="submit" class="am-save-button">ذخیره تغییرات</button><button type="button" class="am-cancel-button" data-close-teacher-modal>انصراف</button></div>
+        </form>
+    </div>
+
+    <div class="am-details-modal" id="teacherDetailsModal" aria-hidden="true">
+        <div class="am-details-backdrop" data-close-teacher-details></div>
+        <section class="am-details-panel" role="dialog" aria-modal="true">
+            <button type="button" class="am-details-close" data-close-teacher-details>×</button>
+            <div class="am-details-print-area">
+                <header class="am-details-header">
+                    <div class="am-details-avatar" data-details-avatar><span>ا</span><img alt="" hidden></div>
+                    <div><h2 data-details-full-name>استاد</h2><p data-details-code>-</p></div>
+                    <span class="am-status is-active" data-details-status>فعال</span>
+                </header>
+                <div class="am-details-section"><h3>اطلاعات عمومی</h3><dl>
+                    <div><dt>نام</dt><dd data-details-first-name>-</dd></div>
+                    <div><dt>نام خانوادگی</dt><dd data-details-last-name>-</dd></div>
+                    <div><dt>نام کاربری</dt><dd data-details-username>-</dd></div>
+                    <div><dt>کد ملی</dt><dd data-details-national-id>-</dd></div>
+                    <div><dt>موبایل</dt><dd data-details-phone>-</dd></div>
+                    <div><dt>ایمیل</dt><dd data-details-email>-</dd></div>
+                </dl></div>
+                <div class="am-details-section"><h3>اطلاعات آموزشی و سازمانی</h3><dl>
+                    <div><dt>کد پرسنلی</dt><dd data-details-personnel>-</dd></div>
+                    <div><dt>وضعیت تایید</dt><dd data-details-approval>-</dd></div>
+                    <div><dt>دانشگاه</dt><dd data-details-university>-</dd></div>
+                    <div><dt>دانشکده</dt><dd data-details-faculty>-</dd></div>
+                    <div><dt>گروه آموزشی</dt><dd data-details-department>-</dd></div>
+                    <div><dt>تعداد دروس</dt><dd data-details-courses>-</dd></div>
+                    <div><dt>تاریخ ثبت</dt><dd data-details-created>-</dd></div>
+                    <div><dt>آخرین ورود</dt><dd data-details-login>-</dd></div>
+                </dl></div>
+            </div>
+            <div class="am-details-actions">
+                <button type="button" class="am-print-button" data-print-teacher-details><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>چاپ اطلاعات</button>
+                <button type="button" class="am-cancel-button" data-close-teacher-details>بستن</button>
+            </div>
+        </section>
+    </div>
+</section>
+
+{{ org_units_json|json_script:"teacherOrgUnits" }}
+<script>
+(() => {
+    const orgUnits = JSON.parse(document.getElementById('teacherOrgUnits').textContent);
+    const byId = new Map(orgUnits.map((unit) => [String(unit.id), unit]));
+    const modal = document.getElementById('teacherModal');
+    const form = modal.querySelector('form');
+    const detailsModal = document.getElementById('teacherDetailsModal');
+    const teacherId = document.getElementById('teacherId');
+    const orgUnitInput = document.getElementById('teacherOrgUnitId');
+    const university = document.getElementById('teacherUniversity');
+    const faculty = document.getElementById('teacherFaculty');
+    const department = document.getElementById('teacherDepartment');
+    const photoBox = modal.querySelector('[data-teacher-photo]');
+    const photoImage = photoBox.querySelector('img');
+    const photoFallback = photoBox.querySelector('span');
+    const tableBody = document.querySelector('.teacher-table tbody');
+    const tableWrap = document.querySelector('.am-table-wrap');
+    const cardGrid = document.querySelector('.am-card-grid');
+    const searchInput = document.querySelector('.am-search-form input[name="q"]');
+    const summaryCount = document.querySelector('.am-table-summary b');
+    const toast = document.getElementById('teacherToast');
+    let currentEditButton = null;
+    let toastTimer = null;
+
+    const faNumber = (value) => String(value || 0).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
+    const statusLabel = (status) => status === 'blocked' ? 'مسدود' : status === 'inactive' ? 'غیرفعال' : 'فعال';
+    const approvalLabel = (status) => status === 'pending' ? 'در انتظار تایید' : status === 'rejected' ? 'رد شده' : 'تایید شده';
+    const setText = (element, value) => { if (element) element.textContent = value || '-'; };
+    const childrenOf = (parentId, types) => orgUnits.filter((unit) => String(unit.parent_id || '') === String(parentId || '') && types.includes(unit.type));
+    const option = (value, label) => { const item = document.createElement('option'); item.value = value; item.textContent = label; return item; };
+    const fillSelect = (select, items, placeholder) => {
+        select.innerHTML = '';
+        select.appendChild(option('', placeholder));
+        items.forEach((unit) => select.appendChild(option(unit.id, unit.name)));
+        select.disabled = !items.length;
+    };
+    const showToast = (message) => {
+        if (!toast) return;
+        clearTimeout(toastTimer);
+        toast.textContent = message || 'اطلاعات استاد ذخیره شد.';
+        toast.hidden = false;
+        requestAnimationFrame(() => toast.classList.add('is-visible'));
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('is-visible');
+            setTimeout(() => { toast.hidden = true; toast.textContent = ''; }, 220);
+        }, 3200);
+    };
+    const setPhotoPreview = (url = '') => {
+        if (url) { photoImage.src = url; photoImage.hidden = false; photoFallback.hidden = true; return; }
+        photoImage.removeAttribute('src'); photoImage.hidden = true; photoFallback.hidden = false;
+    };
+    const closeModal = () => { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); };
+    const closeDetails = () => { detailsModal.classList.remove('is-open'); detailsModal.setAttribute('aria-hidden', 'true'); };
+    const setOrgUnit = (orgUnitId = '') => {
+        university.value = '';
+        fillSelect(faculty, [], 'ابتدا سطح بالاتر');
+        fillSelect(department, [], 'ابتدا سطح بالاتر');
+        orgUnitInput.value = orgUnitId || '';
+        if (!orgUnitId) return;
+        const chain = [];
+        let current = byId.get(String(orgUnitId));
+        const seen = new Set();
+        while (current && !seen.has(String(current.id))) {
+            seen.add(String(current.id)); chain.unshift(current); current = byId.get(String(current.parent_id || ''));
+        }
+        const uni = chain.find((unit) => unit.type === 'university');
+        const fac = chain.find((unit) => unit.type === 'faculty');
+        const dep = chain.find((unit) => ['department', 'group'].includes(unit.type));
+        if (uni) { university.value = uni.id; fillSelect(faculty, childrenOf(uni.id, ['faculty']), 'انتخاب دانشکده'); }
+        if (fac) { faculty.value = fac.id; fillSelect(department, childrenOf(fac.id, ['department', 'group']), 'انتخاب گروه آموزشی'); }
+        if (dep) department.value = dep.id;
+    };
+    const openModal = (button = null) => {
+        currentEditButton = button;
+        form.reset();
+        setPhotoPreview(button?.dataset.avatarUrl || '');
+        document.getElementById('teacherModalTitle').textContent = button ? 'ویرایش اطلاعات کاربر' : 'افزودن استاد';
+        teacherId.value = button?.dataset.id || '';
+        form.elements.first_name.value = button?.dataset.firstName || '';
+        form.elements.last_name.value = button?.dataset.lastName || '';
+        form.elements.username.value = button?.dataset.username || '';
+        form.elements.email.value = button?.dataset.email || '';
+        form.elements.phone.value = button?.dataset.phone || '';
+        form.elements.national_id.value = button?.dataset.nationalId || '';
+        form.elements.personnel_code.value = button?.dataset.personnelCode || '';
+        form.elements.identifier.value = button?.dataset.personnelCode || '';
+        form.elements.status.value = button?.dataset.status || 'active';
+        form.elements.approval_status.value = button?.dataset.approvalStatus || 'approved';
+        modal.querySelector('[data-meta-id]').textContent = button?.dataset.id || 'جدید';
+        modal.querySelector('[data-meta-created]').textContent = button?.dataset.created || '-';
+        modal.querySelector('[data-meta-login]').textContent = button?.dataset.lastLogin || '-';
+        setOrgUnit(button?.dataset.orgUnitId || '');
+        modal.classList.add('is-open'); modal.setAttribute('aria-hidden', 'false');
+    };
+    const openDetails = (button) => {
+        if (!button) return;
+        const avatar = detailsModal.querySelector('[data-details-avatar]');
+        const image = avatar.querySelector('img');
+        const fallback = avatar.querySelector('span');
+        image.onerror = () => {
+            image.removeAttribute('src');
+            image.hidden = true;
+            fallback.hidden = false;
+            fallback.textContent = (button.dataset.fullName || 'ا').trim().slice(0, 1);
+        };
+        if (button.dataset.avatarUrl) { image.src = button.dataset.avatarUrl; image.hidden = false; fallback.hidden = true; }
+        else { image.removeAttribute('src'); image.hidden = true; fallback.hidden = false; fallback.textContent = (button.dataset.fullName || 'ا').trim().slice(0, 1); }
+        const status = detailsModal.querySelector('[data-details-status]');
+        status.className = `am-status is-${button.dataset.status || 'active'}`;
+        status.textContent = statusLabel(button.dataset.status);
+        setText(detailsModal.querySelector('[data-details-full-name]'), button.dataset.fullName || 'استاد');
+        setText(detailsModal.querySelector('[data-details-code]'), button.dataset.personnelCode);
+        setText(detailsModal.querySelector('[data-details-first-name]'), button.dataset.firstName);
+        setText(detailsModal.querySelector('[data-details-last-name]'), button.dataset.lastName);
+        setText(detailsModal.querySelector('[data-details-username]'), button.dataset.username);
+        setText(detailsModal.querySelector('[data-details-national-id]'), button.dataset.nationalId);
+        setText(detailsModal.querySelector('[data-details-phone]'), button.dataset.phone);
+        setText(detailsModal.querySelector('[data-details-email]'), button.dataset.email);
+        setText(detailsModal.querySelector('[data-details-personnel]'), button.dataset.personnelCode);
+        setText(detailsModal.querySelector('[data-details-approval]'), approvalLabel(button.dataset.approvalStatus));
+        setText(detailsModal.querySelector('[data-details-university]'), button.dataset.university);
+        setText(detailsModal.querySelector('[data-details-faculty]'), button.dataset.faculty);
+        setText(detailsModal.querySelector('[data-details-department]'), button.dataset.department);
+        setText(detailsModal.querySelector('[data-details-courses]'), faNumber(button.dataset.coursesCount || 0));
+        setText(detailsModal.querySelector('[data-details-created]'), button.dataset.created);
+        setText(detailsModal.querySelector('[data-details-login]'), button.dataset.lastLogin);
+        detailsModal.classList.add('is-open'); detailsModal.setAttribute('aria-hidden', 'false');
+    };
+    const normalizeSearch = (value) => String(value || '').replace(/[ي]/g, 'ی').replace(/[ك]/g, 'ک').replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).toLowerCase().trim();
+    const filterTeachers = () => {
+        const query = normalizeSearch(searchInput?.value || '');
+        let visibleCount = 0;
+        tableBody?.querySelectorAll('tr').forEach((row) => {
+            if (row.querySelector('.am-empty')) return;
+            const visible = !query || normalizeSearch(row.textContent).includes(query);
+            row.hidden = !visible;
+            if (visible) visibleCount += 1;
+        });
+        cardGrid?.querySelectorAll('.am-person-card').forEach((card) => {
+            card.hidden = query && !normalizeSearch(card.textContent).includes(query);
+        });
+        if (summaryCount) summaryCount.textContent = `${faNumber(visibleCount)} نفر`;
+    };
+    const refreshSummaryCount = () => {
+        const count = tableBody.querySelectorAll('tr').length - tableBody.querySelectorAll('.am-empty').length;
+        if (summaryCount) summaryCount.textContent = `${faNumber(count)} نفر`;
+    };
+    const applyView = (view) => {
+        document.querySelectorAll('[data-teacher-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.teacherView === view));
+        tableWrap.hidden = view !== 'table';
+        cardGrid.hidden = view !== 'cards';
+    };
+    const bindActions = () => {
+        document.querySelectorAll('[data-edit-teacher]').forEach((button) => {
+            if (button.dataset.bound === '1') return;
+            button.dataset.bound = '1';
+            button.addEventListener('click', () => openModal(button));
+        });
+        document.querySelectorAll('[data-teacher-details]').forEach((button) => {
+            if (button.dataset.bound === '1') return;
+            button.dataset.bound = '1';
+            button.addEventListener('click', () => openDetails(document.querySelector(`[data-edit-teacher][data-id="${button.dataset.teacherDetails}"]`)));
+        });
+        document.querySelectorAll('[data-card-teacher-edit]').forEach((button) => {
+            if (button.dataset.bound === '1') return;
+            button.dataset.bound = '1';
+            button.addEventListener('click', () => openModal(document.querySelector(`[data-edit-teacher][data-id="${button.dataset.cardTeacherEdit}"]`)));
+        });
+        document.querySelectorAll('[data-card-teacher-details]').forEach((button) => {
+            if (button.dataset.bound === '1') return;
+            button.dataset.bound = '1';
+            button.addEventListener('click', () => openDetails(document.querySelector(`[data-edit-teacher][data-id="${button.dataset.cardTeacherDetails}"]`)));
+        });
+    };
+    const updateRowAvatar = (button, url, fullName = '') => {
+        button.dataset.avatarUrl = url || '';
+        const avatar = button.closest('tr')?.querySelector('.am-manager-name b');
+        if (!avatar) return;
+        avatar.innerHTML = '';
+        if (url) { const img = document.createElement('img'); img.src = url; img.alt = fullName; avatar.appendChild(img); }
+        else avatar.textContent = (fullName || 'ا').trim().slice(0, 1);
+    };
+    const createRow = () => {
+        tableBody.querySelector('.am-empty')?.closest('tr')?.remove();
+        const row = document.createElement('tr');
+        row.innerHTML = `<td class="am-check-cell"><span></span></td><td><div class="am-manager-name"><b></b><div><strong></strong><small></small></div></div></td><td><span class="am-pill"></span></td><td><span class="am-pill"></span></td><td><span class="am-pill"></span></td><td><span class="am-pill teacher-course-pill">۰</span></td><td><span class="am-status"></span></td><td>-</td><td><div class="am-row-actions"><button type="button" class="am-action-icon" data-teacher-details="" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button><button type="button" class="am-action-icon" data-edit-teacher title="ویرایش اطلاعات">✎</button><button type="button" class="am-action-icon is-danger" data-delete-teacher="" data-teacher-name="" title="حذف استاد"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button></div></td>`;
+        tableBody.prepend(row);
+        return row.querySelector('[data-edit-teacher]');
+    };
+    const upsertCard = (data) => {
+        let card = cardGrid.querySelector(`[data-teacher-card="${data.teacher_id}"]`);
+        if (!card) {
+            card = document.createElement('article');
+            card.className = 'am-person-card';
+            card.dataset.teacherCard = data.teacher_id;
+            card.innerHTML = `<div class="am-card-top"><span class="am-status"></span><div class="am-card-action-icons"><button type="button" class="am-card-menu is-danger" data-delete-teacher="" data-teacher-name="" title="حذف استاد"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button><button type="button" class="am-card-menu" data-card-teacher-details="" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button><button type="button" class="am-card-menu" data-card-teacher-edit="" title="ویرایش اطلاعات">✎</button></div></div><div class="am-card-avatar"></div><h3></h3><p></p><div class="am-card-details"><span><b>#</b><em data-card-field="code"></em></span><span><b>دانشگاه</b><em data-card-field="university"></em></span><span><b>دانشکده</b><em data-card-field="faculty"></em></span><span><b>گروه</b><em data-card-field="department"></em></span><span><b>دروس</b><em data-card-field="courses"></em></span><span><b>ایمیل</b><em data-card-field="email"></em></span><span><b>موبایل</b><em data-card-field="phone"></em></span></div><footer><small>ثبت: -</small></footer>`;
+            cardGrid.prepend(card);
+        }
+        const status = card.querySelector('.am-status');
+        status.className = `am-status is-${data.status || 'active'}`;
+        status.textContent = statusLabel(data.status);
+        const avatar = card.querySelector('.am-card-avatar');
+        avatar.innerHTML = data.avatar_url ? `<img src="${data.avatar_url}" alt="${data.full_name || ''}">` : `<span>${(data.full_name || 'ا').trim().slice(0, 1)}</span>`;
+        setText(card.querySelector('h3'), data.full_name || 'استاد');
+        setText(card.querySelector('p'), data.personnel_code || '-');
+        setText(card.querySelector('[data-card-field="code"]'), data.personnel_code || '-');
+        setText(card.querySelector('[data-card-field="university"]'), data.university || '-');
+        setText(card.querySelector('[data-card-field="faculty"]'), data.faculty || '-');
+        setText(card.querySelector('[data-card-field="department"]'), data.department || '-');
+        setText(card.querySelector('[data-card-field="courses"]'), faNumber(data.courses_count || 0));
+        setText(card.querySelector('[data-card-field="email"]'), data.email || '-');
+        setText(card.querySelector('[data-card-field="phone"]'), data.phone || '-');
+        card.querySelectorAll('[data-card-teacher-edit]').forEach((button) => { button.dataset.cardTeacherEdit = data.teacher_id; button.dataset.bound = ''; });
+        card.querySelectorAll('[data-card-teacher-details]').forEach((button) => { button.dataset.cardTeacherDetails = data.teacher_id; button.dataset.bound = ''; });
+        card.querySelectorAll('[data-delete-teacher]').forEach((button) => { button.dataset.deleteTeacher = data.teacher_id; button.dataset.teacherName = data.full_name || 'استاد'; });
+    };
+    const updateTeacher = (data) => {
+        let button = currentEditButton || document.querySelector(`[data-edit-teacher][data-id="${data.teacher_id}"]`) || createRow();
+        button.dataset.id = data.teacher_id || '';
+        button.dataset.firstName = data.first_name || '';
+        button.dataset.lastName = data.last_name || '';
+        button.dataset.fullName = data.full_name || '';
+        button.dataset.username = data.username || '';
+        button.dataset.email = data.email || '';
+        button.dataset.phone = data.phone || '';
+        button.dataset.nationalId = data.national_id || '';
+        button.dataset.personnelCode = data.personnel_code || '';
+        button.dataset.status = data.status || 'active';
+        button.dataset.approvalStatus = data.approval_status || 'approved';
+        button.dataset.orgUnitId = data.org_unit_id || '';
+        button.dataset.university = data.university || '-';
+        button.dataset.faculty = data.faculty || '-';
+        button.dataset.department = data.department || '-';
+        button.dataset.coursesCount = data.courses_count || 0;
+        const row = button.closest('tr');
+        row.dataset.teacherRow = data.teacher_id || '';
+        row.querySelector('[data-teacher-details]').dataset.teacherDetails = data.teacher_id || '';
+        const deleteButton = row.querySelector('[data-delete-teacher]');
+        deleteButton.dataset.deleteTeacher = data.teacher_id || '';
+        deleteButton.dataset.teacherName = data.full_name || 'استاد';
+        setText(row.querySelector('.am-manager-name strong'), data.full_name || 'استاد');
+        setText(row.querySelector('.am-manager-name small'), data.personnel_code || '-');
+        const pills = row.querySelectorAll('.am-pill');
+        setText(pills[0], data.university || '-'); setText(pills[1], data.faculty || '-'); setText(pills[2], data.department || '-'); setText(pills[3], faNumber(data.courses_count || 0));
+        const status = row.querySelector('.am-status');
+        status.className = `am-status is-${data.status || 'active'}`;
+        status.textContent = statusLabel(data.status);
+        updateRowAvatar(button, data.avatar_url || '', data.full_name || '');
+        upsertCard(data);
+        bindActions();
+        refreshSummaryCount();
+        filterTeachers();
+    };
+    const deleteTeacher = async (button) => {
+        const teacherId = button.dataset.deleteTeacher;
+        const teacherName = button.dataset.teacherName || 'این استاد';
+        if (!teacherId || !confirm(`آیا از حذف ${teacherName} مطمئن هستید؟`)) return;
+        const formData = new FormData();
+        formData.append('teacher_action', 'delete');
+        formData.append('teacher_id', teacherId);
+        formData.append('csrfmiddlewaretoken', form.querySelector('[name="csrfmiddlewaretoken"]').value);
+        const response = await fetch(window.location.href, {method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'}});
+        const data = await response.json();
+        if (!response.ok || !data.ok) { alert(data.message || 'حذف انجام نشد.'); return; }
+        document.querySelector(`[data-teacher-row="${teacherId}"]`)?.remove();
+        document.querySelector(`[data-teacher-card="${teacherId}"]`)?.remove();
+        refreshSummaryCount();
+        filterTeachers();
+        showToast(data.message || 'استاد حذف شد.');
+    };
+
+    document.querySelector('[data-open-teacher-modal]')?.addEventListener('click', () => openModal());
+    document.querySelectorAll('[data-close-teacher-modal]').forEach((button) => button.addEventListener('click', closeModal));
+    document.querySelectorAll('[data-close-teacher-details]').forEach((button) => button.addEventListener('click', closeDetails));
+    document.querySelector('[data-print-teacher-details]')?.addEventListener('click', () => window.print());
+    document.addEventListener('click', (event) => {
+        const deleteButton = event.target.closest('[data-delete-teacher]');
+        if (deleteButton) deleteTeacher(deleteButton);
+    });
+    document.querySelectorAll('[data-teacher-view]').forEach((button) => button.addEventListener('click', () => applyView(button.dataset.teacherView)));
+    applyView('table');
+    bindActions();
+    const params = new URLSearchParams(window.location.search);
+    const requestedEdit = params.get('edit');
+    const requestedDetail = params.get('detail');
+    if (requestedEdit) {
+        openModal(document.querySelector(`[data-edit-teacher][data-id="${CSS.escape(requestedEdit)}"]`));
+    } else if (requestedDetail) {
+        openDetails(document.querySelector(`[data-edit-teacher][data-id="${CSS.escape(requestedDetail)}"]`));
+    }
+    document.querySelectorAll('[data-teacher-tab]').forEach((tab) => tab.addEventListener('click', () => {
+        document.querySelectorAll('[data-teacher-tab]').forEach((item) => item.classList.toggle('is-active', item === tab));
+        document.querySelectorAll('[data-teacher-panel]').forEach((panel) => panel.classList.toggle('is-active', panel.dataset.teacherPanel === tab.dataset.teacherTab));
+    }));
+    university.addEventListener('change', () => { orgUnitInput.value = university.value || ''; fillSelect(faculty, childrenOf(university.value, ['faculty']), 'انتخاب دانشکده'); fillSelect(department, [], 'ابتدا سطح بالاتر'); });
+    faculty.addEventListener('change', () => { orgUnitInput.value = faculty.value || university.value || ''; fillSelect(department, childrenOf(faculty.value, ['department', 'group']), 'انتخاب گروه آموزشی'); });
+    department.addEventListener('change', () => { orgUnitInput.value = department.value || faculty.value || university.value || ''; });
+    form.elements.avatar?.addEventListener('change', () => { const file = form.elements.avatar.files?.[0]; if (file) setPhotoPreview(URL.createObjectURL(file)); });
+    document.querySelector('[data-teacher-search-form]')?.addEventListener('submit', (event) => event.preventDefault());
+    searchInput?.addEventListener('input', filterTeachers);
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submitButton = form.querySelector('.am-save-button');
+        submitButton.disabled = true;
+        try {
+            const response = await fetch(form.action || window.location.href, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'XMLHttpRequest'}});
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.message || 'ذخیره انجام نشد.');
+            updateTeacher(data);
+            form.elements.avatar.value = '';
+            closeModal();
+            showToast(data.message || 'اطلاعات استاد ذخیره شد.');
+        } catch (error) {
+            alert(error.message || 'ذخیره انجام نشد.');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+    filterTeachers();
+})();
+</script>
+{% endblock %}

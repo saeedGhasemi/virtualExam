@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ویرایش اطلاعات دانشجو | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page manager-edit-page student-edit-page" dir="rtl">
+    <nav class="manager-edit-crumbs" aria-label="مسیر صفحه">
+        <a href="{% url 'core:super_admin_users' %}?tab=students">کاربران</a>
+        <span>/</span>
+        <a href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
+        <span>/</span>
+        <a href="{{ back_url }}">پروفایل دانشجو</a>
+        <span>/</span>
+        <b>ویرایش اطلاعات</b>
+    </nav>
+
+    <form method="post" enctype="multipart/form-data" class="manager-edit-form student-edit-form">
+        {% csrf_token %}
+
+        <header class="student-edit-hero">
+            <div class="student-edit-hero-title">
+                <span aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <div>
+                    <h1>ویرایش اطلاعات دانشجو</h1>
+                    <p>اطلاعات هویتی، تحصیلی و وضعیت حساب دانشجو را ویرایش کنید</p>
+                </div>
+            </div>
+
+            <div class="student-edit-summary">
+                <div class="student-edit-avatar">
+                    {% if student.avatar_url %}
+                        <img src="{{ student.avatar_url }}" alt="{{ student.full_name }}">
+                    {% else %}
+                        <span>{{ student.full_name|default:"ن"|slice:":1" }}</span>
+                    {% endif %}
+                    <label>
+                        <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp">
+                        <svg viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+                    </label>
+                </div>
+                <label class="student-edit-photo-btn">
+                    <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp">
+                    <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    تغییر تصویر
+                </label>
+                <div>
+                    <h2>{{ student.full_name|default:"نگار احمدی" }}</h2>
+                    <p>دانشجوی {{ student.degree|default:"کارشناسی" }}</p>
+                    <small>شماره دانشجویی: {{ student.student_number|default:student.identifier|default:"981234567" }}</small>
+                </div>
+            </div>
+        </header>
+
+        <div class="student-edit-grid">
+            <section class="manager-edit-card student-edit-card student-edit-personal">
+                <h2>
+                    <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                    اطلاعات فردی
+                </h2>
+                <div class="manager-edit-fields">
+                    <label>
+                        <span>نام</span>
+                        <input name="first_name" value="{{ student.first_name|default:'' }}" placeholder="نگار">
+                    </label>
+                    <label>
+                        <span>نام خانوادگی</span>
+                        <input name="last_name" value="{{ student.last_name|default:'' }}" placeholder="احمدی">
+                    </label>
+                    <label>
+                        <span>کد ملی</span>
+                        <input name="national_id" value="{{ student.national_id|default:'0012345678' }}" inputmode="numeric">
+                    </label>
+                    <label>
+                        <span>تاریخ تولد</span>
+                        <input name="birth_date" value="1380/03/15" disabled>
+                    </label>
+                    <label>
+                        <span>شماره تماس</span>
+                        <input name="phone" value="{{ student.phone|default:'09123456789' }}" inputmode="tel">
+                    </label>
+                    <label>
+                        <span>ایمیل</span>
+                        <input name="email" value="{{ student.email|default:'negar.ahmadi@univ.ac.ir' }}" type="email" dir="ltr">
+                    </label>
+                    <input type="hidden" name="username" value="{{ student.username|default:'' }}">
+                </div>
+            </section>
+
+            <section class="manager-edit-card student-edit-card student-edit-academic">
+                <h2>
+                    <svg viewBox="0 0 24 24"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+                    اطلاعات تحصیلی و سازمانی
+                </h2>
+                <div class="manager-edit-fields">
+                    <label>
+                        <span>شماره دانشجویی</span>
+                        <input name="student_number" value="{{ student.student_number|default:student.identifier|default:'981234567' }}" inputmode="numeric">
+                    </label>
+                    <label>
+                        <span>سال ورود</span>
+                        <input name="semester" value="{{ student.semester|default:'1402' }}">
+                    </label>
+                    <label>
+                        <span>مقطع</span>
+                        <select name="degree">
+                            <option value="کارشناسی" {% if student.degree == "کارشناسی" or not student.degree %}selected{% endif %}>کارشناسی</option>
+                            <option value="کارشناسی ارشد" {% if student.degree == "کارشناسی ارشد" %}selected{% endif %}>کارشناسی ارشد</option>
+                            <option value="دکتری" {% if student.degree == "دکتری" %}selected{% endif %}>دکتری</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>وضعیت تحصیلی</span>
+                        <select name="academic_status">
+                            <option value="active" {% if academic_status == "active" %}selected{% endif %}>مشغول به تحصیل</option>
+                            <option value="leave" {% if academic_status == "leave" %}selected{% endif %}>مرخصی</option>
+                            <option value="graduated" {% if academic_status == "graduated" %}selected{% endif %}>فارغ‌التحصیل</option>
+                            <option value="inactive" {% if academic_status == "inactive" %}selected{% endif %}>غیرفعال</option>
+                        </select>
+                    </label>
+                    <label class="is-wide">
+                        <span>مسیر سازمانی</span>
+                        <select name="org_unit_id">
+                            <option value="">دانشگاه ← دانشکده پرستاری ← گروه داخلی جراحی</option>
+                            {% for unit in org_units %}
+                                <option value="{{ unit.id }}" {% if student.org_unit_id == unit.id %}selected{% endif %}>{{ unit.name }}{% if unit.code %} - {{ unit.code }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="student-edit-path">{{ primary_path.label|default:"دانشگاه ← دانشکده پرستاری ← گروه داخلی جراحی" }}</small>
+                    </label>
+                    <label class="is-wide">
+                        <span>رشته / گروه</span>
+                        <input name="field_of_study" value="{{ student.field_of_study|default:'پرستاری داخلی جراحی' }}">
+                    </label>
+                    <input type="hidden" name="class_group" value="{{ student.class_group|default:'' }}">
+                </div>
+            </section>
+        </div>
+
+        <section class="manager-edit-card student-edit-card student-edit-account">
+            <h2>
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+                تنظیمات حساب
+            </h2>
+            <div class="student-edit-account-body">
+                <div class="student-edit-account-status">
+                    <label class="manager-edit-toggle">
+                        <input type="hidden" name="status" value="inactive">
+                        <input type="checkbox" name="status" value="active" {% if status == 'active' %}checked{% endif %}>
+                        <span></span>
+                        <b>وضعیت حساب</b>
+                    </label>
+                    <em class="is-active">فعال</em>
+                    <label class="student-edit-check">
+                        <input type="checkbox" name="notify_student" value="1" checked>
+                        <span>ارسال اعلان تغییرات برای دانشجو</span>
+                    </label>
+                </div>
+                <p>
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg>
+                    فیلدهای قفل‌شده فقط با دسترسی مدیر سیستم قابل تغییر هستند.
+                </p>
+                <small>نام کاربری و رمز عبور از طریق بخش تنظیمات امنیتی مدیریت می‌شوند و امکان ویرایش در این بخش وجود ندارد.</small>
+            </div>
+        </section>
+
+        <footer class="manager-edit-footer student-edit-footer">
+            <button class="manager-edit-btn is-primary" type="submit">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                ذخیره تغییرات
+            </button>
+            <a class="manager-edit-btn is-ghost" href="{{ back_url }}">انصراف</a>
+            <button class="student-edit-reset" type="reset">
+                <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+                بازنشانی فرم
+            </button>
+        </footer>
+    </form>
+</section>
+{% endblock %}

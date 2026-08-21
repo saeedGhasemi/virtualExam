@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}مدیریت دسترسی مدیر | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page manager-access-page" dir="rtl">
+    <form method="post" class="manager-access-form">
+        {% csrf_token %}
+
+        <header class="manager-access-top">
+            <div class="manager-access-title">
+                <nav aria-label="مسیر صفحه">
+                    <a href="{% url 'core:super_admin_users' %}?tab=managers">کاربران</a>
+                    <span>/</span>
+                    <a href="{{ back_url }}">پروفایل مدیر</a>
+                    <span>/</span>
+                    <b>مدیریت دسترسی</b>
+                </nav>
+                <h1>مدیریت دسترسی مدیر</h1>
+            </div>
+            <div class="manager-access-actions">
+                <button class="manager-edit-btn is-primary" type="submit">ذخیره تغییرات</button>
+                <a class="manager-edit-btn is-ghost" href="{{ back_url }}">انصراف</a>
+                <a class="manager-edit-btn is-ghost" href="{{ back_url }}">
+                    <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                    بازگشت به پروفایل
+                </a>
+            </div>
+        </header>
+
+        <div class="manager-access-grid">
+            <aside class="manager-access-left">
+                <section class="manager-access-card">
+                    <h2>
+                        دامنه سازمانی
+                        <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                    </h2>
+                    <div class="manager-access-path">
+                        <span>{{ primary_unit.university }}</span>
+                        <em>←</em>
+                        <span>{{ primary_unit.faculty }}</span>
+                        <em>←</em>
+                        <span>{{ primary_unit.department }}</span>
+                    </div>
+                    <div class="manager-access-radios">
+                        <label>
+                            <input type="radio" name="access_mode" value="primary_only" {% if access_mode == 'primary_only' %}checked{% endif %}>
+                            <span></span>
+                            فقط واحد اصلی
+                        </label>
+                        <label>
+                            <input type="radio" name="access_mode" value="unit_and_children" {% if access_mode == 'unit_and_children' %}checked{% endif %}>
+                            <span></span>
+                            این واحد و زیروَحدها
+                        </label>
+                        <label>
+                            <input type="radio" name="access_mode" value="selected_units" {% if access_mode == 'selected_units' %}checked{% endif %}>
+                            <span></span>
+                            واحدهای انتخابی
+                        </label>
+                    </div>
+                    <label class="manager-access-select">
+                        <span>واحد اصلی / واحدهای تحت پوشش</span>
+                        <select name="scope_ids" multiple>
+                            {% for unit in org_units %}
+                                <option value="{{ unit.id }}" {% if unit.id|stringformat:"s" in selected_scope_ids %}selected{% endif %}>{{ unit.name }}{% if unit.code %} - {{ unit.code }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <input type="hidden" name="primary_org_unit_id" value="{{ primary_scope_id }}">
+                    <button class="manager-access-outline" type="button">
+                        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+                        انتخاب واحدها
+                    </button>
+                </section>
+
+                <section class="manager-access-card manager-access-restrictions">
+                    <h2>
+                        محدودیت‌های دسترسی
+                        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </h2>
+                    <label class="manager-edit-toggle">
+                        <input type="checkbox" name="business_hours_only" value="1" {% if restrictions.business_hours_only %}checked{% endif %}>
+                        <span></span>
+                        <b>دسترسی فقط در ساعات اداری</b>
+                    </label>
+                    <label class="manager-edit-toggle">
+                        <input type="checkbox" name="allow_confidential_view" value="1" {% if restrictions.allow_confidential_view %}checked{% endif %}>
+                        <span></span>
+                        <b>اجازه مشاهده اطلاعات محرمانه</b>
+                    </label>
+                    <label class="manager-edit-toggle">
+                        <input type="checkbox" name="require_2fa_sensitive" value="1" {% if restrictions.require_2fa_sensitive %}checked{% endif %}>
+                        <span></span>
+                        <b>نیاز به تایید دو مرحله‌ای برای عملیات حساس</b>
+                    </label>
+                </section>
+            </aside>
+
+            <main class="manager-access-center">
+                <section class="manager-access-card">
+                    <h2>
+                        مجوزهای سامانه
+                        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>
+                    </h2>
+                    <div class="manager-access-table-wrap">
+                        <table class="manager-access-table">
+                            <thead>
+                                <tr>
+                                    <th>ماژول</th>
+                                    {% for action_key, action_label in permission_actions %}
+                                        <th>{{ action_label }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for module in module_rows %}
+                                    <tr>
+                                        <td>
+                                            <span class="manager-access-module-icon">
+                                                {% if module.icon == "book" %}
+                                                    <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                                                {% elif module.icon == "users" %}
+                                                    <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                                {% elif module.icon == "calendar" %}
+                                                    <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                                                {% elif module.icon == "gear" %}
+                                                    <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7A2 2 0 1 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1A1.7 1.7 0 0 0 10 3V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1A1.7 1.7 0 0 0 21 10h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+                                                {% else %}
+                                                    <svg viewBox="0 0 24 24"><path d="M9 11h6M9 15h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+                                                {% endif %}
+                                            </span>
+                                            <strong>{{ module.label }}</strong>
+                                        </td>
+                                        {% for cell in module.cells %}
+                                            <td>
+                                                {% if cell.allowed %}
+                                                    <label class="manager-access-check">
+                                                        <input type="checkbox" name="{{ cell.name }}" value="1" {% if cell.enabled %}checked{% endif %}>
+                                                        <span></span>
+                                                    </label>
+                                                {% else %}
+                                                    <em class="manager-access-dash">-</em>
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="manager-access-profile">
+                <section class="manager-access-card manager-access-profile-card">
+                    <div class="manager-profile-avatar">
+                        {% if manager.avatar_url %}
+                            <img src="{{ manager.avatar_url }}" alt="{{ manager.full_name }}">
+                        {% else %}
+                            <span>{{ manager.full_name|default:"م"|slice:":1" }}</span>
+                        {% endif %}
+                    </div>
+                    <h2>{{ manager.full_name|default:"مدیر سامانه" }}</h2>
+                    <p>{% if role == "admin" %}مدیر سیستم{% else %}مدیر آموزشی{% endif %}</p>
+                    <ul>
+                        <li><span>کد پرسنلی:</span><b>{{ manager.personnel_code|default:manager.identifier|default:"ADM-1042" }}</b></li>
+                        <li><span>وضعیت:</span><b class="is-active">{% if manager.status == "inactive" %}غیرفعال{% else %}فعال{% endif %}</b></li>
+                    </ul>
+                    <hr>
+                    <h3>نقش فعلی</h3>
+                    <div class="manager-role-switch">
+                        <label>
+                            <input type="radio" name="role" value="admin" {% if role == 'admin' %}checked{% endif %}>
+                            <span>مدیر سیستم</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="role" value="academic_manager" {% if role != 'admin' %}checked{% endif %}>
+                            <span>مدیر آموزشی</span>
+                        </label>
+                    </div>
+                    <small>تغییر نقش می‌تواند مجوزها را بازنشانی کند</small>
+                </section>
+            </aside>
+        </div>
+
+        <section class="manager-access-summary">
+            <div>
+                <strong>{{ active_permission_count }}</strong>
+                <span>مجوز فعال</span>
+            </div>
+            <div class="is-warning">
+                <strong>{{ limited_permission_count }}</strong>
+                <span>مجوز محدود</span>
+            </div>
+            <div>
+                <strong>{{ covered_units_count }}</strong>
+                <span>واحد تحت پوشش</span>
+            </div>
+            <a href="#" onclick="return false;">مشاهده تاریخچه تغییرات</a>
+        </section>
+
+        <footer class="manager-access-footer">
+            <button class="manager-edit-btn is-primary" type="submit">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                ذخیره تغییرات
+            </button>
+            <button class="manager-edit-btn is-ghost" type="reset">بازنشانی</button>
+        </footer>
+    </form>
+</section>
+{% endblock %}

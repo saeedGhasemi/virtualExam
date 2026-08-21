@@ -31,6 +31,21 @@ class SystemRole(models.Model):
         return self.name
 
 
+class SystemSetting(models.Model):
+    key = models.CharField(max_length=120, unique=True)
+    value = models.JSONField(default=dict, blank=True)
+    description = models.CharField(max_length=240, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['key']
+        verbose_name = 'تنظیم سامانه'
+        verbose_name_plural = 'تنظیمات سامانه'
+
+    def __str__(self):
+        return self.key
+
+
 class AcademicInstitution(models.Model):
     class InstitutionType(models.TextChoices):
         UNIVERSITY = 'university', 'دانشگاه'

@@ -1,0 +1,366 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}ویرایش آزمون | متا کوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .exam-edit{--blue:#315cff;--blue-2:#6f55ff;--ink:#071936;--muted:#66758f;--line:#dbe6f4;--panel:rgba(255,255,255,.78);direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .exam-edit *{box-sizing:border-box;letter-spacing:0}.exam-edit a{text-decoration:none;color:inherit}.exam-edit button,.exam-edit input,.exam-edit select,.exam-edit textarea{font:inherit}.exam-edit svg{width:1.18rem;height:1.18rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .edit-shell{max-width:1540px;margin:0 auto;padding-bottom:1rem}.glass{border:1px solid rgba(207,221,240,.92);border-radius:1rem;background:var(--panel);box-shadow:0 18px 46px rgba(30,55,95,.075),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%)}
+    .edit-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:1rem;margin-bottom:1rem;padding:1.25rem 1.45rem}.crumb{margin:0 0 .45rem;color:#72809a;font-weight:850}.edit-hero h1{margin:0;font-size:1.65rem;font-weight:950}.hero-meta{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:.7rem}.pill{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border-radius:.58rem;padding:.42rem .72rem;font-size:.82rem;font-weight:950}.pill.green{background:#ddf8e8;color:#16834d}.pill.blue{background:#eef3ff;color:#315cff}.pill.orange{background:#fff4df;color:#c46b00}.pill.red{background:#fee7e7;color:#dc2626}.pill.gray{background:#eef2f7;color:#56647a}.hero-actions,.footer-actions{display:flex;align-items:center;gap:.75rem}.btn{display:inline-flex;min-width:8.6rem;height:3.1rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid #cbd9ec;border-radius:.78rem;background:#fff;color:#17305f;padding:0 1rem;font-weight:950;cursor:pointer;box-shadow:0 12px 26px rgba(30,55,95,.055)}.btn.primary{border:0;background:linear-gradient(135deg,var(--blue),var(--blue-2));color:#fff;box-shadow:0 16px 34px rgba(49,92,255,.22)}.btn.soft{border-color:#adc1ff;background:#f4f7ff;color:#315cff}.btn.warn{border-color:#ffd9a8;background:#fff8eb;color:#b76500}.btn.icon-only{min-width:3.1rem;width:3.1rem;padding:0}
+    .workspace-tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem;margin-bottom:1rem;padding:.35rem}.workspace-tabs a{display:flex;min-height:3rem;align-items:center;justify-content:center;border-radius:.75rem;color:#56647e;font-weight:900}.workspace-tabs a.is-active{background:#eef3ff;color:#315cff;box-shadow:inset 0 -3px 0 #315cff}
+    .stepper{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:.6rem;margin-bottom:1rem;padding:.7rem}.stepper a{position:relative;display:flex;min-height:4.1rem;align-items:center;justify-content:center;gap:.65rem;border-radius:.9rem;color:#6b7891;font-weight:950}.stepper a:before{content:"";position:absolute;right:calc(-50% + 1.4rem);left:calc(50% + 1.4rem);top:50%;border-top:2px dashed #cfdaf0;transform:translateY(-50%);z-index:-1}.stepper a:first-child:before{display:none}.stepper b{display:grid;width:2.2rem;height:2.2rem;place-items:center;border:1px solid #cbd8ea;border-radius:999px;background:#fff}.stepper a.is-active{background:linear-gradient(135deg,#eef3ff,#f6f2ff);color:#315cff}.stepper a.is-active b,.stepper a.is-done b{border-color:transparent;background:linear-gradient(135deg,var(--blue),var(--blue-2));color:#fff}
+    .notice{display:flex;align-items:center;gap:.7rem;margin-bottom:1rem;padding:1rem;border-radius:.85rem;border:1px solid #b7cdfd;background:#eef5ff;color:#1d4ed8;font-weight:900}.notice.warn{border-color:#fed7aa;background:#fff8ed;color:#b45309}.notice.ok{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:1rem}.panel{padding:1rem}.panel h2,.panel h3{margin:0 0 1rem;font-weight:950}.panel h2{font-size:1.15rem}.panel h3{font-size:1rem}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.field{display:grid;gap:.45rem;color:#17264a;font-size:.88rem;font-weight:950}.field input,.field select,.field textarea{width:100%;min-height:3.05rem;border:1px solid #d3dfef;border-radius:.72rem;background:#fff;padding:.7rem .85rem;color:#17264a;outline:0}.field textarea{min-height:7rem;line-height:1.9;resize:vertical}.field.full{grid-column:1/-1}.summary-list{display:grid;gap:.15rem}.summary-list div{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e6eef7;padding:.73rem 0;font-weight:900}.summary-list span{color:#6a7890}.mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}.mini-stat{min-height:5.9rem;padding:1rem;text-align:center}.mini-stat small{display:block;color:#6b7890;font-weight:850}.mini-stat b{display:block;margin-top:.35rem;font-size:1.65rem;color:#315cff}
+    .segmented{display:grid;grid-template-columns:repeat(2,1fr);gap:.35rem;margin-bottom:1rem;padding:.35rem}.segmented span{display:flex;height:3rem;align-items:center;justify-content:center;border-radius:.72rem;color:#56647e;font-weight:950}.segmented span.is-active{background:#eef3ff;color:#315cff;box-shadow:inset 0 -3px 0 #315cff}.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem}.data-table{width:100%;border-collapse:collapse}.data-table th,.data-table td{height:3.35rem;border-bottom:1px solid #e6eef7;text-align:right;padding:.65rem .75rem;font-weight:850}.data-table th{background:#f8fbff;color:#5e6d86;font-size:.82rem}.data-table tbody tr:hover{background:rgba(238,244,255,.48)}.row-actions{display:flex;align-items:center;gap:.45rem}.tiny-btn{display:grid;width:2.05rem;height:2.05rem;place-items:center;border:1px solid #dae5f2;border-radius:.55rem;background:#fff;color:#315cff}
+    .question-types{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:.65rem;margin-bottom:1rem}.type-card{display:grid;min-height:5.4rem;place-items:center;border:1px solid #dbe6f3;border-radius:.85rem;background:#fff;text-align:center;font-size:.82rem;font-weight:950;color:#17264a}.type-card svg{width:1.75rem;height:1.75rem;margin-bottom:.4rem;color:#315cff}.type-card.is-active{border-color:#315cff;background:#f4f6ff;color:#315cff;box-shadow:inset 0 -3px 0 #315cff}.drop-row{margin-top:.75rem;border:1px dashed #9db7ff;border-radius:.7rem;background:#f6f9ff;padding:.85rem;text-align:center;color:#315cff;font-weight:900}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:1px solid #e6eef7;padding:.82rem 0;font-weight:900}.toggle{position:relative;width:3.1rem;height:1.65rem;flex:0 0 auto}.toggle input{position:absolute;opacity:0}.toggle span{position:absolute;inset:0;border-radius:999px;background:#cbd5e1}.toggle span:before{content:"";position:absolute;right:.2rem;top:.2rem;width:1.25rem;height:1.25rem;border-radius:50%;background:#fff;transition:.18s}.toggle input:checked+span{background:linear-gradient(135deg,var(--blue),var(--blue-2))}.toggle input:checked+span:before{right:1.62rem}.settings-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}.settings-stack{display:grid;gap:1rem}
+    .review-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}.review-card{min-height:7.3rem;padding:1rem}.review-card small{color:#68758f;font-weight:850}.review-card b{display:block;margin:.4rem 0;font-size:1.45rem}.checklist{display:grid;gap:.7rem}.checklist div{display:flex;align-items:center;justify-content:space-between;border:1px solid #e1ebf6;border-radius:.75rem;background:#fff;padding:.8rem;font-weight:900}.checklist b{color:#16a34a}.footer-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.save-state{display:inline-flex;align-items:center;gap:.45rem;border-radius:999px;background:#fff7ed;color:#d97706;padding:.55rem .9rem;font-weight:950}
+    .timeline{display:grid;gap:.65rem}.timeline-row{display:grid;grid-template-columns:70px minmax(0,1fr) 130px 150px auto;align-items:center;gap:.75rem;border:1px solid #e4ebf5;border-radius:.85rem;background:#fff;padding:.8rem}.activity{display:grid;gap:.75rem}.activity div{border-bottom:1px solid #e6eef7;padding:.75rem 0;font-weight:900}.activity small{display:block;margin-top:.25rem;color:#68758f}.compare-grid{display:grid;grid-template-columns:minmax(0,1fr) 180px minmax(0,1fr);overflow:hidden}.compare-grid>div{border-bottom:1px solid #e6eef7;padding:1rem}.compare-mid{background:#f8fbff;text-align:center;font-weight:950}.compare-old{background:#fff7f7}.compare-new{background:#f0fdf4}.limited-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.lock-list{display:grid;gap:.65rem}.lock-list div{display:flex;align-items:center;justify-content:space-between;border:1px solid #e4ebf5;border-radius:.75rem;background:#fff;padding:.9rem;font-weight:900;color:#6b7280}.lock-list div.allowed{color:#1d4ed8}.republish-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}.message-box{width:100%;min-height:9rem;border:1px solid #d3dfef;border-radius:.85rem;background:#fff;padding:1rem;line-height:2;resize:vertical}
+    @media(max-width:1180px){.layout,.limited-grid,.settings-grid,.republish-grid{grid-template-columns:1fr}.question-types{grid-template-columns:repeat(4,1fr)}.review-grid,.mini-stats{grid-template-columns:repeat(2,1fr)}.workspace-tabs{grid-template-columns:repeat(3,1fr)}.timeline-row{grid-template-columns:1fr}.compare-grid{grid-template-columns:1fr}}
+    @media(max-width:760px){.edit-hero,.footer-bar{grid-template-columns:1fr}.hero-actions,.footer-actions{flex-direction:column;align-items:stretch}.btn{width:100%}.stepper,.workspace-tabs,.form-grid,.filters,.question-types,.review-grid,.mini-stats{grid-template-columns:1fr}.layout{display:block}.panel{margin-bottom:1rem}}
+</style>
+
+<section class="super-admin-page super-admin-workspace exam-edit" dir="rtl" data-fixed-scroll-page>
+    <div class="edit-shell">
+        <header class="edit-hero glass">
+            <div>
+                <p class="crumb">آزمون‌ها / مدیریت آزمون / ویرایش آزمون</p>
+                <h1>{{ exam.title|default:"ویرایش آزمون"|fa_digits }}</h1>
+                <div class="hero-meta">
+                    <span class="pill blue">کد آزمون: {{ exam.id|slice:":11"|fa_digits }}</span>
+                    <span class="pill gray">{{ exam.course_title|default:"درس نامشخص"|fa_digits }}</span>
+                    {% if is_published %}<span class="pill green">منتشرشده</span>{% else %}<span class="pill orange">پیش‌نویس</span>{% endif %}
+                    <span class="pill orange">تغییرات ذخیره‌نشده</span>
+                </div>
+            </div>
+            <div class="hero-actions">
+                <a class="btn" href="{% url 'core:super_admin_exams' %}">انصراف</a>
+                <a class="btn soft" href="{% url 'core:super_admin_exam_detail' exam.id %}">پیش‌نمایش</a>
+                {% if view == 'edit' or view == 'republish' %}
+                    <button class="btn primary" form="examEditForm" type="submit">ذخیره تغییرات</button>
+                {% elif view == 'compare' %}
+                    <a class="btn primary" href="?view=republish">تایید تغییرات</a>
+                {% elif view == 'limited' %}
+                    <button class="btn primary" type="button">ذخیره تغییرات مجاز</button>
+                {% else %}
+                    <a class="btn primary" href="?view=edit&step=1">بازگشت به ویرایش</a>
+                {% endif %}
+            </div>
+        </header>
+
+        <nav class="workspace-tabs glass" aria-label="بخش‌های ویرایش آزمون">
+            <a class="{% if view == 'edit' %}is-active{% endif %}" href="?view=edit&step={{ step }}">ویرایش</a>
+            <a class="{% if view == 'versions' %}is-active{% endif %}" href="?view=versions">تاریخچه نسخه‌ها</a>
+            <a class="{% if view == 'republish' %}is-active{% endif %}" href="?view=republish">انتشار مجدد</a>
+            <a class="{% if view == 'limited' %}is-active{% endif %}" href="?view=limited">محدودیت ویرایش</a>
+            <a class="{% if view == 'compare' %}is-active{% endif %}" href="?view=compare">مقایسه تغییرات</a>
+            <a href="{% url 'core:super_admin_exam_detail' exam.id %}?tab=results">گزارش‌ها</a>
+            <a href="{% url 'core:super_admin_exam_detail' exam.id %}?tab=session">نظارت زنده</a>
+        </nav>
+
+        {% if request.GET.saved %}
+            <div class="notice ok">تغییرات ذخیره شد. برای اعمال تغییر روی نسخه‌ی قابل مشاهده شرکت‌کنندگان، از بخش انتشار مجدد استفاده کنید.</div>
+        {% elif is_running %}
+            <div class="notice warn">این آزمون در حال برگزاری است؛ فقط تنظیمات مجاز را از بخش محدودیت ویرایش تغییر دهید.</div>
+        {% elif is_published %}
+            <div class="notice">این آزمون منتشر شده است. ذخیره تغییرات پیش‌نویس جدید می‌سازد و انتشار مجدد آن را برای شرکت‌کنندگان فعال می‌کند.</div>
+        {% endif %}
+
+        {% if view == 'versions' %}
+            <section class="layout">
+                <article class="panel glass">
+                    <h2>تاریخچه نسخه‌ها</h2>
+                    <div class="timeline">
+                        <div class="timeline-row"><b>نسخه ۴</b><span>افزودن ۵ سؤال تشریحی و بروزرسانی ضرایب بخش دوم</span><span class="pill blue">پیش‌نویس فعلی</span><span>۱۴۰۵/۰۲/۲۴ - ۱۰:۴۲</span><span class="row-actions"><a class="tiny-btn" href="?view=compare">↔</a><a class="tiny-btn" href="?view=republish">↻</a></span></div>
+                        <div class="timeline-row"><b>نسخه ۳</b><span>ویرایش متن سؤال ۱۲ و تغییر زمان آزمون از ۹۰ به ۹۵ دقیقه</span><span class="pill green">منتشرشده</span><span>۱۴۰۵/۰۲/۲۰ - ۱۶:۱۵</span><span class="row-actions"><a class="tiny-btn" href="?view=compare">↔</a><a class="tiny-btn" href="?view=republish">↻</a></span></div>
+                        <div class="timeline-row"><b>نسخه ۲</b><span>افزودن نمودار به سؤال ۸ و اصلاح گزینه ۴ در سؤال ۱۸</span><span class="pill green">منتشرشده</span><span>۱۴۰۵/۰۲/۱۸ - ۱۱:۳۰</span><span class="row-actions"><a class="tiny-btn" href="?view=compare">↔</a><a class="tiny-btn" href="?view=republish">↻</a></span></div>
+                        <div class="timeline-row"><b>نسخه ۱</b><span>ایجاد اولیه آزمون و تعریف ساختار بخش‌ها</span><span class="pill gray">پیش‌نویس</span><span>۱۴۰۵/۰۲/۱۵ - ۰۹:۲۰</span><span class="row-actions"><a class="tiny-btn" href="?view=compare">↔</a></span></div>
+                    </div>
+                    <div class="notice" style="margin:1rem 0 0">نسخه پیش‌نویس فعلی آخرین تغییرات شما را نشان می‌دهد. برای انتشار، به بخش بازبینی و انتشار بروید.</div>
+                </article>
+                <aside class="panel glass">
+                    <h2>بازبینی نسخه ۲</h2>
+                    <div class="notice warn">اقدام به ایجاد پیش‌نویس از نسخه منتخب</div>
+                    <div class="summary-list" style="margin-bottom:1rem">
+                        <div><span>نسخه جدید به صورت پیش‌نویس ایجاد می‌شود</span><b>✓</b></div>
+                        <div><span>اطلاعات نسخه‌های منتشرشده بدون تغییر می‌ماند</span><b>✓</b></div>
+                    </div>
+                    <a class="btn primary" style="width:100%;margin-bottom:1rem" href="?view=edit&step=1">ایجاد پیش‌نویس از نسخه ۲</a>
+                    <h2>فعالیت‌های اخیر</h2>
+                    <div class="activity">
+                        <div>نسخه ۴ ذخیره شد.<small>توسط {{ exam.teacher_name|default:"مدرس"|fa_digits }} - ۱۴۰۵/۰۲/۲۴</small></div>
+                        <div>۵ سؤال تشریحی اضافه شد.<small>بخش دوم آزمون</small></div>
+                        <div>ضرایب بخش‌ها بروزرسانی شد.<small>ضرایب سؤال‌های بالینی</small></div>
+                        <div>نسخه ۳ منتشر شد.<small>در دسترس شرکت‌کنندگان</small></div>
+                    </div>
+                </aside>
+            </section>
+        {% elif view == 'republish' %}
+            <form id="examEditForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="edit_step" value="5">
+                <input type="hidden" name="publish_action" value="republish">
+                <section class="panel glass">
+                    <h2>تایید انتشار مجدد</h2>
+                    <div class="review-grid">
+                        <article class="review-card glass"><small>نسخه فعلی</small><b>نسخه ۳</b><span>منتشرشده</span></article>
+                        <article class="review-card glass"><small>نسخه جدید</small><b>نسخه ۴</b><span>با انتشار نسخه جدید، این تغییرات اعمال می‌شود.</span></article>
+                        <article class="review-card glass"><small>اطلاع‌رسانی</small><b>{{ stats.participant_count|fa_digits }} نفر</b><span>شرکت‌کنندگان مطلع خواهند شد.</span></article>
+                        <article class="review-card glass"><small>تاثیر بر تلاش‌های فعلی</small><b>بدون تغییر</b><span>تلاش‌های در حال انجام حفظ می‌شوند.</span></article>
+                    </div>
+                    <div class="republish-grid" style="margin-top:1rem">
+                        <article class="panel glass">
+                            <h2>زمان انتشار</h2>
+                            <label class="toggle-row">انتشار فوری <span class="toggle"><input name="publish_mode" value="immediate" type="checkbox" checked><span></span></span></label>
+                            <div class="field"><label>انتشار زمان‌بندی‌شده</label><input type="datetime-local" disabled></div>
+                        </article>
+                        <article class="panel glass">
+                            <h2>کانال‌های اطلاع‌رسانی</h2>
+                            <label class="toggle-row">اعلان درون سامانه <span class="toggle"><input type="checkbox" checked><span></span></span></label>
+                            <label class="toggle-row">ایمیل <span class="toggle"><input type="checkbox" checked><span></span></span></label>
+                        </article>
+                        <article class="panel glass">
+                            <h2>پیام به شرکت‌کنندگان</h2>
+                            <textarea class="message-box" name="announcement">سلام و احترام
+نسخه جدیدی از آزمون «{{ exam.title }}» منتشر شده است. لطفا برای مشاهده تغییرات و ادامه شرکت در آزمون، به سامانه مراجعه کنید.</textarea>
+                        </article>
+                    </div>
+                    <label class="toggle-row" style="border-bottom:0;margin-top:1rem">تغییرات را بررسی و تایید می‌کنم <input required type="checkbox"></label>
+                    <div class="footer-actions"><button class="btn primary" type="submit">انتشار نسخه جدید</button><a class="btn" href="?view=edit&step=5">انصراف</a></div>
+                </section>
+            </form>
+        {% elif view == 'limited' %}
+            <section class="panel glass">
+                <h2>محدودیت ویرایش آزمون درحال برگزاری</h2>
+                <div class="mini-stats">
+                    <article class="mini-stat glass"><small>در انتظار شروع</small><b>۵۲ نفر</b></article>
+                    <article class="mini-stat glass"><small>شروع کرده‌اند</small><b>{{ stats.started_count|default:76|fa_digits }} نفر</b></article>
+                    <article class="mini-stat glass"><small>شرکت‌کنندگان</small><b>{{ stats.participant_count|fa_digits }} نفر</b></article>
+                </div>
+                <div class="notice warn" style="margin-top:1rem">به دلیل درحال‌برگزاری بودن آزمون، امکان ویرایش تنظیمات حساس محدود شده است.</div>
+                <div class="limited-grid">
+                    <article class="panel glass">
+                        <h2>تنظیمات قابل ویرایش</h2>
+                        <div class="lock-list">
+                            <div class="allowed">پایان آزمون <span>تغییر زمان پایان برای همه یا گروهی</span></div>
+                            <div class="allowed">زمان اضافه برای فرد <span>اعطای زمان اضافه به شرکت‌کننده</span></div>
+                            <div class="allowed">پیام راهنما <span>ارسال پیام برای همه شرکت‌کنندگان</span></div>
+                            <div class="allowed">یادداشت ناظر <span>ثبت یادداشت محرمانه</span></div>
+                        </div>
+                        <div class="footer-actions" style="margin-top:1rem"><button class="btn soft" type="button">افزایش زمان گروهی</button><button class="btn soft" type="button">مدیریت زمان اضافه فردی</button></div>
+                    </article>
+                    <article class="panel glass">
+                        <h2>تنظیمات قفل‌شده</h2>
+                        <div class="lock-list">
+                            <div>سؤال‌های آزمون <span>افزودن، حذف یا ویرایش سؤال‌ها</span></div>
+                            <div>نمره‌دهی و پاسخنامه <span>تغییر کلید، نمره‌دهی و بازبینی خودکار</span></div>
+                            <div>حذف شرکت‌کننده <span>حذف یا غیرفعال‌سازی شرکت‌کننده</span></div>
+                            <div>ترتیب و تصادفی‌سازی <span>تغییر ترتیب سؤال‌ها یا گزینه‌ها</span></div>
+                            <div>زمان و شرایط شروع <span>تغییر زمان شروع یا شرایط دسترسی</span></div>
+                        </div>
+                    </article>
+                </div>
+                <div class="notice" style="margin-top:1rem">کلیه تغییرات مجاز در گزارش رویدادها ثبت و ذخیره خواهد شد.</div>
+                <div class="footer-actions"><a class="btn" href="{% url 'core:super_admin_exams' %}">بازگشت</a><button class="btn primary" type="button">ذخیره تغییرات مجاز</button></div>
+            </section>
+        {% elif view == 'compare' %}
+            <section class="layout">
+                <article class="panel glass">
+                    <h2>مقایسه تغییرات آزمون</h2>
+                    <div class="compare-grid">
+                        <div class="compare-new"><b>نسخه جدید پس از تغییر</b></div><div class="compare-mid">بخش</div><div class="compare-old"><b>نسخه فعلی قبل از تغییر</b></div>
+                        <div class="compare-new">آزمون شامل مباحث فصل‌های ۱ تا ۶ و مرور نکات مهم</div><div class="compare-mid">اطلاعات پایه<br><span class="pill orange">۲ تغییر</span></div><div class="compare-old">آزمون شامل مباحث فصل‌های ۱ تا ۵</div>
+                        <div class="compare-new">گروه‌های ۱۰۱، ۱۰۲، ۱۰۳، ۱۰۴ و سقف ۲۰۰ نفر</div><div class="compare-mid">شرکت‌کنندگان<br><span class="pill green">۱ تغییر</span></div><div class="compare-old">گروه‌های ۱۰۱، ۱۰۲، ۱۰۳ و سقف ۱۵۰ نفر</div>
+                        <div class="compare-new">۳۵ سؤال، نمره منفی ۰.۲۵</div><div class="compare-mid">سؤال‌ها<br><span class="pill orange">۲ تغییر</span></div><div class="compare-old">۳۰ سؤال، نمره منفی ندارد</div>
+                        <div class="compare-new">۱۰:۳۰ تا ۱۲:۳۰</div><div class="compare-mid">زمان‌بندی<br><span class="pill green">۱ تغییر</span></div><div class="compare-old">۰۹:۰۰ تا ۱۰:۳۰</div>
+                    </div>
+                    <div class="footer-actions" style="margin-top:1rem"><a class="btn primary" href="?view=republish">تایید تغییرات</a><a class="btn" href="?view=edit&step=5">بازگشت به ویرایش</a></div>
+                </article>
+                <aside class="panel glass">
+                    <h2>خلاصه تغییرات</h2>
+                    <article class="review-card glass"><small>تعداد تغییرات</small><b>۷ تغییر در ۴ بخش</b><span>۲ حساس، ۲ اطلاع‌رسانی لازم، ۳ سایر</span></article>
+                </aside>
+            </section>
+        {% else %}
+            <nav class="stepper glass" aria-label="مراحل ویرایش">
+                <a class="{% if step == '1' %}is-active{% elif step == '2' or step == '3' or step == '4' or step == '5' %}is-done{% endif %}" href="?view=edit&step=1"><b>{% if step == '2' or step == '3' or step == '4' or step == '5' %}✓{% else %}۱{% endif %}</b>اطلاعات پایه</a>
+                <a class="{% if step == '2' %}is-active{% elif step == '3' or step == '4' or step == '5' %}is-done{% endif %}" href="?view=edit&step=2"><b>{% if step == '3' or step == '4' or step == '5' %}✓{% else %}۲{% endif %}</b>شرکت‌کنندگان</a>
+                <a class="{% if step == '3' %}is-active{% elif step == '4' or step == '5' %}is-done{% endif %}" href="?view=edit&step=3"><b>{% if step == '4' or step == '5' %}✓{% else %}۳{% endif %}</b>سؤال‌ها</a>
+                <a class="{% if step == '4' %}is-active{% elif step == '5' %}is-done{% endif %}" href="?view=edit&step=4"><b>{% if step == '5' %}✓{% else %}۴{% endif %}</b>زمان و قوانین</a>
+                <a class="{% if step == '5' %}is-active{% endif %}" href="?view=edit&step=5"><b>۵</b>بازبینی و انتشار</a>
+            </nav>
+            <form id="examEditForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="edit_step" value="{{ step }}">
+                {% if step == '1' %}
+                    <section class="layout">
+                        <article class="panel glass">
+                            <h2>اطلاعات پایه آزمون</h2>
+                            <div class="form-grid">
+                                <label class="field">عنوان آزمون *<input name="title" value="{{ exam.title|fa_digits }}" required></label>
+                                <label class="field">درس *<select name="course_id">{% for course in courses %}<option value="{{ course.id }}" {% if course.id == exam.course_id %}selected{% endif %}>{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
+                                <label class="field">استاد *<select name="teacher_id">{% for teacher in teachers %}<option value="{{ teacher.id }}" {% if teacher.id == exam.teacher_id %}selected{% endif %}>{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
+                                <label class="field">نوع آزمون<select name="exam_type"><option value="midterm" {% if exam.exam_type == 'midterm' %}selected{% endif %}>میان‌ترم</option><option value="final" {% if exam.exam_type == 'final' %}selected{% endif %}>پایان‌ترم</option><option value="quiz" {% if exam.exam_type == 'quiz' %}selected{% endif %}>کوییز</option></select></label>
+                                <label class="field">سال تحصیلی<input name="academic_year" value="{{ exam.academic_year|default:'1405-1404'|fa_digits }}"></label>
+                                <label class="field">نیمسال<input name="semester" value="{{ exam.semester|default:'نیمسال اول'|fa_digits }}"></label>
+                                <label class="field">مدت آزمون<input type="number" name="duration_minutes" value="{{ exam.duration_minutes|default:90 }}"></label>
+                                <label class="field">نمره قبولی<input type="number" step="0.25" name="passing_score" value="{{ exam.passing_score|default:10 }}"></label>
+                                <label class="field full">توضیحات<textarea name="description">{{ exam.description|default:''|fa_digits }}</textarea></label>
+                            </div>
+                        </article>
+                        <aside class="panel glass">
+                            <h2>خلاصه آزمون</h2>
+                            <div class="summary-list">
+                                <div><span>کد آزمون</span><b>{{ exam.id|slice:":11"|fa_digits }}</b></div>
+                                <div><span>وضعیت</span><b>{% if is_published %}منتشرشده{% else %}پیش‌نویس{% endif %}</b></div>
+                                <div><span>درس</span><b>{{ exam.course_title|fa_digits }}</b></div>
+                                <div><span>استاد</span><b>{{ exam.teacher_name|fa_digits }}</b></div>
+                                <div><span>تعداد سؤال‌ها</span><b>{{ stats.selected_questions|fa_digits }}</b></div>
+                                <div><span>شرکت‌کنندگان</span><b>{{ stats.participant_count|fa_digits }} نفر</b></div>
+                            </div>
+                        </aside>
+                    </section>
+                {% elif step == '2' %}
+                    <section class="layout">
+                        <article class="panel glass">
+                            <div class="segmented glass"><span class="is-active">گروه‌های درسی</span><span>انتخاب دانشجو</span></div>
+                            <div class="filters">
+                                <label class="field"><input type="search" placeholder="جستجو در گروه‌ها..."></label>
+                                <label class="field"><select><option>همه دانشکده‌ها</option></select></label>
+                                <label class="field"><select><option>همه گروه‌ها</option></select></label>
+                                <label class="field"><select><option>همه گروه‌های درسی</option></select></label>
+                            </div>
+                            <h2>گروه‌های درسی انتخاب‌شده</h2>
+                            <table class="data-table">
+                                <thead><tr><th></th><th>نام گروه</th><th>استاد</th><th>تعداد دانشجو</th><th>شرط احراز</th><th>عملیات</th></tr></thead>
+                                <tbody>{% for group in groups|slice:":8" %}<tr><td><input type="checkbox" name="group_ids" value="{{ group.id }}" {% if group.id in assigned_groups %}checked{% endif %}></td><td>{{ group.course_title|fa_digits }} - گروه {{ group.group_code|fa_digits }}</td><td>{{ group.teacher_name|fa_digits }}</td><td>{{ group.members_count|fa_digits }}</td><td><span class="pill green">دارای پیش‌نیاز</span></td><td><span class="tiny-btn">×</span></td></tr>{% endfor %}</tbody>
+                            </table>
+                            <h2 style="margin-top:1rem">دانشجویان منتخب مستقیم</h2>
+                            <table class="data-table">
+                                <thead><tr><th></th><th>دانشجو</th><th>شماره دانشجویی</th><th>رشته</th></tr></thead>
+                                <tbody>{% for student in students|slice:":6" %}<tr><td><input type="checkbox" name="student_ids" value="{{ student.id }}" {% if student.id in assigned_students %}checked{% endif %}></td><td>{{ student.full_name|fa_digits }}</td><td>{{ student.student_number|fa_digits }}</td><td>{{ student.field_of_study|fa_digits }}</td></tr>{% endfor %}</tbody>
+                            </table>
+                            <div class="notice" style="margin:1rem 0 0">تنها دانشجویانی که شرایط احراز را دارند می‌توانند در آزمون شرکت کنند.</div>
+                        </article>
+                        <aside class="panel glass">
+                            <h2>خلاصه شرکت‌کنندگان</h2>
+                            <div class="mini-stats" style="grid-template-columns:1fr">
+                                <article class="mini-stat glass"><small>تعداد گروه‌های انتخاب‌شده</small><b>{{ stats.selected_groups|fa_digits }}</b></article>
+                                <article class="mini-stat glass"><small>تعداد کل دانشجویان</small><b>{{ stats.participant_count|fa_digits }}</b></article>
+                                <article class="mini-stat glass"><small>دانشجویان مستقیم</small><b>{{ stats.selected_students|fa_digits }}</b></article>
+                            </div>
+                            <a class="btn soft" style="width:100%;margin-top:1rem" href="?view=limited">مدیریت استثناها</a>
+                        </aside>
+                    </section>
+                {% elif step == '3' %}
+                    <section class="layout">
+                        <article class="panel glass">
+                            <h2>انتخاب نوع سؤال</h2>
+                            <div class="question-types">
+                                <span class="type-card is-active">چهارگزینه‌ای</span><span class="type-card">چندگزینه‌ای</span><span class="type-card">درست/نادرست</span><span class="type-card">پاسخ کوتاه</span><span class="type-card">تشریحی</span><span class="type-card">جای‌خالی</span><span class="type-card">تطبیقی</span><span class="type-card">سناریوی بالینی</span>
+                            </div>
+                            <div class="footer-actions" style="margin-bottom:1rem"><button class="btn primary" type="button">ساخت سؤال جدید</button><button class="btn soft" type="button">افزودن از بانک سؤال</button></div>
+                            <table class="data-table">
+                                <thead><tr><th></th><th>ترتیب</th><th>سؤال</th><th>نوع</th><th>امتیاز</th><th>سطح دشواری</th></tr></thead>
+                                <tbody>{% for question in questions|slice:":12" %}<tr><td><input type="checkbox" name="question_ids" value="{{ question.id }}" {% if question.id in selected_questions %}checked{% endif %}></td><td>{{ forloop.counter|fa_digits }}</td><td>{{ question.text|truncatechars:90|fa_digits }}</td><td><span class="pill blue">{{ question.type_label|fa_digits }}</span></td><td>{{ question.points|fa_digits }}</td><td>{{ question.difficulty|default:'متوسط'|fa_digits }}</td></tr>{% empty %}<tr><td colspan="6">سؤالی برای این درس پیدا نشد.</td></tr>{% endfor %}</tbody>
+                            </table>
+                            <div class="drop-row">برای افزودن سؤال جدید به این گروه، اینجا کلیک کنید یا سؤال را بکشید و رها کنید.</div>
+                        </article>
+                        <aside class="panel glass">
+                            <h2>خلاصه آزمون</h2>
+                            <div class="mini-stats">
+                                <article class="mini-stat glass"><small>تعداد سؤال‌ها</small><b>{{ stats.selected_questions|fa_digits }}</b></article>
+                                <article class="mini-stat glass"><small>کل امتیاز</small><b>{{ stats.total_points|floatformat:1|fa_digits }}</b></article>
+                                <article class="mini-stat glass"><small>زمان تخمینی</small><b>۴۵</b></article>
+                            </div>
+                            <h2 style="margin-top:1rem">تنظیمات امتیازدهی</h2>
+                            <div class="summary-list"><div><span>امتیاز جزئی</span><b>{% if exam.allow_partial %}فعال{% else %}غیرفعال{% endif %}</b></div><div><span>نمره منفی</span><b>{% if exam.negative_marking %}فعال{% else %}غیرفعال{% endif %}</b></div></div>
+                        </aside>
+                    </section>
+                {% elif step == '4' %}
+                    <section class="settings-grid">
+                        <article class="panel glass">
+                            <h2>زمان‌بندی آزمون</h2>
+                            <div class="form-grid">
+                                <label class="field">تاریخ شروع<input type="date" name="start_date" value="{{ exam.start_date_value }}"></label>
+                                <label class="field">ساعت شروع<input type="time" name="start_time" value="{{ exam.start_time_value }}"></label>
+                                <label class="field">تاریخ پایان<input type="date" name="end_date" value="{{ exam.end_date_value }}"></label>
+                                <label class="field">ساعت پایان<input type="time" name="end_time" value="{{ exam.end_time_value }}"></label>
+                                <label class="field">مدت آزمون<input type="number" name="duration_minutes" value="{{ exam.duration_minutes|default:90 }}"></label>
+                                <label class="field">دفعات مجاز شرکت<input type="number" name="max_attempts" value="{{ exam.max_attempts|default:1 }}"></label>
+                            </div>
+                            <div class="notice" style="margin:1rem 0 0">آزمون در بازه تعیین‌شده برای شرکت‌کنندگان در دسترس خواهد بود.</div>
+                        </article>
+                        <article class="panel glass">
+                            <h2>قوانین و رفتار آزمون‌دهنده</h2>
+                            <label class="toggle-row">ترتیب نمایش سؤال‌ها تصادفی <span class="toggle"><input name="shuffle_questions" type="checkbox" {% if exam.shuffle_questions %}checked{% endif %}><span></span></span></label>
+                            <label class="toggle-row">ترتیب گزینه‌ها تصادفی <span class="toggle"><input name="shuffle_options" type="checkbox" {% if exam.shuffle_options %}checked{% endif %}><span></span></span></label>
+                            <label class="toggle-row">نمره منفی <span class="toggle"><input name="negative_marking" type="checkbox" {% if exam.negative_marking %}checked{% endif %}><span></span></span></label>
+                            <label class="field">ضریب نمره منفی<input type="number" step="0.05" name="negative_factor" value="{{ exam.negative_factor|default:0.25 }}"></label>
+                            <label class="toggle-row">ذخیره خودکار پاسخ‌ها <span class="toggle"><input name="autosave_enabled" type="checkbox" {% if exam.autosave_enabled %}checked{% endif %}><span></span></span></label>
+                            <label class="toggle-row">نمایش بازخورد به دانشجو <span class="toggle"><input name="show_feedback" type="checkbox" {% if exam.show_feedback %}checked{% endif %}><span></span></span></label>
+                        </article>
+                        <div class="settings-stack">
+                            <article class="panel glass">
+                                <h2>نظارت و محدودیت‌ها</h2>
+                                <label class="toggle-row">تمام‌صفحه اجباری <span class="toggle"><input name="fullscreen_required" type="checkbox" {% if exam.fullscreen_required %}checked{% endif %}><span></span></span></label>
+                                <label class="toggle-row">ثبت خروج از صفحه <span class="toggle"><input name="track_tab_exit" type="checkbox" {% if exam.track_tab_exit %}checked{% endif %}><span></span></span></label>
+                                <label class="toggle-row">نمایش دستورالعمل پیش از شروع <span class="toggle"><input name="show_instructions_before_start" type="checkbox" {% if exam.show_instructions_before_start %}checked{% endif %}><span></span></span></label>
+                            </article>
+                            <article class="panel glass">
+                                <h2>سایر تنظیمات</h2>
+                                <input type="hidden" name="result_release_mode" value="{{ exam.result_release_mode|default:'after_exam' }}">
+                                <label class="toggle-row">نمایش پاسخ صحیح <span class="toggle"><input name="show_correct_answers" type="checkbox" {% if exam.show_correct_answers %}checked{% endif %}><span></span></span></label>
+                                <label class="toggle-row">نمایش نمره <span class="toggle"><input name="show_score" type="checkbox" {% if exam.show_score %}checked{% endif %}><span></span></span></label>
+                                <label class="toggle-row">امتیاز جزئی <span class="toggle"><input name="allow_partial" type="checkbox" {% if exam.allow_partial %}checked{% endif %}><span></span></span></label>
+                            </article>
+                        </div>
+                    </section>
+                {% else %}
+                    <section class="layout">
+                        <article class="panel glass">
+                            <h2>بازبینی و ذخیره</h2>
+                            <div class="review-grid">
+                                <article class="review-card glass"><small>اطلاعات آزمون</small><b>تکمیل</b><span>{{ exam.title|fa_digits }}</span></article>
+                                <article class="review-card glass"><small>شرکت‌کنندگان</small><b>{{ stats.participant_count|fa_digits }} نفر</b><span>{{ stats.selected_groups|fa_digits }} گروه</span></article>
+                                <article class="review-card glass"><small>سؤال‌ها</small><b>{{ stats.selected_questions|fa_digits }}</b><span>{{ stats.total_points|floatformat:1|fa_digits }} امتیاز</span></article>
+                                <article class="review-card glass"><small>زمان‌بندی</small><b>{{ exam.duration_minutes|default:90|fa_digits }} دقیقه</b><span>{{ exam.start_label|fa_digits }}</span></article>
+                            </div>
+                            <div class="form-grid" style="margin-top:1rem">
+                                <article class="panel glass">
+                                    <h2>چک‌لیست بازبینی</h2>
+                                    <div class="checklist"><div>اطلاعات پایه تکمیل شده است <b>✓</b></div><div>سؤال‌ها و نمره‌دهی معتبر است <b>✓</b></div><div>تنظیمات آزمون بررسی شد <b>✓</b></div><div>شرکت‌کنندگان بررسی شدند <b>✓</b></div></div>
+                                </article>
+                                <article class="panel glass">
+                                    <h2>یادداشت تغییرات</h2>
+                                    <textarea class="message-box" name="change_note" placeholder="یادداشت اختیاری برای نسخه جدید...">افزودن سؤال جدید و تغییر زمان پایان به ۱۰:۳۰</textarea>
+                                    <label class="toggle-row">اطلاع‌رسانی به شرکت‌کنندگان <span class="toggle"><input type="checkbox" checked><span></span></span></label>
+                                </article>
+                            </div>
+                            <div class="notice" style="margin:1rem 0 0">پس از انتشار مجدد، نسخه قبلی بایگانی شده و نسخه جدید برای شرکت‌کنندگان قابل مشاهده خواهد بود.</div>
+                        </article>
+                        <aside class="panel glass">
+                            <h2>گزینه‌های انتشار</h2>
+                            <label class="field">شیوه ثبت<select name="publish_mode"><option value="draft" {% if exam.publish_mode == 'draft' %}selected{% endif %}>ذخیره پیش‌نویس</option><option value="immediate" {% if exam.publish_mode == 'immediate' %}selected{% endif %}>انتشار فوری</option><option value="scheduled" {% if exam.publish_mode == 'scheduled' %}selected{% endif %}>انتشار زمان‌بندی‌شده</option></select></label>
+                            <label class="field">نمایش نتیجه<select name="result_release_mode"><option value="after_exam">پس از پایان آزمون</option><option value="manual">دستی</option><option value="immediate">بلافاصله</option></select></label>
+                            <label class="toggle-row">نمایش نتیجه به شرکت‌کننده <span class="toggle"><input name="show_results_immediately" type="checkbox" {% if exam.show_results_immediately %}checked{% endif %}><span></span></span></label>
+                            <button class="btn primary" name="publish_action" value="republish" type="submit" style="width:100%;margin-top:1rem">ذخیره و انتشار مجدد</button>
+                        </aside>
+                    </section>
+                {% endif %}
+                <footer class="footer-bar glass">
+                    <span class="save-state">تغییرات ذخیره‌نشده</span>
+                    <div class="footer-actions">
+                        {% if step == '2' %}<a class="btn" href="?view=edit&step=1">مرحله قبل</a>{% elif step == '3' %}<a class="btn" href="?view=edit&step=2">مرحله قبل</a>{% elif step == '4' %}<a class="btn" href="?view=edit&step=3">مرحله قبل</a>{% elif step == '5' %}<a class="btn" href="?view=edit&step=4">مرحله قبل</a>{% endif %}
+                        <button class="btn primary" type="submit">ذخیره تغییرات</button>
+                        {% if step == '1' %}<a class="btn soft" href="?view=edit&step=2">ادامه: شرکت‌کنندگان</a>{% elif step == '2' %}<a class="btn soft" href="?view=edit&step=3">ادامه: سؤال‌ها</a>{% elif step == '3' %}<a class="btn soft" href="?view=edit&step=4">ادامه: زمان و قوانین</a>{% elif step == '4' %}<a class="btn soft" href="?view=edit&step=5">ادامه: بازبینی</a>{% endif %}
+                    </div>
+                </footer>
+            </form>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

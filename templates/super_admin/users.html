@@ -1,48 +1,902 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}مدیریت کاربران | آزمون‌یار{% endblock %}
+{% block title %}مدیریت کاربران | متا کوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page" dir="rtl">
-    <div class="super-admin-heading">
-        <span class="super-admin-kicker">سناریو مدیریت کاربران</span>
-        <h1>جست‌وجو، مشاهده سوابق و اعمال عملیات مدیریتی</h1>
+<section class="super-admin-page users-hub-page" dir="rtl">
+    <div class="users-hub-actions">
+        {% if active_tab == "managers" %}
+            <a class="users-primary-action" href="{% url 'core:super_admin_manager_create' %}">
+                <span>+</span>
+                افزودن مدیر
+            </a>
+            <a class="users-secondary-action" href="{% url 'core:super_admin_manager_bulk_import' %}">
+                <span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                    ورود گروهی
+                </span>
+            </a>
+        {% elif active_tab == "students" %}
+            <a class="users-primary-action" href="{% url 'core:super_admin_student_create' %}">
+                <span>+</span>
+                افزودن دانشجو
+            </a>
+            <a class="users-secondary-action" href="{% url 'core:super_admin_student_bulk_import' %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                    ورود گروهی
+            </a>
+        {% else %}
+            <a class="users-primary-action" href="{% url 'core:super_admin_teacher_create' %}">
+                <span>+</span>
+                افزودن استاد
+            </a>
+            <a class="users-secondary-action" href="{% url 'core:super_admin_teacher_bulk_import' %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+                    ورود گروهی
+            </a>
+        {% endif %}
     </div>
 
-    <form method="get" class="super-admin-search">
-        <input name="q" value="{{ query }}" placeholder="نام، نام کاربری، ایمیل، کد ملی یا مؤسسه">
-        <button type="submit">جست‌وجو</button>
-    </form>
+    <nav class="users-role-tabs" aria-label="تب‌های کاربران">
+        <a class="{% if active_tab == 'students' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=students">
+            دانشجویان
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+        </a>
+        <a class="{% if active_tab == 'teachers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=teachers">
+            اساتید
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+        </a>
+        <a class="{% if active_tab == 'managers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=managers">
+            مدیران
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </a>
+    </nav>
 
-    <div class="super-admin-card">
-        <div class="super-admin-table-wrap">
-            <table class="super-admin-table">
-                <thead>
-                    <tr>
-                        <th>نام</th>
-                        <th>نام کاربری</th>
-                        <th>نقش</th>
-                        <th>مؤسسه</th>
-                        <th>وضعیت</th>
-                        <th>عملیات</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for profile in profiles %}
-                        <tr>
-                            <td>{{ profile.full_name }}</td>
-                            <td>{{ profile.user.username }}</td>
-                            <td>{{ profile.role.name }}</td>
-                            <td>{{ profile.institution_name|default:"-" }}</td>
-                            <td>{{ profile.get_account_status_display }}</td>
-                            <td><a href="{% url 'core:super_admin_user_detail' profile.pk %}">مشاهده و مدیریت</a></td>
-                        </tr>
-                    {% empty %}
-                        <tr><td colspan="6">کاربری یافت نشد.</td></tr>
+    {% if active_tab == "managers" %}
+        <div class="users-stats-grid">
+            <article>
+                <span>کل مدیران</span>
+                <strong>{{ manager_stats.total }}</strong>
+                <em class="is-blue"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></em>
+            </article>
+            <article>
+                <span>مدیر سیستم</span>
+                <strong>{{ manager_stats.admins }}</strong>
+                <em class="is-violet"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg></em>
+            </article>
+            <article>
+                <span>مدیر آموزشی</span>
+                <strong>{{ manager_stats.academic }}</strong>
+                <em class="is-green"><svg viewBox="0 0 24 24"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M12 15v6"/></svg></em>
+            </article>
+            <article>
+                <span>حساب فعال</span>
+                <strong>{{ manager_stats.active }}</strong>
+                <em class="is-teal"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/><path d="M16 21v-2a4 4 0 0 0-4-4H7"/></svg></em>
+            </article>
+        </div>
+
+        <form method="get" class="users-filter-bar users-filter-bar--managers">
+            <input type="hidden" name="tab" value="managers">
+            <div class="users-search-control">
+                <input name="q" value="{{ query }}" placeholder="جست‌وجوی نام، کد ملی یا شماره همراه..." data-auto-search>
+                <button type="submit" aria-label="جستجو">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                </button>
+            </div>
+            <label>
+                <select name="manager_type" onchange="this.form.submit()">
+                    <option value="">نوع مدیر</option>
+                    <option value="admin" {% if manager_type_filter == "admin" %}selected{% endif %}>مدیر سیستم</option>
+                    <option value="academic_manager" {% if manager_type_filter == "academic_manager" %}selected{% endif %}>مدیر آموزشی</option>
+                </select>
+            </label>
+            <label>
+                <select name="unit" onchange="this.form.submit()">
+                    <option value="">مسیر سازمانی</option>
+                    {% for unit in org_units %}
+                        <option value="{{ unit.id }}" {% if unit_filter == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
                     {% endfor %}
-                </tbody>
-            </table>
+                </select>
+            </label>
+            <label>
+                <select name="status" onchange="this.form.submit()">
+                    <option value="">وضعیت حساب</option>
+                    <option value="active" {% if status_filter == "active" %}selected{% endif %}>فعال</option>
+                    <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>غیرفعال</option>
+                    <option value="blocked" {% if status_filter == "blocked" %}selected{% endif %}>مسدود</option>
+                </select>
+            </label>
+            <a class="users-clear-button" href="{% url 'core:super_admin_users' %}?tab=managers">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m10 11 4 4"/><path d="m14 11-4 4"/><path d="M6 6l1 15h10l1-15"/></svg>
+                پاک کردن فیلترها
+            </a>
+        </form>
+
+        <section class="users-table-card" aria-label="لیست مدیران">
+            <div class="users-table-wrap">
+                <table class="users-table users-table--managers">
+                    <colgroup>
+                        <col class="users-col-person">
+                        <col class="users-col-pill">
+                        <col class="users-col-path">
+                        <col class="users-col-pill">
+                        <col class="users-col-date">
+                        <col class="users-col-status">
+                        <col class="users-col-actions">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>مدیر</th>
+                            <th>نوع مدیر</th>
+                            <th>مسیر سازمانی</th>
+                            <th>محدوده دسترسی</th>
+                            <th>آخرین ورود</th>
+                            <th>وضعیت</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in managers %}
+                            <tr class="{% if forloop.first %}is-selected{% endif %}"
+                                data-manager-row
+                                data-id="{{ row.id }}"
+                                data-type="{{ row.manager_type }}"
+                                data-full-name="{{ row.full_name|default_if_none:'' }}"
+                                data-code="{{ row.personnel_code|default:row.identifier|default_if_none:'' }}"
+                                data-avatar-url="{{ row.avatar_url|default_if_none:'' }}"
+                                data-status="{{ row.status_label }}"
+                                data-type-label="{{ row.type_label }}"
+                                data-unit-path="{{ row.unit_path }}"
+                                data-access-label="{{ row.access_label }}"
+                                data-unit-type="{{ row.unit_type_label }}"
+                                data-email="{{ row.email|default_if_none:'' }}"
+                                data-phone="{{ row.phone|default_if_none:'' }}"
+                                data-profile-url="{% url 'core:super_admin_user_profile' 'manager' row.id %}"
+                                data-access-url="{% url 'core:super_admin_manager_access' row.id %}">
+                                <td>
+                                    <div class="users-teacher-cell">
+                                        {% if row.avatar_url %}
+                                            <img src="{{ row.avatar_url }}" alt="{{ row.full_name }}">
+                                        {% else %}
+                                            <span>{{ row.full_name|slice:":1"|default:"م" }}</span>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ row.full_name|default:"مدیر" }}</strong>
+                                            <small>{{ row.personnel_code|default:row.identifier|default:"-" }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="users-type-pill is-{{ row.type_tone }}">{{ row.type_label }}</span></td>
+                                <td>{{ row.unit_path }}</td>
+                                <td><mark>{{ row.access_label }}</mark></td>
+                                <td>{{ row.last_login_display|date:"Y/m/d H:i"|default:row.last_login_display }}</td>
+                                <td><span class="users-status is-{{ row.status_tone }}">{{ row.status_label }}</span></td>
+                                <td>
+                                    <div class="users-row-actions">
+                                        <a href="{% url 'core:super_admin_user_profile' 'manager' row.id %}"
+                                            title="مشاهده پروفایل مدیر"
+                                            data-focus-manager
+                                            data-id="{{ row.id }}"
+                                            data-type="{{ row.manager_type }}"
+                                            data-full-name="{{ row.full_name|default_if_none:'' }}"
+                                            data-code="{{ row.personnel_code|default:row.identifier|default_if_none:'' }}"
+                                            data-avatar-url="{{ row.avatar_url|default_if_none:'' }}"
+                                            data-status="{{ row.status_label }}"
+                                            data-type-label="{{ row.type_label }}"
+                                            data-unit-path="{{ row.unit_path }}"
+                                            data-access-label="{{ row.access_label }}"
+                                            data-email="{{ row.email|default_if_none:'' }}"
+                                            data-phone="{{ row.phone|default_if_none:'' }}">
+                                            <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        </a>
+                                        {% if row.manager_type == "academic_manager" %}
+                                            <a href="{% url 'core:super_admin_manager_profile_edit' row.id %}" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg></a>
+                                            <a href="{% url 'core:super_admin_manager_access' row.id %}" title="مدیریت دسترسی"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg></a>
+                                        {% else %}
+                                            <a href="{% url 'core:super_admin_manager_profile_edit' row.id %}" title="ویرایش">
+                                                <svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg>
+                                            </a>
+                                            <a href="{% url 'core:super_admin_manager_access' row.id %}" title="مدیریت دسترسی"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg></a>
+                                        {% endif %}
+                                        <a href="{% url 'core:super_admin_users' %}?tab=managers&q={{ row.full_name|urlencode }}" title="بیشتر"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="users-empty-row">مدیری برای نمایش پیدا نشد.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <footer class="users-table-footer">
+                <label class="users-page-size">
+                    <select aria-label="تعداد نمایش مدیران">
+                        <option>۱۰</option>
+                    </select>
+                    <span>تعداد نمایش:</span>
+                </label>
+                <div class="users-pagination"><button type="button">بعدی</button><b>۱</b><button type="button">قبلی</button></div>
+                <span>نمایش ۱ تا {{ managers|length }} از {{ manager_stats.total }} مدیر</span>
+            </footer>
+        </section>
+
+        {% if featured_manager %}
+            <section class="users-feature-strip users-feature-strip--manager" data-manager-feature>
+                <div class="users-feature-profile">
+                    {% if featured_manager.avatar_url %}
+                        <img data-feature-avatar src="{{ featured_manager.avatar_url }}" alt="{{ featured_manager.full_name }}">
+                        <span data-feature-fallback hidden>{{ featured_manager.full_name|slice:":1" }}</span>
+                    {% else %}
+                        <img data-feature-avatar alt="" hidden>
+                        <span data-feature-fallback>{{ featured_manager.full_name|slice:":1"|default:"م" }}</span>
+                    {% endif %}
+                    <div>
+                        <strong data-feature-name>{{ featured_manager.full_name }}</strong>
+                        <small data-feature-code>{{ featured_manager.personnel_code|default:featured_manager.identifier|default:"-" }}</small>
+                        <small data-feature-contact>{{ featured_manager.email|default:"-" }} · {{ featured_manager.phone|default:"-" }}</small>
+                    </div>
+                    <em data-feature-status>{{ featured_manager.status_label }}</em>
+                </div>
+                <div class="users-feature-metrics">
+                    <div><b data-feature-type>{{ featured_manager.type_label }}</b><span>نقش و دسترسی</span></div>
+                    <div><b data-feature-access>{{ featured_manager.access_label }}</b><span>محدوده دسترسی</span></div>
+                    <div><b data-feature-unit>{{ featured_manager.unit_type_label }}</b><span>واحد اصلی</span></div>
+                </div>
+                <div class="users-feature-actions">
+                    <a href="{% url 'core:super_admin_user_profile' 'manager' featured_manager.id %}" data-feature-view>مشاهده پروفایل</a>
+                    <a href="{% url 'core:super_admin_manager_access' featured_manager.id %}" class="is-solid" data-feature-access-button>مدیریت دسترسی</a>
+                </div>
+            </section>
+        {% endif %}
+    {% elif active_tab == "students" %}
+        <div class="users-stats-grid">
+            <article>
+                <span>کل دانشجویان</span>
+                <strong>{{ student_stats.total }}</strong>
+                <em class="is-blue"><svg viewBox="0 0 24 24"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 21a7 7 0 0 1 14 0"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></em>
+            </article>
+            <article>
+                <span>فعال</span>
+                <strong>{{ student_stats.active }}</strong>
+                <em class="is-green"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/><path d="M12 21a8 8 0 1 0 0-16"/></svg></em>
+            </article>
+            <article>
+                <span>جدیدالورود</span>
+                <strong>{{ student_stats.new }}</strong>
+                <em class="is-violet"><svg viewBox="0 0 24 24"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg></em>
+            </article>
+            <article>
+                <span>بدون انتساب</span>
+                <strong>{{ student_stats.unassigned }}</strong>
+                <em class="is-orange"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></svg></em>
+            </article>
+        </div>
+
+        <form method="get" class="users-filter-bar users-filter-bar--students">
+            <input type="hidden" name="tab" value="students">
+            <div class="users-search-control">
+                <input name="q" value="{{ query }}" placeholder="جست‌وجو براساس نام، شماره دانشجویی یا کد ملی..." data-auto-search>
+                <button type="submit" aria-label="جستجو">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                </button>
+            </div>
+            <label>
+                <select name="unit" onchange="this.form.submit()">
+                    <option value="">مسیر سازمانی</option>
+                    {% for unit in org_units %}
+                        <option value="{{ unit.id }}" {% if unit_filter == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <select name="entry_year" onchange="this.form.submit()">
+                    <option value="">سال ورود</option>
+                    {% for year in entry_years %}
+                        <option value="{{ year }}" {% if entry_year_filter == year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <select name="academic_status" onchange="this.form.submit()">
+                    <option value="">وضعیت تحصیلی</option>
+                    <option value="active" {% if academic_status_filter == "active" %}selected{% endif %}>مشغول به تحصیل</option>
+                    <option value="leave" {% if academic_status_filter == "leave" %}selected{% endif %}>مرخصی</option>
+                    <option value="graduated" {% if academic_status_filter == "graduated" %}selected{% endif %}>فارغ التحصیل</option>
+                    <option value="inactive" {% if academic_status_filter == "inactive" %}selected{% endif %}>غیرفعال</option>
+                </select>
+            </label>
+            <a class="users-clear-button" href="{% url 'core:super_admin_users' %}?tab=students">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m10 11 4 4"/><path d="m14 11-4 4"/><path d="M6 6l1 15h10l1-15"/></svg>
+                پاک کردن فیلترها
+            </a>
+        </form>
+
+        <section class="users-table-card" aria-label="لیست دانشجویان">
+            <div class="users-table-wrap">
+                <table class="users-table users-table--students">
+                    <colgroup>
+                        <col class="users-col-person">
+                        <col class="users-col-code">
+                        <col class="users-col-path">
+                        <col class="users-col-period">
+                        <col class="users-col-pill">
+                        <col class="users-col-status">
+                        <col class="users-col-status">
+                        <col class="users-col-actions">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>دانشجو</th>
+                            <th>شماره دانشجویی</th>
+                            <th>مسیر سازمانی</th>
+                            <th>ورودی / دوره</th>
+                            <th>گروه‌ها و درس‌ها</th>
+                            <th>وضعیت تحصیلی</th>
+                            <th>وضعیت حساب</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in students %}
+                            <tr data-student-row
+                                data-full-name="{{ row.full_name|default_if_none:'' }}"
+                                data-student-number="{{ row.student_number|default:row.identifier|default_if_none:'' }}"
+                                data-avatar-url="{{ row.avatar_url|default_if_none:'' }}"
+                                data-status="{{ row.status_label }}"
+                                data-academic="{{ row.academic_label }}"
+                                data-unit-path="{{ row.unit_path }}"
+                                data-email="{{ row.email|default_if_none:'' }}"
+                                data-phone="{{ row.phone|default_if_none:'' }}"
+                                data-courses="{{ row.courses_count|default:0 }}"
+                                data-groups="{{ row.groups_count|default:0 }}"
+                                data-upcoming="{{ row.upcoming_exams_count|default:0 }}"
+                                data-profile-url="{% url 'core:super_admin_user_profile' 'student' row.id %}"
+                                data-edit-url="{% url 'core:super_admin_student_profile_edit' row.id %}"
+                                data-courses-url="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=courses"
+                                data-activity-url="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=activity">
+                                <td>
+                                    <div class="users-teacher-cell">
+                                        {% if row.avatar_url %}
+                                            <img src="{{ row.avatar_url }}" alt="{{ row.full_name }}">
+                                        {% else %}
+                                            <span>{{ row.full_name|slice:":1"|default:"د" }}</span>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ row.full_name|default:"دانشجو" }}</strong>
+                                            <small>{{ row.email|default:"-" }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ row.student_number|default:row.identifier|default:"-" }}</td>
+                                <td>{{ row.unit_path }}</td>
+                                <td>{{ row.entry_year }} / {{ row.degree|default:"-" }}</td>
+                                <td><mark>{{ row.groups_label }}</mark></td>
+                                <td><span class="users-status is-{{ row.academic_tone }}">{{ row.academic_label }}</span></td>
+                                <td><span class="users-status is-{{ row.status_tone }}">{{ row.status_label }}</span></td>
+                                <td>
+                                    <div class="users-row-actions">
+                                        <a href="{% url 'core:super_admin_user_profile' 'student' row.id %}"
+                                            title="مشاهده پروفایل"
+                                            data-focus-student
+                                            data-full-name="{{ row.full_name|default_if_none:'' }}"
+                                            data-student-number="{{ row.student_number|default:row.identifier|default_if_none:'' }}"
+                                            data-avatar-url="{{ row.avatar_url|default_if_none:'' }}"
+                                            data-status="{{ row.status_label }}"
+                                            data-academic="{{ row.academic_label }}"
+                                            data-unit-path="{{ row.unit_path }}"
+                                            data-email="{{ row.email|default_if_none:'' }}"
+                                            data-phone="{{ row.phone|default_if_none:'' }}"
+                                            data-courses="{{ row.courses_count|default:0 }}"
+                                            data-groups="{{ row.groups_count|default:0 }}"
+                                            data-upcoming="{{ row.upcoming_exams_count|default:0 }}"
+                                            data-profile-url="{% url 'core:super_admin_user_profile' 'student' row.id %}"
+                                            data-edit-url="{% url 'core:super_admin_student_profile_edit' row.id %}"
+                                            data-courses-url="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=courses"
+                                            data-activity-url="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=activity">
+                                            <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        </a>
+                                        <a href="{% url 'core:super_admin_student_profile_edit' row.id %}" title="ویرایش دانشجو"><svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg></a>
+                                        <a href="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=courses" title="درس‌های دانشجو"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></a>
+                                        <a href="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=activity" title="فعالیت‌های دانشجو"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="users-empty-row">دانشجویی برای نمایش پیدا نشد.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <footer class="users-table-footer">
+                <label class="users-page-size">
+                    <select aria-label="تعداد نمایش دانشجویان">
+                        <option>۱۰</option>
+                    </select>
+                    <span>تعداد نمایش:</span>
+                </label>
+                <div class="users-pagination"><button type="button">بعدی</button><b>۱</b><button type="button">قبلی</button></div>
+                <span>نمایش ۱ تا {{ students|length }} از {{ student_stats.total }} دانشجو</span>
+            </footer>
+        </section>
+
+        {% if featured_student %}
+            <section class="users-feature-strip users-feature-strip--student" data-student-feature>
+                <div class="users-feature-profile">
+                    {% if featured_student.avatar_url %}
+                        <img data-student-feature-avatar src="{{ featured_student.avatar_url }}" alt="{{ featured_student.full_name }}">
+                        <span data-student-feature-fallback hidden>{{ featured_student.full_name|slice:":1" }}</span>
+                    {% else %}
+                        <img data-student-feature-avatar alt="" hidden>
+                        <span data-student-feature-fallback>{{ featured_student.full_name|slice:":1"|default:"د" }}</span>
+                    {% endif %}
+                    <div>
+                        <strong data-student-feature-name>{{ featured_student.full_name }}</strong>
+                        <small data-student-feature-code>شماره دانشجویی: {{ featured_student.student_number|default:featured_student.identifier|default:"-" }}</small>
+                        <small data-student-feature-contact>{{ featured_student.email|default:"-" }} · {{ featured_student.phone|default:"-" }}</small>
+                    </div>
+                    <em data-student-feature-status>{{ featured_student.status_label }}</em>
+                </div>
+                <div class="users-feature-metrics">
+                    <div><b data-student-feature-unit>{{ featured_student.unit_path }}</b><span>مسیر سازمانی</span></div>
+                    <div><b data-student-feature-courses>{{ featured_student.courses_count }}</b><span>درس فعال</span></div>
+                    <div><b data-student-feature-upcoming>{{ featured_student.upcoming_exams_count }}</b><span>آزمون پیش‌رو</span></div>
+                </div>
+                <div class="users-feature-actions">
+                    <a href="{% url 'core:super_admin_user_profile' 'student' featured_student.id %}" data-student-feature-profile-link>مشاهده پروفایل</a>
+                    <a class="is-solid" href="{% url 'core:super_admin_user_profile' 'student' featured_student.id %}?section=courses" data-student-feature-courses-link>مدیریت درس‌ها</a>
+                </div>
+            </section>
+        {% endif %}
+    {% else %}
+        <div class="users-stats-grid">
+            <article>
+                <span>کل اساتید</span>
+                <strong>{{ teacher_stats.total }}</strong>
+                <em class="is-blue"><svg viewBox="0 0 24 24"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg></em>
+            </article>
+            <article>
+                <span>فعال</span>
+                <strong>{{ teacher_stats.active }}</strong>
+                <em class="is-green"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></em>
+            </article>
+            <article>
+                <span>در انتظار</span>
+                <strong>{{ teacher_stats.pending }}</strong>
+                <em class="is-violet"><svg viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg></em>
+            </article>
+            <article>
+                <span>بدون درس</span>
+                <strong>{{ teacher_stats.without_courses }}</strong>
+                <em class="is-orange"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></svg></em>
+            </article>
+        </div>
+
+        <form method="get" class="users-filter-bar">
+            <input type="hidden" name="tab" value="teachers">
+            <div class="users-search-control">
+                <input name="q" value="{{ query }}" placeholder="جست‌وجوی نام، کد ملی یا کد استادی..." data-auto-search>
+                <button type="submit" aria-label="جستجو">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                </button>
+            </div>
+            <label>
+                <select name="unit" onchange="this.form.submit()">
+                    <option value="">مسیر سازمانی</option>
+                    {% for unit in org_units %}
+                        <option value="{{ unit.id }}" {% if unit_filter == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <select name="cooperation" onchange="this.form.submit()">
+                    <option value="">نوع همکاری</option>
+                    <option value="full_time" {% if cooperation_filter == "full_time" %}selected{% endif %}>تمام‌وقت</option>
+                    <option value="part_time" {% if cooperation_filter == "part_time" %}selected{% endif %}>پاره‌وقت</option>
+                </select>
+            </label>
+            <label>
+                <select name="status" onchange="this.form.submit()">
+                    <option value="">وضعیت حساب</option>
+                    <option value="active" {% if status_filter == "active" %}selected{% endif %}>فعال</option>
+                    <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>غیرفعال</option>
+                    <option value="blocked" {% if status_filter == "blocked" %}selected{% endif %}>مسدود</option>
+                </select>
+            </label>
+            <a class="users-clear-button" href="{% url 'core:super_admin_users' %}?tab=teachers">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m10 11 4 4"/><path d="m14 11-4 4"/><path d="M6 6l1 15h10l1-15"/></svg>
+                پاک کردن فیلترها
+            </a>
+        </form>
+
+        <section class="users-table-card" aria-label="لیست اساتید">
+            <div class="users-table-wrap">
+                <table class="users-table users-table--teachers">
+                    <colgroup>
+                        <col class="users-col-person">
+                        <col class="users-col-path">
+                        <col class="users-col-pill">
+                        <col class="users-col-pill">
+                        <col class="users-col-status">
+                        <col class="users-col-status">
+                        <col class="users-col-actions">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>استاد</th>
+                            <th>مسیر سازمانی</th>
+                            <th>نوع همکاری</th>
+                            <th>درس‌های فعال</th>
+                            <th>دانشجویان</th>
+                            <th>وضعیت</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in teachers %}
+                            <tr class="{% if forloop.first %}is-selected{% endif %}"
+                                data-teacher-row
+                                data-full-name="{{ row.full_name|default_if_none:'' }}"
+                                data-code="{{ row.personnel_code|default:row.identifier|default_if_none:'' }}"
+                                data-avatar-url="{{ row.avatar_url|default_if_none:'' }}"
+                                data-status="{{ row.status_label }}"
+                                data-unit-path="{{ row.unit_path }}"
+                                data-email="{{ row.email|default_if_none:'' }}"
+                                data-phone="{{ row.phone|default_if_none:'' }}"
+                                data-students="{{ row.students_count|default:0 }}"
+                                data-courses="{{ row.courses_count|default:0 }}"
+                                data-cooperation="{{ row.cooperation_label }}"
+                                data-profile-url="{% url 'core:super_admin_user_profile' 'teacher' row.id %}"
+                                data-courses-url="{% url 'core:super_admin_teacher_courses' row.id %}">
+                                <td>
+                                    <div class="users-teacher-cell">
+                                        {% if row.avatar_url %}
+                                            <img src="{{ row.avatar_url }}" alt="{{ row.full_name }}">
+                                        {% else %}
+                                            <span>{{ row.full_name|slice:":1" }}</span>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ row.full_name|default:"استاد" }}</strong>
+                                            <small>{{ row.personnel_code|default:row.identifier|default:"-" }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ row.unit_path }}</td>
+                                <td>{{ row.cooperation_label }}</td>
+                                <td><mark>{{ row.courses_label }}</mark></td>
+                                <td>{{ row.students_count }}</td>
+                                <td><span class="users-status is-{{ row.status_tone }}">{{ row.status_label }}</span></td>
+                                <td>
+                                    <div class="users-row-actions">
+                                        <a href="{% url 'core:super_admin_user_profile' 'teacher' row.id %}" title="مشاهده"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></a>
+                                        <a href="{% url 'core:super_admin_teacher_profile_edit' row.id %}" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg></a>
+                                        <a href="{% url 'core:super_admin_teacher_courses' row.id %}" title="مدیریت درس‌ها"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></a>
+                                        <a href="{% url 'core:super_admin_teachers' %}" title="بیشتر"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="users-empty-row">استادی برای نمایش پیدا نشد.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <footer class="users-table-footer">
+                <label class="users-page-size">
+                    <select aria-label="تعداد نمایش اساتید">
+                        <option>۱۰</option>
+                    </select>
+                    <span>تعداد نمایش:</span>
+                </label>
+                <div class="users-pagination"><button type="button">بعدی</button><b>۱</b><button type="button">قبلی</button></div>
+                <span>نمایش ۱ تا {{ teachers|length }} از {{ teacher_stats.total }} استاد</span>
+            </footer>
+        </section>
+
+        {% if featured_teacher %}
+            <section class="users-feature-strip users-feature-strip--teacher" data-teacher-feature>
+                <div class="users-feature-profile">
+                    {% if featured_teacher.avatar_url %}
+                        <img data-teacher-feature-avatar src="{{ featured_teacher.avatar_url }}" alt="{{ featured_teacher.full_name }}">
+                        <span data-teacher-feature-fallback hidden>{{ featured_teacher.full_name|slice:":1" }}</span>
+                    {% else %}
+                        <img data-teacher-feature-avatar alt="" hidden>
+                        <span data-teacher-feature-fallback>{{ featured_teacher.full_name|slice:":1" }}</span>
+                    {% endif %}
+                    <div>
+                        <strong data-teacher-feature-name>{{ featured_teacher.full_name }}</strong>
+                        <small data-teacher-feature-unit>{{ featured_teacher.unit_path }}</small>
+                        <small data-teacher-feature-contact>{{ featured_teacher.email|default:"-" }} · {{ featured_teacher.phone|default:"-" }}</small>
+                    </div>
+                    <em data-teacher-feature-status>{{ featured_teacher.status_label }}</em>
+                </div>
+                <div class="users-feature-metrics">
+                    <div><b data-teacher-feature-students>{{ featured_teacher.students_count }}</b><span>دانشجو</span></div>
+                    <div><b data-teacher-feature-courses>{{ featured_teacher.courses_count }}</b><span>درس فعال</span></div>
+                    <div><b data-teacher-feature-code>{{ featured_teacher.personnel_code|default:featured_teacher.identifier|default:"-" }}</b><span>کد استادی</span></div>
+                </div>
+                <div class="users-feature-actions">
+                    <a href="{% url 'core:super_admin_user_profile' 'teacher' featured_teacher.id %}" data-teacher-feature-profile-link>مشاهده پروفایل</a>
+                    <a class="is-solid" href="{% url 'core:super_admin_teacher_courses' featured_teacher.id %}" data-teacher-feature-courses-link>مدیریت درس‌ها</a>
+                </div>
+            </section>
+        {% endif %}
+    {% endif %}
+</section>
+
+<div class="users-modal" id="managerChoiceModal" aria-hidden="true">
+    <div class="users-modal-backdrop" data-close-users-modal></div>
+    <div class="users-modal-panel" role="dialog" aria-modal="true" aria-labelledby="managerChoiceTitle">
+        <button type="button" class="users-modal-close" data-close-users-modal>×</button>
+        <h2 id="managerChoiceTitle">افزودن مدیر</h2>
+        <p>نوع مدیر را انتخاب کنید تا مسیر مناسب باز شود.</p>
+        <div class="users-choice-grid">
+            <button type="button" data-open-admin-modal>
+                <strong>مدیر سیستم</strong>
+                <span>ایجاد حساب مدیر با دسترسی سراسر سیستم</span>
+            </button>
+            <a href="{% url 'core:super_admin_academic_managers' %}?add=1">
+                <strong>مدیر آموزشی</strong>
+                <span>ایجاد مدیر آموزشی و اتصال محدوده سازمانی</span>
+            </a>
         </div>
     </div>
-</section>
+</div>
+
+<div class="users-modal" id="adminModal" aria-hidden="true">
+    <div class="users-modal-backdrop" data-close-users-modal></div>
+    <form class="users-modal-panel users-admin-form" method="post" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
+        {% csrf_token %}
+        <input type="hidden" name="admin_action" value="save">
+        <input type="hidden" name="admin_id" id="adminId">
+        <button type="button" class="users-modal-close" data-close-users-modal>×</button>
+        <h2 id="adminModalTitle">افزودن مدیر سیستم</h2>
+        <div class="users-admin-grid">
+            <label>نام<input name="first_name" autocomplete="off"></label>
+            <label>نام خانوادگی<input name="last_name" autocomplete="off"></label>
+            <label>نام کاربری<input name="username" autocomplete="off"></label>
+            <label>ایمیل<input name="email" type="email" autocomplete="off"></label>
+            <label>شماره همراه<input name="phone" autocomplete="off"></label>
+            <label>کد ملی<input name="national_id" autocomplete="off"></label>
+            <label>شناسه مدیریتی<input name="identifier" autocomplete="off"></label>
+            <label>وضعیت
+                <select name="status">
+                    <option value="active">فعال</option>
+                    <option value="inactive">غیرفعال</option>
+                    <option value="blocked">مسدود</option>
+                </select>
+            </label>
+        </div>
+        <footer>
+            <button type="button" class="users-secondary-action" data-close-users-modal>انصراف</button>
+            <button type="submit" class="users-primary-action">ذخیره مدیر سیستم</button>
+        </footer>
+    </form>
+</div>
+
+<script>
+(() => {
+    document.getElementById('teachersExcelFile')?.addEventListener('change', function () {
+        if (this.files.length) this.form.submit();
+    });
+    document.getElementById('managersExcelFile')?.addEventListener('change', function () {
+        if (this.files.length) this.form.submit();
+    });
+    document.getElementById('studentsExcelFile')?.addEventListener('change', function () {
+        if (this.files.length) this.form.submit();
+    });
+    document.querySelectorAll('[data-auto-search]').forEach((input) => {
+        let timer;
+        let controller;
+        input.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                const form = input.form;
+                if (!form) return;
+                controller?.abort();
+                controller = new AbortController();
+                const params = new URLSearchParams(new FormData(form));
+                const url = `${window.location.pathname}?${params.toString()}`;
+                const cursor = input.selectionStart ?? input.value.length;
+                try {
+                    const response = await fetch(url, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        signal: controller.signal,
+                    });
+                    if (!response.ok) return;
+                    const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+                    const nextTable = doc.querySelector('.users-table-card');
+                    const currentTable = document.querySelector('.users-table-card');
+                    if (nextTable && currentTable) currentTable.replaceWith(nextTable);
+                    const nextFeature = doc.querySelector('.users-feature-strip');
+                    const currentFeature = document.querySelector('.users-feature-strip');
+                    if (nextFeature && currentFeature) currentFeature.replaceWith(nextFeature);
+                    if (!nextFeature && currentFeature) currentFeature.remove();
+                    window.history.replaceState({}, '', url);
+                    input.focus({ preventScroll: true });
+                    input.setSelectionRange(cursor, cursor);
+                } catch (error) {
+                    if (error.name !== 'AbortError') console.error(error);
+                }
+            }, 450);
+        });
+    });
+    const choiceModal = document.getElementById('managerChoiceModal');
+    const adminModal = document.getElementById('adminModal');
+    const adminForm = adminModal?.querySelector('form');
+    const openModal = (modal) => {
+        modal?.classList.add('is-open');
+        modal?.setAttribute('aria-hidden', 'false');
+    };
+    const closeModals = () => {
+        document.querySelectorAll('.users-modal').forEach((modal) => {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+        });
+    };
+    const openAdminModal = (button = null) => {
+        if (!adminForm) return;
+        adminForm.reset();
+        document.getElementById('adminModalTitle').textContent = button?.dataset.id ? 'ویرایش مدیر سیستم' : 'افزودن مدیر سیستم';
+        document.getElementById('adminId').value = button?.dataset.id || '';
+        adminForm.elements.first_name.value = button?.dataset.firstName || '';
+        adminForm.elements.last_name.value = button?.dataset.lastName || '';
+        adminForm.elements.username.value = button?.dataset.username || '';
+        adminForm.elements.email.value = button?.dataset.email || '';
+        adminForm.elements.phone.value = button?.dataset.phone || '';
+        adminForm.elements.national_id.value = button?.dataset.nationalId || '';
+        adminForm.elements.identifier.value = button?.dataset.identifier || '';
+        adminForm.elements.status.value = button?.dataset.status || 'active';
+        closeModals();
+        openModal(adminModal);
+    };
+
+    document.querySelector('[data-open-manager-choice]')?.addEventListener('click', () => openModal(choiceModal));
+    document.querySelectorAll('[data-open-admin-modal]').forEach((button) => {
+        button.addEventListener('click', () => openAdminModal(button));
+    });
+    document.querySelectorAll('[data-close-users-modal], .users-modal-backdrop').forEach((button) => {
+        button.addEventListener('click', closeModals);
+    });
+
+    const getManagerFeature = () => document.querySelector('[data-manager-feature]');
+    const setFeatureText = (selector, value) => {
+        const element = getManagerFeature()?.querySelector(selector);
+        if (element) element.textContent = value || '-';
+    };
+    const focusManager = (source) => {
+        const feature = getManagerFeature();
+        if (!feature || !source) return;
+        setFeatureText('[data-feature-name]', source.dataset.fullName);
+        setFeatureText('[data-feature-code]', source.dataset.code);
+        setFeatureText('[data-feature-contact]', [source.dataset.email || '-', source.dataset.phone || '-'].join(' · '));
+        setFeatureText('[data-feature-status]', source.dataset.status);
+        setFeatureText('[data-feature-type]', source.dataset.typeLabel);
+        setFeatureText('[data-feature-access]', source.dataset.accessLabel);
+        setFeatureText('[data-feature-unit]', source.dataset.unitType || source.dataset.unitPath);
+        const profileLink = feature.querySelector('[data-feature-view]');
+        const accessLink = feature.querySelector('[data-feature-access-button]');
+        if (profileLink && source.dataset.profileUrl) profileLink.href = source.dataset.profileUrl;
+        if (accessLink && source.dataset.accessUrl) accessLink.href = source.dataset.accessUrl;
+        const img = feature.querySelector('[data-feature-avatar]');
+        const fallback = feature.querySelector('[data-feature-fallback]');
+        if (source.dataset.avatarUrl && img && fallback) {
+            img.src = source.dataset.avatarUrl;
+            img.hidden = false;
+            fallback.hidden = true;
+        } else if (img && fallback) {
+            img.hidden = true;
+            fallback.hidden = false;
+            fallback.textContent = (source.dataset.fullName || 'م').trim().slice(0, 1);
+        }
+        document.querySelectorAll('[data-manager-row].is-selected').forEach((row) => row.classList.remove('is-selected'));
+        source.closest('[data-manager-row]')?.classList.add('is-selected');
+    };
+    document.querySelectorAll('[data-manager-row]').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('a, button, input, label, select')) return;
+            focusManager(row);
+        });
+    });
+
+    const getStudentFeature = () => document.querySelector('[data-student-feature]');
+    const setStudentFeatureText = (selector, value) => {
+        const element = getStudentFeature()?.querySelector(selector);
+        if (element) element.textContent = value || '-';
+    };
+    const focusStudent = (source) => {
+        const studentFeature = getStudentFeature();
+        if (!studentFeature || !source) return;
+        setStudentFeatureText('[data-student-feature-name]', source.dataset.fullName);
+        setStudentFeatureText('[data-student-feature-code]', `شماره دانشجویی: ${source.dataset.studentNumber || '-'}`);
+        setStudentFeatureText('[data-student-feature-contact]', [source.dataset.email || '-', source.dataset.phone || '-'].join(' · '));
+        setStudentFeatureText('[data-student-feature-status]', source.dataset.status);
+        setStudentFeatureText('[data-student-feature-unit]', source.dataset.unitPath);
+        setStudentFeatureText('[data-student-feature-courses]', source.dataset.courses || '0');
+        setStudentFeatureText('[data-student-feature-upcoming]', source.dataset.upcoming || '0');
+        const profileLink = studentFeature.querySelector('[data-student-feature-profile-link]');
+        const coursesLink = studentFeature.querySelector('[data-student-feature-courses-link]');
+        if (profileLink && source.dataset.profileUrl) profileLink.href = source.dataset.profileUrl;
+        if (coursesLink && source.dataset.coursesUrl) coursesLink.href = source.dataset.coursesUrl;
+        const img = studentFeature.querySelector('[data-student-feature-avatar]');
+        const fallback = studentFeature.querySelector('[data-student-feature-fallback]');
+        if (source.dataset.avatarUrl && img && fallback) {
+            img.src = source.dataset.avatarUrl;
+            img.hidden = false;
+            fallback.hidden = true;
+        } else if (img && fallback) {
+            img.hidden = true;
+            fallback.hidden = false;
+            fallback.textContent = (source.dataset.fullName || 'د').trim().slice(0, 1);
+        }
+        document.querySelectorAll('[data-student-row].is-selected').forEach((row) => row.classList.remove('is-selected'));
+        source.closest('[data-student-row]')?.classList.add('is-selected');
+    };
+    document.querySelectorAll('[data-focus-student]').forEach((link) => {
+        link.addEventListener('click', () => focusStudent(link));
+    });
+    document.querySelectorAll('[data-student-row]').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('a, button, input, label, select')) return;
+            focusStudent(row);
+        });
+    });
+
+    const getTeacherFeature = () => document.querySelector('[data-teacher-feature]');
+    const setTeacherFeatureText = (selector, value) => {
+        const element = getTeacherFeature()?.querySelector(selector);
+        if (element) element.textContent = value || '-';
+    };
+    const focusTeacher = (source) => {
+        const teacherFeature = getTeacherFeature();
+        if (!teacherFeature || !source) return;
+        setTeacherFeatureText('[data-teacher-feature-name]', source.dataset.fullName);
+        setTeacherFeatureText('[data-teacher-feature-code]', source.dataset.code);
+        setTeacherFeatureText('[data-teacher-feature-unit]', source.dataset.unitPath);
+        setTeacherFeatureText('[data-teacher-feature-contact]', [source.dataset.email || '-', source.dataset.phone || '-'].join(' · '));
+        setTeacherFeatureText('[data-teacher-feature-status]', source.dataset.status);
+        setTeacherFeatureText('[data-teacher-feature-students]', source.dataset.students || '0');
+        setTeacherFeatureText('[data-teacher-feature-courses]', source.dataset.courses || '0');
+        const profileLink = teacherFeature.querySelector('[data-teacher-feature-profile-link]');
+        const coursesLink = teacherFeature.querySelector('[data-teacher-feature-courses-link]');
+        if (profileLink && source.dataset.profileUrl) profileLink.href = source.dataset.profileUrl;
+        if (coursesLink && source.dataset.coursesUrl) coursesLink.href = source.dataset.coursesUrl;
+        const img = teacherFeature.querySelector('[data-teacher-feature-avatar]');
+        const fallback = teacherFeature.querySelector('[data-teacher-feature-fallback]');
+        if (source.dataset.avatarUrl && img && fallback) {
+            img.src = source.dataset.avatarUrl;
+            img.hidden = false;
+            fallback.hidden = true;
+        } else if (img && fallback) {
+            img.hidden = true;
+            fallback.hidden = false;
+            fallback.textContent = (source.dataset.fullName || 'ا').trim().slice(0, 1);
+        }
+        document.querySelectorAll('[data-teacher-row].is-selected').forEach((row) => row.classList.remove('is-selected'));
+        source.closest('[data-teacher-row]')?.classList.add('is-selected');
+    };
+    document.querySelectorAll('[data-teacher-row]').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('a, button, input, label, select')) return;
+            focusTeacher(row);
+        });
+    });
+    document.addEventListener('click', (event) => {
+        const interactive = event.target.closest('a, button, input, label, select');
+        const managerRow = event.target.closest('[data-manager-row]');
+        const studentRow = event.target.closest('[data-student-row]');
+        const teacherRow = event.target.closest('[data-teacher-row]');
+        if (!interactive && managerRow) focusManager(managerRow);
+        if (!interactive && studentRow) focusStudent(studentRow);
+        if (!interactive && teacherRow) focusTeacher(teacherRow);
+    });
+})();
+</script>
 {% endblock %}

@@ -1,22 +1,64 @@
-{% extends 'base.html' %}
-{% block title %}ورود به آزمون | آزمون‌یار{% endblock %}
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}تأیید هویت و شروع آزمون | متا کوییز{% endblock %}
 {% block content %}
-<section class="super-admin-page" dir="rtl">
-    <div class="super-admin-heading"><span class="super-admin-kicker">ورود اصلی</span><h1>{{ exam.title }}</h1></div>
-    <div class="super-admin-grid">
-        <article class="super-admin-card"><h2>قوانین</h2><p>{{ exam.instructions|default:"قوانین آزمون را مطالعه و تأیید کنید." }}</p></article>
-        <article class="super-admin-card">
-            <h2>احراز هویت و تأیید قوانین</h2>
-            <form method="post" enctype="multipart/form-data" class="super-admin-form">{% csrf_token %}{{ form.as_p }}<button class="super-admin-primary">ثبت تأیید</button></form>
-        </article>
-        <article class="super-admin-card">
-            <h2>شروع آزمون</h2>
-            {% if can_start %}
-                <form method="post" action="{% url 'core:student_exam_start' exam.pk %}">{% csrf_token %}<button class="super-admin-primary">شروع آزمون</button></form>
-            {% else %}
-                <p>پس از تأیید قوانین و احراز هویت، گزینه شروع فعال می‌شود.</p>
-            {% endif %}
-        </article>
-    </div>
+{% include 'student/_exam_shell_head.html' %}
+<style>
+  .sx-entry{max-width:1520px;margin:0 auto}.sx-steps{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;max-width:760px;margin:0 auto 44px;color:#73809a;font-weight:950}.sx-step{position:relative;display:grid;justify-items:center;gap:10px}.sx-step:before{content:"";position:absolute;top:18px;right:50%;width:100%;height:2px;background:#d6e0ee}.sx-step:first-child:before{display:none}.sx-step b{position:relative;z-index:2;display:grid;width:38px;height:38px;place-items:center;border-radius:50%;border:1px solid #d6e0ee;background:#fff}.sx-step.done b,.sx-step.active b{border-color:#075fff;background:#075fff;color:#fff}.sx-step.done,.sx-step.active{color:#075fff}
+  .sx-entry-grid{display:grid;grid-template-columns:330px minmax(0,1fr) 390px;gap:28px}.sx-entry-card{padding:28px}.sx-entry-card h2{margin:0 0 18px;font-size:1.28rem}.sx-rules{display:grid;gap:0}.sx-rules p{display:grid;grid-template-columns:30px 1fr;align-items:center;gap:12px;margin:0;padding:16px 0;border-bottom:1px solid #e0e8f4;color:#40506d;font-weight:850}.sx-rules span{display:grid;width:24px;height:24px;place-items:center;border-radius:50%;background:#22c55e;color:#fff}.sx-identity{text-align:center}.sx-face{position:relative;display:grid;width:260px;height:260px;margin:18px auto 18px;place-items:center;border:2px solid #aab8d4;border-radius:50%;background:linear-gradient(180deg,#eef4fb,#d7e2ef);overflow:hidden}.sx-face:before{content:"";width:116px;height:116px;border-radius:50%;background:#c1cede;transform:translateY(-34px);box-shadow:0 102px 0 54px #c1cede}.sx-upload{display:inline-flex;align-items:center;gap:10px;min-height:48px;border:1px solid #075fff;border-radius:10px;background:#fff;padding:0 26px;color:#075fff;font-weight:950;cursor:pointer}.sx-upload input{display:none}.sx-id-table{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px auto 0;max-width:520px;text-align:right}.sx-id-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid #e0e8f4;padding-top:14px;color:#51617d;font-weight:850}.sx-accept{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:18px;color:#203153;font-weight:900}.sx-accept input{width:18px;height:18px;accent-color:#075fff}.sx-start{display:flex;justify-content:center;margin-top:22px}.sx-help{display:grid;gap:18px}.sx-privacy{min-height:210px;text-align:center}.sx-privacy .shield{display:grid;width:78px;height:78px;margin:0 auto 18px;place-items:center;border-radius:50%;background:#e8f0ff;color:#075fff}.sx-count-small strong{display:block;margin-top:12px;color:#075fff;font-size:2.2rem;direction:ltr}.sx-form-errors{margin-top:16px;color:#ef4444;font-weight:850}
+  @media(max-width:1180px){.sx-entry-grid{grid-template-columns:1fr}.sx-steps{max-width:100%}}
+</style>
+<section class="sx-entry">
+  <div class="sx-title"><div><h1>تأیید هویت و شروع آزمون</h1><p>آزمون‌ها / ورود به آزمون</p></div></div>
+  <div class="sx-steps"><div class="sx-step done"><b>✓</b><span>بررسی دستگاه</span></div><div class="sx-step active"><b>۲</b><span>تأیید هویت</span></div><div class="sx-step"><b>۳</b><span>شروع آزمون</span></div></div>
+  <section class="sx-entry-grid">
+    <aside class="sx-help">
+      <article class="sx-card sx-entry-card sx-privacy"><div class="shield"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.4 8.5-8 9-4.6-.5-8-4-8-9V7l8-4Z"/><path d="M9 12l2 2 4-5"/></svg></div><h2>حریم خصوصی شما برای ما مهم است</h2><p>تصویر شما فقط برای احراز هویت آزمون استفاده می‌شود و ذخیره یا اشتراک‌گذاری نخواهد شد.</p></article>
+      <article class="sx-card sx-entry-card"><h2>نیاز به کمک دارید؟</h2><p>در صورت بروز مشکل در مراحل تأیید هویت یا شروع آزمون، با پشتیبانی تماس بگیرید.</p><a class="sx-btn" style="width:100%" href="#">تماس با پشتیبانی</a></article>
+      <article class="sx-card sx-entry-card sx-count-small"><h2>زمان باقی‌مانده تا شروع:</h2><strong>۰۲:۱۵:۳۲</strong></article>
+    </aside>
+    <article class="sx-card sx-entry-card sx-identity">
+      <h2>لطفا تصویر خود را برای تأیید هویت ثبت کنید</h2>
+      <p>در محیطی با نور مناسب قرار بگیرید و مستقیم به دوربین نگاه کنید.</p>
+      {% if can_start %}
+        <div class="sx-face"></div>
+        <div class="sx-id-table">
+          <div class="sx-id-row"><span>نام و نام خانوادگی:</span><strong>{{ student.profile.full_name|default:request.user.username }}</strong></div>
+          <div class="sx-id-row"><span>شماره دانشجویی:</span><strong>{{ student.student_number|default:student.pk|fa_digits }}</strong></div>
+          <div class="sx-id-row"><span>کد آزمون:</span><strong>MQ-1405-027</strong></div>
+          <div class="sx-id-row"><span>وضعیت:</span><strong>تأیید شده</strong></div>
+        </div>
+        <form class="sx-start" method="post" action="{% url 'core:student_exam_start' exam.pk %}">{% csrf_token %}<button class="sx-btn primary" style="min-width:320px">تأیید و شروع آزمون</button></form>
+      {% else %}
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="sx-face"></div>
+          <label class="sx-upload"><input type="file" name="identity_image" accept="image/*">ثبت تصویر</label>
+          <div class="sx-id-table">
+            <label class="sx-field"><span>کد احراز هویت</span><input name="identity_code" value="{{ identity_code|default:'' }}" placeholder="MQ-1405-027"></label>
+            <div class="sx-id-row"><span>نام و نام خانوادگی:</span><strong>{{ student.profile.full_name|default:request.user.username }}</strong></div>
+            <div class="sx-id-row"><span>شماره دانشجویی:</span><strong>{{ student.student_number|default:student.pk|fa_digits }}</strong></div>
+            <div class="sx-id-row"><span>کد آزمون:</span><strong>MQ-1405-027</strong></div>
+          </div>
+          <label class="sx-accept"><input type="checkbox" name="accept_rules" required> قوانین را می‌پذیرم و متعهد می‌شوم آزمون را منصفانه انجام دهم.</label>
+          {% if entry_error %}<div class="sx-form-errors">{{ entry_error }}</div>{% endif %}
+          <div class="sx-start"><button class="sx-btn primary" style="min-width:320px">ثبت تأیید</button></div>
+        </form>
+      {% endif %}
+    </article>
+    <article class="sx-card sx-entry-card">
+      <h2>قوانین و الزامات آزمون</h2>
+      <div class="sx-rules">
+        <p><span>✓</span>در طول آزمون باید مقابل دوربین باشید.</p>
+        <p><span>✓</span>استفاده از موبایل، ساعت هوشمند و هدفون مجاز نیست.</p>
+        <p><span>✓</span>خروج از صفحه آزمون یا بستن مرورگر مجاز نیست.</p>
+        <p><span>✓</span>هیچ فرد دیگری نباید در محیط آزمون حضور داشته باشد.</p>
+        <p><span>✓</span>از صحبت کردن یا خواندن سوالات با صدای بلند خودداری کنید.</p>
+        <p><span>✓</span>در صورت بروز مشکل، دست خود را بالا ببرید و منتظر راهنمایی بمانید.</p>
+      </div>
+      <div class="sx-chip" style="margin-top:22px">با شروع آزمون، قوانین فوق را می‌پذیرید.</div>
+    </article>
+  </section>
 </section>
+{% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

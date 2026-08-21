@@ -1,197 +1,366 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}صفحه اصلی | آزمون‌یار{% endblock %}
+{% block title %}صفحه اصلی | متا کوییز{% endblock %}
+{% block public_header %}{% endblock %}
 
 {% block content %}
-<section class="instructor-home" dir="rtl">
-    <div class="instructor-hero">
-        <div class="instructor-hero-copy">
-            <span class="showcase-kicker">پلتفرم مدیریت آزمون آنلاین</span>
+<div class="landing-page" dir="rtl">
+    <div class="landing-arcs" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+
+    <header id="site-header" class="landing-nav">
+        <div class="landing-nav-inner">
+            <a href="#home" class="landing-brand">
+                <img src="{% static 'img/metaquiz-favicon.svg' %}" alt="">
+                <span>متا کوییز</span>
+            </a>
+
+            <nav class="landing-nav-links" aria-label="ناوبری صفحه اصلی">
+                <a href="#home" data-section-link="home" class="is-active">خانه</a>
+                <a href="#features" data-section-link="features">امکانات</a>
+                <a href="#use-cases" data-section-link="use-cases">کاربردها</a>
+                <a href="#pricing" data-section-link="pricing">پلن‌ها</a>
+                <a href="#faq" data-section-link="faq">سوالات</a>
+                <a href="#cta" data-section-link="cta">تماس</a>
+            </nav>
+
+            <div class="landing-nav-actions">
+                <a href="{% url 'core:login' %}?mode=signup" class="landing-nav-primary">ثبت‌نام</a>
+                <a href="{% url 'core:login' %}" class="landing-nav-secondary">ورود</a>
+                <button type="button" class="landing-menu-button" aria-controls="mobile-nav" aria-expanded="false">
+                    <span class="is-open">☰</span>
+                    <span class="is-close">×</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="mobile-nav" class="landing-mobile-nav" hidden>
+            <nav>
+                <a href="#home" data-section-link="home">خانه</a>
+                <a href="#features" data-section-link="features">امکانات</a>
+                <a href="#use-cases" data-section-link="use-cases">کاربردها</a>
+                <a href="#pricing" data-section-link="pricing">پلن‌ها</a>
+                <a href="#faq" data-section-link="faq">سوالات</a>
+                <a href="#cta" data-section-link="cta">تماس</a>
+                <div>
+                    <a href="{% url 'core:login' %}?mode=signup">ثبت‌نام</a>
+                    <a href="{% url 'core:login' %}">ورود</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <section id="home" class="landing-hero">
+        <div class="landing-hero-copy">
+            <div class="landing-soft-wash" aria-hidden="true"></div>
             <h1>
-                <span>کلاس، استاد و آزمون</span>
-                <span>را در یک نمای حرفه‌ای</span>
-                <span>مدیریت کنید.</span>
+                به <span>متا کوییز</span> خوش آمدید.
+                <br>
+                با <em>اطمینان</em> آماده شوید.
             </h1>
             <p>
-                آزمون‌یار برای برگزارکننده‌هایی ساخته شده که می‌خواهند طراحی سؤال، زمان‌بندی آزمون،
-                کنترل شرکت‌کننده‌ها و پیگیری نتیجه‌ها را از یک مسیر روشن انجام دهند.
+                در هر آزمونی با بانک سوالات هدفمند و تصحیح خودکار ما عالی ظاهر شوید.
+                <strong>یادگیری هوشمند</strong> از همین‌جا شروع می‌شود.
             </p>
-            <div class="showcase-actions">
-                <a href="/admin/apps/core/exam/add/" class="showcase-btn showcase-btn-primary">ساخت آزمون جدید</a>
-                <a href="#exam-list" class="showcase-btn showcase-btn-ghost">مشاهده آزمون‌ها</a>
+
+            <form class="landing-search" action="{% url 'core:login' %}" method="get">
+                <span aria-hidden="true">⌕</span>
+                <input type="text" name="q" placeholder="جست‌وجوی درس یا آزمون...">
+                <button type="submit">جست‌وجو</button>
+            </form>
+
+            <div class="landing-proof">
+                <div class="landing-avatars" aria-hidden="true">
+                    <span>ع</span>
+                    <span>م</span>
+                    <span>س</span>
+                    <span>ر</span>
+                    <span>+۵۰</span>
+                </div>
+                <p>تیم آموزشی <strong>+۵۰ نفره.</strong> <a href="#pricing">مشاهده پلن‌ها</a></p>
             </div>
         </div>
 
-        <div class="instructor-hero-visual" aria-label="نمای کلی پنل آزمون‌یار">
-            <img src="{% static 'img/hero-teacher-laptop.png' %}" alt="مدرس در حال مدیریت آزمون آنلاین">
-            <div class="floating-metric metric-top">
-                <strong>{{ upcoming_exams|length }}</strong>
-                <span>آزمون فعال</span>
-            </div>
-            <div class="floating-metric metric-bottom">
-                <strong>۹۶٪</strong>
-                <span>آمادگی اجرا</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="showcase-strip" aria-label="قابلیت‌های اصلی">
-        <article>
-            <span>۰۱</span>
-            <strong>طراحی آزمون</strong>
-            <p>عنوان، توضیح، بازه زمانی و وضعیت آزمون را سریع ثبت کنید.</p>
-        </article>
-        <article>
-            <span>۰۲</span>
-            <strong>مدیریت اجرا</strong>
-            <p>آزمون‌های فعال و زمان‌های شروع و پایان را در یک نگاه ببینید.</p>
-        </article>
-        <article>
-            <span>۰۳</span>
-            <strong>گزارش و پیگیری</strong>
-            <p>مسیر توسعه برای نتیجه‌ها، پاسخ‌ها و گزارش‌ها آماده است.</p>
-        </article>
-    </div>
-</section>
-
-<section id="features" class="showcase-section" dir="rtl">
-    <div class="showcase-heading">
-        <span class="showcase-kicker">نمای استاد و برگزارکننده</span>
-        <h2>هر کاری که برای آماده‌سازی آزمون لازم است، جلوی چشم شماست.</h2>
-    </div>
-
-    <div class="instructor-panel">
-        <div class="instructor-panel-main">
-            <div class="panel-title-row">
-                <div>
-                    <small>برنامه امروز</small>
-                    <strong>آماده‌سازی آزمون میان‌ترم</strong>
-                </div>
-                <span>فعال</span>
-            </div>
-            <div class="lesson-progress">
-                <div style="--value: 78%"></div>
-            </div>
-            <div class="panel-stats">
-                <div>
-                    <strong>۴۵</strong>
-                    <span>دقیقه زمان پاسخ</span>
-                </div>
-                <div>
-                    <strong>۳</strong>
-                    <span>مرحله تا انتشار</span>
-                </div>
-                <div>
-                    <strong>۲۴/۷</strong>
-                    <span>آماده توسعه</span>
-                </div>
+        <div class="landing-gallery" aria-label="نمای تصویری متا کوییز">
+            <article class="landing-photo landing-photo-large group">
+                <img src="{% static 'img/student-hero.png' %}" alt="دانشجو در حال آماده شدن برای آزمون">
+                <div><strong>آماده شو</strong><span>با تبلت، هرجا</span></div>
+            </article>
+            <article class="landing-photo group">
+                <img src="{% static 'img/hero-student-1.png' %}" alt="بانک سوال">
+                <div><strong>بانک سوال</strong><span>هزاران سوال</span></div>
+            </article>
+            <article class="landing-photo group">
+                <img src="{% static 'img/hero-student-2.png' %}" alt="آزمون آنلاین">
+                <div><strong>آنلاین</strong><span>از هرجا</span></div>
+            </article>
+            <article class="landing-photo landing-photo-wide group">
+                <img src="{% static 'img/hero-student-3.png' %}" alt="استادان برتر">
+                <div><strong>اساتید برتر</strong><span>یادگیری از بهترین‌ها</span></div>
+            </article>
+            <div class="landing-floating-stat">
+                <strong>+۵۰۰</strong>
+                <span>آزمون رایگان</span>
             </div>
         </div>
-        <div class="instructor-panel-art">
-            <img src="{% static 'img/hero-educators.png' %}" alt="تیم آموزشی در حال بررسی داده‌های آزمون">
+    </section>
+
+    <section id="join" class="landing-band">
+        <div class="landing-code-card">
+            <span>دانشجو هستید؟</span>
+            <h2>با کد آزمون وارد شوید</h2>
+            <p>کد آزمون را از استاد خود دریافت کرده و در یک کلیک وارد آزمون شوید.</p>
+            <form action="{% url 'core:login' %}" method="get">
+                <input type="text" name="code" placeholder="مثلا EX-8421" aria-label="کد آزمون">
+                <button type="submit">ورود به آزمون</button>
+            </form>
+            <div class="landing-code-badges">
+                <span>اتصال امن</span>
+                <span>بدون نصب نرم‌افزار</span>
+            </div>
         </div>
-    </div>
-</section>
 
-<section id="steps" class="course-flow" dir="rtl">
-    <div class="showcase-heading">
-        <span class="showcase-kicker">فرآیند ساده</span>
-        <h2>از ایده آموزشی تا آزمون قابل اجرا، سه قدم فاصله دارید.</h2>
-    </div>
-    <div class="course-flow-grid">
-        <article>
-            <span>۱</span>
-            <h3>جزئیات را ثبت کنید</h3>
-            <p>نام آزمون، توضیحات، زمان شروع و پایان را از پنل مدیریت وارد کنید.</p>
-        </article>
-        <article>
-            <span>۲</span>
-            <h3>وضعیت را کنترل کنید</h3>
-            <p>آزمون‌های فعال در صفحه اول دیده می‌شوند تا تیم اجرایی سردرگم نشود.</p>
-        </article>
-        <article>
-            <span>۳</span>
-            <h3>مسیر گزارش را بسازید</h3>
-            <p>ساختار پروژه برای افزودن سؤال، پاسخ، نتیجه و گزارش‌های بعدی آماده است.</p>
-        </article>
-    </div>
-</section>
+        <div class="landing-steps-card">
+            <div class="landing-card-title">
+                <div>
+                    <span class="landing-pill">۳ گام ساده</span>
+                    <h2>چگونه کار می‌کند؟</h2>
+                </div>
+            </div>
+            <div>
+                <article><b>۱</b><strong>آزمون بسازید</strong><p>از بانک سوال انتخاب کنید یا سوال جدید بنویسید.</p></article>
+                <article><b>۲</b><strong>کد را به‌اشتراک بگذارید</strong><p>کد یا لینک آزمون را برای دانشجویان ارسال کنید.</p></article>
+                <article><b>۳</b><strong>نتایج لحظه‌ای</strong><p>تصحیح خودکار و کارنامه را همان لحظه ببینید.</p></article>
+            </div>
+        </div>
+    </section>
 
-<section id="exam-list" class="exam-showcase" dir="rtl">
-    <div class="showcase-heading exam-showcase-head">
+    <section id="features" class="landing-section">
+        <div class="landing-section-head">
+            <h2 class="landing-underlined">آنچه ما ارائه می‌دهیم</h2>
+        </div>
+        <div class="landing-feature-grid landing-feature-grid-three">
+            <article><span>⚗</span><strong>آزمون‌های زنده</strong><p>برای آزمونی که می‌خواهید شرکت کنید ثبت‌نام کنید. در یک کلیک از داشبورد خود به آزمون متصل شوید.</p></article>
+            <article><span>؟</span><strong>سوالات هدفمند</strong><p>آزمون‌های از دست رفته را از داشبورد ببینید. لینک آزمون‌های زنده فقط در زمان برگزاری ظاهر می‌شود.</p></article>
+            <article><span>↗</span><strong>تحلیل عمیق نتایج</strong><p>داشبورد شما همراه واقعی پیشرفت شماست. عملکرد را تحلیل کنید، نقاط ضعف را بشناسید و رشد کنید.</p></article>
+        </div>
+    </section>
+
+    <section class="landing-support">
+        <div class="landing-support-card">
+            <div class="landing-ring">
+                <svg viewBox="0 0 100 100" aria-hidden="true">
+                    <circle cx="50" cy="50" r="44"></circle>
+                    <circle cx="50" cy="50" r="44"></circle>
+                </svg>
+                <div><strong>۱۰۰٪</strong><span>رضایت</span></div>
+            </div>
+            <div>
+                <strong>پشتیبانی ۲۴/۷</strong>
+                <ul>
+                    <li>دکتر کاظمی، قلب</li>
+                    <li>دکتر شریفی، داخلی</li>
+                    <li>دکتر مرادی، اطفال</li>
+                    <li>دکتر رضایی، جراحی</li>
+                </ul>
+            </div>
+            <div class="landing-support-copy">
+                <span>همراه شما</span>
+                <h2>در طول آزمون تنها نیستید.</h2>
+                <p>پنل متا کوییز وضعیت ورود، پاسخ‌ها، نتیجه و گزارش‌ها را شفاف نگه می‌دارد تا تیم آموزشی تمرکز خود را روی کیفیت بگذارد.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="use-cases" class="landing-section">
+        <div class="landing-section-head">
+            <span class="landing-pill">کاربردها</span>
+            <h2>برای دانشجو، استاد و مرکز آموزشی</h2>
+            <p>همان صفحه‌ی مرجع این بخش را برای نمایش کاربردهای اصلی دارد؛ اینجا به مسیرهای واقعی سامانه Django وصل شده است.</p>
+        </div>
+        <div class="landing-use-grid">
+            <article><span>🎓</span><strong>دانشجویان</strong><p>ورود با کد آزمون، مشاهده تقویم، شرکت در آزمون و دریافت کارنامه.</p></article>
+            <article><span>🏫</span><strong>مراکز آموزشی</strong><p>مدیریت کاربران، کلاس‌ها، درس‌ها، تقویم و گزارش‌های اجرایی.</p></article>
+            <article><span>💼</span><strong>استادان</strong><p>طراحی سوال، ساخت آزمون، تصحیح پاسخ‌ها و انتشار نتیجه.</p></article>
+        </div>
+    </section>
+
+    <section id="pricing" class="landing-section landing-pricing">
+        <div class="landing-section-head landing-center">
+            <h2>قیمت‌گذاری منصفانه و شفاف</h2>
+            <p>پلن‌هایی متناسب با همه دانشجویان، بدون هزینه پنهان و بدون قرارداد بلندمدت.</p>
+        </div>
+        <div class="landing-plan-grid">
+            <article>
+                <small>پایه</small>
+                <div><strong>۹۹</strong><span>هزار تومان / ماه</span></div>
+                <h3>آزمون عمومی</h3>
+                <p>دسترسی کامل به بانک سوالات، تصحیح خودکار، کارنامه دقیق و پشتیبانی تخصصی.</p>
+                <ul><li>بانک سوال نامحدود</li><li>تصحیح خودکار و دستی</li><li>کارنامه و تحلیل عملکرد</li></ul>
+                <a href="{% url 'core:login' %}?mode=signup">خرید پلن</a>
+            </article>
+            <article class="is-popular">
+                <em>پیشنهاد ویژه</em>
+                <small>حرفه‌ای</small>
+                <div><strong>۱۹۹</strong><span>هزار تومان / ماه</span></div>
+                <h3>آزمون تخصصی</h3>
+                <p>دسترسی کامل به بانک سوالات، تصحیح خودکار، کارنامه دقیق و پشتیبانی تخصصی.</p>
+                <ul><li>بانک سوال نامحدود</li><li>تصحیح خودکار و دستی</li><li>کارنامه و تحلیل عملکرد</li></ul>
+                <a href="{% url 'core:login' %}?mode=signup">خرید پلن</a>
+            </article>
+            <article>
+                <small>نامحدود</small>
+                <div><strong>۲۹۹</strong><span>هزار تومان / ماه</span></div>
+                <h3>آزمون جامع</h3>
+                <p>دسترسی کامل به بانک سوالات، تصحیح خودکار، کارنامه دقیق و پشتیبانی تخصصی.</p>
+                <ul><li>بانک سوال نامحدود</li><li>تصحیح خودکار و دستی</li><li>کارنامه و تحلیل عملکرد</li></ul>
+                <a href="{% url 'core:login' %}?mode=signup">خرید پلن</a>
+            </article>
+        </div>
+        <div class="landing-more">
+            <a href="{% url 'core:login' %}">مشاهده همه پلن‌ها</a>
+        </div>
+    </section>
+
+    <section id="testimonials" class="landing-section">
+        <div class="landing-section-head">
+            <h2 class="landing-underlined">دانشجویان ما، بزرگ‌ترین طرفداران ما</h2>
+            <p>ما اهل تعریف از خود نیستیم، اما اجازه می‌دهیم دانشجویانمان درباره ما حرف بزنند.</p>
+        </div>
+        <div class="landing-testimonial-grid">
+            <article>
+                <span>“</span>
+                <h3>یک تجربه فوق‌العاده بود!</h3>
+                <p>استاد به‌قدری خوب درس داد که هر چه قول داده بود را به بهترین شکل انجام داد. آزمون‌ها واقعا تاثیرگذار بودند.</p>
+                <div><b>م</b><strong>متین حسینی</strong><small>دانشجوی پزشکی</small></div>
+            </article>
+            <article>
+                <span>“</span>
+                <h3>بانک سوال خیلی غنی است.</h3>
+                <p>تصحیح خودکار و کارنامه دقیق کمک کرد بفهمم کجاها باید بیشتر تمرین کنم.</p>
+                <div><b>ن</b><strong>نگار جوانمرد</strong><small>دانشجوی مهندسی</small></div>
+            </article>
+        </div>
+    </section>
+
+    <section id="faq" class="landing-section landing-faq">
+        <div class="landing-section-head landing-center">
+            <span class="landing-pill">پشتیبانی</span>
+            <h2>سوالات متداول</h2>
+            <p>پاسخ پرسش‌های رایج درباره ساخت و برگزاری آزمون آنلاین.</p>
+        </div>
+        <details open><summary>آیا استفاده از سامانه نیاز به نصب نرم‌افزار دارد؟</summary><p>خیر. تنها با مرورگر روی موبایل، تبلت یا کامپیوتر می‌توانید آزمون بسازید یا در آزمون شرکت کنید.</p></details>
+        <details><summary>چه نوع سوالاتی پشتیبانی می‌شود؟</summary><p>تک‌گزینه‌ای، چندپاسخی، صحیح/غلط، جای خالی، پاسخ کوتاه و تشریحی، همراه با نمره‌دهی خودکار برای موارد عینی.</p></details>
+        <details><summary>آیا امکان جلوگیری از تقلب وجود دارد؟</summary><p>بله. ترتیب تصادفی سوالات و گزینه‌ها، محدودیت زمان، یک تلاش و محدودسازی بازه برگزاری از ابزارهای موجود است.</p></details>
+        <details><summary>نتایج چگونه به دانشجو نمایش داده می‌شود؟</summary><p>پس از پایان آزمون، کارنامه شامل نمره، پاسخ‌های صحیح و درصد عملکرد در داشبورد دانشجو در دسترس است.</p></details>
+        <details><summary>آیا می‌توانم از بانک سوال خود در چند آزمون استفاده کنم؟</summary><p>بله. سوالات یک‌بار در بانک ذخیره می‌شوند و در هر تعداد آزمون قابل استفاده‌اند.</p></details>
+        <details><summary>آیا نسخه رایگان وجود دارد؟</summary><p>بله، می‌توانید رایگان ثبت‌نام کنید و امکانات پایه را بدون محدودیت زمانی استفاده کنید.</p></details>
+    </section>
+
+    <section id="cta" class="landing-cta">
         <div>
-            <span class="showcase-kicker">آخرین موارد</span>
-            <h2>آزمون‌های فعال</h2>
+            <h2>همین حالا اولین آزمون آنلاین خود را برگزار کنید.</h2>
+            <p>ثبت‌نام کمتر از یک دقیقه طول می‌کشد. کاملا رایگان برای شروع.</p>
         </div>
-        <a href="/admin/apps/core/exam/add/" class="showcase-btn showcase-btn-ghost">افزودن آزمون</a>
-    </div>
-
-    {% if upcoming_exams %}
-        <div class="exam-showcase-grid">
-            {% for exam in upcoming_exams %}
-                <article>
-                    <div class="exam-card-top">
-                        <h3>{{ exam.title }}</h3>
-                        <span>فعال</span>
-                    </div>
-                    <p>{{ exam.description|default:'برای این آزمون توضیحی ثبت نشده است.' }}</p>
-                    <div class="exam-card-times">
-                        <div>
-                            <small>شروع</small>
-                            <strong>{{ exam.starts_at }}</strong>
-                        </div>
-                        <div>
-                            <small>پایان</small>
-                            <strong>{{ exam.ends_at }}</strong>
-                        </div>
-                    </div>
-                </article>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="empty-showcase">
-            <span>+</span>
-            <h3>هنوز آزمون فعالی تعریف نشده است</h3>
-            <p>اولین آزمون را بسازید تا این بخش با کارت‌های واقعی پر شود.</p>
-            <a href="/admin/apps/core/exam/add/" class="showcase-btn showcase-btn-primary">تعریف اولین آزمون</a>
-        </div>
-    {% endif %}
-</section>
-
-<section class="showcase-cta" dir="rtl">
-    <div>
-        <span class="showcase-kicker">شروع سریع</span>
-        <h2>اولین آزمون آنلاین خود را همین حالا آماده کنید.</h2>
-    </div>
-    <a href="/admin/apps/core/exam/add/" class="showcase-btn showcase-btn-primary">ورود به پنل ساخت آزمون</a>
-</section>
-
-<footer class="site-footer">
-    <div class="footer-brand">
-        <span class="brand-mark">آ</span>
-        <strong>آزمون‌یار</strong>
-    </div>
-    <div class="footer-links">
         <div>
-            <strong>محصول</strong>
+            <a href="{% url 'core:login' %}?mode=signup">شروع رایگان</a>
+            <a href="{% url 'core:login' %}" class="landing-cta-secondary">ورود</a>
+        </div>
+    </section>
+
+    <footer class="landing-footer">
+        <div>
+            <strong>متا کوییز</strong>
+            <p>سامانه‌ای برای طراحی، برگزاری و مدیریت آزمون‌های آنلاین دانشگاهی.</p>
+        </div>
+        <div>
+            <strong>دسترسی سریع</strong>
             <a href="#features">امکانات</a>
-            <a href="#steps">مراحل شروع</a>
-            <a href="#exam-list">آزمون‌ها</a>
+            <a href="#pricing">پلن‌ها</a>
+            <a href="#testimonials">نظرات</a>
         </div>
         <div>
-            <strong>مدیریت</strong>
-            <a href="/admin/apps/core/exam/">فهرست آزمون‌ها</a>
-            <a href="/admin/apps/core/exam/add/">تعریف آزمون</a>
-            <a href="/admin/">پنل مدیریت</a>
-        </div>
-        <div>
-            <strong>پشتیبانی</strong>
+            <strong>منابع</strong>
+            <a href="#">وبلاگ</a>
             <a href="#">راهنما</a>
-            <a href="#">گزارش‌ها</a>
-            <a href="#">وضعیت سامانه</a>
+            <a href="#faq">سوالات متداول</a>
         </div>
+        <div>
+            <strong>عضویت در خبرنامه</strong>
+            <form action="{% url 'core:login' %}" method="get">
+                <input type="email" name="email" placeholder="ایمیل شما">
+                <button type="submit">ارسال</button>
+            </form>
+        </div>
+    </footer>
+
+    <div class="landing-footer-bottom">
+        <span>© ۲۰۲۶ متا کوییز، تمامی حقوق محفوظ است.</span>
+        <div><a href="#">حریم خصوصی</a><a href="#">قوانین و شرایط</a></div>
     </div>
-    <small>© ۲۰۲۶ آزمون‌یار</small>
-</footer>
+
+    <button type="button" class="landing-scroll-top" aria-label="بازگشت به ابتدای صفحه">↑</button>
+</div>
+
+<script>
+    (() => {
+        const header = document.getElementById('site-header');
+        const mobile = document.getElementById('mobile-nav');
+        const menuButton = document.querySelector('.landing-menu-button');
+        const links = Array.from(document.querySelectorAll('[data-section-link]'));
+        const ids = ['home', 'features', 'use-cases', 'pricing', 'faq', 'cta'];
+        const scrollTop = document.querySelector('.landing-scroll-top');
+
+        function closeMobile() {
+            if (!mobile || !menuButton) return;
+            mobile.hidden = true;
+            menuButton.setAttribute('aria-expanded', 'false');
+            menuButton.classList.remove('is-open');
+        }
+
+        menuButton?.addEventListener('click', () => {
+            const open = menuButton.getAttribute('aria-expanded') === 'true';
+            mobile.hidden = open;
+            menuButton.setAttribute('aria-expanded', String(!open));
+            menuButton.classList.toggle('is-open', !open);
+        });
+
+        links.forEach((link) => {
+            link.addEventListener('click', (event) => {
+                const href = link.getAttribute('href') || '';
+                if (!href.startsWith('#')) return;
+                const target = document.getElementById(href.slice(1));
+                if (!target) return;
+                event.preventDefault();
+                const offset = (header?.getBoundingClientRect().height || 72) + 8;
+                window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' });
+                history.replaceState(null, '', href);
+                closeMobile();
+            });
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+            if (!visible) return;
+            const id = visible.target.id;
+            links.forEach((link) => link.classList.toggle('is-active', link.dataset.sectionLink === id));
+        }, { rootMargin: '-90px 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] });
+
+        ids.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) observer.observe(el);
+        });
+
+        function updateScrollButton() {
+            scrollTop?.classList.toggle('is-visible', window.scrollY > 400);
+        }
+        window.addEventListener('scroll', updateScrollButton, { passive: true });
+        updateScrollButton();
+        scrollTop?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    })();
+</script>
 {% endblock %}

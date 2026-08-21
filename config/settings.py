@@ -5,11 +5,11 @@ from urllib.parse import parse_qsl, unquote, urlparse
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / '.env', override=False)
+load_dotenv(BASE_DIR / '.env', override=True)
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if host.strip()]
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,37.32.4.207').split(',') if host.strip()]
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME', '').strip()
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -20,7 +20,7 @@ if RAILWAY_PUBLIC_DOMAIN:
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
-    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
+    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', 'http://37.32.4.207,https://37.32.4.207').split(',')
     if origin.strip()
 ]
 if RENDER_EXTERNAL_HOSTNAME:
@@ -66,6 +66,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.core.navigation.app_shell',
+                'apps.core.context_processors.panel_user',
             ],
         },
     },
@@ -124,6 +126,30 @@ else:
         }
     }
 
+if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
+    DATABASES['default']['CONN_MAX_AGE'] = int(os.getenv('DB_CONN_MAX_AGE', '60'))
+    DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+    DATABASES['default'].setdefault('OPTIONS', {})
+    DATABASES['default']['OPTIONS'].setdefault('connect_timeout', int(os.getenv('DB_CONNECT_TIMEOUT', '5')))
+    DATABASES['default']['OPTIONS'].setdefault('application_name', os.getenv('DB_APPLICATION_NAME', 'virtual_exam_panel'))
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': os.getenv('DJANGO_CACHE_LOCATION', 'virtual-exam-default'),
+        'TIMEOUT': int(os.getenv('DJANGO_CACHE_TIMEOUT', '300')),
+        'OPTIONS': {
+            'MAX_ENTRIES': int(os.getenv('DJANGO_CACHE_MAX_ENTRIES', '50000')),
+        },
+    }
+}
+
+SESSION_ENGINE = os.getenv('SESSION_ENGINE', 'django.contrib.sessions.backends.cached_db')
+SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', str(60 * 60 * 8)))
+
+EXAM_MAX_CONCURRENT_STUDENTS = int(os.getenv('EXAM_MAX_CONCURRENT_STUDENTS', '1500'))
+EXAM_MAX_CONCURRENT_TEACHERS = int(os.getenv('EXAM_MAX_CONCURRENT_TEACHERS', '300'))
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -163,7 +189,7 @@ LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
-SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() == 'true'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
+SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'false').lower() == 'true'
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))

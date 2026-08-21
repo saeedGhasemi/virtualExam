@@ -1,8 +1,10 @@
+﻿import uuid
+
 from django import forms
-from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
+from django.db import connection
 
 from .models import (
     AcademicInstitution,
@@ -38,6 +40,8 @@ from .models import (
     UserProfile,
 )
 
+User = get_user_model()
+
 
 class StyledAuthenticationForm(AuthenticationForm):
     lock_minutes = 15
@@ -64,6 +68,18 @@ class StyledAuthenticationForm(AuthenticationForm):
 
     def confirm_login_allowed(self, user):
         super().confirm_login_allowed(user)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status FROM profiles WHERE username = %s OR email = %s LIMIT 1",
+                [user.username, user.email or ''],
+            )
+            row = cursor.fetchone()
+        status = row[0] if row else 'active'
+        if status == 'blocked':
+            raise forms.ValidationError('حساب شما مسدود است و امکان ورود وجود ندارد.')
+        if status == 'inactive':
+            raise forms.ValidationError('حساب شما غیرفعال است. با مدیر سامانه تماس بگیرید.')
+        return
         profile = getattr(user, 'profile', None)
         if profile and profile.account_status == UserProfile.AccountStatus.BLOCKED:
             raise forms.ValidationError('حساب شما مسدود است و امکان ورود وجود ندارد.')
@@ -96,13 +112,55 @@ class StyledAuthenticationForm(AuthenticationForm):
         cache.delete(cls.lock_key(username))
 
 
+class PublicRegistrationForm(forms.Form):
+    full_name = forms.CharField(label='نام و نام خانوادگی', max_length=180)
+    username = forms.CharField(label='نام کاربری', max_length=150, required=False)
+    student_number = forms.CharField(label='شماره دانشجویی', max_length=50, required=False)
+    email = forms.EmailField(label='ایمیل')
+    password = forms.CharField(label='رمز عبور', min_length=8, widget=forms.PasswordInput)
+    role = forms.ChoiceField(
+        label='نوع حساب',
+        choices=(
+            (SystemRole.RoleCode.STUDENT, 'دانشجو'),
+            (SystemRole.RoleCode.TEACHER, 'استاد'),
+        ),
+    )
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if not username:
+            return ''
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError('این نام کاربری قبلا ثبت شده است.')
+        return username
+
+    def clean_student_number(self):
+        student_number = self.cleaned_data.get('student_number', '').strip()
+        if student_number:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1 FROM student_profiles WHERE student_number = %s LIMIT 1", [student_number])
+                exists = cursor.fetchone()
+            if exists:
+                raise forms.ValidationError('این شماره دانشجویی قبلا ثبت شده است.')
+        return student_number
+        if student_number and UserProfile.objects.filter(student_number=student_number).exists():
+            raise forms.ValidationError('این شماره دانشجویی قبلا ثبت شده است.')
+        return student_number
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip()
+        if email and User.objects.filter(email=email).exists():
+            raise forms.ValidationError('این ایمیل قبلا ثبت شده است.')
+        return email
+
+
 class TwoFactorCodeForm(forms.Form):
     code = forms.CharField(label='کد تأیید', max_length=6, min_length=6)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['code'].widget.attrs.update({
-            'placeholder': 'کد ۶ رقمی',
+            'placeholder': 'کد و رقمی',
             'autocomplete': 'one-time-code',
         })
 
@@ -230,6 +288,265 @@ class SuperAdminReportFilterForm(forms.Form):
     date_from = forms.DateField(label='از تاریخ', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
     date_to = forms.DateField(label='تا تاریخ', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
     institution = forms.ModelChoiceField(label='مؤسسه', queryset=AcademicInstitution.objects.all(), required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        existing_tables = connection.introspection.table_names()
+        if AcademicInstitution._meta.db_table not in existing_tables:
+            self.fields['institution'].queryset = AcademicInstitution.objects.none()
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'super-admin-input')
+
+
+class SuperAdminCourseForm(forms.ModelForm):
+    class Meta:
+        model = Course
+        fields = ('institution', 'academic_unit', 'title', 'code', 'credit_count', 'education_level', 'semester', 'description', 'is_active')
+        labels = {
+            'institution': 'مؤسسه',
+            'academic_unit': 'واحد آموزشی',
+            'title': 'عنوان درس',
+            'code': 'کد درس',
+            'credit_count': 'تعداد واحد',
+            'education_level': 'مقطع',
+            'semester': 'نیمسال',
+            'description': 'توضیح',
+            'is_active': 'فعال',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'super-admin-input')
+
+
+class SuperAdminOrgUnitForm(forms.Form):
+    UNIT_CHOICES = (
+        ('university', 'دانشگاه'),
+        ('faculty', 'دانشکده'),
+        ('department', 'گروه آموزشی'),
+    )
+
+    unit_type = forms.ChoiceField(label='نوع', choices=UNIT_CHOICES)
+    institution = forms.ChoiceField(label='دانشگاه', choices=(), required=False)
+    parent = forms.ChoiceField(label='دانشکده', choices=(), required=False)
+    name = forms.CharField(label='نام', max_length=180)
+    code = forms.CharField(label='کد (اختیاری)', max_length=60, required=False)
+    is_active = forms.BooleanField(label='فعال', required=False, initial=True)
+
+    def __init__(self, *args, org_units=None, unit_id=None, org_levels=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.unit_id = str(unit_id or '')
+        self.org_units = list(org_units or [])
+        self.org_levels = list(org_levels or [])
+        self.unit_by_id = {str(unit['id']): unit for unit in self.org_units}
+        if self.org_levels:
+            self.fields['unit_type'].choices = [
+                (f'level_{index}', level.get('title') or f'سطح {index}')
+                for index, level in enumerate(self.org_levels, start=1)
+            ]
+        parent_units = [
+            unit for unit in self.org_units
+            if str(unit['id']) != self.unit_id
+        ]
+        universities = [
+            unit for unit in self.org_units
+            if unit.get('type') == 'university' and str(unit['id']) != self.unit_id
+        ]
+        faculties = [
+            unit for unit in self.org_units
+            if unit.get('type') == 'faculty' and str(unit['id']) != self.unit_id
+        ]
+        self.fields['institution'].choices = [('', '---------')] + [
+            (str(unit['id']), unit['name']) for unit in universities
+        ]
+        self.fields['parent'].choices = [('', '---------')] + [
+            (
+                str(unit['id']),
+                f"{unit.get('_level_label') or unit.get('type')} - {unit['name']}",
+            )
+            for unit in parent_units
+        ]
+        self.fields['unit_type'].widget.attrs.update({'data-org-field': 'type'})
+        self.fields['institution'].widget.attrs.update({'data-org-field': 'institution'})
+        self.fields['parent'].widget.attrs.update({'data-org-field': 'parent'})
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'super-admin-input')
+
+    def clean(self):
+        cleaned = super().clean()
+        unit_type = cleaned.get('unit_type')
+        institution_id = cleaned.get('institution')
+        parent_id = cleaned.get('parent')
+        if unit_type and unit_type.startswith('level_'):
+            try:
+                level_index = int(unit_type.split('_', 1)[1])
+            except (TypeError, ValueError):
+                level_index = 1
+            if level_index <= 1:
+                cleaned['institution'] = ''
+                cleaned['parent'] = ''
+                return cleaned
+            parent = self.unit_by_id.get(str(parent_id))
+            if self.unit_id and str(parent_id) == self.unit_id:
+                self.add_error('parent', 'واحد نمی‌تواند زیرمجموعه خودش باشد.')
+            if not parent:
+                self.add_error('parent', 'برای این سطح، انتخاب واحد والد الزامی است.')
+            elif int(parent.get('_level_index') or 0) != level_index - 1:
+                self.add_error('parent', 'والد باید از سطح قبلی انتخاب شود.')
+            cleaned['institution'] = ''
+            return cleaned
+
+        if unit_type == 'university':
+            cleaned['institution'] = ''
+            cleaned['parent'] = ''
+            return cleaned
+
+        institution = self.unit_by_id.get(str(institution_id))
+        if self.unit_id and str(institution_id) == self.unit_id:
+            self.add_error('institution', 'واحد نمی‌تواند زیرمجموعه خودش باشد.')
+        if not institution or institution.get('type') != 'university':
+            self.add_error('institution', 'برای ثبت دانشکده یا گروه آموزشی، انتخاب دانشگاه الزامی است.')
+
+        if unit_type == 'faculty':
+            cleaned['parent'] = str(institution_id or '')
+            return cleaned
+
+        if unit_type == 'department':
+            parent = self.unit_by_id.get(str(parent_id))
+            if self.unit_id and str(parent_id) == self.unit_id:
+                self.add_error('parent', 'واحد نمی‌تواند زیرمجموعه خودش باشد.')
+            if not parent or parent.get('type') != 'faculty':
+                self.add_error('parent', 'برای ثبت گروه آموزشی، انتخاب دانشکده الزامی است.')
+            elif str(parent.get('parent_id')) != str(institution_id):
+                self.add_error('parent', 'دانشکده باید زیرمجموعه همین دانشگاه باشد.')
+
+        return cleaned
+
+    def save(self):
+        unit_id = self.unit_id or str(uuid.uuid4())
+        unit_type = self.cleaned_data['unit_type']
+        name = self.cleaned_data['name'].strip()
+        code = self.cleaned_data.get('code', '').strip() or None
+        is_active = self.cleaned_data.get('is_active', True)
+        parent_id = None
+        if unit_type and unit_type.startswith('level_'):
+            try:
+                level_index = int(unit_type.split('_', 1)[1])
+            except (TypeError, ValueError):
+                level_index = 1
+            db_type = 'university' if level_index == 1 else 'faculty' if level_index == 2 else 'department' if level_index == 3 else 'group'
+            if level_index > 1:
+                parent_id = self.cleaned_data.get('parent') or None
+            if level_index >= 4:
+                code = f"__level:{level_index}__{code or ''}"[:60]
+            unit_type = db_type
+        else:
+            if unit_type == 'faculty':
+                parent_id = self.cleaned_data.get('institution') or None
+            elif unit_type == 'department':
+                parent_id = self.cleaned_data.get('parent') or None
+
+        with connection.cursor() as cursor:
+            if self.unit_id:
+                cursor.execute(
+                    """
+                    UPDATE org_units
+                    SET parent_id = %s, type = %s, name = %s, code = %s, is_active = %s
+                    WHERE id = %s
+                    """,
+                    [parent_id, unit_type, name, code, is_active, unit_id],
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO org_units (id, parent_id, type, name, code, is_active)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    [unit_id, parent_id, unit_type, name, code, is_active],
+                )
+        return unit_id
+
+
+class SuperAdminClassForm(forms.ModelForm):
+    class Meta:
+        model = CourseClass
+        fields = ('institution', 'course', 'term', 'title', 'code', 'teacher', 'students', 'capacity', 'is_active')
+        labels = {
+            'institution': 'مؤسسه',
+            'course': 'درس',
+            'term': 'سال/ترم',
+            'title': 'عنوان گروه',
+            'code': 'کد گروه',
+            'teacher': 'استاد',
+            'students': 'دانشجویان',
+            'capacity': 'ظرفیت',
+            'is_active': 'فعال',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'super-admin-input')
+
+
+class SuperAdminTermForm(forms.ModelForm):
+    class Meta:
+        model = AcademicTerm
+        fields = ('institution', 'title', 'year', 'starts_at', 'ends_at', 'is_active')
+        labels = {
+            'institution': 'مؤسسه',
+            'title': 'عنوان',
+            'year': 'سال',
+            'starts_at': 'تاریخ شروع',
+            'ends_at': 'تاریخ پایان',
+            'is_active': 'فعال',
+        }
+        widgets = {
+            'starts_at': forms.DateInput(attrs={'type': 'date'}),
+            'ends_at': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'super-admin-input')
+
+
+class SuperAdminExamForm(forms.ModelForm):
+    class Meta:
+        model = Exam
+        fields = ('institution', 'course', 'designer', 'title', 'description', 'starts_at', 'ends_at', 'duration_minutes', 'status', 'total_score', 'passing_score', 'is_active')
+        labels = {
+            'institution': 'مؤسسه',
+            'course': 'درس',
+            'designer': 'استاد طراح',
+            'title': 'عنوان آزمون',
+            'description': 'توضیح',
+            'starts_at': 'شروع',
+            'ends_at': 'پایان',
+            'duration_minutes': 'مدت زمان',
+            'status': 'وضعیت',
+            'total_score': 'نمره کل',
+            'passing_score': 'نمره قبولی',
+            'is_active': 'فعال',
+        }
+        widgets = {
+            'starts_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'ends_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'super-admin-input')
+
+
+class SuperAdminSettingsForm(forms.Form):
+    registration_enabled = forms.BooleanField(label='فعال بودن ثبت‌نام عمومی', required=False)
+    require_2fa = forms.BooleanField(label='اجباری بودن ورود دومرحله‌ای', required=False)
+    default_exam_duration = forms.IntegerField(label='مدت پیش‌فرض آزمون', min_value=5, max_value=300, initial=90)
+    support_email = forms.EmailField(label='ایمیل پشتیبانی', required=False, initial='support@metaquiz.ir')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -896,7 +1213,7 @@ class StudentAnswerForm(forms.ModelForm):
         if not any(name.endswith(ext) for ext in allowed_extensions):
             raise forms.ValidationError('فرمت فایل مجاز نیست.')
         if file.size > 5 * 1024 * 1024:
-            raise forms.ValidationError('حجم فایل نباید بیشتر از ۵ مگابایت باشد.')
+            raise forms.ValidationError('حجم فایل نباید بیشتر از و مگابایت باشد.')
         return file
 
 

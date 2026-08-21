@@ -1,0 +1,16 @@
+[Unit]
+Description=Virtual Exam Django application
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/virtual-exam
+EnvironmentFile=/srv/virtual-exam/.env
+ExecStart=/srv/virtual-exam/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8013 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile -
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

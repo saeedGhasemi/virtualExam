@@ -1,0 +1,717 @@
+﻿{% extends 'base_standalone.html' %}
+{% load static core_extras %}
+
+{% block title %}ساختار سازمانی | متا کوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<main class="settings-glass org-settings" dir="rtl">
+    <header class="settings-topbar">
+        <a class="settings-brand" href="{% url 'core:super_admin_dashboard' %}">
+            <span class="brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+            <strong>متا کوییز</strong>
+        </a>
+        <nav class="settings-nav">
+            <a href="{% url 'core:super_admin_dashboard' %}">داشبورد</a>
+            <a href="{% url 'core:super_admin_courses' %}">درس‌ها</a>
+            <a href="{% url 'core:super_admin_users' %}?tab=students">کاربران</a>
+            <a href="{% url 'core:super_admin_groups' %}">گروه‌بندی</a>
+            <a href="{% url 'core:super_admin_exams' %}">آزمون</a>
+            <a href="{% url 'core:super_admin_calendar' %}">تقویم آموزشی</a>
+            <a class="is-active" href="{% url 'core:super_admin_settings' %}">تنظیمات سامانه</a>
+            <a href="{% url 'core:profile' %}">پروفایل</a>
+        </nav>
+        <div class="settings-userbar">
+            <button type="button" aria-label="جستجو"><svg viewBox="0 0 24 24"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="7"/></svg></button>
+            <button type="button" aria-label="اعلان‌ها" class="has-dot"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></button>
+            <div class="settings-user"><span>{{ request.user.get_full_name|default:request.user.username|default:"مدیر"|slice:":1" }}</span><div><b>{{ request.user.get_full_name|default:request.user.username|default:"مدیر سیستم" }}</b><small>مدیر کل</small></div></div>
+        </div>
+    </header>
+
+    <aside class="settings-rail">
+        <a href="{% url 'core:super_admin_settings' %}?tab=terms" title="سال تحصیلی و ترم"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></a>
+        <a class="is-active" href="{% url 'core:super_admin_org_units' %}" title="ساختار سازمانی"><svg viewBox="0 0 24 24"><path d="M12 4v5"/><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1"/><path d="M12 9H6v4M12 9h6v4"/></svg></a>
+        <a href="{% url 'core:super_admin_settings' %}?tab=other" title="تنظیمات عمومی"><svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19 12a7 7 0 0 1-.2 1.6l2 1.5-2 3.4-2.4-1a7 7 0 0 1-2.8 1.6l-.4 2.6H9l-.4-2.6a7 7 0 0 1-2.8-1.6l-2.4 1-2-3.4 2-1.5A7 7 0 0 1 3.2 12c0-.6.1-1.1.2-1.6l-2-1.5 2-3.4 2.4 1a7 7 0 0 1 2.8-1.6L9 2.3h4.2l.4 2.6a7 7 0 0 1 2.8 1.6l2.4-1 2 3.4-2 1.5c.1.5.2 1 .2 1.6Z"/></svg></a>
+        <a class="rail-exit" href="{% url 'core:logout' %}" title="خروج"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg></a>
+    </aside>
+
+    <section class="settings-hero">
+        <span class="date-pill">تاریخ امروز: {% jalali_today %}</span>
+        <div><h1>تنظیمات سامانه</h1><p>مدیریت تنظیمات و پیکربندی سامانه متا کوییز</p></div>
+        <span class="hero-icon"><svg viewBox="0 0 24 24"><path d="M12 4v5"/><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1"/><path d="M12 9H6v4M12 9h6v4"/></svg></span>
+    </section>
+
+    <section class="settings-layout">
+        <aside class="settings-side-card">
+            <h2>خلاصه ساختار<span>≡</span></h2>
+            <dl>
+                <div><dt>تعداد سطوح</dt><dd>{{ org_summary.levels_count|fa_digits }}</dd></div>
+                <div><dt>واحدهای ثبت‌شده</dt><dd>{{ org_summary.units_count|fa_digits }}</dd></div>
+                <div><dt>سطح ریشه</dt><dd>{{ org_summary.root_label }}</dd></div>
+                <div><dt>آخرین بروزرسانی</dt><dd>{{ org_summary.updated_label }}</dd></div>
+            </dl>
+            <hr>
+            <h3>دسترسی سریع</h3>
+            <button type="button" class="side-action org-open-form" data-type="university" data-reset-form="true">افزودن واحد سازمانی <span>+</span></button>
+            <button type="button" class="side-action org-open-form" data-type="faculty" data-reset-form="true">افزودن دانشکده <span>+</span></button>
+            <button type="button" class="side-action org-open-form" data-type="department" data-reset-form="true">افزودن گروه آموزشی <span>+</span></button>
+        </aside>
+
+        <div class="settings-main-card">
+            <div class="settings-tabs">
+                <a href="{% url 'core:super_admin_settings' %}?tab=other"><svg viewBox="0 0 24 24"><path d="M4 21v-8M4 9V3M12 21v-6M12 11V3M20 21v-4M20 13V3"/><path d="M2 13h4M10 15h4M18 17h4"/></svg>تنظیمات عمومی</a>
+                <a href="{% url 'core:super_admin_settings' %}?tab=terms"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>سال تحصیلی و ترم</a>
+                <a class="is-active" href="{% url 'core:super_admin_org_units' %}"><svg viewBox="0 0 24 24"><path d="M12 4v5"/><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1"/><path d="M12 9H6v4M12 9h6v4"/></svg>ساختار سازمانی</a>
+            </div>
+
+            <div class="org-actions">
+                <button type="button" class="primary-action org-level-create"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن سطح جدید</button>
+                <button type="button" class="org-sort-button"><svg viewBox="0 0 24 24"><path d="M11 5h10M11 12h7M11 19h4"/><path d="M4 4v16M2 18l2 2 2-2"/></svg>مرتب‌سازی</button>
+                <button type="button" class="primary-action org-open-form" data-type="university" data-reset-form="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن واحد سازمانی</button>
+                <button type="button"><svg viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></svg>فیلتر</button>
+                <label><input data-org-search placeholder="جستجوی سطح یا واحد سازمانی..."><svg viewBox="0 0 24 24"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="7"/></svg></label>
+            </div>
+
+            <form method="post" class="org-level-editor">
+                {% csrf_token %}
+                <input type="hidden" name="org_action" id="orgLevelAction" value="level_save">
+            <div class="org-levels">
+                <button type="button" class="org-add-level">+<small>افزودن سطح</small></button>
+                {% for level in org_levels %}
+                    <article class="level-card {{ level.tone }} level-card-{{ forloop.counter }}">
+                        <i aria-hidden="true">
+                            {% if forloop.counter == 1 %}
+                                <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M4 10h16"/><path d="M5 10 12 4l7 6"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/></svg>
+                            {% elif forloop.counter == 2 %}
+                                <svg viewBox="0 0 24 24"><path d="M4 21h16"/><path d="M6 21V7h12v14"/><path d="M9 10h2M13 10h2M9 14h2M13 14h2"/><path d="M10 21v-3h4v3"/></svg>
+                            {% elif forloop.counter == 3 %}
+                                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.7"/><path d="M2 21v-2a4 4 0 0 1 3-3.7"/></svg>
+                            {% elif forloop.counter == 4 %}
+                                <svg viewBox="0 0 24 24"><path d="M12 6.5A6.5 6.5 0 0 0 5 5v13a6.5 6.5 0 0 1 7 1.5"/><path d="M12 6.5A6.5 6.5 0 0 1 19 5v13a6.5 6.5 0 0 0-7 1.5"/><path d="M12 6.5v13"/></svg>
+                            {% else %}
+                                <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M8 21h8M12 16v5"/></svg>
+                            {% endif %}
+                        </i>
+                        <span>{{ level.level|fa_digits }}</span>
+                        <b data-level-title>{{ level.title }}</b>
+                        <small data-level-hint>{{ level.hint }}</small>
+                        <input type="hidden" name="level_title" value="{{ level.title }}">
+                        <input type="hidden" name="level_hint" value="{{ level.hint }}">
+                        <em>{{ level.count|fa_digits }} مورد</em>
+                        <div class="level-card-actions">
+                            <span class="level-drag-handle" title="مرتب‌سازی"><svg viewBox="0 0 24 24"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/></svg></span>
+                            <button type="button" class="level-edit-button" data-index="{{ forloop.counter }}" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 6 4 4"/></svg></button>
+                            <button type="submit" class="level-delete-button" data-confirm="این سطح حذف شود؟" onclick="this.form.org_action.value='level_delete'; this.form.level_index.value='{{ forloop.counter }}'" {% if not can_decrease_levels %}disabled{% endif %} title="حذف"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+                <input type="hidden" name="level_index" value="">
+                <button type="submit" class="primary-action org-level-save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>ذخیره عنوان و توضیحات سطح‌ها</button>
+            </form>
+
+            <div class="org-grid">
+                <section class="org-table-card">
+                    <h2>واحدهای سازمانی ثبت‌شده</h2>
+                    <div class="settings-table-wrap">
+                        <table class="settings-table">
+                            <thead><tr><th>نام واحد</th><th>سطح سازمانی</th><th>والد</th><th>وضعیت</th><th>تاریخ ایجاد</th><th>عملیات</th></tr></thead>
+                            <tbody>
+                                {% for unit in org_table_rows %}
+                                    <tr data-filter-row>
+                                        <td>
+                                            <span class="org-unit-name {{ unit.tone }}">
+                                                <i><svg viewBox="0 0 24 24"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 20v-6h6v6"/></svg></i>
+                                                <strong>{{ unit.name|fa_digits }}</strong>
+                                            </span>
+                                        </td>
+                                        <td><span class="status-pill {{ unit.tone }}">{{ unit.level_label|fa_digits }}</span></td>
+                                        <td>{{ unit.parent_name|fa_digits }}</td>
+                                        <td><span class="status-pill green">فعال</span></td>
+                                        <td>{{ unit.created_display|default:"-"|fa_digits }}</td>
+                                        <td class="row-actions">
+                                            <span class="row-more" title="گزینه‌های بیشتر"><svg viewBox="0 0 24 24"><path d="M12 5h.01M12 12h.01M12 19h.01"/></svg></span>
+                                            <button type="button" class="org-edit-unit" title="ویرایش" data-id="{{ unit.id }}" data-type="{{ unit.form_type }}" data-name="{{ unit.name }}" data-code="{{ unit.display_code|default_if_none:'' }}" data-institution="{{ unit.edit_institution_id }}" data-parent="{{ unit.edit_parent_id }}"><svg viewBox="0 0 24 24"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 6 4 4"/></svg></button>
+                                            <form method="post" class="org-delete-form" data-confirm="این واحد و زیرمجموعه‌های آن حذف شوند؟">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="org_action" value="delete">
+                                                <input type="hidden" name="org_id" value="{{ unit.id }}">
+                                                <button type="submit" class="danger" title="حذف"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="6">هنوز واحدی ثبت نشده است.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="org-table-footer">
+                        <form method="get" class="page-size">
+                            <select name="per_page" aria-label="تعداد مورد در صفحه" onchange="this.form.submit()">
+                                <option value="5" {% if org_pagination.per_page == 5 %}selected{% endif %}>۵</option>
+                                <option value="10" {% if org_pagination.per_page == 10 %}selected{% endif %}>۱۰</option>
+                            </select>
+                            <span>مورد در صفحه</span>
+                            <input type="hidden" name="page" value="1">
+                        </form>
+                        <p>نمایش {{ org_pagination.start_index|fa_digits }} تا {{ org_pagination.end_index|fa_digits }} از {{ org_pagination.total|fa_digits }} مورد</p>
+                        <nav class="table-pages" aria-label="صفحه‌بندی">
+                            <a class="{% if not org_pagination.has_previous %}is-disabled{% endif %}" href="?page=1&per_page={{ org_pagination.per_page }}" aria-label="صفحه اول"><svg viewBox="0 0 24 24"><path d="m17 18-6-6 6-6"/><path d="m11 18-6-6 6-6"/></svg></a>
+                            <a class="{% if not org_pagination.has_previous %}is-disabled{% endif %}" href="?page={{ org_pagination.previous_page }}&per_page={{ org_pagination.per_page }}" aria-label="صفحه قبل"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></a>
+                            {% for page_number in org_pagination.page_numbers %}
+                                <a class="{% if page_number == org_pagination.current_page %}is-active{% endif %}" href="?page={{ page_number }}&per_page={{ org_pagination.per_page }}">{{ page_number|fa_digits }}</a>
+                            {% endfor %}
+                            <a class="{% if not org_pagination.has_next %}is-disabled{% endif %}" href="?page={{ org_pagination.next_page }}&per_page={{ org_pagination.per_page }}" aria-label="صفحه بعد"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
+                            <a class="{% if not org_pagination.has_next %}is-disabled{% endif %}" href="?page={{ org_pagination.total_pages }}&per_page={{ org_pagination.per_page }}" aria-label="صفحه آخر"><svg viewBox="0 0 24 24"><path d="m7 18 6-6-6-6"/><path d="m13 18 6-6-6-6"/></svg></a>
+                        </nav>
+                    </div>
+                </section>
+
+                <aside class="org-preview-card">
+                    <h2 class="zoom-title">پیش‌نمایش ساختار <svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg></h2>
+                    <div class="org-zoom-tree">
+                        {% for item in preview_units %}
+                            <div class="tree-node level-{{ item.level_index }} {{ item.tone }}">
+                                <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 20v-6h6v6"/></svg></span>
+                                <b>{{ item.name|fa_digits }}</b>
+                            </div>
+                        {% empty %}
+                            <p>ساختاری برای نمایش وجود ندارد.</p>
+                        {% endfor %}
+                    </div>
+                    <div class="org-note zoom-note"><span>i</span>مدیر سیستم می‌تواند تعداد سطوح ساختار سازمانی را بر اساس نیاز سامانه تعریف و مرتب‌سازی کند.</div>
+                    <h2>پیش‌نمایش ساختار</h2>
+                    {% for branch in tree %}
+                        <div class="tree-node root">دانشگاه {{ branch.institution.name|fa_digits }}</div>
+                        {% for faculty in branch.faculties %}
+                            <div class="tree-node faculty">دانشکده {{ faculty.unit.name|fa_digits }}</div>
+                            {% for department in faculty.departments %}
+                                <div class="tree-node dept">گروه {{ department.name|fa_digits }}</div>
+                            {% endfor %}
+                        {% endfor %}
+                    {% empty %}
+                        <p>ساختاری برای نمایش وجود ندارد.</p>
+                    {% endfor %}
+                    <div class="org-note">مدیر سیستم می‌تواند سطح‌های ساختار سازمانی را تعریف و مرتب‌سازی کند.</div>
+                </aside>
+            </div>
+        </div>
+    </section>
+
+    <div class="org-modal" id="orgUnitModal" aria-hidden="true">
+        <div class="org-modal-backdrop" data-close-modal></div>
+        <div class="org-modal-panel" role="dialog" aria-modal="true" aria-labelledby="orgUnitModalTitle">
+            <button type="button" class="org-modal-close" data-close-modal aria-label="بستن">×</button>
+            <h2 id="orgUnitModalTitle">افزودن واحد سازمانی</h2>
+            <form method="post" class="org-unit-form">
+                {% csrf_token %}
+                <input type="hidden" name="org_action" value="save">
+                <input type="hidden" name="org_id" id="orgUnitId" value="">
+                {{ form.non_field_errors }}
+                <p data-field-row="type"><label for="{{ form.unit_type.id_for_label }}">نوع</label>{{ form.unit_type }}{{ form.unit_type.errors }}</p>
+                <p><label for="{{ form.name.id_for_label }}">نام</label>{{ form.name }}{{ form.name.errors }}</p>
+                <div class="org-parent-panel" data-parent-panel hidden>
+                    <strong data-parent-title>والد</strong>
+                    <div class="org-parent-grid">
+                        <p data-field-row="institution"><label for="{{ form.institution.id_for_label }}">دانشگاه</label>{{ form.institution }}{{ form.institution.errors }}</p>
+                        <p data-field-row="parent"><label for="{{ form.parent.id_for_label }}">دانشکده</label>{{ form.parent }}{{ form.parent.errors }}</p>
+                    </div>
+                </div>
+                <p><label for="{{ form.code.id_for_label }}">کد (اختیاری)</label>{{ form.code }}{{ form.code.errors }}</p>
+                <label class="org-checkbox" hidden>{{ form.is_active }}<span>{{ form.is_active.label }}</span></label>
+                <button type="submit" class="primary-action">ذخیره</button>
+            </form>
+        </div>
+    </div>
+    <div class="org-modal" id="orgLevelModal" aria-hidden="true">
+        <div class="org-modal-backdrop" data-close-level-modal></div>
+        <div class="org-modal-panel level-modal-panel" role="dialog" aria-modal="true" aria-labelledby="orgLevelModalTitle">
+            <button type="button" class="org-modal-close" data-close-level-modal aria-label="بستن">×</button>
+            <h2 id="orgLevelModalTitle">ویرایش سطح</h2>
+            <div class="org-unit-form">
+                <p><label for="orgLevelTitleInput">عنوان سطح</label><input id="orgLevelTitleInput"></p>
+                <p><label for="orgLevelHintInput">توضیحات</label><textarea id="orgLevelHintInput" rows="3"></textarea></p>
+                <button type="button" class="primary-action" id="orgLevelSaveButton">ذخیره</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+{{ faculty_options_json|json_script:"orgFacultyOptions" }}
+<form method="post" id="orgLevelIncreaseForm" hidden>
+    {% csrf_token %}
+    <input type="hidden" name="org_action" value="level_adjust">
+    <input type="hidden" name="direction" value="increase">
+</form>
+<form method="post" id="orgLevelDecreaseForm" hidden>
+    {% csrf_token %}
+    <input type="hidden" name="org_action" value="level_adjust">
+    <input type="hidden" name="direction" value="decrease">
+</form>
+
+<style>
+    html:has(.settings-glass),body:has(.settings-glass){margin:0!important;padding:0!important;background:#eef4fb!important}.settings-glass{--blue:#2f64f5;--ink:#0b1935;--muted:#627089;--line:rgba(129,153,185,.25);min-height:100dvh;padding:0 7.4rem 2rem 2.2rem;background:radial-gradient(circle at 12% 0,rgba(91,255,216,.2),transparent 29rem),radial-gradient(circle at 85% 4%,rgba(95,135,255,.2),transparent 32rem),#eef4fb;color:var(--ink);font-family:inherit}.settings-topbar{display:grid;grid-template-columns:320px minmax(0,1fr) 320px;align-items:center;height:82px;margin:0 -7.4rem 0 -2.2rem;padding:0 7.4rem 0 2.2rem;background:transparent}.settings-brand{display:flex;align-items:center;gap:.8rem;justify-self:start;text-decoration:none;color:#2362f4;font-size:1.55rem;font-weight:950}.brand-mark{display:grid;width:3rem;height:3rem;place-items:center;border-radius:1.1rem;background:rgba(255,255,255,.56);box-shadow:inset 0 1px 0 #fff}.brand-mark svg,.settings-userbar svg,.settings-nav svg,.settings-rail svg,.hero-icon svg,.settings-tabs svg,.org-actions svg,.row-actions svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.brand-mark svg{width:1.55rem;height:1.55rem}.brand-mark img{width:1.65rem;height:1.65rem;display:block;object-fit:contain}.settings-nav{display:flex;justify-content:center;gap:1.35rem}.settings-nav a{padding:.85rem 1.05rem;border-radius:1rem;color:#0b1935;text-decoration:none;font-size:.95rem;font-weight:900;transition:.18s}.settings-nav a:hover,.settings-nav a.is-active{background:rgba(255,255,255,.62);color:#2563eb;box-shadow:inset 0 1px 0 #fff,0 12px 24px rgba(77,112,180,.12)}.settings-userbar{display:flex;align-items:center;justify-content:flex-end;gap:.7rem}.settings-userbar button{position:relative;display:grid;width:3rem;height:3rem;place-items:center;border:1px solid rgba(255,255,255,.72);border-radius:50%;background:rgba(255,255,255,.46);color:#0b1935}.settings-userbar button svg{width:1.25rem;height:1.25rem}.has-dot:after{content:"";position:absolute;top:.55rem;right:.65rem;width:.5rem;height:.5rem;border-radius:50%;background:#ef4444}.settings-user{display:flex;align-items:center;gap:.7rem}.settings-user>span{display:grid;width:3.1rem;height:3.1rem;place-items:center;border-radius:50%;background:linear-gradient(135deg,#7dd3fc,#7c3aed);color:#fff;font-weight:950}.settings-user b,.settings-user small{display:block;line-height:1.45}.settings-user small{color:var(--muted);font-weight:800}.settings-rail{position:fixed;z-index:5;top:7rem;right:1.4rem;bottom:1.2rem;display:flex;flex-direction:column;align-items:center;gap:1rem;width:4.4rem;padding:.95rem .5rem;border:1px solid rgba(255,255,255,.7);border-radius:1.8rem;background:rgba(255,255,255,.5);box-shadow:inset 0 1px 0 #fff,0 22px 70px rgba(54,75,110,.13);backdrop-filter:blur(18px)}.settings-rail a{display:grid;width:2.8rem;height:2.8rem;place-items:center;border-radius:1rem;color:#526582;text-decoration:none}.settings-rail a:hover,.settings-rail a.is-active{background:rgba(255,255,255,.72);color:#2563eb}.settings-rail svg{width:1.35rem;height:1.35rem}.rail-exit{margin-top:auto!important}.settings-hero{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:end;margin:1.4rem 0 1.6rem}.settings-hero h1{margin:0;font-size:1.9rem;font-weight:950}.settings-hero p{margin:.45rem 0 0;color:var(--muted);font-weight:800}.date-pill{grid-column:1/-1;justify-self:end;padding:.55rem 1rem;border-radius:999px;background:rgba(255,255,255,.5);color:#53647c;font-weight:900;font-size:.82rem}.hero-icon{display:grid;width:3.6rem;height:3.6rem;place-items:center;border-radius:1.25rem;background:rgba(255,255,255,.55);color:#2563eb}.hero-icon svg{width:1.6rem;height:1.6rem}.settings-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:1.35rem;align-items:start;direction:ltr}.settings-layout>*{direction:rtl}.settings-side-card,.settings-main-card,.level-card,.org-preview-card,.org-table-card{border:1px solid rgba(255,255,255,.68);background:rgba(255,255,255,.42);box-shadow:inset 0 1px 0 #fff,0 24px 70px rgba(62,80,111,.1);backdrop-filter:blur(18px);border-radius:1.4rem}.settings-side-card{padding:1.15rem}.settings-side-card h2,.settings-side-card h3{margin:0 0 1rem;font-size:1rem;font-weight:950}.settings-side-card h2{display:flex;align-items:center;justify-content:space-between}.settings-side-card h2 span{display:grid;width:1.65rem;height:1.65rem;place-items:center;border-radius:50%;background:#dbeafe;color:#2563eb}.settings-side-card dl{display:grid;gap:1rem}.settings-side-card dt{color:#64748b;font-weight:850}.settings-side-card dd{margin:0;font-weight:950}.settings-side-card hr{border:0;border-top:1px solid var(--line);margin:1.2rem 0}.side-action{display:flex;width:100%;align-items:center;justify-content:space-between;margin:.55rem 0;padding:.85rem .9rem;border:0;border-radius:.9rem;background:rgba(255,255,255,.38);color:#2563eb;font-weight:950}.settings-main-card{padding:1rem}.settings-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;padding:.65rem;border-radius:1.25rem;background:rgba(255,255,255,.3)}.settings-tabs a{display:flex;align-items:center;justify-content:center;gap:.55rem;min-height:3.7rem;border:1px solid rgba(255,255,255,.46);border-radius:1rem;background:rgba(255,255,255,.38);color:#0b1935;text-decoration:none;font-weight:950}.settings-tabs a.is-active{background:rgba(255,255,255,.65);color:#2563eb;outline:2px solid rgba(37,99,235,.2)}.settings-tabs svg{width:1.25rem;height:1.25rem}
+    .org-actions{display:grid;grid-template-columns:auto auto minmax(260px,1fr);gap:.75rem;margin:1rem 0}.primary-action,.org-actions button{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;border:0;border-radius:.9rem;background:linear-gradient(135deg,#2563eb,#3f5cff);color:#fff;padding:.85rem 1.2rem;font-weight:950}.org-actions button:not(.primary-action){background:rgba(255,255,255,.5);color:#526582;border:1px solid #d8e2ef}.org-actions label{display:flex;align-items:center;height:2.9rem;border:1px solid #d8e2ef;border-radius:.85rem;background:rgba(255,255,255,.5);padding:0 .8rem}.org-actions input{flex:1;border:0;outline:0;background:transparent;font-weight:850}.org-actions svg{width:1.1rem;height:1.1rem}.org-levels{display:grid;grid-template-columns:180px repeat(3,1fr);gap:.9rem;margin:1rem 0;direction:ltr}.org-levels>*{direction:rtl}.org-add-level{min-height:9rem;border:1px dashed #b8c6d9;border-radius:1.2rem;background:rgba(255,255,255,.22);color:#2563eb;font-size:1.6rem}.org-add-level small{display:block;margin-top:.55rem;color:#53647c;font-size:.9rem;font-weight:900}.level-card{display:grid;gap:.45rem;min-height:9rem;padding:1rem}.level-card span{color:#64748b;font-weight:900}.level-card b{font-size:1.15rem}.level-card small{color:#64748b;font-weight:800}.level-card em{margin-top:auto;font-style:normal;font-weight:950}.level-card.blue em{color:#2563eb}.level-card.purple em{color:#8b5cf6}.level-card.green em{color:#10b981}.org-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:.9rem;direction:ltr}.org-grid>*{direction:rtl}.org-table-card,.org-preview-card{padding:1rem}.org-table-card h2,.org-preview-card h2{margin:0 0 1rem;font-size:1.05rem}.settings-table-wrap{overflow:hidden;border:1px solid var(--line);border-radius:1rem;background:rgba(255,255,255,.34)}.settings-table{width:100%;border-collapse:collapse}.settings-table th,.settings-table td{padding:.85rem;text-align:right;border-bottom:1px solid var(--line);font-weight:850}.settings-table th{color:#64748b;background:rgba(255,255,255,.24)}.status-pill{display:inline-flex;border-radius:999px;padding:.32rem .65rem;font-weight:950}.status-pill.green{background:#d1fae5;color:#059669}.status-pill.blue{background:#dbeafe;color:#2563eb}.status-pill.purple{background:#ede9fe;color:#8b5cf6}.row-actions{display:flex;gap:.45rem}.row-actions button{display:grid;width:2rem;height:2rem;place-items:center;border:1px solid #d8e2ef;border-radius:.55rem;background:#fff;color:#2563eb}.row-actions .danger{color:#ff3045}.row-actions svg{width:1rem;height:1rem}.tree-node{position:relative;margin:.55rem 0;padding:.65rem .85rem;border-radius:.75rem;background:rgba(255,255,255,.56);font-weight:900}.tree-node.faculty{margin-right:1.1rem;color:#7c3aed}.tree-node.dept{margin-right:2.2rem;color:#059669}.org-note{margin-top:1rem;padding:.85rem;border:1px solid #d8e2ef;border-radius:.85rem;color:#53647c;font-weight:850;line-height:1.8}
+    .org-modal{position:fixed;inset:0;z-index:30;display:none;place-items:center}.org-modal.is-open{display:grid}.org-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.72)}.org-modal-panel{position:relative;width:min(640px,calc(100vw - 2rem));border:1px solid rgba(255,255,255,.72);border-radius:1.25rem;background:#f8fbff;padding:1.4rem;box-shadow:0 24px 80px rgba(0,0,0,.25)}.org-modal-close{position:absolute;top:1rem;left:1rem;border:0;background:transparent;font-size:1.5rem;color:#526582}.org-modal h2{margin:0 0 1.3rem}.org-unit-form{display:grid;gap:.9rem}.org-unit-form p{display:grid;gap:.35rem;margin:0}.org-unit-form label,.org-parent-panel strong{font-weight:950}.org-unit-form input,.org-unit-form select{height:2.9rem;border:1px solid #d8e2ef;border-radius:.75rem;background:#fff;padding:0 .85rem;font-weight:850}.org-parent-panel{padding:.8rem;border:1px solid #d8e2ef;border-radius:.9rem;background:#f1f6fc}.org-parent-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:.65rem}.org-parent-grid p[hidden]{display:none}.org-checkbox{display:flex!important;align-items:center;gap:.45rem}.org-unit-form .primary-action{justify-self:start}
+    .settings-glass{min-height:100dvh;margin-top:0;padding:0;background:radial-gradient(circle at 84% 12%,rgba(49,92,255,.14),transparent 26%),radial-gradient(circle at 22% 4%,rgba(16,185,129,.10),transparent 24%),radial-gradient(circle at 50% 92%,rgba(139,92,246,.10),transparent 34%),linear-gradient(180deg,#f8fbff 0,#eef4fb 100%);font-size:13px;overflow:hidden}
+    .settings-glass *{letter-spacing:0}
+    .settings-topbar{position:sticky;top:0;z-index:20;grid-template-columns:320px minmax(0,1fr) 320px;gap:1rem;height:82px;margin:0;padding:0 1.55rem 0 1.35rem;background:transparent;backdrop-filter:blur(42px) saturate(190%);-webkit-backdrop-filter:blur(42px) saturate(190%);box-shadow:none}
+    .settings-brand{gap:.8rem;font-size:1.55rem}.brand-mark{width:2.5rem;height:2.5rem;border-radius:1rem;background:#f0f5ff;color:#315cff}
+    .settings-nav{gap:.5rem}.settings-nav a{display:inline-flex;height:2.85rem;align-items:center;padding:0 1rem;border-radius:.85rem;font-size:1em;font-weight:850}.settings-nav a:hover{background:rgba(255,255,255,.42);transform:translateY(-1px);box-shadow:0 12px 28px rgba(49,92,255,.08),inset 0 1px 0 rgba(255,255,255,.65)}.settings-nav a.is-active{background:rgba(255,255,255,.48);box-shadow:0 12px 30px rgba(49,92,255,.10),inset 0 1px 0 rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.64);backdrop-filter:blur(18px)}
+    .settings-userbar{justify-content:flex-start;justify-self:start;direction:ltr;gap:.65rem}.settings-user{direction:ltr}.settings-user>div{direction:rtl}.settings-user>span{width:2.75rem;height:2.75rem}.settings-user b{max-width:7.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem}.settings-user small{font-size:.72rem}
+    .settings-userbar button{width:2.65rem;height:2.65rem;border:1px solid rgba(255,255,255,.66);background:rgba(255,255,255,.34);backdrop-filter:blur(22px) saturate(170%);box-shadow:0 12px 26px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.72)}
+    .settings-rail{top:94px;right:1.3rem;bottom:auto;width:72px;height:calc(100dvh - 112px);gap:.55rem;padding:.6rem;border-radius:1.35rem;background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.45));box-shadow:0 22px 55px rgba(30,55,95,.09),inset 0 1px 0 rgba(255,255,255,.88)}.settings-rail a{width:2.85rem;height:2.85rem;border-radius:.95rem}.settings-rail a.is-active{background:#eef4ff;box-shadow:0 10px 22px rgba(49,92,255,.1)}
+    .settings-hero{display:grid;margin:0 0 .85rem;padding:1rem 6.6rem 0 1.3rem}.settings-hero h1{font-size:1.7rem;line-height:1.55}.settings-hero p{font-size:.84rem}.date-pill{height:2rem;margin:0 0 .6rem;padding:0 .75rem;background:rgba(255,255,255,.25);font-size:.72rem}
+    .settings-layout{grid-template-columns:280px minmax(0,1fr);gap:1.15rem;padding:1rem 6.6rem 1.5rem 1.3rem}.settings-side-card,.settings-main-card,.level-card,.org-preview-card,.org-table-card{border:1px solid rgba(255,255,255,.48);background:linear-gradient(145deg,rgba(255,255,255,.42),rgba(255,255,255,.18));backdrop-filter:blur(34px) saturate(170%);box-shadow:0 24px 58px rgba(30,55,95,.055),inset 0 1px 0 rgba(255,255,255,.62)}
+    .settings-side-card,.settings-main-card,.level-card,.org-preview-card,.org-table-card{border-radius:1.08rem}.settings-main-card{padding:.85rem}.settings-side-card h2,.settings-side-card h3,.org-table-card h2,.org-preview-card h2{font-size:1.02rem}.settings-tabs{gap:.5rem;padding:.55rem}.settings-tabs a{min-height:3.45rem;border-radius:1rem;font-size:.9rem}
+    .org-actions{gap:.8rem}.org-actions label,.org-actions button:not(.primary-action){height:2.85rem;border-radius:.85rem;font-size:.82rem}.primary-action{height:3.45rem;border-radius:1rem;padding:0 .9rem;font-size:.88rem}.org-levels{gap:.85rem}.org-add-level,.level-card{min-height:122px;border-radius:1.08rem}.level-card{padding:1rem}.level-card span,.level-card small{font-size:.78rem}.level-card b{font-size:1.02rem}
+    .settings-table th{font-size:.75rem}.settings-table td{font-size:.8rem;padding:.78rem .7rem}.status-pill{font-size:.72rem}.tree-node{font-size:.82rem}.org-note{font-size:.8rem}
+    .org-settings .settings-hero{padding-top:.45rem;margin-bottom:.35rem}
+    .org-settings .date-pill,.org-settings .hero-icon{display:none}
+    .org-settings .settings-hero{grid-template-columns:1fr;padding-top:.7rem}
+    .org-settings .settings-layout{grid-template-columns:280px minmax(0,1fr);align-items:stretch;gap:.75rem}
+    .org-settings .settings-side-card{min-height:640px;padding:.9rem}
+    .org-settings .settings-side-card h2{height:3.25rem;margin:-.15rem -.15rem 1rem;padding:0 .95rem;border-radius:.9rem;background:rgba(255,255,255,.32)}
+    .org-settings .settings-side-card dl{gap:.2rem}
+    .org-settings .settings-side-card dl>div{display:flex;align-items:center;justify-content:space-between;min-height:2.9rem;border-bottom:1px solid rgba(129,153,185,.16)}
+    .org-settings .settings-side-card dd{font-size:.95rem}
+    .org-settings .settings-side-card h3{margin:1rem 0 .8rem;text-align:center;font-size:1rem}
+    .org-settings .side-action{height:3.15rem;margin:.55rem 0;padding:0 .95rem;background:rgba(255,255,255,.32)}
+    .org-settings .settings-main-card{padding:.75rem;border-radius:1.18rem}
+    .org-settings .settings-tabs{height:3.6rem;margin-bottom:.8rem;padding:.38rem;border-radius:1.05rem;background:rgba(255,255,255,.2)}
+    .org-settings .settings-tabs{direction:ltr!important;overflow:hidden;border:1px solid rgba(207,220,241,.52);background:rgba(255,255,255,.24)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.66)}
+    .org-settings .settings-tabs>*{direction:rtl}
+    .org-settings .settings-tabs a{min-height:2.85rem;border-radius:.72rem;background:rgba(255,255,255,.28)!important;color:#1f2e49!important;border-color:rgba(211,222,239,.55)!important;box-shadow:none!important;outline:0!important}
+    .org-settings .settings-tabs a.is-active{background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(239,246,255,.54))!important;color:#2563eb!important;border-color:#9fc2ff!important;box-shadow:inset 0 0 0 1px rgba(37,99,235,.12),0 10px 26px rgba(37,99,235,.12)!important}
+    .org-settings .settings-tabs a.is-active svg{stroke:#2563eb}
+    .org-settings .org-actions{display:grid;grid-template-columns:170px 158px 132px 132px minmax(240px,1fr);align-items:center;gap:.7rem;margin:.75rem 0 1rem;direction:ltr}
+    .org-settings .org-actions>*{direction:rtl}
+    .org-settings .org-actions label{grid-column:5;grid-row:1;height:2.75rem;border-radius:.85rem}
+    .org-settings .org-actions .org-level-create{grid-column:1;grid-row:1;height:2.95rem;min-width:10.6rem}
+    .org-settings .org-actions .org-open-form{grid-column:2;grid-row:1;height:2.75rem;background:rgba(255,255,255,.5);color:#315cff;border:1px solid #d8e2ef;box-shadow:0 12px 24px rgba(30,55,95,.05)}
+    .org-settings .org-actions .org-sort-button{grid-column:3;grid-row:1;height:2.75rem}
+    .org-settings .org-actions button:not(.primary-action):not(.org-sort-button){grid-column:4;grid-row:1;height:2.75rem}
+    .org-settings .org-levels{display:flex;flex-wrap:nowrap;align-items:stretch;gap:.95rem;margin:.5rem 0 1rem;direction:rtl;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+    .org-settings .org-add-level{order:99;position:relative;display:grid;box-sizing:border-box;flex:0 0 160px;place-items:center;min-height:132px;border-radius:1rem;border:1px dashed rgba(111,138,180,.38);background:rgba(255,255,255,.18);font-size:1.65rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+    .org-settings .org-add-level small{font-size:.86rem}
+    .org-settings .level-card{position:relative;box-sizing:border-box;flex:0 0 160px;min-height:132px;padding:1rem 1rem .8rem;border-radius:1rem}
+    .org-settings .level-card:before{content:"";position:absolute;top:50%;left:calc(100% + .22rem);width:.72rem;height:.72rem;border-left:2px solid #b8c6de;border-bottom:2px solid #b8c6de;transform:translateY(-50%) rotate(45deg);opacity:.65}
+    .org-settings .level-card:first-of-type:before{display:none}
+    .org-settings .level-card i{position:absolute;top:.9rem;left:.9rem;display:grid;width:2.35rem;height:2.35rem;place-items:center;border-radius:.9rem;background:#dbeafe;color:#2563eb}
+    .org-settings .level-card i:before{content:"";width:1rem;height:1rem;border:2px solid currentColor;border-radius:.2rem}
+    .org-settings .level-card.purple i{background:#ede9fe;color:#8b5cf6}
+    .org-settings .level-card.green i{background:#dcfce7;color:#16a34a}
+    .org-settings .level-card.orange i{background:#ffedd5;color:#f59e0b}
+    .org-settings .level-card.cyan i{background:#cffafe;color:#0891b2}
+    .org-settings .level-card span{font-size:.8rem}
+    .org-settings .level-card b{margin-top:.7rem;font-size:1rem}
+    .org-settings .level-card:nth-of-type(4) b,.org-settings .level-card:nth-of-type(5) b{font-size:0}
+    .org-settings .level-card:nth-of-type(4) b:after{content:"\0631\0634\062a\0647";font-size:1rem}
+    .org-settings .level-card:nth-of-type(5) b:after{content:"\06a9\0644\0627\0633 \002F \0648\0627\062d\062f";font-size:1rem}
+    .org-settings .level-card small{max-width:9.5rem;line-height:1.75}
+    .org-settings .level-card em{font-size:.78rem}
+    .org-settings .level-card.cyan em{color:#0891b2}
+    .org-settings .level-card.orange em{color:#f59e0b}
+    .org-settings .org-grid{grid-template-columns:minmax(0,1fr) 300px;gap:.75rem;align-items:start}
+    .org-settings .org-table-card,.org-settings .org-preview-card{min-height:270px;padding:.85rem}
+    .org-settings .org-table-card h2,.org-settings .org-preview-card h2{margin-bottom:.75rem;text-align:right}
+    .org-settings .settings-table-wrap{border-radius:.9rem}
+    .org-settings .settings-table th,.org-settings .settings-table td{height:2.8rem;padding:.45rem .65rem}
+    .org-settings .row-actions{justify-content:center}
+    .org-settings .tree-node{margin:.36rem 0;padding:.48rem .7rem;background:rgba(255,255,255,.42)}
+    .org-settings .org-actions .org-level-remove{grid-column:2;grid-row:1;height:2.95rem;min-width:9.4rem;background:rgba(255,255,255,.5);color:#526582;border:1px solid #d8e2ef;box-shadow:0 12px 24px rgba(30,55,95,.05)}
+    .org-settings .org-actions .org-open-form{grid-column:3}
+    .org-settings .org-actions .org-sort-button{grid-column:4}
+    .org-settings .org-actions button:not(.primary-action):not(.org-sort-button):not(.org-level-remove){grid-column:5}
+    .org-settings .org-actions label{grid-column:6}
+    .org-settings .org-actions{grid-template-columns:170px 145px 158px 132px 132px minmax(220px,1fr)}
+    .org-settings .level-card:nth-of-type(4) b,.org-settings .level-card:nth-of-type(5) b{font-size:1rem}
+    .org-settings .level-card:nth-of-type(4) b:after,.org-settings .level-card:nth-of-type(5) b:after{content:none}
+    .org-settings .level-card.violet i{background:#ede9fe;color:#7c3aed}
+    .org-settings .level-card.teal i{background:#ccfbf1;color:#0f766e}
+    .org-settings .level-card.amber i{background:#fef3c7;color:#d97706}
+    .org-settings .level-card.violet em{color:#7c3aed}
+    .org-settings .level-card.teal em{color:#0f766e}
+    .org-settings .level-card.amber em{color:#d97706}
+    .org-settings .org-level-editor{display:block;margin:0}
+    .org-settings .level-field{display:grid;gap:.28rem;margin:.2rem 0}
+    .org-settings .level-field small{font-size:.72rem;color:#64748b;font-weight:900;line-height:1.45}
+    .org-settings .level-field input,.org-settings .level-field textarea{width:100%;box-sizing:border-box;border:1px solid rgba(184,198,217,.52);border-radius:.72rem;background:rgba(255,255,255,.5);color:#0b1935;padding:.5rem .62rem;font:inherit;font-size:.78rem;font-weight:850;outline:0}
+    .org-settings .level-field textarea{min-height:3.35rem;resize:vertical;line-height:1.65}
+    .org-settings .level-field input:focus,.org-settings .level-field textarea:focus{border-color:#9fc2ff;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+    .org-settings .level-card{grid-template-rows:auto auto auto 1fr auto;gap:.42rem;text-align:right}
+    .org-settings .level-card b{margin-top:.6rem;font-size:1rem;line-height:1.6}
+    .org-settings .level-card small{max-width:9.5rem;color:#6b7891;font-size:.8rem;line-height:1.75}
+    .org-settings .level-card em{margin-top:.1rem;font-size:.78rem}
+    .org-settings .level-card-actions{display:flex;align-items:center;gap:.85rem;margin-top:auto;direction:ltr;justify-content:flex-start}
+    .org-settings .level-card-actions button,.org-settings .level-drag-handle{display:grid;width:1.55rem;height:1.55rem;place-items:center;border:0;background:transparent;padding:0}
+    .org-settings .level-card-actions svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .org-settings .level-drag-handle{color:#526582;cursor:grab}
+    .org-settings .level-edit-button{color:#2563eb}
+    .org-settings .level-delete-button{position:static;color:#ff3045}
+    .org-settings .level-delete-button:disabled{opacity:.35;cursor:not-allowed}
+    .org-settings .org-level-save{display:none}
+    .org-settings .level-modal-panel textarea{min-height:5.2rem;border:1px solid #d8e2ef;border-radius:.75rem;background:#fff;padding:.8rem;font:inherit;font-weight:850;resize:vertical}
+    body:has(.org-settings) .super-admin-chrome{display:block!important;height:82px!important}
+    body:has(.org-settings) .super-admin-topbar{position:fixed!important;top:0!important;right:0!important;left:0!important;z-index:90!important;display:grid!important;background:rgba(239,246,255,.72)!important;border-bottom:1px solid rgba(219,228,241,.45)!important}
+    body:has(.org-settings) .super-admin-rail{display:flex!important}
+    .org-settings .settings-topbar,.org-settings .settings-rail{display:none!important}
+    body:has(.org-settings),html:has(body .org-settings){min-height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:none!important;-ms-overflow-style:none!important}
+    body:has(.org-settings) .app-main{height:auto!important;min-height:calc(100dvh - 82px)!important;overflow:visible!important;scrollbar-width:none!important;-ms-overflow-style:none!important}
+    body:has(.org-settings)::-webkit-scrollbar,html:has(body .org-settings)::-webkit-scrollbar,body:has(.org-settings) .app-main::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+    body:has(.org-settings)>section:has(.alert-message){position:fixed!important;right:auto!important;bottom:1.4rem!important;left:50%!important;transform:translate(-50%,0)!important;z-index:120!important;width:min(520px,calc(100vw - 2rem))!important;max-width:none!important;padding:0!important;pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+    body:has(.org-settings)>section:has(.alert-message).is-hiding{opacity:0;transform:translate(-50%,1rem)!important}
+    body:has(.org-settings)>section:has(.alert-message) .alert-message{margin:0!important;border:1px solid rgba(37,99,235,.25)!important;border-radius:.95rem!important;background:rgba(239,246,255,.94)!important;color:#0b1935!important;box-shadow:0 20px 50px rgba(30,55,95,.16)!important;backdrop-filter:blur(18px);pointer-events:auto;text-align:center}
+    body:has(.org-settings) .app-shell{height:100dvh!important;overflow:hidden!important}
+    body:has(.org-settings) .app-main{height:calc(100dvh - 82px)!important;overflow:auto!important;padding:1rem 6.6rem 1.5rem 1.3rem!important}
+    .org-settings.settings-glass{min-height:calc(100dvh - 82px)!important;height:auto!important;padding:0!important;overflow:visible;background:transparent!important}
+    .org-settings .settings-hero{display:block;margin:0;padding:1.05rem 8.1rem .8rem 1.75rem;text-align:right}
+    .org-settings .settings-hero h1{font-size:1.45rem;line-height:1.45}
+    .org-settings .settings-hero p{font-size:.8rem;margin-top:.15rem}
+    .org-settings .settings-layout{grid-template-columns:280px minmax(0,1fr);gap:.7rem;padding:0 8.1rem 1.05rem 1.35rem;min-height:calc(100dvh - 78px)}
+    .org-settings .settings-side-card{min-height:auto;border-radius:1.18rem;padding:.75rem;background:linear-gradient(145deg,rgba(255,255,255,.62),rgba(255,255,255,.28));box-shadow:0 18px 46px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.72)}
+    .org-settings .settings-side-card h2{height:3.25rem;margin:0 0 .75rem;padding:0 1rem;border-radius:.9rem;background:rgba(255,255,255,.42)}
+    .org-settings .settings-side-card dl>div{min-height:2.72rem}
+    .org-settings .settings-side-card hr,.org-settings .settings-side-card h3,.org-settings .settings-side-card .side-action{display:none!important}
+    .org-settings .settings-side-card .side-action[data-type="faculty"],.org-settings .settings-side-card .side-action[data-type="department"]{display:none}
+    .org-settings .side-action{height:3rem;margin:.55rem 0;border-radius:.9rem;background:rgba(255,255,255,.46);box-shadow:none}
+    .org-settings .settings-main-card{min-width:0;border-radius:1.18rem;padding:.72rem;background:linear-gradient(145deg,rgba(255,255,255,.58),rgba(255,255,255,.22));box-shadow:0 18px 52px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.75)}
+    .org-settings .settings-tabs{height:3.25rem;margin-bottom:.72rem;padding:.28rem;border-radius:.95rem}
+    .org-settings .settings-tabs a{min-height:2.65rem;border-radius:.72rem;font-size:.88rem}
+    .org-settings .org-actions{grid-template-columns:170px 162px minmax(130px,1fr) 116px 116px 260px;margin:.55rem 0 .78rem;gap:.62rem}
+    .org-settings .org-actions .org-level-create{grid-column:1;height:2.85rem}
+    .org-settings .org-actions .org-open-form{grid-column:2;height:2.7rem}
+    .org-settings .org-actions .org-sort-button{grid-column:4;height:2.7rem}
+    .org-settings .org-actions button:not(.primary-action):not(.org-sort-button):not(.org-level-remove){grid-column:5;height:2.7rem}
+    .org-settings .org-actions label{grid-column:6;height:2.7rem}
+    .org-settings .org-levels{display:flex;flex-wrap:nowrap;align-items:stretch;gap:.82rem;margin:.45rem 0 .82rem;padding:.45rem .2rem .7rem;border-radius:1rem;background:rgba(255,255,255,.1);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+    .org-settings .org-add-level{flex:0 0 154px;min-height:154px;border-radius:1rem;background:rgba(255,255,255,.2)}
+    .org-settings .level-card{flex:0 0 154px;min-height:154px;padding:1rem .95rem .72rem;border-radius:.95rem;background:linear-gradient(145deg,rgba(255,255,255,.7),rgba(255,255,255,.34));box-shadow:0 16px 38px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.75);grid-template-rows:auto auto auto 1fr auto}
+    .org-settings .level-card i{width:2.55rem;height:2.55rem;border-radius:1rem}
+    .org-settings .level-card span{font-size:.82rem;font-weight:950;color:#53647c}
+    .org-settings .level-card b{margin-top:.8rem;text-align:center;font-size:.98rem}
+    .org-settings .level-card small{text-align:center;max-width:none;font-size:.78rem;line-height:1.8;color:#65748e}
+    .org-settings .level-card em{text-align:center;font-size:.74rem}
+    .org-settings .level-card-actions{gap:.78rem;justify-content:flex-start;margin-top:.18rem}
+    .org-settings .level-card-actions button,.org-settings .level-drag-handle{width:1.45rem;height:1.45rem}
+    .org-settings .org-grid{grid-template-columns:minmax(0,1fr) 300px;gap:.72rem}
+    .org-settings .org-table-card,.org-settings .org-preview-card{border-radius:1rem;min-height:250px;background:linear-gradient(145deg,rgba(255,255,255,.58),rgba(255,255,255,.26))}
+    .org-settings .settings-table th,.org-settings .settings-table td{height:2.55rem}
+    .org-settings .org-note{border-radius:.9rem;background:rgba(255,255,255,.32)}
+    .org-settings .org-preview-card>h2:not(.zoom-title),.org-settings .org-preview-card>.tree-node,.org-settings .org-preview-card>.org-note:not(.zoom-note){display:none!important}
+    .org-settings .org-preview-card{display:flex;flex-direction:column;gap:.55rem;overflow:hidden}
+    .org-settings .org-preview-card .zoom-title{display:flex;align-items:center;justify-content:space-between;margin:0;color:#0b1935;font-size:1rem;font-weight:950}
+    .org-settings .org-preview-card .zoom-title svg{width:1.15rem;height:1.15rem;fill:none;stroke:#2563eb;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .org-settings .org-zoom-tree{position:relative;display:grid;gap:.22rem;min-height:128px;padding:.1rem .15rem .2rem;direction:rtl}
+    .org-settings .org-zoom-tree:before{content:"";position:absolute;top:1rem;right:.88rem;bottom:1rem;border-right:2px dotted rgba(148,163,184,.58)}
+    .org-settings .org-zoom-tree .tree-node{position:relative;display:flex;align-items:center;gap:.38rem;width:max-content;max-width:100%;min-height:1.8rem;margin:0;padding:.06rem 0;background:transparent!important;border-radius:0;box-shadow:none;font-weight:950;direction:rtl}
+    .org-settings .org-zoom-tree .tree-node:before{content:"";position:absolute;top:50%;right:.88rem;width:1.1rem;border-top:2px dotted rgba(148,163,184,.58)}
+    .org-settings .org-zoom-tree .tree-node.level-1{margin-right:0}
+    .org-settings .org-zoom-tree .tree-node.level-2{margin-right:1.28rem}
+    .org-settings .org-zoom-tree .tree-node.level-3{margin-right:2.56rem}
+    .org-settings .org-zoom-tree .tree-node.level-4{margin-right:3.84rem}
+    .org-settings .org-zoom-tree .tree-node.level-5{margin-right:5.12rem}
+    .org-settings .org-zoom-tree .tree-node.level-6{margin-right:6.4rem}
+    .org-settings .org-zoom-tree .tree-node.level-7{margin-right:7.68rem}
+    .org-settings .org-zoom-tree .tree-node.level-8{margin-right:8.96rem}
+    .org-settings .tree-icon{position:relative;z-index:1;display:grid;width:1.72rem;height:1.72rem;place-items:center;border-radius:.62rem;background:#dbeafe;color:#2563eb;box-shadow:0 8px 18px rgba(30,55,95,.08)}
+    .org-settings .tree-icon svg{width:.86rem;height:.86rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .org-settings .tree-node.purple .tree-icon{background:#ede9fe;color:#8b5cf6}
+    .org-settings .tree-node.green .tree-icon{background:#dcfce7;color:#16a34a}
+    .org-settings .tree-node.orange .tree-icon{background:#ffedd5;color:#f59e0b}
+    .org-settings .tree-node.cyan .tree-icon{background:#cffafe;color:#0891b2}
+    .org-settings .tree-node.violet .tree-icon{background:#ede9fe;color:#7c3aed}
+    .org-settings .tree-node.teal .tree-icon{background:#ccfbf1;color:#0f766e}
+    .org-settings .org-zoom-tree .tree-node b{position:relative;z-index:1;direction:rtl;font-size:.78rem;line-height:1.35;white-space:nowrap}
+    .org-settings .org-zoom-tree .tree-node.purple b{color:#7c3aed}
+    .org-settings .org-zoom-tree .tree-node.green b{color:#059669}
+    .org-settings .org-zoom-tree .tree-node.orange b{color:#ea580c}
+    .org-settings .org-zoom-tree .tree-node.cyan b{color:#0891b2}
+    .org-settings .org-note.zoom-note{display:flex!important;align-items:flex-start;gap:.45rem;margin-top:auto;padding:.7rem;border:1px solid #cbd7e8;border-radius:.85rem;background:rgba(255,255,255,.34);color:#60708a;font-size:.74rem;font-weight:850;line-height:1.75}
+    .org-settings .org-note.zoom-note span{display:grid;flex:0 0 auto;width:1.1rem;height:1.1rem;place-items:center;border-radius:999px;background:#dbeafe;color:#2563eb;font-size:.74rem;font-weight:950}
+    .org-settings .org-level-editor{min-width:0!important;overflow:hidden!important}
+    .org-settings .org-levels{direction:ltr!important;display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;width:100%!important;max-width:100%!important;gap:1.05rem!important;margin:.55rem 0 1rem!important;padding:.35rem .15rem .75rem!important;background:transparent!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:thin!important;scrollbar-color:#9fb7d8 rgba(255,255,255,.42)!important;overscroll-behavior-inline:contain!important}
+    .org-settings .org-levels::-webkit-scrollbar{display:block!important;height:.55rem!important}
+    .org-settings .org-levels::-webkit-scrollbar-track{background:rgba(255,255,255,.42)!important;border-radius:999px!important}
+    .org-settings .org-levels::-webkit-scrollbar-thumb{background:#9fb7d8!important;border-radius:999px!important}
+    .org-settings .org-levels>*{direction:rtl!important}
+    .org-settings .org-add-level{order:0!important;position:relative!important;display:grid!important;flex:0 0 154px!important;min-height:154px!important;place-items:center!important;border:1.5px dashed rgba(151,169,198,.45)!important;border-radius:.95rem!important;background:rgba(255,255,255,.16)!important;color:transparent!important;box-shadow:none!important;font-size:0!important}
+    .org-settings .org-add-level:before{content:"+";display:grid;width:3rem;height:3rem;place-items:center;border:1px solid rgba(214,226,242,.72);border-radius:50%;background:rgba(255,255,255,.55);color:#2563eb;font-size:1.65rem;font-weight:500;box-shadow:0 12px 26px rgba(30,55,95,.08)}
+    .org-settings .org-add-level{grid-template-rows:1fr auto;gap:.5rem}
+    .org-settings .org-add-level small{display:block;margin:0 0 1.45rem;color:#53647c;font-size:.86rem;font-weight:950}
+    .org-settings .level-card{order:1!important;position:relative!important;display:grid!important;grid-template-rows:auto auto auto 1fr auto!important;flex:0 0 154px!important;min-height:154px!important;padding:1rem .9rem .72rem!important;border:1px solid rgba(222,231,245,.72)!important;border-radius:.95rem!important;background:linear-gradient(145deg,rgba(255,255,255,.78),rgba(255,255,255,.36))!important;box-shadow:0 16px 38px rgba(30,55,95,.075),inset 0 1px 0 rgba(255,255,255,.78)!important;text-align:right!important}
+    .org-settings .level-card-5{order:1!important}
+    .org-settings .level-card-4{order:2!important}
+    .org-settings .level-card-3{order:3!important}
+    .org-settings .level-card-2{order:4!important}
+    .org-settings .level-card-1{order:5!important}
+    .org-settings .level-card:nth-of-type(n+7){order:6!important}
+    .org-settings .level-card:before{content:"";position:absolute!important;top:50%!important;left:-.78rem!important;width:.76rem!important;height:.76rem!important;border:0!important;border-left:2px solid rgba(167,185,214,.7)!important;border-bottom:2px solid rgba(167,185,214,.7)!important;transform:translateY(-50%) rotate(45deg)!important;opacity:.75!important;background:transparent!important}
+    .org-settings .level-card i{position:absolute!important;top:.85rem!important;left:.85rem!important;display:grid!important;width:2.55rem!important;height:2.55rem!important;place-items:center!important;border-radius:1rem!important;background:#dbeafe!important;color:#2563eb!important;box-shadow:0 10px 22px rgba(30,55,95,.08)!important}
+    .org-settings .level-card i:before{display:none!important;content:none!important}
+    .org-settings .level-card i svg{width:1.22rem!important;height:1.22rem!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+    .org-settings .level-card span{display:block!important;color:#53647c!important;font-size:.82rem!important;font-weight:950!important;line-height:1.4!important}
+    .org-settings .level-card b{display:block!important;margin-top:.95rem!important;color:#0b1935!important;text-align:center!important;font-size:1rem!important;font-weight:950!important;line-height:1.65!important}
+    .org-settings .level-card small{display:block!important;max-width:none!important;color:#65748e!important;text-align:center!important;font-size:.78rem!important;font-weight:850!important;line-height:1.8!important}
+    .org-settings .level-card em{display:block!important;margin:.05rem 0 0!important;text-align:center!important;font-size:.74rem!important;font-style:normal!important;font-weight:950!important}
+    .org-settings .level-card-actions{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:.78rem!important;margin-top:.15rem!important;direction:ltr!important}
+    .org-settings .level-card-actions button,.org-settings .level-drag-handle{display:grid!important;width:1.45rem!important;height:1.45rem!important;place-items:center!important;border:0!important;background:transparent!important;padding:0!important;box-shadow:none!important}
+    .org-settings .level-card-actions svg{width:1.05rem!important;height:1.05rem!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+    .org-settings .level-drag-handle{color:#526582!important}
+    .org-settings .level-edit-button{color:#2563eb!important}
+    .org-settings .level-delete-button{color:#ff3045!important}
+    .org-settings .level-card.purple i,.org-settings .level-card-2 i{background:#ede9fe!important;color:#8b5cf6!important}
+    .org-settings .level-card.green i,.org-settings .level-card-3 i{background:#dcfce7!important;color:#16a34a!important}
+    .org-settings .level-card.orange i,.org-settings .level-card-4 i{background:#ffedd5!important;color:#f59e0b!important}
+    .org-settings .level-card.cyan i,.org-settings .level-card-5 i{background:#cffafe!important;color:#0891b2!important}
+    .org-settings .level-card.violet i{background:#ede9fe!important;color:#7c3aed!important}
+    .org-settings .level-card.teal i{background:#ccfbf1!important;color:#0f766e!important}
+    .org-settings .level-card.amber i{background:#fef3c7!important;color:#d97706!important}
+    .org-settings .org-table-card{padding:1rem!important;border-radius:1.08rem!important}
+    .org-settings .org-table-card h2{margin:0 0 .72rem!important;padding:0 .25rem!important;text-align:right!important;font-size:1.03rem!important;line-height:1.7!important}
+    .org-settings .org-table-card .settings-table-wrap{overflow:hidden!important;border:1px solid rgba(214,226,242,.62)!important;border-radius:.95rem!important;background:rgba(255,255,255,.26)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)!important}
+    .org-settings .org-table-card .settings-table{width:100%!important;border-collapse:separate!important;border-spacing:0!important;direction:rtl!important;table-layout:fixed!important}
+    .org-settings .org-table-card .settings-table th{height:2.3rem!important;padding:.42rem .7rem!important;background:rgba(241,246,253,.58)!important;color:#526582!important;border-bottom:1px solid rgba(214,226,242,.62)!important;border-left:1px solid rgba(214,226,242,.55)!important;text-align:center!important;font-size:.74rem!important;font-weight:950!important}
+    .org-settings .org-table-card .settings-table th:first-child{text-align:right!important;width:26%!important}
+    .org-settings .org-table-card .settings-table th:nth-child(2){width:13%!important}
+    .org-settings .org-table-card .settings-table th:nth-child(3){width:17%!important}
+    .org-settings .org-table-card .settings-table th:nth-child(4){width:12%!important}
+    .org-settings .org-table-card .settings-table th:nth-child(5){width:15%!important}
+    .org-settings .org-table-card .settings-table th:nth-child(6){width:17%!important;border-left:0!important}
+    .org-settings .org-table-card .settings-table td{height:2.42rem!important;padding:.28rem .7rem!important;background:rgba(255,255,255,.22)!important;border-bottom:1px solid rgba(214,226,242,.62)!important;border-left:1px solid rgba(214,226,242,.52)!important;color:#53647c!important;text-align:center!important;font-size:.76rem!important;font-weight:900!important;vertical-align:middle!important}
+    .org-settings .org-table-card .settings-table tr:last-child td{border-bottom:0!important}
+    .org-settings .org-table-card .settings-table td:first-child{text-align:right!important;color:#0b1935!important}
+    .org-settings .org-table-card .settings-table td:last-child{border-left:0!important}
+    .org-settings .org-unit-name{display:flex;align-items:center;justify-content:flex-start;gap:.55rem;min-width:0}
+    .org-settings .org-unit-name i{display:grid;flex:0 0 1.82rem;width:1.82rem;height:1.82rem;place-items:center;border-radius:50%;background:#dbeafe;color:#2563eb;box-shadow:0 10px 22px rgba(30,55,95,.08)}
+    .org-settings .org-unit-name svg{width:.92rem;height:.92rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .org-settings .org-unit-name strong{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem;font-weight:950}
+    .org-settings .org-unit-name.purple i{background:#ede9fe;color:#8b5cf6}
+    .org-settings .org-unit-name.green i{background:#dcfce7;color:#10b981}
+    .org-settings .org-unit-name.orange i{background:#ffedd5;color:#f59e0b}
+    .org-settings .org-unit-name.cyan i{background:#cffafe;color:#0891b2}
+    .org-settings .org-unit-name.violet i{background:#ede9fe;color:#7c3aed}
+    .org-settings .org-unit-name.teal i{background:#ccfbf1;color:#0f766e}
+    .org-settings .org-unit-name.amber i{background:#fef3c7;color:#d97706}
+    .org-settings .org-table-card .status-pill{min-width:3.45rem;justify-content:center;padding:.25rem .52rem;border-radius:.55rem;font-size:.7rem;font-weight:950}
+    .org-settings .status-pill.green{background:#d1fae5!important;color:#059669!important}
+    .org-settings .status-pill.blue{background:#dbeafe!important;color:#2563eb!important}
+    .org-settings .status-pill.purple,.org-settings .status-pill.violet{background:#ede9fe!important;color:#8b5cf6!important}
+    .org-settings .status-pill.orange,.org-settings .status-pill.amber{background:#ffedd5!important;color:#f59e0b!important}
+    .org-settings .status-pill.cyan,.org-settings .status-pill.teal{background:#cffafe!important;color:#0891b2!important}
+    .org-settings .org-table-card .row-actions{display:flex!important;align-items:center!important;justify-content:center!important;gap:.95rem!important;direction:ltr!important}
+    .org-settings .org-table-card .row-actions form{display:inline-flex!important;margin:0!important}
+    .org-settings .row-more,.org-settings .org-table-card .row-actions button{display:grid!important;width:1.45rem!important;height:1.45rem!important;place-items:center!important;border:0!important;background:transparent!important;padding:0!important;box-shadow:none!important}
+    .org-settings .row-more{color:#1f3763!important}
+    .org-settings .org-table-card .row-actions button{color:#536a91!important}
+    .org-settings .org-table-card .row-actions .org-edit-unit{color:#466398!important}
+    .org-settings .org-table-card .row-actions .danger{color:#ff3045!important}
+    .org-settings .row-more svg,.org-settings .org-table-card .row-actions svg{width:1.02rem!important;height:1.02rem!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+    .org-settings .org-table-footer{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem;padding:.72rem .35rem 0;color:#64748b;font-size:.76rem;font-weight:900;direction:ltr}
+    .org-settings .org-table-footer p{margin:0;text-align:right}
+    .org-settings .org-table-footer>*{direction:rtl}
+    .org-settings .page-size{display:inline-flex;align-items:center;gap:.45rem;height:2.25rem;border:1px solid rgba(214,226,242,.72);border-radius:.7rem;background:rgba(255,255,255,.44);padding:0 .75rem;color:#64748b;font:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+    .org-settings .page-size select{height:1.8rem;border:0;background:transparent;color:#1f3763;font:inherit;font-weight:950;outline:0}
+    .org-settings .table-pages{display:flex;align-items:center;justify-content:flex-end;gap:.45rem;direction:ltr}
+    .org-settings .table-pages a{display:grid;width:2rem;height:2rem;place-items:center;border:1px solid rgba(214,226,242,.7);border-radius:.62rem;background:rgba(255,255,255,.5);color:#64748b;font:inherit;font-weight:950;text-decoration:none;box-shadow:0 8px 18px rgba(30,55,95,.04),inset 0 1px 0 rgba(255,255,255,.7)}
+    .org-settings .table-pages a.is-active{border-color:transparent;background:linear-gradient(135deg,#2563eb,#3f5cff);color:#fff;box-shadow:0 12px 24px rgba(37,99,235,.22)}
+    .org-settings .table-pages a.is-disabled{pointer-events:none;opacity:.42}
+    .org-settings .table-pages svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    @media (max-width:1100px){.settings-glass{padding-right:1rem;overflow:auto}.settings-topbar{grid-template-columns:1fr;margin:0 -1rem;padding:0 1rem}.settings-brand,.settings-userbar{display:none}.settings-layout,.org-grid{grid-template-columns:1fr;padding:1rem}.settings-rail{display:none}.settings-tabs,.org-actions,.org-levels{grid-template-columns:1fr}.settings-nav{overflow:auto;justify-content:flex-start}.org-parent-grid{grid-template-columns:1fr}}
+</style>
+
+<script>
+    (() => {
+        const toastMessage = document.querySelector('body:has(.org-settings) > section:has(.alert-message)');
+        if (toastMessage) {
+            window.setTimeout(() => {
+                toastMessage.classList.add('is-hiding');
+                window.setTimeout(() => toastMessage.remove(), 420);
+            }, 4000);
+        }
+        const increaseLevelForm = document.getElementById('orgLevelIncreaseForm');
+        const decreaseLevelForm = document.getElementById('orgLevelDecreaseForm');
+        const quickPanelTitle = document.querySelector('.settings-side-card h3');
+        if (quickPanelTitle && !document.querySelector('.side-level-create')) {
+            const quickActions = [
+                ['side-level-create', 'افزودن سطح جدید', '+'],
+                ['side-sort-levels org-sort-button', 'مرتب‌سازی سطوح', '↕'],
+                ['side-preview-structure', 'مشاهده پیش‌نمایش ساختار', '◉'],
+            ];
+            const anchor = quickPanelTitle.nextElementSibling;
+            quickActions.reverse().forEach(([className, label, sign]) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `side-action ${className}`;
+                button.innerHTML = `${label} <span>${sign}</span>`;
+                quickPanelTitle.insertAdjacentElement('afterend', button);
+            });
+            document.querySelectorAll('.settings-side-card .side-action[data-type="faculty"], .settings-side-card .side-action[data-type="department"]').forEach((button) => button.remove());
+        }
+        document.querySelectorAll('.org-level-create, .org-add-level, .side-level-create').forEach((button) => {
+            button.addEventListener('click', () => increaseLevelForm?.requestSubmit());
+        });
+        document.querySelector('.org-level-remove')?.remove();
+        const levelCreateButton = document.querySelector('.org-level-create');
+        if (false && levelCreateButton && decreaseLevelForm && !document.querySelector('.org-level-remove')) {
+            const decreaseButton = document.createElement('button');
+            decreaseButton.type = 'button';
+            decreaseButton.className = 'org-level-remove';
+            decreaseButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>کم کردن سطح';
+            decreaseButton.addEventListener('click', () => decreaseLevelForm.requestSubmit());
+            levelCreateButton.insertAdjacentElement('afterend', decreaseButton);
+        }
+        document.querySelectorAll('.level-delete-button').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                if (!confirm(button.dataset.confirm || 'این سطح حذف شود؟')) {
+                    event.preventDefault();
+                }
+            });
+        });
+        const levelEditorForm = document.querySelector('.org-level-editor');
+        const levelActionField = document.getElementById('orgLevelAction');
+        const levelModal = document.getElementById('orgLevelModal');
+        const levelTitleInput = document.getElementById('orgLevelTitleInput');
+        const levelHintInput = document.getElementById('orgLevelHintInput');
+        const levelSaveButton = document.getElementById('orgLevelSaveButton');
+        let activeLevelCard = null;
+        document.querySelectorAll('.level-edit-button').forEach((button) => {
+            button.addEventListener('click', () => {
+                activeLevelCard = button.closest('.level-card');
+                if (!activeLevelCard) return;
+                levelTitleInput.value = activeLevelCard.querySelector('input[name="level_title"]')?.value || '';
+                levelHintInput.value = activeLevelCard.querySelector('input[name="level_hint"]')?.value || '';
+                levelModal?.classList.add('is-open');
+                levelModal?.setAttribute('aria-hidden', 'false');
+                levelTitleInput.focus();
+            });
+        });
+        document.querySelectorAll('[data-close-level-modal]').forEach((button) => {
+            button.addEventListener('click', () => {
+                levelModal?.classList.remove('is-open');
+                levelModal?.setAttribute('aria-hidden', 'true');
+                activeLevelCard = null;
+            });
+        });
+        levelSaveButton?.addEventListener('click', () => {
+            if (!activeLevelCard || !levelEditorForm) return;
+            const titleValue = levelTitleInput.value.trim() || 'سطح';
+            const hintValue = levelHintInput.value.trim() || 'توضیحات سطح';
+            activeLevelCard.querySelector('input[name="level_title"]').value = titleValue;
+            activeLevelCard.querySelector('input[name="level_hint"]').value = hintValue;
+            activeLevelCard.querySelector('[data-level-title]').textContent = titleValue;
+            activeLevelCard.querySelector('[data-level-hint]').textContent = hintValue;
+            if (levelActionField) levelActionField.value = 'level_save';
+            levelEditorForm.requestSubmit();
+        });
+        const modal = document.getElementById('orgUnitModal');
+        const typeField = document.querySelector('[data-org-field="type"]');
+        const institutionField = document.querySelector('[data-org-field="institution"]');
+        const parentField = document.querySelector('[data-org-field="parent"]');
+        const idField = document.getElementById('orgUnitId');
+        const nameField = document.getElementById('id_name');
+        const codeField = document.getElementById('id_code');
+        const activeField = document.getElementById('id_is_active');
+        const modalTitle = document.getElementById('orgUnitModalTitle');
+        const parentRow = document.querySelector('[data-field-row="parent"]');
+        const institutionRow = document.querySelector('[data-field-row="institution"]');
+        const parentPanel = document.querySelector('[data-parent-panel]');
+        const parentTitle = document.querySelector('[data-parent-title]');
+        const facultyOptions = JSON.parse(document.getElementById('orgFacultyOptions').textContent);
+        const emptyText = parentField?.querySelector('option[value=""]')?.textContent || '---------';
+        const levelIndexFromType = (type) => {
+            const match = String(type || '').match(/^level_(\d+)$/);
+            if (match) return Number(match[1]);
+            if (type === 'university') return 1;
+            if (type === 'faculty') return 2;
+            return 3;
+        };
+
+        function rebuildParentOptions(selectedParent = '') {
+            const targetLevel = levelIndexFromType(typeField.value) - 1;
+            parentField.innerHTML = `<option value="">${emptyText}</option>`;
+            facultyOptions.filter((faculty) => Number(faculty.level_index || 1) === targetLevel).forEach((faculty) => {
+                const option = document.createElement('option');
+                option.value = faculty.id;
+                option.textContent = `${faculty.level_label || ''} - ${faculty.name}`;
+                option.selected = String(faculty.id) === String(selectedParent);
+                parentField.appendChild(option);
+            });
+        }
+
+        function syncFields(selectedParent = '') {
+            const type = typeField.value;
+            const levelIndex = levelIndexFromType(type);
+            const needsParent = levelIndex > 1;
+            parentPanel.hidden = !needsParent;
+            institutionRow.hidden = true;
+            parentRow.hidden = !needsParent;
+            parentTitle.textContent = `والد سطح ${Math.max(levelIndex - 1, 1)}`;
+            institutionField.required = false;
+            parentField.required = needsParent;
+            if (!needsParent) {
+                institutionField.value = '';
+                parentField.value = '';
+            }
+            rebuildParentOptions(selectedParent);
+        }
+
+        function openModal({ id = '', type = 'university', institution = '', parent = '', name = '', code = '', reset = false, mode = 'create' } = {}) {
+            if (reset) {
+                nameField.value = '';
+                codeField.value = '';
+                if (activeField) activeField.checked = true;
+            }
+            idField.value = id;
+            if (typeField && type && !Array.from(typeField.options).some((option) => option.value === type)) {
+                type = type === 'university' ? 'level_1' : type === 'faculty' ? 'level_2' : 'level_3';
+            }
+            typeField.value = type;
+            institutionField.value = institution;
+            syncFields(parent);
+            if (name || mode === 'edit') {
+                nameField.value = name;
+                codeField.value = code || '';
+            }
+            modalTitle.textContent = mode === 'edit' ? 'ویرایش واحد سازمانی' : 'افزودن واحد سازمانی';
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            nameField?.focus();
+        }
+
+        document.querySelectorAll('.org-open-form').forEach((button) => button.addEventListener('click', () => openModal({
+            type: button.dataset.type,
+            reset: button.dataset.resetForm === 'true',
+        })));
+        document.querySelectorAll('.org-edit-unit').forEach((button) => button.addEventListener('click', () => openModal({
+            id: button.dataset.id,
+            type: button.dataset.type,
+            institution: button.dataset.institution || '',
+            parent: button.dataset.parent || '',
+            name: button.dataset.name || '',
+            code: button.dataset.code || '',
+            mode: 'edit',
+        })));
+        document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', () => {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+        }));
+        document.querySelectorAll('.org-delete-form').forEach((form) => form.addEventListener('submit', (event) => {
+            if (!window.confirm(form.dataset.confirm || 'حذف شود؟')) event.preventDefault();
+        }));
+        typeField?.addEventListener('change', () => syncFields());
+        institutionField?.addEventListener('change', () => syncFields());
+        syncFields(parentField?.value || '');
+
+        const search = document.querySelector('[data-org-search]');
+        search?.addEventListener('input', () => {
+            const q = search.value.trim().toLowerCase();
+            document.querySelectorAll('[data-filter-row]').forEach((row) => {
+                row.hidden = q && !row.textContent.toLowerCase().includes(q);
+            });
+        });
+        if (document.querySelector('.org-unit-form .errorlist')) openModal({ type: typeField.value, institution: institutionField.value, parent: parentField.value });
+    })();
+</script>
+{% endblock %}

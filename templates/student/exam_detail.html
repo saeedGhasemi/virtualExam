@@ -1,22 +1,68 @@
-{% extends 'base.html' %}
-{% block title %}جزئیات آزمون | آزمون‌یار{% endblock %}
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}جزئیات آزمون | متا کوییز{% endblock %}
 {% block content %}
-<section class="super-admin-page" dir="rtl">
-    <div class="super-admin-heading"><span class="super-admin-kicker">اطلاعات آزمون</span><h1>{{ exam.title }}</h1></div>
-    <div class="super-admin-grid">
-        <article class="super-admin-card"><h2>مشخصات</h2><p>نام درس: {{ exam.course|default:"-" }}</p><p>استاد: {{ exam.designer.profile.full_name|default:"-" }}</p><p>تاریخ و ساعت: {{ exam.starts_at }} تا {{ exam.ends_at }}</p><p>مدت آزمون: {{ exam.duration_minutes|default:"-" }} دقیقه</p></article>
-        <article class="super-admin-card"><h2>قوانین و تجهیزات</h2><p>{{ exam.instructions|default:"قوانین خاصی ثبت نشده است." }}</p><p>تجهیزات موردنیاز: مرورگر به‌روز، اینترنت پایدار{% if exam.require_identity_verification %}، ابزار احراز هویت{% endif %}{% if exam.allow_file_upload %}، امکان بارگذاری فایل{% endif %}</p></article>
-        <article class="super-admin-card"><h2>ورود</h2>
-            {% if can_enter %}
-                <a class="super-admin-primary" href="{% url 'core:student_exam_entry' exam.pk %}">ورود به آزمون</a>
-            {% elif entry_expired %}
-                <p>زمان ورود به آزمون گذشته است.</p>
-            {% elif seconds_until_start %}
-                <p>تا شروع آزمون {{ seconds_until_start }} ثانیه باقی مانده است.</p>
-            {% else %}
-                <p>وضعیت فعلی اجازه ورود نمی‌دهد.</p>
-            {% endif %}
-        </article>
+{% include 'student/_exam_shell_head.html' %}
+<style>
+  .sx-detail{max-width:1520px;margin:0 auto}.sx-hero{display:grid;grid-template-columns:210px minmax(0,1fr);gap:34px;align-items:center;padding:34px 40px;margin-bottom:22px}.sx-hero h1{margin:0 0 26px;font-size:2.25rem;font-weight:950}.sx-hero-meta{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-bottom:1px solid #dbe5f3;padding-bottom:28px}.sx-hero-meta div{display:grid;gap:8px;min-height:64px;justify-items:center;border-left:1px solid #dbe5f3}.sx-hero-meta div:last-child{border-left:0}.sx-hero-meta small{color:#64748b;font-weight:850}.sx-hero-meta strong{font-size:1.05rem;font-weight:950}.sx-hero-actions{display:flex;justify-content:center;gap:18px;margin-top:28px}.sx-countbox{display:grid;justify-items:center;gap:12px}.sx-countbox .box{display:grid;place-items:center;min-width:160px;height:128px;border:1px solid #b7caff;border-radius:14px;background:#f8fbff;color:#075fff}.sx-countbox strong{font-size:2rem;direction:ltr}.sx-detail-grid{display:grid;grid-template-columns:330px minmax(0,1fr) 390px;gap:18px}.sx-stack{display:grid;gap:18px}.sx-panel{padding:24px}.sx-panel h2{display:flex;align-items:center;gap:10px;margin:0 0 18px;font-size:1.28rem}.sx-check-list{display:grid;gap:0}.sx-check-list p{display:flex;justify-content:space-between;align-items:center;margin:0;padding:14px 0;border-bottom:1px solid #e1eaf5;color:#40506d;font-weight:900}.sx-check-list span{color:#10a461}.sx-instructions{display:grid;gap:18px}.sx-instructions p{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:12px;margin:0;padding:14px 0;border-bottom:1px dashed #d7e2f1;color:#314360;font-weight:850}.sx-instructions i{display:grid;width:20px;height:20px;place-items:center;border-radius:50%;background:#075fff;color:#fff;font-style:normal;font-size:.75rem}.sx-alert{margin-top:22px;border:1px solid #ffb071;border-radius:14px;background:#fff7ed;padding:20px;color:#c2410c;font-weight:950}.sx-ok{margin-top:22px;border:1px solid #86efac;border-radius:14px;background:#f0fdf4;padding:20px;color:#16a34a;font-weight:950}
+  @media(max-width:1180px){.sx-hero,.sx-detail-grid{grid-template-columns:1fr}.sx-hero-meta{grid-template-columns:1fr 1fr}.sx-hero-meta div{border:0;border-bottom:1px solid #e1eaf5}}
+</style>
+<section class="sx-detail">
+  <div class="sx-title"><div><h1>جزئیات آزمون</h1><p>آزمون‌های من / {{ exam.title }}</p></div></div>
+  <article class="sx-card sx-hero">
+    <div class="sx-countbox">
+      <span class="sx-chip green"><span class="sx-dot"></span>آزمون فعال</span>
+      <div class="box"><span>شروع تا</span><strong>۰۲:۱۵:۳۲</strong></div>
     </div>
+    <div>
+      <h1>{{ exam.title }}</h1>
+      <div class="sx-hero-meta">
+        <div><small>تاریخ برگزاری</small><strong>{{ exam.starts_at|date:"l، j F Y"|fa_digits }}</strong></div>
+        <div><small>ساعت برگزاری</small><strong>{{ exam.starts_at|date:"H:i"|fa_digits }} تا {{ exam.ends_at|date:"H:i"|fa_digits }}</strong></div>
+        <div><small>مدت زمان</small><strong>{{ exam.duration_minutes|default:"۹۰"|fa_digits }} دقیقه</strong></div>
+        <div><small>تعداد سوالات</small><strong>{{ question_count|fa_digits }} سوال</strong></div>
+        <div><small>نمره قبولی</small><strong>{{ exam.passing_score|default:"۶۰"|fa_digits }} از ۱۰۰</strong></div>
+      </div>
+      <div class="sx-hero-actions">
+        {% if can_enter %}
+          <a class="sx-btn primary" href="{% url 'core:student_exam_entry' exam.pk %}">آماده‌ام؛ ورود به آزمون</a>
+        {% elif entry_expired %}
+          <span class="sx-chip gray">زمان ورود پایان یافته است</span>
+        {% else %}
+          <span class="sx-chip orange">تا شروع آزمون {{ seconds_until_start|fa_digits }} ثانیه باقی مانده</span>
+        {% endif %}
+        <a class="sx-btn" href="#">دانلود راهنمای آزمون</a>
+      </div>
+    </div>
+  </article>
+  <section class="sx-detail-grid">
+    <aside class="sx-stack">
+      <article class="sx-card sx-panel"><h2>نحوه نمره‌دهی</h2><p>نمره هر سوال بر اساس تنظیمات استاد محاسبه می‌شود.</p><p>پاسخ ندادن به سوال: ۰ نمره</p><hr><strong>حداقل نمره قبولی: {{ exam.passing_score|default:"۶۰"|fa_digits }} از ۱۰۰</strong></article>
+      <article class="sx-card sx-panel"><h2>پشتیبانی آزمون</h2><p>در صورت بروز مشکل در ورود یا هنگام برگزاری آزمون، با پشتیبانی تماس بگیرید.</p><a class="sx-btn" style="width:100%" href="#">پشتیبانی آنلاین</a></article>
+    </aside>
+    <article class="sx-card sx-panel">
+      <h2>دستورالعمل‌های آزمون</h2>
+      <div class="sx-instructions">
+        <p><i>✓</i>قبل از شروع آزمون، از آمادگی کامل اینترنت و دستگاه خود مطمئن شوید.</p>
+        <p><i>✓</i>پس از شروع، زمان آزمون متوقف نخواهد شد.</p>
+        <p><i>✓</i>در طول آزمون از باز کردن تب‌های دیگر یا ترک صفحه خودداری کنید.</p>
+        <p><i>✓</i>استفاده از منابع خارجی و کمک گرفتن از دیگران ممنوع است.</p>
+        <p><i>✓</i>پاسخ خود را با دقت انتخاب کنید و در پایان دکمه پایان آزمون را بزنید.</p>
+      </div>
+      <div class="sx-alert">پس از شروع آزمون، امکان توقف زمان وجود ندارد.</div>
+    </article>
+    <article class="sx-card sx-panel">
+      <h2>بررسی آمادگی دستگاه</h2>
+      <p>لطفا اطمینان حاصل کنید که موارد زیر قبل از شروع آزمون به درستی کار می‌کنند.</p>
+      <div class="sx-check-list">
+        <p>اتصال اینترنت <span>تأیید شد</span></p>
+        <p>مرورگر <span>تأیید شد</span></p>
+        <p>دوربین <span>تأیید شد</span></p>
+        <p>میکروفون <span>تأیید شد</span></p>
+      </div>
+      <div class="sx-ok">همه موارد با موفقیت بررسی شدند. شما آماده شرکت در آزمون هستید.</div>
+    </article>
+  </section>
 </section>
+{% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

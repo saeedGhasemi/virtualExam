@@ -1,0 +1,227 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}ایجاد گروه درسی جدید | متا کوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .group-create{--blue:#315cff;--violet:#7447f5;--ink:#071936;--muted:#65728a;--line:#d8e4f4;--panel:rgba(255,255,255,.8);direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .group-create *{box-sizing:border-box;letter-spacing:0}
+    .group-create a{text-decoration:none;color:inherit}.group-create button,.group-create input,.group-create select,.group-create textarea{font:inherit}.group-create svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .gc-shell{max-width:1510px;margin:0 auto;padding-bottom:1rem}
+    .gc-head{display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:end;margin-bottom:1rem}.gc-title{text-align:right;justify-self:end}.gc-title small{display:block;color:#315cff;font-weight:900}.gc-title h1{margin:.35rem 0 0;font-size:2.1rem;font-weight:950}.gc-cancel{display:inline-flex;height:3.25rem;min-width:8.5rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid #cbd9ec;border-radius:.78rem;background:#fff;color:#17305f;font-weight:950}
+    .gc-steps{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-width:640px;margin:0 0 1.2rem auto}.gc-step{display:flex;height:3.25rem;align-items:center;justify-content:center;gap:.65rem;border:1px solid #d8e3f1;border-radius:999px;background:#fff;color:#53617b;font-weight:950}.gc-step b{display:grid;width:2rem;height:2rem;place-items:center;border-radius:50%;border:1px solid #d7e1f0}.gc-step.is-active{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border-color:transparent}.gc-step.is-active b{background:#fff;color:#315cff}
+    .gc-layout{display:grid;grid-template-columns:360px minmax(0,1fr);gap:1rem}.gc-card{border:1px solid rgba(205,218,236,.95);border-radius:1rem;background:var(--panel);box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(145%);-webkit-backdrop-filter:blur(20px) saturate(145%)}
+    .summary{padding:1.1rem;align-self:start}.summary h2{margin:0 0 1rem;color:#071936;font-size:1.1rem;font-weight:950}.summary-row{display:grid;grid-template-columns:auto 1fr;gap:.8rem;align-items:center;border-bottom:1px solid #e3ebf5;padding:.65rem 0}.summary-row span{color:#65728a;font-size:.84rem;font-weight:850}.summary-row strong{justify-self:end;font-weight:950}.summary-info{margin-top:1rem;border:1px solid #b8c9ff;border-radius:.75rem;background:#f7f9ff;color:#315cff;padding:.8rem;font-size:.84rem;font-weight:850}
+    .selected-side{display:none}.selected-side.is-active{display:block}.progress{height:.55rem;border-radius:99px;background:#dfe7f3;overflow:hidden;margin:.7rem 0}.progress i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#315cff,#7447f5)}
+    .selected-list{display:grid;gap:.6rem;margin-top:1rem}.selected-list span{display:grid;grid-template-columns:auto 1fr auto;gap:.65rem;align-items:center;border:1px solid #e2eaf5;border-radius:.7rem;background:#fff;padding:.55rem}.selected-list img,.avatar{width:2.2rem;height:2.2rem;border-radius:50%;object-fit:cover;background:#dbeafe;display:grid;place-items:center;color:#315cff;font-weight:950}.selected-list button{border:0;background:transparent;color:#ef4444;font-size:1.2rem}
+    .pane{display:none}.pane.is-active{display:block}.main-pane{padding:1rem}.section{padding:1rem;border-bottom:1px solid #e7eef7}.section:last-child{border-bottom:0}.section h2{margin:0 0 1rem;color:#071936;font-size:1.18rem;font-weight:950}
+    .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.form-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.field{display:grid;gap:.42rem;color:#34435f;font-size:.84rem;font-weight:900}.field.is-full{grid-column:1/-1}.field input,.field select,.field textarea{width:100%;border:1px solid #cbd9ec;border-radius:.72rem;background:#fff;padding:.78rem .9rem;color:#071936;outline:0;font-weight:850}.field input[readonly]{background:#f7faff}.field textarea{min-height:3.8rem;resize:vertical}
+    .inline-btn{height:2.85rem;border:1px solid #aabfff;border-radius:.7rem;background:#fff;color:#315cff;padding:0 .95rem;font-weight:950}.valid-pill{display:inline-flex;margin-top:.6rem;align-items:center;gap:.35rem;border:1px solid #86efac;border-radius:999px;background:#f0fdf4;color:#15803d;padding:.35rem .65rem;font-weight:900;font-size:.8rem}
+    .toggle-line{display:flex;align-items:center;gap:.7rem;color:#34435f;font-weight:850}.toggle-line input{display:none}.switch{position:relative;width:3.05rem;height:1.6rem;border-radius:99px;background:#cbd5e1}.switch:before{content:"";position:absolute;top:.18rem;left:.18rem;width:1.22rem;height:1.22rem;border-radius:50%;background:#fff;box-shadow:0 4px 10px rgba(15,23,42,.18)}.toggle-line input:checked+.switch{background:linear-gradient(135deg,#315cff,#7447f5)}.toggle-line input:checked+.switch:before{left:1.65rem}
+    .group-banner{display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center;margin-bottom:1rem;padding:1rem}.group-banner .icon{display:grid;width:3.4rem;height:3.4rem;place-items:center;border-radius:.9rem;background:#eef4ff;color:#315cff}.group-banner h2{margin:0;font-size:1.1rem;font-weight:950}.group-banner p{margin:.25rem 0 0;color:#65728a;font-weight:850}
+    .student-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:1rem}.student-table-card{overflow:hidden}.student-toolbar{display:grid;grid-template-columns:1.5fr repeat(3,1fr) auto;gap:.75rem;padding:1rem}.student-toolbar input,.student-toolbar select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.7rem;background:#fff;padding:0 .8rem;outline:0}.student-toolbar button{height:2.8rem;border:0;border-radius:.7rem;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;padding:0 .9rem;font-weight:950}
+    .students-table{width:100%;border-collapse:collapse;font-size:.86rem}.students-table th,.students-table td{height:3.35rem;border-bottom:1px solid #edf2f7;padding:0 .8rem;text-align:right}.students-table th{color:#53617b;font-weight:950}.students-table td{font-weight:850}.students-table input{width:1.05rem;height:1.05rem}.status{display:inline-flex;border-radius:.5rem;background:#e8f8ef;color:#15803d;padding:.25rem .6rem;font-size:.76rem;font-weight:950}
+    .table-footer{display:flex;align-items:center;justify-content:space-between;padding:1rem;color:#53617b;font-weight:850}.pager{display:flex;gap:.45rem}.pager button,.pager b{display:grid;min-width:2.35rem;height:2.35rem;place-items:center;border:1px solid #d4dfef;border-radius:.6rem;background:#fff}.pager b{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border:0}
+    .footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.footer div{display:flex;gap:.8rem}.btn-primary,.btn-secondary{display:inline-flex;height:3.2rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.78rem;padding:0 1.35rem;font-weight:950}.btn-primary{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.btn-secondary{border:1px solid #cbd9ec;background:#fff;color:#315cff}
+    @media(max-width:1120px){.gc-layout,.student-layout{grid-template-columns:1fr}.form-grid,.form-grid.two,.student-toolbar{grid-template-columns:1fr 1fr}.summary{order:2}.gc-steps{max-width:none}}
+    @media(max-width:700px){.gc-head,.form-grid,.form-grid.two,.student-toolbar{grid-template-columns:1fr}.footer,.footer div{flex-direction:column;align-items:stretch}.btn-primary,.btn-secondary,.gc-cancel{width:100%}}
+</style>
+
+<section class="super-admin-page super-admin-workspace group-create" dir="rtl" data-fixed-scroll-page>
+    <form class="gc-shell" method="post" data-group-form>
+        {% csrf_token %}
+        <header class="gc-head">
+            <a class="gc-cancel" href="{% url 'core:super_admin_groups' %}">انصراف</a>
+            <div class="gc-title"><small>گروه‌بندی / ایجاد گروه درسی</small><h1>ایجاد گروه درسی جدید</h1></div>
+        </header>
+        <nav class="gc-steps"><button type="button" class="gc-step is-active" data-step-btn="1"><b>۱</b>مشخصات گروه درسی</button><button type="button" class="gc-step" data-step-btn="2"><b>۲</b>افزودن دانشجویان</button></nav>
+
+        <div class="gc-layout">
+            <aside class="gc-card summary" data-summary-basic>
+                <h2>خلاصه گروه درسی</h2>
+                <div class="summary-row"><span>درس:</span><strong data-s-course>{{ current_course.title|default:"-"|fa_digits }}</strong></div>
+                <div class="summary-row"><span>کد درس:</span><strong data-s-code>{{ current_course.code|default:"-"|fa_digits }}</strong></div>
+                <div class="summary-row"><span>شماره گروه:</span><strong data-s-group>۰۱</strong></div>
+                <div class="summary-row"><span>ترم:</span><strong data-s-term>{{ current_year|fa_digits }} / نیمسال اول</strong></div>
+                <div class="summary-row"><span>استاد:</span><strong data-s-teacher>{{ current_teacher.full_name|default:"-"|fa_digits }}</strong></div>
+                <div class="summary-row"><span>برنامه کلاس:</span><strong data-s-schedule>شنبه و دوشنبه ۱۰:۰۰ تا ۱۱:۳۰</strong></div>
+                <div class="summary-row"><span>مکان:</span><strong data-s-location>ساختمان آموزش، کلاس ۲۰۴</strong></div>
+                <div class="summary-row"><span>ظرفیت:</span><strong><span data-s-selected>۰</span> از <span data-s-capacity>۳۰</span></strong></div>
+                <div class="summary-row"><span>وضعیت:</span><strong>پیش‌نویس</strong></div>
+                <div class="summary-info">در مرحله بعد دانشجویان را به گروه اضافه کنید.</div>
+            </aside>
+            <aside class="gc-card summary selected-side" data-summary-students>
+                <h2>دانشجویان انتخاب‌شده</h2>
+                <strong><span data-selected-count>۰</span> از <span data-capacity-text>۳۰</span> نفر</strong>
+                <div class="progress"><i data-progress style="width:0%"></i></div>
+                <small>ظرفیت گروه: <span data-capacity-small>۳۰</span> نفر</small>
+                <div class="selected-list" data-selected-list></div>
+                <a style="display:block;margin-top:1rem;color:#315cff;font-weight:950" href="#students">مشاهده همه دانشجویان</a>
+            </aside>
+
+            <main class="gc-card main-pane">
+                <section class="pane is-active" data-pane="1">
+                    <div class="section">
+                        <h2>مشخصات ارائه</h2>
+                        <div class="form-grid">
+                            <label class="field">سال تحصیلی *<select name="academic_year" data-summary-source="term">{% for year in years %}<option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year|fa_digits }}</option>{% endfor %}</select></label>
+                            <label class="field">ترم *<select name="semester" data-summary-source="semester"><option value="اول" {% if group.semester == "اول" %}selected{% endif %}>نیمسال اول</option><option value="دوم" {% if group.semester == "دوم" %}selected{% endif %}>نیمسال دوم</option><option value="تابستان" {% if group.semester == "تابستان" %}selected{% endif %}>تابستان</option></select></label>
+                            <label class="field">درس *<select name="course_id" data-course-select required>{% for course in courses %}<option value="{{ course.id }}" data-code="{{ course.code|default:'' }}" data-units="{{ course.credit_units|default:'3' }}" {% if current_course.id == course.id %}selected{% endif %}>{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
+                            <label class="field">کد درس<input name="course_code" data-course-code value="{{ current_course.code|default:'-'|fa_digits }}" readonly></label>
+                            <label class="field">تعداد واحد<input data-course-units value="{{ current_course.credit_units|default:'3'|fa_digits }} واحد" readonly></label>
+                            <label class="field">شماره گروه *<input name="group_code" value="{{ group.group_code|default:'01' }}" data-summary-source="group"></label>
+                            <label class="field">نوع ارائه *<select name="offering_type"><option value="theory" {% if group.offering_type == "theory" %}selected{% endif %}>نظری</option><option value="practical" {% if group.offering_type == "practical" %}selected{% endif %}>عملی</option><option value="combined" {% if group.offering_type == "combined" %}selected{% endif %}>نظری و عملی</option></select></label>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h2>استاد و برنامه کلاس</h2>
+                        <div class="form-grid">
+                            <label class="field">استاد *<select name="teacher_id" data-summary-source="teacher" required>{% for teacher in teachers %}<option value="{{ teacher.id }}" {% if current_teacher.id == teacher.id %}selected{% endif %}>{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
+                            <label class="field">برنامه کلاس *<input name="class_schedule" value="{{ group.class_schedule|default:'شنبه و دوشنبه، ۱۰:۰۰ تا ۱۱:۳۰' }}" data-summary-source="schedule"></label>
+                            <label class="field">مکان کلاس *<input name="class_location" value="{{ group.class_location|default:'ساختمان آموزش، کلاس ۲۰۴' }}" data-summary-source="location"></label>
+                        </div>
+                        <span class="valid-pill">بدون تداخل زمانی</span>
+                    </div>
+                    <div class="section">
+                        <h2>ظرفیت و ثبت‌نام</h2>
+                        <div class="form-grid">
+                            <label class="field">ظرفیت *<input type="number" name="capacity" value="{{ group.capacity|default:30 }}" min="1" data-capacity></label>
+                            <label class="field">حداقل دانشجو *<input type="number" name="min_students" value="{{ group.min_students|default:10 }}" min="0"></label>
+                            <label class="field">ظرفیت فهرست انتظار<input type="number" name="waitlist_capacity" value="{{ group.waitlist_capacity|default:5 }}" min="0"></label>
+                            <label class="field">باز ثبت‌نام از:<input type="datetime-local" name="registration_start_at"></label>
+                            <label class="field">تا:<input type="datetime-local" name="registration_end_at"></label>
+                            <label class="field">وضعیت<select name="status"><option value="draft" {% if group.status == "draft" %}selected{% endif %}>پیش‌نویس</option><option value="active" {% if group.status == "active" %}selected{% endif %}>فعال</option></select></label>
+                        </div>
+                        <div class="form-grid two" style="margin-top:1rem">
+                            <label class="toggle-line"><input type="checkbox" name="waitlist_enabled" checked><span class="switch"></span>فعال بودن فهرست انتظار</label>
+                            <label class="toggle-line"><input type="checkbox" name="requires_teacher_approval" checked><span class="switch"></span>ثبت‌نام نیازمند تایید استاد</label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="pane" data-pane="2" id="students">
+                    <section class="gc-card group-banner">
+                        <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></span>
+                        <div><h2><span data-banner-course>{{ current_course.title|default:"درس"|fa_digits }}</span> - گروه <span data-banner-group>۰۱</span></h2><p><span data-banner-teacher>{{ current_teacher.full_name|default:"-"|fa_digits }}</span> · {{ current_year|fa_digits }} · ظرفیت <span data-banner-capacity>۳۰</span> نفر</p></div>
+                    </section>
+                    <div class="student-layout">
+                        <aside></aside>
+                        <section class="gc-card student-table-card">
+                            <div class="student-toolbar">
+                                <input data-student-search placeholder="جستجوی نام یا شماره دانشجویی...">
+                                <select><option>همه وضعیت‌ها</option></select>
+                                <select><option>همه ورودی‌ها</option></select>
+                                <select><option>همه رشته‌ها</option></select>
+                                <button type="button" data-select-visible>افزودن انتخاب‌شده‌ها</button>
+                            </div>
+                            <table class="students-table">
+                                <thead><tr><th></th><th>دانشجو</th><th>شماره دانشجویی</th><th>رشته</th><th>ورودی</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                                <tbody>
+                                    {% for student in students %}
+                                        <tr data-student-row>
+                                            <td><input type="checkbox" name="student_ids" value="{{ student.id }}" data-student-check data-name="{{ student.full_name }}" data-code="{{ student.student_number }}" data-avatar="{{ student.avatar_url|default:'' }}" {% if forloop.counter <= 3 %}checked{% endif %}></td>
+                                            <td>{{ student.full_name|fa_digits }}</td>
+                                            <td>{{ student.student_number|fa_digits }}</td>
+                                            <td>{{ student.field_of_study|fa_digits }}</td>
+                                            <td>{{ student.entry_year|default:"۱۴۰۳"|fa_digits }}</td>
+                                            <td><span class="status">فعال</span></td>
+                                            <td>...</td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr><td colspan="7">دانشجویی برای نمایش وجود ندارد.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            <footer class="table-footer"><span>نمایش ۱ تا {{ students|length|fa_digits }} از {{ students|length|fa_digits }}</span><div class="pager"><button type="button">«</button><button type="button">‹</button><b>۱</b><button type="button">۲</button><button type="button">›</button></div></footer>
+                        </section>
+                    </div>
+                </section>
+            </main>
+        </div>
+        <footer class="gc-card footer">
+            <a class="btn-secondary" href="{% url 'core:super_admin_groups' %}">انصراف</a>
+            <div>
+                <button type="button" class="btn-secondary" data-prev hidden>مرحله قبل</button>
+                <button type="button" class="btn-secondary">ذخیره پیش‌نویس</button>
+                <button type="button" class="btn-primary" data-next>ذخیره و ادامه</button>
+                <button type="submit" class="btn-primary" data-submit hidden>ایجاد گروه درسی</button>
+            </div>
+        </footer>
+    </form>
+</section>
+
+<script>
+(() => {
+    const form = document.querySelector('[data-group-form]');
+    const fa = (value) => String(value ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    let step = 1;
+    const setText = (selector, value) => { const node = document.querySelector(selector); if (node) node.textContent = fa(value || '-'); };
+    const selectedOptionText = (select) => select?.selectedOptions?.[0]?.textContent?.trim() || '-';
+    const updateSummary = () => {
+        const course = form.elements.course_id;
+        const selectedCourse = course?.selectedOptions?.[0];
+        const teacher = form.elements.teacher_id;
+        const capacity = Number(form.elements.capacity.value || 30);
+        const selected = form.querySelectorAll('[data-student-check]:checked').length;
+        setText('[data-s-course]', selectedOptionText(course));
+        setText('[data-banner-course]', selectedOptionText(course));
+        setText('[data-s-code]', selectedCourse?.dataset.code || '-');
+        setText('[data-s-group]', form.elements.group_code.value || '01');
+        setText('[data-banner-group]', form.elements.group_code.value || '01');
+        setText('[data-s-term]', `${selectedOptionText(form.elements.academic_year)} / ${selectedOptionText(form.elements.semester)}`);
+        setText('[data-s-teacher]', selectedOptionText(teacher));
+        setText('[data-banner-teacher]', selectedOptionText(teacher));
+        setText('[data-s-schedule]', form.elements.class_schedule.value);
+        setText('[data-s-location]', form.elements.class_location.value);
+        setText('[data-s-capacity]', capacity);
+        setText('[data-capacity-text]', capacity);
+        setText('[data-capacity-small]', capacity);
+        setText('[data-banner-capacity]', capacity);
+        setText('[data-s-selected]', selected);
+        setText('[data-selected-count]', selected);
+        document.querySelector('[data-progress]').style.width = `${Math.min(100, Math.round((selected / Math.max(1, capacity)) * 100))}%`;
+        document.querySelector('[data-course-code]').value = selectedCourse?.dataset.code || '-';
+        document.querySelector('[data-course-units]').value = fa(`${selectedCourse?.dataset.units || 3} واحد`);
+        renderSelected();
+    };
+    const renderSelected = () => {
+        const box = document.querySelector('[data-selected-list]');
+        box.innerHTML = '';
+        [...form.querySelectorAll('[data-student-check]:checked')].slice(0, 8).forEach((input) => {
+            const item = document.createElement('span');
+            const avatar = input.dataset.avatar ? `<img src="${input.dataset.avatar}" alt="">` : `<i class="avatar">${(input.dataset.name || 'د').slice(0,1)}</i>`;
+            item.innerHTML = `${avatar}<strong>${input.dataset.name || '-' }<small>${input.dataset.code || '-'}</small></strong><button type="button">×</button>`;
+            item.querySelector('button').addEventListener('click', () => { input.checked = false; updateSummary(); });
+            box.appendChild(item);
+        });
+    };
+    const setStep = (nextStep) => {
+        step = Number(nextStep);
+        document.querySelectorAll('[data-pane]').forEach((pane) => pane.classList.toggle('is-active', Number(pane.dataset.pane) === step));
+        document.querySelectorAll('[data-step-btn]').forEach((button) => button.classList.toggle('is-active', Number(button.dataset.stepBtn) === step));
+        document.querySelector('[data-summary-basic]').style.display = step === 1 ? 'block' : 'none';
+        document.querySelector('[data-summary-students]').classList.toggle('is-active', step === 2);
+        document.querySelector('[data-prev]').hidden = step === 1;
+        document.querySelector('[data-next]').hidden = step === 2;
+        document.querySelector('[data-submit]').hidden = step !== 2;
+        updateSummary();
+    };
+    document.querySelector('[data-next]').addEventListener('click', () => setStep(2));
+    document.querySelector('[data-prev]').addEventListener('click', () => setStep(1));
+    document.querySelectorAll('[data-step-btn]').forEach((button) => button.addEventListener('click', () => setStep(button.dataset.stepBtn)));
+    form.addEventListener('input', updateSummary);
+    form.addEventListener('change', updateSummary);
+    document.querySelector('[data-student-search]')?.addEventListener('input', (event) => {
+        const q = event.target.value.trim().toLowerCase();
+        document.querySelectorAll('[data-student-row]').forEach((row) => row.hidden = q && !row.textContent.toLowerCase().includes(q));
+    });
+    document.querySelector('[data-select-visible]')?.addEventListener('click', () => {
+        document.querySelectorAll('[data-student-row]:not([hidden]) [data-student-check]').forEach((input) => input.checked = true);
+        updateSummary();
+    });
+    setStep(1);
+})();
+</script>
+{% endblock %}

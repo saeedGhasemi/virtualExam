@@ -1,0 +1,296 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}صفحه اصلی آزمون | متا کوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .exam-home{--blue:#315cff;--violet:#6d4dfc;--ink:#071936;--muted:#65728a;--line:#d8e4f4;--panel:rgba(255,255,255,.78);direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .exam-home *{box-sizing:border-box;letter-spacing:0}
+    .exam-home a{text-decoration:none;color:inherit}
+    .exam-home svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .exam-home button,.exam-home input,.exam-home select,.exam-home textarea{font:inherit}
+    .exam-shell{max-width:1510px;margin:0 auto;padding-bottom:1rem}
+    .exam-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:1rem;margin-bottom:1rem}
+    .exam-actions{display:flex;align-items:center;gap:.85rem}
+    .exam-primary,.exam-secondary,.exam-outline{display:inline-flex;height:3.45rem;align-items:center;justify-content:center;gap:.6rem;border-radius:.8rem;padding:0 1.25rem;font-weight:950}
+    .exam-primary{min-width:13rem;border:0;background:linear-gradient(135deg,#315cff,#7b3ff2);color:#fff;box-shadow:0 16px 32px rgba(49,92,255,.22)}
+    .exam-secondary,.exam-outline{border:1px solid #c8d8ef;background:rgba(255,255,255,.78);color:#17305f;box-shadow:0 12px 28px rgba(30,55,95,.06)}
+    .exam-tabs{justify-self:center;display:grid;grid-template-columns:repeat(4,minmax(9rem,1fr));width:min(820px,100%);border:1px solid #c7d8ee;border-radius:1.05rem;background:rgba(255,255,255,.7);padding:.35rem;box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.9)}
+    .exam-tabs a{display:flex;height:3.35rem;align-items:center;justify-content:center;border-left:1px solid #d9e3f1;color:#283855;font-weight:900}
+    .exam-tabs a:last-child{border-left:0}
+    .exam-tabs a.is-active{border-radius:.8rem;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border-left-color:transparent;box-shadow:0 14px 28px rgba(49,92,255,.2)}
+    .exam-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1rem}
+    .exam-card{border:1px solid rgba(205,218,236,.95);border-radius:.95rem;background:var(--panel);box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(145%);-webkit-backdrop-filter:blur(20px) saturate(145%)}
+    .stat-card{display:grid;grid-template-columns:1fr auto;align-items:center;min-height:7.7rem;padding:1.25rem}
+    .stat-card small{display:block;color:#53637e;font-size:.9rem;font-weight:900}
+    .stat-card strong{display:block;margin-top:.35rem;font-size:2rem;font-weight:950;color:#071936}
+    .stat-icon{display:grid;width:4rem;height:4rem;place-items:center;border-radius:1rem;background:#eef4ff;color:#315cff}
+    .stat-icon.is-purple{background:#f1ebff;color:#7c3aed}.stat-icon.is-green{background:#e8f8ef;color:#059669}.stat-icon.is-orange{background:#fff4df;color:#f59e0b}
+    .exam-filters{display:grid;grid-template-columns:3fr 1fr 1fr 1fr auto auto;gap:.9rem;align-items:center;margin-bottom:1rem;padding:1rem}
+    .exam-search,.filter-field{display:flex;height:3.15rem;align-items:center;gap:.65rem;border:1px solid #cbd9ec;border-radius:.75rem;background:#fff;padding:0 .8rem;color:#50607a}
+    .exam-search input,.filter-field select{width:100%;min-width:0;border:0;background:transparent;outline:0;color:#071936;font-weight:850}
+    .filter-button{display:grid;width:3.15rem;height:3.15rem;place-items:center;border:1px solid #cbd9ec;border-radius:.75rem;background:#fff;color:#143172}
+    .exam-table-card{overflow:hidden}
+    .exam-table{width:100%;border-collapse:collapse;font-size:.91rem}
+    .exam-table th{height:3.4rem;border-bottom:1px solid #dce6f3;color:#17223a;text-align:right;font-weight:950}
+    .exam-table td{height:3.85rem;border-bottom:1px solid #e7edf6;color:#17223a;font-weight:850;vertical-align:middle}
+    .exam-table th,.exam-table td{padding:0 .95rem}
+    .exam-table tbody tr:hover{background:rgba(238,244,255,.58)}
+    .exam-title-cell{display:flex;align-items:center;gap:.75rem}
+    .exam-subject-icon{display:grid;width:2.25rem;height:2.25rem;place-items:center;border-radius:.7rem;background:#edf4ff;color:#315cff}
+    .exam-subject-icon.is-running{background:#e3fbf5;color:#0f9f8f}.exam-subject-icon.is-finished{background:#eef2f7;color:#64748b}.exam-subject-icon.is-draft{background:#fff7ed;color:#ea580c}.exam-subject-icon.is-cancelled{background:#fee2e2;color:#dc2626}
+    .exam-title-cell strong{display:block;font-weight:950}.exam-title-cell small{display:block;margin-top:.15rem;color:#6c7891;font-size:.76rem;font-weight:800}
+    .status-pill{display:inline-flex;min-width:6.8rem;height:2.05rem;align-items:center;justify-content:center;border-radius:.55rem;font-size:.78rem;font-weight:950}
+    .status-pill.is-scheduled{background:#e9efff;color:#315cff}.status-pill.is-running{background:#e7f8ee;color:#15803d}.status-pill.is-finished{background:#edf2f7;color:#475569}.status-pill.is-draft{background:#eaf4ff;color:#0284c7}.status-pill.is-cancelled,.status-pill.is-review{background:#fff1e7;color:#ea580c}
+    .participant-text{white-space:nowrap}
+    .row-actions{display:flex;align-items:center;gap:.8rem;color:#0f326d}
+    .row-actions button,.row-actions a{display:grid;width:1.75rem;height:1.75rem;place-items:center;border:0;background:transparent;color:inherit}
+    .row-actions svg{width:1.15rem;height:1.15rem}
+    .exam-table-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem;color:#25344f;font-weight:850}
+    .pager{display:flex;align-items:center;gap:.55rem}.pager button,.pager b{display:grid;min-width:2.6rem;height:2.6rem;place-items:center;border:1px solid #cbd9ec;border-radius:.65rem;background:#fff}.pager b{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border-color:transparent}
+    .page-size{display:flex;align-items:center;gap:.45rem}.page-size button{height:2.5rem;min-width:3rem;border:1px solid #d4dfef;border-radius:.6rem;background:#fff;color:#34435f}.page-size button.is-active{border-color:#7b61ff;color:#315cff;background:#f2f0ff}
+    .exam-upcoming{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:1.2rem;margin-top:1.1rem;padding:1.1rem 1.35rem}
+    .upcoming-title h2{margin:0 0 .3rem;font-size:1.2rem;font-weight:950}.upcoming-title p{margin:0;color:#52617b;font-weight:850}
+    .countdown{display:grid;gap:.2rem;color:#315cff;font-size:1.1rem;font-weight:950;text-align:center}.countdown small{color:#59677f;font-size:.84rem}
+    .exam-empty{text-align:center;color:#7a8597!important;height:5rem!important}
+    .exam-create-modal[hidden]{display:none}.exam-create-modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:1rem}.exam-create-backdrop{position:absolute;inset:0;background:rgba(7,25,54,.38);backdrop-filter:blur(8px)}
+    .exam-create-panel{position:relative;z-index:1;width:min(1000px,96vw);max-height:90vh;overflow:auto;border:1px solid #dbe4f1;border-radius:1rem;background:#fff;padding:1.1rem;box-shadow:0 30px 80px rgba(7,25,54,.25)}
+    .exam-create-close{position:absolute;top:.8rem;left:.8rem;display:grid;width:2.4rem;height:2.4rem;place-items:center;border:1px solid #dbe4f1;border-radius:.7rem;background:#fff;color:#071936;font-size:1.35rem}
+    .exam-create-panel header{padding:.4rem 3rem 1rem 0;border-bottom:1px solid #e5ecf6}.exam-create-panel h2,.exam-create-panel h3{margin:0;color:#071936;font-weight:950}.exam-create-steps{display:flex;gap:.6rem;margin-top:.9rem}.exam-create-steps button{height:2.6rem;border:1px solid #dbe4f1;border-radius:.7rem;background:#fff;color:#53617b;padding:0 .8rem;font-weight:900}.exam-create-steps button.is-active{background:#eef4ff;color:#315cff;border-color:#9bb7ff}
+    .exam-step{display:none;padding:1rem 0}.exam-step.is-active{display:block}.exam-group-picker,.exam-question-list{border:1px solid #dbe4f1;border-radius:.85rem;background:#f8fbff;padding:1rem;margin-bottom:1rem}.exam-group-picker label:first-of-type,.exam-question-search{display:flex;height:3rem;align-items:center;gap:.65rem;border:1px solid #cad8eb;border-radius:.7rem;background:#fff;padding:0 .8rem;margin:.8rem 0}.exam-group-picker input,.exam-question-search input{width:100%;border:0;background:transparent;outline:0;font-weight:850}
+    .exam-group-list,.exam-question-list{display:grid;gap:.55rem;max-height:260px;overflow:auto}.exam-group-list label,.exam-question-list label{display:flex;align-items:center;gap:.7rem;border:1px solid #dfe7f2;border-radius:.7rem;background:#fff;padding:.75rem;cursor:pointer}.exam-group-list strong,.exam-question-list strong{display:block;font-weight:950}.exam-group-list small,.exam-question-list small{display:block;margin-top:.2rem;color:#68758b;font-size:.78rem;font-weight:800}
+    .exam-field{display:grid;gap:.4rem;color:#3d4960;font-size:.84rem;font-weight:900}.exam-field.is-full{margin-bottom:1rem}.exam-field input,.exam-field select,.exam-field textarea{width:100%;border:1px solid #cad8eb;border-radius:.7rem;background:#fff;padding:.8rem .9rem;outline:0;color:#071936;font-weight:850}.exam-form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.9rem}.exam-switch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin-top:1rem}.exam-switch-grid label{display:flex;align-items:center;gap:.55rem;border:1px solid #dbe4f1;border-radius:.7rem;background:#fbfdff;padding:.7rem;font-weight:850}
+    .exam-question-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.8rem}.exam-create-panel footer{display:flex;gap:.8rem;justify-content:flex-end;border-top:1px solid #e5ecf6;padding-top:1rem}.exam-create-next,.exam-create-save{height:3rem;border:0;border-radius:.75rem;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;padding:0 1.3rem;font-weight:950}.exam-create-cancel{height:3rem;border:1px solid #d0dceb;border-radius:.75rem;background:#fff;color:#34435f;padding:0 1.3rem;font-weight:950}
+    @media (max-width:1100px){.exam-top{grid-template-columns:1fr}.exam-tabs{justify-self:stretch}.exam-stat-grid{grid-template-columns:repeat(2,1fr)}.exam-filters{grid-template-columns:1fr 1fr}.exam-form-grid,.exam-switch-grid{grid-template-columns:1fr 1fr}.exam-table-card{overflow:auto}.exam-table{min-width:980px}.exam-upcoming{grid-template-columns:1fr}}
+    @media (max-width:680px){.exam-stat-grid,.exam-filters,.exam-form-grid,.exam-switch-grid{grid-template-columns:1fr}.exam-tabs{grid-template-columns:1fr 1fr}.exam-actions{flex-direction:column;align-items:stretch}.exam-primary,.exam-secondary{width:100%}}
+</style>
+
+<section class="super-admin-page super-admin-workspace exam-home" dir="rtl" data-fixed-scroll-page>
+    <div class="exam-shell">
+        <header class="exam-top">
+            <div class="exam-actions">
+                <a class="exam-primary" href="{% url 'core:super_admin_exam_create' %}"><span>+</span>ایجاد آزمون جدید</a>
+                <a class="exam-secondary" href="{% url 'core:super_admin_exam_bulk_import' %}"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>ورود گروهی</a>
+            </div>
+            <nav class="exam-tabs" aria-label="فیلتر وضعیت آزمون">
+                <a class="{% if not status_filter %}is-active{% endif %}" href="{% url 'core:super_admin_exams' %}">همه آزمون‌ها</a>
+                <a class="{% if status_filter == 'scheduled' %}is-active{% endif %}" href="?status=scheduled">پیش‌رو</a>
+                <a class="{% if status_filter == 'running' %}is-active{% endif %}" href="?status=running">در حال برگزاری</a>
+                <a class="{% if status_filter == 'finished' %}is-active{% endif %}" href="?status=finished">پایان‌یافته</a>
+            </nav>
+            <span></span>
+        </header>
+
+        <section class="exam-stat-grid">
+            <article class="exam-card stat-card"><div><small>کل آزمون‌ها</small><strong>{{ stats.total|fa_digits }}</strong></div><span class="stat-icon is-purple"><svg viewBox="0 0 24 24"><path d="M9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span></article>
+            <article class="exam-card stat-card"><div><small>پیش‌رو</small><strong>{{ stats.scheduled|fa_digits }}</strong></div><span class="stat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span></article>
+            <article class="exam-card stat-card"><div><small>در حال برگزاری</small><strong>{{ stats.running|fa_digits }}</strong></div><span class="stat-icon is-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/><path d="M18 18l1.5 1.5"/></svg></span></article>
+            <article class="exam-card stat-card"><div><small>نیازمند بررسی</small><strong>{{ stats.review|fa_digits }}</strong></div><span class="stat-icon is-orange"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16h14a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><circle cx="11" cy="14" r="3"/><path d="m13.5 16.5 2 2"/></svg></span></article>
+        </section>
+
+        <form method="get" class="exam-card exam-filters">
+            <label class="exam-search"><input name="q" value="{{ query }}" placeholder="جست‌وجوی عنوان یا کد آزمون..."><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
+            <label class="filter-field"><select name="teacher" onchange="this.form.submit()"><option value="">درس</option>{% for teacher in teachers %}<option value="{{ teacher }}" {% if teacher_filter == teacher %}selected{% endif %}>{{ teacher|fa_digits }}</option>{% endfor %}</select><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></label>
+            <label class="filter-field"><select name="date" onchange="this.form.submit()"><option value="">ترم</option><option value="today" {% if date_filter == 'today' %}selected{% endif %}>امروز</option><option value="week" {% if date_filter == 'week' %}selected{% endif %}>۷ روز آینده</option></select><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg></label>
+            <label class="filter-field"><select name="status" onchange="this.form.submit()"><option value="">وضعیت</option><option value="scheduled" {% if status_filter == 'scheduled' %}selected{% endif %}>پیش‌رو</option><option value="running" {% if status_filter == 'running' %}selected{% endif %}>در حال برگزاری</option><option value="finished" {% if status_filter == 'finished' %}selected{% endif %}>پایان یافته</option><option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>پیش‌نویس</option></select><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/></svg></label>
+            <button class="filter-button" type="submit" title="اعمال فیلتر"><svg viewBox="0 0 24 24"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3Z"/></svg></button>
+            <a class="filter-button" href="{% url 'core:super_admin_exams' %}" title="بازنشانی"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
+        </form>
+
+        <section class="exam-card exam-table-card">
+            <table class="exam-table">
+                <thead>
+                    <tr>
+                        <th>آزمون</th>
+                        <th>درس و استاد</th>
+                        <th>زمان برگزاری</th>
+                        <th>مدت</th>
+                        <th>شرکت‌کنندگان</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>
+                                <div class="exam-title-cell">
+                                    <span class="exam-subject-icon is-{{ row.status_key }}">
+                                        <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3v4M15 3v4M8 11h8M8 15h5"/></svg>
+                                    </span>
+                                    <div><strong>{{ row.title|fa_digits }}</strong><small>{{ row.course_code|default:"-"|fa_digits }}</small></div>
+                                </div>
+                            </td>
+                            <td>{{ row.course|fa_digits }} - {{ row.teacher|fa_digits }}</td>
+                            <td>{{ row.start_date|fa_digits }}، {{ row.start_time|fa_digits }}</td>
+                            <td>{{ row.duration_minutes|default:"-"|fa_digits }} دقیقه</td>
+                            <td class="participant-text">{{ row.participant_count|fa_digits }} از {{ row.question_count|default:0|add:row.participant_count|fa_digits }}</td>
+                            <td><span class="status-pill is-{{ row.status_key }}">{{ row.status_label }}</span></td>
+                            <td>
+                                <div class="row-actions">
+                                    <button type="button" title="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+                                    <a href="{% url 'core:super_admin_exam_edit' row.id %}" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5L16 3Z"/></svg></a>
+                                    <a href="{% url 'core:super_admin_exam_detail' row.id %}" title="مشاهده"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg></a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="7" class="exam-empty">آزمونی برای نمایش وجود ندارد.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <footer class="exam-table-footer">
+                <div class="page-size"><button class="is-active" type="button">۱۰</button><button type="button">۲۵</button><button type="button">۵۰</button><span>تعداد در صفحه</span></div>
+                <div class="pager"><button type="button">قبلی</button><b>۱</b><button type="button">۲</button><button type="button">۳</button><span>...</span><button type="button">۱۳</button><button type="button">بعدی</button></div>
+                <span>نمایش ۱ تا {{ rows|length|fa_digits }} از {{ stats.total|fa_digits }} آزمون</span>
+            </footer>
+        </section>
+
+        <section class="exam-card exam-upcoming">
+            <div class="upcoming-title">
+                <h2>آزمون‌های نزدیک</h2>
+                {% with next_exam=upcoming.0 %}
+                    <p>{% if next_exam %}{{ next_exam.title|fa_digits }} · {{ next_exam.course|fa_digits }} - {{ next_exam.teacher|fa_digits }}{% else %}آزمون نزدیکی ثبت نشده است{% endif %}</p>
+                {% endwith %}
+            </div>
+            <div class="countdown"><span>۲ ساعت و ۳۵ دقیقه تا شروع</span><small>{% if upcoming.0 %}{{ upcoming.0.start_date|fa_digits }}، {{ upcoming.0.start_time|fa_digits }}{% else %}-{% endif %}</small></div>
+            <a class="exam-outline" href="{% url 'core:super_admin_calendar' %}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>مشاهده برنامه</a>
+        </section>
+    </div>
+
+    <div class="exam-create-modal" data-exam-create hidden>
+        <div class="exam-create-backdrop" data-exam-close></div>
+        <form method="post" class="exam-create-panel" data-exam-form>
+            {% csrf_token %}
+            <input type="hidden" name="exam_action" value="create">
+            <button type="button" class="exam-create-close" data-exam-close>×</button>
+            <header>
+                <h2>ایجاد آزمون جدید</h2>
+                <div class="exam-create-steps">
+                    <button type="button" class="is-active" data-step-tab="info"><b>۱</b>مشخصات آزمون</button>
+                    <button type="button" data-step-tab="questions"><b>۲</b>انتخاب سوالات</button>
+                </div>
+            </header>
+            <section class="exam-step is-active" data-step="info">
+                <div class="exam-group-picker">
+                    <h3>انتخاب گروه</h3>
+                    <label><input type="search" data-group-search placeholder="جست‌وجوی گروه بر اساس نام درس، کد گروه یا سال"><span>⌕</span></label>
+                    <div class="exam-group-list">
+                        {% for group in groups %}
+                            <label data-group-option data-search="{{ group.course_title }} {{ group.course_name }} {{ group.group_code }} {{ group.academic_year }} {{ group.teacher_name }}" data-group-id="{{ group.id }}" data-course-id="{{ group.course_id|default_if_none:'' }}" data-teacher-id="{{ group.selected_teacher_id|default:group.teacher_id|default_if_none:'' }}" data-title="{{ group.course_title|default:group.course_name|default_if_none:'' }}" data-year="{{ group.academic_year|default_if_none:'' }}" data-semester="{{ group.semester|default_if_none:'' }}">
+                                <input type="radio" name="group_id" value="{{ group.id }}" required>
+                                <span><strong>{{ group.course_title|default:group.course_name|fa_digits }} - گروه {{ group.group_code|default:"-"|fa_digits }}</strong><small>{{ group.academic_year|fa_digits }} · {{ group.semester|default:"-"|fa_digits }} · استاد: {{ group.teacher_name|fa_digits }} · {{ group.members_count|fa_digits }} دانشجو</small></span>
+                            </label>
+                        {% empty %}<p>گروهی برای انتخاب وجود ندارد.</p>{% endfor %}
+                    </div>
+                </div>
+                <label class="exam-field is-full">عنوان آزمون *<input name="title" required placeholder="مثلا: میان‌ترم آناتومی"></label>
+                <label class="exam-field is-full">توضیحات<textarea name="description" rows="3" placeholder="توضیحات اختیاری"></textarea></label>
+                <div class="exam-form-grid">
+                    <label class="exam-field">سال تحصیلی<input name="academic_year" data-exam-year placeholder="1405-1406"></label>
+                    <label class="exam-field">نیمسال<select name="semester" data-exam-semester><option value="اول">نیمسال اول</option><option value="دوم">نیمسال دوم</option><option value="تابستان">تابستان</option></select></label>
+                    <label class="exam-field">نوع آزمون<select name="exam_type"><option value="standard">سایر</option><option value="midterm">میان‌ترم</option><option value="final">پایان‌ترم</option></select></label>
+                    <label class="exam-field">مدت زمان<input name="duration_minutes" type="number" min="1" value="30" required></label>
+                    <label class="exam-field">حداکثر تلاش<input name="max_attempts" type="number" min="1" value="1"></label>
+                    <label class="exam-field">نمره قبولی<input name="passing_score" type="number" min="0" value="0"></label>
+                    <label class="exam-field">زمان شروع<input name="start_at" type="datetime-local"></label>
+                    <label class="exam-field">زمان پایان<input name="end_at" type="datetime-local"></label>
+                </div>
+                <div class="exam-switch-grid">
+                    <label><input type="checkbox" name="shuffle_questions">ترتیب تصادفی سوالات</label>
+                    <label><input type="checkbox" name="shuffle_options">ترتیب تصادفی گزینه‌ها</label>
+                    <label><input type="checkbox" name="negative_marking">نمره منفی</label>
+                    <label><input type="checkbox" name="show_results_immediately">نمایش فوری نتیجه</label>
+                    <label><input type="checkbox" name="allow_partial">پاسخ ناقص</label>
+                    <label><input type="checkbox" name="is_published">انتشار آزمون</label>
+                </div>
+            </section>
+            <section class="exam-step" data-step="questions">
+                <div class="exam-question-head"><div><h3>انتخاب سوالات آزمون</h3><p data-question-help>ابتدا گروه را انتخاب کنید.</p></div><strong><span data-question-count>۰</span> سوال انتخاب شده</strong></div>
+                <label class="exam-question-search"><input type="search" data-question-search placeholder="جست‌وجوی سوال"><span>⌕</span></label>
+                <div class="exam-question-list" data-question-list></div>
+            </section>
+            <footer>
+                <button type="button" class="exam-create-next" data-step-next>بعدی - انتخاب سوالات</button>
+                <button type="submit" class="exam-create-save" hidden>ذخیره آزمون</button>
+                <button type="button" class="exam-create-cancel" data-exam-close>انصراف</button>
+            </footer>
+        </form>
+    </div>
+</section>
+
+{{ questions_json|json_script:"examQuestionsData" }}
+<script>
+(() => {
+    const button = document.querySelector('[data-exam-new]');
+    const modal = document.querySelector('[data-exam-create]');
+    const form = document.querySelector('[data-exam-form]');
+    const dataNode = document.getElementById('examQuestionsData');
+    const questions = dataNode ? JSON.parse(dataNode.textContent) : [];
+    const questionList = document.querySelector('[data-question-list]');
+    const questionCount = document.querySelector('[data-question-count]');
+    const questionHelp = document.querySelector('[data-question-help]');
+    const next = document.querySelector('[data-step-next]');
+    const save = document.querySelector('.exam-create-save');
+    let activeGroup = null;
+    const faDigits = (value) => String(value ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const setStep = (step) => {
+        document.querySelectorAll('[data-step]').forEach((item) => item.classList.toggle('is-active', item.dataset.step === step));
+        document.querySelectorAll('[data-step-tab]').forEach((item) => item.classList.toggle('is-active', item.dataset.stepTab === step));
+        next.hidden = step === 'questions';
+        save.hidden = step !== 'questions';
+    };
+    const refreshCount = () => { questionCount.textContent = faDigits(form.querySelectorAll('[name="question_ids"]:checked').length); };
+    const renderQuestions = () => {
+        questionList.innerHTML = '';
+        if (!activeGroup) { questionList.innerHTML = '<p>ابتدا گروه را انتخاب کنید.</p>'; return; }
+        const filtered = questions.filter((item) => {
+            const courseOk = !activeGroup.courseId || String(item.course_id || '') === String(activeGroup.courseId);
+            const teacherOk = !activeGroup.teacherId || String(item.teacher_id || '') === String(activeGroup.teacherId);
+            return courseOk && teacherOk;
+        });
+        questionHelp.textContent = `سوالات درس ${activeGroup.title || '-'} نمایش داده شده‌اند.`;
+        if (!filtered.length) { questionList.innerHTML = '<p>برای این گروه سوالی در بانک سوال ثبت نشده است.</p>'; return; }
+        filtered.forEach((item, index) => {
+            const label = document.createElement('label');
+            label.dataset.questionOption = '';
+            label.dataset.search = `${item.text || ''} ${item.type || ''} ${item.difficulty || ''}`.toLowerCase();
+            label.innerHTML = `<input type="checkbox" name="question_ids" value="${item.id}"><span><strong>${faDigits(index + 1)}. ${item.text || 'سوال بدون متن'}</strong><small>${item.type || '-'} · سطح: ${item.difficulty || '-'} · نمره: ${faDigits(item.points || 1)}</small></span>`;
+            questionList.appendChild(label);
+        });
+    };
+    button?.addEventListener('click', () => { modal.hidden = false; setStep('info'); renderQuestions(); });
+    document.querySelectorAll('[data-exam-close]').forEach((item) => item.addEventListener('click', () => { modal.hidden = true; }));
+    document.querySelectorAll('[data-step-tab]').forEach((item) => item.addEventListener('click', () => setStep(item.dataset.stepTab)));
+    next?.addEventListener('click', () => setStep('questions'));
+    document.querySelector('[data-group-search]')?.addEventListener('input', (event) => {
+        const q = event.target.value.trim().toLowerCase();
+        document.querySelectorAll('[data-group-option]').forEach((item) => { item.hidden = q && !item.dataset.search.toLowerCase().includes(q); });
+    });
+    document.querySelectorAll('[data-group-option] input').forEach((input) => input.addEventListener('change', () => {
+        const item = input.closest('[data-group-option]');
+        activeGroup = {id: item.dataset.groupId, courseId: item.dataset.courseId, teacherId: item.dataset.teacherId, title: item.dataset.title};
+        form.elements.academic_year.value = item.dataset.year || form.elements.academic_year.value;
+        form.elements.semester.value = item.dataset.semester || form.elements.semester.value;
+        if (!form.elements.title.value && item.dataset.title) form.elements.title.value = `آزمون ${item.dataset.title}`;
+        renderQuestions();
+        refreshCount();
+    }));
+    document.querySelector('[data-question-search]')?.addEventListener('input', (event) => {
+        const q = event.target.value.trim().toLowerCase();
+        questionList.querySelectorAll('[data-question-option]').forEach((item) => { item.hidden = q && !item.dataset.search.includes(q); });
+    });
+    questionList?.addEventListener('change', refreshCount);
+    form?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const response = await fetch(location.href, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'XMLHttpRequest'}});
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.ok) { alert(payload.message || 'ذخیره آزمون انجام نشد.'); return; }
+        modal.hidden = true;
+        setTimeout(() => location.reload(), 350);
+    });
+})();
+</script>
+{% endblock %}

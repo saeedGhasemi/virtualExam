@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}ورود گروهی دانشجویان | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page manager-bulk-page student-bulk-page" dir="rtl">
+    <header class="manager-bulk-hero">
+        <div class="manager-bulk-title">
+            <span class="manager-bulk-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/><path d="M16 21v-2a4 4 0 0 0-8 0"/></svg>
+            </span>
+            <div>
+                <p>کاربران / دانشجویان / ورود گروهی</p>
+                <h1>ورود گروهی دانشجویان</h1>
+                <span>
+                    {% if step == 1 %}افزودن چند دانشجو با استفاده از فایل Excel یا CSV{% elif step == 2 %}تطبیق ستون‌های فایل با فیلدهای سامانه{% elif step == 3 %}بررسی اطلاعات دانشجویان و رفع خطاها{% else %}مرور تنظیمات و ثبت نهایی دانشجویان{% endif %}
+                </span>
+            </div>
+        </div>
+        <a class="manager-bulk-secondary" href="{{ back_url }}">بازگشت به دانشجویان</a>
+    </header>
+
+    <ol class="manager-bulk-steps">
+        {% for item in steps %}
+            <li class="{% if item.number < step %}is-done{% elif item.number == step %}is-active{% endif %}">
+                <b>{% if item.number < step %}<svg viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg>{% else %}{{ item.number|fa_digits }}{% endif %}</b>
+                <span>{{ item.label }}</span>
+            </li>
+        {% endfor %}
+    </ol>
+
+    <form method="post" enctype="multipart/form-data" class="manager-bulk-form">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="{{ step }}">
+
+        {% if step == 1 %}
+            <div class="manager-bulk-grid">
+                <section class="manager-bulk-upload">
+                    <label class="manager-bulk-drop">
+                        <input type="file" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>
+                        <strong>فایل دانشجویان را اینجا رها کنید</strong>
+                        <span>یا برای انتخاب فایل کلیک کنید</span>
+                        <small>فرمت‌های مجاز: CSV ،XLS ،XLSX - حداکثر ۱۰ مگابایت</small>
+                        <em>انتخاب فایل</em>
+                    </label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="has_header" checked><span></span>ردیف اول فایل شامل عنوان ستون‌هاست</label>
+                    <div class="manager-bulk-note">گروه‌ها و درس‌ها پس از اعتبارسنجی و بر اساس نام‌های موجود در سامانه متصل می‌شوند.</div>
+                </section>
+
+                <aside class="manager-bulk-side">
+                    <article>
+                        <span class="manager-bulk-file-icon" aria-hidden="true">▦</span>
+                        <h2>فایل نمونه</h2>
+                        <p>برای ورود صحیح اطلاعات دانشجویان، قالب استاندارد را دریافت کنید.</p>
+                        <a href="?bulk_action=sample">دانلود فایل نمونه دانشجویان</a>
+                    </article>
+                    <article>
+                        <h2>ستون‌های موردنیاز</h2>
+                        <div class="manager-bulk-tags">
+                            <strong>الزامی</strong>
+                            {% for field in required_fields %}<span>{{ field.label }}</span>{% endfor %}
+                        </div>
+                        <div class="manager-bulk-tags is-optional">
+                            <strong>اختیاری</strong>
+                            {% for field in optional_fields %}<span>{{ field.label }}</span>{% endfor %}
+                        </div>
+                    </article>
+                </aside>
+            </div>
+
+        {% elif step == 2 %}
+            <div class="manager-bulk-map-layout">
+                <section class="manager-bulk-panel">
+                    <h2>تطبیق ستون‌های فایل با فیلدهای سامانه</h2>
+                    <table class="manager-bulk-map-table">
+                        <thead><tr><th>ستون فایل</th><th>نمونه داده</th><th>فیلد سامانه</th><th>وضعیت</th></tr></thead>
+                        <tbody>
+                            {% for field in field_defs %}
+                                {% with selected=draft.mapping|get_item:field.key %}
+                                <tr>
+                                    <td>{{ selected|default:"-" }}</td>
+                                    <td>{{ first_row|get_item:selected|default:"-"|fa_digits }}</td>
+                                    <td>
+                                        <select name="map_{{ field.key }}" {% if field.required %}required{% endif %}>
+                                            <option value="">انتخاب ستون</option>
+                                            {% for header in headers %}
+                                                <option value="{{ header }}" {% if selected == header %}selected{% endif %}>{{ header }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>{% if selected %}<span class="manager-bulk-status is-ok">تطبیق‌شده</span>{% elif field.required %}<span class="manager-bulk-status is-error">الزامی</span>{% else %}<span class="manager-bulk-status is-warn">اختیاری</span>{% endif %}</td>
+                                </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </section>
+                <aside class="manager-bulk-help">
+                    <h2>خلاصه فایل بارگذاری‌شده</h2>
+                    <p><b>{{ draft.filename }}</b></p>
+                    <p>{{ draft.total_rows|default:0|fa_digits }} ردیف و {{ headers|length|fa_digits }} ستون شناسایی شد.</p>
+                    <h2>پیش‌نمایش داده‌ها</h2>
+                    <table class="student-bulk-preview">
+                        <tbody>
+                            {% for key,value in first_row.items %}
+                                <tr><td>{{ key }}</td><td>{{ value|fa_digits }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </aside>
+            </div>
+
+        {% elif step == 3 %}
+            <div class="manager-bulk-stats">
+                <article><span class="is-blue">{{ draft.total_rows|default:0|fa_digits }}</span><b>کل رکوردها</b></article>
+                <article><span class="is-green">{{ counts.ok|default:0|fa_digits }}</span><b>رکورد سالم</b></article>
+                <article><span class="is-orange">{{ counts.warning|default:0|fa_digits }}</span><b>هشدار</b></article>
+                <article><span class="is-red">{{ counts.error|default:0|fa_digits }}</span><b>خطا</b></article>
+            </div>
+            <section class="manager-bulk-panel">
+                <header class="manager-bulk-panel-head">
+                    <h2>بررسی اطلاعات دانشجویان</h2>
+                    <div class="manager-bulk-filters">
+                        <span>همه {{ draft.total_rows|default:0|fa_digits }}</span>
+                        <span>سالم {{ counts.ok|default:0|fa_digits }}</span>
+                        <span>هشدار {{ counts.warning|default:0|fa_digits }}</span>
+                        <span>خطادار {{ counts.error|default:0|fa_digits }}</span>
+                    </div>
+                </header>
+                <table class="manager-bulk-review-table">
+                    <thead><tr><th>ردیف</th><th>نام و نام خانوادگی</th><th>کد ملی</th><th>کد دانشجویی</th><th>رشته</th><th>وضعیت</th><th>پیام</th></tr></thead>
+                    <tbody>
+                        {% for record in records %}
+                            <tr class="is-{{ record.level }}">
+                                <td>{{ forloop.counter|fa_digits }}</td>
+                                <td>{{ record.full_name }}</td>
+                                <td>{{ record.national_id|fa_digits }}</td>
+                                <td>{{ record.student_number|fa_digits }}</td>
+                                <td>{{ record.field_of_study }}</td>
+                                <td><span class="manager-bulk-status is-{{ record.level }}">{% if record.level == 'error' %}خطا{% elif record.level == 'warning' %}هشدار{% else %}سالم{% endif %}</span></td>
+                                <td>{% for issue in record.issues %}{{ issue }}{% if not forloop.last %}، {% endif %}{% empty %}-{% endfor %}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="7">فایلی برای بررسی بارگذاری نشده است.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+        {% else %}
+            <div class="manager-bulk-final">
+                <section class="manager-bulk-panel">
+                    <h2>مرور و تایید نهایی</h2>
+                    <div class="student-bulk-final-stats">
+                        <article><b>{{ valid_count|fa_digits }}</b><span>قابل ثبت</span></article>
+                        <article><b>{{ counts.ok|default:0|fa_digits }}</b><span>سالم</span></article>
+                        <article><b>{{ counts.warning|default:0|fa_digits }}</b><span>دارای هشدار</span></article>
+                        <article><b>{{ counts.error|default:0|fa_digits }}</b><span>حذف‌شده</span></article>
+                    </div>
+                    <h3>خلاصه اطلاعات ورود</h3>
+                    <dl>
+                        <div><dt>فایل</dt><dd>{{ draft.filename }}</dd></div>
+                        <div><dt>تعداد گروه‌های آموزشی</dt><dd>{{ groups_count|fa_digits }}</dd></div>
+                        <div><dt>تعداد دروس</dt><dd>{{ courses_count|fa_digits }}</dd></div>
+                    </dl>
+                    <h3>تعداد بر اساس مقطع</h3>
+                    <ul>
+                        {% for label,count in degree_summary.items %}
+                            <li><span>{{ label }}</span><b>{{ count|fa_digits }}</b></li>
+                        {% endfor %}
+                    </ul>
+                </section>
+                <section class="manager-bulk-panel">
+                    <h2>تنظیمات ثبت دانشجویان</h2>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="create_accounts" checked><span></span>ایجاد حساب کاربری</label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="send_activation" checked><span></span>ارسال پیامک فعال‌سازی</label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="send_welcome" checked><span></span>ارسال ایمیل خوش‌آمدگویی</label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="auto_add_groups" checked><span></span>افزودن خودکار به گروه آموزشی</label>
+                    <label class="manager-bulk-switch"><input type="checkbox" name="force_password" checked><span></span>الزام تغییر رمز در اولین ورود</label>
+                    <label class="manager-bulk-select">وضعیت اولیه حساب کاربری
+                        <select name="account_status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select>
+                    </label>
+                    <label class="manager-bulk-select">روش تعیین گذرواژه
+                        <select name="password_method"><option value="auto">تولید خودکار</option><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="sms_code">کد پیامکی</option></select>
+                    </label>
+                    <label class="manager-bulk-confirm"><input type="checkbox" name="confirm_final" required> صحت اطلاعات را تایید می‌کنم.</label>
+                </section>
+            </div>
+        {% endif %}
+
+        <footer class="manager-bulk-actions">
+            {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="manager-bulk-secondary">مرحله قبل</button>{% endif %}
+            <div>
+                <button type="submit" name="wizard_action" value="cancel" class="manager-bulk-link">انصراف</button>
+                <button type="submit" name="wizard_action" value="save_draft" class="manager-bulk-secondary">ذخیره موقت</button>
+                <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="manager-bulk-primary">
+                    {% if step == 1 %}بارگذاری و ادامه{% elif step == 2 %}ادامه و بررسی اطلاعات{% elif step == 3 %}ادامه و ثبت نهایی{% else %}ثبت نهایی {{ valid_count|fa_digits }} دانشجو{% endif %}
+                    <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+            </div>
+        </footer>
+    </form>
+</section>
+{% endblock %}

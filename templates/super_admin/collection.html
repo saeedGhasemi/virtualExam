@@ -1,0 +1,55 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}{{ title }} | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page" dir="rtl">
+    <div class="super-admin-heading">
+        <span class="super-admin-kicker">{{ kicker }}</span>
+        <h1>{{ title }}</h1>
+        <p>{{ description }}</p>
+    </div>
+
+    <form method="get" class="super-admin-search">
+        <input name="q" value="{{ query }}" placeholder="{{ search_placeholder }}">
+        <button type="submit">جست‌وجو</button>
+    </form>
+
+    {% if form %}
+        <div class="super-admin-card">
+            <h2>ثبت مورد جدید</h2>
+            <form method="post" enctype="multipart/form-data" class="super-admin-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="super-admin-primary">ذخیره</button>
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="super-admin-card">
+        <h2>فهرست</h2>
+        <div class="super-admin-list-grid">
+            {% for row in rows %}
+                <article class="super-admin-row-card">
+                    <div>
+                        {% if row.url %}
+                            <a href="{{ row.url }}"><strong>{{ row.title }}</strong></a>
+                        {% else %}
+                            <strong>{{ row.title }}</strong>
+                        {% endif %}
+                        <span>{{ row.meta }}</span>
+                    </div>
+                    <dl>
+                        {% for label, value in row.cells %}
+                            <dt>{{ label }}</dt>
+                            <dd>{{ value }}</dd>
+                        {% endfor %}
+                    </dl>
+                </article>
+            {% empty %}
+                <p>موردی برای نمایش وجود ندارد.</p>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

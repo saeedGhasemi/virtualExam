@@ -1,0 +1,169 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}{{ exam.title }} | متاکوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .exam-detail{--blue:#315cff;--violet:#7047f4;--ink:#071936;--muted:#66758f;--line:#d9e5f4;--panel:rgba(255,255,255,.78);direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .exam-detail *{box-sizing:border-box;letter-spacing:0}.exam-detail a{text-decoration:none;color:inherit}.exam-detail svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .detail-shell{max-width:1540px;margin:0 auto;padding:0 0 1rem}.glass{border:1px solid rgba(205,219,239,.96);border-radius:1rem;background:var(--panel);box-shadow:0 18px 46px rgba(30,55,95,.075),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(22px) saturate(150%)}
+    .detail-hero{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center;padding:1.25rem;margin-bottom:.9rem}.hero-title{display:flex;align-items:center;gap:1rem}.hero-icon{display:grid;width:4.7rem;height:4.7rem;place-items:center;border-radius:1rem;background:#eef2ff;color:var(--blue)}.hero-title h1{margin:0;font-size:1.65rem;font-weight:950}.hero-title p{margin:.35rem 0 0;color:#61708a;font-weight:850}.hero-stats{display:grid;grid-template-columns:repeat(6,8.5rem);gap:.4rem;text-align:center}.hero-stats span{border-right:1px solid var(--line);padding:.35rem .65rem}.hero-stats b{display:block;font-size:1.05rem}.hero-stats small{display:block;margin-top:.3rem;color:#66758f;font-size:.78rem;font-weight:850}.status-pill{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:999px;padding:.55rem 1rem;font-weight:950}.status-pill.published,.status-pill.running{background:#dcfce7;color:#15803d}.status-pill.finished{background:#eef2f7;color:#475569}.status-pill.draft{background:#fff7ed;color:#d97706}.status-pill.cancelled{background:#fee2e2;color:#dc2626}
+    .detail-tabs{display:grid;grid-template-columns:repeat(8,1fr);padding:.35rem;margin-bottom:1rem}.detail-tabs a{height:3rem;display:flex;align-items:center;justify-content:center;border-left:1px solid #dce6f2;font-weight:950;color:#35435d}.detail-tabs a:last-child{border-left:0}.detail-tabs a.is-active{border-radius:.75rem;background:#eef2ff;color:var(--blue);box-shadow:inset 0 -3px 0 var(--blue)}
+    .metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:.9rem}.metric{display:grid;grid-template-columns:1fr auto;align-items:center;min-height:6.7rem;padding:1rem}.metric small{display:block;color:#61708a;font-weight:850}.metric b{display:block;margin-top:.3rem;font-size:2rem;font-weight:950}.metric i{display:grid;width:3.3rem;height:3.3rem;place-items:center;border-radius:.9rem;background:#eef2ff;color:var(--blue);font-style:normal}.metric.green i{background:#e6f8ef;color:#16a34a}.metric.orange i{background:#fff4df;color:#f59e0b}.metric.red i{background:#fee2e2;color:#dc2626}
+    .overview-grid{display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:.9rem}.panel{padding:1rem}.panel h2{margin:0 0 1rem;font-size:1.1rem;font-weight:950}.setting-list{display:grid;gap:.8rem}.setting-list div{display:flex;justify-content:space-between;border-bottom:1px solid #e5edf7;padding-bottom:.65rem;font-weight:850}.setting-list span{color:#68758f}.timeline{display:grid;gap:.8rem}.timeline div{position:relative;padding-right:1.8rem;font-weight:900}.timeline div:before{content:"";position:absolute;right:.35rem;top:.35rem;width:.7rem;height:.7rem;border-radius:999px;background:#22c55e;box-shadow:0 0 0 .3rem #dcfce7}.timeline div.is-active:before{background:var(--blue);box-shadow:0 0 0 .3rem #dbeafe}.timeline small{display:block;color:#68758f;margin-top:.25rem}.type-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.55rem}.type-card{border:1px solid #dbe6f3;border-radius:.75rem;padding:.8rem;background:#f9fbff}.type-card b{display:block}.type-card small{color:#68758f;font-weight:850}.progress-donut{width:155px;height:155px;border-radius:50%;margin:0 auto 1rem;background:conic-gradient(#22c55e 0 52%,#2f80ed 52% 82%,#e5e7eb 82% 100%);display:grid;place-items:center}.progress-donut span{display:grid;width:92px;height:92px;place-items:center;border-radius:50%;background:#fff;font-size:1.45rem;font-weight:950}
+    .action-bar{display:flex;justify-content:flex-end;gap:.9rem;margin-top:1rem;padding:1rem}.btn{display:inline-flex;height:3.2rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid #cbd8ec;border-radius:.78rem;background:#fff;color:#17305f;padding:0 1.2rem;font-weight:950}.btn.primary{border:0;background:linear-gradient(135deg,#315cff,#7047f4);color:#fff}.btn.danger{border-color:#fecaca;color:#dc2626;background:#fff7f7}
+    .two-col{display:grid;grid-template-columns:1fr 300px;gap:.9rem}.exam-paper{padding:1.4rem}.paper-meta{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px dashed #cdd8e8;padding-bottom:1rem;margin-bottom:1.1rem;color:#4d5d78;font-weight:900}.question-text{font-size:1.05rem;line-height:2.1;font-weight:900}.option-list{display:grid;gap:.7rem;margin-top:1rem}.option-list label{display:flex;align-items:center;gap:.7rem;border:1px solid #d7e3f2;border-radius:.75rem;padding:.85rem;background:#fff;font-weight:850}.option-list label.is-selected{border-color:var(--blue);background:#f5f7ff;color:#1d4ed8}.palette{padding:1rem}.palette-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.55rem}.palette-grid span{display:grid;height:2.5rem;place-items:center;border:1px solid #dce6f2;border-radius:.55rem;background:#fff;font-weight:950}.palette-grid span.active{background:linear-gradient(135deg,#315cff,#7047f4);color:#fff}.palette-grid span.done{background:#eaf8ef;color:#15803d}.palette-grid span.flag{background:#fff7ed;color:#d97706}
+    .monitor-grid{display:grid;grid-template-columns:300px 1fr;gap:.9rem}.event-list{display:grid;gap:.7rem}.event{border:1px solid #e4ebf5;border-radius:.8rem;background:#fff;padding:.75rem}.event b{display:block}.event small{color:#68758f;font-weight:850}.data-table{width:100%;border-collapse:collapse;overflow:hidden;border-radius:.9rem}.data-table th,.data-table td{height:3.35rem;border-bottom:1px solid #e6eef7;text-align:right;padding:.65rem;font-weight:850}.data-table th{color:#61708a;background:#f8fbff}.avatar-name{display:flex;align-items:center;gap:.6rem}.avatar{display:grid;width:2.4rem;height:2.4rem;place-items:center;border-radius:50%;background:#eef2ff;color:var(--blue);overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover}.bar{height:.35rem;border-radius:999px;background:#e2e8f0;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#315cff,#8b5cf6)}
+    .results-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:.9rem}.chart-card{min-height:13rem;padding:1rem}.fake-chart{height:9rem;display:flex;align-items:end;gap:.8rem;border-bottom:1px solid #dbe6f3}.fake-chart i{flex:1;border-radius:.35rem .35rem 0 0;background:linear-gradient(#77a7ff,#315cff)}.question-editor{display:grid;grid-template-columns:1fr 350px;gap:.9rem}.question-types{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:.9rem}.question-types span{height:5rem;display:grid;place-items:center;border:1px solid #dbe6f3;border-radius:.8rem;background:#fff;font-weight:950}.editor-box textarea{width:100%;min-height:180px;border:1px solid #dbe6f3;border-radius:.85rem;padding:1rem;line-height:2;font:inherit}.report-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:.9rem}.score-hero{display:grid;place-items:center;min-height:10rem;border:1px solid #c5d4ff;border-radius:.9rem;background:#f6f8ff;color:#7047f4}.score-hero b{font-size:3rem}.bank-tools{display:grid;grid-template-columns:1fr repeat(4,160px);gap:.7rem;margin-bottom:.9rem}.bank-tools input,.bank-tools select{height:3rem;border:1px solid #d3dfef;border-radius:.7rem;padding:0 .8rem;background:#fff;font:inherit}
+    @media(max-width:1100px){.detail-hero,.overview-grid,.two-col,.monitor-grid,.question-editor,.report-grid{grid-template-columns:1fr}.hero-stats,.metric-grid,.results-grid{grid-template-columns:repeat(2,1fr)}.detail-tabs{grid-template-columns:repeat(4,1fr)}.bank-tools{grid-template-columns:1fr 1fr}.exam-paper{overflow:auto}}
+    @media(max-width:680px){.hero-stats,.metric-grid,.results-grid,.type-grid,.question-types,.bank-tools{grid-template-columns:1fr}.detail-tabs{grid-template-columns:1fr 1fr}.action-bar{flex-direction:column}.btn{width:100%}}
+</style>
+
+<section class="super-admin-page super-admin-workspace exam-detail" dir="rtl" data-fixed-scroll-page>
+    <div class="detail-shell">
+        <header class="detail-hero glass">
+            <div class="hero-title">
+                <span class="hero-icon"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3v4M15 3v4M8 12h8M8 16h5"/></svg></span>
+                <div>
+                    <h1>{{ exam.title|fa_digits }}</h1>
+                    <p>شناسه آزمون: {{ exam.course_code|fa_digits }}-{{ exam.start_date|fa_digits }}</p>
+                </div>
+            </div>
+            <div class="hero-stats">
+                <span><b>{{ exam.course_title|fa_digits }}</b><small>درس</small></span>
+                <span><b>{{ exam.teacher_name|fa_digits }}</b><small>مدرس</small></span>
+                <span><b>{{ exam.start_date|fa_digits }}</b><small>تاریخ برگزاری</small></span>
+                <span><b>{{ exam.duration_minutes|default:90|fa_digits }} دقیقه</b><small>مدت زمان</small></span>
+                <span><b>{{ stats.total_participants|fa_digits }} نفر</b><small>شرکت‌کنندگان</small></span>
+                <span><b class="status-pill {{ exam.status_key }}">{{ exam.status_label }}</b><small>وضعیت آزمون</small></span>
+            </div>
+        </header>
+
+        <nav class="detail-tabs glass" aria-label="بخش‌های نمایش آزمون">
+            {% for key,label in tabs %}
+                <a class="{% if tab == key %}is-active{% endif %}" href="?tab={{ key }}">{{ label }}</a>
+            {% endfor %}
+        </nav>
+
+        {% if tab == 'overview' %}
+            <section class="overview-grid">
+                <article class="panel glass">
+                    <h2>خلاصه تنظیمات</h2>
+                    <div class="setting-list">
+                        <div><span>محدوده زمانی</span><b>{{ exam.start_date|fa_digits }} - {{ exam.start_time|fa_digits }} تا {{ exam.end_time|fa_digits }}</b></div>
+                        <div><span>نمایش نمره</span><b>{% if exam.show_score %}فعال{% else %}پس از پایان آزمون{% endif %}</b></div>
+                        <div><span>مرور پاسخ‌ها</span><b>{% if exam.review_answers_enabled %}مجاز{% else %}غیرفعال{% endif %}</b></div>
+                        <div><span>ترتیب سوالات</span><b>{% if exam.shuffle_questions %}تصادفی{% else %}ثابت{% endif %}</b></div>
+                        <div><span>ترتیب گزینه‌ها</span><b>{% if exam.shuffle_options %}تصادفی{% else %}ثابت{% endif %}</b></div>
+                        <div><span>حد نصاب نمره</span><b>{{ exam.passing_score|default:10|fa_digits }} از {{ exam.total_points|default:20|fa_digits }}</b></div>
+                    </div>
+                </article>
+                <article class="panel glass">
+                    <h2>خط زمان آزمون</h2>
+                    <div class="timeline">
+                        <div>ایجاد آزمون<small>اطلاعات پایه ثبت شد</small></div>
+                        <div>تکمیل تنظیمات<small>قوانین و زمان‌بندی آماده است</small></div>
+                        <div class="is-active">شروع آزمون<small>{{ exam.start_date|fa_digits }} - {{ exam.start_time|fa_digits }}</small></div>
+                        <div>پایان آزمون<small>{{ exam.start_date|fa_digits }} - {{ exam.end_time|fa_digits }}</small></div>
+                    </div>
+                </article>
+                <article class="panel glass">
+                    <h2>توزیع انواع سوال</h2>
+                    <div class="type-grid">
+                        {% for item in distribution %}
+                            <div class="type-card"><b>{{ item.label }}</b><small>{{ item.count|fa_digits }} سوال، {{ item.percent|fa_digits }}٪</small></div>
+                        {% endfor %}
+                    </div>
+                </article>
+            </section>
+            <section class="overview-grid" style="margin-top:.9rem;grid-template-columns:1fr 1fr 1fr">
+                <article class="panel glass"><h2>پیشرفت شرکت‌کنندگان</h2><div class="progress-donut"><span>{{ stats.total_participants|fa_digits }}</span></div><div class="setting-list"><div><span>تکمیل‌شده</span><b>{{ stats.submitted|fa_digits }} نفر</b></div><div><span>در حال انجام</span><b>{{ stats.online|fa_digits }} نفر</b></div><div><span>شروع نکرده</span><b>۳۳ نفر</b></div></div></article>
+                <article class="panel glass"><h2>هشدار</h2><p style="line-height:2;color:#9a5b00;font-weight:900">ویرایش سوالات پس از شروع آزمون قفل شده است. برای اعمال تغییرات، ابتدا آزمون را لغو کرده و نسخه جدیدی منتشر کنید.</p></article>
+                <article class="panel glass"><h2>عملیات</h2><div class="action-bar" style="padding:0;margin:0;justify-content:stretch;flex-direction:column"><a class="btn primary" href="?tab=preview">پیش‌نمایش</a><a class="btn" href="?tab=session">نظارت زنده</a><a class="btn danger" href="{% url 'core:super_admin_emergency_stop' exam.id %}">لغو آزمون</a></div></article>
+            </section>
+        {% elif tab == 'preview' %}
+            <section class="two-col">
+                <article class="exam-paper glass">
+                    <div class="paper-meta"><span>سوال {{ sample_question.number|default:12|fa_digits }} از {{ stats.total_questions|fa_digits }}</span><span>زمان باقی‌مانده: ۸۹:۴۲</span><span>{{ exam.title|fa_digits }}</span></div>
+                    <p class="question-text">{{ sample_question.text|fa_digits }}</p>
+                    <div class="option-list">
+                        {% for option in sample_options %}
+                            <label class="{% if forloop.first %}is-selected{% endif %}"><input type="radio" {% if forloop.first %}checked{% endif %}>{{ option }}</label>
+                        {% endfor %}
+                    </div>
+                    <div class="action-bar"><button class="btn primary" type="button">سوال بعد</button><button class="btn" type="button">علامت‌گذاری</button><button class="btn" type="button">سوال قبل</button></div>
+                </article>
+                <aside class="palette glass">
+                    <h2>پالت سوالات</h2>
+                    <div class="palette-grid">
+                        {% for question in questions|slice:":40" %}<span class="{% if forloop.counter == 12 %}active{% elif forloop.counter|divisibleby:3 %}done{% elif forloop.counter|divisibleby:7 %}flag{% endif %}">{{ forloop.counter|fa_digits }}</span>{% empty %}
+                            {% for n in "1234567890123456789012345678901234567890" %}<span class="{% if forloop.counter == 12 %}active{% elif forloop.counter|divisibleby:3 %}done{% endif %}">{{ forloop.counter|fa_digits }}</span>{% endfor %}
+                        {% endfor %}
+                    </div>
+                </aside>
+            </section>
+        {% elif tab == 'session' %}
+            <section class="metric-grid">
+                <article class="metric glass"><div><small>شرکت‌کننده</small><b>{{ stats.total_participants|fa_digits }}</b></div><i>👥</i></article>
+                <article class="metric green glass"><div><small>آنلاین</small><b>{{ stats.online|fa_digits }}</b></div><i>⌁</i></article>
+                <article class="metric glass"><div><small>تحویل‌داده</small><b>{{ stats.submitted|fa_digits }}</b></div><i>✓</i></article>
+                <article class="metric red glass"><div><small>مشکل اتصال</small><b>{{ stats.connection_issues|fa_digits }}</b></div><i>!</i></article>
+            </section>
+            <section class="monitor-grid">
+                <aside class="panel glass"><h2>رخدادهای مشکوک</h2><div class="event-list"><div class="event"><b>تعویض تب مشکوک</b><small>زهرا محمدی، ۲ دقیقه پیش</small></div><div class="event"><b>قطع اتصال</b><small>امیرحسین رضایی، ۷ دقیقه پیش</small></div><div class="event"><b>ورود دیرهنگام</b><small>هانیه مرادی، ۱۱ دقیقه پیش</small></div></div></aside>
+                <article class="glass" style="overflow:hidden"><table class="data-table"><thead><tr><th>دانشجو</th><th>شماره دانشجویی</th><th>وضعیت پیشرفت</th><th>سوال فعلی</th><th>آخرین فعالیت</th><th>وضعیت اتصال</th><th>عملیات</th></tr></thead><tbody>{% for item in attempts %}<tr><td><div class="avatar-name"><span class="avatar">{% if item.avatar_url %}<img src="{{ item.avatar_url }}" alt="">{% else %}{{ item.student_name|slice:":1" }}{% endif %}</span>{{ item.student_name|fa_digits }}</div></td><td>{{ item.student_number|fa_digits }}</td><td><div class="bar"><i style="width:{% cycle '64' '52' '70' '33' '88' '12' %}%"></i></div></td><td>سوال {% cycle '۱۸' '۱۵' '۲۱' '۱۰' '۲۶' '۴' %} از {{ stats.total_questions|fa_digits }}</td><td>{% cycle '۱ دقیقه پیش' '۲ دقیقه پیش' 'همین حالا' '۷ دقیقه پیش' %}</td><td>{% cycle 'آنلاین' 'آنلاین' 'قطع‌شده' 'ورود دیرهنگام' %}</td><td><a class="btn" style="height:2.2rem;padding:0 .55rem" href="?tab=preview">مشاهده</a></td></tr>{% endfor %}</tbody></table></article>
+            </section>
+        {% elif tab == 'results' %}
+            <section class="results-grid">
+                <article class="metric glass"><div><small>مشارکت</small><b>{{ stats.submitted|fa_digits }}</b></div><i>👥</i></article>
+                <article class="metric green glass"><div><small>بالاترین نمره</small><b>{{ stats.top_score|floatformat:2|fa_digits }}</b></div><i>🏆</i></article>
+                <article class="metric green glass"><div><small>نرخ قبولی</small><b>۸۲٫۳٪</b></div><i>✓</i></article>
+                <article class="metric glass"><div><small>میانگین نمره</small><b>{{ stats.avg_score|floatformat:2|fa_digits }}</b></div><i>↗</i></article>
+            </section>
+            <section class="overview-grid" style="grid-template-columns:1fr 1fr 1fr">
+                <article class="chart-card glass"><h2>توزیع نمرات</h2><div class="fake-chart"><i style="height:20%"></i><i style="height:44%"></i><i style="height:68%"></i><i style="height:92%"></i><i style="height:86%"></i></div></article>
+                <article class="chart-card glass"><h2>تحلیل سختی سوالات</h2><div class="progress-donut"><span>{{ stats.total_questions|fa_digits }}</span></div></article>
+                <article class="chart-card glass"><h2>عملکرد براساس نوع سوال</h2>{% for item in distribution %}<div class="setting-list"><div><span>{{ item.label }}</span><b>{{ item.percent|fa_digits }}٪</b></div></div>{% endfor %}</article>
+            </section>
+            <section class="glass" style="overflow:hidden;margin-top:.9rem"><table class="data-table"><thead><tr><th>رتبه</th><th>دانشجو</th><th>کد دانشجویی</th><th>نمره خام</th><th>نمره نهایی</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{% for item in attempts %}<tr><td>{{ forloop.counter|fa_digits }}</td><td>{{ item.student_name|fa_digits }}</td><td>{{ item.student_number|fa_digits }}</td><td>{{ item.score|default:"18.75"|fa_digits }}</td><td>{{ item.score|default:"18.50"|fa_digits }}</td><td><span class="status-pill published">قبول</span></td><td><a href="?tab=report" class="btn" style="height:2.2rem">کارنامه</a></td></tr>{% endfor %}</tbody></table></section>
+        {% elif tab == 'grading' %}
+            <section class="two-col">
+                <article class="exam-paper glass">
+                    <div class="paper-meta"><span>پاسخ ۱ از ۳۲</span><span>سارا احمدی</span><span class="status-pill published">تکمیل شده</span></div>
+                    <h2>معیارهای ارزیابی</h2>
+                    <table class="data-table"><tr><th>معیار</th><th>حداکثر نمره</th><th>نمره</th></tr><tr><td>ذکر نکات اصلی</td><td>۳</td><td>۳</td></tr><tr><td>معاینه فیزیکی</td><td>۳</td><td>۲٫۵</td></tr><tr><td>تشخیص افتراقی</td><td>۴</td><td>۳</td></tr><tr><td>اقدامات درمانی</td><td>۵</td><td>۳</td></tr></table>
+                    <textarea style="width:100%;min-height:120px;margin-top:1rem;border:1px solid #dbe6f3;border-radius:.85rem;padding:1rem;font:inherit">پاسخ کلی خوب است. در بخش اقدامات درمانی می‌توانید جزئیات بیشتری بنویسید.</textarea>
+                    <div class="action-bar"><button class="btn primary" type="button">ذخیره نمره</button><button class="btn" type="button">ذخیره و رفتن به بعدی</button></div>
+                </article>
+                <aside class="panel glass"><h2>صف پاسخ‌ها</h2><div class="event-list">{% for item in attempts %}<div class="event"><b>{{ item.student_name|fa_digits }}</b><small>{% cycle 'در حال تصحیح' 'دستی' 'در انتظار' 'تکمیل شده' %}</small></div>{% endfor %}</div></aside>
+            </section>
+        {% elif tab == 'questions' %}
+            <section class="question-editor">
+                <article>
+                    <div class="question-types">{% for item in distribution %}<span>{{ item.label }}</span>{% endfor %}</div>
+                    <div class="editor-box glass panel"><h2>ایجاد / ویرایش سوال</h2><textarea>{{ sample_question.text|fa_digits }}</textarea><div class="action-bar"><button class="btn primary" type="button">ذخیره و افزودن سوال بعدی</button><button class="btn" type="button">پیش‌نمایش</button></div></div>
+                    <div class="glass" style="overflow:hidden;margin-top:.9rem"><table class="data-table"><thead><tr><th>نسخه</th><th>تاریخ و زمان</th><th>تغییرات</th><th>نویسنده</th></tr></thead><tbody><tr><td>۱٫۳</td><td>۱۴۰۳/۰۳/۲۱</td><td>ویرایش پاسخ‌ها و تنظیم نمره</td><td>{{ exam.teacher_name|fa_digits }}</td></tr><tr><td>۱٫۲</td><td>۱۴۰۳/۰۳/۲۱</td><td>افزودن تصویر سناریو</td><td>{{ exam.teacher_name|fa_digits }}</td></tr></tbody></table></div>
+                </article>
+                <aside class="panel glass"><h2>اطلاعات سوال</h2><div class="setting-list"><div><span>درس</span><b>{{ exam.course_title|fa_digits }}</b></div><div><span>موضوع</span><b>قلب و عروق</b></div><div><span>سطح دشواری</span><b>متوسط</b></div><div><span>نمره سوال</span><b>۲ از ۵</b></div><div><span>زمان پیشنهادی</span><b>۳ دقیقه</b></div></div></aside>
+            </section>
+        {% elif tab == 'report' %}
+            <section class="report-grid">
+                <article class="panel glass">
+                    <div class="score-hero"><b>۱۷٫۲۵</b><span>از ۲۰</span></div>
+                    <div class="metric-grid" style="grid-template-columns:repeat(4,1fr);margin-top:.9rem"><article class="metric green glass"><div><small>پاسخ صحیح</small><b>۲۳</b></div></article><article class="metric red glass"><div><small>پاسخ نادرست</small><b>۸</b></div></article><article class="metric orange glass"><div><small>بدون پاسخ</small><b>۴</b></div></article><article class="metric glass"><div><small>زمان مصرف‌شده</small><b>۸۶</b></div></article></div>
+                    <h2>روند نمرات شما</h2><div class="fake-chart"><i style="height:55%"></i><i style="height:46%"></i><i style="height:70%"></i><i style="height:61%"></i><i style="height:86%"></i></div>
+                </article>
+                <article class="glass" style="overflow:hidden"><table class="data-table"><thead><tr><th>شماره</th><th>تیپ سوال</th><th>وضعیت</th><th>پاسخ دانشجو</th><th>پاسخ صحیح</th><th>نمره</th></tr></thead><tbody>{% for item in questions|slice:":8" %}<tr><td>{{ forloop.counter|fa_digits }}</td><td>{{ item.type_label }}</td><td>{% cycle 'صحیح' 'نادرست' 'صحیح' 'بدون پاسخ' %}</td><td>گزینه {{ forloop.counter|fa_digits }}</td><td>گزینه ۲</td><td>{% cycle '۱ از ۱' '۰ از ۱' '۱ از ۱' '-' %}</td></tr>{% empty %}<tr><td>۱</td><td>چهارگزینه‌ای</td><td>صحیح</td><td>گزینه ۲</td><td>گزینه ۲</td><td>۱ از ۱</td></tr>{% endfor %}</tbody></table></article>
+            </section>
+        {% elif tab == 'bank' %}
+            <section class="panel glass">
+                <h2>بانک سوال</h2>
+                <div class="bank-tools"><input placeholder="جستجو در متن سوال، کلیدواژه یا شناسه..."><select><option>همه درس‌ها</option></select><select><option>همه مدرس‌ها</option></select><select><option>همه سطوح</option></select><select><option>همه وضعیت‌ها</option></select></div>
+                <table class="data-table"><thead><tr><th>شناسه</th><th>متن سوال</th><th>نوع</th><th>درس</th><th>سطح دشواری</th><th>تعداد استفاده</th><th>عملیات</th></tr></thead><tbody>{% for item in questions %}<tr><td>{{ item.question_id|slice:":8"|fa_digits }}</td><td>{{ item.text|truncatechars:80|fa_digits }}</td><td>{{ item.type_label }}</td><td>{{ item.course_title|fa_digits }}</td><td>{{ item.difficulty|default:"متوسط"|fa_digits }}</td><td>{% cycle '۲۳' '۱۵' '۴۸' '۳۱' %}</td><td><a class="btn" style="height:2.2rem" href="?tab=questions">ویرایش</a></td></tr>{% empty %}<tr><td colspan="7">سوالی برای این آزمون ثبت نشده است.</td></tr>{% endfor %}</tbody></table>
+            </section>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

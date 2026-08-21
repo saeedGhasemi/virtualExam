@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}{{ title }} | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page courses-page course-editor-page" dir="rtl">
+    <header class="courses-header course-editor-header">
+        <div>
+            <h1>
+                {{ title }}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>
+            </h1>
+            <p>{{ description }}</p>
+        </div>
+        <a class="course-editor-back" href="{{ back_url }}">
+            <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+            بازگشت به درس‌ها
+        </a>
+    </header>
+
+    <form method="post" class="course-form-card course-form-card--page" data-course-editor-form>
+        {% csrf_token %}
+        <h2><span aria-hidden="true">+</span> {{ title }}</h2>
+        <div class="course-form-grid">
+            <label>
+                <span>عنوان درس</span>
+                <input name="title" value="{{ course.title|default:'' }}" placeholder="مثلا: ریاضی عمومی ۱" required>
+            </label>
+            <label>
+                <span>کد درس</span>
+                <input name="code" value="{{ course.code|default:'' }}" placeholder="MATH101">
+            </label>
+            <label>
+                <span>تعداد واحد</span>
+                <input name="credit_units" value="{{ course.credit_units|default:'' }}" type="number" min="0" step="1" placeholder="مثلا ۳">
+            </label>
+            <label>
+                <span>دانشگاه</span>
+                <select name="university_id" data-editor-university><option value="">انتخاب دانشگاه</option></select>
+            </label>
+            <label>
+                <span>دانشکده</span>
+                <select name="faculty_id" data-editor-faculty disabled><option value="">ابتدا دانشگاه را انتخاب کنید</option></select>
+            </label>
+            <label>
+                <span>گروه آموزشی</span>
+                <select name="department_id" data-editor-department disabled><option value="">ابتدا دانشکده را انتخاب کنید</option></select>
+            </label>
+        </div>
+        <label class="course-description">
+            <span>توضیحات</span>
+            <textarea name="description" rows="5" placeholder="توضیحات مربوط به درس را وارد کنید...">{{ course.description|default:'' }}</textarea>
+        </label>
+        <div class="course-editor-summary">
+            <article>
+                <span>وضعیت فعلی</span>
+                <strong>{% if course %}{{ course.status_label }}{% else %}درس جدید{% endif %}</strong>
+            </article>
+            <article>
+                <span>مسیر سازمانی</span>
+                <strong>{% if course %}{{ course.unit_label|fa_digits }}{% else %}بعد از انتخاب واحد نمایش داده می‌شود{% endif %}</strong>
+            </article>
+        </div>
+        <div class="course-form-actions">
+            <button type="submit" class="courses-primary">ذخیره درس <span aria-hidden="true">✓</span></button>
+            <a href="{{ back_url }}">انصراف</a>
+        </div>
+    </form>
+</section>
+
+{{ org_units|json_script:"courseEditorOrgUnits" }}
+{{ course.org_unit_id|default:''|json_script:"courseEditorSelectedUnit" }}
+<script>
+(() => {
+    const units = JSON.parse(document.getElementById('courseEditorOrgUnits').textContent);
+    const selectedUnit = JSON.parse(document.getElementById('courseEditorSelectedUnit').textContent || '""');
+    const byId = new Map(units.map((unit) => [String(unit.id), unit]));
+    const university = document.querySelector('[data-editor-university]');
+    const faculty = document.querySelector('[data-editor-faculty]');
+    const department = document.querySelector('[data-editor-department]');
+    const childrenOf = (parentId, types) => units.filter((unit) => String(unit.parent_id || '') === String(parentId || '') && types.includes(unit.type));
+    const fillSelect = (select, items, placeholder) => {
+        select.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach((item) => select.insertAdjacentHTML('beforeend', `<option value="${item.id}">${item.name}</option>`));
+        select.disabled = !items.length;
+    };
+    fillSelect(university, units.filter((unit) => unit.type === 'university'), 'انتخاب دانشگاه');
+    fillSelect(faculty, [], 'ابتدا دانشگاه را انتخاب کنید');
+    fillSelect(department, [], 'ابتدا دانشکده را انتخاب کنید');
+    university.addEventListener('change', () => {
+        fillSelect(faculty, childrenOf(university.value, ['faculty']), 'انتخاب دانشکده');
+        fillSelect(department, [], 'ابتدا دانشکده را انتخاب کنید');
+    });
+    faculty.addEventListener('change', () => {
+        fillSelect(department, childrenOf(faculty.value, ['department', 'educational_group']), 'انتخاب گروه آموزشی');
+    });
+    const setOrgSelects = (unitId) => {
+        let current = byId.get(String(unitId || ''));
+        const chain = [];
+        while (current) {
+            chain.push(current);
+            current = byId.get(String(current.parent_id || ''));
+        }
+        const uni = chain.find((item) => item.type === 'university');
+        const fac = chain.find((item) => item.type === 'faculty');
+        const dep = chain.find((item) => item.type === 'department' || item.type === 'educational_group');
+        university.value = uni?.id || '';
+        university.dispatchEvent(new Event('change'));
+        faculty.value = fac?.id || '';
+        faculty.dispatchEvent(new Event('change'));
+        department.value = dep?.id || '';
+    };
+    setOrgSelects(selectedUnit);
+})();
+</script>
+{% endblock %}

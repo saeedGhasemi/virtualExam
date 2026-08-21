@@ -1,11 +1,85 @@
-{% extends 'base.html' %}
-{% block title %}نتایج آزمون‌ها | آزمون‌یار{% endblock %}
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}نتایج آزمون‌ها | متاکوییز{% endblock %}
+
 {% block content %}
-<section class="super-admin-page" dir="rtl">
-    <div class="super-admin-heading"><span class="super-admin-kicker">نتایج منتشرشده</span><h1>نتایج من</h1></div>
-    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
-        <thead><tr><th>آزمون</th><th>ارسال</th><th>عملیات</th></tr></thead>
-        <tbody>{% for attempt in attempts %}<tr><td>{{ attempt.exam.title }}</td><td>{{ attempt.submitted_at }}</td><td><a href="{% url 'core:student_result_detail' attempt.pk %}">مشاهده کارنامه</a></td></tr>{% empty %}<tr><td colspan="3">نتیجه منتشرشده‌ای وجود ندارد.</td></tr>{% endfor %}</tbody>
-    </table></div></div>
+{% include 'student/_exam_shell_head.html' %}
+<style>
+  .sr-page{display:grid;gap:22px}.sr-title{display:flex;align-items:center;justify-content:flex-start;gap:14px;margin-bottom:18px}.sr-title-icon{display:grid;width:58px;height:58px;place-items:center;border-radius:14px;background:#075fff;color:#fff;box-shadow:0 18px 32px rgba(7,95,255,.22)}.sr-title-icon svg,.sr-btn svg,.sr-stat svg{width:1.35rem;height:1.35rem}.sr-title h1{margin:0;font-size:2rem;font-weight:950}.sr-title p{margin:4px 0 0;color:#64748b;font-weight:850}.sr-filters{display:grid;grid-template-columns:1fr 180px 180px;gap:18px;max-width:760px;margin:0 0 2px auto}.sr-input{min-height:54px;border:1px solid #d8e4f2;border-radius:12px;background:rgba(255,255,255,.82);padding:0 18px;color:#142858;font-weight:850;box-shadow:inset 0 1px 0 #fff}.sr-hero{direction:ltr;display:grid;grid-template-columns:260px 1px minmax(0,1fr) 230px;align-items:center;gap:32px;padding:24px 32px}.sr-ring{--p:0;display:grid;width:176px;height:176px;place-items:center;border-radius:50%;background:conic-gradient(#18b86b calc(var(--p)*1%),#e7edf5 0);justify-self:center}.sr-ring:before{content:"";position:absolute}.sr-ring span{display:grid;width:138px;height:138px;place-items:center;border-radius:50%;background:#fff;box-shadow:inset 0 2px 10px rgba(9,27,66,.05);font-size:3rem;font-weight:950;color:#18a85f;line-height:1}.sr-ring small{display:block;font-size:1rem;color:#64748b;margin-top:6px}.sr-divider{height:136px;background:#dbe5f1}.sr-hero-main{direction:rtl}.sr-hero-main h2{margin:0 0 12px;font-size:2rem;font-weight:950}.sr-meta{display:flex;gap:24px;flex-wrap:wrap;color:#5f6f91;font-weight:850}.sr-chip{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:0 16px;border-radius:999px;font-weight:950}.sr-chip.green{background:#dff8ec;color:#10a461}.sr-chip.orange{background:#fff2d6;color:#e58a00}.sr-chip.red{background:#ffe5e5;color:#ef4444}.sr-actions{direction:rtl;display:grid;gap:12px}.sr-btn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:58px;border:1px solid #b7caff;border-radius:10px;background:#fff;color:#075fff;font-weight:950}.sr-btn.primary{border-color:#075fff;background:#075fff;color:#fff;box-shadow:0 16px 34px rgba(7,95,255,.22)}.sr-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.sr-stat{display:flex;align-items:center;justify-content:space-between;min-height:126px;padding:24px}.sr-stat i{display:grid;width:68px;height:68px;place-items:center;border-radius:20px;background:#eaf2ff;color:#075fff}.sr-stat.green i{background:#dcf8ea;color:#12a664}.sr-stat.red i{background:#ffe5e5;color:#ef4444}.sr-stat.gray i{background:#edf1f7;color:#64748b}.sr-stat small{display:block;color:#657492;font-weight:900}.sr-stat strong{display:block;margin-top:10px;font-size:2.1rem;font-weight:950}.sr-bottom{display:grid;grid-template-columns:1.15fr .9fr;gap:22px}.sr-panel{padding:22px}.sr-panel h2{margin:0 0 18px;font-size:1.35rem;font-weight:950}.sr-table{width:100%;border-collapse:collapse}.sr-table th,.sr-table td{padding:14px 12px;border-bottom:1px solid #e2eaf4;text-align:right;color:#20315b;font-weight:850}.sr-table th{color:#657492;font-size:.9rem}.sr-mini-progress{height:8px;min-width:120px;border-radius:999px;background:#e3e9f2;overflow:hidden}.sr-mini-progress b{display:block;height:100%;border-radius:inherit;background:#075fff}.sr-bars{display:grid;grid-template-columns:repeat(4,1fr);align-items:end;gap:22px;height:260px;padding:20px 10px 0;border-right:1px solid #dfe7f2;border-bottom:1px solid #dfe7f2}.sr-bar{display:grid;gap:8px;text-align:center;color:#33446b;font-weight:850}.sr-bar b{align-self:end;width:58px;margin:auto;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#6fa2ff,#075fff);box-shadow:0 12px 24px rgba(7,95,255,.2)}.sr-empty{padding:36px;text-align:center;color:#64748b;font-weight:900}.sr-note{text-align:center;color:#64748b;font-weight:850}.sx-card{overflow:hidden}@media(max-width:1200px){.sr-hero{grid-template-columns:1fr}.sr-divider{display:none}.sr-stats,.sr-bottom,.sr-filters{grid-template-columns:1fr}.sr-actions{grid-template-columns:1fr 1fr}.sr-title{justify-content:flex-start}}
+</style>
+
+<section class="sr-page">
+  <div class="sr-title">
+    <span class="sr-title-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17V9M13 17V5M18 17v-6"/></svg></span>
+    <div>
+      <h1>نتایج آزمون‌ها</h1>
+      <p>کارنامه و نتایج آزمون‌های برگزارشده</p>
+    </div>
+  </div>
+
+  <form class="sr-filters" method="get">
+    <input class="sr-input" type="search" name="q" value="{{ filters.q }}" placeholder="جستجو در نتایج...">
+    <select class="sr-input" name="status"><option value="">وضعیت</option><option value="passed" {% if filters.status == 'passed' %}selected{% endif %}>قبول</option><option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>مردود</option><option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>در انتظار</option></select>
+    <select class="sr-input" name="date"><option>بازه زمانی</option><option>ماه جاری</option><option>ترم جاری</option></select>
+  </form>
+
+  {% if featured_result %}
+    <article class="sx-card sr-hero">
+      <div class="sr-ring" style="--p:{{ featured_result.percent }}"><span>{{ featured_result.percent|fa_digits }}<small>از ۱۰۰</small></span></div>
+      <div class="sr-divider"></div>
+      <div class="sr-hero-main">
+        <h2>{{ featured_result.title }}</h2>
+        <div class="sr-meta">
+          <span>برگزارشده در {{ featured_result.exam_date|fa_digits }}</span>
+          <span class="sr-chip {{ featured_result.status_tone }}">{{ featured_result.status_label }}</span>
+          <span>رتبه {{ featured_result.rank|fa_digits }} از {{ featured_result.rank_total|fa_digits }}</span>
+        </div>
+      </div>
+      <div class="sr-actions">
+        <a class="sr-btn primary" href="{% url 'core:student_result_detail' featured_result.pk %}"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>مشاهده جزئیات</a>
+        <a class="sr-btn" href="{% url 'core:student_result_detail' featured_result.pk %}"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>پاسخنامه آزمون</a>
+      </div>
+    </article>
+  {% else %}
+    <article class="sx-card sr-empty">هنوز نتیجه‌ای برای نمایش وجود ندارد.</article>
+  {% endif %}
+
+  <section class="sr-stats">
+    <article class="sx-card sr-stat"><div><small>نمره کل</small><strong>{{ stats.best_percent|fa_digits }}</strong></div><i><svg viewBox="0 0 24 24"><path d="m12 2 3 7 7 .6-5.2 4.6 1.6 6.8L12 17l-6.4 4 1.6-6.8L2 9.6 9 9Z"/></svg></i></article>
+    <article class="sx-card sr-stat green"><div><small>پاسخ صحیح</small><strong>{{ stats.correct|fa_digits }}</strong></div><i><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></i></article>
+    <article class="sx-card sr-stat red"><div><small>پاسخ نادرست</small><strong>{{ stats.wrong|fa_digits }}</strong></div><i><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></i></article>
+    <article class="sx-card sr-stat gray"><div><small>بدون پاسخ</small><strong>{{ stats.unanswered|fa_digits }}</strong></div><i><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></i></article>
+  </section>
+
+  <section class="sr-bottom">
+    <article class="sx-card sr-panel">
+      <h2>تاریخچه نتایج</h2>
+      <table class="sr-table">
+        <thead><tr><th>آزمون</th><th>تاریخ برگزاری</th><th>نمره</th><th>وضعیت</th><th>جزئیات</th></tr></thead>
+        <tbody>
+          {% for item in results %}
+            <tr>
+              <td>{{ item.title }}</td><td>{{ item.exam_date|fa_digits }}</td>
+              <td><span>{{ item.percent|fa_digits }} از ۱۰۰</span><div class="sr-mini-progress"><b style="width:{{ item.percent }}%"></b></div></td>
+              <td><span class="sr-chip {{ item.status_tone }}">{{ item.status_label }}</span></td>
+              <td><a class="sr-btn" style="min-height:38px;padding:0 14px" href="{% url 'core:student_result_detail' item.pk %}">جزئیات</a></td>
+            </tr>
+          {% empty %}<tr><td colspan="5">نتیجه‌ای ثبت نشده است.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </article>
+    <article class="sx-card sr-panel">
+      <h2>روند نمرات من</h2>
+      <div class="sr-bars">
+        {% for item in chart_items %}
+          <span class="sr-bar"><b style="height:{{ item.percent|default:8 }}%"></b><strong>{{ item.percent|fa_digits }}</strong><small>{{ item.short_title }}</small><small>{{ item.exam_date|fa_digits }}</small></span>
+        {% empty %}
+          <p class="sr-note">برای نمایش نمودار، نتیجه‌ای وجود ندارد.</p>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
 </section>
+{% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

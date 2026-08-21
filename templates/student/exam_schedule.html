@@ -1,30 +1,104 @@
-{% extends 'base.html' %}
-{% block title %}برنامه آزمون‌ها | آزمون‌یار{% endblock %}
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}تقویم آزمون‌ها | متاکوییز{% endblock %}
 {% block content %}
-<section class="super-admin-page" dir="rtl">
-    <div class="super-admin-heading"><span class="super-admin-kicker">دانشجو</span><h1>برنامه آزمون‌های من</h1></div>
-    <nav class="super-admin-actions">
-        <a href="{% url 'core:student_practice_exam' %}">آزمون آزمایشی</a>
-        <a href="{% url 'core:student_results' %}">نتایج</a>
-        <a href="{% url 'core:student_objections' %}">اعتراض‌ها</a>
-    </nav>
-    <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
-        <thead><tr><th>آزمون</th><th>درس</th><th>استاد</th><th>زمان</th><th>مدت</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-        <tbody>
-            {% for exam in exams %}
-                <tr>
-                    <td>{{ exam.title }}</td>
-                    <td>{{ exam.course|default:"-" }}</td>
-                    <td>{{ exam.designer.profile.full_name|default:"-" }}</td>
-                    <td>{{ exam.starts_at }} تا {{ exam.ends_at }}</td>
-                    <td>{{ exam.duration_minutes|default:"-" }} دقیقه</td>
-                    <td>{{ exam.get_status_display }}</td>
-                    <td><a href="{% url 'core:student_exam_detail' exam.pk %}">مشاهده</a></td>
-                </tr>
-            {% empty %}
-                <tr><td colspan="7">آزمونی برای شما ثبت نشده است.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table></div></div>
+{% include 'student/_exam_shell_head.html' %}
+<style>
+  .st-cal-wrap{max-width:1530px;margin:0 auto}.st-cal-head{display:flex;align-items:center;justify-content:flex-start;margin:0 0 22px}.st-cal-title{display:flex;align-items:center;gap:14px}.st-cal-icon{display:grid;width:56px;height:56px;place-items:center;border-radius:16px;background:#fff;color:#075fff;border:1px solid #e0e9f6;box-shadow:0 16px 34px rgba(30,55,95,.08)}.st-cal-title h1{margin:0;font-size:2rem;font-weight:950}.st-cal-title p{margin:.25rem 0 0;color:#61708d;font-weight:850}
+  .st-toolbar{direction:ltr;display:grid;grid-template-columns:minmax(260px,360px) 170px 220px 1fr;gap:18px;margin-bottom:20px}.st-search,.st-select{direction:rtl;height:54px;border:1px solid #dbe6f4;border-radius:12px;background:rgba(255,255,255,.78);display:flex;align-items:center;gap:12px;padding:0 15px;color:#445575;font-weight:900}.st-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#07183b}.st-select{justify-content:space-between}
+  .st-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,460px);grid-template-areas:"calendar side";gap:22px;align-items:start}.st-side{grid-area:side;display:grid;gap:16px}.st-panel{padding:18px}.st-panel h2{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 14px;font-size:1.1rem;font-weight:950}.st-panel small{color:#65728c;font-weight:850}.st-day-list{display:grid;gap:10px}.st-event-row{display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;align-items:center;min-height:66px;border:1px solid #dde7f4;border-radius:10px;background:#fff;padding:10px 12px}.st-event-row.live{background:linear-gradient(90deg,rgba(34,197,94,.12),rgba(255,255,255,.9));border-color:#bdebd0}.st-event-row.upcoming{background:linear-gradient(90deg,rgba(245,158,11,.13),rgba(255,255,255,.9));border-color:#f6d79b}.st-event-row.done{background:#f9fbff}.st-event-row a{width:100%;min-height:36px;padding:0 10px;border-color:#9bb8ff}.st-event-row strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:950}.st-event-row span{display:inline-flex;align-items:center;gap:8px;margin-top:4px;color:#66738d;font-size:.86rem;font-weight:850}
+  .st-month-list{display:grid;gap:8px}.st-month-row{display:grid;grid-template-columns:92px 72px 58px minmax(0,1fr);gap:10px;align-items:center;min-height:46px;border:1px solid #e0e8f4;border-radius:9px;background:#fff;padding:7px 10px}.st-month-row strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.93rem}.st-month-row time{color:#30415f;font-weight:900}.st-more{display:flex;align-items:center;gap:8px;margin-top:12px;color:#075fff;font-weight:950}
+  .st-calendar-card{grid-area:calendar;padding:22px 24px 18px}.st-calendar-top{display:grid;grid-template-columns:220px minmax(0,1fr) 120px;align-items:center;margin-bottom:22px}.st-view-tabs{display:flex;border:1px solid #d9e4f3;border-radius:10px;overflow:hidden;width:max-content}.st-view-tabs button{width:70px;height:44px;border:0;border-left:1px solid #d9e4f3;background:#fff;color:#23345a;font-weight:950}.st-view-tabs button:first-child{border-left:0}.st-view-tabs .active{background:#075fff;color:#fff;box-shadow:0 10px 24px rgba(7,95,255,.24)}.st-month-name{display:flex;align-items:center;justify-content:center;gap:34px;font-size:1.24rem;font-weight:950}.st-month-name button{display:grid;width:42px;height:42px;place-items:center;border:1px solid #dce7f4;border-radius:10px;background:#fff;color:#075fff}.st-today{justify-self:end;width:76px;height:44px;border:1px solid #dce7f4;border-radius:10px;background:#fff;color:#075fff;font-weight:950}
+  .st-weekdays,.st-days{display:grid;grid-template-columns:repeat(7,1fr)}.st-weekdays div{height:42px;display:grid;place-items:center;color:#142858;font-weight:950}.st-days{border:1px solid #dce7f4;border-radius:12px;overflow:hidden;background:#fff}.st-cell{position:relative;min-height:106px;border-left:1px solid #e0e8f4;border-bottom:1px solid #e0e8f4;padding:13px 12px;background:rgba(255,255,255,.82)}.st-cell:nth-child(7n){border-left:0}.st-cell:nth-last-child(-n+7){border-bottom:0}.st-cell.is-muted{color:#a5afc1;background:rgba(248,251,255,.78)}.st-cell.is-selected{outline:2px solid #1267ff;outline-offset:-2px;background:linear-gradient(145deg,#f9fbff,#eef5ff)}.st-day-num{font-size:1.1rem;font-weight:950}.st-day-badge{display:grid;width:32px;height:32px;place-items:center;border-radius:50%;background:#8792a5;color:#fff}.st-cell.upcoming .st-day-badge{background:#f59e0b}.st-cell.live .st-day-badge{background:#1ebd63}.st-cell.done .st-day-badge{background:#8792a5}.st-cell-event{margin-top:8px;display:grid;gap:4px;justify-items:center;text-align:center;color:#142858;font-size:.82rem;font-weight:900}.st-cell-event b{max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.st-cell-event .dot{width:7px;height:7px;border-radius:99px;background:#8b96aa}.st-cell.live{background:linear-gradient(180deg,rgba(34,197,94,.13),rgba(255,255,255,.84))}.st-cell.upcoming{background:linear-gradient(180deg,rgba(245,158,11,.16),rgba(255,255,255,.86))}.st-cell.done{background:linear-gradient(180deg,rgba(100,116,139,.12),rgba(255,255,255,.86))}
+  .st-legend{margin:16px auto 0;display:flex;justify-content:center;gap:36px;max-width:420px;min-height:46px;align-items:center;border:1px solid #dfe8f5;border-radius:10px;background:#fff;color:#52617c;font-weight:900}.st-legend span{display:flex;align-items:center;gap:8px}.st-empty{padding:22px;text-align:center;color:#64748b;font-weight:900}
+  @media(max-width:1180px){.st-toolbar,.st-grid,.st-calendar-top{grid-template-columns:1fr}.st-calendar-top{gap:14px}.st-today{justify-self:start}.st-cell{min-height:92px}.st-grid{display:flex;flex-direction:column}.st-calendar-card{order:1}.st-side{order:2;width:100%}}@media(max-width:760px){.st-toolbar{gap:10px}.st-weekdays div{font-size:.8rem}.st-cell{min-height:78px;padding:8px}.st-cell-event b{max-width:72px}.st-month-row{grid-template-columns:1fr}.st-event-row{grid-template-columns:1fr}}
+</style>
+<section class="st-cal-wrap">
+  <header class="st-cal-head">
+    <div class="st-cal-title">
+      <span class="st-cal-icon"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg></span>
+      <div><h1>تقویم آزمون‌ها</h1><p>زمان‌بندی آزمون‌های شما</p></div>
+    </div>
+  </header>
+
+  <div class="st-toolbar">
+    <label class="st-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="جستجو در آزمون‌ها..."></label>
+    <button class="st-select" type="button"><span>همه درس‌ها</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button class="st-select" type="button"><span>همه وضعیت‌ها</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+  </div>
+
+  <div class="st-grid">
+    <aside class="st-side">
+      <article class="sx-card st-panel">
+        <h2>رویدادهای روز انتخاب‌شده</h2>
+        <div style="text-align:center;margin:-6px 0 16px"><small>{{ selected_date|fa_digits }}</small></div>
+        <div class="st-day-list">
+          {% for item in selected_events %}
+            <div class="st-event-row {{ item.tone }}">
+              <a class="sx-btn{% if item.state == 'active' %} primary{% endif %}" href="{{ item.action_url }}">{{ item.action_label }}</a>
+              <div><strong>{{ item.exam.title }}</strong><span>{{ item.status_label }} · {{ item.time|fa_digits }} · {{ item.exam.duration_minutes|default:90|fa_digits }} دقیقه</span></div>
+            </div>
+          {% empty %}
+            <div class="st-empty">برای این روز آزمونی ثبت نشده است.</div>
+          {% endfor %}
+        </div>
+        <a class="st-more" href="#"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>مشاهده همه رویدادهای این روز</a>
+      </article>
+
+      <article class="sx-card st-panel">
+        <h2>آزمون‌های این ماه</h2>
+        <div class="st-month-list">
+          {% for item in month_events %}
+            <a class="st-month-row" href="{{ item.action_url }}">
+              <span class="sx-chip {{ item.tone }}">{{ item.status_label }}</span>
+              <time>{{ item.time|fa_digits }}</time>
+              <span>{{ item.day|fa_digits }} مرداد</span>
+              <strong>{{ item.exam.title }}</strong>
+            </a>
+          {% empty %}
+            <div class="st-empty">آزمونی برای نمایش وجود ندارد.</div>
+          {% endfor %}
+        </div>
+        <a class="st-more" href="#"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>مشاهده همه آزمون‌های این ماه</a>
+      </article>
+    </aside>
+
+    <main class="sx-card st-calendar-card">
+      <div class="st-calendar-top">
+        <div class="st-view-tabs"><button class="active" type="button">ماه</button><button type="button">هفته</button></div>
+        <div class="st-month-name">
+          <button type="button" aria-label="ماه قبل"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span>{{ calendar_title }}</span>
+          <button type="button" aria-label="ماه بعد"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+        <button class="st-today" type="button">امروز</button>
+      </div>
+      <div class="st-weekdays">
+        <div>شنبه</div><div>یکشنبه</div><div>دوشنبه</div><div>سه‌شنبه</div><div>چهارشنبه</div><div>پنجشنبه</div><div>جمعه</div>
+      </div>
+      <div class="st-days">
+        {% for cell in calendar_cells %}
+          {% with event=cell.events.0 %}
+            <div class="st-cell{% if cell.muted %} is-muted{% endif %}{% if cell.is_selected %} is-selected{% endif %}{% if event %} {{ event.tone }}{% endif %}">
+              <span class="{% if event %}st-day-badge{% else %}st-day-num{% endif %}">{{ cell.day|fa_digits }}</span>
+              {% if event %}
+                <div class="st-cell-event">
+                  <b>{{ event.exam.title }}</b>
+                  <small>{{ event.time|fa_digits }}</small>
+                  <span class="dot"></span>
+                </div>
+              {% endif %}
+            </div>
+          {% endwith %}
+        {% endfor %}
+      </div>
+      <div class="st-legend">
+        <span><i class="sx-dot gray"></i>در حال برگزاری</span>
+        <span><i class="sx-dot orange"></i>آتی</span>
+        <span><i class="sx-dot"></i>تکمیل شده</span>
+      </div>
+    </main>
+  </div>
 </section>
+{% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

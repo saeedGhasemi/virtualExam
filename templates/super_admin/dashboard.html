@@ -1,6 +1,6 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
-{% block title %}پنل مدیر کل سیستم | آزمون‌یار{% endblock %}
+{% block title %}پنل مدیر کل سیستم | متا کوییز{% endblock %}
 
 {% block content %}
 <section class="super-admin-page" dir="rtl">
@@ -11,7 +11,7 @@
 
     <nav class="super-admin-actions">
         <a href="{% url 'core:super_admin_institution_create' %}">ایجاد مؤسسه جدید</a>
-        <a href="{% url 'core:super_admin_users' %}">مدیریت کاربران</a>
+        <a href="{% url 'core:super_admin_users' %}?tab=students">مدیریت کاربران</a>
         <a href="{% url 'core:super_admin_roles' %}">نقش‌ها و مجوزها</a>
         <a href="{% url 'core:super_admin_reports' %}">گزارش کل سامانه</a>
         <a href="{% url 'core:super_admin_active_exams' %}">توقف اضطراری آزمون</a>

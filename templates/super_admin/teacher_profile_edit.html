@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}ویرایش اطلاعات استاد | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page teacher-edit-page" dir="rtl">
+    <nav class="teacher-profile-role-tabs" aria-label="تب کاربران">
+        <a href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
+        <a class="is-active" href="{% url 'core:super_admin_users' %}?tab=teachers">اساتید</a>
+        <a href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
+    </nav>
+
+    <a class="teacher-profile-back teacher-edit-back" href="{{ back_url }}">
+        <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+        بازگشت به پروفایل استاد
+    </a>
+
+    <header class="teacher-edit-title">
+        <h1>ویرایش اطلاعات استاد</h1>
+    </header>
+
+    <form method="post" class="teacher-edit-form">
+        {% csrf_token %}
+        <section class="teacher-edit-hero">
+            <div class="teacher-edit-identity">
+                <div class="teacher-edit-avatar">
+                    {% if teacher.avatar_url %}
+                        <img src="{{ teacher.avatar_url }}" alt="{{ teacher.full_name }}">
+                    {% else %}
+                        <span>{{ teacher.full_name|slice:":1"|default:"ا" }}</span>
+                    {% endif %}
+                </div>
+                <button type="button">
+                    <svg viewBox="0 0 24 24"><path d="M14.5 4h-5L8 6H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3l-1.5-2Z"/><circle cx="12" cy="13" r="3"/></svg>
+                    تغییر تصویر
+                </button>
+            </div>
+            <div class="teacher-edit-hero-copy">
+                <h2>{{ teacher.full_name|default:"دکتر امیرحسین رضایی"|fa_digits }}</h2>
+                <p>استاد {{ teacher.personnel_code|default:"۱۰۲۴"|fa_digits }}</p>
+                <span><small></small> فعال</span>
+            </div>
+        </section>
+
+        <div class="teacher-edit-grid">
+            <section class="teacher-edit-card teacher-edit-account">
+                <h2>
+                    حساب کاربری و دسترسی
+                    <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                </h2>
+                <div class="teacher-edit-row two">
+                    <label>
+                        <span>نقش در سامانه</span>
+                        <select name="role">
+                            <option selected>استاد</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>وضعیت حساب</span>
+                        <select name="status">
+                            <option value="active" {% if teacher.status == 'active' or not teacher.status %}selected{% endif %}>فعال</option>
+                            <option value="inactive" {% if teacher.status == 'inactive' %}selected{% endif %}>غیرفعال</option>
+                            <option value="blocked" {% if teacher.status == 'blocked' %}selected{% endif %}>مسدود</option>
+                        </select>
+                    </label>
+                </div>
+                <label>
+                    <span>نام کاربری</span>
+                    <input name="username" value="{{ teacher.username|default:'arezaei1024'|fa_digits }}">
+                </label>
+                <div class="teacher-edit-switch is-on">
+                    <span>ارسال اعلان‌ها</span>
+                    <b></b>
+                </div>
+                <div class="teacher-edit-switch">
+                    <span>اجبار تغییر رمز در ورود بعدی</span>
+                    <b></b>
+                </div>
+            </section>
+
+            <section class="teacher-edit-card teacher-edit-org">
+                <h2>
+                    اطلاعات سازمانی و همکاری
+                    <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </h2>
+                <label>
+                    <span>مسیر سازمانی</span>
+                    <div class="teacher-edit-path">
+                        <input value="{{ primary_label|fa_digits }}" readonly>
+                        <button type="button">انتخاب مسیر</button>
+                    </div>
+                </label>
+                <div class="teacher-edit-row two">
+                    <label>
+                        <span>نوع همکاری</span>
+                        <select name="cooperation_type">
+                            <option value="رسمی" {% if teacher.approval_status == 'رسمی' %}selected{% endif %}>رسمی</option>
+                            <option value="قراردادی" {% if teacher.approval_status == 'قراردادی' %}selected{% endif %}>قراردادی</option>
+                            <option value="مدعو" {% if teacher.approval_status == 'مدعو' %}selected{% endif %}>مدعو</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>مرتبه علمی</span>
+                        <select name="specialty">
+                            <option value="مربی" {% if teacher.specialty == 'مربی' %}selected{% endif %}>مربی</option>
+                            <option value="استادیار" {% if teacher.specialty == 'استادیار' %}selected{% endif %}>استادیار</option>
+                            <option value="دانشیار" {% if teacher.specialty == 'دانشیار' %}selected{% endif %}>دانشیار</option>
+                            <option value="استاد" {% if teacher.specialty == 'استاد' %}selected{% endif %}>استاد</option>
+                        </select>
+                    </label>
+                </div>
+                <label>
+                    <span>تاریخ شروع همکاری</span>
+                    <input value="۱۳۹۵/۰۷/۱۵" readonly>
+                    <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                </label>
+                <input type="hidden" name="department" value="{{ primary_label }}">
+            </section>
+
+            <section class="teacher-edit-card teacher-edit-basic">
+                <h2>
+                    اطلاعات پایه و ارتباطی
+                    <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </h2>
+                <div class="teacher-edit-row two">
+                    <label>
+                        <span>نام</span>
+                        <input name="first_name" value="{{ teacher.first_name|default:'امیرحسین'|fa_digits }}">
+                    </label>
+                    <label>
+                        <span>نام خانوادگی</span>
+                        <input name="last_name" value="{{ teacher.last_name|default:'رضایی'|fa_digits }}">
+                    </label>
+                </div>
+                <div class="teacher-edit-row two">
+                    <label>
+                        <span>کد ملی</span>
+                        <input name="national_id" value="{{ teacher.national_id|default:'۰۰۱۲۳۴۵۶۷۸'|fa_digits }}">
+                    </label>
+                    <label>
+                        <span>شماره پرسنلی</span>
+                        <input name="personnel_code" value="{{ teacher.personnel_code|default:'۱۰۲۴'|fa_digits }}">
+                    </label>
+                </div>
+                <div class="teacher-edit-row two">
+                    <label>
+                        <span>شماره همراه</span>
+                        <input name="phone" value="{{ teacher.phone|default:'۰۹۱۲ ۱۲۳ ۴۵۶۷'|fa_digits }}">
+                    </label>
+                    <label>
+                        <span>ایمیل</span>
+                        <input name="email" value="{{ teacher.email|default:'amir.rezaei@iums.ac.ir' }}">
+                    </label>
+                </div>
+            </section>
+        </div>
+
+        <footer class="teacher-edit-submitbar">
+            <button class="teacher-edit-save" type="submit">
+                ذخیره تغییرات
+                <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+            <a href="{{ back_url }}">انصراف</a>
+            <span class="{% if saved %}is-saved{% endif %}">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+                {% if saved %}تغییرات ذخیره شد{% else %}تغییرات ذخیره‌نشده{% endif %}
+            </span>
+            <small>
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                آخرین ویرایش: امروز، ۱۰:۴۲
+            </small>
+        </footer>
+    </form>
+</section>
+{% endblock %}

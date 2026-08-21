@@ -1,0 +1,680 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}پروفایل {{ user_profile.full_name|default:"کاربر" }} | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page user-profile-page {% if kind == 'student' %}user-profile-page--student{% elif kind == 'teacher' %}user-profile-page--teacher{% elif kind == 'manager' %}user-profile-page--manager{% endif %}" dir="rtl">
+    <nav class="user-profile-crumbs" aria-label="مسیر صفحه">
+        <a href="{% url 'core:super_admin_users' %}?tab={{ active_tab }}">کاربران</a>
+        <span>/</span>
+        <a href="{{ back_url }}">
+            {% if kind == "manager" %}مدیران{% elif kind == "teacher" %}اساتید{% else %}دانشجویان{% endif %}
+        </a>
+        <span>/</span>
+        <b>پروفایل</b>
+    </nav>
+
+    {% if kind == "teacher" %}
+        <nav class="teacher-profile-role-tabs" aria-label="تب کاربران">
+            <a href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
+            <a class="is-active" href="{% url 'core:super_admin_users' %}?tab=teachers">اساتید</a>
+            <a href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
+        </nav>
+        <a class="teacher-profile-back" href="{{ back_url }}">
+            <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+            بازگشت به فهرست اساتید
+        </a>
+    {% endif %}
+
+    {% if kind == "manager" %}
+        <header class="manager-profile-header">
+            <div>
+                <small>کاربران / مدیران / پروفایل مدیر</small>
+                <h1>پروفایل مدیر</h1>
+            </div>
+            <div class="manager-profile-actions">
+                {% for action in actions %}
+                    <a class="user-profile-action is-{{ action.tone }}" href="{{ action.url }}">
+                        {% if action.icon == "edit" %}
+                            <svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg>
+                        {% elif action.icon == "shield" %}
+                            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>
+                        {% else %}
+                            <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                        {% endif %}
+                        {{ action.label }}
+                    </a>
+                {% endfor %}
+            </div>
+        </header>
+    {% endif %}
+
+    {% if kind != "manager" %}
+    <section class="user-profile-hero">
+        <div class="user-profile-actions">
+            {% for action in actions %}
+                <a class="user-profile-action is-{{ action.tone }} {% if action.icon == 'more' %}is-icon-only{% endif %}" href="{{ action.url }}">
+                    {% if action.icon == "edit" %}
+                        <svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg>
+                    {% elif action.icon == "shield" %}
+                        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>
+                    {% elif action.icon == "book" %}
+                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                    {% elif action.icon == "more" %}
+                        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+                    {% else %}
+                        <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                    {% endif %}
+                    {{ action.label }}
+                </a>
+            {% endfor %}
+        </div>
+        <div class="user-profile-identity">
+            <div class="user-profile-avatar">
+                {% if user_profile.avatar_url %}
+                    <img src="{{ user_profile.avatar_url }}" alt="{{ user_profile.full_name }}">
+                {% else %}
+                    <span>{{ user_profile.full_name|slice:":1"|default:"م" }}</span>
+                {% endif %}
+            </div>
+            <div>
+                <h1>{{ user_profile.full_name|default:"کاربر سامانه" }}</h1>
+                <p>{{ role_label }}</p>
+                {% if kind == "student" %}
+                    <small class="student-profile-idline">شماره دانشجویی: {{ user_profile.student_number|default:user_profile.identifier|default:"-" }}</small>
+                {% elif kind == "teacher" %}
+                    <small class="teacher-profile-code-line">استاد {{ user_profile.personnel_code|default:user_profile.identifier|default:"۱۰۲۴" }}</small>
+                {% endif %}
+                <div class="user-profile-badges">
+                    <span class="is-{{ status_tone }}">{{ status_label }}</span>
+                    {% if kind == "student" %}
+                        <span>{{ user_profile.student_number|default:user_profile.identifier|default:"-" }}</span>
+                    {% elif kind == "teacher" %}
+                        <span>{{ teacher_rank|default:"دانشیار" }}</span>
+                    {% else %}
+                        <span>{{ user_profile.personnel_code|default:user_profile.identifier|default:"ADM" }}</span>
+                    {% endif %}
+                </div>
+                <small>{{ primary_unit.label }}</small>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if kind == "student" %}
+        <nav class="user-profile-tabs" aria-label="بخش‌های پروفایل">
+            <a class="{% if student_section == 'overview' %}is-active{% endif %}" href="{{ student_section_urls.overview }}">نمای کلی</a>
+            <a class="{% if student_section == 'courses' %}is-active{% endif %}" href="{{ student_section_urls.courses }}">درس‌ها</a>
+            <a class="{% if student_section == 'exams' %}is-active{% endif %}" href="{{ student_section_urls.exams }}">آزمون‌ها</a>
+            <a class="{% if student_section == 'activity' %}is-active{% endif %}" href="{{ student_section_urls.activity }}">فعالیت‌ها</a>
+        </nav>
+    {% endif %}
+
+    <div class="user-profile-stats">
+        {% for stat in stats %}
+            <article>
+                <em class="is-{{ stat.tone }}">
+                    {% if stat.icon == "book" %}
+                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                    {% elif stat.icon == "users" %}
+                        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+                    {% elif stat.icon == "graduation" %}
+                        <svg viewBox="0 0 24 24"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+                    {% elif stat.icon == "building" %}
+                        <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h1M9 13h1M9 17h1M15 13h1M15 17h1"/></svg>
+                    {% elif stat.icon == "trend" %}
+                        <svg viewBox="0 0 24 24"><path d="M3 17 9 11l4 4 8-8"/><path d="M14 7h7v7"/></svg>
+                    {% elif stat.icon == "check" %}
+                        <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/><circle cx="12" cy="12" r="9"/></svg>
+                    {% elif stat.icon == "calendar" %}
+                        <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                    {% elif stat.icon == "clock" %}
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    {% elif stat.icon == "device" %}
+                        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="13" height="14" rx="2"/><path d="M8 22h6"/><path d="M11 18v4"/><rect x="17" y="9" width="4" height="9" rx="1"/></svg>
+                    {% else %}
+                        <svg viewBox="0 0 24 24"><path d="M9 11h6M9 15h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+                    {% endif %}
+                </em>
+                <span>{{ stat.label }}</span>
+                <strong>{{ stat.value }}</strong>
+            </article>
+        {% endfor %}
+    </div>
+
+    {% if kind == "manager" %}
+        <div class="manager-profile-grid" id="overview">
+            <aside class="manager-profile-sidecard">
+                <div class="manager-profile-avatar">
+                    {% if user_profile.avatar_url %}
+                        <img src="{{ user_profile.avatar_url }}" alt="{{ user_profile.full_name }}">
+                    {% else %}
+                        <span>{{ user_profile.full_name|slice:":1"|default:"م" }}</span>
+                    {% endif %}
+                </div>
+                <h2>{{ user_profile.full_name|default:"مدیر سامانه" }}</h2>
+                <p>{{ role_label }}</p>
+                <ul>
+                    {% for item in manager_contact_items %}
+                        <li>
+                            <span>{{ item.label }}</span>
+                            <b class="{% if item.tone %}is-{{ item.tone }}{% endif %}">{{ item.value|default:"-" }}</b>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </aside>
+
+            <main class="manager-profile-main">
+                <section class="manager-profile-card manager-profile-org-card">
+                    <h2>
+                        اطلاعات سازمانی
+                        <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                    </h2>
+                    <div class="manager-profile-path">
+                        <span>{{ primary_unit.university }}</span>
+                        <em>←</em>
+                        <span>{{ primary_unit.faculty }}</span>
+                        <em>←</em>
+                        <span>{{ primary_unit.department }}</span>
+                    </div>
+                    <dl>
+                        {% for item in manager_org_items %}
+                            <div><dt>{{ item.label }}</dt><dd>{{ item.value|default:"-" }}</dd></div>
+                        {% endfor %}
+                    </dl>
+                </section>
+
+                <section class="manager-profile-card manager-profile-permission-card">
+                    <h2>
+                        محدوده دسترسی و مجوزها
+                        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </h2>
+                    <div class="manager-permission-chips">
+                        {% for permission in manager_permissions %}
+                            <span>{{ permission }} <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        {% endfor %}
+                    </div>
+                    <p>دسترسی به واحد اصلی و زیرواحدهای آن</p>
+                    <a href="{{ access_url|default:edit_url }}">مشاهده همه دسترسی‌ها</a>
+                </section>
+
+                <section class="manager-profile-card manager-profile-activity-card">
+                    <h2>
+                        آخرین فعالیت‌ها
+                        <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                    </h2>
+                    <div class="manager-activity-list">
+                        {% for item in timeline %}
+                            <article>
+                                <span></span>
+                                <div>
+                                    <strong>{{ item.title }}</strong>
+                                    <small>{{ item.meta }}</small>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="manager-profile-card manager-profile-status-card">
+                    <h2>
+                        خلاصه وضعیت
+                        <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15h2M12 11h2M17 7h2"/></svg>
+                    </h2>
+                    <div class="manager-status-layout">
+                        <dl>
+                            {% for item in manager_status_items %}
+                                <div><dt>{{ item.label }}</dt><dd class="{% if item.tone %}is-{{ item.tone }}{% endif %}">{{ item.value|default:"-" }}</dd></div>
+                            {% endfor %}
+                        </dl>
+                        <div class="manager-chart" aria-label="فعالیت در ۳۰ روز اخیر">
+                            {% for bar in manager_chart %}
+                                <span style="--bar: {{ bar.value }}%"><b>{{ bar.label }}</b></span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    {% elif kind == "student" %}
+        {% if student_section == "overview" %}
+        <div class="student-profile-grid" id="overview">
+            <main class="student-profile-main">
+                <section class="student-profile-card student-profile-info-card">
+                    <h2>
+                        اطلاعات دانشجو
+                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </h2>
+                    <dl>
+                        {% for item in student_detail_items %}
+                            <div>
+                                <dt>{{ item.label }}</dt>
+                                <dd>{{ item.value|default:"-" }}</dd>
+                            </div>
+                        {% endfor %}
+                    </dl>
+                </section>
+
+                <section class="student-profile-card student-profile-exams-card" id="exams">
+                    <h2>
+                        آزمون‌های پیش رو
+                        <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                    </h2>
+                    <div>
+                        {% for exam in upcoming_exams %}
+                            <article>
+                                <span>{{ exam.exam_date|default:"-" }}</span>
+                                <strong>{{ exam.course_title|default:exam.title|default:"آزمون" }}</strong>
+                                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+                            </article>
+                        {% empty %}
+                            <p class="user-profile-empty">آزمون پیش‌رویی برای این دانشجو ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                    <a href="{% url 'core:super_admin_exams' %}">مشاهده همه آزمون‌ها</a>
+                </section>
+            </main>
+
+            <aside class="student-profile-aside">
+                <section class="student-profile-card student-profile-account-card">
+                    <h2>
+                        وضعیت حساب
+                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </h2>
+                    <dl>
+                        {% for item in student_account_items %}
+                            <div>
+                                <dt>{{ item.label }}</dt>
+                                <dd class="{% if item.tone %}is-{{ item.tone }}{% endif %}">{{ item.value|default:"-" }}</dd>
+                            </div>
+                        {% endfor %}
+                    </dl>
+                    <footer>
+                        <a class="is-danger" href="{{ edit_url }}">غیرفعال‌سازی</a>
+                        <a href="{{ edit_url }}">تغییر رمز عبور</a>
+                    </footer>
+                </section>
+
+                <section class="student-profile-card student-profile-courses-card" id="courses">
+                    <h2>درس‌های ترم جاری</h2>
+                    <div class="student-course-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>نام درس</th>
+                                    <th>استاد</th>
+                                    <th>واحد</th>
+                                    <th>وضعیت</th>
+                                    <th>پیشرفت</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in courses %}
+                                    <tr>
+                                        <td>{{ course.title }}</td>
+                                        <td>{{ course.teacher_name|default:"-" }}</td>
+                                        <td>{{ course.units }}</td>
+                                        <td><span class="is-{{ course.status_tone }}">{{ course.status_label }}</span></td>
+                                        <td>
+                                            <div class="student-progress">
+                                                <em style="--progress: {{ course.progress }}%"></em>
+                                                <b>{{ course.progress_label }}</b>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="5">درسی برای این کاربر ثبت نشده است.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </aside>
+        </div>
+        {% elif student_section == "courses" %}
+            <div class="student-profile-tab-layout student-profile-tab-layout--courses" id="courses">
+                <aside class="student-profile-tab-side">
+                    <section class="student-profile-card student-unit-summary">
+                        <h2>خلاصه انتخاب واحد</h2>
+                        <div class="student-donut" style="--value: 68">
+                            <strong>۶۸٪</strong>
+                            <span>پیشرفت کلی</span>
+                        </div>
+                        <dl>
+                            <div><dt>واحد اخذشده</dt><dd>۱۴</dd></div>
+                            <div><dt>واحد در حال گذراندن</dt><dd>۱۱</dd></div>
+                            <div><dt>واحد تکمیل‌شده</dt><dd>۳</dd></div>
+                        </dl>
+                    </section>
+                    <section class="student-profile-card student-near-plan">
+                        <h2>برنامه نزدیک</h2>
+                        {% for exam in upcoming_exams|slice:":2" %}
+                            <article>
+                                <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                                <div>
+                                    <strong>{{ exam.course_title|default:exam.title|default:"آزمون" }}</strong>
+                                    <span>{{ exam.exam_date|default:"-" }}، {{ exam.exam_time|default:"-" }}</span>
+                                </div>
+                            </article>
+                        {% empty %}
+                            <p class="user-profile-empty">برنامه نزدیکی ثبت نشده است.</p>
+                        {% endfor %}
+                        <a href="{{ student_section_urls.exams }}">مشاهده همه برنامه‌ها</a>
+                    </section>
+                </aside>
+
+                <main class="student-profile-card student-courses-panel">
+                    <header>
+                        <h2>درس‌های ترم جاری</h2>
+                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                    </header>
+                    <div class="student-tab-filters">
+                        <button type="button">نیمسال دوم ۱۴۰۳-۱۴۰۴</button>
+                        <button type="button">همه درس‌ها</button>
+                    </div>
+                    <div class="student-course-cards">
+                        {% for course in courses %}
+                            <article>
+                                <em class="is-{{ course.status_tone }}">
+                                    {% if forloop.counter == 1 %}
+                                        <svg viewBox="0 0 24 24"><path d="M12 2v6M5 5l4 4M19 5l-4 4"/><circle cx="12" cy="14" r="8"/></svg>
+                                    {% elif forloop.counter == 2 %}
+                                        <svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 19V5h10v14"/><path d="M9 9h6M9 13h6"/></svg>
+                                    {% elif forloop.counter == 3 %}
+                                        <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/><circle cx="12" cy="12" r="9"/></svg>
+                                    {% else %}
+                                        <svg viewBox="0 0 24 24"><path d="M12 2v20M5 7h14M5 17h14"/></svg>
+                                    {% endif %}
+                                </em>
+                                <div class="student-course-title">
+                                    <strong>{{ course.title }}</strong>
+                                    <span>استاد: {{ course.teacher_name|default:"-" }}</span>
+                                </div>
+                                <div class="student-course-units"><span>واحد</span><b>{{ course.units }}</b></div>
+                                <div class="student-course-state"><span>وضعیت</span><b class="is-{{ course.status_tone }}">{{ course.status_label }}</b></div>
+                                <div class="student-course-progress">
+                                    <span>پیشرفت</span>
+                                    <b>{{ course.progress_label }}</b>
+                                    <i style="--progress: {{ course.progress }}%"></i>
+                                </div>
+                                <a href="{% url 'core:super_admin_courses' %}?q={{ course.title }}">مشاهده درس</a>
+                            </article>
+                        {% empty %}
+                            <p class="user-profile-empty">درسی برای این دانشجو ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                </main>
+            </div>
+
+        {% elif student_section == "exams" %}
+            <div class="student-profile-tab-layout student-profile-tab-layout--exams" id="exams">
+                <aside class="student-profile-tab-side">
+                    <section class="student-profile-card student-exam-performance">
+                        <h2>خلاصه عملکرد</h2>
+                        <div class="student-donut" style="--value: 86">
+                            <strong>۸۶٪</strong>
+                            <span>موفقیت</span>
+                        </div>
+                        <dl>
+                            <div><dt>میانگین نمره</dt><dd>۱۷.۲۵</dd></div>
+                            <div><dt>بالاترین نمره</dt><dd>۱۹.۵</dd></div>
+                            <div><dt>آزمون ناموفق</dt><dd>۱</dd></div>
+                        </dl>
+                    </section>
+                    <section class="student-profile-card student-recent-results">
+                        <h2>نتایج اخیر</h2>
+                        {% for exam in student_exams|slice:":2" %}
+                            <article>
+                                <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                                <strong>{{ exam.course_title|default:exam.title }}</strong>
+                                <span>{{ exam.score_label|default:"-" }} نمره</span>
+                                <b>قبول</b>
+                            </article>
+                        {% empty %}
+                            <p class="user-profile-empty">نتیجه‌ای ثبت نشده است.</p>
+                        {% endfor %}
+                        <a href="{% url 'core:super_admin_exams' %}">مشاهده همه نتایج</a>
+                    </section>
+                </aside>
+
+                <main class="student-profile-card student-exams-panel">
+                    <header>
+                        <h2>آزمون‌های پیش‌رو</h2>
+                        <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                    </header>
+                    <div class="student-tab-filters">
+                        <button type="button">نیمسال دوم ۱۴۰۳-۱۴۰۴</button>
+                        <button type="button">همه آزمون‌ها</button>
+                    </div>
+                    <div class="student-exam-cards">
+                        {% for exam in student_exams %}
+                            <article>
+                                <em class="is-{{ exam.tone }}">
+                                    <svg viewBox="0 0 24 24"><path d="M9 11h6M9 15h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+                                </em>
+                                <div class="student-exam-title">
+                                    <strong>{{ exam.title }}</strong>
+                                    <span>{{ exam.course_title|default:"-" }}</span>
+                                </div>
+                                <div><span>تاریخ</span><b>{{ exam.exam_date }}</b></div>
+                                <div><span>ساعت</span><b>{{ exam.exam_time }}</b></div>
+                                <div><span>مدت زمان</span><b>{{ exam.duration_label }}</b></div>
+                                <b class="student-exam-status is-{{ exam.status_tone }}">{{ exam.status_label }}</b>
+                                <a href="{{ exam.detail_url }}">مشاهده جزئیات</a>
+                            </article>
+                        {% empty %}
+                            <p class="user-profile-empty">آزمونی برای این دانشجو ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                </main>
+            </div>
+
+        {% elif student_section == "activity" %}
+            <div class="student-profile-card student-activity-panel" id="activity">
+                <div class="student-activity-filters">
+                    <button class="is-primary" type="button">اعمال فیلتر</button>
+                    <input type="text" placeholder="جست‌وجو در فعالیت‌ها">
+                    <select><option>نوع فعالیت: همه</option></select>
+                    <input type="text" placeholder="از تاریخ">
+                    <input type="text" placeholder="تا تاریخ">
+                </div>
+                <section>
+                    <h2>تاریخچه فعالیت‌ها</h2>
+                    <div class="student-activity-list">
+                        {% for item in activity_items %}
+                            <article>
+                                <span class="is-{{ item.tone }}"></span>
+                                <time>{{ item.time }}</time>
+                                <b class="is-{{ item.tone }}">{{ item.type }}</b>
+                                <strong>{{ item.title }}</strong>
+                                <small>{{ item.meta }}</small>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    <footer>
+                        <span>نمایش ۱ تا {{ activity_items|length }} از ۱۲۸ فعالیت</span>
+                        <div>
+                            <a class="is-active" href="#">۱</a>
+                            <a href="#">۲</a>
+                            <a href="#">۳</a>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+        {% endif %}
+    {% elif kind == "teacher" %}
+        <div class="teacher-profile-grid" id="overview">
+            <section class="teacher-profile-card teacher-profile-account-card">
+                <h2>
+                    دسترسی و وضعیت حساب
+                    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+                </h2>
+                <dl>
+                    {% for item in teacher_account_items %}
+                        <div>
+                            <dt>{{ item.label }}</dt>
+                            <dd class="{% if item.tone %}is-{{ item.tone }}{% endif %}">{{ item.value|default:"-" }}</dd>
+                        </div>
+                    {% endfor %}
+                </dl>
+            </section>
+
+            <section class="teacher-profile-card teacher-profile-contact-card">
+                <h2>
+                    اطلاعات فردی و ارتباطی
+                    <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </h2>
+                <dl>
+                    {% for item in teacher_contact_items %}
+                        <div>
+                            <dt>{{ item.label }}</dt>
+                            <dd>{{ item.value|default:"-" }}</dd>
+                        </div>
+                    {% endfor %}
+                </dl>
+            </section>
+
+            <section class="teacher-profile-card teacher-profile-courses-card" id="courses">
+                <h2>
+                    درس‌های جاری
+                    <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                </h2>
+                <div class="teacher-course-list">
+                    {% for course in courses %}
+                        <article>
+                            <span>
+                                <b>{{ course.students_count|default:"۰" }}</b>
+                                دانشجو
+                            </span>
+                            <em class="is-{{ course.status_tone }}">{{ course.status_label }}</em>
+                            <div>
+                                <strong>{{ course.title }}</strong>
+                                <small>{{ course.code|default:"-" }}</small>
+                            </div>
+                            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                        </article>
+                    {% empty %}
+                        <p class="user-profile-empty">درسی برای این استاد ثبت نشده است.</p>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'core:super_admin_courses' %}">مشاهده همه درس‌ها</a>
+            </section>
+
+            <section class="teacher-profile-card teacher-profile-activity-card" id="activity">
+                <h2>
+                    فعالیت‌های اخیر
+                    <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                </h2>
+                <div class="teacher-timeline">
+                    {% for item in timeline %}
+                        <article>
+                            <span></span>
+                            <div>
+                                <strong>{{ item.title }}</strong>
+                                <small>{{ item.meta }}</small>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+                <a href="#activity">مشاهده همه فعالیت‌ها</a>
+            </section>
+        </div>
+    {% else %}
+    <div class="user-profile-layout">
+        <aside class="user-profile-side">
+            <section class="user-profile-contact">
+                <div class="user-profile-side-avatar">
+                    {% if user_profile.avatar_url %}
+                        <img src="{{ user_profile.avatar_url }}" alt="{{ user_profile.full_name }}">
+                    {% else %}
+                        <span>{{ user_profile.full_name|slice:":1"|default:"م" }}</span>
+                    {% endif %}
+                </div>
+                <h2>{{ user_profile.full_name|default:"کاربر" }}</h2>
+                <p>{{ role_label }}</p>
+                <ul>
+                    <li><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>{{ user_profile.email|default:"-" }}</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5.15 12 19.8 19.8 0 0 1 2.08 3.18 2 2 0 0 1 4.06 1h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.63 2.6a2 2 0 0 1-.45 2.11L8 8.67a16 16 0 0 0 7.33 7.33l1.24-1.24a2 2 0 0 1 2.11-.45c.83.3 1.7.51 2.6.63A2 2 0 0 1 22 16.92Z"/></svg>{{ user_profile.phone|default:"-" }}</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>{{ status_label }}</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>{{ user_profile.last_login_at|default:"-" }}</li>
+                </ul>
+            </section>
+        </aside>
+
+        <main class="user-profile-main">
+            <div class="user-profile-info-grid" id="overview">
+                {% for card in info_cards %}
+                    <section class="user-profile-card">
+                        <h2>{{ card.title }}</h2>
+                        {% if card.chips %}
+                            <div class="user-profile-chips">
+                                {% for chip in card.chips %}
+                                    <span>{{ chip }} <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+                                {% endfor %}
+                            </div>
+                            <p class="user-profile-note">{{ card.note }}</p>
+                            {% if manager_scopes %}
+                                <div class="user-profile-scope-list">
+                                    {% for scope in manager_scopes %}
+                                        <small>{{ scope.label }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <dl>
+                                {% for item in card.items %}
+                                    <div><dt>{{ item.label }}</dt><dd>{{ item.value|default:"-" }}</dd></div>
+                                {% endfor %}
+                            </dl>
+                        {% endif %}
+                    </section>
+                {% endfor %}
+            </div>
+
+            {% if kind == "teacher" or kind == "student" %}
+                <section class="user-profile-card user-profile-course-card" id="courses">
+                    <header>
+                        <h2>{% if kind == "student" %}درس‌های ترم جاری{% else %}درس‌های جاری{% endif %}</h2>
+                        <a href="{% url 'core:super_admin_courses' %}">مشاهده همه درس‌ها</a>
+                    </header>
+                    <div class="user-profile-course-list">
+                        {% for course in courses %}
+                            <article>
+                                <div>
+                                    <strong>{{ course.title }}</strong>
+                                    <small>{{ course.code|default:course.teacher_name|default:"-" }}</small>
+                                </div>
+                                <span>{% if course.is_active %}فعال{% else %}غیرفعال{% endif %}</span>
+                                {% if kind == "teacher" %}
+                                    <em>{{ course.students_count|default:0 }} دانشجو</em>
+                                {% else %}
+                                    <em>{{ course.teacher_name|default:"-" }}</em>
+                                {% endif %}
+                            </article>
+                        {% empty %}
+                            <p class="user-profile-empty">درسی برای این کاربر ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+
+            <section class="user-profile-card user-profile-activity-card" id="activity">
+                <h2>آخرین فعالیت‌ها</h2>
+                <div class="user-profile-timeline">
+                    {% for item in timeline %}
+                        <article>
+                            <span></span>
+                            <div>
+                                <strong>{{ item.title }}</strong>
+                                <small>{{ item.meta }}</small>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+        </main>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

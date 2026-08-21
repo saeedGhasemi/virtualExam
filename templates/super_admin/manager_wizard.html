@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}افزودن مدیر جدید | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page teacher-wizard-page manager-wizard-page" dir="rtl">
+    <header class="teacher-wizard-head">
+        <div class="teacher-wizard-title">
+            <span class="teacher-wizard-title-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <div>
+                <h1>افزودن مدیر جدید</h1>
+                <p>مدیران / افزودن مدیر جدید</p>
+            </div>
+        </div>
+        <nav class="teacher-profile-role-tabs teacher-wizard-tabs">
+            <a class="is-active" href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
+            <a href="{% url 'core:super_admin_users' %}?tab=teachers">اساتید</a>
+            <a href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
+        </nav>
+    </header>
+
+    <main class="teacher-wizard-card">
+        <a class="teacher-wizard-back" href="{{ back_url }}"><svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>بازگشت به فهرست مدیران</a>
+        <ol class="teacher-wizard-steps">
+            {% for item in steps %}
+                <li class="{% if item.number < step %}is-done{% elif item.number == step %}is-active{% endif %}">
+                    <span>{% if item.number < step %}<svg viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg>{% else %}{{ item.number|fa_digits }}{% endif %}</span>
+                    <b>{{ item.label }}</b>
+                </li>
+            {% endfor %}
+        </ol>
+
+        <form method="post" class="teacher-wizard-form">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ step }}">
+
+            {% if step == 1 %}
+                <section class="teacher-wizard-panel manager-wizard-basic">
+                    <header><h2>اطلاعات پایه مدیر</h2></header>
+                    <div class="teacher-wizard-basic">
+                        <div class="teacher-wizard-photo">
+                            <div><span>م</span></div>
+                            <button type="button"><svg viewBox="0 0 24 24"><path d="M14.5 4h-5L8 6H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3l-1.5-2Z"/><circle cx="12" cy="13" r="3"/></svg>بارگذاری تصویر</button>
+                        </div>
+                        <div class="teacher-wizard-grid">
+                            <label>نام <input name="first_name" value="{{ draft.first_name|default:'' }}" required></label>
+                            <label>نام خانوادگی <input name="last_name" value="{{ draft.last_name|default:'' }}" required></label>
+                            <label>کد ملی <input name="national_id" value="{{ draft.national_id|default:'' }}"></label>
+                            <label>شماره پرسنلی <input name="personnel_code" value="{{ draft.personnel_code|default:'' }}" placeholder="ADM-1024"></label>
+                            <label>تاریخ تولد <input name="birth_date" value="{{ draft.birth_date|default:'' }}" placeholder="1365/08/21"></label>
+                            <label>جنسیت <select name="gender"><option value="male" {% if draft.gender == "male" %}selected{% endif %}>مرد</option><option value="female" {% if draft.gender == "female" %}selected{% endif %}>زن</option></select></label>
+                            <label>شماره همراه <input name="phone" value="{{ draft.phone|default:'' }}"></label>
+                            <label>ایمیل سازمانی <input type="email" name="email" value="{{ draft.email|default:'' }}"></label>
+                        </div>
+                    </div>
+                </section>
+            {% elif step == 2 %}
+                <section class="teacher-wizard-panel manager-wizard-role">
+                    <header><h2>نقش و انتساب سازمانی</h2></header>
+                    <div class="manager-wizard-two-col">
+                        <article>
+                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="admin" {% if draft.manager_role == "admin" %}checked{% endif %}>مدیر سیستم<small>دسترسی کامل به تمام بخش‌های سیستم</small></label>
+                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="academic_manager" {% if draft.manager_role != "admin" %}checked{% endif %}>مدیر آموزشی<small>مدیریت آموزشی در محدوده تخصیص داده شده</small></label>
+                            <label>عنوان سمت <input name="title" value="{{ draft.title|default:'' }}" placeholder="مدیر آموزش دانشکده"></label>
+                            <label>نوع دسترسی <select name="access_type"><option value="selected_units">محدود به واحدهای منتخب</option><option value="primary_only">فقط واحد اصلی</option><option value="unit_and_children">واحد اصلی و زیرمجموعه‌ها</option></select></label>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="include_child_units" {% if draft.include_child_units or not draft %}checked{% endif %}><span></span>دسترسی به واحدهای زیرمجموعه</label>
+                        </article>
+                        <article>
+                            <label>واحد سازمانی اصلی
+                                <select name="primary_scope_id" required>
+                                    <option value="">انتخاب واحد</option>
+                                    {% for unit in org_units %}
+                                        <option value="{{ unit.id }}" {% if draft.primary_scope_id == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <div class="teacher-wizard-chipbox">
+                                {% for unit in sub_units|slice:":18" %}
+                                    <label><input type="checkbox" name="scope_ids" value="{{ unit.id }}" {% if unit.id|stringformat:"s" in scope_ids %}checked{% endif %}> {{ unit.name }}</label>
+                                {% endfor %}
+                            </div>
+                        </article>
+                    </div>
+                </section>
+            {% elif step == 3 %}
+                <section class="teacher-wizard-panel">
+                    <header><h2>تعیین سطح دسترسی مدیر</h2></header>
+                    <div class="manager-permission-layout">
+                        <aside class="manager-restrictions">
+                            <h3>محدودیت‌های دسترسی</h3>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="limit_to_units" {% if draft.limit_to_units or not draft %}checked{% endif %}><span></span>فقط واحدهای تحت مدیریت</label>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="view_sensitive" {% if draft.view_sensitive %}checked{% endif %}><span></span>مشاهده اطلاعات محرمانه</label>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="allow_exports" {% if draft.allow_exports or not draft %}checked{% endif %}><span></span>خروجی گرفتن از اطلاعات</label>
+                        </aside>
+                        <div>
+                            <label>الگوی دسترسی <select name="permission_template"><option>مدیر آموزشی</option><option>مدیر سیستم</option><option>سفارشی</option></select></label>
+                            <table class="teacher-wizard-table manager-permission-table">
+                                <thead><tr><th>ماژول / دسترسی</th>{% for key,label in actions %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+                                <tbody>
+                                    {% for key,label,allowed in modules %}
+                                        <tr>
+                                            <td>{{ label }}</td>
+                                            {% for action_key,action_label in actions %}
+                                                <td>{% if action_key in allowed %}<input type="checkbox" name="perm_{{ key }}_{{ action_key }}" {% if not permissions %}checked{% endif %}>{% endif %}</td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            {% else %}
+                <section class="teacher-wizard-final">
+                    <article class="teacher-wizard-summary">
+                        <a href="?step=1">ویرایش</a>
+                        <h2>خلاصه اطلاعات مدیر</h2>
+                        <dl>
+                            <div><dt>نام مدیر:</dt><dd>{{ draft.first_name }} {{ draft.last_name }}</dd></div>
+                            <div><dt>شماره پرسنلی:</dt><dd>{{ draft.personnel_code|default:"ایجاد خودکار"|fa_digits }}</dd></div>
+                            <div><dt>نقش:</dt><dd>{% if draft.manager_role == "admin" %}مدیر سیستم{% else %}مدیر آموزشی{% endif %}</dd></div>
+                            <div><dt>واحد اصلی:</dt><dd>{% for item in selected_scopes|slice:":1" %}{{ item.label }}{% empty %}-{% endfor %}</dd></div>
+                            <div><dt>دامنه مدیریت:</dt><dd>{{ scope_ids|length|fa_digits }} واحد</dd></div>
+                        </dl>
+                    </article>
+                    <article class="teacher-wizard-panel">
+                        <header><h2>تنظیمات حساب کاربری</h2></header>
+                        <label>نام کاربری <input name="username" value="{{ wizard_username }}" required></label>
+                        <label>ایمیل ورود <input type="email" name="login_email" value="{{ wizard_login_email }}"></label>
+                        <label>روش فعال‌سازی حساب <select name="password_method"><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option></select></label>
+                        <label class="teacher-wizard-switch"><input type="checkbox" name="email_verified_required" checked><span></span>فعال بودن حساب پس از تایید ایمیل</label>
+                        <label class="teacher-wizard-switch"><input type="checkbox" name="must_change_password" checked><span></span>الزام تغییر رمز در اولین ورود</label>
+                        <label>وضعیت حساب <select name="account_status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
+                        <div class="teacher-wizard-ready">اطلاعات برای ثبت نهایی کامل است.</div>
+                        <label class="teacher-wizard-confirm"><input type="checkbox" name="confirm_final" required> صحت اطلاعات ثبت‌شده را تایید می‌کنم</label>
+                    </article>
+                </section>
+            {% endif %}
+
+            <footer class="teacher-wizard-actions">
+                <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="teacher-wizard-primary">{% if step == 4 %}ثبت نهایی مدیر{% else %}ذخیره و ادامه{% endif %}<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+                <button type="submit" name="wizard_action" value="save_draft" class="teacher-wizard-secondary">ذخیره موقت</button>
+                {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="teacher-wizard-link">مرحله قبل</button>{% endif %}
+                <button type="submit" name="wizard_action" value="cancel" class="teacher-wizard-link">انصراف</button>
+            </footer>
+        </form>
+    </main>
+</section>
+{% endblock %}

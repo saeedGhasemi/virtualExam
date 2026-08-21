@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ویرایش اطلاعات مدیر | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page manager-edit-page manager-edit-redesign" dir="rtl">
+    <nav class="manager-edit-crumbs" aria-label="مسیر صفحه">
+        <a href="{% url 'core:super_admin_users' %}?tab=managers">کاربران</a>
+        <span>/</span>
+        <a href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
+        <span>/</span>
+        <b>ویرایش اطلاعات</b>
+    </nav>
+
+    <form id="manager-edit-form" method="post" enctype="multipart/form-data" class="manager-edit-form">
+        {% csrf_token %}
+
+        <header class="manager-edit-head">
+            <div class="manager-edit-head-title">
+                <span aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+                </span>
+                <div>
+                    <h1>ویرایش اطلاعات مدیر</h1>
+                    <p>اطلاعات حساب و انتساب سازمانی را ویرایش کنید</p>
+                </div>
+            </div>
+            <div class="manager-edit-head-actions">
+                <button class="manager-edit-btn is-primary" type="submit">
+                    <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                    ذخیره تغییرات
+                </button>
+                <a class="manager-edit-btn is-ghost" href="{{ back_url }}">انصراف</a>
+            </div>
+        </header>
+
+        <div class="manager-edit-redesign-grid">
+            <aside class="manager-edit-left">
+                <section class="manager-edit-card manager-edit-security">
+                    <h2>
+                        وضعیت و امنیت حساب
+                        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+                    </h2>
+                    <label class="manager-edit-toggle">
+                        <input type="hidden" name="status" value="inactive">
+                        <input type="checkbox" name="status" value="active" {% if status == 'active' %}checked{% endif %}>
+                        <span></span>
+                        <b>حساب فعال</b>
+                    </label>
+                    <label class="manager-edit-toggle">
+                        <input type="checkbox" name="force_password_change" value="1">
+                        <span></span>
+                        <b>الزام تغییر رمز در ورود بعدی</b>
+                    </label>
+                    <dl>
+                        <div><dt>آخرین ورود:</dt><dd>{{ manager.last_login_at|default:"امروز، ۱۰:۳۵" }}</dd></div>
+                        <div><dt>تایید دومرحله‌ای:</dt><dd class="is-active">فعال</dd></div>
+                    </dl>
+                    <button class="manager-edit-outline" type="button">
+                        <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78Zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                        ارسال لینک بازنشانی رمز
+                    </button>
+                </section>
+
+                <section class="manager-edit-card manager-edit-note">
+                    <h2>
+                        یادداشت مدیریتی
+                        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </h2>
+                    <textarea name="admin_note" maxlength="500" placeholder="یادداشت داخلی درباره این مدیر..."></textarea>
+                    <small>۰/۵۰۰</small>
+                </section>
+            </aside>
+
+            <main class="manager-edit-right">
+                <section class="manager-edit-card manager-edit-personal">
+                    <h2>
+                        اطلاعات فردی
+                        <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                    </h2>
+                    <div class="manager-edit-personal-grid">
+                        <div class="manager-edit-avatar">
+                            {% if manager.avatar_url %}
+                                <img src="{{ manager.avatar_url }}" alt="{{ manager.full_name }}">
+                            {% else %}
+                                <span>{{ manager.full_name|default:"م"|slice:":1" }}</span>
+                            {% endif %}
+                            <label>
+                                <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp">
+                                <svg viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+                            </label>
+                            <b>تغییر تصویر</b>
+                        </div>
+                        <div class="manager-edit-fields">
+                            <label><span>نام</span><input name="first_name" value="{{ manager.first_name|default:'' }}" autocomplete="given-name"></label>
+                            <label><span>نام خانوادگی</span><input name="last_name" value="{{ manager.last_name|default:'' }}" autocomplete="family-name"></label>
+                            <label><span>کد ملی</span><input name="national_id" value="{{ manager.national_id|default:'' }}" inputmode="numeric"></label>
+                            <label><span>شماره همراه</span><input name="phone" value="{{ manager.phone|default:'' }}" inputmode="tel"></label>
+                            <label><span>ایمیل</span><input name="email" value="{{ manager.email|default:'' }}" type="email" dir="ltr"></label>
+                            <label><span>نام کاربری</span><input name="username" value="{{ manager.username|default:'' }}" dir="ltr"></label>
+                            <input type="hidden" name="full_name" value="{{ manager.full_name|default:'' }}">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="manager-edit-card manager-edit-org">
+                    <h2>
+                        نقش و انتساب سازمانی
+                        <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h1M9 13h1M9 17h1"/></svg>
+                    </h2>
+                    <div class="manager-role-switch" role="radiogroup" aria-label="نقش در سامانه">
+                        <label>
+                            <input type="radio" name="role" value="admin" {% if role == 'admin' %}checked{% endif %}>
+                            <span>مدیر سیستم</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="role" value="academic_manager" {% if role != 'admin' %}checked{% endif %}>
+                            <span>مدیر آموزشی</span>
+                        </label>
+                    </div>
+
+                    <div class="manager-edit-fields is-org">
+                        <label class="is-wide">
+                            <span>واحد سازمانی اصلی</span>
+                            <select name="primary_org_unit_id">
+                                <option value="">انتخاب واحد سازمانی</option>
+                                {% for unit in org_units %}
+                                    <option value="{{ unit.id }}" {% if primary_scope_id == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}{% if unit.code %} - {{ unit.code }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label><span>سمت سازمانی</span><input name="department" value="{{ manager.department|default:'' }}" placeholder="مثلا مدیر آموزش"></label>
+                        <label><span>کد پرسنلی</span><input name="personnel_code" value="{{ manager.personnel_code|default:manager.identifier|default:'' }}" placeholder="ADM-1042" dir="ltr"></label>
+                        <label class="is-wide">
+                            <span>واحدهای فرعی (دسترسی)</span>
+                            <select name="scope_ids" multiple>
+                                {% for unit in org_units %}
+                                    <option value="{{ unit.id }}" {% if unit.id|stringformat:"s" in selected_scope_ids %}selected{% endif %}>{{ unit.name }}{% if unit.code %} - {{ unit.code }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label class="is-wide"><span>حوزه مسئولیت</span><input name="responsibility_area" value="{{ manager.responsibility_area|default:'' }}" placeholder="مثلا مدیریت دانشکده پرستاری"></label>
+                    </div>
+
+                    <div class="manager-edit-access">
+                        <label><input type="radio" name="scope_mode" value="unit_and_children" checked><span></span>این واحد و زیروَحدها</label>
+                        <label><input type="radio" name="scope_mode" value="single_unit"><span></span>فقط همین واحد</label>
+                    </div>
+                    <p class="manager-edit-path">مسیر فعلی: {{ primary_path }}</p>
+                </section>
+            </main>
+        </div>
+
+        <footer class="manager-edit-footer manager-edit-redesign-footer">
+            <button class="manager-edit-btn is-primary" type="submit">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                ذخیره تغییرات
+            </button>
+            <a class="manager-edit-btn is-ghost" href="{{ back_url }}">انصراف</a>
+        </footer>
+    </form>
+</section>
+{% endblock %}

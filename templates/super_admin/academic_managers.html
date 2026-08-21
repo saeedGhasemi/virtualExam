@@ -1,0 +1,902 @@
+﻿{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}{{ title }} | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page academic-managers-page" dir="rtl">
+    <div class="am-toast" id="managerToast" aria-live="polite" hidden></div>
+    <header class="am-page-header">
+        <div>
+            <h1>{{ title }}</h1>
+            <p>{{ description }}</p>
+        </div>
+        <div class="am-header-actions">
+            <a class="am-icon-action" href="?manager_action=sample" data-tooltip="دانلود نمونه اکسل برای تکمیل ستون‌های لازم">
+                <span aria-hidden="true">▣</span>
+                نمونه اکسل
+            </a>
+            <a class="am-icon-action" href="?manager_action=export{% if query %}&q={{ query|urlencode }}{% endif %}" data-tooltip="دریافت خروجی اکسل از اطلاعات نمایش داده‌شده">
+                <span aria-hidden="true">↧</span>
+                خروجی اکسل
+            </a>
+            <a class="am-icon-action" href="{% url 'core:super_admin_manager_bulk_import' %}" data-tooltip="ورود گروهی مدیران از فایل اکسل یا CSV">
+                <span aria-hidden="true">↥</span>
+                ورود اکسل
+            </a>
+        <a class="am-primary-button" href="{% url 'core:super_admin_manager_create' %}">
+            <span aria-hidden="true">♙</span>
+            افزودن مدیر آموزشی
+        </a>
+        </div>
+    </header>
+
+    <section class="am-table-card">
+        <div class="am-table-toolbar">
+            <div class="am-table-summary">
+                <span aria-hidden="true">♙</span>
+                مجموع مدیران آموزشی: <b>{{ rows|length|fa_digits }} نفر</b>
+            </div>
+            <div class="am-toolbar-actions">
+                <div class="am-view-switch" aria-label="نوع نمایش">
+                    <button type="button" class="is-active" data-manager-view="table" title="نمایش سطری" aria-label="نمایش سطری"><span aria-hidden="true">☰</span></button>
+                    <button type="button" data-manager-view="cards" title="نمایش کارتی" aria-label="نمایش کارتی"><span aria-hidden="true">▦</span></button>
+                </div>
+                <a class="am-lite-action" href="?manager_action=sample">نمونه اکسل</a>
+                <a class="am-lite-action" href="?manager_action=export{% if query %}&q={{ query|urlencode }}{% endif %}">خروجی اکسل</a>
+                <a class="am-lite-action" href="{% url 'core:super_admin_manager_bulk_import' %}">ورود اکسل</a>
+            </div>
+            <form method="get" class="am-search-form" data-manager-search-form>
+                <button type="submit">فیلتر <span aria-hidden="true">⌯</span></button>
+                <label>
+                    <input name="q" value="{{ query }}" placeholder="جست‌وجوی مدیر آموزشی...">
+                    <span aria-hidden="true">⌕</span>
+                </label>
+            </form>
+        </div>
+
+        <div class="am-table-wrap">
+            <table class="am-table">
+                <thead>
+                    <tr>
+                        <th class="am-check-cell"><span></span></th>
+                        <th>نام</th>
+                        <th>دانشگاه</th>
+                        <th>دانشکده</th>
+                        <th>گروه آموزشی</th>
+                        <th>وضعیت</th>
+                        <th>تاریخ ثبت</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td class="am-check-cell"><span></span></td>
+                            <td>
+                                <div class="am-manager-name">
+                                    <b>
+                                        {% if row.avatar_url %}
+                                            <img src="{{ row.avatar_url }}" alt="{{ row.full_name|default:'مدیر آموزشی' }}">
+                                        {% else %}
+                                            {{ row.full_name|default:"مدیر آموزشی"|fa_digits|slice:":1" }}
+                                        {% endif %}
+                                    </b>
+                                    <div>
+                                        <strong>{{ row.full_name|default:"مدیر آموزشی"|fa_digits }}</strong>
+                                        <small>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="am-pill">{{ row.university|fa_digits }}</span></td>
+                            <td><span class="am-pill">{{ row.faculty|fa_digits }}</span></td>
+                            <td><span class="am-pill">{{ row.department_name|fa_digits }}</span></td>
+                            <td>
+                                <span class="am-status is-{{ row.status|default:'active' }}">
+                                    {% if row.status == 'blocked' %}مسدود{% elif row.status == 'inactive' %}غیرفعال{% else %}فعال{% endif %}
+                                </span>
+                            </td>
+                            <td>{{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</td>
+                            <td>
+                                <div class="am-row-actions">
+                                    <button type="button"
+                                        class="am-action-icon"
+                                        data-edit-manager
+                                        data-id="{{ row.id }}"
+                                        data-first-name="{{ row.first_name|default_if_none:'' }}"
+                                        data-last-name="{{ row.last_name|default_if_none:'' }}"
+                                        data-full-name="{{ row.full_name|default_if_none:'' }}"
+                                        data-username="{{ row.username|default_if_none:'' }}"
+                                        data-email="{{ row.email|default_if_none:'' }}"
+                                        data-phone="{{ row.phone|default_if_none:'' }}"
+                                        data-national-id="{{ row.national_id|default_if_none:'' }}"
+                                        data-personnel-code="{{ row.personnel_code|default:row.identifier|default_if_none:'' }}"
+                                        data-status="{{ row.status|default:'active' }}"
+                                        data-avatar-url="{{ row.avatar_url|default_if_none:'' }}"
+                                        data-university="{{ row.university|default_if_none:'' }}"
+                                        data-faculty="{{ row.faculty|default_if_none:'' }}"
+                                        data-department="{{ row.department_name|default_if_none:'' }}"
+                                        data-created="{{ row.created_display|default_if_none:'' }}"
+                                        data-last-login="{{ row.last_login_display|default_if_none:'' }}"
+                                        data-scopes="{{ row.scope_ids|join:',' }}"
+                                        title="ویرایش اطلاعات">
+                                        ✎
+                                    </button>
+                                    <button type="button"
+                                            class="am-action-icon is-danger"
+                                            data-delete-manager="{{ row.id }}"
+                                            data-manager-name="{{ row.full_name|default:'مدیر آموزشی' }}"
+                                            title="حذف مدیر آموزشی">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" class="am-empty">موردی برای نمایش وجود ندارد.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="am-card-grid" hidden>
+            {% for row in rows %}
+                <article class="am-person-card" data-manager-card="{{ row.id }}">
+                    <div class="am-card-top">
+                        <span class="am-status is-{{ row.status|default:'active' }}">
+                            {% if row.status == 'blocked' %}مسدود{% elif row.status == 'inactive' %}غیرفعال{% else %}فعال{% endif %}
+                        </span>
+                        <div class="am-card-action-icons">
+                            <button type="button"
+                                    class="am-card-menu"
+                                    data-card-edit="{{ row.id }}"
+                                    title="ویرایش اطلاعات">
+                                ✎
+                            </button>
+                            <button type="button"
+                                    class="am-card-menu"
+                                    data-card-details="{{ row.id }}"
+                                    title="نمایش کلیه اطلاعات">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg>
+                            </button>
+                            <button type="button"
+                                    class="am-card-menu is-danger"
+                                    data-delete-manager="{{ row.id }}"
+                                    data-manager-name="{{ row.full_name|default:'مدیر آموزشی' }}"
+                                    title="حذف مدیر آموزشی">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="am-card-avatar">
+                        {% if row.avatar_url %}
+                            <img src="{{ row.avatar_url }}" alt="{{ row.full_name|default:'مدیر آموزشی' }}">
+                        {% else %}
+                            <span>{{ row.full_name|default:"مدیر آموزشی"|fa_digits|slice:":1" }}</span>
+                        {% endif %}
+                    </div>
+                    <h3>{{ row.full_name|default:"مدیر آموزشی"|fa_digits }}</h3>
+                    <p>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</p>
+                    <div class="am-card-details">
+                        <span><b>#</b>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</span>
+                        <span><b>دانشگاه</b>{{ row.university|fa_digits }}</span>
+                        <span><b>دانشکده</b>{{ row.faculty|fa_digits }}</span>
+                        <span><b>گروه</b>{{ row.department_name|fa_digits }}</span>
+                        <span><b>ایمیل</b>{{ row.email|default:"-" }}</span>
+                        <span><b>موبایل</b>{{ row.phone|default:"-"|fa_digits }}</span>
+                    </div>
+                    <footer>
+                        <small>ثبت: {{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</small>
+                    </footer>
+                </article>
+            {% empty %}
+                <div class="am-card-empty">موردی برای نمایش وجود ندارد.</div>
+            {% endfor %}
+        </div>
+
+        <footer class="am-table-footer">
+            <span>نمایش ۱-{{ rows|length|fa_digits }} از {{ rows|length|fa_digits }}</span>
+            <div>
+                <button type="button">‹</button>
+                <b>۱</b>
+                <button type="button">›</button>
+            </div>
+        </footer>
+    </section>
+
+    <div class="am-modal" id="managerModal" aria-hidden="true">
+        <div class="am-modal-backdrop" data-close-manager-modal></div>
+        <form method="post" enctype="multipart/form-data" class="am-modal-panel" role="dialog" aria-modal="true">
+            {% csrf_token %}
+            <input type="hidden" name="manager_action" value="save">
+            <input type="hidden" name="manager_id" id="managerId">
+            <input type="hidden" name="scope_ids" id="managerScopeIds">
+
+            <button type="button" class="am-modal-close" data-close-manager-modal>×</button>
+            <h2 id="managerModalTitle">ویرایش اطلاعات کاربر</h2>
+
+            <div class="am-meta-box">
+                <span>شناسه کاربر: <b data-meta-id>-</b></span>
+                <span>تاریخ ثبت: <b data-meta-created>-</b></span>
+                <span>آخرین ورود: <b data-meta-login>-</b></span>
+            </div>
+
+            <div class="am-tabs" role="tablist">
+                <button type="button" data-tab="security">حساب و امنیت</button>
+                <button type="button" data-tab="manager">اطلاعات مدیر آموزشی</button>
+                <button type="button" data-tab="general" class="is-active">عمومی</button>
+            </div>
+
+            <section class="am-tab-panel is-active" data-tab-panel="general">
+                <div class="am-photo-box">
+                    <div class="am-photo-icon" data-manager-photo>
+                        <span>▣</span>
+                        <img alt="" hidden>
+                    </div>
+                    <div>
+                        <strong>عکس پروفایل</strong>
+                        <p>فرمت‌های مجاز JPG، PNG، WebP. حداقل ابعاد ۲۰۰×۲۰۰ پیکسل.</p>
+                    </div>
+                    <label class="am-upload-button">
+                        <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif">
+                        بارگذاری عکس
+                    </label>
+                </div>
+
+                <div class="am-form-grid">
+                    <label>نام<input name="first_name"></label>
+                    <label>نام خانوادگی<input name="last_name"></label>
+                    <label>نام کاربری<input name="username"></label>
+                    <label>شماره موبایل<input name="phone"></label>
+                    <label>کد ملی<input name="national_id"></label>
+                    <label>شناسه (دانشجویی/پرسنلی)<input name="personnel_code"></label>
+                </div>
+            </section>
+
+            <section class="am-tab-panel" data-tab-panel="manager">
+                <label class="am-single-field">کد پرسنلی<input name="identifier"></label>
+
+                <div class="am-scope-editor">
+                    <h3>ویرایش دپارتمان و دانشکده تحت مدیریت</h3>
+                    <p>ابتدا دانشگاه، سپس دانشکده و در صورت نیاز گروه آموزشی را انتخاب کنید. انتخاب یک واحد شامل تمام زیرمجموعه‌های آن نیز می‌شود.</p>
+                    <div class="am-scope-grid">
+                        <label>دانشگاه
+                            <select id="scopeUniversity">
+                                <option value="">انتخاب دانشگاه</option>
+                                {% for unit in universities %}<option value="{{ unit.id }}">{{ unit.name }}</option>{% endfor %}
+                            </select>
+                        </label>
+                        <label>دانشکده
+                            <select id="scopeFaculty" disabled><option value="">ابتدا سطح بالاتر</option></select>
+                        </label>
+                        <label>گروه آموزشی
+                            <select id="scopeDepartment" disabled><option value="">ابتدا سطح بالاتر</option></select>
+                        </label>
+                    </div>
+                    <button type="button" class="am-add-scope" id="addScopeButton">افزودن به محدوده <span>＋</span></button>
+                </div>
+
+                <div class="am-selected-scopes">
+                    <strong>محدوده‌های انتخاب‌شده</strong>
+                    <div id="selectedScopes"></div>
+                </div>
+            </section>
+
+            <section class="am-tab-panel" data-tab-panel="security">
+                <div class="am-form-grid is-single">
+                    <label>ایمیل (نام کاربری ورود)<input name="email"></label>
+                    <label>رمز عبور جدید (اختیاری)<input name="password" placeholder="در صورت تغییر، حداقل ۶ کاراکتر"></label>
+                    <label>وضعیت حساب
+                        <select name="status">
+                            <option value="active">فعال</option>
+                            <option value="inactive">غیرفعال</option>
+                            <option value="blocked">مسدود</option>
+                        </select>
+                    </label>
+                </div>
+            </section>
+
+            <div class="am-modal-actions">
+                <button type="submit" class="am-save-button">ذخیره تغییرات</button>
+                <button type="button" class="am-cancel-button" data-close-manager-modal>انصراف</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="am-details-modal" id="managerDetailsModal" aria-hidden="true">
+        <div class="am-details-backdrop" data-close-manager-details></div>
+        <section class="am-details-panel" role="dialog" aria-modal="true" aria-labelledby="managerDetailsTitle">
+            <button type="button" class="am-details-close" data-close-manager-details>×</button>
+            <div class="am-details-print-area">
+                <header class="am-details-header">
+                    <div class="am-details-avatar" data-details-avatar><span>م</span><img alt="" hidden></div>
+                    <div>
+                        <h2 id="managerDetailsTitle" data-details-full-name>مدیر آموزشی</h2>
+                        <p data-details-personnel-code>-</p>
+                    </div>
+                    <span class="am-status is-active" data-details-status>فعال</span>
+                </header>
+
+                <div class="am-details-section">
+                    <h3>اطلاعات عمومی</h3>
+                    <dl>
+                        <div><dt>نام</dt><dd data-details-first-name>-</dd></div>
+                        <div><dt>نام خانوادگی</dt><dd data-details-last-name>-</dd></div>
+                        <div><dt>نام کاربری</dt><dd data-details-username>-</dd></div>
+                        <div><dt>کد ملی</dt><dd data-details-national-id>-</dd></div>
+                        <div><dt>شماره موبایل</dt><dd data-details-phone>-</dd></div>
+                        <div><dt>ایمیل</dt><dd data-details-email>-</dd></div>
+                    </dl>
+                </div>
+
+                <div class="am-details-section">
+                    <h3>اطلاعات آموزشی و سازمانی</h3>
+                    <dl>
+                        <div><dt>کد پرسنلی</dt><dd data-details-code>-</dd></div>
+                        <div><dt>دانشگاه</dt><dd data-details-university>-</dd></div>
+                        <div><dt>دانشکده</dt><dd data-details-faculty>-</dd></div>
+                        <div><dt>گروه آموزشی</dt><dd data-details-department>-</dd></div>
+                        <div><dt>تاریخ ثبت</dt><dd data-details-created>-</dd></div>
+                        <div><dt>آخرین ورود</dt><dd data-details-last-login>-</dd></div>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="am-details-actions">
+                <button type="button" class="am-print-button" data-print-manager-details>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>
+                    چاپ اطلاعات
+                </button>
+                <button type="button" class="am-cancel-button" data-close-manager-details>بستن</button>
+            </div>
+        </section>
+    </div>
+</section>
+
+{{ org_units_json|json_script:"managerOrgUnits" }}
+<script>
+(() => {
+    const orgUnits = JSON.parse(document.getElementById('managerOrgUnits').textContent);
+    const byId = new Map(orgUnits.map((unit) => [String(unit.id), unit]));
+    const modal = document.getElementById('managerModal');
+    const form = modal.querySelector('form');
+    const scopeIds = document.getElementById('managerScopeIds');
+    const selectedScopes = document.getElementById('selectedScopes');
+    const university = document.getElementById('scopeUniversity');
+    const faculty = document.getElementById('scopeFaculty');
+    const department = document.getElementById('scopeDepartment');
+    const photoBox = modal.querySelector('[data-manager-photo]');
+    const photoImage = photoBox.querySelector('img');
+    const photoFallback = photoBox.querySelector('span');
+    const avatarInput = form.elements.avatar;
+    const tableBody = document.querySelector('.am-table tbody');
+    const tableWrap = document.querySelector('.am-table-wrap');
+    const cardGrid = document.querySelector('.am-card-grid');
+    const viewButtons = document.querySelectorAll('[data-manager-view]');
+    const searchForm = document.querySelector('[data-manager-search-form]');
+    const searchInput = document.querySelector('.am-search-form input[name="q"]');
+    const clearSearchButton = document.querySelector('.am-search-form button');
+    const toast = document.getElementById('managerToast');
+    const summaryCount = document.querySelector('.am-table-summary b');
+    const detailsModal = document.getElementById('managerDetailsModal');
+    let scopes = [];
+    let currentEditButton = null;
+    let toastTimer = null;
+
+    const childrenOf = (parentId, types) => orgUnits.filter((unit) => String(unit.parent_id || '') === String(parentId || '') && types.includes(unit.type));
+    const option = (value, label) => {
+        const item = document.createElement('option');
+        item.value = value;
+        item.textContent = label;
+        return item;
+    };
+    const fillSelect = (select, items, placeholder) => {
+        select.innerHTML = '';
+        select.appendChild(option('', placeholder));
+        items.forEach((unit) => select.appendChild(option(unit.id, unit.name)));
+        select.disabled = !items.length;
+    };
+    const pathLabel = (id) => {
+        const chain = [];
+        let current = byId.get(String(id || ''));
+        const seen = new Set();
+        while (current && !seen.has(String(current.id))) {
+            seen.add(String(current.id));
+            chain.unshift(current.name);
+            current = byId.get(String(current.parent_id || ''));
+        }
+        return chain.join(' / ');
+    };
+    const renderScopes = () => {
+        scopeIds.value = scopes.join(',');
+        selectedScopes.innerHTML = '';
+        if (!scopes.length) {
+            selectedScopes.innerHTML = '<span class="am-empty-scope">هنوز محدوده‌ای انتخاب نشده است.</span>';
+            return;
+        }
+        scopes.forEach((id) => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'am-scope-chip';
+            chip.textContent = `${pathLabel(id)} ×`;
+            chip.addEventListener('click', () => {
+                scopes = scopes.filter((scopeId) => scopeId !== id);
+                renderScopes();
+            });
+            selectedScopes.appendChild(chip);
+        });
+    };
+    const resetScopeSelectors = () => {
+        university.value = '';
+        fillSelect(faculty, [], 'ابتدا سطح بالاتر');
+        fillSelect(department, [], 'ابتدا سطح بالاتر');
+    };
+    const setPhotoPreview = (url = '') => {
+        if (url) {
+            photoImage.src = url;
+            photoImage.hidden = false;
+            photoFallback.hidden = true;
+            return;
+        }
+        photoImage.removeAttribute('src');
+        photoImage.hidden = true;
+        photoFallback.hidden = false;
+    };
+    const closeModal = () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+    const showToast = (message) => {
+        if (!toast) return;
+        clearTimeout(toastTimer);
+        toast.textContent = message || 'اطلاعات مدیر آموزشی ذخیره شد.';
+        toast.hidden = false;
+        requestAnimationFrame(() => toast.classList.add('is-visible'));
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('is-visible');
+            setTimeout(() => {
+                toast.hidden = true;
+                toast.textContent = '';
+            }, 220);
+        }, 3200);
+    };
+    const statusLabel = (status) => {
+        if (status === 'blocked') return 'مسدود';
+        if (status === 'inactive') return 'غیرفعال';
+        return 'فعال';
+    };
+    const detailsValue = (value) => value || '-';
+    const setText = (element, value) => {
+        if (element) element.textContent = value || '-';
+    };
+    const normalizeSearch = (value) => String(value || '')
+        .replace(/[ي]/g, 'ی')
+        .replace(/[ك]/g, 'ک')
+        .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+        .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+        .toLowerCase()
+        .trim();
+    const searchableTextForRow = (row) => {
+        const edit = row.querySelector('[data-edit-manager]');
+        return normalizeSearch([
+            row.textContent,
+            edit?.dataset.fullName,
+            edit?.dataset.firstName,
+            edit?.dataset.lastName,
+            edit?.dataset.username,
+            edit?.dataset.email,
+            edit?.dataset.phone,
+            edit?.dataset.nationalId,
+            edit?.dataset.personnelCode,
+            edit?.dataset.status,
+        ].filter(Boolean).join(' '));
+    };
+    const faNumber = (value) => String(value).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
+    const filterManagers = () => {
+        const query = normalizeSearch(searchInput?.value || '');
+        let visibleCount = 0;
+        tableBody?.querySelectorAll('tr').forEach((row) => {
+            if (row.querySelector('.am-empty')) return;
+            const visible = !query || searchableTextForRow(row).includes(query);
+            row.hidden = !visible;
+            if (visible) visibleCount += 1;
+        });
+        cardGrid?.querySelectorAll('.am-person-card').forEach((card) => {
+            const visible = !query || normalizeSearch(card.textContent).includes(query);
+            card.hidden = !visible;
+        });
+        if (summaryCount) summaryCount.textContent = `${faNumber(visibleCount)} نفر`;
+    };
+    const refreshSummaryCount = () => {
+        if (!summaryCount || !tableBody) return;
+        const count = tableBody.querySelectorAll('tr').length - tableBody.querySelectorAll('.am-empty').length;
+        summaryCount.textContent = `${faNumber(count)} نفر`;
+    };
+    const currentView = () => document.querySelector('[data-manager-view].is-active')?.dataset.managerView || 'table';
+    const applyView = (view) => {
+        viewButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.managerView === view));
+        if (tableWrap) tableWrap.hidden = view !== 'table';
+        if (cardGrid) cardGrid.hidden = view !== 'cards';
+    };
+    const bindEditButton = (button) => {
+        if (button.dataset.bound === '1') return;
+        button.dataset.bound = '1';
+        button.addEventListener('click', () => openModal(button));
+    };
+    const updateRowAvatar = (button, url, fullName = '') => {
+        if (!button) return;
+        button.dataset.avatarUrl = url || '';
+        const row = button.closest('tr');
+        const avatar = row?.querySelector('.am-manager-name b');
+        const name = row?.querySelector('.am-manager-name strong');
+        const code = row?.querySelector('.am-manager-name small');
+        if (name && fullName) name.textContent = fullName;
+        if (code && form.elements.personnel_code.value) code.textContent = form.elements.personnel_code.value;
+        if (!avatar) return;
+        avatar.innerHTML = '';
+        if (url) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = fullName || name?.textContent || '';
+            avatar.appendChild(img);
+            return;
+        }
+        avatar.textContent = (fullName || name?.textContent || 'م').trim().slice(0, 1);
+    };
+    const cardTemplate = (id) => {
+        const article = document.createElement('article');
+        article.className = 'am-person-card';
+        article.dataset.managerCard = id || '';
+        article.innerHTML = `
+            <div class="am-card-top">
+                <span class="am-status"></span>
+                <div class="am-card-action-icons">
+                    <button type="button" class="am-card-menu" data-card-edit="${id || ''}" title="ویرایش اطلاعات">✎</button>
+                    <button type="button" class="am-card-menu" data-card-details="${id || ''}" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button>
+                    <button type="button" class="am-card-menu is-danger" data-delete-manager="${id || ''}" data-manager-name="" title="حذف مدیر آموزشی"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+                </div>
+            </div>
+            <div class="am-card-avatar"><span></span></div>
+            <h3></h3>
+            <p></p>
+            <div class="am-card-details">
+                <span><b>#</b><em data-card-field="code"></em></span>
+                <span><b>دانشگاه</b><em data-card-field="university"></em></span>
+                <span><b>دانشکده</b><em data-card-field="faculty"></em></span>
+                <span><b>گروه</b><em data-card-field="department"></em></span>
+                <span><b>ایمیل</b><em data-card-field="email"></em></span>
+                <span><b>موبایل</b><em data-card-field="phone"></em></span>
+            </div>
+            <footer>
+                <small>ثبت: -</small>
+            </footer>
+        `;
+        cardGrid?.prepend(article);
+        return article;
+    };
+    const bindCardActions = () => {
+        document.querySelectorAll('[data-card-edit]').forEach((button) => {
+            if (button.dataset.bound === '1') return;
+            button.dataset.bound = '1';
+            button.addEventListener('click', () => {
+                const edit = document.querySelector(`[data-edit-manager][data-id="${button.dataset.cardEdit}"]`);
+                if (edit) openModal(edit);
+            });
+        });
+        document.querySelectorAll('[data-card-details]').forEach((button) => {
+            if (button.dataset.bound === '1') return;
+            button.dataset.bound = '1';
+            button.addEventListener('click', () => {
+                const edit = document.querySelector(`[data-edit-manager][data-id="${button.dataset.cardDetails}"]`);
+                if (edit) openDetails(edit);
+            });
+        });
+    };
+    const updateManagerCard = (data) => {
+        if (!cardGrid) return;
+        const id = data.manager_id || '';
+        let card = cardGrid.querySelector(`[data-manager-card="${id}"]`);
+        if (!card) card = cardTemplate(id);
+        card.dataset.managerCard = id;
+        const status = card.querySelector('.am-status');
+        if (status) {
+            status.className = `am-status is-${data.status || 'active'}`;
+            status.textContent = statusLabel(data.status);
+        }
+        const avatar = card.querySelector('.am-card-avatar');
+        if (avatar) {
+            avatar.innerHTML = '';
+            if (data.avatar_url) {
+                const img = document.createElement('img');
+                img.src = data.avatar_url;
+                img.alt = data.full_name || '';
+                avatar.appendChild(img);
+            } else {
+                const span = document.createElement('span');
+                span.textContent = (data.full_name || 'م').trim().slice(0, 1);
+                avatar.appendChild(span);
+            }
+        }
+        setText(card.querySelector('h3'), data.full_name || 'مدیر آموزشی');
+        setText(card.querySelector('p'), data.personnel_code || '-');
+        setText(card.querySelector('[data-card-field="code"]'), data.personnel_code || '-');
+        setText(card.querySelector('[data-card-field="university"]'), data.university || '-');
+        setText(card.querySelector('[data-card-field="faculty"]'), data.faculty || '-');
+        setText(card.querySelector('[data-card-field="department"]'), data.department || '-');
+        setText(card.querySelector('[data-card-field="email"]'), data.email || '-');
+        setText(card.querySelector('[data-card-field="phone"]'), data.phone || '-');
+        card.querySelectorAll('[data-card-edit]').forEach((button) => {
+            button.dataset.cardEdit = id;
+            button.dataset.bound = '';
+        });
+        card.querySelectorAll('[data-card-details]').forEach((button) => {
+            button.dataset.cardDetails = id;
+            button.dataset.bound = '';
+        });
+        card.querySelectorAll('[data-delete-manager]').forEach((button) => {
+            button.dataset.deleteManager = id;
+            button.dataset.managerName = data.full_name || 'مدیر آموزشی';
+        });
+        bindCardActions();
+    };
+    const createManagerRow = () => {
+        const empty = tableBody?.querySelector('.am-empty')?.closest('tr');
+        empty?.remove();
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="am-check-cell"><span></span></td>
+            <td>
+                <div class="am-manager-name">
+                    <b></b>
+                    <div>
+                        <strong></strong>
+                        <small></small>
+                    </div>
+                </div>
+            </td>
+            <td><span class="am-pill"></span></td>
+            <td><span class="am-pill"></span></td>
+            <td><span class="am-pill"></span></td>
+            <td><span class="am-status"></span></td>
+            <td>-</td>
+            <td>
+                <div class="am-row-actions">
+                    <button type="button" class="am-action-icon" data-edit-manager title="ویرایش اطلاعات">✎</button>
+                    <button type="button" class="am-action-icon is-danger" data-delete-manager="" data-manager-name="" title="حذف مدیر آموزشی"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+                </div>
+            </td>
+        `;
+        tableBody?.prepend(row);
+        refreshSummaryCount();
+        return row.querySelector('[data-edit-manager]');
+    };
+    const updateManagerRow = (data) => {
+        const button = currentEditButton || createManagerRow();
+        if (!button) return;
+        currentEditButton = button;
+        button.dataset.id = data.manager_id || '';
+        button.dataset.firstName = data.first_name || '';
+        button.dataset.lastName = data.last_name || '';
+        button.dataset.fullName = data.full_name || '';
+        button.dataset.username = data.username || '';
+        button.dataset.email = data.email || '';
+        button.dataset.phone = data.phone || '';
+        button.dataset.nationalId = data.national_id || '';
+        button.dataset.personnelCode = data.personnel_code || '';
+        button.dataset.status = data.status || 'active';
+        button.dataset.avatarUrl = data.avatar_url || '';
+        button.dataset.university = data.university || '';
+        button.dataset.faculty = data.faculty || '';
+        button.dataset.department = data.department || '';
+        button.dataset.scopes = (data.scope_ids || []).join(',');
+        bindEditButton(button);
+
+        const row = button.closest('tr');
+        const deleteButton = row?.querySelector('[data-delete-manager]');
+        if (deleteButton) {
+            deleteButton.dataset.deleteManager = data.manager_id || '';
+            deleteButton.dataset.managerName = data.full_name || 'مدیر آموزشی';
+        }
+        setText(row?.querySelector('.am-manager-name strong'), data.full_name || 'مدیر آموزشی');
+        setText(row?.querySelector('.am-manager-name small'), data.personnel_code || '-');
+        const pills = row?.querySelectorAll('.am-pill') || [];
+        setText(pills[0], data.university || '-');
+        setText(pills[1], data.faculty || '-');
+        setText(pills[2], data.department || '-');
+        const status = row?.querySelector('.am-status');
+        if (status) {
+            status.className = `am-status is-${data.status || 'active'}`;
+            status.textContent = statusLabel(data.status);
+        }
+        updateRowAvatar(button, data.avatar_url || '', data.full_name || '');
+        updateManagerCard(data);
+        filterManagers();
+    };
+    const removeManagerFromUi = (managerId) => {
+        const rowButton = document.querySelector(`[data-edit-manager][data-id="${managerId}"]`);
+        rowButton?.closest('tr')?.remove();
+        cardGrid?.querySelector(`[data-manager-card="${managerId}"]`)?.remove();
+        refreshSummaryCount();
+        filterManagers();
+    };
+    const deleteManager = async (button) => {
+        const managerId = button.dataset.deleteManager;
+        const managerName = button.dataset.managerName || 'این مدیر آموزشی';
+        if (!managerId || !confirm(`آیا از حذف ${managerName} مطمئن هستید؟`)) return;
+        const formData = new FormData();
+        formData.append('manager_action', 'delete');
+        formData.append('manager_id', managerId);
+        formData.append('csrfmiddlewaretoken', form.querySelector('[name="csrfmiddlewaretoken"]').value);
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            alert(data.message || 'حذف انجام نشد.');
+            return;
+        }
+        removeManagerFromUi(managerId);
+        showToast(data.message || 'مدیر آموزشی حذف شد.');
+    };
+    const openModal = (button = null) => {
+        currentEditButton = button;
+        form.reset();
+        scopes = [];
+        resetScopeSelectors();
+        setPhotoPreview(button?.dataset.avatarUrl || '');
+        document.getElementById('managerModalTitle').textContent = button ? 'ویرایش اطلاعات کاربر' : 'افزودن مدیر آموزشی';
+        document.getElementById('managerId').value = button?.dataset.id || '';
+        form.elements.first_name.value = button?.dataset.firstName || '';
+        form.elements.last_name.value = button?.dataset.lastName || '';
+        form.elements.username.value = button?.dataset.username || '';
+        form.elements.email.value = button?.dataset.email || '';
+        form.elements.phone.value = button?.dataset.phone || '';
+        form.elements.national_id.value = button?.dataset.nationalId || '';
+        form.elements.personnel_code.value = button?.dataset.personnelCode || '';
+        form.elements.identifier.value = button?.dataset.personnelCode || '';
+        form.elements.status.value = button?.dataset.status || 'active';
+        modal.querySelector('[data-meta-id]').textContent = button?.dataset.id || 'جدید';
+        modal.querySelector('[data-meta-created]').textContent = button?.dataset.created || '-';
+        modal.querySelector('[data-meta-login]').textContent = button?.dataset.lastLogin || '-';
+        scopes = (button?.dataset.scopes || '').split(',').filter(Boolean);
+        renderScopes();
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+    };
+    const closeDetails = () => {
+        detailsModal?.classList.remove('is-open');
+        detailsModal?.setAttribute('aria-hidden', 'true');
+    };
+    const openDetails = (button) => {
+        if (!detailsModal || !button) return;
+        const avatar = detailsModal.querySelector('[data-details-avatar]');
+        const avatarImage = avatar?.querySelector('img');
+        const avatarFallback = avatar?.querySelector('span');
+        if (button.dataset.avatarUrl) {
+            avatarImage.src = button.dataset.avatarUrl;
+            avatarImage.hidden = false;
+            avatarFallback.hidden = true;
+        } else {
+            avatarImage.removeAttribute('src');
+            avatarImage.hidden = true;
+            avatarFallback.hidden = false;
+            avatarFallback.textContent = (button.dataset.fullName || 'م').trim().slice(0, 1);
+        }
+
+        const status = detailsModal.querySelector('[data-details-status]');
+        if (status) {
+            status.className = `am-status is-${button.dataset.status || 'active'}`;
+            status.textContent = statusLabel(button.dataset.status);
+        }
+
+        setText(detailsModal.querySelector('[data-details-full-name]'), button.dataset.fullName || 'مدیر آموزشی');
+        setText(detailsModal.querySelector('[data-details-personnel-code]'), button.dataset.personnelCode || '-');
+        setText(detailsModal.querySelector('[data-details-first-name]'), detailsValue(button.dataset.firstName));
+        setText(detailsModal.querySelector('[data-details-last-name]'), detailsValue(button.dataset.lastName));
+        setText(detailsModal.querySelector('[data-details-username]'), detailsValue(button.dataset.username));
+        setText(detailsModal.querySelector('[data-details-national-id]'), detailsValue(button.dataset.nationalId));
+        setText(detailsModal.querySelector('[data-details-phone]'), detailsValue(button.dataset.phone));
+        setText(detailsModal.querySelector('[data-details-email]'), detailsValue(button.dataset.email));
+        setText(detailsModal.querySelector('[data-details-code]'), detailsValue(button.dataset.personnelCode));
+        setText(detailsModal.querySelector('[data-details-university]'), detailsValue(button.dataset.university));
+        setText(detailsModal.querySelector('[data-details-faculty]'), detailsValue(button.dataset.faculty));
+        setText(detailsModal.querySelector('[data-details-department]'), detailsValue(button.dataset.department));
+        setText(detailsModal.querySelector('[data-details-created]'), detailsValue(button.dataset.created));
+        setText(detailsModal.querySelector('[data-details-last-login]'), detailsValue(button.dataset.lastLogin));
+
+        detailsModal.classList.add('is-open');
+        detailsModal.setAttribute('aria-hidden', 'false');
+    };
+
+    document.querySelector('[data-open-manager-modal]')?.addEventListener('click', () => openModal());
+    document.querySelectorAll('[data-edit-manager]').forEach(bindEditButton);
+    document.addEventListener('click', (event) => {
+        const deleteButton = event.target.closest('[data-delete-manager]');
+        if (deleteButton) deleteManager(deleteButton);
+    });
+    bindCardActions();
+    viewButtons.forEach((button) => button.addEventListener('click', () => applyView(button.dataset.managerView)));
+    applyView(currentView());
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedEdit = urlParams.get('edit');
+    const requestedDetail = urlParams.get('detail');
+    if (urlParams.get('add') === '1') {
+        openModal();
+    } else if (requestedEdit) {
+        const editButton = document.querySelector(`[data-edit-manager][data-id="${CSS.escape(requestedEdit)}"]`);
+        if (editButton) openModal(editButton);
+    } else if (requestedDetail) {
+        const detailButton = document.querySelector(`[data-edit-manager][data-id="${CSS.escape(requestedDetail)}"]`);
+        if (detailButton) openDetails(detailButton);
+    }
+    searchForm?.addEventListener('submit', (event) => event.preventDefault());
+    searchInput?.addEventListener('input', filterManagers);
+    clearSearchButton?.addEventListener('click', () => {
+        if (searchInput) {
+            searchInput.value = '';
+            filterManagers();
+            searchInput.focus();
+        }
+    });
+    filterManagers();
+    document.querySelectorAll('[data-close-manager-modal]').forEach((button) => button.addEventListener('click', () => {
+        closeModal();
+    }));
+    document.querySelectorAll('[data-close-manager-details]').forEach((button) => button.addEventListener('click', closeDetails));
+    document.querySelector('[data-print-manager-details]')?.addEventListener('click', () => window.print());
+    document.querySelectorAll('[data-tab]').forEach((tab) => tab.addEventListener('click', () => {
+        document.querySelectorAll('[data-tab]').forEach((item) => item.classList.toggle('is-active', item === tab));
+        document.querySelectorAll('[data-tab-panel]').forEach((panel) => panel.classList.toggle('is-active', panel.dataset.tabPanel === tab.dataset.tab));
+    }));
+    university.addEventListener('change', () => {
+        fillSelect(faculty, childrenOf(university.value, ['faculty']), 'انتخاب دانشکده');
+        fillSelect(department, [], 'ابتدا سطح بالاتر');
+    });
+    faculty.addEventListener('change', () => {
+        fillSelect(department, childrenOf(faculty.value, ['department', 'group']), 'انتخاب گروه آموزشی');
+    });
+    document.getElementById('addScopeButton').addEventListener('click', () => {
+        const id = department.value || faculty.value || university.value;
+        if (id && !scopes.includes(id)) {
+            scopes.push(id);
+            renderScopes();
+        }
+    });
+    avatarInput?.addEventListener('change', () => {
+        const file = avatarInput.files?.[0];
+        if (!file) return;
+        setPhotoPreview(URL.createObjectURL(file));
+    });
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submitButton = form.querySelector('.am-save-button');
+        submitButton.disabled = true;
+        try {
+            const response = await fetch(form.action || window.location.href, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                throw new Error(data.message || 'ذخیره انجام نشد.');
+            }
+            updateManagerRow(data);
+            avatarInput.value = '';
+            closeModal();
+            showToast(data.message || 'اطلاعات مدیر آموزشی ذخیره شد.');
+        } catch (error) {
+            alert(error.message || 'ذخیره انجام نشد.');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+})();
+</script>
+{% endblock %}

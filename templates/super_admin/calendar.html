@@ -1,0 +1,219 @@
+﻿{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}{{ title }} | متا کوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<section class="super-admin-page education-calendar-page super-admin-workspace" dir="rtl" data-fixed-scroll-page>
+    <header class="edu-cal-header">
+        <div>
+            <h1>
+                {{ title }}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+            </h1>
+            <p>{{ description }}</p>
+        </div>
+    </header>
+
+    <section class="edu-cal-stats">
+        <article>
+            <span class="is-purple"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/></svg></span>
+            <small>کل رویدادها</small>
+            <strong>{{ stats.events|fa_digits }}</strong>
+            <em>رویداد در کل</em>
+        </article>
+        <article>
+            <span class="is-blue"><svg viewBox="0 0 24 24"><path d="M8 3h8l4 4v14H4V3h4Z"/><path d="M14 3v6h6"/></svg></span>
+            <small>آزمون‌های این هفته</small>
+            <strong>{{ stats.week_events|fa_digits }}</strong>
+            <em>نسبت به هفته قبل</em>
+        </article>
+        <article>
+            <span class="is-green"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
+            <small>کلاس‌های برنامه‌ریزی شده</small>
+            <strong>{{ stats.active_classes|fa_digits }}</strong>
+            <em>کلاس ثبت شده</em>
+        </article>
+        <article>
+            <span class="is-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></span>
+            <small>ضرب‌الاجل نزدیک</small>
+            <strong>{{ stats.near_exams|fa_digits }}</strong>
+            <em>در ۷ روز آینده</em>
+        </article>
+    </section>
+
+    <div class="edu-cal-layout">
+        <aside class="edu-cal-left">
+            <section>
+                <h2>رویدادهای امروز</h2>
+                {% for event in today_events %}
+                    <article class="edu-event-card is-{{ event.tone }}">
+                        <span>{{ event.time|fa_digits }}</span>
+                        <div>
+                            <strong>{{ event.title|fa_digits }}</strong>
+                            <small>{{ event.course|fa_digits }}، {{ event.teacher|fa_digits }}</small>
+                        </div>
+                    </article>
+                {% empty %}
+                    <p class="edu-empty">امروز رویدادی ثبت نشده است.</p>
+                {% endfor %}
+                <a href="#">مشاهده همه</a>
+            </section>
+
+            <section>
+                <h2>رویدادهای مهم</h2>
+                {% for item in important_events %}
+                    <article class="edu-important is-{{ item.tone }}">
+                        <span>☆</span>
+                        <div>
+                            <strong>{{ item.title }}</strong>
+                            <small>{{ item.date|fa_digits }}</small>
+                        </div>
+                    </article>
+                {% endfor %}
+                <a href="#">راهنمای رنگ‌ها</a>
+            </section>
+
+            <section>
+                <h2>راهنمای رنگ‌ها</h2>
+                <ul class="edu-legend">
+                    <li><span class="is-purple"></span>رویداد آموزشی</li>
+                    <li><span class="is-blue"></span>آزمون</li>
+                    <li><span class="is-orange"></span>ضرب‌الاجل</li>
+                    <li><span class="is-green"></span>کلاس برنامه‌ریزی شده</li>
+                </ul>
+            </section>
+        </aside>
+
+        <main class="edu-cal-main">
+            <div class="edu-calendar-card">
+                <header>
+                    <button type="button">امروز</button>
+                    <div class="edu-cal-nav"><button type="button">‹</button><button type="button">›</button></div>
+                    <h2>{{ month_title|fa_digits }}</h2>
+                    <div class="edu-cal-view">
+                        <button type="button">روز</button>
+                        <button type="button">هفته</button>
+                        <button type="button" class="is-active">ماه</button>
+                        <button type="button">لیست</button>
+                    </div>
+                </header>
+
+                <div class="edu-calendar-grid">
+                    {% for day_name in weekday_names %}
+                        <b>{{ day_name }}</b>
+                    {% endfor %}
+                    {% for item in calendar_days %}
+                        <article class="{% if item.is_today %}is-today{% endif %}">
+                            {% if item.day %}
+                                <strong>{{ item.day|fa_digits }}</strong>
+                                {% for event in item.events %}
+                                    <span class="is-{{ event.tone }}">{{ event.title|truncatechars:18|fa_digits }}</span>
+                                {% endfor %}
+                                {% if item.more_count %}
+                                    <em>{{ item.more_count|fa_digits }} مورد دیگر</em>
+                                {% endif %}
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            </div>
+        </main>
+
+        <aside class="edu-cal-right">
+            <section class="edu-filter-card">
+                <h2>فیلتر و نمایش</h2>
+                <form method="get">
+                    <label>
+                        نوع رویداد
+                        <select name="type">
+                            <option value="" {% if not event_type_filter %}selected{% endif %}>همه رویدادها</option>
+                            <option value="exam" {% if event_type_filter == 'exam' %}selected{% endif %}>آزمون‌ها</option>
+                        </select>
+                    </label>
+                    <label>
+                        درس
+                        <select name="course">
+                            <option value="">همه دروس</option>
+                            {% for course in courses %}
+                                <option value="{{ course }}" {% if course_filter == course %}selected{% endif %}>{{ course|fa_digits }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        گروه
+                        <select name="group">
+                            <option>همه گروه‌ها</option>
+                        </select>
+                    </label>
+                    <label>
+                        استاد
+                        <select name="teacher">
+                            <option value="">همه استادها</option>
+                            {% for teacher in teachers %}
+                                <option value="{{ teacher }}" {% if teacher_filter == teacher %}selected{% endif %}>{{ teacher|fa_digits }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <div>
+                        <button type="button" class="is-active">ماه</button>
+                        <button type="button">هفته</button>
+                        <button type="button">لیست</button>
+                    </div>
+                    <button type="submit">پاکسازی فیلترها</button>
+                </form>
+            </section>
+
+            <section>
+                <h2>بازه زمانی رویدادهای پیش‌رو</h2>
+                {% for event in upcoming_events %}
+                    <article class="edu-upcoming is-{{ event.tone }}">
+                        <span></span>
+                        <div>
+                            <strong>{{ event.title|fa_digits }}</strong>
+                            <small>{{ event.start_at|date:"Y/m/d H:i"|fa_digits }}، {{ event.course|fa_digits }}</small>
+                        </div>
+                    </article>
+                {% empty %}
+                    <p class="edu-empty">رویداد پیش‌رویی ثبت نشده است.</p>
+                {% endfor %}
+            </section>
+        </aside>
+    </div>
+
+    <section class="edu-cal-bottom">
+        <article>
+            <h2>آمار رویدادها</h2>
+            <div class="edu-mini-stats">
+                <span class="is-purple"><b>{{ monthly_events_count|fa_digits }}</b>رویدادها</span>
+                <span class="is-blue"><b>{{ stats.week_events|fa_digits }}</b>آزمون‌ها</span>
+                <span class="is-orange"><b>{{ stats.near_exams|fa_digits }}</b>ضرب‌الاجل</span>
+            </div>
+            <div class="edu-bar-chart">
+                {% for value in chart_series %}
+                    <i style="--h: {{ value }}0%"></i>
+                {% endfor %}
+            </div>
+            <div class="edu-chart-labels">
+                {% for label in chart_days %}
+                    <span>{{ label }}</span>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article>
+            <h2>ترم‌های فعال</h2>
+            {% for term in terms|slice:":4" %}
+                <div class="edu-term-row">
+                    <strong>{{ term.label|fa_digits }}</strong>
+                    <span>{{ term.year|fa_digits }}</span>
+                    {% if term.is_current %}<em>جاری</em>{% endif %}
+                </div>
+            {% empty %}
+                <p class="edu-empty">ترمی ثبت نشده است.</p>
+            {% endfor %}
+        </article>
+    </section>
+</section>
+{% endblock %}

@@ -1,38 +1,383 @@
-{% load static %}
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ dashboard.title }}</title>
-    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
-</head>
-<body class="role-dashboard-page">
-    <main class="role-dashboard-shell">
-        <header class="role-dashboard-topbar">
-            <a href="{% url 'core:home' %}" class="role-dashboard-brand" aria-label="صفحه اصلی">
-                <span></span>
-            </a>
+﻿{% extends 'base_standalone.html' %}
+{% load static core_extras %}
+{% block title %}{{ dashboard.title }}{% endblock %}
+{% block content %}
+{% if role_code == 'student' %}
+<style>
+  .std{--blue:#075fff;--ink:#07183b;--muted:#60708f;--line:#dbe5f3;direction:rtl;min-height:100vh;padding:20px 24px 18px;background:radial-gradient(circle at 88% 7%,rgba(75,120,255,.14),transparent 25%),radial-gradient(circle at 13% 4%,rgba(16,185,129,.08),transparent 23%),linear-gradient(180deg,#f9fbff,#eef4fb);color:var(--ink);font-family:"B Yekan",BYekan,Vazirmatn,Tahoma,Arial,sans-serif;font-size:15px;line-height:1.5}
+  .std *{box-sizing:border-box;letter-spacing:0}.std a{text-decoration:none;color:inherit}.std svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .std-top{display:grid;grid-template-columns:320px minmax(0,1fr) 330px;align-items:center;gap:18px;min-height:60px;padding-bottom:24px}.std-brand{display:flex;align-items:center;gap:13px;justify-self:start;color:#1267ff;font-size:1.55rem;font-weight:950}.std-brand img{width:42px;height:42px;border-radius:14px;padding:8px;background:rgba(255,255,255,.62);box-shadow:0 12px 26px rgba(49,92,255,.1)}
+  .std-nav{display:flex;justify-content:center;gap:34px}.std-nav a{display:inline-flex;align-items:center;gap:9px;min-height:56px;padding:0 18px;border-radius:16px;color:#102044;font-weight:950;white-space:nowrap}.std-nav a.is-active{min-width:150px;justify-content:center;color:var(--blue);background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.86);box-shadow:0 14px 32px rgba(49,92,255,.12),inset 0 1px 0 #fff;border-bottom:3px solid var(--blue)}
+  .std-user{display:flex;align-items:center;gap:13px;direction:ltr;justify-self:start}.std-user button{position:relative;display:grid;width:54px;height:54px;place-items:center;border:1px solid rgba(255,255,255,.8);border-radius:50%;background:rgba(255,255,255,.5);color:#13213b;box-shadow:0 14px 28px rgba(30,55,95,.08)}.std-user .has-dot:after{content:"";position:absolute;top:12px;right:13px;width:8px;height:8px;border-radius:99px;background:#ef4444;border:1px solid #fff}.std-profile{display:flex;align-items:center;gap:12px;direction:ltr}.std-avatar{position:relative;display:grid;width:54px;height:54px;place-items:center;border-radius:50%;background:linear-gradient(145deg,#b8a0ff,#8b5cf6);color:#fff;font-weight:950}.std-avatar:after{content:"";position:absolute;right:3px;bottom:3px;width:11px;height:11px;border:2px solid #fff;border-radius:50%;background:#18c964}.std-profile span:last-child{direction:rtl}.std-profile strong,.std-profile small{display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.std-profile small{color:#6f7d99;font-weight:850}
+  .std-shell{display:grid;grid-template-columns:76px minmax(0,1fr);gap:22px}.std-rail{position:sticky;top:102px;height:calc(100vh - 122px);display:flex;flex-direction:column;align-items:center;gap:18px;padding:17px 12px;border:1px solid rgba(255,255,255,.78);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.8),rgba(255,255,255,.44));box-shadow:0 26px 58px rgba(30,55,95,.09)}.std-rail a{display:grid;width:48px;height:48px;place-items:center;border-radius:16px;color:#56637d}.std-rail a.is-active{color:#075fff;background:#eef4ff;box-shadow:0 12px 24px rgba(49,92,255,.12)}.std-rail a:last-child{margin-top:auto}
+  .std-main{min-width:0}.std-date{display:flex;width:max-content;margin:0 auto 18px 0;height:44px;align-items:center;border-radius:16px;background:rgba(255,255,255,.58);padding:0 22px;color:#30405c;font-weight:950}.std-actions{clear:both;display:grid;grid-template-columns:1.8fr repeat(3,1fr);gap:20px;margin-bottom:20px}.std-card{border:1px solid rgba(255,255,255,.66);border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.66),rgba(255,255,255,.34));box-shadow:0 24px 58px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.8);backdrop-filter:blur(28px)}.std-action,.std-primary{display:flex;align-items:center;justify-content:center;gap:18px;min-height:82px;font-size:1.05rem;font-weight:950}.std-primary{order:-1;background:linear-gradient(135deg,#335dff,#1d57f4);color:#fff!important;box-shadow:0 18px 38px rgba(29,92,255,.28)}.std-primary svg{width:34px;height:34px;color:#fff}
+  .std-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:20px}.std-stat{display:grid;grid-template-columns:70px 1fr;align-items:center;min-height:126px;padding:24px}.std-stat h3{margin:0;color:#102044;font-size:1rem}.std-stat strong{display:block;margin-top:12px;font-size:2.2rem;font-weight:950}.std-icon{display:grid;width:60px;height:60px;place-items:center;border-radius:22px;background:#eaf2ff;color:#075fff}.std-icon.green{background:#dcf8ea;color:#12a461}.std-icon.orange{background:#fff0cf;color:#f59e0b}.std-icon.purple{background:#efe8ff;color:#8b5cf6}
+  .std-grid{display:grid;grid-template-columns:420px minmax(0,1fr) 430px;grid-template-areas:"calendar upcoming active" "calendar notices results";gap:18px;align-items:stretch}.std-panel{padding:24px}.std-panel h2{margin:0 0 18px;font-size:1.22rem}.std-active{grid-area:active;display:grid;min-height:375px;text-align:center;align-content:space-between}.std-badge{display:inline-flex;align-items:center;gap:8px;justify-self:end;font-weight:950}.std-badge:before{content:"";width:10px;height:10px;border-radius:99px;background:#10b981}.std-active h2{font-size:1.55rem}.std-time{display:flex;align-items:center;justify-content:center;gap:12px;color:#52617d;font-weight:900}.std-count{display:grid;place-items:center;gap:12px}.std-clock{display:grid;width:88px;height:88px;place-items:center;border-radius:50%;background:#eaf2ff;color:#075fff}.std-count strong{font-size:2.75rem;color:#335dff;direction:ltr}.std-btn{display:flex;height:54px;align-items:center;justify-content:center;gap:10px;border-radius:10px;background:linear-gradient(135deg,#075fff,#1267ff);color:#fff;font-weight:950;box-shadow:0 16px 30px rgba(29,92,255,.24)}
+  .std-list{display:grid;gap:14px}.std-exam-row,.std-note{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;min-height:78px;border:1px solid #e1eaf5;border-radius:14px;background:rgba(255,255,255,.58);padding:12px 14px}.std-exam-row strong,.std-note strong{display:block;font-size:1.02rem}.std-exam-row small,.std-note small{display:block;color:#60708f;font-weight:850}.std-chip{display:inline-flex;align-items:center;justify-content:center;min-height:28px;border-radius:999px;padding:0 12px;background:#fff0cf;color:#f59e0b;font-weight:950}.std-chip.blue{background:#e8f0ff;color:#075fff}.std-chip.green{background:#dcf8ea;color:#10a461}
+  .std-calendar{grid-area:calendar;min-height:612px}.std-upcoming{grid-area:upcoming}.std-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.std-month{display:grid;grid-template-columns:repeat(7,1fr);gap:11px;text-align:center}.std-month b,.std-month span{display:grid;min-height:36px;place-items:center;border-radius:50%;font-weight:900}.std-month b{color:#0f1f41}.std-month .muted{color:#a5b0c4}.std-month .today{background:#245eff;color:#fff}.std-month .exam{background:#fff0cf;color:#f59e0b}.std-legend{display:flex;justify-content:center;gap:30px;margin-top:22px;color:#65738d;font-weight:900}.std-legend i{display:inline-block;width:14px;height:14px;border-radius:50%;margin-left:8px;background:#245eff}.std-legend i.orange{background:#f59e0b}
+  .std-results-panel{grid-area:results}.std-notices-panel{grid-area:notices}.std-results{display:grid;grid-template-columns:1fr 1fr;gap:16px}.std-result{min-height:168px;border:1px solid #dfe8f4;border-radius:14px;background:rgba(255,255,255,.55);padding:16px;text-align:center}.std-ring{display:grid;width:88px;height:88px;margin:12px auto 0;place-items:center;border-radius:50%;background:conic-gradient(#2f6cff calc(var(--p)*1%),#e5edf9 0);font-size:1.25rem;font-weight:950}.std-ring.green{background:conic-gradient(#35c987 calc(var(--p)*1%),#e5edf9 0)}.std-ring span{display:grid;width:66px;height:66px;place-items:center;border-radius:50%;background:#fff}.std-link{color:#075fff;font-weight:950}.std-notices{display:grid;gap:10px}
+  @media(max-width:1320px){.std-top,.std-shell,.std-grid,.std-bottom{grid-template-columns:1fr}.std-rail{display:none}.std-actions,.std-stats{grid-template-columns:repeat(2,1fr)}}@media(max-width:760px){.std-nav{overflow:auto;justify-content:flex-start}.std-actions,.std-stats,.std-results{grid-template-columns:1fr}.std{padding:14px}.std-date{float:none;margin-bottom:14px}.std-card{border-radius:14px}}
+</style>
+<section class="std" dir="rtl">
+  <header class="std-top">
+    <a class="std-brand" href="{% url 'core:dashboard' %}"><span>متا کوییز</span><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></a>
+    <nav class="std-nav" aria-label="ناوبری دانشجو">
+      <a class="is-active" href="{% url 'core:dashboard' %}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>داشبورد</a>
+      <a href="{% url 'core:student_exam_schedule' %}"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>آزمون‌ها</a>
+      <a href="{% url 'core:student_results' %}"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 14l3-3 3 2 4-6"/></svg>نتایج آزمون‌ها</a>
+      <a href="{% url 'core:student_exam_schedule' %}"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>تقویم آزمون‌ها</a>
+    </nav>
+    <div class="std-user"><button type="button"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button><button type="button" class="has-dot"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button><a class="std-profile" href="{% url 'core:profile' %}"><span class="std-avatar">{{ student_dashboard.student_name|slice:":1" }}</span><span><strong>{{ student_dashboard.student_name }}</strong><small>{{ student_dashboard.field }}</small></span></a></div>
+  </header>
+  <div class="std-shell">
+    <aside class="std-rail">
+      <a class="is-active" href="{% url 'core:dashboard' %}" title="داشبورد"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></a>
+      <a href="{% url 'core:student_exam_schedule' %}" title="آزمون‌ها"><svg viewBox="0 0 24 24"><path d="M20 7h-9M14 17H5"/><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="14" width="5" height="5" rx="1"/></svg></a>
+      <a href="{% url 'core:student_results' %}" title="نتایج"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 14l3-3 3 2 4-6"/></svg></a>
+      <a href="{% url 'core:student_exam_schedule' %}" title="تقویم"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg></a>
+      <a href="{% url 'core:profile' %}" title="پروفایل"><svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg></a>
+      <a href="{% url 'core:logout' %}" title="خروج"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></a>
+    </aside>
+    <main class="std-main">
+      <div class="std-date">تاریخ امروز: ۱۴۰۵/۰۵/۲۳</div>
+      <section class="std-actions">
+        <a class="std-action std-card" href="{% url 'core:student_exam_schedule' %}"><svg viewBox="0 0 24 24"><path d="M9 11h6M9 15h6"/><rect x="6" y="3" width="12" height="18" rx="2"/></svg>آزمون‌های من</a>
+        <a class="std-action std-card" href="{% url 'core:student_results' %}"><svg viewBox="0 0 24 24"><path d="M21 12A9 9 0 1 1 12 3v9Z"/><path d="M12 3a9 9 0 0 1 9 9h-9Z"/></svg>نتایج آزمون‌ها</a>
+        <a class="std-action std-card" href="{% url 'core:student_exam_schedule' %}"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>تقویم آزمون‌ها</a>
+        <a class="std-primary std-card" href="{% if student_dashboard.active_exam %}{% url 'core:student_exam_entry' student_dashboard.active_exam.id %}{% else %}{% url 'core:student_exam_schedule' %}{% endif %}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4Z"/></svg>ورود به آزمون فعال</a>
+      </section>
+      <section class="std-stats">
+        <article class="std-stat std-card"><span class="std-icon orange"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg></span><div><h3>آزمون‌های پیش رو</h3><strong>{{ student_dashboard.stats.upcoming|fa_digits }}</strong></div></article>
+        <article class="std-stat std-card"><span class="std-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4Z"/></svg></span><div><h3>آزمون فعال</h3><strong>{{ student_dashboard.stats.active|fa_digits }}</strong></div></article>
+        <article class="std-stat std-card"><span class="std-icon green"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><div><h3>نتایج جدید</h3><strong>{{ student_dashboard.stats.new_results|fa_digits }}</strong></div></article>
+        <article class="std-stat std-card"><span class="std-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></span><div><h3>آزمون‌های برگزارشده</h3><strong>{{ student_dashboard.stats.completed|fa_digits }}</strong></div></article>
+      </section>
+      <section class="std-grid">
+        <article class="std-card std-panel std-active"><span class="std-badge">آزمون فعال</span><div><h2>{% if student_dashboard.active_exam %}{{ student_dashboard.active_exam.title }}{% else %}آزمون میان‌ترم پرستاری سالمندی{% endif %}</h2><p class="std-time">امروز | ساعت {% if student_dashboard.active_exam %}{{ student_dashboard.active_exam.time_text|fa_digits }} تا {{ student_dashboard.active_exam.end_text|fa_digits }}{% else %}۱۰:۰۰ تا ۱۱:۳۰{% endif %}</p></div><div class="std-count"><span class="std-clock"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><small>شروع تا</small><strong>۰۲:۱۵:۳۲</strong></div><a class="std-btn" href="{% if student_dashboard.active_exam %}{% url 'core:student_exam_entry' student_dashboard.active_exam.id %}{% else %}{% url 'core:student_exam_schedule' %}{% endif %}">ورود به آزمون</a></article>
+        <article class="std-card std-panel std-upcoming"><h2>آزمون‌های پیش رو</h2><div class="std-list">{% for exam in student_dashboard.upcoming_exams %}<a class="std-exam-row" href="{% url 'core:student_exam_detail' exam.id %}"><span class="std-chip {{ exam.register_tone }}">{{ exam.register_label }}</span><div><strong>{{ exam.title }}</strong><small>{{ exam.date_text|fa_digits }} | ساعت {{ exam.time_text|fa_digits }} | {{ exam.duration_label|fa_digits }} دقیقه</small></div><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></a>{% empty %}<a class="std-exam-row" href="{% url 'core:student_exam_schedule' %}"><span class="std-chip orange">ثبت‌نام باز</span><div><strong>آزمون مهارت‌های ارتباطی</strong><small>۱۴۰۵/۰۵/۲۶ | ساعت ۱۴:۰۰ | ۹۰ دقیقه</small></div><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></a>{% endfor %}</div></article>
+        <article class="std-card std-panel std-calendar"><h2>تقویم آزمون‌ها</h2><div class="std-cal-head"><a>‹</a><strong>مرداد ۱۴۰۵</strong><a>›</a></div><div class="std-month"><b>ش</b><b>ی</b><b>د</b><b>س</b><b>چ</b><b>پ</b><b>ج</b>{% for day in student_dashboard.calendar_days %}<span class="{% if day == student_dashboard.today_day %}today{% elif day in student_dashboard.exam_days %}exam{% endif %}">{{ day|fa_digits }}</span>{% endfor %}</div><div class="std-legend"><span><i></i>امروز</span><span><i class="orange"></i>تاریخ‌های آزمون</span></div></article>
+        <article class="std-card std-panel std-results-panel"><h2>آخرین نتایج <a class="std-link" href="{% url 'core:student_results' %}" style="float:left">مشاهده همه نتایج</a></h2><div class="std-results">{% for result in student_dashboard.result_cards|slice:":2" %}<a class="std-result" href="{{ result.url }}"><strong>{{ result.title }}</strong><small>{{ result.date|fa_digits }}</small><div class="std-ring {{ result.tone }}" style="--p:{{ result.percent }}"><span>{{ result.score|fa_digits }}</span></div><small>از ۱۰۰</small></a>{% endfor %}</div></article>
+        <article class="std-card std-panel std-notices-panel"><h2>اطلاعیه‌های آزمون</h2><div class="std-notices">{% for note in student_dashboard.notifications|slice:":3" %}<div class="std-note"><span class="std-icon {% if note.type == 'result' %}green{% elif note.type == 'calendar' %}orange{% else %}purple{% endif %}"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></span><div><strong>{{ note.title }}</strong><small>{{ note.message }}</small></div><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></div>{% endfor %}</div></article>
+      </section>
+    </main>
+  </div>
+</section>
+{% elif role_panel.type == 'super_admin' %}
+{% include 'partials/super_admin_chrome.html' %}
+{% include 'partials/super_admin_dashboard_overview.html' %}
+{% comment %}
+<style>
+    .admin-dashboard-page-live{direction:ltr;display:grid;grid-template-columns:minmax(0,1fr) 250px;height:calc(100vh + 24px);margin-top:-24px;background:#f3f6fb;overflow:hidden}
+    .admin-dashboard-page-live .admin-dashboard-main{direction:rtl;grid-column:1;grid-row:1;order:1;width:100%;height:100vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;max-width:none;margin:0;padding:0 1.55rem 2.25rem}
+    .admin-dashboard-page-live .panel-topbar{margin-inline:-1.55rem}
+    .admin-dashboard-page-live .profile-sidebar{direction:rtl;grid-column:2;grid-row:1;order:2;height:100vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;border-left:1px solid #dce3ef;background:#fff;padding:1.75rem 1rem}
+    .admin-dashboard-page-live .profile-brand{display:flex;align-items:center;justify-content:space-between;gap:1rem;font-weight:900;color:#071936}
+        .profile-brand-logo{width:2.35rem;height:2.35rem;display:block;object-fit:contain;border-radius:.85rem;background:#f0f5ff;padding:.35rem}
+    .admin-dashboard-page-live .profile-brand span{display:grid;width:2.8rem;height:2.8rem;place-items:center;border-radius:1rem;background:#7c3aed;color:#fff;font-size:1.4rem}
+    .admin-dashboard-page-live .profile-side-search{margin-top:1.8rem;display:flex;height:2.9rem;align-items:center;gap:.6rem;border:1px solid #e5eaf2;border-radius:1rem;background:#f8fafc;padding:0 .9rem;color:#8a94a6}
+    .admin-dashboard-page-live .profile-side-search input{min-width:0;flex:1;background:transparent;outline:0;font-size:.82rem;font-weight:700}
+    .admin-dashboard-page-live .profile-nav{margin-top:1.25rem;display:grid;gap:.25rem}
+    .admin-dashboard-page-live .profile-nav small{margin:1rem .85rem .35rem;color:#97a1b3;font-size:.72rem;font-weight:800}
+    .admin-dashboard-page-live .profile-nav a{display:flex;align-items:center;gap:.75rem;border-radius:.9rem;padding:.8rem .95rem;color:#3c4658;font-size:.9rem;font-weight:850}
+    .admin-dashboard-page-live .profile-nav a.is-active{background:#edf2fa;color:#142d72}
+    .admin-dashboard-page-live .profile-user{margin-top:auto;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.75rem;border-radius:1.25rem;background:#f7f9fc;padding:.75rem}
+    .admin-dashboard-page-live .profile-user b{display:grid;width:2.75rem;height:2.75rem;place-items:center;border-radius:999px;background:#8759e8;color:#fff;font-weight:900}
+    .admin-dashboard-page-live .profile-user strong,.admin-dashboard-page-live .profile-user small,.admin-dashboard-page-live .profile-user em{display:block;max-width:8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .admin-dashboard-page-live .profile-user small,.admin-dashboard-page-live .profile-user em{margin-top:.15rem;color:#8b94a4;font-size:.72rem;font-style:normal;font-weight:800}
+    .admin-dashboard-page-live .profile-sidebar{height:100dvh;overflow-y:auto;overflow-x:hidden;padding:.65rem .75rem .6rem;scrollbar-width:thin}
+    .admin-dashboard-page-live .profile-brand{min-height:2.45rem}
+        .profile-brand-logo{width:2.35rem;height:2.35rem;display:block;object-fit:contain;border-radius:.85rem;background:#f0f5ff;padding:.35rem}
+    .admin-dashboard-page-live .profile-brand span{width:2.35rem;height:2.35rem;border-radius:.85rem;font-size:1.12rem}
+    .admin-dashboard-page-live .profile-side-search{margin-top:.62rem;height:2.38rem;border-radius:.85rem;padding:0 .7rem}
+    .admin-dashboard-page-live .profile-nav{margin-top:.52rem;gap:.04rem}
+    .admin-dashboard-page-live .profile-nav small{margin:.45rem .6rem .12rem;font-size:.63rem}
+    .admin-dashboard-page-live .profile-nav a{min-height:2.08rem;gap:.52rem;border-radius:.76rem;padding:.4rem .72rem;font-size:.82rem;line-height:1.12}
+    .admin-dashboard-page-live .profile-nav a span{display:grid;width:1.15rem;place-items:center;font-size:1rem;line-height:1}
+    .admin-dashboard-page-live .profile-user{margin-top:auto;gap:.48rem;border-radius:.92rem;padding:.5rem}
+    .admin-dashboard-page-live .profile-user b{width:2.25rem;height:2.25rem}
+    .admin-dashboard-page-live .profile-user strong,.admin-dashboard-page-live .profile-user small,.admin-dashboard-page-live .profile-user em{max-width:6.9rem}
+    .admin-dashboard-page-live .profile-user small,.admin-dashboard-page-live .profile-user em{font-size:.63rem}
+    .admin-dashboard-page-live .admin-dashboard-main{grid-column:1;grid-row:1}
+    .admin-dashboard-page-live .admin-dashboard-main{max-width:none;margin:0;overflow-x:hidden;padding:0 1.55rem 2.25rem;font-size:.88rem}
+    .admin-dashboard-page-live .admin-dashboard-header{margin-bottom:1.1rem}
+    .admin-dashboard-page-live .admin-dashboard-actions{display:none}
+    .admin-dashboard-page-live .admin-dashboard-greeting h1{font-size:1.45rem;line-height:1.35}
+    .admin-dashboard-page-live .admin-dashboard-greeting p{margin-top:.3rem;font-size:.78rem}
+    .admin-dashboard-page-live .admin-dashboard-actions label{height:2.55rem;width:16rem;border-radius:.85rem}
+    .admin-dashboard-page-live .admin-dashboard-actions button,
+    .admin-dashboard-page-live .admin-dashboard-invite{height:2.5rem}
+    .admin-dashboard-page-live .admin-dashboard-stats{gap:.75rem}
+    .admin-dashboard-page-live .admin-dashboard-stats article{min-height:132px;padding:.9rem}
+    .admin-dashboard-page-live .admin-dashboard-stats article>div{margin-bottom:.65rem}
+    .admin-dashboard-page-live .admin-dashboard-stats article>div b,
+    .admin-dashboard-page-live .admin-dashboard-stats article>div span{width:1.9rem;height:1.9rem;font-size:.95rem}
+    .admin-dashboard-page-live .admin-dashboard-stats strong{font-size:.98rem}
+    .admin-dashboard-page-live .admin-dashboard-stats small{margin-top:1.1rem;font-size:.76rem}
+    .admin-dashboard-page-live .admin-dashboard-stats em{font-size:1.55rem;line-height:1.6rem}
+    .admin-dashboard-page-live .admin-dashboard-stats svg{left:.95rem;bottom:.75rem;width:6.7rem;height:2.85rem}
+    .admin-dashboard-page-live .admin-dashboard-grid,
+    .admin-dashboard-page-live .admin-dashboard-bottom{margin-top:.8rem;gap:.85rem}
+    .admin-dashboard-page-live .admin-dashboard-card{min-height:300px;padding:1.15rem;border-radius:.9rem}
+    .admin-dashboard-page-live .admin-dashboard-card h2{font-size:1.05rem;line-height:1.5}
+    .admin-dashboard-page-live .admin-dashboard-bars header{margin-bottom:1rem}
+    .admin-dashboard-page-live .admin-dashboard-bars header div{gap:.8rem;font-size:.68rem}
+    .admin-dashboard-page-live .admin-bars-chart{height:220px;gap:.46rem;padding-top:1.25rem}
+    .admin-dashboard-page-live .admin-bars-chart b,
+    .admin-dashboard-page-live .admin-bars-chart em,
+    .admin-dashboard-page-live .admin-bars-chart i{width:1.35rem}
+    .admin-dashboard-page-live .admin-bars-chart div,
+    .admin-dashboard-page-live .admin-dashboard-list span,
+    .admin-dashboard-page-live .admin-dashboard-list p{font-size:.68rem}
+    .admin-dashboard-page-live .admin-radar-wrap{margin-top:1.25rem;gap:1.15rem}
+    .admin-dashboard-page-live .admin-radar-wrap ul{gap:.48rem;font-size:.78rem}
+    .admin-dashboard-page-live .admin-radar-wrap svg{height:210px}
+    .admin-dashboard-page-live .admin-radar-wrap text{font-size:10px}
+    .admin-dashboard-page-live .admin-dashboard-list{margin-top:.85rem;gap:.55rem}
+    .admin-dashboard-page-live .admin-dashboard-list a,
+    .admin-dashboard-page-live .admin-dashboard-list p{border-radius:.75rem;padding:.58rem .75rem}
+    .admin-dashboard-page-live .admin-dashboard-list strong{font-size:.78rem}
+    .admin-dashboard-page-live .admin-role-donut-wrap{margin-top:1rem;grid-template-columns:142px minmax(0,1fr);gap:1rem}
+    .admin-dashboard-page-live .admin-role-donut{width:138px}
+    .admin-dashboard-page-live .admin-role-donut:after{inset:27px}
+    .admin-dashboard-page-live .admin-role-legend{gap:.48rem;font-size:.75rem}
+    .admin-dashboard-page-live .admin-role-legend b{font-size:.82rem}
+    .admin-dashboard-page-live .admin-dashboard-reports{margin-top:.85rem}
+    .admin-dashboard-page-live .admin-dashboard-reports>header{margin-bottom:.55rem}
+    .admin-dashboard-page-live .admin-dashboard-reports h2{font-size:1.08rem}
+    .admin-dashboard-page-live .admin-dashboard-reports p{font-size:.68rem}
+    .admin-dashboard-page-live .admin-dashboard-reports>div{gap:.75rem}
+    .admin-dashboard-page-live .admin-report-card{min-height:74px;border-radius:.8rem;padding:.75rem .85rem}
+    .admin-dashboard-page-live .admin-report-card span{width:1.55rem;height:1.55rem;top:.75rem;right:.75rem}
+    .admin-dashboard-page-live .admin-report-card small,
+    .admin-dashboard-page-live .admin-report-card strong{padding-right:2.1rem}
+    .admin-dashboard-page-live .admin-report-card small{font-size:.68rem}
+    .admin-dashboard-page-live .admin-report-card strong{margin-top:.35rem;font-size:1.25rem}
+    .admin-dashboard-page-live .admin-dashboard-stats{gap:1rem}
+    .admin-dashboard-page-live .admin-dashboard-card,.admin-dashboard-page-live .admin-dashboard-stats article{border-radius:1.1rem;border-color:#d8e0eb;background:rgba(255,255,255,.92)}
+    .admin-dashboard-page-live .admin-dashboard-card{min-height:0}
+    .admin-dashboard-page-live .admin-bars-chart{gap:.72rem}
+    .admin-dashboard-page-live .admin-bars-chart span{max-width:4rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .admin-dashboard-page-live .admin-dashboard-list a{position:relative;display:block;padding-inline-start:6.5rem;border:1px solid #edf1f6}
+    .admin-exam-status{position:absolute;top:.85rem;left:1rem;display:inline-flex;align-items:center;border-radius:9999px;padding:.25rem .65rem;font-size:.7rem;font-weight:900}
+    .admin-exam-status.is-success{background:#dcfce7;color:#047857}
+    .admin-exam-status.is-warning{background:#fef3c7;color:#b45309}
+    .admin-exam-status.is-danger{background:#fee2e2;color:#b91c1c}
+    .admin-exam-status.is-muted{background:#eef2f7;color:#64748b}
+    .admin-dashboard-role-card{overflow:hidden}
+    .admin-role-donut-wrap{margin-top:1.75rem;display:grid;grid-template-columns:180px minmax(0,1fr);align-items:center;gap:2rem}
+    .admin-role-donut{position:relative;width:176px;aspect-ratio:1;border-radius:9999px;box-shadow:inset 0 0 0 1px rgba(15,23,42,.08)}
+    .admin-role-donut:after{content:"";position:absolute;inset:34px;border-radius:9999px;background:#fff;box-shadow:0 0 0 1px rgba(15,23,42,.06)}
+    .admin-role-legend{display:grid;gap:.75rem;font-size:.875rem;font-weight:800;color:#596273}
+    .admin-role-legend li{display:flex;align-items:center;gap:.55rem}
+    .admin-role-legend li span{width:.7rem;height:.7rem;border-radius:9999px}
+    .admin-role-legend b{margin-right:auto;color:#071936;font-size:1rem}
+    .admin-dashboard-reports{margin-top:1.25rem}
+    .admin-dashboard-reports>header{margin-bottom:.85rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem}
+    .admin-dashboard-reports h2{font-size:1.35rem;font-weight:900;color:#020b1f}
+    .admin-dashboard-reports p{margin-top:.25rem;font-size:.78rem;font-weight:700;color:#7a8496}
+    .admin-dashboard-reports>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+    .admin-report-card{position:relative;min-height:96px;border:1px solid #d8e0eb;border-radius:1rem;background:#fff;padding:1rem 1.15rem;box-shadow:0 14px 34px rgba(30,45,80,.035)}
+    .admin-report-card span{position:absolute;top:1rem;right:1rem;width:2rem;height:2rem;border-radius:.65rem}
+    .admin-report-card small{display:block;padding-right:2.8rem;font-size:.78rem;font-weight:800;color:#667085}
+    .admin-report-card strong{display:block;margin-top:.55rem;padding-right:2.8rem;font-size:1.65rem;line-height:1.1;font-weight:900;color:#071936}
+    .admin-report-card.is-blue span{background:#dbeafe}
+    .admin-report-card.is-indigo span{background:#e0e7ff}
+    .admin-report-card.is-green span{background:#dcfce7}
+    .admin-report-card.is-red span{background:#fee2e2}
+    .admin-report-card.is-orange span{background:#ffedd5}
+    .admin-report-card.is-purple span{background:#ede9fe}
+    .admin-dashboard-page-live .admin-dashboard-main{padding:0 1.55rem 2.25rem;font-size:.88rem}
+    .admin-dashboard-page-live .admin-dashboard-header{margin-bottom:1.1rem}
+    .admin-dashboard-page-live .admin-dashboard-greeting h1{font-size:1.45rem;line-height:1.35}
+    .admin-dashboard-page-live .admin-dashboard-greeting p{margin-top:.3rem;font-size:.78rem}
+    .admin-dashboard-page-live .admin-dashboard-actions label{height:2.55rem;width:16rem;border-radius:.85rem}
+    .admin-dashboard-page-live .admin-dashboard-actions button,.admin-dashboard-page-live .admin-dashboard-invite{height:2.5rem}
+    .admin-dashboard-page-live .admin-dashboard-stats{gap:.75rem}
+    .admin-dashboard-page-live .admin-dashboard-stats article{min-height:132px;padding:.9rem;border-radius:.9rem}
+    .admin-dashboard-page-live .admin-dashboard-stats article>div{margin-bottom:.65rem}
+    .admin-dashboard-page-live .admin-dashboard-stats article>div b,.admin-dashboard-page-live .admin-dashboard-stats article>div span{width:1.9rem;height:1.9rem;font-size:.95rem}
+    .admin-dashboard-page-live .admin-dashboard-stats strong{font-size:.98rem}
+    .admin-dashboard-page-live .admin-dashboard-stats small{margin-top:1.1rem;font-size:.76rem}
+    .admin-dashboard-page-live .admin-dashboard-stats em{font-size:1.55rem;line-height:1.6rem}
+    .admin-dashboard-page-live .admin-dashboard-stats svg{left:.95rem;bottom:.75rem;width:6.7rem;height:2.85rem}
+    .admin-dashboard-page-live .admin-dashboard-grid,.admin-dashboard-page-live .admin-dashboard-bottom{margin-top:.8rem;gap:.85rem}
+    .admin-dashboard-page-live .admin-dashboard-card{min-height:300px;padding:1.15rem;border-radius:.9rem}
+    .admin-dashboard-page-live .admin-dashboard-card h2{font-size:1.05rem;line-height:1.5}
+    .admin-dashboard-page-live .admin-dashboard-bars header{margin-bottom:1rem}
+    .admin-dashboard-page-live .admin-dashboard-bars header div{gap:.8rem;font-size:.68rem}
+    .admin-dashboard-page-live .admin-bars-chart{height:220px;gap:.46rem;padding-top:1.25rem}
+    .admin-dashboard-page-live .admin-bars-chart b,.admin-dashboard-page-live .admin-bars-chart em,.admin-dashboard-page-live .admin-bars-chart i{width:1.35rem}
+    .admin-dashboard-page-live .admin-bars-chart div,.admin-dashboard-page-live .admin-dashboard-list span,.admin-dashboard-page-live .admin-dashboard-list p{font-size:.68rem}
+    .admin-dashboard-page-live .admin-radar-wrap{margin-top:1.25rem;gap:1.15rem}
+    .admin-dashboard-page-live .admin-radar-wrap ul{gap:.48rem;font-size:.78rem}
+    .admin-dashboard-page-live .admin-radar-wrap svg{height:210px}
+    .admin-dashboard-page-live .admin-radar-wrap text{font-size:10px}
+    .admin-dashboard-page-live .admin-dashboard-list{margin-top:.85rem;gap:.55rem}
+    .admin-dashboard-page-live .admin-dashboard-list a,.admin-dashboard-page-live .admin-dashboard-list p{border-radius:.75rem;padding:.58rem .75rem}
+    .admin-dashboard-page-live .admin-dashboard-list a{padding-inline-start:5.35rem}
+    .admin-dashboard-page-live .admin-dashboard-list strong{font-size:.78rem}
+    .admin-dashboard-page-live .admin-exam-status{top:.65rem;left:.75rem;padding:.18rem .52rem;font-size:.64rem}
+    .admin-dashboard-page-live .admin-role-donut-wrap{margin-top:1rem;grid-template-columns:142px minmax(0,1fr);gap:1rem}
+    .admin-dashboard-page-live .admin-role-donut{width:138px}
+    .admin-dashboard-page-live .admin-role-donut:after{inset:27px}
+    .admin-dashboard-page-live .admin-role-legend{gap:.48rem;font-size:.75rem}
+    .admin-dashboard-page-live .admin-role-legend b{font-size:.82rem}
+    .admin-dashboard-page-live .admin-dashboard-reports{margin-top:.85rem}
+    .admin-dashboard-page-live .admin-dashboard-reports>header{margin-bottom:.55rem}
+    .admin-dashboard-page-live .admin-dashboard-reports h2{font-size:1.08rem}
+    .admin-dashboard-page-live .admin-dashboard-reports p{font-size:.68rem}
+    .admin-dashboard-page-live .admin-dashboard-reports>div{gap:.75rem}
+    .admin-dashboard-page-live .admin-report-card{min-height:74px;border-radius:.8rem;padding:.75rem .85rem}
+    .admin-dashboard-page-live .admin-report-card span{width:1.55rem;height:1.55rem;top:.75rem;right:.75rem}
+    .admin-dashboard-page-live .admin-report-card small,.admin-dashboard-page-live .admin-report-card strong{padding-right:2.1rem}
+    .admin-dashboard-page-live .admin-report-card small{font-size:.68rem}
+    .admin-dashboard-page-live .admin-report-card strong{margin-top:.35rem;font-size:1.25rem}
+    @keyframes adminBarRise{from{transform:scaleY(.08);opacity:.35}to{transform:scaleY(1);opacity:1}}
+    @keyframes adminLineDraw{from{stroke-dashoffset:180;opacity:.35}to{stroke-dashoffset:0;opacity:1}}
+    @keyframes adminFadeUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .admin-dashboard-page-live .admin-bars-chart i,
+    .admin-dashboard-page-live .admin-bars-chart b,
+    .admin-dashboard-page-live .admin-bars-chart em{transform-origin:bottom;animation:adminBarRise .75s cubic-bezier(.2,.8,.2,1) both}
+    .admin-dashboard-page-live .admin-bars-chart b{animation-delay:.08s}
+    .admin-dashboard-page-live .admin-bars-chart i{animation-delay:.16s}
+    .admin-dashboard-page-live .admin-dashboard-stats svg path{stroke-dasharray:180;animation:adminLineDraw 1.05s ease-out both}
+    .admin-dashboard-page-live [data-counter]{display:inline-block;animation:adminFadeUp .35s ease both}
+    @media (max-width:720px){.admin-dashboard-page-live{height:auto;min-height:100vh;overflow-x:hidden;overflow-y:auto;grid-template-columns:1fr}.admin-dashboard-page-live .profile-sidebar{grid-column:1;grid-row:1;position:static;height:auto;max-height:none;overflow:visible;border-left:0;border-bottom:1px solid #dce3ef}.admin-dashboard-page-live .admin-dashboard-main{grid-column:1;grid-row:2;height:auto;overflow:visible;padding:1.5rem 1rem 2rem}.admin-dashboard-reports>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:760px){.admin-dashboard-page-live .admin-dashboard-stats,.admin-dashboard-reports>div{grid-template-columns:1fr}.admin-role-donut-wrap{grid-template-columns:1fr;justify-items:center}.admin-role-legend{width:100%}.admin-dashboard-page-live .admin-dashboard-list a{padding-inline-start:1rem;padding-top:3rem}.admin-exam-status{right:1rem;left:auto}}
+</style>
+<section class="admin-dashboard-page admin-dashboard-page-live" dir="rtl" data-fixed-scroll-page>
+    {% include 'partials/admin_sidebar.html' %}
 
-            <nav class="role-dashboard-nav" aria-label="ناوبری داشبورد">
-                <a class="is-active" href="{% url 'core:dashboard' %}">داشبورد</a>
-                <a href="/admin/apps/core/exam/">امتحانات</a>
-                <a href="/admin/apps/core/userloginrecord/">تاریخ</a>
-                <a href="{{ profile_edit_url }}">ویرایش مشخصات</a>
-                <a class="role-dashboard-logout" href="{% url 'core:logout' %}">خروج</a>
-            </nav>
+    <main class="admin-dashboard-main">
+        {% include 'partials/panel_topbar.html' with panel_title=dashboard.title %}
+        <section class="admin-dashboard-stats" aria-label="آمار اصلی سامانه">
+            <article class="is-purple">
+                <div><span>▤</span><b>↖</b></div>
+                <strong>آمار آزمون</strong>
+                <small>کل آزمون‌ها</small>
+                <em data-counter="{{ role_panel.exams_count }}">{{ role_panel.exams_count|fa_digits }}</em>
+                <svg viewBox="0 0 130 52" aria-hidden="true"><path d="M2 29 C18 48 24 9 42 18 S58 48 76 23 S106 13 128 34"/></svg>
+            </article>
+            <article class="is-green">
+                <div><span>؟</span><b>↖</b></div>
+                <strong>آمار سوالات</strong>
+                <small>کل سوالات</small>
+                <em data-counter="{{ role_panel.questions_count }}">{{ role_panel.questions_count|fa_digits }}</em>
+                <svg viewBox="0 0 130 52" aria-hidden="true"><path d="M2 20 C16 4 28 34 44 22 S60 5 76 23 S104 35 128 12"/></svg>
+            </article>
+            <article class="is-orange">
+                <div><span>♙</span><b>↖</b></div>
+                <strong>آمار دانشجویان</strong>
+                <small>کل دانشجویان</small>
+                <em data-counter="{{ role_panel.students_count }}">{{ role_panel.students_count|fa_digits }}</em>
+                <svg viewBox="0 0 130 52" aria-hidden="true"><path d="M2 28 C16 31 23 12 40 18 S54 35 72 22 S95 14 128 30"/></svg>
+            </article>
+            <article class="is-rose">
+                <div><span>♕</span><b>↖</b></div>
+                <strong>آمار تلاش‌ها</strong>
+                <small>کل تلاش‌ها</small>
+                <em data-counter="{{ role_panel.attempts_count }}">{{ role_panel.attempts_count|fa_digits }}</em>
+                <svg viewBox="0 0 130 52" aria-hidden="true"><path d="M2 10 C18 27 27 30 40 23 S59 50 76 36 S103 31 128 48"/></svg>
+            </article>
+        </section>
 
-            <div class="role-dashboard-user">
-                <span class="role-dashboard-icon" aria-hidden="true">□</span>
-                <span class="role-dashboard-icon has-dot" aria-hidden="true">◦</span>
-                <div class="role-dashboard-avatar" aria-hidden="true">{{ display_name|slice:":1" }}</div>
-                <div>
-                    <strong>{{ display_name }}</strong>
-                    <small>{{ role_name }}</small>
+        <section class="admin-dashboard-grid">
+            <article class="admin-dashboard-card admin-dashboard-bars">
+                <header>
+                    <h2>فعالیت ماهانه آزمون‌ها</h2>
+                    <div><span class="is-violet"></span> پیش‌نویس <span class="is-green"></span> منتشر شده <span class="is-yellow"></span> برگزار شده</div>
+                </header>
+                <div class="admin-bars-chart">
+                    {% for month in role_panel.monthly_activity %}
+                        <div style="--a:{{ month.draft_pct }}%;--b:{{ month.published_pct }}%;--c:{{ month.held_pct }}%" title="پیش‌نویس: {{ month.draft|fa_digits }}، منتشر شده: {{ month.published|fa_digits }}، برگزار شده: {{ month.held|fa_digits }}">
+                            <i></i><b></b><em></em><span>{{ month.label }}</span>
+                        </div>
+                    {% endfor %}
                 </div>
-            </div>
-        </header>
+            </article>
 
+            <article class="admin-dashboard-card admin-dashboard-radar">
+                <h2>درصد انواع سوالات</h2>
+                <div class="admin-radar-wrap">
+                    <ul>
+                        {% for item in role_panel.question_type_stats %}
+                            <li><b data-counter="{{ item.percent }}" data-counter-suffix="٪">{{ item.percent|fa_digits }}٪</b> {{ item.label }}</li>
+                        {% endfor %}
+                    </ul>
+                    <svg viewBox="0 0 320 260" aria-hidden="true">
+                        <polygon points="160,20 260,75 260,185 160,240 60,185 60,75" />
+                        <polygon points="160,55 228,92 228,168 160,205 92,168 92,92" />
+                        <polygon points="160,92 196,112 196,148 160,168 124,148 124,112" />
+                        <line x1="160" y1="20" x2="160" y2="240" />
+                        <line x1="60" y1="75" x2="260" y2="185" />
+                        <line x1="260" y1="75" x2="60" y2="185" />
+                        <path d="M160 130 L{{ role_panel.radar_polygon_points }} Z" />
+                        <text x="160" y="16">چندگزینه‌ای</text>
+                        <text x="278" y="82">چندپاسخه</text>
+                        <text x="276" y="188">صحیح/غلط</text>
+                        <text x="160" y="258">تشریحی</text>
+                        <text x="22" y="188">جای خالی</text>
+                        <text x="28" y="82">تطبیقی</text>
+                    </svg>
+                </div>
+            </article>
+        </section>
+
+        <section class="admin-dashboard-bottom">
+            <article class="admin-dashboard-card">
+                <h2>آزمون‌های اخیر</h2>
+                <div class="admin-dashboard-list">
+                    {% for exam in role_panel.recent_exams %}
+                        <a href="{% url 'core:super_admin_exams' %}">
+                            <span class="admin-exam-status is-{{ exam.status_tone }}">{{ exam.status_label }}</span>
+                            <strong>{{ exam.title }}</strong>
+                            <span>{{ exam.course|default:"بدون درس" }} · {{ exam.date|fa_digits }}</span>
+                        </a>
+                    {% empty %}
+                        <p>آزمونی ثبت نشده است.</p>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="admin-dashboard-card admin-dashboard-role-card">
+                <h2>توزیع نقش‌ها</h2>
+                <div class="admin-role-donut-wrap">
+                    <div class="admin-role-donut" style="{{ role_panel.role_distribution_style }}"></div>
+                    <ul class="admin-role-legend">
+                        {% for item in role_panel.role_distribution %}
+                            <li><span style="background: {{ item.color }}"></span>{{ item.label }} <b data-counter="{{ item.count }}">{{ item.count|fa_digits }}</b></li>
+                        {% empty %}
+                            <li>نقشی ثبت نشده است <b data-counter="0">۰</b></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </article>
+        </section>
+
+        <section class="admin-dashboard-reports" aria-label="گزارش‌های سامانه">
+            <header>
+                <a class="admin-dashboard-invite" href="{% url 'core:super_admin_reports' %}">خروجی PDF <span>▧</span></a>
+                <div>
+                    <h2>گزارش‌های سامانه</h2>
+                    <p>آمار کل عملکرد سامانه، اساتید و دانشجویان</p>
+                </div>
+            </header>
+            <div>
+                {% for item in role_panel.report_cards %}
+                    <article class="admin-report-card is-{{ item.tone }}">
+                        <span></span>
+                        <small>{{ item.label }}</small>
+                        <strong data-counter="{{ item.value }}">{{ item.value|fa_digits }}</strong>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+</section>
+{% endcomment %}
+{% else %}
+<section class="role-dashboard-page" dir="rtl">
+    <main class="role-dashboard-shell">
         <section class="role-dashboard-layout">
             <section class="role-dashboard-main">
                 <div class="role-dashboard-heading">
@@ -42,296 +387,15 @@
                         <p>{{ dashboard.breadcrumb }}</p>
                     </div>
                 </div>
-
                 <article class="role-dashboard-feature">
                     <div class="role-dashboard-feature-copy">
                         <span class="role-dashboard-kicker">{{ dashboard.section }}</span>
                         <h2>{{ dashboard.title }}</h2>
                         <p>{{ dashboard.description }}</p>
-
-                        <div class="role-dashboard-stats">
-                            {% for stat in dashboard.stats %}
-                                <div class="role-dashboard-stat is-{{ stat.tone }}">
-                                    <span></span>
-                                    <div>
-                                        <small>{{ stat.label }}</small>
-                                        <strong>{{ stat.value }}</strong>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="role-dashboard-actions">
-                            <a href="#">راهنمای آزمون</a>
-                            <button type="button">{{ dashboard.primary_action }} ←</button>
-                        </div>
                     </div>
-
-                    <div class="role-dashboard-art">
-                        <img src="{% static 'img/exam-dashboard.svg' %}" alt="">
-                    </div>
+                    <div class="role-dashboard-art"></div>
                 </article>
-
-                <div class="role-dashboard-workgrid">
-                    <article>
-                        <strong>آخرین وضعیت</strong>
-                        <span>حساب فعال و آماده استفاده است</span>
-                    </article>
-                    <article>
-                        <strong>احراز هویت</strong>
-                        <span>{% if profile.two_factor_enabled %}دومرحله‌ای فعال{% else %}دومرحله‌ای غیرفعال{% endif %}</span>
-                    </article>
-                    <article>
-                        <strong>آخرین ورود</strong>
-                        <span>{{ request.user.last_login|default:"ثبت نشده" }}</span>
-                    </article>
-                </div>
-
-                {% if role_panel.type == 'super_admin' %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>پنل مدیر کل سیستم</span>
-                            <strong>نمای عملیاتی سامانه</strong>
-                        </div>
-                        <div class="role-dashboard-workgrid">
-                            <article><strong>{{ role_panel.users_count }}</strong><span>کاربران</span></article>
-                            <article><strong>{{ role_panel.active_users_count }}</strong><span>کاربران فعال</span></article>
-                            <article><strong>{{ role_panel.institutions_count }}</strong><span>مؤسسات</span></article>
-                            <article><strong>{{ role_panel.roles_count }}</strong><span>نقش‌ها</span></article>
-                            <article><strong>{{ role_panel.exams_count }}</strong><span>آزمون‌ها</span></article>
-                            <article><strong>{{ role_panel.active_exams_count }}</strong><span>آزمون فعال</span></article>
-                            <article><strong>{{ role_panel.today_logs_count }}</strong><span>فعالیت امروز</span></article>
-                        </div>
-                        <div class="role-dashboard-tasklist">
-                            {% for log in role_panel.recent_logs %}
-                                <article>
-                                    <div>
-                                        <strong>{{ log.user }} - {{ log.action }}</strong>
-                                        <span>{{ log.description|default:"بدون توضیح" }}</span>
-                                    </div>
-                                    <em>{{ log.created_at }}</em>
-                                </article>
-                            {% empty %}
-                                <article class="is-muted"><div><strong>فعالیتی ثبت نشده است</strong><span>آخرین رویدادهای سامانه اینجا نمایش داده می‌شوند.</span></div></article>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if role_panel.type == 'institution_admin' %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>پنل مدیر مؤسسه</span>
-                            <strong>{{ role_panel.institution.name }}</strong>
-                        </div>
-                        <div class="role-dashboard-workgrid">
-                            <article><strong>{{ role_panel.users_count }}</strong><span>کاربران مرکز</span></article>
-                            <article><strong>{{ role_panel.teachers_count }}</strong><span>استادان</span></article>
-                            <article><strong>{{ role_panel.students_count }}</strong><span>دانشجویان</span></article>
-                            <article><strong>{{ role_panel.courses_count }}</strong><span>دروس</span></article>
-                            <article><strong>{{ role_panel.classes_count }}</strong><span>کلاس‌ها</span></article>
-                            <article><strong>{{ role_panel.exams_count }}</strong><span>آزمون‌ها</span></article>
-                            <article><strong>{{ role_panel.violations_count }}</strong><span>تخلف‌ها</span></article>
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if role_panel.type == 'exam_manager' %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>پنل مسئول امتحانات</span>
-                            <strong>{{ role_panel.institution.name }}</strong>
-                        </div>
-                        <div class="role-dashboard-workgrid">
-                            <article><strong>{{ role_panel.scheduled_count }}</strong><span>زمان‌بندی‌شده</span></article>
-                            <article><strong>{{ role_panel.pending_count }}</strong><span>در انتظار تأیید</span></article>
-                            <article><strong>{{ role_panel.active_count }}</strong><span>فعال</span></article>
-                            <article><strong>{{ role_panel.finished_count }}</strong><span>پایان‌یافته</span></article>
-                            <article><strong>{{ role_panel.reports_count }}</strong><span>گزارش‌ها</span></article>
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if role_panel.type == 'teacher' %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>پنل استاد</span>
-                            <strong>{{ role_panel.teacher.profile.full_name }}</strong>
-                        </div>
-                        <div class="role-dashboard-workgrid">
-                            <article><strong>{{ role_panel.questions_count }}</strong><span>سؤال‌ها</span></article>
-                            <article><strong>{{ role_panel.exams_count }}</strong><span>آزمون‌ها</span></article>
-                            <article><strong>{{ role_panel.active_exams_count }}</strong><span>آزمون فعال</span></article>
-                            <article><strong>{{ role_panel.reviews_count }}</strong><span>تصحیح‌ها</span></article>
-                            <article><strong>{{ role_panel.objections_count }}</strong><span>اعتراض‌ها</span></article>
-                            <article><strong>{{ role_panel.assistant_questions_count }}</strong><span>سؤال‌های دستیار</span></article>
-                            <article><strong>{{ role_panel.assistant_drafts_count }}</strong><span>پیش‌نویس‌های دستیار</span></article>
-                            <article><strong>{{ role_panel.assistant_reviews_count }}</strong><span>تصحیح‌های دستیار</span></article>
-                            <article><strong>{{ role_panel.educational_questions_count }}</strong><span>پرسش‌های ارجاع‌شده</span></article>
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if role_panel.type == 'assistant' %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>پنل دستیار آموزشی</span>
-                            <strong>همکاری با {{ role_panel.teacher.profile.full_name }}</strong>
-                        </div>
-                        <div class="role-dashboard-workgrid">
-                            <article><strong>{{ role_panel.question_submissions_count }}</strong><span>سؤال‌های ارسالی</span></article>
-                            <article><strong>{{ role_panel.pending_questions_count }}</strong><span>در انتظار تأیید</span></article>
-                            <article><strong>{{ role_panel.exam_drafts_count }}</strong><span>پیش‌نویس‌ها</span></article>
-                            <article><strong>{{ role_panel.review_assignments_count }}</strong><span>تصحیح‌ها</span></article>
-                            <article><strong>{{ role_panel.educational_questions_count }}</strong><span>پرسش‌های جدید</span></article>
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if role_panel.type == 'student' %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>پنل دانشجو</span>
-                            <strong>{{ role_panel.student.profile.full_name }}</strong>
-                        </div>
-                        <div class="role-dashboard-workgrid">
-                            <article><strong>{{ role_panel.upcoming_exams_count }}</strong><span>آزمون آینده</span></article>
-                            <article><strong>{{ role_panel.available_exams_count }}</strong><span>آزمون قابل مشاهده</span></article>
-                            <article><strong>{{ role_panel.active_attempts_count }}</strong><span>آزمون در جریان</span></article>
-                            <article><strong>{{ role_panel.published_results_count }}</strong><span>نتیجه منتشرشده</span></article>
-                            <article><strong>{{ role_panel.objections_count }}</strong><span>اعتراض‌ها</span></article>
-                        </div>
-                        <div class="role-dashboard-tasklist">
-                            {% for exam in role_panel.upcoming_exams %}
-                                <article>
-                                    <div>
-                                        <strong>{{ exam.title }}</strong>
-                                        <span>{{ exam.course|default:"-" }} · {{ exam.starts_at }}</span>
-                                    </div>
-                                    <a href="{% url 'core:student_exam_detail' exam.pk %}">مشاهده</a>
-                                </article>
-                            {% empty %}
-                                <article class="is-muted">
-                                    <div>
-                                        <strong>آزمون آینده‌ای ثبت نشده است</strong>
-                                        <span>پس از زمان‌بندی آزمون‌ها، همین‌جا نمایش داده می‌شوند.</span>
-                                    </div>
-                                </article>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if super_admin_links %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>سناریوهای مدیر کل سیستم</span>
-                            <strong>دسترسی سریع</strong>
-                        </div>
-                        <div class="role-dashboard-quicklink-grid">
-                            {% for item in super_admin_links %}
-                                <a href="{{ item.url }}">{{ item.title }}</a>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if institution_admin_links %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>سناریوهای مدیر مؤسسه</span>
-                            <strong>دسترسی سریع</strong>
-                        </div>
-                        <div class="role-dashboard-quicklink-grid">
-                            {% for item in institution_admin_links %}
-                                <a href="{{ item.url }}">{{ item.title }}</a>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if exam_manager_links %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>سناریوهای مسئول امتحانات</span>
-                            <strong>دسترسی سریع</strong>
-                        </div>
-                        <div class="role-dashboard-quicklink-grid">
-                            {% for item in exam_manager_links %}
-                                <a href="{{ item.url }}">{{ item.title }}</a>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if teacher_links %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>سناریوهای استاد</span>
-                            <strong>دسترسی سریع</strong>
-                        </div>
-                        <div class="role-dashboard-quicklink-grid">
-                            {% for item in teacher_links %}
-                                <a href="{{ item.url }}">{{ item.title }}</a>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if assistant_links %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>عملیات دستیار آموزشی</span>
-                            <strong>دسترسی سریع</strong>
-                        </div>
-                        <div class="role-dashboard-quicklink-grid">
-                            {% for item in assistant_links %}
-                                <a href="{{ item.url }}">{{ item.title }}</a>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if student_links %}
-                    <section class="role-dashboard-quicklinks">
-                        <div class="role-dashboard-section-title">
-                            <span>عملیات دانشجو</span>
-                            <strong>دسترسی سریع</strong>
-                        </div>
-                        <div class="role-dashboard-quicklink-grid">
-                            {% for item in student_links %}
-                                <a href="{{ item.url }}">{{ item.title }}</a>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {% if dashboard.task_groups %}
-                    <section class="role-dashboard-operations">
-                        <div class="role-dashboard-section-title">
-                            <span>وظایف عملیاتی نقش</span>
-                            <strong>{{ role_name }}</strong>
-                        </div>
-
-                        <div class="role-dashboard-operation-grid">
-                            {% for group in dashboard.task_groups %}
-                                <article>
-                                    <header>
-                                        <span>{{ forloop.counter|stringformat:"02d" }}</span>
-                                        <h2>{{ group.title }}</h2>
-                                    </header>
-                                    <ul>
-                                        {% for item in group.items %}
-                                            <li>{{ item }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </article>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
             </section>
-
             <aside class="role-dashboard-side">
                 <div class="role-dashboard-side-head">
                     <div>
@@ -340,26 +404,9 @@
                     </div>
                     <div class="role-dashboard-progress" style="--progress: {{ dashboard.progress }}%"></div>
                 </div>
-
-                <label class="role-dashboard-search">
-                    <span aria-hidden="true">⌕</span>
-                    <input type="search" placeholder="جستجو">
-                    <small aria-hidden="true">☷</small>
-                </label>
-
-                <div class="role-dashboard-tasklist">
-                    {% for task in dashboard.tasks %}
-                        <article class="{% if task.progress == 0 %}is-muted{% endif %}">
-                            <div>
-                                <strong>{{ forloop.counter }}. {{ task.title }}</strong>
-                                <span>{{ task.meta }}</span>
-                            </div>
-                            <em>{{ task.progress }}٪</em>
-                        </article>
-                    {% endfor %}
-                </div>
             </aside>
         </section>
     </main>
-</body>
-</html>
+</section>
+{% endif %}
+{% endblock %}

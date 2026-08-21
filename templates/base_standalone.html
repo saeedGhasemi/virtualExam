@@ -1,0 +1,149 @@
+﻿{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}متا کوییز{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="shortcut icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
+    <link rel="alternate icon" type="image/svg+xml" href="{% static 'img/metaquiz-logo.svg' %}?v=20260805">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
+    <style>
+        @font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+        @font-face{font-family:'B Yekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+        @font-face{font-family:'BYekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+        html,body,button,input,select,textarea{font-family:'Vazirmatn','B Yekan',BYekan,Tahoma,Arial,sans-serif!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+        .admin-dashboard-page-live,.profile-page,.profile-sidebar,.super-admin-chrome,.sys-overview,.edu-dashboard{font-family:'Vazirmatn','B Yekan',BYekan,Tahoma,Arial,sans-serif!important}
+        .admin-dashboard-page-live:has(>.profile-sidebar.is-collapsed),
+        .profile-page:has(>.profile-sidebar.is-collapsed){grid-template-columns:minmax(0,1fr) 78px!important}
+        .profile-sidebar{position:relative;transition:width .18s ease,padding .18s ease}
+        .profile-sidebar-toggle{position:absolute;top:.95rem;left:.85rem;z-index:4;display:grid;width:1.45rem;height:1.45rem;place-items:center;border:0;background:transparent;color:#667085;box-shadow:none;padding:0}
+        .profile-sidebar-toggle:hover{color:#142d72;background:transparent}
+        .profile-sidebar-toggle svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+        .profile-nav a{position:relative}
+        .profile-nav-icon{display:grid!important;width:1.55rem!important;min-width:1.55rem!important;height:1.55rem;place-items:center;color:#46556a;font-size:1.32rem!important;line-height:1!important}
+        .profile-nav-icon svg{width:1.28rem;height:1.28rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        .profile-nav-text{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;font-size:inherit!important;line-height:inherit!important}
+        .profile-nav-icon:empty:before{content:"•"}
+        .profile-nav-icon:empty[data-icon="dashboard"]:before{content:"▦"}
+        .profile-nav-icon:empty[data-icon="book"]:before{content:"▥"}
+        .profile-nav-icon:empty[data-icon="teacher"]:before{content:"♢"}
+        .profile-nav-icon:empty[data-icon="students"]:before{content:"♟"}
+        .profile-nav-icon:empty[data-icon="groups"]:before{content:"♧"}
+        .profile-nav-icon:empty[data-icon="exam"]:before{content:"▤"}
+        .profile-nav-icon:empty[data-icon="calendar"]:before,.profile-nav-icon:empty[data-icon="term"]:before{content:"◷"}
+        .profile-nav-icon:empty[data-icon="database"]:before{content:"▣"}
+        .profile-nav-icon:empty[data-icon="manager"]:before{content:"♙"}
+        .profile-nav-icon:empty[data-icon="settings"]:before{content:"⚙"}
+        .profile-nav-icon:empty[data-icon="profile"]:before{content:"♙"}
+        .profile-nav-icon:empty[data-icon="logout"]:before{content:"↪"}
+        .profile-nav a.is-active .profile-nav-icon{color:#7c3aed}
+        .profile-sidebar.is-collapsed{align-items:center;padding-right:.65rem!important;padding-left:.65rem!important}
+        .profile-sidebar.is-collapsed .profile-sidebar-toggle{left:50%;transform:translateX(-50%)}
+        .profile-sidebar.is-collapsed .profile-brand{justify-content:center;width:100%;margin-top:2.25rem}
+        .profile-brand-logo{width:2.35rem;height:2.35rem;display:block;object-fit:contain;border-radius:.85rem;background:#f0f5ff;padding:.35rem}
+        .profile-sidebar.is-collapsed .profile-sidebar-label,
+        .profile-sidebar.is-collapsed .profile-side-search,
+        .profile-sidebar.is-collapsed .profile-nav-text,
+        .profile-sidebar.is-collapsed .profile-user-meta,
+        .profile-sidebar.is-collapsed .profile-user-caret{display:none!important}
+        .profile-sidebar.is-collapsed .profile-nav{width:100%;justify-items:center;margin-top:.8rem}
+        .profile-sidebar.is-collapsed .profile-nav a{width:2.8rem;height:2.8rem;min-height:2.8rem;justify-content:center;padding:0!important}
+        .profile-sidebar.is-collapsed .profile-nav-icon{width:1.75rem!important;min-width:1.75rem!important;height:1.75rem;font-size:1.42rem!important}
+        .profile-sidebar.is-collapsed .profile-nav-icon svg{width:1.42rem;height:1.42rem}
+        .profile-sidebar.is-collapsed .profile-user{width:2.9rem;grid-template-columns:1fr;justify-items:center;padding:.35rem!important}
+        .profile-sidebar.is-collapsed .profile-user b{width:2.2rem;height:2.2rem}
+        .profile-sidebar.is-collapsed .profile-nav a:hover:after,
+        .profile-sidebar.is-collapsed .profile-nav a:focus-visible:after{content:attr(data-tooltip);position:absolute;z-index:50;inset-inline-end:calc(100% + .65rem);top:50%;transform:translateY(-50%);width:max-content;max-width:12rem;border:1px solid #dbe3ef;border-radius:.65rem;background:#fff;padding:.45rem .7rem;color:#071936;font-size:.78rem;font-weight:850;box-shadow:0 14px 32px rgba(15,23,42,.14);pointer-events:none;white-space:nowrap}
+        body:has([data-fixed-scroll-page]){height:100dvh;overflow:hidden}
+    </style>
+</head>
+<body class="min-h-screen bg-page text-ink antialiased">
+    {% if messages %}
+        <section class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+            {% for message in messages %}
+                <div class="alert-message">{{ message }}</div>
+            {% endfor %}
+        </section>
+    {% endif %}
+    {% block content %}{% endblock %}
+    <script>
+        (() => {
+            const key = 'profileSidebarCollapsed';
+            const syncSidebar = (sidebar, collapsed) => {
+                sidebar.classList.toggle('is-collapsed', collapsed);
+                const button = sidebar.querySelector('[data-profile-sidebar-toggle]');
+                if (button) {
+                    button.setAttribute('aria-label', collapsed ? 'باز کردن منو' : 'جمع کردن منو');
+                    button.setAttribute('title', collapsed ? 'باز کردن منو' : 'جمع کردن منو');
+                    button.classList.toggle('is-collapsed-toggle', collapsed);
+                }
+            };
+            document.querySelectorAll('[data-profile-sidebar]').forEach((sidebar) => {
+                syncSidebar(sidebar, localStorage.getItem(key) === '1');
+                sidebar.querySelector('[data-profile-sidebar-toggle]')?.addEventListener('click', () => {
+                    const next = !sidebar.classList.contains('is-collapsed');
+                    localStorage.setItem(key, next ? '1' : '0');
+                    syncSidebar(sidebar, next);
+                });
+            });
+        })();
+    </script>
+    <script>
+        (() => {
+            const faDigits = (value) => String(value).replace(/[0-9]/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
+            const counters = document.querySelectorAll('[data-counter]');
+            const animate = (node) => {
+                if (node.dataset.counterDone === '1') return;
+                const target = Number(String(node.dataset.counter || '').replace(/[^\d.-]/g, ''));
+                if (!Number.isFinite(target)) return;
+                node.dataset.counterDone = '1';
+                const suffix = node.dataset.counterSuffix || '';
+                const duration = 900;
+                const start = performance.now();
+                const formatter = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: Number.isInteger(target) ? 0 : 1 });
+                const tick = (now) => {
+                    const progress = Math.min((now - start) / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    const value = target * eased;
+                    node.textContent = formatter.format(Number.isInteger(target) ? Math.round(value) : value) + suffix;
+                    if (progress < 1) requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+            };
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            animate(entry.target);
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: .35 });
+                counters.forEach((counter) => observer.observe(counter));
+            } else {
+                counters.forEach(animate);
+            }
+        })();
+    </script>
+    <script>
+        (() => {
+            const map = {'0':'\u06f0','1':'\u06f1','2':'\u06f2','3':'\u06f3','4':'\u06f4','5':'\u06f5','6':'\u06f6','7':'\u06f7','8':'\u06f8','9':'\u06f9'};
+            const toFa = (value) => value.replace(/[0-9]/g, (digit) => map[digit]);
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    const parent = node.parentElement;
+                    if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA'].includes(parent.tagName)) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    return /[0-9]/.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                }
+            });
+            const nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            nodes.forEach((node) => node.nodeValue = toFa(node.nodeValue));
+        })();
+    </script>
+</body>
+</html>

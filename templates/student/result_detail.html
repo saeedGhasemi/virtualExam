@@ -1,17 +1,97 @@
-{% extends 'base.html' %}
-{% block title %}کارنامه آزمون | آزمون‌یار{% endblock %}
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}نتیجه آزمون | متاکوییز{% endblock %}
+
 {% block content %}
-<section class="super-admin-page" dir="rtl">
-    <div class="super-admin-heading"><span class="super-admin-kicker">کارنامه</span><h1>{{ attempt.exam.title }}</h1></div>
-    <div class="super-admin-card">
-        {% if publication.show_score %}<p>نمره: {{ score }} از {{ total }}</p>{% endif %}
-        <p>وضعیت: {% if passed %}قبول{% else %}نیازمند تلاش بیشتر{% endif %}</p>
-        {% if publication.show_rank %}<p>رتبه در صورت محاسبه توسط استاد نمایش داده می‌شود.</p>{% endif %}
+{% include 'student/_exam_shell_head.html' %}
+<style>
+  .srd{display:grid;gap:22px}.srd-title{display:flex;align-items:center;justify-content:flex-start;gap:14px;margin-bottom:14px}.srd-title h1{margin:0;font-size:2rem;font-weight:950}.srd-title p{margin:4px 0 0;color:#64748b;font-weight:850}.srd-icon{display:grid;width:58px;height:58px;place-items:center;border-radius:14px;background:#075fff;color:#fff;box-shadow:0 18px 32px rgba(7,95,255,.22)}.srd-icon svg,.srd-btn svg{width:1.35rem;height:1.35rem}.srd-layout{direction:ltr;display:grid;grid-template-columns:310px minmax(0,1fr) 310px;gap:24px;align-items:start}.srd-layout>*{direction:rtl}.srd-card{padding:24px}.srd-card h2{margin:0 0 18px;font-size:1.25rem;font-weight:950}.srd-muted{color:#657492;font-weight:850;line-height:2}.srd-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;border:1px solid #b7caff;border-radius:10px;background:#fff;color:#075fff;padding:0 22px;font-weight:950}.srd-btn.primary{border-color:#075fff;background:#075fff;color:#fff;box-shadow:0 16px 34px rgba(7,95,255,.22)}.srd-center{text-align:center;padding:42px}.srd-illus{display:grid;width:210px;height:180px;place-items:center;margin:0 auto 24px;border-radius:50%;background:radial-gradient(circle,#edf5ff 0 62%,transparent 63%)}.srd-doc{position:relative;width:94px;height:126px;border:5px solid #2d7bff;border-radius:16px;background:#fff}.srd-doc:before,.srd-doc:after{content:"";position:absolute;right:18px;height:8px;border-radius:99px;background:#8fb9ff}.srd-doc:before{top:32px;width:50px}.srd-doc:after{top:56px;width:64px}.srd-check{position:absolute;left:-24px;bottom:4px;display:grid;width:70px;height:70px;place-items:center;border-radius:50%;background:#4c8cff;color:#fff;font-size:2rem}.srd-center h2{font-size:1.8rem}.srd-info{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:28px auto;border-top:1px solid #dbe5f1;max-width:700px}.srd-info div{padding:22px;border-left:1px solid #dbe5f1}.srd-info div:last-child{border-left:0}.srd-chip{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:0 16px;border-radius:999px;font-weight:950}.srd-chip.green{background:#dff8ec;color:#10a461}.srd-chip.orange{background:#fff2d6;color:#e58a00}.srd-chip.red{background:#ffe5e5;color:#ef4444}.srd-switch{display:inline-grid;width:58px;height:32px;border-radius:999px;background:#075fff;padding:4px}.srd-switch:before{content:"";width:24px;height:24px;border-radius:50%;background:#fff}.srd-steps{display:grid;gap:30px;padding:12px 0}.srd-step{position:relative;display:grid;grid-template-columns:44px 1fr;gap:12px}.srd-step:not(:last-child):after{content:"";position:absolute;right:21px;top:44px;height:38px;border-right:2px dashed #d8e4f2}.srd-num{display:grid;width:42px;height:42px;place-items:center;border-radius:50%;background:#eef4ff;color:#075fff;font-weight:950}.srd-step.done .srd-num{background:#35c878;color:#fff}.srd-step h3{margin:0 0 4px;font-size:1.05rem}.srd-top-actions{display:flex;gap:14px;margin-bottom:14px}.srd-summary{display:grid;grid-template-columns:220px 1px 1fr 180px 180px;align-items:center;gap:24px;padding:22px 26px}.srd-ring{--p:0;display:grid;width:116px;height:116px;place-items:center;border-radius:50%;background:conic-gradient(#18b86b calc(var(--p)*1%),#e7edf5 0);justify-self:center}.srd-ring span{display:grid;width:90px;height:90px;place-items:center;border-radius:50%;background:#fff;font-size:2.1rem;font-weight:950;color:#18a85f}.srd-divider{height:90px;background:#dbe5f1}.srd-main-grid{direction:ltr;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px}.srd-main-grid>*{direction:rtl}.srd-tabs{display:flex;justify-content:center;gap:60px;border-bottom:1px solid #dbe5f1;margin:-24px -24px 22px;padding:0 22px}.srd-tabs a{padding:18px 0;color:#435477;font-weight:950}.srd-tabs a.is-active{color:#075fff;border-bottom:3px solid #075fff}.srd-stat-row{display:grid;grid-template-columns:repeat(3,1fr) minmax(260px,1fr);gap:12px}.srd-mini{border:1px solid #dce6f3;border-radius:12px;padding:18px;text-align:center;background:rgba(255,255,255,.6)}.srd-mini strong{display:block;font-size:2rem;font-weight:950;margin-top:10px}.srd-performance{display:grid;gap:13px}.srd-perf{display:grid;grid-template-columns:1fr 80px 160px;gap:14px;align-items:center}.srd-progress{height:8px;background:#e3e9f2;border-radius:99px;overflow:hidden}.srd-progress b{display:block;height:100%;background:#075fff;border-radius:inherit}.srd-question{margin-top:18px;border:1px solid #dce6f3;border-radius:14px;overflow:hidden}.srd-question h3{margin:0;padding:22px;border-bottom:1px solid #e4ebf5;text-align:center}.srd-answer{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;border-bottom:1px solid #e8eef7}.srd-answer.good{background:#ecfff4;border-color:#bfead1}.srd-answer.bad{background:#fff0f0;border-color:#ffcaca}.srd-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.srd-q{display:grid;height:44px;place-items:center;border:1px solid #d8e4f2;border-radius:9px;background:#fff;color:#132858;font-weight:950}.srd-q.good{background:#eafff1;color:#10a461}.srd-q.bad{background:#fff0f0;color:#ef4444}.srd-q.current{background:#075fff;color:#fff}.srd-legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px;color:#64748b;font-weight:850}.srd-legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-left:7px}.srd-legend .g{background:#58d68d}.srd-legend .r{background:#ff8f8f}.srd-legend .e{background:#e5ebf4}.srd-question-nav{display:flex;justify-content:space-between;margin-top:18px}.sx-card{overflow:hidden}@media(max-width:1200px){.srd-layout,.srd-main-grid,.srd-summary,.srd-stat-row{grid-template-columns:1fr}.srd-divider{display:none}.srd-top-actions{flex-wrap:wrap}}
+</style>
+
+<section class="srd">
+  {% if is_pending %}
+    <div class="srd-title">
+      <span class="srd-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17V9M13 17V5M18 17v-6"/></svg></span>
+      <div><h1>نتیجه آزمون</h1><p>نتایج آزمون‌ها / {{ result.title }}</p></div>
     </div>
-    {% if publication.show_correct_answers %}
-        {% for answer in attempt.answers.all %}
-            <article class="super-admin-card"><h2>{{ answer.exam_question.question.text }}</h2><p>پاسخ شما: {{ answer.answer_text|default:"-" }}</p><p>پاسخ صحیح: {{ answer.exam_question.question.correct_answer|default:"-" }}</p></article>
-        {% endfor %}
-    {% endif %}
+    <div class="srd-layout">
+      <aside>
+        <article class="sx-card srd-card"><h2>اطلاع‌رسانی نتیجه</h2><p class="srd-muted">ارسال اعلان هنگام انتشار نتیجه</p><span class="srd-switch"></span><p class="srd-muted">به محض انتشار نتیجه آزمون، از طریق اعلان درون برنامه‌ای مطلع خواهید شد.</p></article>
+        <article class="sx-card srd-card" style="margin-top:22px"><h2>نیاز به کمک دارید؟</h2><p class="srd-muted">در صورت داشتن سوال یا مشکل، با پشتیبانی متاکوییز در ارتباط باشید.</p><a class="srd-btn" href="#">تماس با پشتیبانی</a></article>
+      </aside>
+      <article class="sx-card srd-center">
+        <div class="srd-illus"><span class="srd-doc"><b class="srd-check">✓</b></span></div>
+        <h2>آزمون شما با موفقیت ثبت شد</h2>
+        <p class="srd-muted">نتیجه {{ result.title }} پس از بررسی و انتشار توسط استاد، در این بخش نمایش داده می‌شود.</p>
+        <div class="srd-info">
+          <div><strong>تاریخ برگزاری</strong><p>{{ result.exam_date|fa_digits }}</p></div>
+          <div><strong>مدت آزمون</strong><p>{{ result.duration_minutes|fa_digits }} دقیقه</p></div>
+          <div><strong>وضعیت</strong><p><span class="srd-chip orange">{{ result.status_label }}</span></p></div>
+        </div>
+        <a class="srd-btn primary" href="{% url 'core:student_results' %}">بازگشت به نتایج</a>
+      </article>
+      <aside class="sx-card srd-card">
+        <h2>مراحل اعلام نتیجه</h2>
+        <div class="srd-steps">
+          <div class="srd-step done"><span class="srd-num">✓</span><div><h3>۱. ثبت پاسخ‌ها</h3><p class="srd-muted">شما آزمون را با موفقیت تکمیل کردید.</p></div></div>
+          <div class="srd-step"><span class="srd-num">۲</span><div><h3>۲. بررسی استاد</h3><p class="srd-muted">استاد در حال بررسی پاسخ‌های شماست.</p></div></div>
+          <div class="srd-step"><span class="srd-num">۳</span><div><h3>۳. اعلام نتیجه</h3><p class="srd-muted">نتیجه پس از بررسی نهایی نمایش داده خواهد شد.</p></div></div>
+        </div>
+      </aside>
+    </div>
+  {% else %}
+    <div class="srd-title">
+      <span class="srd-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17V9M13 17V5M18 17v-6"/></svg></span>
+      <div><h1>جزئیات نتیجه</h1><p>نتایج آزمون‌ها / جزئیات نتیجه</p></div>
+    </div>
+    <div class="srd-top-actions">
+      <a class="srd-btn primary" href="{% url 'core:student_results' %}">بازگشت به نتایج</a>
+      <a class="srd-btn" href="#">دانلود کارنامه</a>
+    </div>
+    <article class="sx-card srd-summary">
+      <div class="srd-ring" style="--p:{{ result.percent }}"><span>{{ result.percent|fa_digits }}</span></div>
+      <div class="srd-divider"></div>
+      <div><h1 style="margin:0;font-size:1.8rem">{{ result.title }}</h1><p class="srd-muted">برگزارشده در {{ result.exam_date|fa_digits }}</p></div>
+      <div><small class="srd-muted">رتبه شما</small><h2>{{ result.rank|fa_digits }} از {{ result.rank_total|fa_digits }}</h2></div>
+      <div><small class="srd-muted">وضعیت</small><p><span class="srd-chip {{ result.status_tone }}">{{ result.status_label }}</span></p></div>
+    </article>
+    <section class="srd-main-grid">
+      <article class="sx-card srd-card">
+        <nav class="srd-tabs"><a class="is-active">خلاصه عملکرد</a><a>مرور پاسخ‌ها</a><a>اطلاعات آزمون</a></nav>
+        <div class="srd-stat-row">
+          <div class="srd-mini"><span>پاسخ صحیح</span><strong>{{ summary.correct|fa_digits }}</strong></div>
+          <div class="srd-mini"><span>پاسخ نادرست</span><strong>{{ summary.wrong|fa_digits }}</strong></div>
+          <div class="srd-mini"><span>بدون پاسخ</span><strong>{{ summary.unanswered|fa_digits }}</strong></div>
+          <div class="srd-mini"><span>عملکرد شما در موضوعات</span><div class="srd-performance" style="margin-top:14px"><div class="srd-perf"><span>ارزیابی و مراقبت‌های پایه</span><b>{{ summary.topic_one|fa_digits }}٪</b><div class="srd-progress"><b style="width:{{ summary.topic_one }}%"></b></div></div><div class="srd-perf"><span>سلامت جسمی و پیشگیری</span><b>{{ summary.topic_two|fa_digits }}٪</b><div class="srd-progress"><b style="width:{{ summary.topic_two }}%"></b></div></div></div></div>
+        </div>
+        {% if current_question %}
+          <div class="srd-question">
+            <h3>سوال {{ current_question.index|fa_digits }} از {{ summary.total|fa_digits }}: {{ current_question.text }}</h3>
+            {% for option in current_question.options %}
+              <div class="srd-answer {% if option.value == current_question.correct_answer %}good{% elif option.value == current_question.answer and not current_question.is_correct %}bad{% endif %}">
+                <span>{{ option.label }}. {{ option.text }}</span>
+                {% if option.value == current_question.answer %}<b>پاسخ شما</b>{% endif %}
+                {% if option.value == current_question.correct_answer %}<b>پاسخ صحیح</b>{% endif %}
+              </div>
+            {% endfor %}
+            <div style="padding:16px;background:#f4f8ff;color:#274274;font-weight:850">توضیح استاد: {{ current_question.explanation }}</div>
+          </div>
+          <div class="srd-question-nav"><a class="srd-btn" href="#">سوال قبلی</a><a class="srd-btn" href="#">سوال بعدی</a></div>
+        {% endif %}
+      </article>
+      <aside class="sx-card srd-card">
+        <h2>دسترسی سریع به سوالات</h2>
+        <p class="srd-muted">برای مشاهده هر سوال، روی شماره آن کلیک کنید.</p>
+        <div class="srd-grid">
+          {% for item in question_items %}
+            <span class="srd-q {{ item.tone }} {% if item.index == current_question.index %}current{% endif %}">{{ item.index|fa_digits }}</span>
+          {% endfor %}
+        </div>
+        <div class="srd-legend"><span><i class="g"></i>پاسخ صحیح</span><span><i class="r"></i>پاسخ نادرست</span><span><i class="e"></i>بدون پاسخ</span><span class="srd-q current" style="height:28px">سوال جاری</span></div>
+      </aside>
+    </section>
+  {% endif %}
 </section>
+{% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

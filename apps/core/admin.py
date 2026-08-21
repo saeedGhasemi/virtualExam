@@ -1,4 +1,4 @@
-from django.contrib import admin
+﻿from django.contrib import admin
 from .models import (
     AcademicInstitution,
     AcademicTerm,
@@ -38,8 +38,8 @@ from .models import (
     UserProfile,
 )
 
-admin.site.site_header = 'پنل مدیریت آزمون‌یار'
-admin.site.site_title = 'مدیریت آزمون‌یار'
+admin.site.site_header = 'پنل مدیریت متا کوییز'
+admin.site.site_title = 'مدیریت متا کوییز'
 admin.site.index_title = 'مدیریت سامانه'
 admin.site.index_template = 'admin/custom_index.html'
 

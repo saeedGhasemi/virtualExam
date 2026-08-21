@@ -1,0 +1,195 @@
+﻿{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}{{ title }} | متا کوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page courses-page" dir="rtl">
+    <header class="courses-header">
+        <div>
+            <h1>
+                {{ title }}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>
+            </h1>
+            <p>{{ description }}</p>
+        </div>
+    </header>
+
+    <div class="course-stats">
+        <article>
+            <span class="course-stat-icon is-purple"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg></span>
+            <small>کل درس‌ها</small>
+            <strong>{{ stats.total|fa_digits }}</strong>
+            <em>درس</em>
+        </article>
+        <article>
+            <span class="course-stat-icon is-green"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <small>دروس فعال</small>
+            <strong>{{ stats.active|fa_digits }}</strong>
+            <em>درس</em>
+        </article>
+        <article>
+            <span class="course-stat-icon is-red"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></span>
+            <small>دروس غیرفعال</small>
+            <strong>{{ stats.inactive|fa_digits }}</strong>
+            <em>درس</em>
+        </article>
+        <article>
+            <span class="course-stat-icon is-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></span>
+            <small>نیازمند بازبینی</small>
+            <strong>{{ stats.review|fa_digits }}</strong>
+            <em>درس</em>
+        </article>
+    </div>
+
+    <section class="courses-card">
+        <div class="courses-toolbar">
+            <h2>دروس ساخته‌شده</h2>
+            <a href="{% url 'core:super_admin_course_new' %}" class="courses-primary">
+                <span aria-hidden="true">+</span>
+                ایجاد درس جدید
+            </a>
+        </div>
+        <div class="courses-filters">
+            <label class="courses-search">
+                <input type="search" value="{{ query }}" placeholder="جستجو بر اساس عنوان درس یا کد درس..." data-course-search>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            </label>
+            <label>
+                <span>دانشکده‌ها</span>
+                <select data-course-unit-filter>
+                    <option value="">همه دانشکده‌ها</option>
+                    {% for unit in org_units %}
+                        {% if unit.type == 'faculty' %}
+                            <option value="{{ unit.id }}" {% if unit_filter == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name|fa_digits }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>گروه‌های آموزشی</span>
+                <select data-course-department-filter>
+                    <option value="">همه گروه‌ها</option>
+                    {% for unit in org_units %}
+                        {% if unit.type == 'department' or unit.type == 'educational_group' %}
+                            <option value="{{ unit.id }}" {% if unit_filter == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name|fa_digits }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>وضعیت‌ها</span>
+                <select data-course-status-filter>
+                    <option value="">همه وضعیت‌ها</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>فعال</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>غیرفعال</option>
+                    <option value="review" {% if status_filter == 'review' %}selected{% endif %}>نیازمند بازبینی</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="courses-table-wrap">
+            <table class="courses-table">
+                <thead>
+                    <tr>
+                        <th>عنوان درس</th>
+                        <th>کد درس</th>
+                        <th>تعداد واحد</th>
+                        <th>دانشگاه</th>
+                        <th>دانشکده</th>
+                        <th>گروه آموزشی</th>
+                        <th>وضعیت</th>
+                        <th>تاریخ ایجاد</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody data-course-tbody>
+                    {% for row in rows %}
+                        <tr data-course-row
+                            data-id="{{ row.id }}"
+                            data-title="{{ row.title|default_if_none:'' }}"
+                            data-code="{{ row.code|default_if_none:'' }}"
+                            data-credit-units="{{ row.credit_units|default_if_none:'' }}"
+                            data-org-unit-id="{{ row.org_unit_id|default_if_none:'' }}"
+                            data-description="{{ row.description|default_if_none:'' }}"
+                            data-status="{{ row.status }}"
+                            data-search="{{ row.title }} {{ row.code }} {{ row.university }} {{ row.faculty }} {{ row.department }}">
+                            <td><strong>{{ row.title|fa_digits }}</strong></td>
+                            <td>{{ row.code|default:"-"|fa_digits }}</td>
+                            <td>{{ row.credit_units|fa_digits }}</td>
+                            <td>{{ row.university|fa_digits }}</td>
+                            <td>{{ row.faculty|fa_digits }}</td>
+                            <td>{{ row.department|fa_digits }}</td>
+                            <td><span class="course-status is-{{ row.status }}">{{ row.status_label }}</span></td>
+                            <td>{{ row.created_display|fa_digits }}</td>
+                            <td>
+                                <div class="course-actions">
+                                    <button type="button" data-course-view title="مشاهده"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                                    <a href="{% url 'core:super_admin_course_edit' row.id %}" data-course-edit title="ویرایش"><svg viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5L16 3Z"/></svg></a>
+                                    <button type="button" data-course-delete title="حذف"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr data-course-empty><td colspan="9">درسی برای نمایش وجود ندارد.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <footer class="courses-footer">
+            <span>نمایش ۱-{{ rows|length|fa_digits }} از {{ rows|length|fa_digits }} درس</span>
+            <div><button type="button">‹</button><b>۱</b><button type="button">›</button></div>
+        </footer>
+    </section>
+
+    <form hidden data-course-delete-token>{% csrf_token %}</form>
+    <div class="course-toast" data-course-toast hidden></div>
+</section>
+
+<script>
+(() => {
+    const rows = [...document.querySelectorAll('[data-course-row]')];
+    const toast = document.querySelector('[data-course-toast]');
+    const csrf = document.querySelector('[data-course-delete-token] [name=csrfmiddlewaretoken]').value;
+    const showToast = (message) => {
+        toast.textContent = message;
+        toast.hidden = false;
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => { toast.hidden = true; }, 2400);
+    };
+    rows.forEach((row) => {
+        row.querySelector('[data-course-view]').addEventListener('click', () => {
+            showToast(`${row.dataset.title || 'درس'} | ${row.dataset.code || '-'} | ${row.children[5].textContent.trim()}`);
+        });
+        row.querySelector('[data-course-delete]').addEventListener('click', async () => {
+            if (!confirm(`درس «${row.dataset.title || ''}» حذف شود؟`)) return;
+            const body = new FormData();
+            body.append('course_action', 'delete');
+            body.append('course_id', row.dataset.id);
+            const response = await fetch(location.href, {method: 'POST', headers: {'X-CSRFToken': csrf}, body});
+            if (response.ok) {
+                row.remove();
+                showToast('درس حذف شد.');
+            }
+        });
+    });
+    const search = document.querySelector('[data-course-search]');
+    const status = document.querySelector('[data-course-status-filter]');
+    const unit = document.querySelector('[data-course-unit-filter]');
+    const depFilter = document.querySelector('[data-course-department-filter]');
+    const applyFilters = () => {
+        const q = (search.value || '').trim().toLowerCase();
+        const selectedStatus = status.value;
+        const selectedUnit = depFilter.value || unit.value;
+        rows.forEach((row) => {
+            const matchesSearch = !q || (row.dataset.search || '').toLowerCase().includes(q);
+            const matchesStatus = !selectedStatus || row.dataset.status === selectedStatus;
+            const matchesUnit = !selectedUnit || row.dataset.orgUnitId === selectedUnit;
+            row.hidden = !(matchesSearch && matchesStatus && matchesUnit);
+        });
+    };
+    [search, status, unit, depFilter].forEach((item) => item.addEventListener('input', applyFilters));
+    [status, unit, depFilter].forEach((item) => item.addEventListener('change', applyFilters));
+})();
+</script>
+{% endblock %}

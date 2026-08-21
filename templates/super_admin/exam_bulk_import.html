@@ -1,0 +1,141 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+
+{% block title %}ورود گروهی آزمون‌ها | متاکوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .exam-bulk{--blue:#315cff;--violet:#7047f4;--ink:#071936;--muted:#65728a;--line:#d8e4f4;direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .exam-bulk *{box-sizing:border-box;letter-spacing:0}.exam-bulk a{text-decoration:none;color:inherit}.exam-bulk svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .bulk-shell{max-width:1480px;margin:0 auto;padding-bottom:1rem}.glass{border:1px solid rgba(205,219,239,.96);border-radius:1rem;background:rgba(255,255,255,.78);box-shadow:0 18px 46px rgba(30,55,95,.075),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(22px) saturate(150%)}
+    .bulk-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:0 0 1.4rem;padding:1rem;list-style:none}.bulk-steps li{position:relative;display:grid;place-items:center;gap:.45rem;color:#33435f;font-weight:950}.bulk-steps li:before{content:"";position:absolute;top:1.45rem;right:-50%;width:100%;height:.16rem;background:#d8e2f1}.bulk-steps li:first-child:before{display:none}.bulk-steps b{z-index:1;display:grid;width:2.8rem;height:2.8rem;place-items:center;border:1px solid #cbd9ec;border-radius:50%;background:#fff;color:#33435f}.bulk-steps .is-active b,.bulk-steps .is-done b{border:0;background:linear-gradient(135deg,#315cff,#7047f4);color:#fff}.bulk-steps .is-active span{color:#315cff}
+    .bulk-title{display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center;margin-bottom:1rem}.bulk-title-icon{display:grid;width:3.8rem;height:3.8rem;place-items:center;border-radius:.9rem;background:#eef2ff;color:#315cff}.bulk-title h1{margin:0;font-size:1.75rem;font-weight:950}.bulk-title p{margin:.35rem 0 0;color:#64748b;font-weight:850}
+    .bulk-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:1rem}.panel{padding:1.2rem}.panel h2{margin:0 0 1rem;font-size:1.15rem;font-weight:950}.drop{min-height:22rem;display:grid;place-items:center;text-align:center;border:1.5px dashed #7ea0ff;border-radius:1rem;background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(244,248,255,.42));padding:1rem;cursor:pointer}.drop input{display:none}.drop strong{display:block;margin-top:.7rem;font-size:1.2rem}.drop span,.drop small{display:block;color:#64748b;font-weight:850}.drop em{display:inline-flex;margin-top:.9rem;height:3.1rem;align-items:center;border-radius:.75rem;background:linear-gradient(135deg,#315cff,#7047f4);color:#fff;padding:0 1.3rem;font-style:normal;font-weight:950}.excel-icon{font-size:3.2rem;color:#16a34a}
+    .tag-box{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.8rem}.tag-box span{border-radius:.6rem;background:#eef2ff;color:#315cff;padding:.55rem .75rem;font-weight:900}.tag-box.is-optional span{background:#eaf8ef;color:#15803d}.note{margin-top:1rem;border:1px solid #bcd1ff;border-radius:.8rem;background:#f6f8ff;color:#315cff;padding:.85rem;font-weight:850;line-height:1.8}
+    .map-table,.review-table{width:100%;border-collapse:collapse;overflow:hidden;border-radius:.85rem}.map-table th,.map-table td,.review-table th,.review-table td{height:3.25rem;border-bottom:1px solid #e5edf7;text-align:right;padding:.65rem;font-weight:850}.map-table th,.review-table th{background:#f8fbff;color:#5d6c86}.map-table select{width:100%;height:2.5rem;border:1px solid #d3dfef;border-radius:.55rem;background:#fff;padding:0 .7rem;font:inherit}.status{display:inline-flex;align-items:center;border-radius:999px;padding:.35rem .7rem;font-size:.82rem;font-weight:950}.status.ok{background:#dcfce7;color:#15803d}.status.warning{background:#fff7ed;color:#d97706}.status.error{background:#fee2e2;color:#dc2626}
+    .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:.9rem}.stat{display:grid;grid-template-columns:1fr auto;align-items:center;min-height:6.4rem;padding:1rem}.stat small{color:#64748b;font-weight:850}.stat b{display:block;margin-top:.3rem;font-size:2rem;font-weight:950}.stat i{display:grid;width:3.2rem;height:3.2rem;place-items:center;border-radius:.85rem;background:#eef2ff;color:#315cff;font-style:normal}.stat.ok i{background:#dcfce7;color:#15803d}.stat.warning i{background:#fff7ed;color:#d97706}.stat.error i{background:#fee2e2;color:#dc2626}
+    .final-grid{display:grid;grid-template-columns:1fr 360px;gap:1rem}.radio-card,.switch-row,.confirm-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;border:1px solid #e1eaf6;border-radius:.85rem;background:#fff;padding:.9rem;margin-bottom:.75rem;font-weight:900}.switch-row input,.confirm-row input,.radio-card input{width:1.25rem;height:1.25rem;accent-color:#315cff}.warning-box{border:1px solid #fdba74;border-radius:.9rem;background:#fff7ed;color:#9a4d00;padding:1rem;font-weight:900;line-height:1.9}
+    .bulk-actions{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.action-group{display:flex;gap:.8rem}.btn{display:inline-flex;height:3.4rem;min-width:12rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid #c8d8ef;border-radius:.78rem;background:#fff;color:#17305f;padding:0 1.25rem;font-weight:950}.btn.primary{border:0;background:linear-gradient(135deg,#315cff,#7047f4);color:#fff}.btn.disabled{opacity:.5;pointer-events:none;background:#cbd5e1;color:#fff}
+    @media(max-width:1100px){.bulk-grid,.final-grid{grid-template-columns:1fr}.stat-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.bulk-steps,.stat-grid{grid-template-columns:1fr}.bulk-actions,.action-group{flex-direction:column;align-items:stretch}.btn{width:100%}}
+</style>
+
+<section class="super-admin-page super-admin-workspace exam-bulk" dir="rtl" data-fixed-scroll-page>
+    <div class="bulk-shell">
+        <ol class="bulk-steps glass">
+            {% for item in steps %}
+                <li class="{% if item.number < step %}is-done{% elif item.number == step %}is-active{% endif %}"><b>{% if item.number < step %}✓{% else %}{{ item.number|fa_digits }}{% endif %}</b><span>{{ item.label }}</span></li>
+            {% endfor %}
+        </ol>
+
+        <header class="bulk-title">
+            <span class="bulk-title-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16h14a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg></span>
+            <div><h1>{% if step == 1 %}ورود گروهی آزمون‌ها{% elif step == 2 %}بارگذاری فایل آزمون‌ها{% elif step == 3 %}تطبیق ستون‌ها و اعتبارسنجی{% else %}بازبینی و ثبت نهایی آزمون‌ها{% endif %}</h1><p>برای ورود همزمان چند آزمون، فایل Excel یا CSV استاندارد را تکمیل و بارگذاری کنید.</p></div>
+        </header>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ step }}">
+
+            {% if step == 1 %}
+                <div class="bulk-grid">
+                    <section class="panel glass">
+                        <h2>دریافت قالب استاندارد</h2>
+                        <div class="drop">
+                            <div><div class="excel-icon">▦</div><strong>قالب استاندارد اکسل</strong><span>قالب را دانلود کرده و اطلاعات آزمون‌ها را طبق راهنما تکمیل نمایید.</span><a class="btn primary" style="margin-top:1rem" href="?bulk_action=sample">دانلود قالب اکسل</a></div>
+                        </div>
+                        <label class="confirm-row"><span>قالب و راهنما را مطالعه و دریافت کردم.</span><input type="checkbox" data-enable-next></label>
+                    </section>
+                    <section class="panel glass">
+                        <h2>راهنمای تکمیل فایل</h2>
+                        <strong>ستون‌های الزامی</strong>
+                        <div class="tag-box">{% for field in required_fields %}<span>{{ field.label }}</span>{% endfor %}</div>
+                        <strong style="display:block;margin-top:1rem">ستون‌های اختیاری</strong>
+                        <div class="tag-box is-optional">{% for field in optional_fields %}<span>{{ field.label }}</span>{% endfor %}</div>
+                        <div class="note">در صورت نبود ستون‌های اختیاری، مقادیر پیش‌فرض اعمال می‌شود. تاریخ فایل نمونه میلادی/شمسی را به شکل 1404/03/25 یا 2026/08/05 می‌پذیرد.</div>
+                    </section>
+                </div>
+            {% elif step == 2 %}
+                <div class="bulk-grid">
+                    <section class="panel glass">
+                        <label class="drop">
+                            <input type="file" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                            <div><div class="excel-icon">▦</div><strong>فایل را اینجا رها کنید</strong><span>یا برای انتخاب فایل کلیک کنید</span><small>فرمت‌های مجاز: XLSX, XLS, CSV - حداکثر 10MB</small><em>انتخاب فایل</em></div>
+                        </label>
+                    </section>
+                    <aside class="panel glass">
+                        <h2>تنظیمات ورود</h2>
+                        <label class="radio-card"><span>سال تحصیلی پیش‌فرض</span><strong>۱۴۰۵-۱۴۰۶</strong></label>
+                        <label class="radio-card"><span>نیمسال پیش‌فرض</span><strong>نیمسال اول</strong></label>
+                        <label class="radio-card"><span>مدیریت رکوردهای تکراری</span><strong>جایگزینی</strong></label>
+                        <div class="note">فایل‌ها فقط برای پردازش ورود استفاده می‌شوند و با شخص ثالثی به اشتراک گذاشته نمی‌شوند.</div>
+                    </aside>
+                </div>
+            {% elif step == 3 %}
+                <section class="stat-grid">
+                    <article class="stat glass"><div><small>ردیف</small><b>{{ draft.total_rows|default:0|fa_digits }}</b></div><i>☰</i></article>
+                    <article class="stat ok glass"><div><small>معتبر</small><b>{{ counts.ok|default:0|fa_digits }}</b></div><i>✓</i></article>
+                    <article class="stat warning glass"><div><small>هشدار</small><b>{{ counts.warning|default:0|fa_digits }}</b></div><i>!</i></article>
+                    <article class="stat error glass"><div><small>خطا</small><b>{{ counts.error|default:0|fa_digits }}</b></div><i>×</i></article>
+                </section>
+                <section class="panel glass">
+                    <h2>تطبیق ستون‌های فایل</h2>
+                    <table class="map-table"><thead><tr><th>ستون فایل</th><th>نمونه داده</th><th>فیلد سامانه</th><th>وضعیت</th></tr></thead><tbody>
+                        {% for field in field_defs %}
+                            {% with selected=draft.mapping|get_item:field.key %}
+                            <tr><td>{{ selected|default:"-" }}</td><td>{{ first_row|get_item:selected|default:"-"|fa_digits }}</td><td><select name="map_{{ field.key }}" {% if field.required %}required{% endif %}><option value="">انتخاب ستون</option>{% for header in headers %}<option value="{{ header }}" {% if selected == header %}selected{% endif %}>{{ header }}</option>{% endfor %}</select></td><td>{% if selected %}<span class="status ok">تطبیق خودکار</span>{% elif field.required %}<span class="status error">الزامی</span>{% else %}<span class="status warning">اختیاری</span>{% endif %}</td></tr>
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody></table>
+                </section>
+                <section class="panel glass" style="margin-top:1rem;overflow:hidden">
+                    <h2>نتیجه اعتبارسنجی</h2>
+                    <table class="review-table"><thead><tr><th>ردیف</th><th>عنوان آزمون</th><th>درس</th><th>استاد</th><th>تاریخ شروع</th><th>اعتبارسنجی</th><th>عملیات</th></tr></thead><tbody>{% for record in records|slice:":8" %}<tr><td>{{ record.row_number|fa_digits }}</td><td>{{ record.title|fa_digits }}</td><td>{{ record.course_title|fa_digits }}</td><td>{{ record.teacher_name|fa_digits }}</td><td>{{ record.date|fa_digits }} {{ record.start_time|fa_digits }}</td><td><span class="status {{ record.level }}">{% if record.level == 'error' %}خطا{% elif record.level == 'warning' %}هشدار{% else %}معتبر{% endif %}</span></td><td>{% if record.issues %}{{ record.issues.0 }}{% else %}-{% endif %}</td></tr>{% empty %}<tr><td colspan="7">ابتدا فایل را بارگذاری کنید.</td></tr>{% endfor %}</tbody></table>
+                </section>
+            {% else %}
+                <section class="stat-grid">
+                    <article class="stat ok glass"><div><small>آماده ثبت</small><b>{{ ready_count|fa_digits }}</b></div><i>✓</i></article>
+                    <article class="stat warning glass"><div><small>هشدار بررسی‌شده</small><b>{{ counts.warning|default:0|fa_digits }}</b></div><i>!</i></article>
+                    <article class="stat error glass"><div><small>خطای مسدودکننده</small><b>{{ counts.error|default:0|fa_digits }}</b></div><i>×</i></article>
+                    <article class="stat glass"><div><small>کل ردیف‌ها</small><b>{{ draft.total_rows|default:0|fa_digits }}</b></div><i>☰</i></article>
+                </section>
+                <div class="final-grid">
+                    <section class="panel glass" style="overflow:hidden">
+                        <h2>پیش‌نمایش آزمون‌ها</h2>
+                        <table class="review-table"><thead><tr><th>عنوان آزمون</th><th>درس</th><th>استاد</th><th>گروه کلاسی</th><th>تاریخ و زمان</th><th>مدت</th><th>وضعیت واردات</th></tr></thead><tbody>{% for record in records|slice:":7" %}<tr><td>{{ record.title|fa_digits }}</td><td>{{ record.course_title|fa_digits }}</td><td>{{ record.teacher_name|fa_digits }}</td><td>{{ record.group_code|fa_digits }}</td><td>{{ record.date|fa_digits }} {{ record.start_time|fa_digits }}</td><td>{{ record.duration_minutes|fa_digits }} دقیقه</td><td><span class="status {% if record.is_published %}ok{% else %}warning{% endif %}">{% if record.is_published %}منتشر می‌شود{% else %}پیش‌نویس{% endif %}</span></td></tr>{% endfor %}</tbody></table>
+                    </section>
+                    <aside class="panel glass">
+                        <h2>شیوه ثبت</h2>
+                        <label class="radio-card"><span>همه به‌صورت پیش‌نویس</span><input type="radio" name="final_mode" value="draft" checked></label>
+                        <label class="radio-card"><span>انتشار طبق ستون وضعیت</span><input type="radio" name="final_mode" value="status"></label>
+                        <label class="switch-row"><span>ارسال اعلان به اساتید</span><input type="checkbox" checked></label>
+                        <label class="switch-row"><span>ارسال اعلان به دانشجویان</span><input type="checkbox"></label>
+                        <label class="switch-row"><span>ایجاد گزارش ورود</span><input type="checkbox" checked></label>
+                        <div class="warning-box">{{ counts.warning|default:0|fa_digits }} مورد هشدار در زمان‌بندی یا اتصال گروه وجود دارد.</div>
+                        <label class="confirm-row"><span>اطلاعات را بررسی کردم و ثبت نهایی را تایید می‌کنم</span><input type="checkbox" name="confirm_final" required></label>
+                    </aside>
+                </div>
+            {% endif %}
+
+            <footer class="bulk-actions glass">
+                <div class="action-group">
+                    {% if step > 1 %}<button class="btn" type="submit" name="wizard_action" value="prev">مرحله قبل</button>{% endif %}
+                    <button class="btn" type="submit" name="wizard_action" value="save_draft">ذخیره پیش‌نویس</button>
+                    <button class="btn" type="submit" name="wizard_action" value="cancel">بازگشت به آزمون‌ها</button>
+                </div>
+                <button class="btn primary {% if step == 1 %}disabled{% endif %}" type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" data-next-button>{% if step == 4 %}ثبت {{ ready_count|fa_digits }} آزمون{% elif step == 1 %}ادامه: بارگذاری فایل{% elif step == 2 %}ادامه: تطبیق ستون‌ها{% elif step == 3 %}ادامه: بازبینی نهایی{% endif %}</button>
+            </footer>
+        </form>
+    </div>
+</section>
+
+<script>
+(() => {
+    const checkbox = document.querySelector('[data-enable-next]');
+    const next = document.querySelector('[data-next-button]');
+    if (checkbox && next) {
+        checkbox.addEventListener('change', () => next.classList.toggle('disabled', !checkbox.checked));
+    }
+})();
+</script>
+{% endblock %}

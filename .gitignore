@@ -10,3 +10,22 @@ static/dist/styles.css
 staticfiles/
 .DS_Store
 .vscode/
+
+# آرتیفکت‌های ابزار خودکار مرورگر / QA بصری و اسکرین‌شات‌های موقت — خروجی
+# جانبی ابزارهای تست بصری‌اند، نه بخشی از پروژه (تصمیم کاربر، ۱۴۰۵/۰۵/۳۰)
+/_*
+/.chrome-auth-shot*
+/.codex_visual/
+login-fixed.png
+register-fixed.png
+diagram_extract.txt
+
+# بک‌آپ و دامپ دیتابیس — روی دیسک نگه‌داری می‌شوند اما وارد گیت نمی‌شوند
+db.sqlite3.backup-*
+/_deploy_artifacts/
+
+# فایل‌های رسانه‌ای آپلودشده (داده، نه کد منبع)
+/media/
+
+# باقیمانده‌ی کنارگذاشته‌شده‌ی یک بک‌اند Supabase که دیگر استفاده نمی‌شود
+/supabase/
