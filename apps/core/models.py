@@ -350,6 +350,30 @@ class UserProfile(models.Model):
         return f'{self.full_name} - {self.role.name}'
 
 
+class UserRoleAssignment(models.Model):
+    """تخصیص نقش چندگانه به کاربر — معادل ORM جدول خام user_roles.
+
+    UserProfile.role همچنان به‌عنوان نقش اصلی/پیش‌فرض باقی می‌ماند (سازگاری
+    کامل با کد و پرس‌وجوهای موجود که به آن تکیه دارند)؛ این مدل صرفاً امکان
+    ثبت نقش‌های اضافه را برای کاربرانی فراهم می‌کند که واقعاً بیش از یک نقش
+    دارند (طبق تأیید کارفرما بر اساس داده‌ی واقعی — بخش ۹.۱ گزارش فاز اول).
+    """
+
+    profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='role_assignments')
+    role = models.ForeignKey(SystemRole, on_delete=models.CASCADE, related_name='assignments')
+    is_primary = models.BooleanField(default=False, help_text='آیا این همان نقشی است که در UserProfile.role هم ثبت شده.')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-is_primary', '-role__access_level']
+        unique_together = ('profile', 'role')
+        verbose_name = 'تخصیص نقش کاربر'
+        verbose_name_plural = 'تخصیص‌های نقش کاربران'
+
+    def __str__(self):
+        return f'{self.profile.full_name} - {self.role.name}'
+
+
 class SystemAdminProfile(models.Model):
     profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='system_admin_profile')
     admin_code = models.CharField(max_length=40, blank=True)

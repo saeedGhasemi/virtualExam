@@ -37,6 +37,7 @@ from .models import (
     UserActivityLog,
     UserLoginRecord,
     UserProfile,
+    UserRoleAssignment,
 )
 
 admin.site.site_header = 'پنل مدیریت متا کوییز'
@@ -144,6 +145,15 @@ class UserProfileAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
+
+
+@admin.register(UserRoleAssignment)
+class UserRoleAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('profile', 'role', 'is_primary', 'created_at')
+    list_filter = ('role', 'is_primary')
+    search_fields = ('profile__full_name', 'profile__user__username', 'role__name')
+    autocomplete_fields = ('profile', 'role')
+    readonly_fields = ('created_at',)
 
 
 @admin.register(AcademicInstitution)
