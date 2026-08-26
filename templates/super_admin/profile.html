@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% load static core_extras %}
+
+{% block title %}{{ title }} | متاکوییز{% endblock %}
+
+{% block content %}
+<style>
+  .sap{--blue:#315cff;--ink:#071936;--muted:#65728a;--line:#e2e8f4;direction:rtl;font-size:15px}
+  .sap *{box-sizing:border-box}
+  .sap a{text-decoration:none;color:inherit}
+  .sap svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .sap-tabs{display:flex;flex-direction:row-reverse;width:100%;margin:0 0 1rem;padding:.3rem;gap:.4rem;background:rgba(244,248,253,.9);border:1px solid var(--line);border-radius:1rem}
+  .sap-tabs a{display:flex;flex:1;align-items:center;justify-content:center;gap:.5rem;height:3rem;padding:0 1rem;border:1px solid transparent;border-radius:.75rem;background:transparent;color:#54617a;font-weight:900;font-size:.88rem;white-space:nowrap}
+  .sap-tabs a.is-active{background:#fff;color:var(--blue);border-color:#bfdbfe;box-shadow:0 6px 16px rgba(37,99,235,.14)}
+  .sap-card{border:1px solid var(--line);border-radius:1rem;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.05)}
+  .sap-card h2{margin:0 0 .75rem;font-size:.95rem;font-weight:950;color:var(--ink)}
+  .sap-pad{padding:1rem}
+  .sap-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:.9rem}
+  .sap-stat{display:flex;align-items:center;gap:.75rem;padding:.85rem}
+  .sap-stat b{display:grid;width:2.9rem;height:2.9rem;flex-shrink:0;place-items:center;border-radius:.9rem;font-size:1.3rem}
+  .sap-stat.tone-red b{background:#fee2e2;color:#ef4444}
+  .sap-stat.tone-blue b{background:#dbeafe;color:#2563eb}
+  .sap-stat.tone-purple b{background:#ede9fe;color:#7c3aed}
+  .sap-stat.tone-teal b{background:#ccfbf1;color:#0d9488}
+  .sap-stat strong{display:block;font-size:1.5rem;font-weight:950;color:var(--ink)}
+  .sap-stat span{color:var(--muted);font-weight:800;font-size:.82rem}
+  .sap-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:.9rem;align-items:start}
+  .sap-side{display:grid;gap:.9rem}
+  .sap-list{display:grid;gap:.15rem}
+  .sap-row{display:flex;align-items:center;justify-content:space-between;min-height:2.5rem;border-bottom:1px solid #f1f4f9;font-weight:850;font-size:.9rem}
+  .sap-row:last-child{border-bottom:0}
+  .sap-row span{color:var(--muted);display:flex;align-items:center;gap:.5rem}
+  .sap-more{display:block;margin-top:.7rem;color:var(--blue);font-weight:900;font-size:.85rem}
+  .sap-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  .sap-shortcuts a{display:flex;align-items:center;justify-content:space-between;min-height:3.1rem;border:1px solid var(--line);border-radius:.75rem;padding:0 1rem;color:var(--ink);font-weight:900;transition:border-color .15s,background .15s}
+  .sap-shortcuts a:hover{border-color:var(--blue);background:#f5f8ff}
+  .sap-activity{display:grid;grid-template-columns:auto 1fr;gap:.7rem;padding:.6rem 0;border-bottom:1px solid #f1f4f9}
+  .sap-activity:last-child{border-bottom:0}
+  .sap-dot{margin-top:.35rem;width:.55rem;height:.55rem;border-radius:99px;background:var(--blue)}
+  .sap-activity time{display:block;color:var(--muted);font-size:.78rem;font-weight:800}
+  .sap-activity strong{display:block;font-weight:900}
+  .sap-chip{display:inline-flex;align-items:center;gap:.35rem;height:1.7rem;border-radius:999px;padding:0 .7rem;font-weight:900;font-size:.78rem}
+  .sap-chip.green{background:#dcfce7;color:#16a34a}
+  .sap-chip.blue{background:#dbeafe;color:#2563eb}
+  .sap-chip.gray{background:#eef2f7;color:#5a6a85}
+  .sap-hero{padding:1.15rem}
+  .sap-hero-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.4rem}
+  .sap-avatar{position:relative;display:grid;width:5.2rem;height:5.2rem;place-items:center;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#5d16ef,#0b65ff);color:#fff;font-size:1.8rem;font-weight:950}
+  .sap-avatar img{width:100%;height:100%;object-fit:cover}
+  .sap-hero-top h3{margin:.15rem 0 0;font-size:1.1rem;font-weight:950;color:var(--ink)}
+  .sap-hero-chips{display:flex;gap:.4rem}
+  .sap-detail{display:grid;gap:.1rem;margin-top:.85rem}
+  .sap-detail-row{display:flex;align-items:center;justify-content:space-between;min-height:2.3rem;border-bottom:1px solid #f1f4f9;font-weight:850;font-size:.85rem}
+  .sap-detail-row:last-child{border-bottom:0}
+  .sap-detail-row span{color:var(--muted)}
+  .sap-progress-wrap{margin-top:.85rem}
+  .sap-progress-head{display:flex;justify-content:space-between;font-weight:900;font-size:.82rem;color:var(--muted);margin-bottom:.4rem}
+  .sap-progress{height:.5rem;border-radius:99px;background:#eef2f7;overflow:hidden}
+  .sap-progress i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#5d16ef,#315cff)}
+  .sap-security-grid{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:.9rem;align-items:start}
+  .sap-score-card{display:grid;grid-template-columns:7rem 1fr;gap:1.1rem;align-items:center;padding:1.15rem}
+  .sap-ring{display:grid;width:7rem;height:7rem;place-items:center;border-radius:50%;background:conic-gradient(#16a34a calc(var(--score)*1%),#eef2f7 0)}
+  .sap-ring span{display:grid;width:5.4rem;height:5.4rem;place-items:center;border-radius:50%;background:#fff;font-size:1.35rem;font-weight:950;color:#16a34a}
+  .sap-field{display:grid;gap:.35rem;font-weight:900;font-size:.85rem;margin-bottom:.7rem}
+  .sap-field input,.sap-field select,.sap-field textarea{width:100%;height:2.8rem;border:1px solid var(--line);border-radius:.6rem;background:#fff;padding:0 .9rem;text-align:right;outline:0;font-weight:800;color:var(--ink)}
+  .sap-field textarea{height:5rem;padding-top:.6rem;resize:vertical}
+  .sap-field.is-locked input{background:#f4f6fa;color:var(--muted)}
+  .sap-field-icon{position:relative}
+  .sap-field-icon svg{position:absolute;top:2.35rem;left:.85rem;color:#a7b2c4;width:1rem;height:1rem}
+  .sap-btn{display:inline-flex;height:2.6rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.65rem;padding:0 1.1rem;border:0;background:linear-gradient(135deg,#5d16ef,#315cff);color:#fff;font-weight:900;cursor:pointer}
+  .sap-btn.is-outline{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .sap-btn.is-danger{background:#fff;border:1px solid #fecaca;color:#ef4444}
+  .sap-btn.is-block{width:100%}
+  .sap-btn:disabled{opacity:.55;cursor:not-allowed}
+  .sap-soon{display:inline-flex;align-items:center;height:1.5rem;border-radius:999px;padding:0 .55rem;background:#fff7ed;color:#c2760f;font-size:.72rem;font-weight:900}
+  table.sap-table{width:100%;border-collapse:collapse;font-size:.85rem}
+  table.sap-table th{color:var(--muted);font-weight:850;text-align:right;padding:.5rem .3rem;border-bottom:1px solid var(--line)}
+  table.sap-table td{padding:.65rem .3rem;border-bottom:1px solid #f1f4f9;font-weight:800}
+  .sap-toggle-row{display:flex;align-items:center;justify-content:space-between;min-height:2.9rem;border-bottom:1px solid #f1f4f9}
+  .sap-toggle-row:last-child{border-bottom:0}
+  .sap-toggle{position:relative;display:inline-flex;width:2.7rem;height:1.5rem;border-radius:999px;background:#d7dee9;flex-shrink:0}
+  .sap-toggle input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+  .sap-toggle i{position:absolute;top:.18rem;right:.18rem;width:1.14rem;height:1.14rem;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(15,23,42,.18);transition:right .15s}
+  .sap-toggle input:checked + i{right:1.38rem;background:#fff}
+  .sap-toggle input:checked ~ i{}
+  .sap-toggle:has(input:checked){background:var(--blue)}
+  .sap-danger-note{border:1px solid #fecaca;background:#fff5f5;border-radius:1rem;padding:1rem}
+  .sap-danger-note p{margin:0 0 .75rem;color:#b91c1c;font-weight:850;font-size:.85rem}
+  .sap-session-current{display:flex;align-items:center;gap:.75rem;padding:.85rem;border:1px solid var(--line);border-radius:.8rem}
+  .sap-session-current b{display:grid;width:2.6rem;height:2.6rem;flex-shrink:0;place-items:center;border-radius:.7rem;background:#eef2f7;color:var(--blue)}
+  .sap-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1.4rem}
+  .sap-form-grid .sap-field.is-full{grid-column:1/-1}
+  .sap-note{margin:0 0 1rem;padding:.75rem 1rem;border-radius:.6rem;background:#eef2f7;color:var(--muted);font-weight:800;font-size:.8rem}
+  .sap-save-row{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:.4rem;padding-top:1.1rem}
+  .sap-save-row span{color:var(--muted);font-weight:800;font-size:.8rem}
+  .sap-avatar-card{text-align:center;padding:1.1rem}
+  .sap-avatar-card .sap-avatar{margin:0 auto .7rem}
+  .sap-avatar-card small{display:block;margin-top:.6rem;color:var(--muted);font-weight:800;font-size:.75rem}
+  @media (max-width:1200px){.sap-security-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
+  @media (max-width:980px){.sap-layout,.sap-form-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
+</style>
+
+<section class="sap" dir="rtl">
+    <nav class="sap-tabs">
+        <a class="{% if section == 'overview' %}is-active{% endif %}" href="?section=overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>نمای کلی</a>
+        <a class="{% if section == 'security' %}is-active{% endif %}" href="?section=security"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5Z"/></svg>امنیت حساب</a>
+        <a class="{% if section == 'edit' %}is-active{% endif %}" href="?section=edit"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>ویرایش اطلاعات</a>
+    </nav>
+
+    {% if section == 'security' %}
+        <section class="sap-card sap-score-card" style="margin-bottom:.9rem">
+            <div class="sap-ring" style="--score:{{ security_score }}"><span>{{ security_score|fa_digits }}٪</span></div>
+            <div>
+                <h2 style="margin-bottom:.3rem">امتیاز امنیتی</h2>
+                <span class="sap-chip {% if security_score >= 80 %}green{% else %}blue{% endif %}">{% if security_score >= 80 %}مناسب{% else %}قابل بهبود{% endif %}</span>
+                <p style="margin:.7rem 0 0;color:var(--muted);font-weight:800;font-size:.85rem">برای افزایش امتیاز، شماره همراه و ایمیل سازمانی خود را کامل کنید.</p>
+            </div>
+        </section>
+
+        <section class="sap-security-grid" style="margin-bottom:.9rem">
+            <article class="sap-card sap-pad">
+                <h2>رمز عبور</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form" value="password">
+                    <label class="sap-field">رمز عبور فعلی<input type="password" name="old_password" autocomplete="current-password" required></label>
+                    <label class="sap-field">رمز عبور جدید<input type="password" name="new_password1" autocomplete="new-password" required></label>
+                    <label class="sap-field">تکرار رمز عبور جدید<input type="password" name="new_password2" autocomplete="new-password" required></label>
+                    <button class="sap-btn is-block" type="submit">به‌روزرسانی رمز عبور</button>
+                </form>
+            </article>
+
+            <article class="sap-card sap-pad">
+                <h2>تأیید دومرحله‌ای <span class="sap-soon">در حال توسعه</span></h2>
+                <p style="color:var(--muted);font-weight:800;font-size:.85rem;margin-bottom:1rem">فعال‌سازی برنامه Authenticator و کدهای بازیابی هنوز در سامانه پیاده‌سازی نشده است.</p>
+                <button class="sap-btn is-outline is-block" type="button" disabled>مدیریت تأیید دومرحله‌ای</button>
+            </article>
+
+            <article class="sap-card sap-pad">
+                <h2>نشست فعلی</h2>
+                <div class="sap-session-current">
+                    <b><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4"/></svg></b>
+                    <div>
+                        <strong>{{ current_session.device }}</strong>
+                        <small style="color:var(--muted);font-weight:800">IP: {{ current_session.ip|fa_digits }}</small>
+                    </div>
+                    <span class="sap-chip green" style="margin-right:auto">این دستگاه</span>
+                </div>
+                <form method="post" style="margin-top:1rem">
+                    {% csrf_token %}
+                    <input type="hidden" name="form" value="logout_others">
+                    <button class="sap-btn is-outline is-block" type="submit">خروج از سایر دستگاه‌ها ({{ other_sessions_count|fa_digits }})</button>
+                </form>
+            </article>
+        </section>
+
+        <section class="sap-card sap-pad" style="margin-bottom:.9rem">
+            <h2>تاریخچه ورود</h2>
+            {% if login_history %}
+                <div style="overflow-x:auto">
+                    <table class="sap-table">
+                        <thead><tr><th>دستگاه</th><th>IP</th><th>زمان</th><th>نتیجه</th></tr></thead>
+                        <tbody>
+                            {% for item in login_history %}
+                                <tr>
+                                    <td>{{ item.device }}</td>
+                                    <td>{{ item.ip|fa_digits }}</td>
+                                    <td>{{ item.time|date:"Y/m/d H:i"|default:item.time|fa_digits }}</td>
+                                    <td><span class="sap-chip {% if item.result == 'موفق' %}green{% else %}gray{% endif %}">{{ item.result }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color:var(--muted);font-weight:800">هنوز ورودی برای این حساب ثبت نشده است.</p>
+            {% endif %}
+        </section>
+
+        <section class="sap-security-grid" style="grid-template-columns:1.3fr 1fr">
+            <article class="sap-card sap-pad">
+                <h2>هشدارهای امنیتی <span class="sap-soon">ذخیره نمی‌شود</span></h2>
+                <div class="sap-toggle-row"><span>ورود از دستگاه جدید</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
+                <div class="sap-toggle-row"><span>تغییر رمز عبور</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
+                <div class="sap-toggle-row"><span>تلاش ورود ناموفق</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
+                <p style="margin:.9rem 0 0;color:var(--muted);font-weight:800;font-size:.78rem">این بخش هنوز به دیتابیس متصل نشده و تغییرات ذخیره نمی‌شود.</p>
+            </article>
+            <article class="sap-danger-note">
+                <h2 style="color:#b91c1c">اقدامات حساس</h2>
+                <p>این اقدام همه نشست‌های فعال روی دستگاه‌های دیگر را بی‌درنگ خارج می‌کند.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form" value="logout_others">
+                    <button class="sap-btn is-danger is-block" type="submit">خروج از همه دستگاه‌ها</button>
+                </form>
+            </article>
+        </section>
+
+    {% elif section == 'edit' %}
+        <section class="sap-layout">
+            <form method="post" enctype="multipart/form-data" class="sap-card sap-pad" id="sap-edit-form">
+                {% csrf_token %}
+                <input type="hidden" name="form" value="profile">
+                <h2>اطلاعات فردی</h2>
+                <div class="sap-form-grid">
+                    <label class="sap-field">نام<input name="first_name" value="{{ profile.first_name|default:'' }}"></label>
+                    <label class="sap-field">نام خانوادگی<input name="last_name" value="{{ profile.last_name|default:'' }}"></label>
+                    <label class="sap-field is-locked">کد ملی<input value="{{ profile.national_id|default:'-'|fa_digits }}" readonly></label>
+                    <label class="sap-field is-locked">کد کاربری<input value="{{ profile_identifier|fa_digits }}" readonly></label>
+                </div>
+                <h2 style="margin-top:.4rem">اطلاعات تماس</h2>
+                <div class="sap-form-grid">
+                    <label class="sap-field is-full">ایمیل<input type="email" name="email" value="{{ profile.email|default:request.user.email }}"></label>
+                    <label class="sap-field">شماره همراه<input name="phone" value="{{ profile.phone|default:''|fa_digits }}"></label>
+                </div>
+                <h2 style="margin-top:.4rem">اطلاعات سازمانی</h2>
+                <div class="sap-form-grid">
+                    <label class="sap-field is-locked">نقش فعال<input value="مدیر سیستم" readonly></label>
+                    <label class="sap-field is-locked">مسیر سازمانی<input value="مدیریت مرکزی" readonly></label>
+                </div>
+                <p class="sap-note">تغییر نقش و دسترسی فقط از بخش مدیریت کاربران امکان‌پذیر است.</p>
+                <div class="sap-save-row">
+                    <span>آخرین ویرایش: {{ profile.updated_at|date:"Y/m/d H:i"|default:profile.updated_at|slice:":16"|fa_digits }}</span>
+                    <div style="display:flex;gap:.6rem">
+                        <a class="sap-btn is-outline" href="?section=overview">انصراف</a>
+                        <button class="sap-btn" type="submit">ذخیره تغییرات</button>
+                    </div>
+                </div>
+            </form>
+
+            <aside class="sap-side">
+                <article class="sap-card sap-avatar-card">
+                    <div class="sap-avatar">{% if profile.avatar_url %}<img src="{{ profile.avatar_url }}" alt="{{ display_name }}">{% else %}{{ display_name|slice:":1" }}{% endif %}</div>
+                    <h3 style="margin:0 0 .8rem">{{ display_name|fa_digits }}</h3>
+                    <label class="sap-btn is-outline is-block" style="cursor:pointer">
+                        تغییر تصویر
+                        <input form="sap-edit-form" name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none">
+                    </label>
+                    <small>فرمت‌های مجاز: JPG، PNG، WebP، GIF - حداکثر ۲ مگابایت</small>
+                </article>
+                <article class="sap-card sap-pad">
+                    <h2>ترجیحات کاربری <span class="sap-soon">ذخیره نمی‌شود</span></h2>
+                    <div class="sap-toggle-row"><span>دریافت اعلان‌های سامانه</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
+                    <label class="sap-field" style="margin-top:.9rem">زبان رابط<select disabled><option>فارسی</option></select></label>
+                </article>
+            </aside>
+        </section>
+
+    {% else %}
+        <section class="sap-stats">
+            {% for tile in stat_tiles %}
+                <article class="sap-card sap-stat tone-{{ tile.tone }}">
+                    <b>{% if tile.tone == 'red' %}!{% elif tile.tone == 'blue' %}▤{% elif tile.tone == 'purple' %}♙{% else %}♟{% endif %}</b>
+                    <div><strong>{{ tile.value|fa_digits }}</strong><span>{{ tile.label }}</span></div>
+                </article>
+            {% endfor %}
+        </section>
+
+        <section class="sap-layout">
+            <div class="sap-side">
+                <article class="sap-card sap-pad">
+                    <h2>اطلاعات و دسترسی</h2>
+                    <div class="sap-list">
+                        {% for item in access_items %}
+                            <div class="sap-row"><span>{{ item.label }}:</span><strong>{{ item.value }}</strong></div>
+                        {% endfor %}
+                    </div>
+                    <a class="sap-more" href="?section=security">مشاهده جزئیات دسترسی ‹</a>
+                </article>
+
+                <article class="sap-card sap-pad">
+                    <h2>میانبرهای مدیریتی</h2>
+                    <div class="sap-shortcuts">
+                        {% for item in shortcuts %}
+                            <a href="{{ item.url }}">{{ item.label }}<span>‹</span></a>
+                        {% endfor %}
+                    </div>
+                </article>
+
+                <article class="sap-card sap-pad">
+                    <h2>آخرین فعالیت‌های مدیریتی</h2>
+                    {% for item in recent_activities %}
+                        <div class="sap-activity"><span class="sap-dot"></span><div><strong>{{ item.label }}</strong><time>{{ item.created_at|date:"Y/m/d H:i"|default:item.created_at|fa_digits }}</time></div></div>
+                    {% empty %}
+                        <p style="color:var(--muted);font-weight:800">هنوز فعالیتی برای این حساب ثبت نشده است.</p>
+                    {% endfor %}
+                </article>
+
+                <article class="sap-card sap-pad">
+                    <h2>امنیت حساب</h2>
+                    <div class="sap-row"><span>وضعیت</span><strong class="sap-chip green">فعال</strong></div>
+                    <div class="sap-row"><span>تأیید دومرحله‌ای</span><strong class="sap-soon">در حال توسعه</strong></div>
+                    <a class="sap-btn is-outline is-block" style="margin-top:1rem" href="?section=security">مدیریت امنیت</a>
+                </article>
+            </div>
+
+            <aside class="sap-card sap-hero">
+                <div class="sap-hero-top">
+                    <div class="sap-avatar">{% if profile.avatar_url %}<img src="{{ profile.avatar_url }}" alt="{{ display_name }}">{% else %}{{ display_name|slice:":1" }}{% endif %}</div>
+                    <h3>{{ display_name|fa_digits }}</h3>
+                    <div class="sap-hero-chips">
+                        <span class="sap-chip blue">مدیر سیستم</span>
+                        <span class="sap-chip green">فعال</span>
+                    </div>
+                </div>
+                <div class="sap-detail">
+                    <div class="sap-detail-row"><span>کد کاربری</span><strong>{{ profile_identifier|fa_digits }}</strong></div>
+                    <div class="sap-detail-row"><span>ایمیل</span><strong>{{ profile.email|default:request.user.email|default:"-" }}</strong></div>
+                    <div class="sap-detail-row"><span>شماره همراه</span><strong>{{ profile.phone|default:"-"|fa_digits }}</strong></div>
+                    <div class="sap-detail-row"><span>آخرین ورود</span><strong>{{ last_login_at|date:"Y/m/d H:i"|default:"-"|fa_digits }}</strong></div>
+                </div>
+                <div class="sap-progress-wrap">
+                    <div class="sap-progress-head"><span>تکمیل پروفایل</span><span>{{ profile_completion|fa_digits }}٪</span></div>
+                    <div class="sap-progress"><i style="width:{{ profile_completion }}%"></i></div>
+                </div>
+                <a class="sap-btn is-block" style="margin-top:1.1rem" href="?section=edit">ویرایش اطلاعات</a>
+            </aside>
+        </section>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,22 +1,17 @@
 ﻿{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}صفحه اصلی | متا کوییز{% endblock %}
+{% block title %}صفحه اصلی | متاکوییز{% endblock %}
 {% block public_header %}{% endblock %}
 
 {% block content %}
+<script>document.documentElement.classList.add('js-reveal');</script>
 <div class="landing-page" dir="rtl">
-    <div class="landing-arcs" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-    </div>
 
     <header id="site-header" class="landing-nav">
         <div class="landing-nav-inner">
             <a href="#home" class="landing-brand">
-                <img src="{% static 'img/metaquiz-favicon.svg' %}" alt="">
-                <span>متا کوییز</span>
+                <img class="landing-brand-full-logo" src="{% static 'img/metaquiz-logo.png' %}?v=20260824d" alt="متاکوییز">
             </a>
 
             <nav class="landing-nav-links" aria-label="ناوبری صفحه اصلی">
@@ -31,9 +26,13 @@
             <div class="landing-nav-actions">
                 <a href="{% url 'core:login' %}?mode=signup" class="landing-nav-primary">ثبت‌نام</a>
                 <a href="{% url 'core:login' %}" class="landing-nav-secondary">ورود</a>
-                <button type="button" class="landing-menu-button" aria-controls="mobile-nav" aria-expanded="false">
-                    <span class="is-open">☰</span>
-                    <span class="is-close">×</span>
+                <button type="button" class="landing-menu-button" aria-controls="mobile-nav" aria-expanded="false" aria-label="باز کردن منو">
+                    <span class="is-open" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" /></svg>
+                    </span>
+                    <span class="is-close" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                    </span>
                 </button>
             </div>
         </div>
@@ -58,7 +57,7 @@
         <div class="landing-hero-copy">
             <div class="landing-soft-wash" aria-hidden="true"></div>
             <h1>
-                به <span>متا کوییز</span> خوش آمدید.
+                به <span class="landing-circle">متاکوییز</span> خوش آمدید.
                 <br>
                 با <em>اطمینان</em> آماده شوید.
             </h1>
@@ -67,11 +66,32 @@
                 <strong>یادگیری هوشمند</strong> از همین‌جا شروع می‌شود.
             </p>
 
+            <div class="landing-hero-cta">
+                <a href="{% url 'core:login' %}?mode=signup" class="landing-hero-cta-primary">
+                    شروع رایگان
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4m0 0 6-6m-6 6 6 6" /></svg>
+                </a>
+                <a href="#join" class="landing-hero-cta-ghost">
+                    <span aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" /></svg>
+                    </span>
+                    چگونه کار می‌کند؟
+                </a>
+            </div>
+
             <form class="landing-search" action="{% url 'core:login' %}" method="get">
-                <span aria-hidden="true">⌕</span>
+                <span aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+                </span>
                 <input type="text" name="q" placeholder="جست‌وجوی درس یا آزمون...">
-                <button type="submit">جست‌وجو</button>
+                <button type="submit" class="cursor-pointer">جست‌وجو</button>
             </form>
+
+            <div class="landing-hero-stats">
+                <div><strong data-counter="500" data-counter-prefix="+">+۵۰۰</strong><span>آزمون برگزار شده</span></div>
+                <div><strong data-counter="50" data-counter-prefix="+">+۵۰</strong><span>استاد و مدرس</span></div>
+                <div><strong data-counter="100" data-counter-suffix="٪">۱۰۰٪</strong><span>رضایت کاربران</span></div>
+            </div>
 
             <div class="landing-proof">
                 <div class="landing-avatars" aria-hidden="true">
@@ -85,26 +105,30 @@
             </div>
         </div>
 
-        <div class="landing-gallery" aria-label="نمای تصویری متا کوییز">
-            <article class="landing-photo landing-photo-large group">
-                <img src="{% static 'img/student-hero.png' %}" alt="دانشجو در حال آماده شدن برای آزمون">
-                <div><strong>آماده شو</strong><span>با تبلت، هرجا</span></div>
-            </article>
-            <article class="landing-photo group">
-                <img src="{% static 'img/hero-student-1.png' %}" alt="بانک سوال">
-                <div><strong>بانک سوال</strong><span>هزاران سوال</span></div>
-            </article>
-            <article class="landing-photo group">
-                <img src="{% static 'img/hero-student-2.png' %}" alt="آزمون آنلاین">
-                <div><strong>آنلاین</strong><span>از هرجا</span></div>
-            </article>
-            <article class="landing-photo landing-photo-wide group">
-                <img src="{% static 'img/hero-student-3.png' %}" alt="استادان برتر">
-                <div><strong>اساتید برتر</strong><span>یادگیری از بهترین‌ها</span></div>
-            </article>
+        <div class="landing-gallery" aria-label="نمای تصویری متاکوییز">
+            <div class="landing-gallery-glow" aria-hidden="true"></div>
+            <div class="landing-gallery-ring" aria-hidden="true"></div>
+            <figure class="landing-gallery-photo">
+                <img src="{% static 'img/student-hero.png' %}" alt="دانشجو در حال شرکت در آزمون آنلاین متاکوییز">
+            </figure>
             <div class="landing-floating-stat">
                 <strong>+۵۰۰</strong>
                 <span>آزمون رایگان</span>
+            </div>
+            <div class="landing-gallery-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.019.94-1.11l.894-.148c.424-.071.765-.384.93-.781.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+            </div>
+            <div class="landing-gallery-tag">
+                <strong>آماده‌ای؟</strong>
+                <span>همین حالا شروع کن</span>
+            </div>
+            <div class="landing-chip landing-chip-top landing-chip-info">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                <span>تصحیح خودکار</span>
+            </div>
+            <div class="landing-chip landing-chip-bottom landing-chip-success">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+                <span>گزارش لحظه‌ای</span>
             </div>
         </div>
     </section>
@@ -140,38 +164,192 @@
     </section>
 
     <section id="features" class="landing-section">
-        <div class="landing-section-head">
-            <h2 class="landing-underlined">آنچه ما ارائه می‌دهیم</h2>
+        <div class="landing-section-row">
+            <div class="landing-section-head">
+                <h2>پرکاربردترین <span class="landing-circle">امکانات</span> متاکوییز</h2>
+                <p>مجموعه‌ای از ابزارها که برگزاری و شرکت در آزمون آنلاین را ساده و مطمئن می‌کند.</p>
+            </div>
+            <div class="landing-carousel-nav">
+                <button type="button" data-carousel-prev aria-label="مورد قبلی">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </button>
+                <button type="button" data-carousel-next aria-label="مورد بعدی">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 4.5-7.5 7.5 7.5 7.5" /></svg>
+                </button>
+            </div>
         </div>
-        <div class="landing-feature-grid landing-feature-grid-three">
-            <article><span>⚗</span><strong>آزمون‌های زنده</strong><p>برای آزمونی که می‌خواهید شرکت کنید ثبت‌نام کنید. در یک کلیک از داشبورد خود به آزمون متصل شوید.</p></article>
-            <article><span>؟</span><strong>سوالات هدفمند</strong><p>آزمون‌های از دست رفته را از داشبورد ببینید. لینک آزمون‌های زنده فقط در زمان برگزاری ظاهر می‌شود.</p></article>
-            <article><span>↗</span><strong>تحلیل عمیق نتایج</strong><p>داشبورد شما همراه واقعی پیشرفت شماست. عملکرد را تحلیل کنید، نقاط ضعف را بشناسید و رشد کنید.</p></article>
+
+        <div class="landing-carousel" data-carousel>
+            <article class="landing-carousel-card">
+                <div class="landing-carousel-media">
+                    <img src="{% static 'img/exam-session.svg' %}" alt="آزمون زنده آنلاین">
+                    <span class="landing-carousel-tag">آزمون زنده</span>
+                </div>
+                <div class="landing-carousel-body">
+                    <h3>آزمون‌های زنده</h3>
+                    <p>برای آزمونی که می‌خواهید شرکت کنید ثبت‌نام کنید و در یک کلیک از داشبورد خود به آزمون متصل شوید.</p>
+                    <div class="landing-carousel-foot">
+                        <span>بدون نصب نرم‌افزار</span>
+                        <a href="{% url 'core:login' %}?mode=signup" aria-label="شروع کنید">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12h12m0 0-5-5m5 5-5 5" /></svg>
+                        </a>
+                    </div>
+                </div>
+            </article>
+            <article class="landing-carousel-card">
+                <div class="landing-carousel-media">
+                    <img src="{% static 'img/hero-student-1.png' %}" alt="بانک سوال هدفمند">
+                    <span class="landing-carousel-tag">بانک سوال</span>
+                </div>
+                <div class="landing-carousel-body">
+                    <h3>سوالات هدفمند</h3>
+                    <p>آزمون‌های از دست رفته را از داشبورد ببینید. لینک آزمون‌های زنده فقط در زمان برگزاری ظاهر می‌شود.</p>
+                    <div class="landing-carousel-foot">
+                        <span>هزاران سوال</span>
+                        <a href="{% url 'core:login' %}?mode=signup" aria-label="شروع کنید">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12h12m0 0-5-5m5 5-5 5" /></svg>
+                        </a>
+                    </div>
+                </div>
+            </article>
+            <article class="landing-carousel-card">
+                <div class="landing-carousel-media">
+                    <img src="{% static 'img/exam-dashboard.svg' %}" alt="تحلیل نتایج آزمون">
+                    <span class="landing-carousel-tag">تحلیل نتایج</span>
+                </div>
+                <div class="landing-carousel-body">
+                    <h3>تحلیل عمیق نتایج</h3>
+                    <p>داشبورد شما همراه واقعی پیشرفت شماست. عملکرد را تحلیل کنید، نقاط ضعف را بشناسید و رشد کنید.</p>
+                    <div class="landing-carousel-foot">
+                        <span>گزارش لحظه‌ای</span>
+                        <a href="{% url 'core:login' %}?mode=signup" aria-label="شروع کنید">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12h12m0 0-5-5m5 5-5 5" /></svg>
+                        </a>
+                    </div>
+                </div>
+            </article>
+            <article class="landing-carousel-card">
+                <div class="landing-carousel-media">
+                    <img src="{% static 'img/online-exam-3d.png' %}" alt="بانک سوال نامحدود">
+                    <span class="landing-carousel-tag">بدون محدودیت</span>
+                </div>
+                <div class="landing-carousel-body">
+                    <h3>بانک سوال نامحدود</h3>
+                    <p>دسترسی کامل به بانک سوالات، تصحیح خودکار و دستی، و کارنامه دقیق برای هر آزمون.</p>
+                    <div class="landing-carousel-foot">
+                        <span>تصحیح خودکار</span>
+                        <a href="{% url 'core:login' %}?mode=signup" aria-label="شروع کنید">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12h12m0 0-5-5m5 5-5 5" /></svg>
+                        </a>
+                    </div>
+                </div>
+            </article>
+            <article class="landing-carousel-card">
+                <div class="landing-carousel-media">
+                    <img src="{% static 'img/hero-student-2.png' %}" alt="دسترسی از هر دستگاه">
+                    <span class="landing-carousel-tag">همه‌جا در دسترس</span>
+                </div>
+                <div class="landing-carousel-body">
+                    <h3>روی هر دستگاهی</h3>
+                    <p>فقط با مرورگر، روی موبایل، تبلت یا کامپیوتر آزمون بسازید یا در آزمون شرکت کنید؛ بدون نیاز به نصب.</p>
+                    <div class="landing-carousel-foot">
+                        <span>بدون نصب نرم‌افزار</span>
+                        <a href="{% url 'core:login' %}?mode=signup" aria-label="شروع کنید">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12h12m0 0-5-5m5 5-5 5" /></svg>
+                        </a>
+                    </div>
+                </div>
+            </article>
         </div>
     </section>
 
-    <section class="landing-support">
+    <section class="landing-section landing-split">
+        <div class="landing-split-media">
+            <div class="landing-split-backdrop" aria-hidden="true"></div>
+            <div class="landing-split-blob" aria-hidden="true"></div>
+            <div class="landing-split-photo">
+                <img src="{% static 'img/hero-teacher-laptop.png' %}" alt="استفاده از متاکوییز روی لپ‌تاپ">
+            </div>
+            <span class="landing-split-dot" aria-hidden="true"></span>
+            <svg class="landing-split-spark" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2Z" /></svg>
+            <div class="landing-split-badge">
+                آزمون آنلاین
+                <em>در حال برگزاری</em>
+            </div>
+        </div>
+        <div>
+            <span class="landing-pill">امکانات پلتفرم</span>
+            <h2>هر آنچه برای <span class="landing-circle">آزمون آنلاین</span> لازم دارید</h2>
+            <p>متاکوییز یک سامانه‌ی یکپارچه برای طراحی، برگزاری و مدیریت آزمون آنلاین است. استادان بانک سوال می‌سازند و آزمون منتشر می‌کنند، دانشجویان با یک کد در هر لحظه و از هر دستگاهی وارد آزمون می‌شوند، و مراکز آموزشی کلاس‌ها، کاربران و گزارش‌های اجرایی را از یک پنل واحد مدیریت می‌کنند. از طراحی سوال تا تحلیل نتیجه، همه‌چیز در یک پنل ساده و روان در اختیار شماست.</p>
+            <div class="landing-split-stats">
+                <div>
+                    <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg></span>
+                    <div><strong>نامحدود</strong><small>بانک سوال</small></div>
+                </div>
+                <div>
+                    <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg></span>
+                    <div><strong>خودکار و دستی</strong><small>تصحیح آزمون</small></div>
+                </div>
+                <div>
+                    <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg></span>
+                    <div><strong>لحظه‌ای</strong><small>کارنامه و گزارش</small></div>
+                </div>
+                <div>
+                    <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.94-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.06 2.772m0 0A9.094 9.094 0 0 1 3 15.71a3 3 0 0 1 4.682-2.72M6.75 6a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM19.5 9.75a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg></span>
+                    <div><strong>۲۴/۷</strong><small>پشتیبانی</small></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="support" class="landing-support">
         <div class="landing-support-card">
-            <div class="landing-ring">
-                <svg viewBox="0 0 100 100" aria-hidden="true">
-                    <circle cx="50" cy="50" r="44"></circle>
-                    <circle cx="50" cy="50" r="44"></circle>
-                </svg>
-                <div><strong>۱۰۰٪</strong><span>رضایت</span></div>
-            </div>
-            <div>
-                <strong>پشتیبانی ۲۴/۷</strong>
-                <ul>
-                    <li>دکتر کاظمی، قلب</li>
-                    <li>دکتر شریفی، داخلی</li>
-                    <li>دکتر مرادی، اطفال</li>
-                    <li>دکتر رضایی، جراحی</li>
-                </ul>
-            </div>
             <div class="landing-support-copy">
                 <span>همراه شما</span>
-                <h2>در طول آزمون تنها نیستید.</h2>
-                <p>پنل متا کوییز وضعیت ورود، پاسخ‌ها، نتیجه و گزارش‌ها را شفاف نگه می‌دارد تا تیم آموزشی تمرکز خود را روی کیفیت بگذارد.</p>
+                <h2>در طول <span class="landing-circle">هر آزمون</span> تنها نیستید</h2>
+                <p>پنل متاکوییز وضعیت ورود، پاسخ‌ها، نتیجه و گزارش‌ها را شفاف نگه می‌دارد تا تیم آموزشی تمرکز خود را روی کیفیت بگذارد.</p>
+                <ul class="landing-support-checklist">
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>پاسخ‌گویی سریع پشتیبانی</li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>راهنمایی فنی در حین آزمون</li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>پیگیری تا دریافت نتیجه</li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>مشاوره انتخاب پلن مناسب</li>
+                </ul>
+                <a href="#pricing" class="landing-outline-btn">مشاهده پلن‌ها</a>
+            </div>
+
+            <div class="landing-support-widget">
+                <span>پشتیبانی ۲۴/۷</span>
+                <h3>+۵۰ استاد و پشتیبان آماده کمک</h3>
+                <div class="landing-support-people">
+                    <div class="landing-support-person">
+                        <b>ک</b>
+                        <div><strong>دکتر کاظمی</strong><small>پشتیبانی فنی</small></div>
+                        <span>★★★★★</span>
+                    </div>
+                    <div class="landing-support-person">
+                        <b>ش</b>
+                        <div><strong>دکتر شریفی</strong><small>پشتیبانی آموزشی</small></div>
+                        <span>★★★★★</span>
+                    </div>
+                    <div class="landing-support-person">
+                        <b>م</b>
+                        <div><strong>دکتر مرادی</strong><small>پشتیبانی فنی</small></div>
+                        <span>★★★★★</span>
+                    </div>
+                </div>
+                <div class="landing-support-foot">
+                    <div class="landing-support-foot-stats">
+                        <div><strong data-counter="50" data-counter-prefix="+">+۵۰</strong><span>استاد و مدرس</span></div>
+                        <div><strong data-counter="500" data-counter-prefix="+">+۵۰۰</strong><span>آزمون برگزار شده</span></div>
+                    </div>
+                    <div class="landing-ring">
+                        <svg viewBox="0 0 100 100" aria-hidden="true">
+                            <circle cx="50" cy="50" r="44"></circle>
+                            <circle cx="50" cy="50" r="44"></circle>
+                        </svg>
+                        <div><strong data-counter="100" data-counter-suffix="٪">۱۰۰٪</strong><span>رضایت</span></div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -183,9 +361,36 @@
             <p>همان صفحه‌ی مرجع این بخش را برای نمایش کاربردهای اصلی دارد؛ اینجا به مسیرهای واقعی سامانه Django وصل شده است.</p>
         </div>
         <div class="landing-use-grid">
-            <article><span>🎓</span><strong>دانشجویان</strong><p>ورود با کد آزمون، مشاهده تقویم، شرکت در آزمون و دریافت کارنامه.</p></article>
-            <article><span>🏫</span><strong>مراکز آموزشی</strong><p>مدیریت کاربران، کلاس‌ها، درس‌ها، تقویم و گزارش‌های اجرایی.</p></article>
-            <article><span>💼</span><strong>استادان</strong><p>طراحی سوال، ساخت آزمون، تصحیح پاسخ‌ها و انتشار نتیجه.</p></article>
+            <article>
+                <div class="landing-use-media">
+                    <img src="{% static 'img/hero-student-3.png' %}" alt="دانشجو در حال ورود به آزمون آنلاین">
+                    <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg></span>
+                </div>
+                <div class="landing-use-body">
+                    <strong>دانشجویان</strong>
+                    <p>ورود با کد آزمون، مشاهده تقویم، شرکت در آزمون و دریافت کارنامه.</p>
+                </div>
+            </article>
+            <article>
+                <div class="landing-use-media">
+                    <img src="{% static 'img/online-exam-3d.png' %}" alt="مدیریت مرکز آموزشی">
+                    <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg></span>
+                </div>
+                <div class="landing-use-body">
+                    <strong>مراکز آموزشی</strong>
+                    <p>مدیریت کاربران، کلاس‌ها، درس‌ها، تقویم و گزارش‌های اجرایی.</p>
+                </div>
+            </article>
+            <article>
+                <div class="landing-use-media">
+                    <img src="{% static 'img/hero-educators.png' %}" alt="استاد در حال طراحی آزمون">
+                    <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></span>
+                </div>
+                <div class="landing-use-body">
+                    <strong>استادان</strong>
+                    <p>طراحی سوال، ساخت آزمون، تصحیح پاسخ‌ها و انتشار نتیجه.</p>
+                </div>
+            </article>
         </div>
     </section>
 
@@ -200,7 +405,11 @@
                 <div><strong>۹۹</strong><span>هزار تومان / ماه</span></div>
                 <h3>آزمون عمومی</h3>
                 <p>دسترسی کامل به بانک سوالات، تصحیح خودکار، کارنامه دقیق و پشتیبانی تخصصی.</p>
-                <ul><li>بانک سوال نامحدود</li><li>تصحیح خودکار و دستی</li><li>کارنامه و تحلیل عملکرد</li></ul>
+                <ul>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>بانک سوال نامحدود</span></li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>تصحیح خودکار و دستی</span></li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>کارنامه و تحلیل عملکرد</span></li>
+                </ul>
                 <a href="{% url 'core:login' %}?mode=signup">خرید پلن</a>
             </article>
             <article class="is-popular">
@@ -209,7 +418,11 @@
                 <div><strong>۱۹۹</strong><span>هزار تومان / ماه</span></div>
                 <h3>آزمون تخصصی</h3>
                 <p>دسترسی کامل به بانک سوالات، تصحیح خودکار، کارنامه دقیق و پشتیبانی تخصصی.</p>
-                <ul><li>بانک سوال نامحدود</li><li>تصحیح خودکار و دستی</li><li>کارنامه و تحلیل عملکرد</li></ul>
+                <ul>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>بانک سوال نامحدود</span></li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>تصحیح خودکار و دستی</span></li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>کارنامه و تحلیل عملکرد</span></li>
+                </ul>
                 <a href="{% url 'core:login' %}?mode=signup">خرید پلن</a>
             </article>
             <article>
@@ -217,7 +430,11 @@
                 <div><strong>۲۹۹</strong><span>هزار تومان / ماه</span></div>
                 <h3>آزمون جامع</h3>
                 <p>دسترسی کامل به بانک سوالات، تصحیح خودکار، کارنامه دقیق و پشتیبانی تخصصی.</p>
-                <ul><li>بانک سوال نامحدود</li><li>تصحیح خودکار و دستی</li><li>کارنامه و تحلیل عملکرد</li></ul>
+                <ul>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>بانک سوال نامحدود</span></li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>تصحیح خودکار و دستی</span></li>
+                    <li><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg><span>کارنامه و تحلیل عملکرد</span></li>
+                </ul>
                 <a href="{% url 'core:login' %}?mode=signup">خرید پلن</a>
             </article>
         </div>
@@ -227,23 +444,42 @@
     </section>
 
     <section id="testimonials" class="landing-section">
-        <div class="landing-section-head">
-            <h2 class="landing-underlined">دانشجویان ما، بزرگ‌ترین طرفداران ما</h2>
+        <div class="landing-section-head landing-center">
+            <h2>دانشجویان ما، بزرگ‌ترین <span class="landing-circle">طرفداران</span> ما</h2>
             <p>ما اهل تعریف از خود نیستیم، اما اجازه می‌دهیم دانشجویانمان درباره ما حرف بزنند.</p>
         </div>
-        <div class="landing-testimonial-grid">
-            <article>
-                <span>“</span>
-                <h3>یک تجربه فوق‌العاده بود!</h3>
-                <p>استاد به‌قدری خوب درس داد که هر چه قول داده بود را به بهترین شکل انجام داد. آزمون‌ها واقعا تاثیرگذار بودند.</p>
-                <div><b>م</b><strong>متین حسینی</strong><small>دانشجوی پزشکی</small></div>
-            </article>
-            <article>
-                <span>“</span>
-                <h3>بانک سوال خیلی غنی است.</h3>
-                <p>تصحیح خودکار و کارنامه دقیق کمک کرد بفهمم کجاها باید بیشتر تمرین کنم.</p>
-                <div><b>ن</b><strong>نگار جوانمرد</strong><small>دانشجوی مهندسی</small></div>
-            </article>
+        <div class="landing-testimonial-panel">
+            <div class="landing-testimonial-track" data-carousel>
+                <article class="landing-testimonial-card">
+                    <div class="landing-testimonial-avatar">م</div>
+                    <h3>متین حسینی</h3>
+                    <small>دانشجوی پزشکی</small>
+                    <div class="landing-testimonial-stars">★★★★★</div>
+                    <p>استاد به‌قدری خوب درس داد که هر چه قول داده بود را به بهترین شکل انجام داد. آزمون‌ها واقعا تاثیرگذار بودند.</p>
+                </article>
+                <article class="landing-testimonial-card">
+                    <div class="landing-testimonial-avatar">ن</div>
+                    <h3>نگار جوانمرد</h3>
+                    <small>دانشجوی مهندسی</small>
+                    <div class="landing-testimonial-stars">★★★★★</div>
+                    <p>تصحیح خودکار و کارنامه دقیق کمک کرد بفهمم کجاها باید بیشتر تمرین کنم.</p>
+                </article>
+                <article class="landing-testimonial-card">
+                    <div class="landing-testimonial-avatar">ع</div>
+                    <h3>علی رضایی</h3>
+                    <small>دانشجوی حقوق</small>
+                    <div class="landing-testimonial-stars">★★★★★</div>
+                    <p>استفاده از پنل خیلی ساده بود؛ حتی از موبایل هم بدون هیچ مشکلی آزمون دادم.</p>
+                </article>
+            </div>
+            <div class="landing-testimonial-nav">
+                <button type="button" data-carousel-prev aria-label="نظر قبلی">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </button>
+                <button type="button" data-carousel-next aria-label="نظر بعدی">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 4.5-7.5 7.5 7.5 7.5" /></svg>
+                </button>
+            </div>
         </div>
     </section>
 
@@ -261,21 +497,60 @@
         <details><summary>آیا نسخه رایگان وجود دارد؟</summary><p>بله، می‌توانید رایگان ثبت‌نام کنید و امکانات پایه را بدون محدودیت زمانی استفاده کنید.</p></details>
     </section>
 
-    <section id="cta" class="landing-cta">
-        <div>
-            <h2>همین حالا اولین آزمون آنلاین خود را برگزار کنید.</h2>
-            <p>ثبت‌نام کمتر از یک دقیقه طول می‌کشد. کاملا رایگان برای شروع.</p>
+    <section id="cta" class="landing-cta-band">
+        <div class="landing-cta-band-inner">
+            <div>
+                <span class="landing-pill">شروع کنید</span>
+                <h2>همین حالا اولین <span class="landing-circle">آزمون آنلاین</span> خود را برگزار کنید</h2>
+                <p>ثبت‌نام کمتر از یک دقیقه طول می‌کشد. کاملا رایگان برای شروع.</p>
+                <div class="landing-cta-band-actions">
+                    <a href="{% url 'core:login' %}?mode=signup">شروع رایگان</a>
+                    <a href="{% url 'core:login' %}" class="landing-cta-secondary">ورود</a>
+                </div>
+            </div>
+            <div class="landing-cta-media">
+                <svg class="landing-cta-squiggle" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+                    <path d="M10 150 C 60 100, 60 40, 110 30 S 190 60, 185 20" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 14" />
+                </svg>
+                <img src="{% static 'img/hero-teacher-laptop.png' %}" alt="استاد در حال آماده‌سازی آزمون آنلاین">
+            </div>
         </div>
-        <div>
-            <a href="{% url 'core:login' %}?mode=signup">شروع رایگان</a>
-            <a href="{% url 'core:login' %}" class="landing-cta-secondary">ورود</a>
+    </section>
+
+    <section class="landing-brands">
+        <p class="landing-brands-label">مورد اعتماد دانشگاه‌ها و مراکز علوم پزشکی همکار</p>
+        <div class="landing-brands-row">
+            <div class="landing-brands-track">
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه علوم پزشکی</span>
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه دولتی</span>
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشکده پزشکی</span>
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه صنعتی</span>
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>موسسه آموزش عالی</span>
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه آزاد</span>
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه فنی و مهندسی</span>
+                <span class="landing-brand-logo"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>مرکز آموزش عالی</span>
+
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه علوم پزشکی</span>
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه دولتی</span>
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشکده پزشکی</span>
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه صنعتی</span>
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>موسسه آموزش عالی</span>
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه آزاد</span>
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>دانشگاه فنی و مهندسی</span>
+                <span class="landing-brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443" /></svg>مرکز آموزش عالی</span>
+            </div>
         </div>
     </section>
 
     <footer class="landing-footer">
         <div>
-            <strong>متا کوییز</strong>
+            <strong>متاکوییز</strong>
             <p>سامانه‌ای برای طراحی، برگزاری و مدیریت آزمون‌های آنلاین دانشگاهی.</p>
+            <div class="landing-footer-social">
+                <a href="#" aria-label="اینستاگرام"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3.75" y="3.75" width="16.5" height="16.5" rx="4.5" /><circle cx="12" cy="12" r="3.75" /><circle cx="17.25" cy="6.75" r=".2" /></svg></a>
+                <a href="#" aria-label="تلگرام"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m21 4.5-3 15.75-6-4.5-3.75 3-.75-5.25L21 4.5Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 13.5 21 4.5" /></svg></a>
+                <a href="#" aria-label="ایکس"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 4.5 19.5 19.5M19.5 4.5 4.5 19.5" /></svg></a>
+            </div>
         </div>
         <div>
             <strong>دسترسی سریع</strong>
@@ -299,11 +574,13 @@
     </footer>
 
     <div class="landing-footer-bottom">
-        <span>© ۲۰۲۶ متا کوییز، تمامی حقوق محفوظ است.</span>
+        <span>© ۲۰۲۶ متاکوییز، تمامی حقوق محفوظ است.</span>
         <div><a href="#">حریم خصوصی</a><a href="#">قوانین و شرایط</a></div>
     </div>
 
-    <button type="button" class="landing-scroll-top" aria-label="بازگشت به ابتدای صفحه">↑</button>
+    <button type="button" class="landing-scroll-top" aria-label="بازگشت به ابتدای صفحه">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5V4.5m0 0-7.5 7.5M12 4.5l7.5 7.5" /></svg>
+    </button>
 </div>
 
 <script>
@@ -319,6 +596,7 @@
             if (!mobile || !menuButton) return;
             mobile.hidden = true;
             menuButton.setAttribute('aria-expanded', 'false');
+            menuButton.setAttribute('aria-label', 'باز کردن منو');
             menuButton.classList.remove('is-open');
         }
 
@@ -326,6 +604,7 @@
             const open = menuButton.getAttribute('aria-expanded') === 'true';
             mobile.hidden = open;
             menuButton.setAttribute('aria-expanded', String(!open));
+            menuButton.setAttribute('aria-label', open ? 'باز کردن منو' : 'بستن منو');
             menuButton.classList.toggle('is-open', !open);
         });
 
@@ -361,6 +640,124 @@
         window.addEventListener('scroll', updateScrollButton, { passive: true });
         updateScrollButton();
         scrollTop?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+        document.querySelectorAll('[data-carousel-prev], [data-carousel-next]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const track = button.closest('section')?.querySelector('[data-carousel]');
+                if (!track) return;
+                const card = track.querySelector(':scope > *');
+                const amount = (card?.getBoundingClientRect().width || 260) + 20;
+                const forward = button.hasAttribute('data-carousel-next');
+                track.scrollBy({ left: forward ? -amount : amount, behavior: 'smooth' });
+            });
+        });
+
+        document.querySelectorAll('[data-carousel]').forEach((track) => {
+            track.classList.add('is-draggable');
+            let dragging = false;
+            let moved = false;
+            let startX = 0;
+            let startScroll = 0;
+
+            track.addEventListener('pointerdown', (event) => {
+                dragging = true;
+                moved = false;
+                startX = event.clientX;
+                startScroll = track.scrollLeft;
+                track.classList.add('is-dragging');
+                track.setPointerCapture(event.pointerId);
+            });
+
+            track.addEventListener('pointermove', (event) => {
+                if (!dragging) return;
+                const delta = event.clientX - startX;
+                if (Math.abs(delta) > 4) moved = true;
+                track.scrollLeft = startScroll - delta;
+            });
+
+            const stopDrag = () => {
+                dragging = false;
+                track.classList.remove('is-dragging');
+            };
+            track.addEventListener('pointerup', stopDrag);
+            track.addEventListener('pointercancel', stopDrag);
+            track.addEventListener('pointerleave', stopDrag);
+
+            track.addEventListener('click', (event) => {
+                if (moved) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            }, true);
+        });
+
+        const faDigits = '۰۱۲۳۴۵۶۷۸۹';
+        const toFaDigits = (value) => String(value).replace(/[0-9]/g, (digit) => faDigits[digit]);
+
+        function animateCounter(el) {
+            const target = parseInt(el.dataset.counter, 10);
+            if (!Number.isFinite(target)) return;
+            const prefix = el.dataset.counterPrefix || '';
+            const suffix = el.dataset.counterSuffix || '';
+            const duration = 1100;
+            const start = performance.now();
+            function tick(now) {
+                const progress = Math.min((now - start) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                el.textContent = prefix + toFaDigits(Math.round(target * eased)) + suffix;
+                if (progress < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        const counterGroups = document.querySelectorAll('.landing-hero-stats, .landing-support-foot-stats');
+        if (reduceMotion) {
+            counterGroups.forEach((group) => group.querySelectorAll('[data-counter]').forEach((el) => {
+                const prefix = el.dataset.counterPrefix || '';
+                const suffix = el.dataset.counterSuffix || '';
+                el.textContent = prefix + toFaDigits(el.dataset.counter) + suffix;
+            }));
+        } else {
+            const counterObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.querySelectorAll('[data-counter]').forEach(animateCounter);
+                    counterObserver.unobserve(entry.target);
+                });
+            }, { threshold: 0.4 });
+            counterGroups.forEach((group) => counterObserver.observe(group));
+        }
+
+        const revealTargets = document.querySelectorAll([
+            '.landing-carousel-card',
+            '.landing-plan-grid article',
+            '.landing-use-grid article',
+            '.landing-testimonial-card',
+            '.landing-steps-card',
+            '.landing-code-card',
+            '.landing-section-head',
+            '.landing-split-media',
+            '.landing-split > div:last-child',
+            '.landing-support-copy',
+            '.landing-support-widget',
+        ].join(', '));
+
+        if (reduceMotion) {
+            revealTargets.forEach((el) => el.classList.add('is-in-view'));
+        } else {
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry, index) => {
+                    if (!entry.isIntersecting) return;
+                    const el = entry.target;
+                    el.style.transitionDelay = `${(index % 4) * 90}ms`;
+                    el.classList.add('is-in-view');
+                    revealObserver.unobserve(el);
+                });
+            }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+            revealTargets.forEach((el) => revealObserver.observe(el));
+        }
     })();
 </script>
 {% endblock %}

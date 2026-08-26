@@ -2,8 +2,10 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
+from django.views.static import serve as serve_static
 
 urlpatterns = [
+    path('favicon.ico', serve_static, {'path': 'img/favicon.ico', 'document_root': settings.STATICFILES_DIRS[0]}),
     path('admin/', admin.site.urls),
     path('', include('apps.core.urls')),
 ]

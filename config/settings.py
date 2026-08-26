@@ -188,6 +188,11 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
+# اجازه می‌دهد authenticate() برای کاربران is_active=False هم شیء کاربر را برگرداند
+# تا StyledAuthenticationForm.confirm_login_allowed بتواند پیام اختصاصی (در انتظار
+# تأیید مدیر سیستم / رد شده / مسدود) نشان دهد، نه پیام عمومی «ورود نامعتبر» جنگو.
+AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.AllowAllUsersModelBackend']
+
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
 CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'

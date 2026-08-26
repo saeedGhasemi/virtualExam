@@ -6,24 +6,28 @@ import random
 import uuid
 import zipfile
 from datetime import datetime, timedelta
+from importlib import import_module
 from pathlib import Path
 from functools import lru_cache, wraps
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 
 from django.contrib import messages
-from django.contrib.auth import get_user_model, login as auth_login, logout
+from django.contrib.auth import get_user_model, login as auth_login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import LoginView
+from django.contrib.sessions.models import Session
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from django.db import DatabaseError, connection
+from django.db import DatabaseError, connection, transaction
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from django.utils.dateparse import parse_datetime
 
 from .forms import (
     AssistantDescriptiveReviewForm,
@@ -486,6 +490,33 @@ def client_ip(request):
     return request.META.get('REMOTE_ADDR')
 
 
+def describe_user_agent(user_agent):
+    ua = user_agent or ''
+    if 'Windows' in ua:
+        os_label = 'ویندوز'
+    elif 'Android' in ua:
+        os_label = 'اندروید'
+    elif 'iPhone' in ua or 'iPad' in ua:
+        os_label = 'iOS'
+    elif 'Macintosh' in ua or 'Mac OS' in ua:
+        os_label = 'مک'
+    elif 'Linux' in ua:
+        os_label = 'لینوکس'
+    else:
+        os_label = 'دستگاه نامشخص'
+    if 'Edg/' in ua or 'Edge' in ua:
+        browser = 'Edge'
+    elif 'Chrome' in ua and 'Chromium' not in ua:
+        browser = 'Chrome'
+    elif 'Firefox' in ua:
+        browser = 'Firefox'
+    elif 'Safari' in ua and 'Chrome' not in ua:
+        browser = 'Safari'
+    else:
+        browser = ''
+    return f'{os_label} - {browser}' if browser else os_label
+
+
 def dictfetchall(cursor):
     columns = [column[0] for column in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -502,6 +533,7 @@ def erd_adapt_sql(sql):
         return sql
     adapted = sql.replace('::uuid', '').replace('::int', '').replace('::numeric', '').replace('::text', '')
     adapted = adapted.replace(' ILIKE ', ' LIKE ')
+    adapted = adapted.replace('now()', "datetime('now')")
     adapted = adapted.replace(
         "COALESCE(to_char(COALESCE(e.start_at, e.approved_at), 'YYYY/MM/DD'), '-')",
         "COALESCE(replace(substr(COALESCE(e.start_at, e.approved_at), 1, 10), '-', '/'), '-')",
@@ -1062,6 +1094,7 @@ def erd_admin_dashboard_panel():
         "action ILIKE %s OR reason ILIKE %s",
         ['%violation%', '%تخلف%'],
     )
+    pending_registrations_count = erd_count('profiles', "status = 'pending'")
     active_users_count = erd_count('profiles', "status = 'active'")
     inactive_users_count = erd_count('profiles', "COALESCE(status, 'active') <> 'active'")
     present_percent = round((active_users_count / users_count) * 100) if users_count else 0
@@ -1148,14 +1181,13 @@ def erd_admin_dashboard_panel():
             {'label': 'آزمون‌های امروز', 'value': today_exams_count, 'hint': 'در حال برگزاری', 'tone': 'orange', 'icon': 'calendar'},
             {'label': 'کاربران فعال', 'value': users_count, 'hint': '۲۷٪ نسبت به ماه قبل', 'tone': 'emerald', 'icon': 'users'},
             {'label': 'نیازمند بررسی', 'value': review_needed_count, 'hint': '۸ مورد جدید', 'tone': 'red', 'icon': 'alert'},
-            {'label': 'گزارش‌های تخلف', 'value': violation_reports_count, 'hint': '۶ مورد جدید', 'tone': 'indigo', 'icon': 'shield'},
+            {'label': 'درخواست‌های ثبت‌نام', 'value': pending_registrations_count, 'hint': f'{pending_registrations_count} مورد جدید', 'tone': 'indigo', 'icon': 'shield', 'url': f'{reverse("core:super_admin_users")}?tab=students&status=pending'},
         ],
         'quick_actions': [
             {'label': 'ایجاد آزمون جدید', 'url': reverse('core:super_admin_exams'), 'tone': 'primary', 'icon': 'plus'},
             {'label': 'انتشار آزمون', 'url': reverse('core:super_admin_exams'), 'tone': 'blue', 'icon': 'send'},
             {'label': 'مدیریت سوالات', 'url': reverse('core:teacher_questions'), 'tone': 'blue', 'icon': 'question'},
             {'label': 'زمان‌بندی آزمون', 'url': reverse('core:super_admin_calendar'), 'tone': 'blue', 'icon': 'calendar'},
-            {'label': 'گزارش تخلفات', 'url': reverse('core:super_admin_reports'), 'tone': 'danger', 'icon': 'shield'},
         ],
         'health_items': [
             {'label': 'سرورهای وب', 'status': 'سالم'},
@@ -1674,43 +1706,45 @@ def register(request):
             while User.objects.filter(username=username).exists():
                 username = f'{base_username}-{suffix}'
                 suffix += 1
-            user = User.objects.create_user(
-                username=username,
-                email=form.cleaned_data.get('email') or '',
-                password=form.cleaned_data['password'],
-                first_name=form.cleaned_data['full_name'],
-            )
-            profile_id = str(uuid.uuid4())
-            erd_execute(
-                """
-                INSERT INTO profiles (id, full_name, first_name, username, email, identifier, status, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, 'active', now(), now())
-                """,
-                [
-                    profile_id,
-                    form.cleaned_data['full_name'],
-                    form.cleaned_data['full_name'],
-                    username,
-                    form.cleaned_data.get('email') or '',
-                    form.cleaned_data.get('student_number') or '',
-                ],
-            )
-            erd_role = role_code if role_code in ('teacher', 'student') else 'student'
-            erd_execute(
-                'INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, now())',
-                [str(uuid.uuid4()), profile_id, erd_role],
-            )
-            if erd_role == 'teacher':
-                erd_execute(
-                    'INSERT INTO teacher_profiles (user_id, personnel_code, approval_status) VALUES (%s, %s, %s)',
-                    [profile_id, form.cleaned_data.get('student_number') or '', 'pending'],
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    email=form.cleaned_data.get('email') or '',
+                    password=form.cleaned_data['password'],
+                    first_name=form.cleaned_data['full_name'],
+                    is_active=False,
                 )
-            else:
+                profile_id = str(uuid.uuid4())
                 erd_execute(
-                    'INSERT INTO student_profiles (user_id, student_number, academic_status) VALUES (%s, %s, %s)',
-                    [profile_id, form.cleaned_data.get('student_number') or '', 'active'],
+                    """
+                    INSERT INTO profiles (id, full_name, first_name, username, email, identifier, status, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'pending', now(), now())
+                    """,
+                    [
+                        profile_id,
+                        form.cleaned_data['full_name'],
+                        form.cleaned_data['full_name'],
+                        username,
+                        form.cleaned_data.get('email') or '',
+                        form.cleaned_data.get('student_number') or '',
+                    ],
                 )
-            messages.success(request, 'ثبت‌نام با موفقیت انجام شد. اکنون وارد شوید.')
+                erd_role = role_code if role_code in ('teacher', 'student') else 'student'
+                erd_execute(
+                    'INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, now())',
+                    [str(uuid.uuid4()), profile_id, erd_role],
+                )
+                if erd_role == 'teacher':
+                    erd_execute(
+                        'INSERT INTO teacher_profiles (user_id, personnel_code, approval_status) VALUES (%s, %s, %s)',
+                        [profile_id, form.cleaned_data.get('student_number') or '', 'pending'],
+                    )
+                else:
+                    erd_execute(
+                        'INSERT INTO student_profiles (user_id, student_number, academic_status) VALUES (%s, %s, %s)',
+                        [profile_id, form.cleaned_data.get('student_number') or '', 'active'],
+                    )
+            messages.success(request, 'ثبت‌نام شما با موفقیت ثبت شد. پس از تأیید مدیر سیستم می‌توانید وارد سامانه شوید.')
             return redirect('core:login')
     else:
         form = PublicRegistrationForm()
@@ -1824,7 +1858,7 @@ def super_admin_users(request):
             'label': ' ← '.join(part for part in [by_type.get('university'), by_type.get('faculty'), by_type.get('department') or by_type.get('group')] if part) or unit['name'],
         }
 
-    status_labels = {'active': 'فعال', 'inactive': 'غیرفعال', 'blocked': 'مسدود'}
+    status_labels = {'active': 'فعال', 'inactive': 'غیرفعال', 'blocked': 'مسدود', 'pending': 'پیش‌ثبت‌نام'}
     approval_labels = {'approved': 'تایید شده', 'pending': 'در انتظار', 'rejected': 'رد شده'}
 
     if request.method == 'POST' and request.POST.get('admin_action') == 'save':
@@ -1959,6 +1993,7 @@ def super_admin_users(request):
         'admins': sum(1 for manager in manager_rows if manager['manager_type'] == 'admin'),
         'academic': sum(1 for manager in manager_rows if manager['manager_type'] == 'academic_manager'),
         'active': sum(1 for manager in manager_rows if (manager.get('status') or 'active') == 'active'),
+        'inactive': sum(1 for manager in manager_rows if (manager.get('status') or 'active') == 'inactive'),
     }
 
     academic_status_filter = request.GET.get('academic_status', '').strip()
@@ -2038,7 +2073,7 @@ def super_admin_users(request):
             'unit_path': primary['label'],
             'entry_year': entry_year or '-',
             'status_label': status_labels.get(student_status, student_status),
-            'status_tone': 'active' if student_status == 'active' else 'inactive',
+            'status_tone': 'active' if student_status == 'active' else 'waiting' if student_status == 'pending' else 'inactive',
             'academic_label': academic_labels.get(academic_status, academic_status),
             'academic_tone': 'active' if academic_status == 'active' else 'waiting' if academic_status == 'leave' else 'inactive',
             'created_display': student.get('created_at') or '-',
@@ -2052,6 +2087,8 @@ def super_admin_users(request):
         'active': sum(1 for student in students if (student.get('status') or 'active') == 'active'),
         'new': sum(1 for student in students if str(student.get('created_at') or '')[:4] in {'2026', '1405'}),
         'unassigned': sum(1 for student in students if not student.get('groups_count')),
+        'pending': sum(1 for student in students if (student.get('status') or 'active') == 'pending'),
+        'inactive': sum(1 for student in students if (student.get('status') or 'active') == 'inactive'),
     }
 
     teachers = erd_rows(
@@ -2111,7 +2148,7 @@ def super_admin_users(request):
             'department_name': primary['department'],
             'unit_path': primary['label'],
             'status_label': status_labels.get(teacher_status, teacher_status),
-            'status_tone': 'active' if teacher_status == 'active' else 'waiting' if approval_status == 'pending' else 'inactive',
+            'status_tone': 'active' if teacher_status == 'active' else 'waiting' if teacher_status == 'pending' or approval_status == 'pending' else 'inactive',
             'approval_label': approval_labels.get(approval_status, approval_status),
             'cooperation': cooperation,
             'cooperation_label': 'تمام‌وقت' if cooperation == 'full_time' else 'پاره‌وقت',
@@ -2124,6 +2161,7 @@ def super_admin_users(request):
         'active': sum(1 for teacher in teachers if (teacher.get('status') or 'active') == 'active'),
         'pending': sum(1 for teacher in teachers if (teacher.get('approval_status') or 'approved') == 'pending'),
         'without_courses': sum(1 for teacher in teachers if not teacher.get('courses_count')),
+        'inactive': sum(1 for teacher in teachers if (teacher.get('status') or 'active') == 'inactive'),
     }
     managers_count = erd_count('academic_manager_profiles') if erd_table_columns('academic_manager_profiles') else 0
 
@@ -2150,6 +2188,73 @@ def super_admin_users(request):
         'student_count': erd_count('student_profiles'),
         'managers_count': managers_count,
     })
+
+
+@super_admin_required
+def super_admin_toggle_account_status(request, kind, user_id):
+    if request.method != 'POST':
+        raise Http404
+    if kind not in {'manager', 'teacher', 'student'}:
+        raise Http404
+    action = request.POST.get('action')
+    if action not in {'activate', 'deactivate'}:
+        raise Http404
+    new_status = 'active' if action == 'activate' else 'inactive'
+
+    profile = erd_row("SELECT full_name, username FROM profiles WHERE id = %s", [user_id])
+    if not profile:
+        raise Http404('کاربر پیدا نشد.')
+
+    with transaction.atomic():
+        erd_execute("UPDATE profiles SET status = %s, updated_at = now() WHERE id = %s", [new_status, user_id])
+        if profile.get('username'):
+            User.objects.filter(username=profile['username']).update(is_active=(new_status == 'active'))
+
+    log_activity(
+        request.user,
+        'account_activated' if new_status == 'active' else 'account_deactivated',
+        f"حساب {profile['full_name']} {'فعال' if new_status == 'active' else 'غیرفعال'} شد.",
+        request,
+        {'profile_id': user_id, 'kind': kind},
+    )
+    messages.success(request, f"حساب «{profile['full_name']}» {'فعال' if new_status == 'active' else 'غیرفعال'} شد.")
+
+    tab = {'manager': 'managers', 'teacher': 'teachers', 'student': 'students'}[kind]
+    next_url = request.POST.get('next') or f'{reverse("core:super_admin_users")}?tab={tab}'
+    return redirect(next_url)
+
+
+@super_admin_required
+def super_admin_delete_account(request, kind, user_id):
+    if request.method != 'POST':
+        raise Http404
+    if kind not in {'teacher', 'student'}:
+        raise Http404
+
+    profile = erd_row("SELECT full_name, username FROM profiles WHERE id = %s", [user_id])
+    if not profile:
+        raise Http404('کاربر پیدا نشد.')
+
+    with transaction.atomic():
+        if kind == 'teacher':
+            erd_execute("DELETE FROM teacher_profiles WHERE user_id = %s", [user_id])
+        else:
+            erd_execute("DELETE FROM student_course_enrollments WHERE student_user_id = %s", [user_id])
+            erd_execute("DELETE FROM student_group_members WHERE student_user_id = %s", [user_id])
+            erd_execute("DELETE FROM student_profiles WHERE user_id = %s", [user_id])
+        erd_execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [user_id, kind])
+        erd_execute("DELETE FROM notifications WHERE user_id = %s", [user_id])
+        erd_execute("DELETE FROM activity_audit_log WHERE actor_id = %s", [user_id])
+        erd_execute("DELETE FROM profiles WHERE id = %s", [user_id])
+        if profile.get('username'):
+            User.objects.filter(username=profile['username']).delete()
+
+    log_activity(request.user, 'account_deleted', f"حساب {profile['full_name']} حذف شد.", request, {'profile_id': user_id, 'kind': kind})
+    messages.success(request, f"حساب «{profile['full_name']}» حذف شد.")
+
+    tab = {'teacher': 'teachers', 'student': 'students'}[kind]
+    next_url = request.POST.get('next') or f'{reverse("core:super_admin_users")}?tab={tab}'
+    return redirect(next_url)
 
 
 @super_admin_required
@@ -2191,7 +2296,7 @@ def super_admin_user_profile(request, kind, user_id):
     def fa_number(value):
         if value is None:
             return '-'
-        return str(value).translate(str.maketrans('0123456789', 'Û°Û±Û²Û³Û´ÛµÛ¶Û·Û¸Û¹'))
+        return str(value).translate(str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹'))
 
     user = None
     role_label = 'کاربر'
@@ -2748,7 +2853,7 @@ def super_admin_teacher_courses(request, user_id):
     def fa_number(value):
         if value is None:
             return '-'
-        return str(value).translate(str.maketrans('0123456789', 'Û°Û±Û²Û³Û´ÛµÛ¶Û·Û¸Û¹'))
+        return str(value).translate(str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹'))
 
     org_units = erd_rows(
         """
@@ -4736,8 +4841,17 @@ def super_admin_student_create(request):
         if action == 'prev':
             return redirect(f'{reverse("core:super_admin_student_create")}?step={max(1, step - 1)}')
         if step == 1:
-            for key in ('first_name', 'last_name', 'student_number', 'national_id', 'phone', 'email'):
+            for key in ('first_name', 'last_name', 'student_number', 'national_id', 'phone', 'email', 'gender', 'birth_date'):
                 draft[key] = request.POST.get(key, '').strip()
+            avatar = request.FILES.get('avatar')
+            if avatar:
+                extension = (avatar.name.rsplit('.', 1)[-1] if '.' in avatar.name else 'jpg').lower()
+                if extension not in {'jpg', 'jpeg', 'png', 'webp'}:
+                    messages.error(request, 'فرمت تصویر دانشجو معتبر نیست.')
+                    return redirect(f'{reverse("core:super_admin_student_create")}?step=1')
+                storage = FileSystemStorage(location=str(Path(settings.MEDIA_ROOT) / 'student-avatars'), base_url=settings.MEDIA_URL + 'student-avatars/')
+                filename = storage.save(f"wizard-{uuid.uuid4().hex[:10]}.{extension}", avatar)
+                draft['avatar_url'] = storage.url(filename)
         elif step == 2:
             for key in ('entry_year', 'semester', 'degree', 'field_of_study', 'admission_type', 'academic_status', 'org_unit_id'):
                 draft[key] = request.POST.get(key, '').strip()
@@ -4779,18 +4893,19 @@ def super_admin_student_create(request):
                         """
                         UPDATE profiles
                         SET full_name = %s, first_name = %s, last_name = %s, username = %s,
-                            email = %s, phone = %s, national_id = %s, identifier = %s, status = %s, updated_at = CURRENT_TIMESTAMP
+                            email = %s, phone = %s, national_id = %s, identifier = %s, gender = %s, birth_date = %s,
+                            avatar_url = COALESCE(NULLIF(%s, ''), avatar_url), status = %s, updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                         """,
-                        [full_name, first_name, last_name, username, draft.get('email') or None, draft.get('phone') or None, draft.get('national_id') or None, student_number, draft.get('account_status') or 'active', student_id],
+                        [full_name, first_name, last_name, username, draft.get('email') or None, draft.get('phone') or None, draft.get('national_id') or None, student_number, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('avatar_url') or '', draft.get('account_status') or 'active', student_id],
                     )
                 else:
                     cursor.execute(
                         """
-                        INSERT INTO profiles (id, full_name, first_name, last_name, username, email, phone, national_id, identifier, avatar_url, status, created_at, updated_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, '', %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        INSERT INTO profiles (id, full_name, first_name, last_name, username, email, phone, national_id, identifier, gender, birth_date, avatar_url, status, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                         """,
-                        [student_id, full_name, first_name, last_name, username, draft.get('email') or None, draft.get('phone') or None, draft.get('national_id') or None, student_number, draft.get('account_status') or 'active'],
+                        [student_id, full_name, first_name, last_name, username, draft.get('email') or None, draft.get('phone') or None, draft.get('national_id') or None, student_number, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('avatar_url') or '', draft.get('account_status') or 'active'],
                     )
                 cursor.execute(
                     """
@@ -8454,22 +8569,28 @@ def super_admin_calendar(request):
     events_by_day = {day: [] for day in range(1, days_in_month + 1)}
     normalized_events = []
     for exam in exams:
-        if not exam['start_at']:
+        start_at = exam['start_at']
+        if isinstance(start_at, str):
+            start_at = parse_datetime(start_at)
+        if not start_at:
             continue
+        if timezone.is_naive(start_at):
+            start_at = timezone.make_aware(start_at)
         if event_type_filter and event_type_filter != 'exam':
             continue
         if course_filter and course_filter != exam['course']:
             continue
         if teacher_filter and teacher_filter != exam['teacher']:
             continue
-        jy, jm, jd = gregorian_to_jalali(exam['start_at'].date())
+        jy, jm, jd = gregorian_to_jalali(start_at.date())
         tone = 'danger' if exam['is_cancelled'] else 'success' if exam['is_published'] else 'purple'
         event = {
             **exam,
+            'start_at': start_at,
             'jalali_year': jy,
             'jalali_month': jm,
             'jalali_day': jd,
-            'time': exam['start_at'].strftime('%H:%M'),
+            'time': start_at.strftime('%H:%M'),
             'tone': tone,
         }
         normalized_events.append(event)
@@ -10153,58 +10274,6 @@ def find_exam_conflicts(institution, starts_at, ends_at, exclude_exam=None, cour
 
 
 @exam_manager_required
-def exam_manager_dashboard(request):
-    return redirect('core:dashboard')
-
-
-@exam_manager_required
-def exam_manager_calendar(request):
-    institution = request.managed_institution
-    conflicts = []
-    if request.method == 'POST':
-        form = ExamCalendarScheduleForm(request.POST, institution=institution)
-        if form.is_valid():
-            exam = form.cleaned_data.get('exam')
-            course_class = form.cleaned_data.get('course_class')
-            starts_at = form.cleaned_data['starts_at']
-            ends_at = form.cleaned_data['ends_at']
-            conflicts = find_exam_conflicts(institution, starts_at, ends_at, exclude_exam=exam, course_class=course_class)
-            if conflicts:
-                messages.error(request, 'تداخل زمانی پیدا شد و برنامه ثبت نشد.')
-            else:
-                if not exam:
-                    exam = Exam.objects.create(
-                        institution=institution,
-                        course=course_class.course,
-                        designer=course_class.teacher,
-                        title=form.cleaned_data['title'],
-                        starts_at=starts_at,
-                        ends_at=ends_at,
-                        status=Exam.ExamStatus.SCHEDULED,
-                        is_active=True,
-                    )
-                else:
-                    exam.starts_at = starts_at
-                    exam.ends_at = ends_at
-                    exam.status = Exam.ExamStatus.SCHEDULED
-                    exam.save(update_fields=['starts_at', 'ends_at', 'status'])
-                log_activity(request.user, 'exam_calendar_scheduled', f'برنامه آزمون {exam.title} ثبت شد.', request, {'exam_id': exam.pk})
-                messages.success(request, 'برنامه آزمون ثبت شد و اعلان برای استادان و دانشجویان ثبت گردید.')
-                return redirect('core:exam_manager_calendar')
-    else:
-        form = ExamCalendarScheduleForm(institution=institution)
-    exams = institution.exams.select_related('course', 'designer').order_by('-starts_at')[:100]
-    return render(request, 'exam_manager/calendar.html', {'institution': institution, 'form': form, 'exams': exams, 'conflicts': conflicts})
-
-
-@exam_manager_required
-def exam_manager_approvals(request):
-    institution = request.managed_institution
-    approvals = ExamApproval.objects.select_related('exam', 'requested_by').filter(exam__institution=institution)
-    return render(request, 'exam_manager/approvals.html', {'institution': institution, 'approvals': approvals[:100]})
-
-
-@exam_manager_required
 def exam_manager_approval_review(request, approval_id):
     institution = request.managed_institution
     approval = get_object_or_404(ExamApproval.objects.select_related('exam'), pk=approval_id, exam__institution=institution)
@@ -10225,38 +10294,7 @@ def exam_manager_approval_review(request, approval_id):
             return redirect('core:exam_manager_approvals')
     else:
         form = ExamApprovalReviewForm(instance=approval)
-    return render(request, 'exam_manager/approval_review.html', {'institution': institution, 'approval': approval, 'form': form})
-
-
-@exam_manager_required
-def exam_manager_proctors(request):
-    institution = request.managed_institution
-    if request.method == 'POST':
-        form = ProctorAssignmentForm(request.POST, institution=institution)
-        if form.is_valid():
-            exam = form.cleaned_data['exam']
-            note = form.cleaned_data.get('note') or ''
-            for proctor in form.cleaned_data['proctors']:
-                ExamProctorAssignment.objects.update_or_create(
-                    exam=exam,
-                    proctor=proctor,
-                    defaults={'assigned_by': request.user, 'note': note, 'status': ExamProctorAssignment.Status.ASSIGNED},
-                )
-                exam.proctors.add(proctor)
-            log_activity(request.user, 'exam_proctors_assigned', f'ناظران آزمون {exam.title} تعیین شدند.', request, {'exam_id': exam.pk})
-            messages.success(request, 'ناظران تعیین شدند و اعلان مسئولیت ثبت شد.')
-            return redirect('core:exam_manager_proctors')
-    else:
-        form = ProctorAssignmentForm(institution=institution)
-    assignments = ExamProctorAssignment.objects.select_related('exam', 'proctor').filter(exam__institution=institution)[:100]
-    return render(request, 'exam_manager/proctors.html', {'institution': institution, 'form': form, 'assignments': assignments})
-
-
-@exam_manager_required
-def exam_manager_active_exams(request):
-    institution = request.managed_institution
-    exams = institution.exams.filter(status__in=[Exam.ExamStatus.SCHEDULED, Exam.ExamStatus.ACTIVE]).order_by('starts_at')
-    return render(request, 'exam_manager/active_exams.html', {'institution': institution, 'exams': exams})
+    return render(request, 'exam_manager/approval_review.html', {'institution': institution, 'approval': approval, 'form': form, 'app_is_shell_page': True})
 
 
 @exam_manager_required
@@ -10280,7 +10318,7 @@ def exam_manager_start_control(request, exam_id):
             return redirect('core:exam_manager_active_exams')
     else:
         form = ExamStartControlForm(instance=authorization)
-    return render(request, 'exam_manager/start_control.html', {'institution': institution, 'exam': exam, 'form': form})
+    return render(request, 'exam_manager/start_control.html', {'institution': institution, 'exam': exam, 'form': form, 'app_is_shell_page': True})
 
 
 @exam_manager_required
@@ -10312,30 +10350,7 @@ def exam_manager_reschedule(request):
     else:
         form = ExamRescheduleForm(institution=institution)
     requests = ExamRescheduleRequest.objects.select_related('exam').filter(exam__institution=institution)[:100]
-    return render(request, 'exam_manager/reschedule.html', {'institution': institution, 'form': form, 'requests': requests, 'conflicts': conflicts})
-
-
-@exam_manager_required
-def exam_manager_reports(request):
-    institution = request.managed_institution
-    if request.method == 'POST':
-        form = ExamExecutionReportForm(request.POST, institution=institution)
-        if form.is_valid():
-            report = form.save(commit=False)
-            report.prepared_by = request.user
-            report.save()
-            log_activity(request.user, 'exam_execution_report_saved', f'گزارش برگزاری آزمون {report.exam.title} ثبت شد.', request, {'report_id': report.pk})
-            messages.success(request, 'گزارش نهایی ثبت و برای مدیر مؤسسه ارسال شد.')
-            return redirect('core:exam_manager_reports')
-    else:
-        form = ExamExecutionReportForm(institution=institution)
-    reports = ExamExecutionReport.objects.select_related('exam').filter(exam__institution=institution)[:100]
-    return render(request, 'exam_manager/reports.html', {'institution': institution, 'form': form, 'reports': reports})
-
-
-@teacher_required
-def teacher_panel(request):
-    return redirect('core:dashboard')
+    return render(request, 'exam_manager/reschedule.html', {'institution': institution, 'form': form, 'requests': requests, 'conflicts': conflicts, 'app_is_shell_page': True})
 
 
 @teacher_required
@@ -10495,64 +10510,6 @@ def teacher_educational_question_answer(request, question_id):
 
 
 @teacher_required
-def teacher_questions(request):
-    teacher = request.teacher_profile
-    if request.method == 'POST':
-        form = QuestionForm(request.POST, teacher=teacher)
-        if form.is_valid():
-            question = form.save()
-            log_activity(request.user, 'teacher_question_created', 'سؤال جدید در بانک سؤال ذخیره شد.', request, {'question_id': question.pk})
-            messages.success(request, 'سؤال ذخیره شد.')
-            return redirect('core:teacher_questions')
-    else:
-        form = QuestionForm(teacher=teacher)
-    questions = teacher.questions.select_related('course')[:100]
-    return render(request, 'teacher/questions.html', {'teacher': teacher, 'form': form, 'questions': questions})
-
-
-@teacher_required
-def teacher_exams(request):
-    teacher = request.teacher_profile
-    exams = teacher.designed_exams.select_related('course').order_by('-created_at')[:100]
-    return render(request, 'teacher/exams.html', {'teacher': teacher, 'exams': exams})
-
-
-@teacher_required
-def teacher_exam_create(request):
-    teacher = request.teacher_profile
-    if request.method == 'POST':
-        form = TeacherExamForm(request.POST, teacher=teacher)
-        if form.is_valid():
-            exam = form.save(commit=False)
-            exam.institution = teacher.institution
-            exam.designer = teacher
-            exam.status = Exam.ExamStatus.PENDING_APPROVAL
-            exam.is_active = True
-            exam.save()
-            questions = form.cleaned_data.get('questions')
-            score_form = ExamQuestionScoreForm(request.POST, questions=questions)
-            if score_form.is_valid():
-                for index, question in enumerate(questions):
-                    ExamQuestion.objects.create(
-                        exam=exam,
-                        question=question,
-                        score=score_form.cleaned_data.get(f'score_{question.pk}') or question.suggested_score,
-                        order=index + 1,
-                    )
-            ExamApproval.objects.update_or_create(
-                exam=exam,
-                defaults={'requested_by': teacher, 'decision': ExamApproval.Decision.PENDING, 'question_count': exam.exam_questions.count()},
-            )
-            log_activity(request.user, 'teacher_exam_created', f'آزمون {exam.title} برای تأیید ارسال شد.', request, {'exam_id': exam.pk})
-            messages.success(request, 'آزمون ذخیره و برای تأیید ارسال شد.')
-            return redirect('core:teacher_exams')
-    else:
-        form = TeacherExamForm(teacher=teacher)
-    score_form = ExamQuestionScoreForm(questions=teacher.questions.filter(is_active=True))
-    return render(request, 'teacher/exam_form.html', {'teacher': teacher, 'form': form, 'score_form': score_form})
-
-
-@teacher_required
 def teacher_exam_preview(request, exam_id):
     teacher = request.teacher_profile
     exam = get_object_or_404(Exam.objects.prefetch_related('exam_questions__question'), pk=exam_id, designer=teacher)
@@ -10561,13 +10518,6 @@ def teacher_exam_preview(request, exam_id):
         messages.success(request, 'نسخه نهایی آزمون ثبت شد.')
         return redirect('core:teacher_exams')
     return render(request, 'teacher/exam_preview.html', {'teacher': teacher, 'exam': exam})
-
-
-@teacher_required
-def teacher_monitoring(request):
-    teacher = request.teacher_profile
-    exams = teacher.designed_exams.filter(status=Exam.ExamStatus.ACTIVE).order_by('starts_at')
-    return render(request, 'teacher/monitoring.html', {'teacher': teacher, 'exams': exams})
 
 
 @teacher_required
@@ -10581,17 +10531,6 @@ def teacher_extend_exam(request, exam_id):
         log_activity(request.user, 'teacher_exam_extended', f'زمان آزمون {exam.title} {minutes} دقیقه تمدید شد.', request, {'exam_id': exam.pk, 'minutes': minutes})
         messages.success(request, 'زمان آزمون تمدید شد.')
     return redirect('core:teacher_monitoring')
-
-
-@teacher_required
-def teacher_reviews(request):
-    teacher = request.teacher_profile
-    reviews = DescriptiveAnswerReview.objects.select_related('exam', 'question', 'student').filter(exam__designer=teacher)
-    assistants = UserProfile.objects.select_related('user').filter(
-        role__code=SystemRole.RoleCode.TEACHING_ASSISTANT,
-        supervisor_teacher=teacher.profile.user,
-    )
-    return render(request, 'teacher/reviews.html', {'teacher': teacher, 'reviews': reviews[:100], 'assistants': assistants})
 
 
 @teacher_required
@@ -10638,13 +10577,6 @@ def teacher_review_detail(request, review_id):
 
 
 @teacher_required
-def teacher_results(request):
-    teacher = request.teacher_profile
-    exams = teacher.designed_exams.all()[:100]
-    return render(request, 'teacher/results.html', {'teacher': teacher, 'exams': exams})
-
-
-@teacher_required
 def teacher_publish_result(request, exam_id):
     teacher = request.teacher_profile
     exam = get_object_or_404(Exam, pk=exam_id, designer=teacher)
@@ -10663,32 +10595,6 @@ def teacher_publish_result(request, exam_id):
     else:
         form = ResultPublicationForm(instance=publication)
     return render(request, 'teacher/publish_result.html', {'teacher': teacher, 'exam': exam, 'form': form})
-
-
-@teacher_required
-def teacher_objections(request):
-    teacher = request.teacher_profile
-    objections = StudentObjection.objects.select_related('exam', 'question', 'student').filter(exam__designer=teacher)
-    return render(request, 'teacher/objections.html', {'teacher': teacher, 'objections': objections[:100]})
-
-
-@teacher_required
-def teacher_objection_detail(request, objection_id):
-    teacher = request.teacher_profile
-    objection = get_object_or_404(StudentObjection.objects.select_related('exam', 'question', 'student'), pk=objection_id, exam__designer=teacher)
-    if request.method == 'POST':
-        form = ObjectionReviewForm(request.POST, instance=objection)
-        if form.is_valid():
-            item = form.save(commit=False)
-            item.reviewed_by = request.user
-            item.reviewed_at = timezone.now()
-            item.save()
-            log_activity(request.user, 'teacher_objection_reviewed', f'اعتراض دانشجو بررسی شد: {item.get_decision_display()}', request, {'objection_id': item.pk})
-            messages.success(request, 'نتیجه اعتراض برای دانشجو ثبت شد.')
-            return redirect('core:teacher_objections')
-    else:
-        form = ObjectionReviewForm(instance=objection)
-    return render(request, 'teacher/objection_detail.html', {'teacher': teacher, 'objection': objection, 'form': form})
 
 
 @assistant_required
@@ -11230,12 +11136,211 @@ def home(request):
     return render(request, 'home.html', {'upcoming_exams': upcoming_exams})
 
 
+def _super_admin_profile_view(request, page_context):
+    profile = page_context['profile']
+
+    def safe_count(table, where='', params=None):
+        try:
+            return erd_count(table, where, params or [])
+        except Exception:
+            return 0
+
+    def safe_rows(sql, params=None):
+        try:
+            return erd_rows(sql, params or [])
+        except Exception:
+            return []
+
+    section = request.GET.get('section') or 'overview'
+    if section not in {'overview', 'security', 'edit'}:
+        section = 'overview'
+
+    if request.method == 'POST':
+        form_name = request.POST.get('form')
+
+        if form_name == 'profile':
+            first_name = (request.POST.get('first_name') or '').strip()
+            last_name = (request.POST.get('last_name') or '').strip()
+            email = (request.POST.get('email') or '').strip()
+            phone = (request.POST.get('phone') or '').strip()
+            full_name = f'{first_name} {last_name}'.strip() or profile.get('full_name') or request.user.username
+            avatar_url = profile.get('avatar_url') or ''
+            avatar = request.FILES.get('avatar')
+            if avatar:
+                if avatar.size > 2 * 1024 * 1024:
+                    messages.error(request, 'حجم تصویر پروفایل باید کمتر از ۲ مگابایت باشد.')
+                    return redirect(f"{reverse('core:profile')}?section=edit")
+                if avatar.content_type not in {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}:
+                    messages.error(request, 'فرمت تصویر باید JPG، PNG، WebP یا GIF باشد.')
+                    return redirect(f"{reverse('core:profile')}?section=edit")
+                extension = avatar.name.rsplit('.', 1)[-1].lower() if '.' in avatar.name else 'jpg'
+                storage = FileSystemStorage(location=settings.MEDIA_ROOT / 'avatars', base_url=settings.MEDIA_URL + 'avatars/')
+                filename = storage.save(f"{profile['id']}-admin.{extension}", avatar)
+                avatar_url = storage.url(filename)
+            erd_execute(
+                """
+                UPDATE profiles
+                SET full_name = %s, first_name = %s, last_name = %s, email = %s, phone = %s,
+                    avatar_url = %s, updated_at = now()
+                WHERE id = %s
+                """,
+                [full_name, first_name, last_name, email, phone, avatar_url, profile['id']],
+            )
+            request.user.first_name = first_name
+            request.user.last_name = last_name
+            request.user.email = email
+            request.user.save(update_fields=['first_name', 'last_name', 'email'])
+            log_activity(request.user, 'profile_updated', 'ویرایش اطلاعات پروفایل', request)
+            messages.success(request, 'اطلاعات پروفایل با موفقیت ذخیره شد.')
+            return redirect(f"{reverse('core:profile')}?section=edit")
+
+        if form_name == 'password':
+            password_form = PasswordChangeForm(user=request.user, data=request.POST)
+            if password_form.is_valid():
+                password_form.save()
+                update_session_auth_hash(request, password_form.user)
+                log_activity(request.user, 'password_changed', 'تغییر رمز عبور حساب', request)
+                messages.success(request, 'رمز عبور با موفقیت تغییر کرد.')
+                return redirect(f"{reverse('core:profile')}?section=security")
+            for field_errors in password_form.errors.values():
+                for error in field_errors:
+                    messages.error(request, error)
+            return redirect(f"{reverse('core:profile')}?section=security")
+
+        if form_name == 'logout_others':
+            current_key = request.session.session_key
+            session_store_module = import_module(settings.SESSION_ENGINE)
+            terminated = 0
+            for stored_session in Session.objects.all():
+                if stored_session.session_key == current_key:
+                    continue
+                data = stored_session.get_decoded()
+                if str(data.get('_auth_user_id')) == str(request.user.pk):
+                    session_store_module.SessionStore(session_key=stored_session.session_key).delete()
+                    terminated += 1
+            log_activity(request.user, 'sessions_terminated', f'خروج اجباری از {terminated} نشست دیگر', request)
+            messages.success(request, f'از {terminated} نشست دیگر خارج شدید.' if terminated else 'نشست فعال دیگری یافت نشد.')
+            return redirect(f"{reverse('core:profile')}?section=security")
+
+    total_users = safe_count('profiles')
+    active_exams = safe_count('exams', "COALESCE(is_published, false) = true AND COALESCE(is_cancelled, false) = false")
+    teachers_count = safe_count('teacher_profiles')
+    pending_registrations = safe_count('profiles', "status = 'pending'")
+
+    recent_activities = safe_rows(
+        """
+        SELECT action, reason, created_at
+        FROM activity_audit_log
+        WHERE actor_id = %s
+          AND action NOT IN ('login_success', 'login_failed', 'two_factor_code_sent', 'two_factor_success', 'two_factor_failed')
+        ORDER BY created_at DESC
+        LIMIT 5
+        """,
+        [profile['id']],
+    )
+    activity_labels = {
+        'registration_approved': 'تأیید ثبت‌نام کاربر',
+        'registration_rejected': 'رد درخواست ثبت‌نام',
+        'profile_updated': 'ویرایش اطلاعات پروفایل',
+        'password_changed': 'تغییر رمز عبور',
+        'sessions_terminated': 'خروج اجباری از نشست‌های دیگر',
+    }
+    for item in recent_activities:
+        item['label'] = activity_labels.get(item['action'], item.get('reason') or item['action'])
+
+    login_rows = safe_rows(
+        """
+        SELECT action, metadata, created_at
+        FROM activity_audit_log
+        WHERE actor_id = %s AND action IN ('login_success', 'login_failed')
+        ORDER BY created_at DESC
+        LIMIT 6
+        """,
+        [profile['id']],
+    )
+    login_history = []
+    for row in login_rows:
+        try:
+            meta = json.loads(row.get('metadata') or '{}')
+        except (TypeError, ValueError):
+            meta = {}
+        login_history.append({
+            'result': 'موفق' if row['action'] == 'login_success' else 'ناموفق',
+            'device': describe_user_agent(meta.get('user_agent')),
+            'ip': meta.get('ip_address') or '-',
+            'time': row.get('created_at'),
+        })
+
+    current_session_key = request.session.session_key
+    other_sessions = 0
+    for stored_session in Session.objects.all():
+        if stored_session.session_key == current_session_key:
+            continue
+        data = stored_session.get_decoded()
+        if str(data.get('_auth_user_id')) == str(request.user.pk):
+            other_sessions += 1
+
+    completion_fields = [
+        profile.get('first_name'), profile.get('last_name'),
+        profile.get('email') or request.user.email, profile.get('phone'),
+        profile.get('avatar_url'),
+    ]
+    profile_completion = int(sum(1 for value in completion_fields if value) / len(completion_fields) * 100)
+    security_score = 60
+    if profile.get('phone'):
+        security_score += 15
+    if profile.get('email') or request.user.email:
+        security_score += 15
+    if request.user.has_usable_password():
+        security_score += 10
+    security_score = min(security_score, 100)
+
+    return render(request, 'super_admin/profile.html', {
+        'title': 'پروفایل مدیر سیستم',
+        'section': section,
+        'display_name': profile.get('full_name') or request.user.username,
+        'profile': profile,
+        'profile_identifier': profile.get('identifier') or profile.get('username') or request.user.username,
+        'last_login_at': page_context.get('last_login_at'),
+        'profile_completion': profile_completion,
+        'security_score': security_score,
+        'stat_tiles': [
+            {'label': 'هشدار امنیتی', 'value': pending_registrations, 'tone': 'red'},
+            {'label': 'آزمون فعال', 'value': active_exams, 'tone': 'blue'},
+            {'label': 'استاد', 'value': teachers_count, 'tone': 'purple'},
+            {'label': 'کاربر', 'value': total_users, 'tone': 'teal'},
+        ],
+        'access_items': [
+            {'label': 'نقش فعال', 'value': 'مدیر سیستم'},
+            {'label': 'دامنه دسترسی', 'value': 'کل سامانه'},
+            {'label': 'واحد سازمانی', 'value': 'مدیریت مرکزی'},
+            {'label': 'سطح دسترسی', 'value': 'دسترسی کامل'},
+        ],
+        'shortcuts': [
+            {'label': 'مدیریت کاربران', 'url': reverse('core:super_admin_users')},
+            {'label': 'تنظیمات سامانه', 'url': reverse('core:super_admin_settings')},
+            {'label': 'ساختار سازمانی', 'url': reverse('core:super_admin_org_units')},
+            {'label': 'درخواست‌های ثبت‌نام', 'url': f'{reverse("core:super_admin_users")}?tab=students&status=pending'},
+        ],
+        'recent_activities': recent_activities,
+        'login_history': login_history,
+        'other_sessions_count': other_sessions,
+        'current_session': {
+            'device': describe_user_agent(request.META.get('HTTP_USER_AGENT')),
+            'ip': client_ip(request),
+        },
+    })
+
+
 @login_required
 def profile_view(request):
     page_context = erd_profile_page_context(request.user)
     if not page_context:
         messages.error(request, 'پروفایل کاربری شما در سامانه پیدا نشد.')
         return redirect('core:dashboard')
+
+    if 'admin' in (page_context.get('roles') or []):
+        return _super_admin_profile_view(request, page_context)
 
     profile = page_context['profile']
     section = request.GET.get('section') or 'personal'
@@ -11856,187 +11961,6 @@ def _erd_exam_rows(where='', params=None, limit=200, manager_id=None):
     return erd_rows(cte + sql, [*sql_params, *(params or []), limit])
 
 
-@erd_role_required('teacher')
-def teacher_panel(request):
-    teacher_id = request.erd_profile_id
-    role_panel = {
-        'type': 'teacher',
-        'questions_count': erd_count('questions', 'teacher_id = %s', [teacher_id]),
-        'exams_count': erd_count('exams', 'teacher_id = %s', [teacher_id]),
-        'active_exams_count': erd_count('exams', 'teacher_id = %s AND COALESCE(is_published, false) = true AND COALESCE(is_cancelled, false) = false', [teacher_id]),
-        'objections_count': erd_count('objections', 'exam_id IN (SELECT id FROM exams WHERE teacher_id = %s)', [teacher_id]),
-        'courses_count': _erd_teacher_assigned_course_count(teacher_id),
-        'students_count': _erd_teacher_assigned_student_count(teacher_id),
-    }
-    return render(request, 'dashboard.html', {
-        'dashboard': {**ROLE_DASHBOARDS['teacher'], 'task_groups': ROLE_TASK_GROUPS.get('teacher', [])},
-        'display_name': erd_profile_for_user(request.user)['full_name'],
-        'role_name': 'استاد',
-        'profile': erd_profile_for_user(request.user),
-        'profile_edit_url': '#',
-        'role_code': 'teacher',
-        'role_panel': role_panel,
-        'super_admin_links': [],
-        'institution_admin_links': [],
-        'exam_manager_links': [],
-        'teacher_links': [
-            {'title': 'بانک سوال', 'url': reverse('core:teacher_questions')},
-            {'title': 'آزمون ها', 'url': reverse('core:teacher_exams')},
-            {'title': 'تصحیح دستی', 'url': reverse('core:teacher_reviews')},
-            {'title': 'اعتراض ها', 'url': reverse('core:teacher_objections')},
-        ],
-        'assistant_links': [],
-        'student_links': [],
-    })
-
-
-@erd_role_required('teacher')
-def teacher_questions(request):
-    teacher_id = request.erd_profile_id
-    if request.method == 'POST':
-        text = request.POST.get('text', '').strip()
-        if text:
-            erd_execute(
-                """
-                INSERT INTO questions (id, teacher_id, type, difficulty, text, options, correct_answer, default_points)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                [str(uuid.uuid4()), teacher_id, request.POST.get('type') or 'essay', request.POST.get('difficulty') or 'medium', text, json.dumps([]), json.dumps(request.POST.get('correct_answer') or ''), request.POST.get('default_points') or 1],
-            )
-            log_activity(request.user, 'question_created', 'سؤال توسط استاد ایجاد شد.', request)
-            messages.success(request, 'سؤال ذخیره شد.')
-            return redirect('core:teacher_questions')
-    return _super_admin_collection(
-        request,
-        title='بانک سوال',
-        kicker='استاد / طراحی سؤال',
-        description='سؤال‌های ثبت شده در جدول questions برای استاد جاری.',
-        queryset=lambda: erd_rows(
-            """
-            SELECT q.text, q.type, q.difficulty, COALESCE(c.title, '-') AS course, q.default_points
-            FROM questions q
-            LEFT JOIN courses c ON c.id = q.course_id
-            WHERE q.teacher_id = %s
-            ORDER BY q.text
-            LIMIT 200
-            """,
-            [teacher_id],
-        ),
-        row_builder=lambda item, q: {
-            'title': item['text'],
-            'meta': item['course'],
-            'cells': [('نوع', item['type'] or '-'), ('سطح', item['difficulty'] or '-'), ('نمره', item['default_points'] or '-')],
-        } if _matches_query(q, item['text'], item['type'], item['difficulty'], item['course']) else None,
-    )
-
-
-@erd_role_required('teacher')
-def teacher_exams(request):
-    teacher_id = request.erd_profile_id
-    return _super_admin_collection(
-        request,
-        title='آزمون‌های طراحی‌شده',
-        kicker='استاد / آزمون‌ها',
-        description='ساخت، ویرایش و مشاهده آزمون‌های استاد طبق جدول exams.',
-        queryset=lambda: _erd_exam_rows('e.teacher_id = %s', [teacher_id]),
-        row_builder=lambda item, q: {
-            'title': item['title'],
-            'meta': item['course'],
-            'cells': [('شروع', item['start_at']), ('پایان', item['end_at']), ('مدت', item['duration']), ('وضعیت', item['status'])],
-        } if _matches_query(q, item['title'], item['course'], item['status']) else None,
-    )
-
-
-@erd_role_required('teacher')
-def teacher_exam_create(request):
-    teacher_id = request.erd_profile_id
-    if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        if title:
-            erd_execute(
-                """
-                INSERT INTO exams (id, teacher_id, title, description, duration_minutes, is_published, is_cancelled, approval_status)
-                VALUES (%s, %s, %s, %s, %s, false, false, 'pending')
-                """,
-                [str(uuid.uuid4()), teacher_id, title, request.POST.get('description') or '', request.POST.get('duration_minutes') or 60],
-            )
-            log_activity(request.user, 'exam_created', 'آزمون توسط استاد ایجاد شد.', request)
-            messages.success(request, 'آزمون ذخیره و برای تأیید ارسال شد.')
-            return redirect('core:teacher_exams')
-    return render(request, 'super_admin/settings.html', {'form': None})
-
-
-@erd_role_required('teacher')
-def teacher_monitoring(request):
-    return _super_admin_collection(
-        request,
-        title='نظارت بر آزمون فعال',
-        kicker='استاد / نظارت',
-        description='آزمون‌های منتشر شده و فعال استاد جاری.',
-        queryset=lambda: _erd_exam_rows('e.teacher_id = %s AND COALESCE(e.is_published, false) = true AND COALESCE(e.is_cancelled, false) = false', [request.erd_profile_id]),
-        row_builder=lambda item, q: {
-            'title': item['title'],
-            'meta': item['course'],
-            'cells': [('شروع', item['start_at']), ('پایان', item['end_at']), ('وضعیت', item['status'])],
-        } if _matches_query(q, item['title'], item['course'], item['status']) else None,
-    )
-
-
-@erd_role_required('teacher')
-def teacher_reviews(request):
-    return _super_admin_collection(
-        request,
-        title='تصحیح دستی',
-        kicker='استاد / تصحیح',
-        description='پاسخ‌هایی که نیاز به تصحیح دستی دارند.',
-        queryset=lambda: erd_rows(
-            """
-            SELECT e.title AS exam_title, q.text AS question_text, p.full_name AS student, aa.answer, aa.points_awarded
-            FROM attempt_answers aa
-            JOIN questions q ON q.id = aa.question_id
-            JOIN exam_attempts ea ON ea.id = aa.attempt_id
-            JOIN exams e ON e.id = ea.exam_id
-            JOIN profiles p ON p.id = ea.student_id
-            WHERE e.teacher_id = %s AND COALESCE(aa.needs_manual_grading, false) = true
-            LIMIT 200
-            """,
-            [request.erd_profile_id],
-        ),
-        row_builder=lambda item, q: {
-            'title': item['exam_title'],
-            'meta': item['student'],
-            'cells': [('سؤال', item['question_text']), ('نمره', item['points_awarded'] or '-')],
-        } if _matches_query(q, item['exam_title'], item['student'], item['question_text']) else None,
-    )
-
-
-@erd_role_required('teacher')
-def teacher_objections(request):
-    return _super_admin_collection(
-        request,
-        title='رسیدگی به اعتراض',
-        kicker='استاد / اعتراض‌ها',
-        description='اعتراض‌های ثبت شده برای آزمون‌های استاد.',
-        queryset=lambda: erd_rows(
-            """
-            SELECT o.subject, o.message, o.status, e.title AS exam_title, p.full_name AS student
-            FROM objections o
-            JOIN exams e ON e.id = o.exam_id
-            JOIN profiles p ON p.id = o.student_id
-            WHERE e.teacher_id = %s
-            ORDER BY o.resolved_at NULLS FIRST
-            LIMIT 200
-            """,
-            [request.erd_profile_id],
-        ),
-        row_builder=lambda item, q: {
-            'title': item['subject'],
-            'meta': item['exam_title'],
-            'cells': [('دانشجو', item['student']), ('وضعیت', item['status']), ('متن', item['message'])],
-        } if _matches_query(q, item['subject'], item['exam_title'], item['student'], item['status']) else None,
-    )
-
-
 @erd_role_required('student')
 def student_exam_schedule(request):
     student_id = request.erd_profile_id
@@ -12124,8 +12048,8 @@ def _question_builder_payload(post):
     stored_type = config.get('stored_type', requested_type)
     def clean_number(value, fallback='1'):
         value = (value or '').strip()
-        persian_digits = str.maketrans('Û°Û±Û²Û³Û´ÛµÛ¶Û·Û¸Û¹', '0123456789')
-        normalized = value.translate(persian_digits).replace('Ùª', '').strip()
+        persian_digits = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
+        normalized = value.translate(persian_digits).replace('٪', '').strip()
         try:
             float(normalized)
         except (TypeError, ValueError):
@@ -13190,11 +13114,6 @@ def teacher_results(request):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'results'))
 
 
-@erd_role_required('teacher')
-def teacher_objections(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'objections'))
-
-
 @erd_role_required('student')
 def student_exam_detail(request, exam_id):
     rows = _erd_exam_rows(
@@ -13589,11 +13508,6 @@ def _em_base_context(request, page, title, icon='book'):
 
 
 @erd_role_required('academic_manager', 'admin')
-def exam_manager_courses(request):
-    return exam_manager_groups(request)
-
-
-@erd_role_required('academic_manager', 'admin')
 def exam_manager_course_detail(request, course_id):
     courses = _em_course_rows(course_id)
     if not courses:
@@ -13648,109 +13562,6 @@ def exam_manager_course_create(request):
             return redirect('core:exam_manager_course_detail', course_id=course_id)
     context = _em_base_context(request, 'course_create', 'ایجاد درس جدید', 'book')
     context.update({'org_units': org_units, 'progress_percent': 33})
-    return render(request, 'exam_manager/courses.html', context)
-
-
-@erd_role_required('academic_manager', 'admin')
-def exam_manager_groups(request):
-    groups = _em_group_rows()
-    query = (request.GET.get('q') or '').strip()
-    if query:
-        groups = [g for g in groups if _matches_query(query, g.get('course_title'), g.get('group_code'), g.get('teacher_name'))]
-    context = _em_base_context(request, 'groups', 'گروه‌های درسی', 'users')
-    total_students = sum(g['students_count'] for g in groups)
-    context.update({
-        'groups': groups,
-        'query': query,
-        'stats': {
-            'groups': len(groups),
-            'active_groups': sum(1 for g in groups if g['status_tone'] == 'ok'),
-            'students': total_students,
-            'needs': sum(1 for g in groups if g['students_count'] < 3),
-        },
-        'activities': _em_activity_rows(group=groups[0] if groups else None),
-    })
-    return render(request, 'exam_manager/courses.html', context)
-
-
-@erd_role_required('academic_manager', 'admin')
-def exam_manager_group_create(request):
-    courses = _em_course_rows()
-    teachers = _em_teacher_options()
-    if request.method == 'POST':
-        group_id = str(uuid.uuid4())
-        course_id = request.POST.get('course_id') or (courses[0]['id'] if courses else None)
-        course = next((item for item in courses if str(item['id']) == str(course_id)), None)
-        teacher_id = request.POST.get('teacher_id') or (teachers[0]['id'] if teachers else None)
-        erd_execute(
-            """
-            INSERT INTO student_groups (id, teacher_id, course_id, course_name, academic_year, semester, group_code, description, is_active, created_by, capacity, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            [group_id, teacher_id, course_id, (course or {}).get('title') or 'درس جدید', request.POST.get('academic_year') or '۱۴۰۵', request.POST.get('semester') or 'اول', request.POST.get('group_code') or '۱۴', request.POST.get('description') or '', request.POST.get('status', 'active') == 'active', request.erd_profile_id, request.POST.get('capacity') or 40, request.POST.get('status') or 'active'],
-        )
-        if teacher_id:
-            erd_execute("INSERT OR IGNORE INTO group_teachers (group_id, teacher_id, created_at) VALUES (%s, %s, CURRENT_TIMESTAMP)", [group_id, teacher_id])
-        messages.success(request, 'گروه درسی ایجاد شد.')
-        return redirect('core:exam_manager_group_students_add', group_id=group_id)
-    context = _em_base_context(request, 'group_create', 'ایجاد گروه درسی', 'users')
-    context.update({'courses': courses, 'teachers': teachers})
-    return render(request, 'exam_manager/courses.html', context)
-
-
-@erd_role_required('academic_manager', 'admin')
-def exam_manager_group_students_add(request, group_id):
-    group_rows = _em_group_rows(group_id=group_id)
-    if not group_rows:
-        raise Http404('گروه پیدا نشد.')
-    group = group_rows[0]
-    students = _em_student_options()
-    members = _em_member_rows(group_id)
-    member_ids = {str(item.get('student_user_id')) for item in members}
-    if request.method == 'POST':
-        selected = request.POST.getlist('student_ids')
-        for student_id in selected:
-            if str(student_id) in member_ids:
-                continue
-            student = next((item for item in students if str(item['id']) == str(student_id)), None)
-            if not student:
-                continue
-            erd_execute(
-                "INSERT INTO student_group_members (id, group_id, student_user_id, full_name, national_id, student_number) VALUES (%s, %s, %s, %s, %s, %s)",
-                [str(uuid.uuid4()), group_id, student_id, student['full_name'], '-', student.get('student_number') or '-'],
-            )
-        messages.success(request, 'دانشجویان انتخاب‌شده به گروه اضافه شدند.')
-        return redirect('core:exam_manager_group_detail', group_id=group_id)
-    for student in students:
-        student['is_selected'] = str(student['id']) in member_ids
-    context = _em_base_context(request, 'group_add_students', 'افزودن دانشجویان به گروه', 'users')
-    context.update({'group': group, 'students': students, 'members': members})
-    return render(request, 'exam_manager/courses.html', context)
-
-
-@erd_role_required('academic_manager', 'admin')
-def exam_manager_group_import(request):
-    if request.method == 'POST':
-        messages.success(request, 'فایل دریافت شد. بررسی ستون‌ها برای ورود گروهی آماده است.')
-        return redirect('core:exam_manager_groups')
-    context = _em_base_context(request, 'group_import', 'ورود گروهی درس‌ها', 'users')
-    return render(request, 'exam_manager/courses.html', context)
-
-
-@erd_role_required('academic_manager', 'admin')
-def exam_manager_group_detail(request, group_id):
-    group_rows = _em_group_rows(group_id=group_id)
-    if not group_rows:
-        raise Http404('گروه پیدا نشد.')
-    group = group_rows[0]
-    members = _em_member_rows(group_id)
-    context = _em_base_context(request, 'group_detail', f"گروه {group.get('group_code')} · {group.get('course_title')}", 'users')
-    context.update({
-        'group': group,
-        'members': members,
-        'activities': _em_activity_rows(group=group),
-        'next_exam': {'title': 'آناتومی سیستم تنفسی', 'date': '۱۴۰۵/۰۲/۱۰', 'time': '۱۰:۰۰'},
-    })
     return render(request, 'exam_manager/courses.html', context)
 
 
@@ -14232,43 +14043,6 @@ def exam_manager_user_import(request, kind='students'):
     return render(request, 'exam_manager/users.html', context)
 
 
-@erd_role_required('academic_manager', 'admin')
-def exam_manager_proctors(request):
-    return exam_manager_users(request)
-
-
-@erd_role_required('academic_manager', 'admin')
-def exam_manager_dashboard(request):
-    return _super_admin_collection(
-        request,
-        title='داشبورد مدیر آموزشی',
-        kicker='مدیر آموزشی / نمای کلی',
-        description='نمای مدیریت آزمون‌ها، دروس، گروه‌ها و کاربران محدوده.',
-        queryset=lambda: [
-            {'title': 'آزمون‌ها', 'meta': 'exams', 'count': _erd_scoped_count(request, 'exams')},
-            {'title': 'درس‌ها', 'meta': 'courses', 'count': _erd_scoped_count(request, 'courses')},
-            {'title': 'گروه‌ها', 'meta': 'student_groups', 'count': _erd_scoped_count(request, 'groups')},
-            {'title': 'اساتید', 'meta': 'teacher_profiles', 'count': _erd_scoped_count(request, 'teachers')},
-            {'title': 'دانشجویان', 'meta': 'student_profiles', 'count': _erd_scoped_count(request, 'students')},
-        ],
-        row_builder=lambda item, q: {
-            'title': item['title'],
-            'meta': item['meta'],
-            'cells': [('تعداد', item['count'])],
-        },
-    )
-
-
-exam_manager_calendar = super_admin_calendar
-exam_manager_approvals = super_admin_exams
-exam_manager_active_exams = super_admin_active_exams
-exam_manager_reports = super_admin_reports
-institution_admin_dashboard = exam_manager_dashboard
-institution_users = super_admin_users
-institution_structure = super_admin_org_units
-institution_exams = super_admin_exams
-institution_violations = teacher_objections
-
 """
     profile = getattr(request.user, 'profile', None)
     role_code = profile.role.code if profile else 'student'
@@ -14740,23 +14514,6 @@ def exam_manager_calendar_create(request):
 
 
 @erd_role_required('academic_manager', 'admin')
-def exam_manager_approvals(request):
-    manager_id = None if _erd_is_admin_request(request) else request.erd_profile_id
-    return _super_admin_collection(
-        request,
-        title='تأیید آزمون‌ها',
-        kicker='مدیر آموزشی / تأیید',
-        description='آزمون‌هایی که استاد ارسال کرده و منتظر تأیید هستند.',
-        queryset=lambda: _erd_exam_rows("COALESCE(e.approval_status, 'pending') = 'pending'", [], limit=200, manager_id=manager_id),
-        row_builder=lambda item, q: {
-            'title': item['title'],
-            'meta': item['course'],
-            'cells': [('استاد', item['teacher']), ('شروع', item['start_at']), ('مدت', item['duration']), ('وضعیت', item['status'])],
-        } if _matches_query(q, item['title'], item['course'], item['teacher'], item['status']) else None,
-    )
-
-
-@erd_role_required('academic_manager', 'admin')
 def exam_manager_proctors(request):
     return _super_admin_collection(
         request,
@@ -15149,12 +14906,6 @@ def exam_manager_approvals(request):
     return exam_manager_exams(request)
 
 
-institution_admin_dashboard = exam_manager_dashboard
-institution_users = super_admin_users
-institution_structure = super_admin_org_units
-institution_exams = exam_manager_exams
-
-
 @erd_role_required('student')
 def student_attempt(request, attempt_id):
     if request.method == 'POST':
@@ -15255,32 +15006,6 @@ def student_objections(request):
     )
 
 
-@erd_role_required('teacher')
-def teacher_objections(request):
-    return _super_admin_collection(
-        request,
-        title='رسیدگی به اعتراض',
-        kicker='استاد / اعتراض‌ها',
-        description='اعتراض‌های open یا under_review برای آزمون‌های استاد.',
-        queryset=lambda: erd_rows(
-            """
-            SELECT o.id AS pk, o.subject, o.message, o.status, e.title AS exam_title, p.full_name AS student
-            FROM objections o
-            JOIN exams e ON e.id = o.exam_id
-            JOIN profiles p ON p.id = o.student_id
-            WHERE e.teacher_id = %s
-            ORDER BY o.resolved_at NULLS FIRST
-            LIMIT 200
-            """,
-            [request.erd_profile_id],
-        ),
-        row_builder=lambda item, q: {
-            'title': item['subject'],
-            'meta': item['exam_title'],
-            'cells': [('دانشجو', item['student']), ('وضعیت', item['status']), ('متن', item['message'])],
-            'url': reverse('core:teacher_objection_detail', args=[item['pk']]),
-        } if _matches_query(q, item['subject'], item['exam_title'], item['student'], item['status']) else None,
-    )
 
 
 @erd_role_required('teacher')
@@ -15403,7 +15128,6 @@ def exam_manager_dashboard(request):
             {'label': 'انتشار آزمون', 'url': reverse('core:exam_manager_active_exams'), 'icon': 'send'},
             {'label': 'مدیریت سوالات', 'url': reverse('core:exam_manager_exams'), 'icon': 'help'},
             {'label': 'زمان‌بندی آزمون', 'url': reverse('core:exam_manager_calendar'), 'icon': 'calendar'},
-            {'label': 'موارد نیازمند بررسی', 'url': reverse('core:exam_manager_exams'), 'tone': 'danger', 'icon': 'shield'},
         ],
         'attention_items': [
             {'label': 'تأیید بانک سوال', 'color': '#ef4444', 'icon': 'database'},
@@ -15438,7 +15162,6 @@ def exam_manager_dashboard(request):
             {'label': 'انتشار آزمون', 'url': reverse('core:exam_manager_active_exams'), 'icon': 'send'},
             {'label': 'مدیریت سوالات', 'url': reverse('core:exam_manager_exams'), 'icon': 'help'},
             {'label': 'زمان‌بندی آزمون', 'url': reverse('core:exam_manager_calendar'), 'icon': 'calendar'},
-            {'label': 'موارد نیازمند بررسی', 'url': reverse('core:exam_manager_exams'), 'tone': 'danger', 'icon': 'shield'},
         ],
         'attention_items': [
             {'label': 'تایید بانک سوال', 'color': '#ef4444', 'icon': 'database'},
@@ -15455,6 +15178,15 @@ def exam_manager_dashboard(request):
         'trend_labels': ['۱۲ اردیبهشت', '۱۸ اردیبهشت', '۱۹ اردیبهشت', '۲۰ اردیبهشت', '۲۱ اردیبهشت', '۲۲ اردیبهشت', '۲۳ اردیبهشت'],
     })
     return render(request, 'exam_manager/dashboard.html', context)
+
+
+# institution_admin_dashboard/institution_users/institution_structure/institution_exams/
+# institution_violations each have their own dedicated, correctly-scoped
+# @institution_admin_required implementations defined earlier in this file (near
+# line 10018+) — do not alias them to super_admin_*/exam_manager_*/teacher_* views
+# here, that shadows the real implementations with views gated by unrelated role
+# checks (super_admin_required / erd_role_required) that a real institution_admin
+# user never satisfies, breaking the whole institution-admin panel with 403s.
 
 
 # Final modern student exam overrides. URL patterns import the last bound names,

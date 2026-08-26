@@ -67,7 +67,6 @@ class StyledAuthenticationForm(AuthenticationForm):
         return super().clean()
 
     def confirm_login_allowed(self, user):
-        super().confirm_login_allowed(user)
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT status FROM profiles WHERE username = %s OR email = %s LIMIT 1",
@@ -77,8 +76,13 @@ class StyledAuthenticationForm(AuthenticationForm):
         status = row[0] if row else 'active'
         if status == 'blocked':
             raise forms.ValidationError('حساب شما مسدود است و امکان ورود وجود ندارد.')
+        if status == 'pending':
+            raise forms.ValidationError('ثبت‌نام شما هنوز توسط مدیر سیستم بررسی نشده است.')
+        if status == 'rejected':
+            raise forms.ValidationError('درخواست ثبت‌نام شما رد شده است. برای اطلاعات بیشتر با مدیر سامانه تماس بگیرید.')
         if status == 'inactive':
             raise forms.ValidationError('حساب شما غیرفعال است. با مدیر سامانه تماس بگیرید.')
+        super().confirm_login_allowed(user)
         return
         profile = getattr(user, 'profile', None)
         if profile and profile.account_status == UserProfile.AccountStatus.BLOCKED:

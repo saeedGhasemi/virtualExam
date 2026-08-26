@@ -8,8 +8,8 @@
     .sys-brand{display:flex;align-items:center;gap:.8rem;color:#2450f5;font-weight:950;font-size:1.55rem}
     .sys-brand-mark{display:grid;width:2.5rem;height:2.5rem;place-items:center;border-radius:1rem;background:#f0f5ff;color:#315cff}
     .sys-brand-mark img{width:1.6rem;height:1.6rem;display:block;object-fit:contain}
-    .sys-icon svg,.sys-action svg,.sys-rail a svg,.sys-user-bell svg,.sys-stat-icon svg,.sys-badge svg,.sys-health svg{width:1.22rem;height:1.22rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    .sys-action span,.sys-stat-icon,.sys-badge,.sys-health li>*{position:relative;z-index:1}
+    .sys-icon svg,.sys-rail a svg,.sys-user-bell svg,.sys-stat-icon svg,.sys-badge svg,.sys-health svg{width:1.22rem;height:1.22rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .sys-stat-icon,.sys-badge,.sys-health li>*{position:relative;z-index:1}
     .sys-nav{display:flex;justify-content:center;align-items:center;gap:.5rem;justify-self:center}
     .sys-nav a{display:inline-flex;align-items:center;justify-content:center;height:2.85rem;padding:0 1rem;border-radius:.85rem;color:#17233d;font-weight:850;white-space:nowrap}
     .sys-nav a:not(.is-active){transition:background .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease}
@@ -41,15 +41,10 @@
     .sys-date{display:flex;align-items:center;gap:.55rem;color:#52617c;font-weight:850}
     .sys-section,.sys-stat,.sys-card{border:1px solid rgba(255,255,255,.48);background:linear-gradient(145deg,rgba(255,255,255,.42),rgba(255,255,255,.18));backdrop-filter:blur(34px) saturate(170%);-webkit-backdrop-filter:blur(34px) saturate(170%);box-shadow:0 24px 58px rgba(30,55,95,.055),inset 0 1px 0 rgba(255,255,255,.62)}
     .sys-section{position:relative;border-radius:1.35rem;overflow:hidden}
-    .sys-quick{display:grid;grid-template-columns:1.35fr repeat(4,1fr);gap:.8rem;padding:.85rem;margin-bottom:.85rem}
-    .sys-action{display:flex;align-items:center;justify-content:space-between;gap:.8rem;height:3.45rem;border:1px solid rgba(255,255,255,.78);border-radius:1rem;background:rgba(255,255,255,.54);backdrop-filter:blur(16px);padding:0 .9rem;color:#1f2a44;font-weight:900;box-shadow:0 14px 34px rgba(30,55,95,.07),inset 0 1px 0 rgba(255,255,255,.86)}
-    .sys-action.is-primary{background:linear-gradient(135deg,#315cff,#5b63ff);color:#fff;border-color:transparent;box-shadow:0 16px 34px rgba(49,92,255,.24)}
-    .sys-action.is-danger{background:linear-gradient(145deg,rgba(255,255,255,.64),rgba(255,235,235,.58));color:#ef4444}
-    .sys-action span{display:grid;width:2rem;height:2rem;place-items:center;border-radius:.72rem;background:#f1f5fb;color:inherit}
-    .sys-action span svg{width:1.25rem;height:1.25rem;display:block}
-    .sys-action.is-primary span{background:rgba(255,255,255,.18)}
     .sys-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.85rem;margin-bottom:.85rem}
     .sys-stat{position:relative;min-height:122px;padding:1rem;border-radius:1.08rem;overflow:hidden}
+    a.sys-stat{display:block;color:inherit;text-decoration:none;transition:transform .18s ease,box-shadow .18s ease}
+    a.sys-stat:hover{transform:translateY(-2px);box-shadow:0 28px 60px rgba(30,55,95,.10)}
     .sys-stat:before,.sys-card:before,.sys-section:before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.28),transparent 46%);pointer-events:none}
     .sys-stat-icon{position:absolute;top:1.1rem;left:1.1rem;display:grid;width:2.65rem;height:2.65rem;place-items:center;border-radius:.95rem;background:rgba(234,240,255,.86);color:#315cff;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
     .sys-stat-icon svg{width:1.35rem;height:1.35rem;display:block}
@@ -88,13 +83,13 @@
     .sys-badge{display:inline-flex;align-items:center;gap:.35rem;border-radius:999px;padding:.24rem .62rem;background:#eaf2ff;color:#315cff;font-size:.72rem;font-weight:950}
     .sys-badge svg{width:.95rem;height:.95rem}
     .sys-badge.is-success{background:#dcfce7;color:#15803d}.sys-badge.is-warning{background:#fff1d6;color:#d97706}.sys-badge.is-danger{background:#fee2e2;color:#dc2626}
-    @media (max-width:1200px){.sys-nav{display:none}.sys-stats{grid-template-columns:repeat(3,1fr)}.sys-grid{grid-template-columns:1fr 1fr}.sys-line{grid-column:span 2}.sys-quick{grid-template-columns:repeat(2,1fr)}}
-    @media (max-width:760px){.sys-top{grid-template-columns:1fr auto}.sys-userbar{display:none}.sys-shell{grid-template-columns:1fr}.sys-rail{display:none}.sys-main{height:auto;overflow:visible}.sys-stats,.sys-grid,.sys-quick{grid-template-columns:1fr}.sys-line{grid-column:auto}.sys-overview{overflow:auto}.sys-table{overflow:auto}}
+    @media (max-width:1200px){.sys-nav{display:none}.sys-stats{grid-template-columns:repeat(3,1fr)}.sys-grid{grid-template-columns:1fr 1fr}.sys-line{grid-column:span 2}}
+    @media (max-width:760px){.sys-top{grid-template-columns:1fr auto}.sys-userbar{display:none}.sys-shell{grid-template-columns:1fr}.sys-rail{display:none}.sys-main{height:auto;overflow:visible}.sys-stats,.sys-grid{grid-template-columns:1fr}.sys-line{grid-column:auto}.sys-overview{overflow:auto}.sys-table{overflow:auto}}
 </style>
 <section class="sys-overview" dir="rtl" data-fixed-scroll-page>
     <header class="sys-top">
         <a class="sys-brand" href="{% url 'core:dashboard' %}">
-            <span>متا کوییز</span>
+            <span>متاکوییز</span>
             <span class="sys-brand-mark" aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
         </a>
         <nav class="sys-nav" aria-label="ناوبری مدیر سیستم">
@@ -129,31 +124,9 @@
         </aside>
         <main class="sys-main">
             <span class="sys-content-date">تاریخ امروز: {% jalali_today %}</span>
-            <section class="sys-section sys-quick" aria-label="عملیات سریع آزمون">
-                {% for action in role_panel.quick_actions %}
-                    <a class="sys-action{% if action.tone == 'primary' %} is-primary{% elif action.tone == 'danger' %} is-danger{% endif %}" href="{{ action.url }}">
-                        <b>{{ action.label }}</b>
-                        <span aria-hidden="true">
-                            {% if action.icon == 'plus' %}
-                                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                            {% elif action.icon == 'send' %}
-                                <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></svg>
-                            {% elif action.icon == 'question' %}
-                                <svg viewBox="0 0 24 24"><path d="M9.1 9a3 3 0 1 1 5.8 1c-.6 1-1.9 1.5-2.5 2.5-.3.5-.4.9-.4 1.5"/><path d="M12 18h.01"/><rect x="4" y="3" width="16" height="18" rx="3"/></svg>
-                            {% elif action.icon == 'calendar' %}
-                                <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
-                            {% elif action.icon == 'shield' %}
-                                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v5M12 17h.01"/></svg>
-                            {% else %}
-                                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                            {% endif %}
-                        </span>
-                    </a>
-                {% endfor %}
-            </section>
             <section class="sys-stats" aria-label="آمار اصلی">
                 {% for card in role_panel.dashboard_cards %}
-                    <article class="sys-stat is-{{ card.tone }}">
+                    {% if card.url %}<a class="sys-stat is-{{ card.tone }}" href="{{ card.url }}">{% else %}<article class="sys-stat is-{{ card.tone }}">{% endif %}
                         <span class="sys-stat-icon" aria-hidden="true">
                             {% if card.icon == 'doc' %}
                                 <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h2"/></svg>
@@ -172,7 +145,7 @@
                         <small>{{ card.label }}</small>
                         <strong data-counter="{{ card.value }}">{{ card.value|fa_digits }}</strong>
                         <em>{{ card.hint|fa_digits }}</em>
-                    </article>
+                    {% if card.url %}</a>{% else %}</article>{% endif %}
                 {% endfor %}
             </section>
             <section class="sys-grid">

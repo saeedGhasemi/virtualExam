@@ -2,7 +2,7 @@
 {% load core_extras %}
 
 {% block title %}
-{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'group_students' %}دانشجویان گروه{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'group_activity' %}عملیات گروهی دانشجویان{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'exam_create' %}ایجاد آزمون{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متا کوییز
+{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'group_students' %}دانشجویان گروه{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'group_activity' %}عملیات گروهی دانشجویان{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'exam_create' %}ایجاد آزمون{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
 {% endblock %}
 
 {% block public_header %}{% endblock %}
@@ -40,7 +40,11 @@
     </aside>
 
     <div class="teacher-workspace">
+        <input type="checkbox" id="teacher-menu-toggle" class="teacher-menu-toggle">
         <header class="teacher-topbar" dir="rtl">
+            <label for="teacher-menu-toggle" class="teacher-menu-btn" aria-label="باز کردن منو">
+                <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>
+            </label>
             <nav class="teacher-top-menu" aria-label="منوی بالای استاد">
                 <a class="teacher-top-link {% if page == 'dashboard' %}is-active{% endif %}" href="{% url 'core:teacher_panel' %}">داشبورد</a>
                 <a class="teacher-top-link {% if page == 'exams' or page == 'exam_create' or page == 'monitoring' %}is-active{% endif %}" href="{% url 'core:teacher_exams' %}">آزمون‌ها</a>
@@ -99,19 +103,19 @@
 
     {% if page == 'dashboard' %}
         <div class="teacher-stat-grid">
-            <article><span>دوره‌های فعال</span><strong>{{ teacher_stats.courses|fa_digits }}</strong><i class="is-blue">▣</i></article>
-            <article><span>آزمون‌های پیش رو</span><strong>{{ teacher_stats.exams|fa_digits }}</strong><i class="is-green">◷</i></article>
-            <article><span>سؤالات</span><strong>{{ teacher_stats.questions|fa_digits }}</strong><i class="is-purple">؟</i></article>
-            <article><span>در انتظار تصحیح</span><strong>{{ teacher_stats.reviews|fa_digits }}</strong><i class="is-orange">✓</i></article>
+            <article><span>دوره‌های فعال</span><strong>{{ teacher_stats.courses|fa_digits }}</strong><i class="is-blue" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></i></article>
+            <article><span>آزمون‌های پیش رو</span><strong>{{ teacher_stats.exams|fa_digits }}</strong><i class="is-green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"/></svg></i></article>
+            <article><span>سؤالات</span><strong>{{ teacher_stats.questions|fa_digits }}</strong><i class="is-purple" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 17.25h.008v.008H12v-.008Z"/><circle cx="12" cy="12" r="9"/></svg></i></article>
+            <article><span>در انتظار تصحیح</span><strong>{{ teacher_stats.reviews|fa_digits }}</strong><i class="is-orange" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/></svg></i></article>
         </div>
         <div class="teacher-dashboard-grid">
             <aside class="teacher-quick-panel">
                 <h2>اقدامات سریع</h2>
-                <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون جدید</a>
-                <a href="{% url 'core:teacher_question_create' %}">ساخت سؤال جدید</a>
-                <a href="{% url 'core:teacher_question_bulk_import' %}">بارگذاری سؤالات</a>
-                <a href="{% url 'core:teacher_announcements' %}">ایجاد اعلان</a>
-                <a href="{% url 'core:teacher_results' %}">دریافت گزارش‌ها</a>
+                <a href="{% url 'core:teacher_exam_create' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6"/></svg></span><span>ایجاد آزمون جدید</span></a>
+                <a href="{% url 'core:teacher_question_create' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 17.25h.008v.008H12v-.008Z"/><circle cx="12" cy="12" r="9"/></svg></span><span>ساخت سؤال جدید</span></a>
+                <a href="{% url 'core:teacher_question_bulk_import' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span><span>بارگذاری سؤالات</span></a>
+                <a href="{% url 'core:teacher_announcements' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span>ایجاد اعلان</span></a>
+                <a href="{% url 'core:teacher_results' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V9M12 16V5M17 16v-3"/></svg></span><span>دریافت گزارش‌ها</span></a>
             </aside>
             <section class="teacher-panel teacher-events-panel">
                 <header><h2>رویدادهای پیش رو</h2><a href="{% url 'core:teacher_calendar' %}">مشاهده همه</a></header>
@@ -125,8 +129,8 @@
                 </table>
             </section>
             <section class="teacher-mini-card teacher-participation-card"><h2>نرخ مشارکت دانشجویان</h2><div class="teacher-ring"><b>۷۸٪</b></div><span>نسبت به ماه ۸٪</span></section>
-            <section class="teacher-mini-card teacher-review-count-card"><i class="is-orange">✓</i><span>آخرین ارسال‌ها در انتظار تصحیح</span><b>{{ teacher_stats.reviews|fa_digits }}</b><small>پاسخ</small><a href="{% url 'core:teacher_reviews' %}">مشاهده همه</a></section>
-            <section class="teacher-mini-card teacher-average-card"><i class="is-purple">◷</i><span>میانگین نمرات اخیر</span><b>۱۶.۷<small>/۲۰</small></b><a href="{% url 'core:teacher_results' %}">جزئیات بیشتر</a></section>
+            <section class="teacher-mini-card teacher-review-count-card"><i class="is-orange" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/></svg></i><span>آخرین ارسال‌ها در انتظار تصحیح</span><b>{{ teacher_stats.reviews|fa_digits }}</b><small>پاسخ</small><a href="{% url 'core:teacher_reviews' %}">مشاهده همه</a></section>
+            <section class="teacher-mini-card teacher-average-card"><i class="is-purple" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V9M12 16V5M17 16v-3"/></svg></i><span>میانگین نمرات اخیر</span><b>۱۶.۷<small>/۲۰</small></b><a href="{% url 'core:teacher_results' %}">جزئیات بیشتر</a></section>
             <section class="teacher-mini-card teacher-report-card"><h2>گزارش‌های اخیر</h2><p>گزارش عملکرد آزمون‌ها</p><p>گزارش مشارکت دانشجویان</p><p>تحلیل سوالات پرتکرار</p><a href="{% url 'core:teacher_results' %}">مشاهده همه گزارش‌ها</a></section>
         </div>
     {% elif page == 'announcements' %}

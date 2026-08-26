@@ -4,25 +4,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ثبت‌نام | متا کوییز</title>
-    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
-    <link rel="shortcut icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
-    <link rel="alternate icon" type="image/svg+xml" href="{% static 'img/metaquiz-logo.svg' %}?v=20260805">
+    <title>ثبت‌نام | متاکوییز</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260826b">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}?v=20260826b">
+    <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
 </head>
 <body class="auth-page auth-register-page">
     <main class="auth-card">
         <section class="auth-art" aria-label="تصویر امتحان آنلاین">
-            <a href="{% url 'core:home' %}" class="auth-logo">
-                <span aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
-                <strong>متا<br>کوییز</strong>
-            </a>
-
             <div class="auth-illustration auth-register-illustration">
                 <img src="{% static 'img/register-illustration.png' %}" alt="تصویر سه‌بعدی ساخت حساب کاربری">
             </div>
 
-            <p class="auth-credit">متا کوییز<br>ثبت‌نام برای امتحان آنلاین</p>
+            <a href="{% url 'core:home' %}" class="auth-credit">
+                <span class="auth-credit-icon" aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+                <span>متاکوییز<br>ثبت‌نام برای امتحان آنلاین</span>
+            </a>
         </section>
 
         <section class="auth-login-panel auth-register-panel" aria-labelledby="register-title">

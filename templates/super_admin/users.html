@@ -1,10 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_standalone.html' %}
 {% load static %}
 
-{% block title %}مدیریت کاربران | متا کوییز{% endblock %}
+{% block title %}مدیریت کاربران | متاکوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page users-hub-page" dir="rtl">
+{% include 'partials/super_admin_chrome.html' %}
+<section class="super-admin-page super-admin-workspace users-hub-page" dir="rtl" data-fixed-scroll-page>
     <div class="users-hub-actions">
         {% if active_tab == "managers" %}
             <a class="users-primary-action" href="{% url 'core:super_admin_manager_create' %}">
@@ -54,7 +55,7 @@
     </nav>
 
     {% if active_tab == "managers" %}
-        <div class="users-stats-grid">
+        <div class="users-stats-grid users-stats-grid--managers">
             <article>
                 <span>کل مدیران</span>
                 <strong>{{ manager_stats.total }}</strong>
@@ -74,6 +75,11 @@
                 <span>حساب فعال</span>
                 <strong>{{ manager_stats.active }}</strong>
                 <em class="is-teal"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/><path d="M16 21v-2a4 4 0 0 0-4-4H7"/></svg></em>
+            </article>
+            <article>
+                <span>غیرفعال</span>
+                <strong>{{ manager_stats.inactive }}</strong>
+                <em class="is-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5 5 14 14"/></svg></em>
             </article>
         </div>
 
@@ -200,7 +206,16 @@
                                             </a>
                                             <a href="{% url 'core:super_admin_manager_access' row.id %}" title="مدیریت دسترسی"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg></a>
                                         {% endif %}
-                                        <a href="{% url 'core:super_admin_users' %}?tab=managers&q={{ row.full_name|urlencode }}" title="بیشتر"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></a>
+                                        <form method="post" action="{% url 'core:super_admin_toggle_account_status' 'manager' row.id %}">
+                                            {% csrf_token %}
+                                            {% if row.status == 'active' %}
+                                                <input type="hidden" name="action" value="deactivate">
+                                                <button type="submit" class="is-danger" title="غیرفعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
+                                            {% else %}
+                                                <input type="hidden" name="action" value="activate">
+                                                <button type="submit" class="is-success" title="فعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
+                                            {% endif %}
+                                        </form>
                                     </div>
                                 </td>
                             </tr>
@@ -253,7 +268,7 @@
             </section>
         {% endif %}
     {% elif active_tab == "students" %}
-        <div class="users-stats-grid">
+        <div class="users-stats-grid users-stats-grid--students">
             <article>
                 <span>کل دانشجویان</span>
                 <strong>{{ student_stats.total }}</strong>
@@ -273,6 +288,16 @@
                 <span>بدون انتساب</span>
                 <strong>{{ student_stats.unassigned }}</strong>
                 <em class="is-orange"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></svg></em>
+            </article>
+            <article>
+                <span>پیش‌ثبت‌نام</span>
+                <strong>{{ student_stats.pending }}</strong>
+                <em class="is-amber"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M17.5 8v3l1.8 1.8"/></svg></em>
+            </article>
+            <article>
+                <span>غیرفعال</span>
+                <strong>{{ student_stats.inactive }}</strong>
+                <em class="is-teal"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5 5 14 14"/></svg></em>
             </article>
         </div>
 
@@ -307,6 +332,14 @@
                     <option value="leave" {% if academic_status_filter == "leave" %}selected{% endif %}>مرخصی</option>
                     <option value="graduated" {% if academic_status_filter == "graduated" %}selected{% endif %}>فارغ التحصیل</option>
                     <option value="inactive" {% if academic_status_filter == "inactive" %}selected{% endif %}>غیرفعال</option>
+                </select>
+            </label>
+            <label>
+                <select name="status" onchange="this.form.submit()">
+                    <option value="">وضعیت حساب</option>
+                    <option value="active" {% if status_filter == "active" %}selected{% endif %}>فعال</option>
+                    <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>غیرفعال</option>
+                    <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>پیش‌ثبت‌نام</option>
                 </select>
             </label>
             <a class="users-clear-button" href="{% url 'core:super_admin_users' %}?tab=students">
@@ -401,7 +434,20 @@
                                         </a>
                                         <a href="{% url 'core:super_admin_student_profile_edit' row.id %}" title="ویرایش دانشجو"><svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg></a>
                                         <a href="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=courses" title="درس‌های دانشجو"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></a>
-                                        <a href="{% url 'core:super_admin_user_profile' 'student' row.id %}?section=activity" title="فعالیت‌های دانشجو"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></a>
+                                        <form method="post" action="{% url 'core:super_admin_toggle_account_status' 'student' row.id %}">
+                                            {% csrf_token %}
+                                            {% if row.status == 'active' %}
+                                                <input type="hidden" name="action" value="deactivate">
+                                                <button type="submit" class="is-danger" title="غیرفعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
+                                            {% else %}
+                                                <input type="hidden" name="action" value="activate">
+                                                <button type="submit" class="is-success" title="فعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
+                                            {% endif %}
+                                        </form>
+                                        <form method="post" action="{% url 'core:super_admin_delete_account' 'student' row.id %}" onsubmit="return confirm('این دانشجو برای همیشه حذف شود؟');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="is-danger" title="حذف دانشجو"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>
@@ -454,7 +500,7 @@
             </section>
         {% endif %}
     {% else %}
-        <div class="users-stats-grid">
+        <div class="users-stats-grid users-stats-grid--teachers">
             <article>
                 <span>کل اساتید</span>
                 <strong>{{ teacher_stats.total }}</strong>
@@ -474,6 +520,11 @@
                 <span>بدون درس</span>
                 <strong>{{ teacher_stats.without_courses }}</strong>
                 <em class="is-orange"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></svg></em>
+            </article>
+            <article>
+                <span>غیرفعال</span>
+                <strong>{{ teacher_stats.inactive }}</strong>
+                <em class="is-teal"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5 5 14 14"/></svg></em>
             </article>
         </div>
 
@@ -505,6 +556,7 @@
                     <option value="">وضعیت حساب</option>
                     <option value="active" {% if status_filter == "active" %}selected{% endif %}>فعال</option>
                     <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>غیرفعال</option>
+                    <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>پیش‌ثبت‌نام</option>
                     <option value="blocked" {% if status_filter == "blocked" %}selected{% endif %}>مسدود</option>
                 </select>
             </label>
@@ -576,7 +628,20 @@
                                         <a href="{% url 'core:super_admin_user_profile' 'teacher' row.id %}" title="مشاهده"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></a>
                                         <a href="{% url 'core:super_admin_teacher_profile_edit' row.id %}" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m12 20 9-9-4-4-9 9-2 6 6-2Z"/><path d="m15 6 4 4"/></svg></a>
                                         <a href="{% url 'core:super_admin_teacher_courses' row.id %}" title="مدیریت درس‌ها"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></a>
-                                        <a href="{% url 'core:super_admin_teachers' %}" title="بیشتر"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></a>
+                                        <form method="post" action="{% url 'core:super_admin_toggle_account_status' 'teacher' row.id %}">
+                                            {% csrf_token %}
+                                            {% if row.status == 'active' %}
+                                                <input type="hidden" name="action" value="deactivate">
+                                                <button type="submit" class="is-danger" title="غیرفعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
+                                            {% else %}
+                                                <input type="hidden" name="action" value="activate">
+                                                <button type="submit" class="is-success" title="فعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
+                                            {% endif %}
+                                        </form>
+                                        <form method="post" action="{% url 'core:super_admin_delete_account' 'teacher' row.id %}" onsubmit="return confirm('این استاد برای همیشه حذف شود؟');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="is-danger" title="حذف استاد"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

@@ -1,11 +1,38 @@
 {% extends 'base.html' %}
-{% block title %}کنترل شروع آزمون | متا کوییز{% endblock %}
+{% load static %}
+{% block title %}کنترل شروع آزمون | متاکوییز{% endblock %}
 {% block content %}
+<section class="edu-dashboard" dir="rtl">
+    <header class="edu-dashboard-top">
+        <a class="edu-dashboard-brand" href="{% url 'core:exam_manager_dashboard' %}" aria-label="متاکوییز">
+            <span>متاکوییز</span>
+            <img src="{% static 'img/metaquiz-favicon.svg' %}" alt="">
+        </a>
+        <nav class="edu-dashboard-nav" aria-label="ناوبری مدیر آموزشی">
+            {% include 'partials/exam_manager_nav_items.html' %}
+        </nav>
+        <div class="edu-dashboard-user">
+            <button type="button" aria-label="جستجو"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+            <button type="button" class="has-dot" aria-label="اعلان‌ها"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
+            <a href="{% url 'core:profile' %}">
+                <span class="edu-dashboard-avatar">{% if panel_avatar_url %}<img src="{{ panel_avatar_url }}" alt="{{ display_name }}">{% else %}م{% endif %}</span>
+                <span><strong>{{ display_name|default:"مدیر آموزشی" }}</strong><small>دانشکده پزشکی</small></span>
+            </a>
+        </div>
+    </header>
+    <div class="edu-dashboard-shell">
+        <aside class="edu-dashboard-rail" aria-label="میانبرها">
+            {% include 'partials/exam_manager_rail_items.html' %}
+        </aside>
+        <main class="edu-dashboard-main">
 <section class="super-admin-page" dir="rtl">
     <div class="super-admin-heading"><span class="super-admin-kicker">سناریو ۴</span><h1>کنترل شروع آزمون</h1></div>
     <div class="super-admin-card"><div class="super-admin-table-wrap"><table class="super-admin-table">
         <thead><tr><th>آزمون</th><th>شروع</th><th>پایان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
         <tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>{{ exam.starts_at }}</td><td>{{ exam.ends_at }}</td><td>{{ exam.get_status_display }}</td><td><a href="{% url 'core:exam_manager_start_control' exam.pk %}">کنترل آماده‌بودن</a></td></tr>{% empty %}<tr><td colspan="5">آزمون فعالی وجود ندارد.</td></tr>{% endfor %}</tbody>
     </table></div></div>
+</section>
+        </main>
+    </div>
 </section>
 {% endblock %}

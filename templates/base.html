@@ -4,11 +4,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}متا کوییز{% endblock %}</title>
-    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
-    <link rel="shortcut icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
-    <link rel="alternate icon" type="image/svg+xml" href="{% static 'img/metaquiz-logo.svg' %}?v=20260805">
-    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=teacher-questions-20260808">
+    <title>{% block title %}متاکوییز{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260826b">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}?v=20260826b">
+    <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=student-wizard-fixes-20260826b">
     <style>
         @font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
         @font-face{font-family:'B Yekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
@@ -99,9 +100,9 @@
             {% endif %}
             <aside class="legacy-app-sidebar" hidden>
                 <div class="app-brand-row">
-                    <a href="{% url 'core:dashboard' %}" class="app-brand" aria-label="داشبورد متا کوییز">
+                    <a href="{% url 'core:dashboard' %}" class="app-brand" aria-label="داشبورد متاکوییز">
                         <span class="app-brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
-                        <span>متا کوییز</span>
+                        <span>متاکوییز</span>
                     </a>
                     <label class="app-sidebar-close" for="app-menu-toggle" aria-label="بستن منو">×</label>
                 </div>
@@ -146,7 +147,7 @@
                     <label class="app-menu-button" for="app-menu-toggle" aria-label="باز کردن منو">☰</label>
                     <a href="{% url 'core:dashboard' %}" class="app-topbar-brand">
                         <span class="app-brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
-                        <strong>متا کوییز</strong>
+                        <strong>متاکوییز</strong>
                     </a>
                     <a class="app-topbar-link" href="{% url 'core:logout' %}">خروج</a>
                 </header>
@@ -164,9 +165,9 @@
         <div class="site-shell">
             {% block public_header %}
             <header class="site-header">
-                <a href="{% url 'core:home' %}" class="brand-lockup" aria-label="صفحه اصلی متا کوییز">
+                <a href="{% url 'core:home' %}" class="brand-lockup" aria-label="صفحه اصلی متاکوییز">
                     <span class="brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
-                    <span>متا کوییز</span>
+                    <span>متاکوییز</span>
                 </a>
 
                 <nav class="site-nav" aria-label="ناوبری اصلی">

@@ -1,10 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_standalone.html' %}
 {% load static %}
 
-{% block title %}پروفایل {{ user_profile.full_name|default:"کاربر" }} | متا کوییز{% endblock %}
+{% block title %}پروفایل {{ user_profile.full_name|default:"کاربر" }} | متاکوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page user-profile-page {% if kind == 'student' %}user-profile-page--student{% elif kind == 'teacher' %}user-profile-page--teacher{% elif kind == 'manager' %}user-profile-page--manager{% endif %}" dir="rtl">
+{% include 'partials/super_admin_chrome.html' %}
+<section class="super-admin-page super-admin-workspace user-profile-page {% if kind == 'student' %}user-profile-page--student{% elif kind == 'teacher' %}user-profile-page--teacher{% elif kind == 'manager' %}user-profile-page--manager{% endif %}" dir="rtl" data-fixed-scroll-page>
     <nav class="user-profile-crumbs" aria-label="مسیر صفحه">
         <a href="{% url 'core:super_admin_users' %}?tab={{ active_tab }}">کاربران</a>
         <span>/</span>
@@ -291,7 +292,16 @@
                         {% endfor %}
                     </dl>
                     <footer>
-                        <a class="is-danger" href="{{ edit_url }}">غیرفعال‌سازی</a>
+                        <form method="post" action="{% url 'core:super_admin_toggle_account_status' kind user_profile.id %}">
+                            {% csrf_token %}
+                            {% if user_profile.status == 'active' %}
+                                <input type="hidden" name="action" value="deactivate">
+                                <button type="submit" class="is-danger">غیرفعال‌سازی</button>
+                            {% else %}
+                                <input type="hidden" name="action" value="activate">
+                                <button type="submit">فعال‌سازی</button>
+                            {% endif %}
+                        </form>
                         <a href="{{ edit_url }}">تغییر رمز عبور</a>
                     </footer>
                 </section>

@@ -4,25 +4,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ورود | متا کوییز</title>
-    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
-    <link rel="shortcut icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260805">
-    <link rel="alternate icon" type="image/svg+xml" href="{% static 'img/metaquiz-logo.svg' %}?v=20260805">
+    <title>ورود | متاکوییز</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/metaquiz-favicon.svg' %}?v=20260826b">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}?v=20260826b">
+    <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
 </head>
 <body class="auth-page">
     <main class="auth-card">
         <section class="auth-art" aria-label="تصویر امتحان آنلاین">
-            <a href="{% url 'core:home' %}" class="auth-logo">
-                <span aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
-                <strong>متا<br>کوییز</strong>
-            </a>
-
             <div class="auth-illustration">
                 <img src="{% static 'img/online-exam-3d.png' %}" alt="تصویر سه‌بعدی امتحان آنلاین">
             </div>
 
-            <p class="auth-credit">متا کوییز<br>سامانه هوشمند امتحان آنلاین</p>
+            <a href="{% url 'core:home' %}" class="auth-credit">
+                <span class="auth-credit-icon" aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}" alt=""></span>
+                <span>متاکوییز<br>سامانه هوشمند امتحان آنلاین</span>
+            </a>
         </section>
 
         <section class="auth-login-panel" aria-labelledby="login-title">
@@ -35,7 +34,14 @@
                     <input type="hidden" name="exam_code" value="{{ request.GET.code }}">
                     <div class="auth-code-alert">کد آزمون: <strong>{{ request.GET.code }}</strong></div>
                 {% endif %}
-                {% if form.errors %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="auth-code-alert">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+                {% if form.non_field_errors %}
+                    <div class="auth-error">{{ form.non_field_errors|striptags }}</div>
+                {% elif form.errors %}
                     <div class="auth-error">نام کاربری یا رمز عبور درست نیست.</div>
                 {% endif %}
 
@@ -78,7 +84,7 @@
 
                 <p class="auth-register">
                     حساب کاربری ندارید؟<br>
-                    <a class="auth-signup-link" href="{% url 'core:register' %}">ثبت‌نام کنید</a>
+                    <a href="{% url 'core:register' %}">ثبت‌نام کنید</a>
                 </p>
             </form>
 

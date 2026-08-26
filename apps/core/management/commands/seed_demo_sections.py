@@ -70,7 +70,7 @@ class Command(BaseCommand):
         email = f"{username}@metaquizy.ir"
         full_name = f"{first_name} {role_label} {index:02d}"
         national_id = f"{ROLE_NATIONAL_PREFIX.get(role, '9901')}{index:06d}"
-        avatar_url = ROLE_AVATARS.get(role, "/static/img/metaquiz-logo.svg")
+        avatar_url = ROLE_AVATARS.get(role, "/static/img/metaquiz-favicon.svg")
         self.execute_sql(
             cursor,
             """

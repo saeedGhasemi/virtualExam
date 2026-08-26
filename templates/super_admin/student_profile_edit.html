@@ -1,10 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_standalone.html' %}
 {% load static %}
 
-{% block title %}ویرایش اطلاعات دانشجو | متا کوییز{% endblock %}
+{% block title %}ویرایش اطلاعات دانشجو | متاکوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page manager-edit-page student-edit-page" dir="rtl">
+{% include 'partials/super_admin_chrome.html' %}
+<section class="super-admin-page super-admin-workspace manager-edit-page student-edit-page" dir="rtl" data-fixed-scroll-page>
     <nav class="manager-edit-crumbs" aria-label="مسیر صفحه">
         <a href="{% url 'core:super_admin_users' %}?tab=students">کاربران</a>
         <span>/</span>
