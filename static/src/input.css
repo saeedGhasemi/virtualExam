@@ -390,8 +390,14 @@
     border-radius: 46% 54% 58% 42% / 48% 42% 58% 52%;
   }
 
-  .landing-gallery-photo img {
+  .landing-gallery-photo img,
+  .landing-gallery-photo video {
     @apply h-full w-full object-cover;
+  }
+
+  .landing-gallery-photo video {
+    transform: scale(1.4);
+    transform-origin: 82% 82%;
   }
 
   .landing-gallery-badge {
@@ -5391,28 +5397,35 @@
       inset 0 0 70px rgba(255, 255, 255, 0.05),
       0 35px 110px rgba(2, 16, 36, 0.34);
     direction: ltr;
+    /* Forces its own compositing layer so `overflow:hidden` + `border-radius`
+       reliably clip descendants even combined with `backdrop-filter` (Safari/
+       Firefox have historically let corner content bleed past the radius in
+       this exact combination without it). */
+    transform: translateZ(0);
+    isolation: isolate;
   }
 
   .auth-card::before {
     content: "";
     @apply pointer-events-none absolute inset-y-0 left-0 hidden w-[72%] bg-[#F7FCFF] md:block;
-    clip-path: polygon(
-      0 0,
-      58% 0,
-      59% 6%,
-      61% 13%,
-      65% 22%,
-      71% 33%,
-      77% 44%,
-      80% 54%,
-      78% 64%,
-      73% 74%,
-      67% 84%,
-      62% 93%,
-      59% 100%,
-      0 100%
-    );
-    clip-path: path("M 0 0 H 405 C 416 74 454 144 526 230 C 620 343 615 446 532 558 C 489 616 461 620 440 620 H 0 Z");
+    /* The wavy edge is an SVG mask, not a fixed-pixel clip-path, so its
+       HEIGHT always stretches to cover the box exactly no matter how tall
+       .auth-card grows (e.g. an error banner or a wrapped lockout message
+       adding height) — a fixed-height clip-path here previously left a strip
+       of the dark background exposed at the bottom whenever the card grew
+       past its ~620px baseline.
+       The WIDTH is pinned to a fixed 620px (matching the original design,
+       and the shape's own viewBox) rather than stretched to 100% — stretching
+       width too made the wave bulge past its intended reach and cover part
+       of the form on wider viewports. Only height should be responsive. */
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 620 620' preserveAspectRatio='none'%3E%3Cpath fill='%23fff' d='M 0 0 H 405 C 416 74 454 144 526 230 C 620 343 615 446 532 558 C 489 616 461 620 440 620 H 0 Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 620 620' preserveAspectRatio='none'%3E%3Cpath fill='%23fff' d='M 0 0 H 405 C 416 74 454 144 526 230 C 620 343 615 446 532 558 C 489 616 461 620 440 620 H 0 Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: 620px 100%;
+    mask-size: 620px 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: left top;
+    mask-position: left top;
   }
 
   .auth-card::after {
@@ -5669,7 +5682,9 @@
 
   .auth-code-alert,
   .auth-error {
-    @apply mb-4 rounded-xl px-4 py-3 text-xs font-black;
+    @apply mb-4 max-w-full rounded-xl px-4 py-3 text-xs font-black;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .auth-code-alert {
@@ -8966,12 +8981,28 @@
     @apply grid grid-cols-[260px_minmax(0,1fr)] gap-8;
   }
 
-  .teacher-wizard-photo {
-    @apply grid content-start justify-items-center gap-4;
+  .teacher-wizard-photo-card {
+    @apply flex flex-col items-center gap-4 self-start rounded-2xl border border-slate-200 bg-slate-50 p-6;
   }
 
-  .teacher-wizard-photo div {
-    @apply grid h-36 w-36 place-items-center overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-blue-100 to-violet-100 text-5xl font-black text-blue-600 shadow-[0_18px_36px_rgba(30,55,95,.13)];
+  .teacher-wizard-photo-label {
+    @apply self-start text-sm font-black text-slate-700;
+  }
+
+  .teacher-wizard-photo {
+    @apply grid content-start justify-items-center gap-3;
+  }
+
+  .teacher-wizard-photo-preview {
+    @apply grid h-28 w-28 place-items-center overflow-hidden rounded-full border-4 border-white bg-slate-200 text-slate-400 shadow-[0_18px_36px_rgba(30,55,95,.13)];
+  }
+
+  .teacher-wizard-photo-preview svg {
+    @apply h-16 w-16 fill-current stroke-none;
+  }
+
+  .teacher-wizard-photo-preview img {
+    @apply h-full w-full object-cover;
   }
 
   .teacher-wizard-photo button,
@@ -8988,6 +9019,18 @@
     @apply grid-cols-4;
   }
 
+  .teacher-wizard-grid-empty {
+    @apply invisible;
+  }
+
+  .teacher-wizard-subhead {
+    @apply mb-1 mt-7 border-t border-blue-100 pt-6 text-sm font-black text-slate-800;
+  }
+
+  button.teacher-wizard-combo-addbtn {
+    @apply inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 text-sm font-black text-blue-600;
+  }
+
   .teacher-wizard-org .is-wide {
     @apply col-span-2;
   }
@@ -8999,6 +9042,18 @@
   .teacher-wizard-page input,
   .teacher-wizard-page select {
     @apply h-12 w-full rounded-xl border border-blue-100 bg-white/80 px-4 text-sm font-extrabold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10;
+  }
+
+  .teacher-wizard-date-field {
+    @apply relative;
+  }
+
+  .teacher-wizard-date-field input {
+    @apply pl-10;
+  }
+
+  .teacher-wizard-date-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400;
   }
 
   .teacher-wizard-subunits {
@@ -9023,7 +9078,7 @@
     @apply h-4 w-4;
   }
 
-  .teacher-wizard-switch {
+  label.teacher-wizard-switch {
     @apply mt-5 inline-flex items-center gap-3 text-sm font-black text-slate-800;
   }
 
@@ -9048,9 +9103,16 @@
     @apply translate-x-[-1.5rem];
   }
 
-  .teacher-wizard-note,
-  .teacher-wizard-ready {
+  .teacher-wizard-note {
     @apply mt-5 rounded-xl border border-blue-300 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-600;
+  }
+
+  .teacher-wizard-ready {
+    @apply mt-5 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700;
+  }
+
+  .teacher-wizard-ready svg {
+    @apply h-6 w-6 shrink-0 rounded-full bg-emerald-100 p-1 text-emerald-600;
   }
 
   .teacher-wizard-course-tools {
@@ -9090,6 +9152,10 @@
     @apply text-right;
   }
 
+  .teacher-wizard-table input[type="checkbox"] {
+    @apply h-4 w-4 accent-blue-600;
+  }
+
   .teacher-wizard-check {
     @apply inline-flex items-center gap-2 text-slate-900;
   }
@@ -9115,7 +9181,7 @@
   }
 
   .teacher-wizard-final {
-    @apply grid grid-cols-[.72fr_1fr] gap-7;
+    @apply grid grid-cols-[1fr_.72fr] gap-7;
   }
 
   .teacher-wizard-summary {
@@ -9155,7 +9221,11 @@
   }
 
   .teacher-wizard-summary dl div a {
-    @apply text-xs font-black text-blue-600 no-underline hover:underline;
+    @apply inline-flex items-center gap-0.5 text-xs font-black text-blue-600 no-underline hover:underline;
+  }
+
+  .teacher-wizard-summary dl div a svg {
+    @apply h-3.5 w-3.5;
   }
 
   .req {
@@ -9171,8 +9241,12 @@
     clip: rect(0, 0, 0, 0);
   }
 
-  .teacher-wizard-photo-btn {
-    @apply inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-blue-500 bg-white px-5 text-sm font-black text-blue-600;
+  label.teacher-wizard-photo-btn {
+    @apply inline-flex h-11 w-auto cursor-pointer items-center gap-2 rounded-full border border-blue-200 bg-white py-1.5 pl-5 pr-1.5 text-sm font-black text-blue-600 shadow-[0_2px_6px_rgba(30,55,95,.08)];
+  }
+
+  .teacher-wizard-photo-btn svg {
+    @apply h-8 w-8 shrink-0 rounded-lg bg-blue-50 p-1.5;
   }
 
   .teacher-wizard-photo-input:focus-visible + .teacher-wizard-photo-btn {
@@ -9204,7 +9278,7 @@
   }
 
   .teacher-wizard-org-chevron {
-    @apply text-lg font-black text-slate-300;
+    @apply text-2xl font-black text-blue-500;
   }
 
   .teacher-wizard-org-picker small {
@@ -9220,7 +9294,7 @@
   }
 
   .teacher-wizard-autosave {
-    @apply inline-flex items-center gap-1.5 text-xs font-black text-emerald-600;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-600;
   }
 
   .teacher-wizard-autosave svg {
@@ -9239,7 +9313,7 @@
     @apply h-5 w-5;
   }
 
-  .teacher-wizard-confirm {
+  label.teacher-wizard-confirm {
     @apply mt-3 flex items-center gap-2 text-sm font-black text-slate-700;
   }
 
@@ -13146,7 +13220,11 @@
   }
 
   .student-choice-summary div {
-    @apply rounded-lg border border-blue-100 bg-blue-50 p-4 text-center;
+    @apply flex items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50 p-4 text-right;
+  }
+
+  .student-choice-summary p {
+    @apply flex flex-col gap-0.5;
   }
 
   .student-choice-summary b {
@@ -13157,8 +13235,60 @@
     @apply text-sm text-slate-600;
   }
 
+  .student-choice-summary svg {
+    @apply h-9 w-9 shrink-0 rounded-lg bg-white/70 p-2 text-blue-600;
+  }
+
   .student-choice-main {
     @apply rounded-xl border border-slate-200 p-5;
+  }
+
+  .teacher-wizard-combo-label {
+    @apply mb-2 mt-4 block text-sm font-black text-slate-700;
+  }
+
+  .teacher-wizard-combo {
+    @apply relative;
+  }
+
+  .teacher-wizard-combo-trigger {
+    @apply relative flex h-12 cursor-text items-center gap-2 rounded-xl border border-blue-100 bg-white/80 py-0 pl-10 pr-4;
+  }
+
+  .teacher-wizard-combo-chevron {
+    @apply pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-transform;
+  }
+
+  .teacher-wizard-combo.is-open .teacher-wizard-combo-chevron {
+    @apply rotate-180;
+  }
+
+  .teacher-wizard-combo-search-icon {
+    @apply h-4 w-4 shrink-0 text-slate-400;
+  }
+
+  .teacher-wizard-combo-trigger input {
+    @apply h-full flex-1 border-0 bg-transparent p-0 text-sm font-extrabold text-slate-900 outline-none;
+  }
+
+  .teacher-wizard-combo-panel {
+    @apply absolute inset-x-0 top-full z-20 mt-2 max-h-64 overflow-auto rounded-xl border border-blue-100 bg-white p-2 shadow-[0_18px_42px_rgba(30,55,95,.14)];
+  }
+
+  .teacher-wizard-combo-panel label {
+    @apply flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700;
+  }
+
+  .teacher-wizard-combo-panel label:hover {
+    @apply bg-blue-50;
+  }
+
+  .teacher-wizard-combo-panel input {
+    @apply h-4 w-4 accent-blue-600;
+  }
+
+  .teacher-wizard-combo-panel p {
+    @apply px-3 py-2 text-sm text-slate-400;
   }
 
   .student-chip-list {
@@ -13291,13 +13421,13 @@
     @apply rounded-xl border border-slate-200 bg-white p-5;
   }
 
-  .manager-wizard-two-col label:not(.teacher-wizard-switch),
-  .manager-permission-layout label:not(.teacher-wizard-switch) {
+  .manager-wizard-two-col label:not(.teacher-wizard-switch):not([data-org-select-wrap]),
+  .manager-permission-layout label:not(.teacher-wizard-switch):not([data-org-select-wrap]) {
     @apply mb-4 flex flex-col gap-2 text-sm font-bold text-slate-700;
   }
 
-  .manager-wizard-two-col input,
-  .manager-wizard-two-col select,
+  .manager-wizard-two-col input:not([data-org-select-wrap] *),
+  .manager-wizard-two-col select:not([data-org-select-wrap] *),
   .manager-permission-layout select {
     @apply h-12 rounded-lg border border-slate-300 bg-white px-4 text-[13px] outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
   }
@@ -13326,6 +13456,54 @@
     @apply h-5 w-5 accent-blue-600;
   }
 
+  .teacher-wizard-org-breadcrumb {
+    @apply mb-3 flex flex-wrap items-center gap-2;
+  }
+
+  .teacher-wizard-org-crumb {
+    @apply rounded-full border border-blue-100 bg-blue-50/60 px-3 py-1.5 text-xs font-black text-blue-700;
+  }
+
+  .manager-scope-summary {
+    @apply mt-4 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4;
+  }
+
+  .manager-scope-summary svg {
+    @apply h-9 w-9 shrink-0 rounded-lg bg-white p-2 text-blue-600;
+  }
+
+  .manager-scope-summary strong {
+    @apply block text-xs font-bold text-slate-500;
+  }
+
+  .manager-scope-summary b {
+    @apply block text-base font-black text-slate-900;
+  }
+
+  .manager-scope-summary span {
+    @apply text-xs font-bold text-slate-500;
+  }
+
+  .manager-permission-toolbar {
+    @apply mb-4 flex flex-row-reverse items-end justify-end gap-4;
+  }
+
+  .manager-permission-toolbar label {
+    @apply w-64;
+  }
+
+  .manager-permission-badge {
+    @apply mt-2 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-sm font-black text-slate-800;
+  }
+
+  .manager-permission-badge svg {
+    @apply h-9 w-9 shrink-0 rounded-lg bg-white p-2 text-blue-600;
+  }
+
+  .manager-permission-badge span {
+    @apply mt-1 block text-xs font-bold text-slate-500;
+  }
+
   .manager-bulk-page {
     @apply min-h-screen px-6 pb-6 pt-5 text-slate-900;
     background:
@@ -13335,7 +13513,23 @@
   }
 
   .manager-bulk-hero {
-    @apply mx-auto flex w-full max-w-7xl justify-end;
+    @apply mx-auto flex w-full max-w-[1540px] justify-end;
+  }
+
+  .manager-bulk-topline {
+    @apply mx-auto mb-4 flex w-full max-w-[1540px] justify-start;
+  }
+
+  .manager-bulk-back {
+    @apply inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 no-underline transition hover:border-blue-300 hover:text-blue-700;
+  }
+
+  .manager-bulk-back svg {
+    @apply h-4 w-4 fill-none stroke-current stroke-2;
+  }
+
+  .manager-bulk-head.teacher-wizard-head {
+    @apply mx-auto mb-6 w-full max-w-[1540px];
   }
 
   .manager-bulk-title {
@@ -13365,7 +13559,7 @@
   }
 
   .manager-bulk-steps {
-    @apply mx-auto mt-8 grid w-full max-w-7xl grid-cols-4 gap-4;
+    @apply mx-auto mt-8 grid w-full max-w-[1540px] grid-cols-4 gap-4;
   }
 
   .manager-bulk-steps li {
@@ -13405,7 +13599,7 @@
   }
 
   .manager-bulk-form {
-    @apply mx-auto mt-4 w-full max-w-7xl;
+    @apply mx-auto mt-4 w-full max-w-[1540px];
   }
 
   .manager-bulk-grid,
@@ -13475,6 +13669,46 @@
     @apply mt-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-sm font-bold text-slate-700;
   }
 
+  .manager-bulk-file-status {
+    @apply mt-4 rounded-xl border border-slate-200 bg-white p-4;
+  }
+
+  .manager-bulk-file-status h3 {
+    @apply mb-3 text-sm font-black text-slate-800;
+  }
+
+  .manager-bulk-file-status-row {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .manager-bulk-file-status-actions {
+    @apply flex items-center gap-2;
+  }
+
+  .manager-bulk-file-status-empty {
+    @apply text-sm font-bold text-slate-400;
+  }
+
+  .manager-bulk-file-status-filled {
+    @apply flex items-center gap-3;
+  }
+
+  .manager-bulk-file-status-filled .manager-bulk-file-icon {
+    @apply mb-0 h-11 w-11 shrink-0;
+  }
+
+  .manager-bulk-file-status-filled .manager-bulk-file-icon svg {
+    @apply h-6 w-6;
+  }
+
+  .manager-bulk-file-status-filled b {
+    @apply block text-sm font-black text-slate-900;
+  }
+
+  .manager-bulk-file-status-filled span {
+    @apply mt-0.5 flex items-center gap-2 text-xs font-bold text-slate-500;
+  }
+
   .manager-bulk-note svg {
     @apply shrink-0 text-blue-600;
   }
@@ -13495,11 +13729,32 @@
   }
 
   .manager-bulk-side a {
-    @apply mt-5 inline-flex h-11 items-center justify-center rounded-xl border border-blue-500 px-6 text-sm font-black text-blue-700;
+    @apply mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500 px-6 text-sm font-black text-blue-700;
+  }
+
+  .manager-bulk-side h2 {
+    @apply flex items-center gap-2;
+  }
+
+  .manager-bulk-side h2 svg,
+  .manager-bulk-side a svg {
+    @apply h-5 w-5 fill-none stroke-current stroke-2;
+  }
+
+  .manager-bulk-hint-note {
+    @apply mt-4 flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs font-bold leading-6 text-blue-800;
+  }
+
+  .manager-bulk-hint-note svg {
+    @apply h-5 w-5 shrink-0 fill-none stroke-current stroke-2 text-blue-500;
   }
 
   .manager-bulk-file-icon {
     @apply mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-slate-100 text-3xl text-emerald-600;
+  }
+
+  .manager-bulk-file-icon svg {
+    @apply h-8 w-8 fill-none stroke-current stroke-2;
   }
 
   .manager-bulk-tags {
@@ -13578,6 +13833,14 @@
     @apply bg-rose-100 text-rose-700;
   }
 
+  .manager-bulk-status.is-ignored {
+    @apply bg-slate-200 text-slate-600;
+  }
+
+  .manager-bulk-issue-hint {
+    @apply mt-1 block text-xs font-bold text-slate-400;
+  }
+
   .manager-bulk-help div {
     @apply mt-8 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold leading-7 text-blue-800;
   }
@@ -13618,8 +13881,64 @@
     @apply flex flex-wrap gap-2;
   }
 
-  .manager-bulk-filters span {
-    @apply rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700;
+  .manager-bulk-filters button {
+    @apply cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition;
+  }
+
+  .manager-bulk-filters button.is-active {
+    @apply border-blue-200 bg-blue-50 text-blue-700;
+  }
+
+  .manager-bulk-filters button b {
+    @apply font-black;
+  }
+
+  .manager-bulk-review-search {
+    @apply relative flex h-11 w-72 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3;
+  }
+
+  .manager-bulk-review-search svg {
+    @apply h-4 w-4 shrink-0 text-slate-400;
+  }
+
+  .manager-bulk-review-search input {
+    @apply h-full w-full border-0 bg-transparent p-0 text-sm outline-none;
+  }
+
+  .manager-bulk-icon {
+    @apply mx-1 inline-grid h-8 w-8 cursor-pointer place-items-center rounded-lg border border-blue-100 bg-white text-blue-600;
+  }
+
+  .manager-bulk-icon svg {
+    @apply h-4 w-4 fill-none stroke-current stroke-2;
+  }
+
+  .manager-bulk-icon.is-danger {
+    @apply border-rose-100 text-rose-500;
+  }
+
+  tr.manager-bulk-fix-row td {
+    @apply bg-slate-50 px-4 py-3;
+  }
+
+  .manager-bulk-fix-box {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .manager-bulk-fix-box strong {
+    @apply text-sm font-black text-slate-800;
+  }
+
+  .manager-bulk-fix-box strong small {
+    @apply font-bold text-slate-400;
+  }
+
+  .manager-bulk-fix-box input {
+    @apply h-10 w-56 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
+  }
+
+  .manager-bulk-fix-box button {
+    @apply inline-flex h-10 items-center gap-2 rounded-lg px-4 text-xs font-black;
   }
 
   .manager-bulk-review-table tr.is-error td {
@@ -13665,16 +13984,48 @@
     @apply h-5 w-5 accent-blue-600;
   }
 
+  .manager-bulk-preview-wrap {
+    @apply mt-3 w-full overflow-x-auto rounded-xl border border-slate-200;
+  }
+
   .student-bulk-preview {
-    @apply mt-3 w-full overflow-hidden rounded-xl border border-slate-200 text-xs;
+    @apply w-full whitespace-nowrap text-xs;
+  }
+
+  .student-bulk-preview th {
+    @apply border-b border-slate-200 bg-slate-50 px-3 py-2 text-right font-black text-slate-600;
   }
 
   .student-bulk-preview td {
     @apply border-b border-slate-100 px-3 py-2 text-right last:border-b-0;
   }
 
-  .student-bulk-preview td:first-child {
-    @apply w-36 bg-slate-50 font-black text-slate-600;
+  div.manager-bulk-file-card {
+    @apply mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3;
+  }
+
+  .manager-bulk-file-card .manager-bulk-file-icon {
+    @apply mb-0 h-11 w-11 shrink-0;
+  }
+
+  .manager-bulk-file-card .manager-bulk-file-icon svg {
+    @apply h-6 w-6;
+  }
+
+  .manager-bulk-file-card b {
+    @apply block text-sm font-black text-slate-900;
+  }
+
+  .manager-bulk-file-card span {
+    @apply mt-0.5 block text-xs font-bold text-slate-500;
+  }
+
+  .manager-bulk-req {
+    @apply not-italic text-red-500;
+  }
+
+  .manager-bulk-req-hint {
+    @apply mt-3 text-xs font-bold text-slate-400;
   }
 
   .student-bulk-final-stats {

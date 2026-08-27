@@ -1,24 +1,24 @@
-{% extends 'base.html' %}
+{% extends 'base_standalone.html' %}
 {% load core_extras %}
 
 {% block title %}ورود گروهی دانشجویان | متاکوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page manager-bulk-page student-bulk-page" dir="rtl">
-    <header class="manager-bulk-hero">
-        <div class="manager-bulk-title">
-            <span class="manager-bulk-title-icon" aria-hidden="true">
+{% include 'partials/super_admin_chrome.html' %}
+<section class="super-admin-page super-admin-workspace manager-bulk-page student-bulk-page" dir="rtl" data-fixed-scroll-page>
+    <div class="manager-bulk-topline">
+        <a class="manager-bulk-back" href="{{ back_url }}"><svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>بازگشت به دانشجویان</a>
+    </div>
+    <header class="teacher-wizard-head manager-bulk-head">
+        <div class="teacher-wizard-title">
+            <span class="teacher-wizard-title-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/><path d="M16 21v-2a4 4 0 0 0-8 0"/></svg>
             </span>
             <div>
-                <p>کاربران / دانشجویان / ورود گروهی</p>
                 <h1>ورود گروهی دانشجویان</h1>
-                <span>
-                    {% if step == 1 %}افزودن چند دانشجو با استفاده از فایل Excel یا CSV{% elif step == 2 %}تطبیق ستون‌های فایل با فیلدهای سامانه{% elif step == 3 %}بررسی اطلاعات دانشجویان و رفع خطاها{% else %}مرور تنظیمات و ثبت نهایی دانشجویان{% endif %}
-                </span>
+                <p>کاربران / دانشجویان / ورود گروهی</p>
             </div>
         </div>
-        <a class="manager-bulk-secondary" href="{{ back_url }}">بازگشت به دانشجویان</a>
     </header>
 
     <ol class="manager-bulk-steps">
@@ -37,36 +37,47 @@
         {% if step == 1 %}
             <div class="manager-bulk-grid">
                 <section class="manager-bulk-upload">
-                    <label class="manager-bulk-drop">
-                        <input type="file" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                    <label class="manager-bulk-drop" data-drop-zone>
+                        <input type="file" name="excel_file" id="bulk-file-input" accept=".xlsx,.xls,.csv" required data-file-input>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>
                         <strong>فایل دانشجویان را اینجا رها کنید</strong>
                         <span>یا برای انتخاب فایل کلیک کنید</span>
                         <small>فرمت‌های مجاز: CSV ،XLS ،XLSX - حداکثر ۱۰ مگابایت</small>
                         <em>انتخاب فایل</em>
                     </label>
+                    <div class="manager-bulk-file-status">
+                        <h3>وضعیت فایل</h3>
+                        <div class="manager-bulk-file-status-row">
+                            <div class="manager-bulk-file-status-actions">
+                                <button type="button" class="manager-bulk-icon is-danger" data-clear-file aria-label="حذف فایل"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+                                <button type="button" class="manager-bulk-icon" aria-label="گزینه‌های بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>
+                            </div>
+                            <div class="manager-bulk-file-status-empty" data-file-status-empty>فایلی انتخاب نشده است.</div>
+                            <div class="manager-bulk-file-status-filled" data-file-status-filled hidden>
+                                <div>
+                                    <b data-file-name></b>
+                                    <span><span data-file-size></span> · <span class="manager-bulk-status is-ok">آماده برای پردازش</span></span>
+                                </div>
+                                <span class="manager-bulk-file-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span>
+                            </div>
+                        </div>
+                    </div>
                     <label class="manager-bulk-switch"><input type="checkbox" name="has_header" checked><span></span>ردیف اول فایل شامل عنوان ستون‌هاست</label>
                     <div class="manager-bulk-note">گروه‌ها و درس‌ها پس از اعتبارسنجی و بر اساس نام‌های موجود در سامانه متصل می‌شوند.</div>
                 </section>
 
                 <aside class="manager-bulk-side">
-                    <article>
-                        <span class="manager-bulk-file-icon" aria-hidden="true">▦</span>
-                        <h2>فایل نمونه</h2>
-                        <p>برای ورود صحیح اطلاعات دانشجویان، قالب استاندارد را دریافت کنید.</p>
-                        <a href="?bulk_action=sample">دانلود فایل نمونه دانشجویان</a>
-                    </article>
-                    <article>
-                        <h2>ستون‌های موردنیاز</h2>
-                        <div class="manager-bulk-tags">
-                            <strong>الزامی</strong>
-                            {% for field in required_fields %}<span>{{ field.label }}</span>{% endfor %}
-                        </div>
-                        <div class="manager-bulk-tags is-optional">
-                            <strong>اختیاری</strong>
-                            {% for field in optional_fields %}<span>{{ field.label }}</span>{% endfor %}
-                        </div>
-                    </article>
+                    <h2><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>راهنمای آماده‌سازی فایل</h2>
+                    <a href="?bulk_action=sample"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>دانلود فایل نمونه</a>
+                    <div class="manager-bulk-tags">
+                        <strong>ستون‌های الزامی <b class="manager-bulk-req">*</b></strong>
+                        {% for field in required_fields %}<span>{{ field.label }}</span>{% endfor %}
+                    </div>
+                    <div class="manager-bulk-tags is-optional">
+                        <strong>ستون‌های اختیاری</strong>
+                        {% for field in optional_fields %}<span>{{ field.label }}</span>{% endfor %}
+                    </div>
+                    <div class="manager-bulk-hint-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>کد ملی و کد دانشجویی نباید تکراری باشند.</div>
                 </aside>
             </div>
 
@@ -75,13 +86,12 @@
                 <section class="manager-bulk-panel">
                     <h2>تطبیق ستون‌های فایل با فیلدهای سامانه</h2>
                     <table class="manager-bulk-map-table">
-                        <thead><tr><th>ستون فایل</th><th>نمونه داده</th><th>فیلد سامانه</th><th>وضعیت</th></tr></thead>
+                        <thead><tr><th>فیلد سامانه</th><th>ستون فایل (Excel)</th><th>وضعیت</th></tr></thead>
                         <tbody>
                             {% for field in field_defs %}
                                 {% with selected=draft.mapping|get_item:field.key %}
                                 <tr>
-                                    <td>{{ selected|default:"-" }}</td>
-                                    <td>{{ first_row|get_item:selected|default:"-"|fa_digits }}</td>
+                                    <td>{{ field.label }}{% if field.required %} <b class="manager-bulk-req">*</b>{% endif %}</td>
                                     <td>
                                         <select name="map_{{ field.key }}" {% if field.required %}required{% endif %}>
                                             <option value="">انتخاب ستون</option>
@@ -96,19 +106,31 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                    <p class="manager-bulk-req-hint"><b class="manager-bulk-req">*</b> فیلد الزامی</p>
                 </section>
                 <aside class="manager-bulk-help">
-                    <h2>خلاصه فایل بارگذاری‌شده</h2>
-                    <p><b>{{ draft.filename }}</b></p>
-                    <p>{{ draft.total_rows|default:0|fa_digits }} ردیف و {{ headers|length|fa_digits }} ستون شناسایی شد.</p>
+                    <h2><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>خلاصه فایل بارگذاری‌شده</h2>
+                    <div class="manager-bulk-file-card">
+                        <span class="manager-bulk-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span>
+                        <div>
+                            <b>{{ draft.filename }}</b>
+                            <span>{{ draft.total_rows|default:0|fa_digits }} ردیف · {{ headers|length|fa_digits }} ستون</span>
+                        </div>
+                    </div>
+                    <h2>تنظیمات فایل</h2>
+                    <p>{% if draft.has_header %}ردیف اول شامل عنوان ستون‌هاست{% else %}ردیف اول شامل عنوان ستون‌ها نیست{% endif %}</p>
                     <h2>پیش‌نمایش داده‌ها</h2>
-                    <table class="student-bulk-preview">
-                        <tbody>
-                            {% for key,value in first_row.items %}
-                                <tr><td>{{ key }}</td><td>{{ value|fa_digits }}</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="manager-bulk-preview-wrap">
+                        <table class="student-bulk-preview">
+                            <thead><tr>{% for field in field_defs %}<th>{{ field.label }}</th>{% endfor %}</tr></thead>
+                            <tbody>
+                                {% for row in preview_rows %}
+                                    <tr>{% for field in field_defs %}<td>{{ row|get_item:field.key|default:"-"|fa_digits }}</td>{% endfor %}</tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small>{{ preview_rows|length|fa_digits }} ردیف از {{ draft.total_rows|default:0|fa_digits }} ردیف نمایش داده شده است.</small>
                 </aside>
             </div>
 
@@ -122,26 +144,58 @@
             <section class="manager-bulk-panel">
                 <header class="manager-bulk-panel-head">
                     <h2>بررسی اطلاعات دانشجویان</h2>
-                    <div class="manager-bulk-filters">
-                        <span>همه {{ draft.total_rows|default:0|fa_digits }}</span>
-                        <span>سالم {{ counts.ok|default:0|fa_digits }}</span>
-                        <span>هشدار {{ counts.warning|default:0|fa_digits }}</span>
-                        <span>خطادار {{ counts.error|default:0|fa_digits }}</span>
+                    <div class="manager-bulk-filters" data-review-filters>
+                        <button type="button" class="is-active" data-review-filter="all">همه <b>{{ draft.total_rows|default:0|fa_digits }}</b></button>
+                        <button type="button" data-review-filter="ok">سالم <b>{{ counts.ok|default:0|fa_digits }}</b></button>
+                        <button type="button" data-review-filter="warning">هشدار <b>{{ counts.warning|default:0|fa_digits }}</b></button>
+                        <button type="button" data-review-filter="error">خطادار <b>{{ counts.error|default:0|fa_digits }}</b></button>
                     </div>
+                    <label class="manager-bulk-review-search">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <input type="search" data-review-search placeholder="جست‌وجو بر اساس نام، کد ملی یا کد دانشجویی...">
+                    </label>
                 </header>
-                <table class="manager-bulk-review-table">
-                    <thead><tr><th>ردیف</th><th>نام و نام خانوادگی</th><th>کد ملی</th><th>کد دانشجویی</th><th>رشته</th><th>وضعیت</th><th>پیام</th></tr></thead>
+                <table class="manager-bulk-review-table" data-review-table>
+                    <thead><tr><th>ردیف</th><th>نام و نام خانوادگی</th><th>کد ملی</th><th>کد دانشجویی</th><th>رشته</th><th>وضعیت</th><th>عملیات</th></tr></thead>
                     <tbody>
                         {% for record in records %}
-                            <tr class="is-{{ record.level }}">
+                            <tr class="is-{{ record.level }}" data-review-row data-level="{{ record.level }}" data-search="{{ record.full_name }} {{ record.national_id }} {{ record.student_number }}">
                                 <td>{{ forloop.counter|fa_digits }}</td>
                                 <td>{{ record.full_name }}</td>
                                 <td>{{ record.national_id|fa_digits }}</td>
                                 <td>{{ record.student_number|fa_digits }}</td>
                                 <td>{{ record.field_of_study }}</td>
-                                <td><span class="manager-bulk-status is-{{ record.level }}">{% if record.level == 'error' %}خطا{% elif record.level == 'warning' %}هشدار{% else %}سالم{% endif %}</span></td>
-                                <td>{% for issue in record.issues %}{{ issue }}{% if not forloop.last %}، {% endif %}{% empty %}-{% endfor %}</td>
+                                <td>
+                                    <span class="manager-bulk-status is-{{ record.level }}">{% if record.level == 'error' %}خطا{% elif record.level == 'warning' %}هشدار{% elif record.level == 'ignored' %}نادیده‌گرفته‌شده{% else %}سالم{% endif %}</span>
+                                    {% if record.issues %}<small class="manager-bulk-issue-hint">{% for issue in record.issues %}{{ issue }}{% if not forloop.last %}، {% endif %}{% endfor %}</small>{% endif %}
+                                </td>
+                                <td>
+                                    {% if record.level == 'ignored' %}
+                                        <button type="button" class="manager-bulk-icon" data-restore-row data-row="{{ record.row_number }}" aria-label="بازگردانی ردیف"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+                                    {% elif record.level == 'error' or record.level == 'warning' %}
+                                        <button type="button" class="manager-bulk-icon" data-toggle-fix data-row="{{ record.row_number }}" aria-label="ویرایش"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+                                        <button type="button" class="manager-bulk-icon is-danger" data-ignore-row data-row="{{ record.row_number }}" aria-label="نادیده گرفتن ردیف"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
                             </tr>
+                            {% if record.level == 'error' or record.level == 'warning' %}
+                                <tr class="manager-bulk-fix-row" hidden data-fix-panel="{{ record.row_number }}">
+                                    <td colspan="7">
+                                        <div class="manager-bulk-fix-box">
+                                            <strong>اصلاح {{ record.primary_issue_label|default:"مقدار" }} <small>({{ record.issues|first }})</small></strong>
+                                            <input type="text" value="{{ record|get_item:record.primary_issue_field }}" data-fix-input>
+                                            <button type="button" class="manager-bulk-primary" data-apply-fix data-row="{{ record.row_number }}" data-field="{{ record.primary_issue_field }}">
+                                                <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>اعمال اصلاح
+                                            </button>
+                                            <button type="button" class="manager-bulk-secondary" data-ignore-row data-row="{{ record.row_number }}">
+                                                <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>نادیده گرفتن ردیف
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
                         {% empty %}
                             <tr><td colspan="7">فایلی برای بررسی بارگذاری نشده است.</td></tr>
                         {% endfor %}
@@ -196,11 +250,147 @@
                 <button type="submit" name="wizard_action" value="cancel" class="manager-bulk-link">انصراف</button>
                 <button type="submit" name="wizard_action" value="save_draft" class="manager-bulk-secondary">ذخیره موقت</button>
                 <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="manager-bulk-primary">
-                    {% if step == 1 %}بارگذاری و ادامه{% elif step == 2 %}ادامه و بررسی اطلاعات{% elif step == 3 %}ادامه و ثبت نهایی{% else %}ثبت نهایی {{ valid_count|fa_digits }} دانشجو{% endif %}
+                    {% if step == 1 %}ادامه و تطبیق ستون‌ها{% elif step == 2 %}ادامه و بررسی اطلاعات{% elif step == 3 %}ادامه و ثبت نهایی{% else %}ثبت نهایی {{ valid_count|fa_digits }} دانشجو{% endif %}
                     <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
                 </button>
             </div>
         </footer>
     </form>
 </section>
+
+<script>
+(() => {
+    const input = document.querySelector('[data-file-input]');
+    const dropZone = document.querySelector('[data-drop-zone]');
+    if (!input) return;
+    const emptyState = document.querySelector('[data-file-status-empty]');
+    const filledState = document.querySelector('[data-file-status-filled]');
+    const nameEl = document.querySelector('[data-file-name]');
+    const sizeEl = document.querySelector('[data-file-size]');
+    const clearBtn = document.querySelector('[data-clear-file]');
+
+    function formatSize(bytes) {
+        const kb = bytes / 1024;
+        if (kb < 1024) return `${Math.max(1, Math.round(kb))} کیلوبایت`;
+        return `${(kb / 1024).toFixed(1)} مگابایت`;
+    }
+
+    function faDigits(text) {
+        return String(text).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    }
+
+    function showFile(file) {
+        if (nameEl) nameEl.textContent = file.name;
+        if (sizeEl) sizeEl.textContent = faDigits(formatSize(file.size));
+        if (emptyState) emptyState.hidden = true;
+        if (filledState) filledState.hidden = false;
+    }
+
+    function showEmpty() {
+        if (emptyState) emptyState.hidden = false;
+        if (filledState) filledState.hidden = true;
+    }
+
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (file) showFile(file); else showEmpty();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+        input.value = '';
+        showEmpty();
+    });
+
+    if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => e.preventDefault());
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer?.files?.[0];
+            if (file) {
+                input.files = e.dataTransfer.files;
+                showFile(file);
+            }
+        });
+    }
+})();
+
+(() => {
+    const table = document.querySelector('[data-review-table]');
+    if (!table) return;
+    const rows = Array.from(table.querySelectorAll('[data-review-row]'));
+    const search = document.querySelector('[data-review-search]');
+    const filterButtons = Array.from(document.querySelectorAll('[data-review-filter]'));
+    let activeFilter = 'all';
+
+    function applyFilters() {
+        const term = (search?.value || '').trim().toLowerCase();
+        rows.forEach((row) => {
+            const matchesFilter = activeFilter === 'all' || row.dataset.level === activeFilter;
+            const matchesSearch = !term || (row.dataset.search || '').toLowerCase().includes(term);
+            const visible = matchesFilter && matchesSearch;
+            row.hidden = !visible;
+            const fixPanel = table.querySelector(`[data-fix-panel="${row.querySelector('[data-toggle-fix]')?.dataset.row}"]`);
+            if (fixPanel && !visible) fixPanel.hidden = true;
+        });
+    }
+
+    filterButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach((b) => b.classList.remove('is-active'));
+            btn.classList.add('is-active');
+            activeFilter = btn.dataset.reviewFilter;
+            applyFilters();
+        });
+    });
+    search?.addEventListener('input', applyFilters);
+
+    function buildForm(fields) {
+        const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.hidden = true;
+        const allFields = { csrfmiddlewaretoken: csrf, step: '3', ...fields };
+        Object.entries(allFields).forEach(([name, value]) => {
+            const input = document.createElement('input');
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    table.querySelectorAll('[data-toggle-fix]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const panel = table.querySelector(`[data-fix-panel="${btn.dataset.row}"]`);
+            if (panel) panel.hidden = !panel.hidden;
+        });
+    });
+
+    table.querySelectorAll('[data-apply-fix]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const panel = btn.closest('[data-fix-panel]');
+            const input = panel?.querySelector('[data-fix-input]');
+            buildForm({
+                wizard_action: 'fix_row',
+                row_number: btn.dataset.row,
+                fix_field: btn.dataset.field,
+                fix_value: input ? input.value : '',
+            });
+        });
+    });
+
+    table.querySelectorAll('[data-ignore-row]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            buildForm({ wizard_action: 'ignore_row', row_number: btn.dataset.row });
+        });
+    });
+
+    table.querySelectorAll('[data-restore-row]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            buildForm({ wizard_action: 'restore_row', row_number: btn.dataset.row });
+        });
+    });
+})();
+</script>
 {% endblock %}

@@ -109,7 +109,9 @@
             <div class="landing-gallery-glow" aria-hidden="true"></div>
             <div class="landing-gallery-ring" aria-hidden="true"></div>
             <figure class="landing-gallery-photo">
-                <img src="{% static 'img/student-hero.png' %}" alt="دانشجو در حال شرکت در آزمون آنلاین متاکوییز">
+                <video autoplay muted loop playsinline poster="{% static 'img/student-hero.png' %}" aria-label="دانشجو در حال شرکت در آزمون آنلاین متاکوییز">
+                    <source src="{% static 'video/hero-student.mp4' %}" type="video/mp4">
+                </video>
             </figure>
             <div class="landing-floating-stat">
                 <strong>+۵۰۰</strong>
@@ -711,6 +713,16 @@
         }
 
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        const heroVideo = document.querySelector('.landing-gallery-photo video');
+        if (heroVideo) {
+            if (reduceMotion) {
+                heroVideo.removeAttribute('autoplay');
+                heroVideo.pause();
+            } else {
+                heroVideo.play?.().catch(() => {});
+            }
+        }
 
         const counterGroups = document.querySelectorAll('.landing-hero-stats, .landing-support-foot-stats');
         if (reduceMotion) {

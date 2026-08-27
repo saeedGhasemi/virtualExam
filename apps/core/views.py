@@ -628,6 +628,82 @@ def erd_count(table, where='', params=None):
     return row['count'] if row else 0
 
 
+ORG_LEVEL_MIN_COUNT = 1
+ORG_LEVEL_DEFAULT_TITLES = ['دانشگاه', 'دانشکده', 'گروه آموزشی', 'رشته', 'کلاس / واحد']
+ORG_LEVEL_DEFAULT_HINTS = [
+    'ریشه ساختار سازمانی',
+    'زیرمجموعه دانشگاه',
+    'زیرمجموعه دانشکده',
+    'ریزترین سطح ساختار سازمانی',
+    'ریزترین سطح ساختار سازمانی',
+]
+
+
+def default_org_level(index):
+    return {
+        'title': ORG_LEVEL_DEFAULT_TITLES[index - 1] if index <= len(ORG_LEVEL_DEFAULT_TITLES) else f'سطح {index}',
+        'hint': ORG_LEVEL_DEFAULT_HINTS[index - 1] if index <= len(ORG_LEVEL_DEFAULT_HINTS) else 'سطح فرعی ساختار سازمانی',
+    }
+
+
+def repair_display_text(value):
+    text = str(value or '').strip()
+    if not any(marker in text for marker in ('Ø', 'Ù', 'Û', 'Ã', 'Â', 'â')):
+        return text
+    for _ in range(3):
+        try:
+            repaired = text.encode('cp1252').decode('utf-8')
+        except UnicodeError:
+            break
+        if repaired == text:
+            break
+        text = repaired
+    return text
+
+
+def normalize_org_levels(raw_value):
+    try:
+        if isinstance(raw_value, str):
+            raw_value = json.loads(raw_value)
+    except json.JSONDecodeError:
+        raw_value = None
+
+    if isinstance(raw_value, int):
+        level_count = max(raw_value, ORG_LEVEL_MIN_COUNT)
+        return [default_org_level(index) for index in range(1, level_count + 1)]
+
+    if isinstance(raw_value, list):
+        levels = []
+        for index, item in enumerate(raw_value, start=1):
+            defaults = default_org_level(index)
+            if not isinstance(item, dict):
+                item = {}
+            title = repair_display_text(item.get('title')) or defaults['title']
+            hint = repair_display_text(item.get('hint') or item.get('description')) or defaults['hint']
+            levels.append({'title': title, 'hint': hint})
+        return levels or [default_org_level(1)]
+
+    return [default_org_level(index) for index in range(1, 6)]
+
+
+def get_org_level_config():
+    row = erd_row("SELECT value FROM system_settings WHERE key = %s", ['org_structure_levels_config'])
+    if row:
+        return normalize_org_levels(row['value'])
+    legacy_row = erd_row("SELECT value FROM system_settings WHERE key = %s", ['org_structure_levels'])
+    return normalize_org_levels(legacy_row['value'] if legacy_row else 5)
+
+
+def org_unit_level_index(unit):
+    code = str(unit.get('code') or '')
+    if code.startswith('__level:') and '__' in code[8:]:
+        try:
+            return int(code.split('__', 2)[1].split(':', 1)[1])
+        except (IndexError, ValueError):
+            pass
+    return {'university': 1, 'faculty': 2, 'department': 3, 'group': 4}.get(unit.get('type'), 3)
+
+
 def _xlsx_column_name(index):
     name = ''
     while index:
@@ -4054,6 +4130,7 @@ def super_admin_teacher_create(request):
     session_key = 'super_admin_teacher_wizard'
     draft = request.session.get(session_key, {})
 
+    org_level_config = get_org_level_config()
     org_units = erd_rows(
         """
         SELECT id, parent_id, type, name, code, is_active
@@ -4061,6 +4138,8 @@ def super_admin_teacher_create(request):
         ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
         """
     )
+    for unit in org_units:
+        unit['level_index'] = org_unit_level_index(unit)
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -4071,12 +4150,9 @@ def super_admin_teacher_create(request):
             seen.add(str(unit['id']))
             chain.append(unit)
             unit = unit_by_id.get(str(unit.get('parent_id') or ''))
+        chain.reverse()
         by_type = {item['type']: item['name'] for item in chain}
-        label = ' ← '.join(part for part in [
-            by_type.get('university'),
-            by_type.get('faculty'),
-            by_type.get('department') or by_type.get('group'),
-        ] if part)
+        label = ' ← '.join(item['name'] for item in chain)
         return {
             'university': by_type.get('university') or '',
             'faculty': by_type.get('faculty') or '',
@@ -4103,8 +4179,17 @@ def super_admin_teacher_create(request):
             return redirect(f'{reverse("core:super_admin_teacher_create")}?step={max(1, step - 1)}')
 
         if step == 1:
-            for key in ('first_name', 'last_name', 'national_id', 'phone', 'email', 'personnel_code'):
+            for key in ('first_name', 'last_name', 'national_id', 'phone', 'email', 'personnel_code', 'gender', 'birth_date', 'specialty', 'academic_rank'):
                 draft[key] = request.POST.get(key, '').strip()
+            avatar = request.FILES.get('avatar')
+            if avatar:
+                extension = (avatar.name.rsplit('.', 1)[-1] if '.' in avatar.name else 'jpg').lower()
+                if extension not in {'jpg', 'jpeg', 'png', 'webp'}:
+                    messages.error(request, 'فرمت تصویر استاد معتبر نیست.')
+                    return redirect(f'{reverse("core:super_admin_teacher_create")}?step=1')
+                storage = FileSystemStorage(location=str(Path(settings.MEDIA_ROOT) / 'teacher-avatars'), base_url=settings.MEDIA_URL + 'teacher-avatars/')
+                filename = storage.save(f"wizard-{uuid.uuid4().hex[:10]}.{extension}", avatar)
+                draft['avatar_url'] = storage.url(filename)
         elif step == 2:
             for key in ('org_unit_id', 'position_title', 'service_location', 'cooperation_started_at'):
                 draft[key] = request.POST.get(key, '').strip()
@@ -4163,35 +4248,65 @@ def super_admin_teacher_create(request):
                         """
                         UPDATE profiles
                         SET full_name = %s, first_name = %s, last_name = %s, username = %s,
-                            email = %s, phone = %s, national_id = %s, identifier = %s,
-                            status = %s, updated_at = CURRENT_TIMESTAMP
+                            email = %s, phone = %s, national_id = %s, identifier = %s, gender = %s, birth_date = %s,
+                            avatar_url = COALESCE(NULLIF(%s, ''), avatar_url), status = %s, updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                         """,
-                        [full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, status, teacher_id],
+                        [full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('avatar_url') or '', status, teacher_id],
                     )
                 else:
                     cursor.execute(
                         """
-                        INSERT INTO profiles (id, full_name, first_name, last_name, username, email, phone, national_id, identifier, avatar_url, status, created_at, updated_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, '', %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        INSERT INTO profiles (id, full_name, first_name, last_name, username, email, phone, national_id, identifier, gender, birth_date, avatar_url, status, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                         """,
-                        [teacher_id, full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, status],
+                        [teacher_id, full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('avatar_url') or '', status],
                     )
                 cursor.execute(
                     """
-                    INSERT INTO teacher_profiles (user_id, personnel_code, department, specialty, approval_status, org_unit_id)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO teacher_profiles (
+                        user_id, personnel_code, department, specialty, academic_rank, approval_status, org_unit_id,
+                        position_title, service_location, cooperation_started_at, apply_children,
+                        cooperation_type, employment_type, weekly_hours, max_units, can_design_exam,
+                        password_method, force_password_change, two_factor_enabled
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT(user_id) DO UPDATE SET
                         personnel_code = excluded.personnel_code,
                         department = excluded.department,
                         specialty = excluded.specialty,
+                        academic_rank = excluded.academic_rank,
                         approval_status = excluded.approval_status,
-                        org_unit_id = excluded.org_unit_id
+                        org_unit_id = excluded.org_unit_id,
+                        position_title = excluded.position_title,
+                        service_location = excluded.service_location,
+                        cooperation_started_at = excluded.cooperation_started_at,
+                        apply_children = excluded.apply_children,
+                        cooperation_type = excluded.cooperation_type,
+                        employment_type = excluded.employment_type,
+                        weekly_hours = excluded.weekly_hours,
+                        max_units = excluded.max_units,
+                        can_design_exam = excluded.can_design_exam,
+                        password_method = excluded.password_method,
+                        force_password_change = excluded.force_password_change,
+                        two_factor_enabled = excluded.two_factor_enabled
                     """,
-                    [teacher_id, personnel_code, primary.get('department') or draft.get('position_title') or '', draft.get('academic_rank') or '', 'approved', org_unit_id],
+                    [
+                        teacher_id, personnel_code, primary.get('department') or draft.get('position_title') or '', draft.get('specialty') or '', draft.get('academic_rank') or '', 'approved', org_unit_id,
+                        draft.get('position_title') or '', draft.get('service_location') or '', draft.get('cooperation_started_at') or '', bool(draft.get('apply_children')),
+                        draft.get('cooperation_type') or '', draft.get('employment_type') or '', draft.get('weekly_hours') or '', draft.get('max_units') or '', bool(draft.get('can_design_exam')),
+                        draft.get('password_method') or '', bool(draft.get('force_password_change')), bool(draft.get('two_factor_enabled')),
+                    ],
                 )
+                cursor.execute("DELETE FROM teacher_sub_units WHERE teacher_id = %s", [teacher_id])
+                for sub_unit_id in dict.fromkeys(draft.get('sub_units') or []):
+                    cursor.execute(
+                        "INSERT INTO teacher_sub_units (teacher_id, org_unit_id, created_at) VALUES (%s, %s, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING",
+                        [teacher_id, sub_unit_id],
+                    )
                 cursor.execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [teacher_id, 'teacher'])
                 cursor.execute("INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", [str(uuid.uuid4()), teacher_id, 'teacher'])
+                cursor.execute("DELETE FROM group_teachers WHERE teacher_id = %s", [teacher_id])
                 for course_id in draft.get('course_ids') or []:
                     cursor.execute("SELECT id FROM student_groups WHERE course_id = %s LIMIT 30", [course_id])
                     for group in cursor.fetchall():
@@ -4205,7 +4320,7 @@ def super_admin_teacher_create(request):
 
         request.session.pop(session_key, None)
         messages.success(request, 'استاد جدید با موفقیت ثبت شد.')
-        return redirect(reverse('core:super_admin_user_profile', args=['teacher', teacher_id]))
+        return redirect(f'{reverse("core:super_admin_users")}?tab=teachers')
 
     selected_course_ids = {str(item) for item in draft.get('course_ids', [])}
     selected_courses = [course for course in courses if str(course.get('id')) in selected_course_ids]
@@ -4221,6 +4336,7 @@ def super_admin_teacher_create(request):
         'steps': steps,
         'draft': draft,
         'org_units': org_units,
+        'org_level_config': org_level_config,
         'universities': [unit for unit in org_units if unit['type'] == 'university'],
         'sub_units': [unit for unit in org_units if unit['type'] in ('faculty', 'department', 'group')],
         'active_unit': active_unit,
@@ -4243,6 +4359,7 @@ def super_admin_manager_create(request):
 
     session_key = 'super_admin_manager_wizard'
     draft = request.session.get(session_key, {})
+    org_level_config = get_org_level_config()
     org_units = erd_rows(
         """
         SELECT id, parent_id, type, name, code, is_active
@@ -4250,6 +4367,8 @@ def super_admin_manager_create(request):
         ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
         """
     )
+    for unit in org_units:
+        unit['level_index'] = org_unit_level_index(unit)
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -4260,8 +4379,9 @@ def super_admin_manager_create(request):
             seen.add(str(unit['id']))
             chain.append(unit)
             unit = unit_by_id.get(str(unit.get('parent_id') or ''))
+        chain.reverse()
         by_type = {item['type']: item['name'] for item in chain}
-        label = ' / '.join(part for part in [by_type.get('university'), by_type.get('faculty'), by_type.get('department') or by_type.get('group')] if part)
+        label = ' / '.join(item['name'] for item in chain)
         return {'university': by_type.get('university') or '', 'faculty': by_type.get('faculty') or '', 'department': by_type.get('department') or by_type.get('group') or '', 'label': label}
 
     modules = [
@@ -4286,6 +4406,15 @@ def super_admin_manager_create(request):
         if step == 1:
             for key in ('first_name', 'last_name', 'personnel_code', 'national_id', 'birth_date', 'gender', 'email', 'phone'):
                 draft[key] = request.POST.get(key, '').strip()
+            avatar = request.FILES.get('avatar')
+            if avatar:
+                extension = (avatar.name.rsplit('.', 1)[-1] if '.' in avatar.name else 'jpg').lower()
+                if extension not in {'jpg', 'jpeg', 'png', 'webp'}:
+                    messages.error(request, 'فرمت تصویر مدیر معتبر نیست.')
+                    return redirect(f'{reverse("core:super_admin_manager_create")}?step=1')
+                storage = FileSystemStorage(location=str(Path(settings.MEDIA_ROOT) / 'manager-avatars'), base_url=settings.MEDIA_URL + 'manager-avatars/')
+                filename = storage.save(f"wizard-{uuid.uuid4().hex[:10]}.{extension}", avatar)
+                draft['avatar_url'] = storage.url(filename)
         elif step == 2:
             for key in ('manager_role', 'title', 'access_type', 'primary_scope_id'):
                 draft[key] = request.POST.get(key, '').strip()
@@ -4345,10 +4474,11 @@ def super_admin_manager_create(request):
                             email = %s, phone = %s, national_id = %s, identifier = %s, status = %s,
                             gender = %s, birth_date = %s, password_method = %s,
                             must_change_password = %s, email_verified_required = %s,
+                            avatar_url = COALESCE(NULLIF(%s, ''), avatar_url),
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                         """,
-                        [full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, status, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('password_method') or 'activation_link', draft.get('must_change_password', True), draft.get('email_verified_required', True), manager_id],
+                        [full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, status, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('password_method') or 'activation_link', draft.get('must_change_password', True), draft.get('email_verified_required', True), draft.get('avatar_url') or '', manager_id],
                     )
                 else:
                     cursor.execute(
@@ -4358,9 +4488,9 @@ def super_admin_manager_create(request):
                             identifier, avatar_url, status, gender, birth_date, password_method,
                             must_change_password, email_verified_required, created_at, updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, '', %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                         """,
-                        [manager_id, full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, status, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('password_method') or 'activation_link', draft.get('must_change_password', True), draft.get('email_verified_required', True)],
+                        [manager_id, full_name, first_name, last_name, username, email, draft.get('phone') or None, draft.get('national_id') or None, personnel_code, draft.get('avatar_url') or '', status, draft.get('gender') or None, draft.get('birth_date') or None, draft.get('password_method') or 'activation_link', draft.get('must_change_password', True), draft.get('email_verified_required', True)],
                     )
                 if manager_role == 'admin':
                     cursor.execute(
@@ -4412,10 +4542,19 @@ def super_admin_manager_create(request):
 
         request.session.pop(session_key, None)
         messages.success(request, 'مدیر جدید با موفقیت ثبت شد.')
-        return redirect(reverse('core:super_admin_user_profile', args=['manager', manager_id]))
+        return redirect(f'{reverse("core:super_admin_users")}?tab=managers')
 
     scope_ids = {str(item) for item in draft.get('scope_ids', [])}
     selected_scopes = [unit_path(item) for item in scope_ids]
+    primary_scope_path = unit_path(draft.get('primary_scope_id'))
+    permissions = draft.get('permissions') or {}
+    total_permissions = sum(len(allowed) for _key, _label, allowed in modules)
+    if permissions:
+        active_permissions = sum(1 for module in permissions.values() for value in module.values() if value)
+    else:
+        active_permissions = total_permissions
+    permission_rate = round(active_permissions / total_permissions * 100) if total_permissions else 0
+    scope_subcount = max(len(scope_ids) - 1, 0)
     steps = [
         {'number': 1, 'label': 'اطلاعات پایه'},
         {'number': 2, 'label': 'نقش و انتساب سازمانی'},
@@ -4427,12 +4566,18 @@ def super_admin_manager_create(request):
         'steps': steps,
         'draft': draft,
         'org_units': org_units,
+        'org_level_config': org_level_config,
         'sub_units': [unit for unit in org_units if unit['type'] in ('faculty', 'department', 'group')],
         'scope_ids': scope_ids,
         'selected_scopes': selected_scopes,
+        'primary_scope_path': primary_scope_path,
         'modules': modules,
         'actions': actions,
-        'permissions': draft.get('permissions') or {},
+        'permissions': permissions,
+        'total_permissions': total_permissions,
+        'active_permissions': active_permissions,
+        'permission_rate': permission_rate,
+        'scope_subcount': scope_subcount,
         'wizard_username': draft.get('username') or draft.get('email') or '',
         'wizard_login_email': draft.get('login_email') or draft.get('email') or '',
         'back_url': f'{reverse("core:super_admin_users")}?tab=managers',
@@ -4815,7 +4960,10 @@ def super_admin_student_create(request):
 
     session_key = 'super_admin_student_wizard'
     draft = request.session.get(session_key, {})
+    org_level_config = get_org_level_config()
     org_units = erd_rows("SELECT id, parent_id, type, name, code, is_active FROM org_units ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name")
+    for unit in org_units:
+        unit['level_index'] = org_unit_level_index(unit)
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -4826,8 +4974,9 @@ def super_admin_student_create(request):
             seen.add(str(unit['id']))
             chain.append(unit)
             unit = unit_by_id.get(str(unit.get('parent_id') or ''))
+        chain.reverse()
         by_type = {item['type']: item['name'] for item in chain}
-        label = ' / '.join(part for part in [by_type.get('university'), by_type.get('faculty'), by_type.get('department') or by_type.get('group')] if part)
+        label = ' / '.join(item['name'] for item in chain)
         return {'university': by_type.get('university') or '', 'faculty': by_type.get('faculty') or '', 'department': by_type.get('department') or by_type.get('group') or '', 'label': label}
 
     groups = erd_rows("SELECT id, course_id, course_name, group_code, academic_year, semester FROM student_groups ORDER BY academic_year DESC, course_name LIMIT 300")
@@ -4944,7 +5093,7 @@ def super_admin_student_create(request):
 
         request.session.pop(session_key, None)
         messages.success(request, 'دانشجو با موفقیت ثبت شد.')
-        return redirect(reverse('core:super_admin_user_profile', args=['student', student_id]))
+        return redirect(f'{reverse("core:super_admin_users")}?tab=students')
 
     selected_group_ids = {str(item) for item in draft.get('group_ids', [])}
     selected_course_ids = {str(item) for item in draft.get('course_ids', [])}
@@ -4959,6 +5108,7 @@ def super_admin_student_create(request):
         'steps': steps,
         'draft': draft,
         'org_units': org_units,
+        'org_level_config': org_level_config,
         'groups': groups,
         'courses': courses,
         'selected_group_ids': selected_group_ids,
@@ -5481,34 +5631,34 @@ def super_admin_student_bulk_import(request):
     def validate_rows():
         upload_rows = draft.get('rows') or []
         mapping = draft.get('mapping') or {}
+        ignored_rows = set(draft.get('ignored_rows') or [])
         records = []
-        counts = {'ok': 0, 'warning': 0, 'error': 0, 'deleted': 0}
+        counts = {'ok': 0, 'warning': 0, 'error': 0, 'ignored': 0}
         seen_national = set()
         seen_student = set()
         for index, raw in enumerate(upload_rows, start=2):
             record = {field['key']: cell(raw, mapping.get(field['key'])) for field in field_defs}
-            errors = []
-            warnings = []
+            issues = []
             for field in field_defs:
                 if field['required'] and not record.get(field['key']):
-                    errors.append(f"{field['label']} خالی است.")
+                    issues.append(('error', field['key'], f"{field['label']} خالی است."))
             if record.get('national_id') and record['national_id'] in seen_national:
-                errors.append('کد ملی تکراری است.')
+                issues.append(('error', 'national_id', 'کد ملی تکراری است.'))
             if record.get('student_number') and record['student_number'] in seen_student:
-                errors.append('کد دانشجویی تکراری است.')
+                issues.append(('error', 'student_number', 'کد دانشجویی تکراری است.'))
             seen_national.add(record.get('national_id'))
             seen_student.add(record.get('student_number'))
             if record.get('phone') == '':
-                warnings.append('شماره همراه ناقص است.')
+                issues.append(('warning', 'phone', 'شماره همراه ناقص است.'))
             org_unit_id = resolve_unit(record.get('org_unit'))
             if org_unit_id is None:
-                errors.append('واحد سازمانی معتبر نیست.')
+                issues.append(('error', 'org_unit', 'واحد سازمانی معتبر نیست.'))
             course_ids = resolve_courses(record.get('course_names'))
             group_ids = resolve_groups(record.get('group_names'))
             if record.get('course_names') and not course_ids:
-                warnings.append('درس‌های فایل با درس‌های سامانه تطبیق نشد.')
+                issues.append(('warning', 'course_names', 'درس‌های فایل با درس‌های سامانه تطبیق نشد.'))
             if record.get('group_names') and not group_ids:
-                warnings.append('گروه آموزشی فایل با گروه‌های سامانه تطبیق نشد.')
+                issues.append(('warning', 'group_names', 'گروه آموزشی فایل با گروه‌های سامانه تطبیق نشد.'))
             record['row_number'] = index
             record['status'] = import_status(record.get('status'))
             record['academic_status'] = import_academic_status(record.get('academic_status'))
@@ -5517,8 +5667,16 @@ def super_admin_student_bulk_import(request):
             record['course_ids'] = course_ids
             record['group_ids'] = group_ids
             record['full_name'] = f"{record.get('first_name')} {record.get('last_name')}".strip()
+            errors = [msg for level, _key, msg in issues if level == 'error']
+            warnings = [msg for level, _key, msg in issues if level == 'warning']
             record['issues'] = errors + warnings
-            record['level'] = 'error' if errors else ('warning' if warnings else 'ok')
+            if index in ignored_rows:
+                record['level'] = 'ignored'
+            else:
+                record['level'] = 'error' if errors else ('warning' if warnings else 'ok')
+            primary_issue = next(iter(issues), None)
+            record['primary_issue_field'] = primary_issue[1] if primary_issue else ''
+            record['primary_issue_label'] = next((f['label'] for f in field_defs if f['key'] == (primary_issue[1] if primary_issue else '')), '')
             counts[record['level']] += 1
             records.append(record)
         draft['records'] = records
@@ -5543,6 +5701,55 @@ def super_admin_student_bulk_import(request):
             request.session.modified = True
             messages.success(request, 'پیش‌نویس ورود گروهی دانشجویان ذخیره شد.')
             return redirect(f'{reverse("core:super_admin_student_bulk_import")}?step={step}')
+        if nav_action == 'fix_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            field_key = request.POST.get('fix_field', '').strip()
+            new_value = request.POST.get('fix_value', '').strip()
+            mapping = draft.get('mapping') or {}
+            upload_rows = draft.get('rows') or []
+            row_index = (row_number - 2) if row_number else -1
+            if field_key in mapping and 0 <= row_index < len(upload_rows):
+                header = mapping.get(field_key)
+                if not header:
+                    header = field_key
+                    mapping[field_key] = header
+                    draft['mapping'] = mapping
+                upload_rows[row_index][header] = new_value
+                draft['rows'] = upload_rows
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+                messages.success(request, f'ردیف {row_number} اصلاح شد.')
+            return redirect(f'{reverse("core:super_admin_student_bulk_import")}?step=3')
+        if nav_action == 'ignore_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            if row_number:
+                ignored = set(draft.get('ignored_rows') or [])
+                ignored.add(row_number)
+                draft['ignored_rows'] = list(ignored)
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+            return redirect(f'{reverse("core:super_admin_student_bulk_import")}?step=3')
+        if nav_action == 'restore_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            if row_number:
+                ignored = set(draft.get('ignored_rows') or [])
+                ignored.discard(row_number)
+                draft['ignored_rows'] = list(ignored)
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+            return redirect(f'{reverse("core:super_admin_student_bulk_import")}?step=3')
 
         if step == 1:
             uploaded = request.FILES.get('excel_file')
@@ -5611,7 +5818,7 @@ def super_admin_student_bulk_import(request):
             try:
                 with connection.cursor() as cursor:
                     for record in records:
-                        if record['level'] == 'error':
+                        if record['level'] in ('error', 'ignored'):
                             continue
                         student_id = str(uuid.uuid4())
                         username = record.get('student_number')
@@ -5687,14 +5894,19 @@ def super_admin_student_bulk_import(request):
 
     if step >= 3 and draft.get('rows') and draft.get('mapping'):
         validate_rows()
+    mapping = draft.get('mapping') or {}
+    preview_rows = [
+        {field['key']: cell(raw, mapping.get(field['key'])) for field in field_defs}
+        for raw in (draft.get('rows') or [])[:3]
+    ]
     records = draft.get('records') or []
-    counts = draft.get('counts') or {'ok': 0, 'warning': 0, 'error': 0, 'deleted': 0}
+    counts = draft.get('counts') or {'ok': 0, 'warning': 0, 'error': 0, 'ignored': 0}
     valid_count = counts.get('ok', 0) + counts.get('warning', 0)
     groups_count = len({group_id for record in records for group_id in record.get('group_ids', [])})
     courses_count = len({course_id for record in records for course_id in record.get('course_ids', [])})
     degree_summary = {}
     for record in records:
-        if record.get('level') != 'error':
+        if record.get('level') not in ('error', 'ignored'):
             degree_summary[record.get('degree') or 'نامشخص'] = degree_summary.get(record.get('degree') or 'نامشخص', 0) + 1
     steps = [
         {'number': 1, 'label': 'بارگذاری فایل'},
@@ -5709,6 +5921,7 @@ def super_admin_student_bulk_import(request):
         'field_defs': field_defs,
         'headers': draft.get('headers') or [],
         'first_row': draft.get('first_row') or {},
+        'preview_rows': preview_rows,
         'records': records,
         'counts': counts,
         'valid_count': valid_count,
@@ -8654,73 +8867,9 @@ def super_admin_calendar(request):
 
 @super_admin_required
 def super_admin_org_units(request):
-    min_org_levels = 1
+    min_org_levels = ORG_LEVEL_MIN_COUNT
     level_tones = ['blue', 'purple', 'green', 'orange', 'cyan', 'violet', 'teal', 'amber']
-    default_level_titles = [
-        '\u062f\u0627\u0646\u0634\u06af\u0627\u0647',
-        '\u062f\u0627\u0646\u0634\u06a9\u062f\u0647',
-        '\u06af\u0631\u0648\u0647 \u0622\u0645\u0648\u0632\u0634\u06cc',
-        '\u0631\u0634\u062a\u0647',
-        '\u06a9\u0644\u0627\u0633 / \u0648\u0627\u062d\u062f',
-    ]
-    default_level_hints = [
-        '\u0631\u06cc\u0634\u0647 \u0633\u0627\u062e\u062a\u0627\u0631 \u0633\u0627\u0632\u0645\u0627\u0646\u06cc',
-        '\u0632\u06cc\u0631\u0645\u062c\u0645\u0648\u0639\u0647 \u062f\u0627\u0646\u0634\u06af\u0627\u0647',
-        '\u0632\u06cc\u0631\u0645\u062c\u0645\u0648\u0639\u0647 \u062f\u0627\u0646\u0634\u06a9\u062f\u0647',
-        '\u0631\u06cc\u0632\u062a\u0631\u06cc\u0646 \u0633\u0637\u062d \u0633\u0627\u062e\u062a\u0627\u0631 \u0633\u0627\u0632\u0645\u0627\u0646\u06cc',
-        '\u0631\u06cc\u0632\u062a\u0631\u06cc\u0646 \u0633\u0637\u062d \u0633\u0627\u062e\u062a\u0627\u0631 \u0633\u0627\u0632\u0645\u0627\u0646\u06cc',
-    ]
-
-    def default_org_level(index):
-        return {
-            'title': default_level_titles[index - 1] if index <= len(default_level_titles) else f'\u0633\u0637\u062d {index}',
-            'hint': default_level_hints[index - 1] if index <= len(default_level_hints) else '\u0633\u0637\u062d \u0633\u0641\u0627\u0631\u0634\u06cc \u0633\u0627\u062e\u062a\u0627\u0631 \u0633\u0627\u0632\u0645\u0627\u0646\u06cc',
-        }
-
-    def repair_display_text(value):
-        text = str(value or '').strip()
-        if not any(marker in text for marker in ('Ø', 'Ù', 'Û', 'Ã', 'Â', 'â')):
-            return text
-        for _ in range(3):
-            try:
-                repaired = text.encode('cp1252').decode('utf-8')
-            except UnicodeError:
-                break
-            if repaired == text:
-                break
-            text = repaired
-        return text
-
-    def normalize_org_levels(raw_value):
-        try:
-            if isinstance(raw_value, str):
-                raw_value = json.loads(raw_value)
-        except json.JSONDecodeError:
-            raw_value = None
-
-        if isinstance(raw_value, int):
-            level_count = max(raw_value, min_org_levels)
-            return [default_org_level(index) for index in range(1, level_count + 1)]
-
-        if isinstance(raw_value, list):
-            levels = []
-            for index, item in enumerate(raw_value, start=1):
-                defaults = default_org_level(index)
-                if not isinstance(item, dict):
-                    item = {}
-                title = repair_display_text(item.get('title')) or defaults['title']
-                hint = repair_display_text(item.get('hint') or item.get('description')) or defaults['hint']
-                levels.append({'title': title, 'hint': hint})
-            return levels or [default_org_level(1)]
-
-        return [default_org_level(index) for index in range(1, 6)]
-
-    def get_org_level_config():
-        row = erd_row("SELECT value FROM system_settings WHERE key = %s", ['org_structure_levels_config'])
-        if row:
-            return normalize_org_levels(row['value'])
-        legacy_row = erd_row("SELECT value FROM system_settings WHERE key = %s", ['org_structure_levels'])
-        return normalize_org_levels(legacy_row['value'] if legacy_row else 5)
+    max_org_levels = len(level_tones)
 
     def save_org_level_config(levels, actor_id=None):
         erd_execute(
@@ -8751,15 +8900,6 @@ def super_admin_org_units(request):
         ORDER BY type, name
         """
     )
-    def org_unit_level_index(unit):
-        code = str(unit.get('code') or '')
-        if code.startswith('__level:') and '__' in code[8:]:
-            try:
-                return int(code.split('__', 2)[1].split(':', 1)[1])
-            except (IndexError, ValueError):
-                pass
-        return {'university': 1, 'faculty': 2, 'department': 3, 'group': 4}.get(unit.get('type'), 3)
-
     def org_unit_public_code(unit):
         code = str(unit.get('code') or '')
         if code.startswith('__level:') and '__' in code[8:]:

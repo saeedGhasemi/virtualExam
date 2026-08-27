@@ -1,10 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_standalone.html' %}
 {% load core_extras %}
 
 {% block title %}افزودن مدیر جدید | متاکوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page teacher-wizard-page manager-wizard-page" dir="rtl">
+{% include 'partials/super_admin_chrome.html' %}
+<section class="super-admin-page super-admin-workspace teacher-wizard-page manager-wizard-page" dir="rtl" data-fixed-scroll-page>
     <header class="teacher-wizard-head">
         <div class="teacher-wizard-title">
             <span class="teacher-wizard-title-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
@@ -13,11 +14,6 @@
                 <p>مدیران / افزودن مدیر جدید</p>
             </div>
         </div>
-        <nav class="teacher-profile-role-tabs teacher-wizard-tabs">
-            <a class="is-active" href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
-            <a href="{% url 'core:super_admin_users' %}?tab=teachers">اساتید</a>
-            <a href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
-        </nav>
     </header>
 
     <main class="teacher-wizard-card">
@@ -31,120 +27,385 @@
             {% endfor %}
         </ol>
 
-        <form method="post" class="teacher-wizard-form">
+        <form method="post" class="teacher-wizard-form" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" name="step" value="{{ step }}">
 
             {% if step == 1 %}
                 <section class="teacher-wizard-panel manager-wizard-basic">
-                    <header><h2>اطلاعات پایه مدیر</h2></header>
                     <div class="teacher-wizard-basic">
-                        <div class="teacher-wizard-photo">
-                            <div><span>م</span></div>
-                            <button type="button"><svg viewBox="0 0 24 24"><path d="M14.5 4h-5L8 6H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3l-1.5-2Z"/><circle cx="12" cy="13" r="3"/></svg>بارگذاری تصویر</button>
+                        <div class="teacher-wizard-photo-card">
+                            <span class="teacher-wizard-photo-label">تصویر مدیر <b class="req">*</b></span>
+                            <div class="teacher-wizard-photo">
+                                <div class="teacher-wizard-photo-preview" id="manager-avatar-preview">
+                                    <img src="{{ draft.avatar_url|default:'' }}" alt="" {% if not draft.avatar_url %}hidden{% endif %}>
+                                    <svg viewBox="0 0 24 24" fill="currentColor" {% if draft.avatar_url %}hidden{% endif %}><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.24-8 5v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2c0-2.76-3.58-5-8-5Z"/></svg>
+                                </div>
+                                <input type="file" id="manager-avatar-input" class="teacher-wizard-photo-input" name="avatar" accept="image/png,image/jpeg,image/webp">
+                                <label for="manager-avatar-input" class="teacher-wizard-photo-btn">
+                                    <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                                    بارگذاری تصویر
+                                </label>
+                                <small>JPG، PNG — حداکثر ۲ مگابایت</small>
+                            </div>
                         </div>
                         <div class="teacher-wizard-grid">
-                            <label>نام <input name="first_name" value="{{ draft.first_name|default:'' }}" required></label>
-                            <label>نام خانوادگی <input name="last_name" value="{{ draft.last_name|default:'' }}" required></label>
-                            <label>کد ملی <input name="national_id" value="{{ draft.national_id|default:'' }}"></label>
+                            <label><span>نام خانوادگی <b class="req">*</b></span><input name="last_name" value="{{ draft.last_name|default:'' }}" required></label>
+                            <label><span>نام <b class="req">*</b></span><input name="first_name" value="{{ draft.first_name|default:'' }}" required></label>
                             <label>شماره پرسنلی <input name="personnel_code" value="{{ draft.personnel_code|default:'' }}" placeholder="ADM-1024"></label>
-                            <label>تاریخ تولد <input name="birth_date" value="{{ draft.birth_date|default:'' }}" placeholder="1365/08/21"></label>
-                            <label>جنسیت <select name="gender"><option value="male" {% if draft.gender == "male" %}selected{% endif %}>مرد</option><option value="female" {% if draft.gender == "female" %}selected{% endif %}>زن</option></select></label>
-                            <label>شماره همراه <input name="phone" value="{{ draft.phone|default:'' }}"></label>
-                            <label>ایمیل سازمانی <input type="email" name="email" value="{{ draft.email|default:'' }}"></label>
+                            <label><span>کد ملی <b class="req">*</b></span><input name="national_id" value="{{ draft.national_id|default:'' }}" required>
+                                <small class="teacher-wizard-hint">کد ملی نباید تکراری باشد</small>
+                            </label>
+                            <label>جنسیت
+                                <select name="gender">
+                                    <option value="">انتخاب کنید</option>
+                                    <option value="male" {% if draft.gender == "male" %}selected{% endif %}>مرد</option>
+                                    <option value="female" {% if draft.gender == "female" %}selected{% endif %}>زن</option>
+                                </select>
+                            </label>
+                            <label>تاریخ تولد
+                                <div class="teacher-wizard-date-field">
+                                    <input name="birth_date" value="{{ draft.birth_date|default:'' }}" placeholder="۱۳۶۵/۰۸/۲۱">
+                                    <svg class="teacher-wizard-date-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                                </div>
+                            </label>
+                            <label><span>ایمیل سازمانی <b class="req">*</b></span><input type="email" name="email" value="{{ draft.email|default:'' }}" required></label>
+                            <label><span>شماره همراه <b class="req">*</b></span><input name="phone" value="{{ draft.phone|default:'' }}" required></label>
                         </div>
                     </div>
                 </section>
             {% elif step == 2 %}
                 <section class="teacher-wizard-panel manager-wizard-role">
-                    <header><h2>نقش و انتساب سازمانی</h2></header>
                     <div class="manager-wizard-two-col">
                         <article>
-                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="admin" {% if draft.manager_role == "admin" %}checked{% endif %}>مدیر سیستم<small>دسترسی کامل به تمام بخش‌های سیستم</small></label>
-                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="academic_manager" {% if draft.manager_role != "admin" %}checked{% endif %}>مدیر آموزشی<small>مدیریت آموزشی در محدوده تخصیص داده شده</small></label>
-                            <label>عنوان سمت <input name="title" value="{{ draft.title|default:'' }}" placeholder="مدیر آموزش دانشکده"></label>
-                            <label>نوع دسترسی <select name="access_type"><option value="selected_units">محدود به واحدهای منتخب</option><option value="primary_only">فقط واحد اصلی</option><option value="unit_and_children">واحد اصلی و زیرمجموعه‌ها</option></select></label>
-                            <label class="teacher-wizard-switch"><input type="checkbox" name="include_child_units" {% if draft.include_child_units or not draft %}checked{% endif %}><span></span>دسترسی به واحدهای زیرمجموعه</label>
-                        </article>
-                        <article>
-                            <label>واحد سازمانی اصلی
-                                <select name="primary_scope_id" required>
-                                    <option value="">انتخاب واحد</option>
-                                    {% for unit in org_units %}
-                                        <option value="{{ unit.id }}" {% if draft.primary_scope_id == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </label>
-                            <div class="teacher-wizard-chipbox">
-                                {% for unit in sub_units|slice:":18" %}
-                                    <label><input type="checkbox" name="scope_ids" value="{{ unit.id }}" {% if unit.id|stringformat:"s" in scope_ids %}checked{% endif %}> {{ unit.name }}</label>
-                                {% endfor %}
+                            <strong>انتساب سازمانی <b class="req">*</b></strong>
+                            <div class="teacher-wizard-org-breadcrumb" data-org-breadcrumb></div>
+                            <label>واحد سازمانی اصلی <b class="req">*</b></label>
+                            <div class="teacher-wizard-org-chain is-single" data-primary-scope-wrap>
+                                <label data-org-select-wrap>
+                                    <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                                    <select name="primary_scope_id" required data-primary-scope>
+                                        <option value="">انتخاب واحد</option>
+                                        {% for unit in org_units %}
+                                            <option value="{{ unit.id }}" {% if draft.primary_scope_id == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                            </div>
+                            <span class="teacher-wizard-combo-label">واحدهای تحت مدیریت (اختیاری)</span>
+                            <div class="teacher-wizard-combo" data-combo="scope">
+                                <button type="button" class="teacher-wizard-combo-addbtn" data-combo-trigger>
+                                    <svg class="teacher-wizard-combo-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+                                    انتخاب واحدها
+                                </button>
+                                <div class="teacher-wizard-combo-panel" data-combo-panel hidden>
+                                    <div data-scope-list>
+                                        {% for unit in sub_units|slice:":40" %}
+                                            <label data-scope-option data-label="{{ unit.name }}">
+                                                <input type="checkbox" name="scope_ids" value="{{ unit.id }}" {% if unit.id|stringformat:"s" in scope_ids %}checked{% endif %}>
+                                                <span>{{ unit.name }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="teacher-wizard-chipbox" data-scope-chips></div>
+                            <div class="manager-scope-summary">
+                                <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                                <div>
+                                    <strong>دامنه مدیریت</strong>
+                                    <b data-scope-count>{{ scope_ids|length|fa_digits }} واحد سازمانی</b>
+                                    <span>شامل واحد اصلی و <span data-scope-subcount>{{ scope_subcount|fa_digits }}</span> واحد تحت مدیریت</span>
+                                </div>
                             </div>
                         </article>
+                        <article>
+                            <strong>نقش مدیریتی <b class="req">*</b></strong>
+                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="admin" {% if draft.manager_role == "admin" %}checked{% endif %}>مدیر سیستم<small>دسترسی کامل به تمام بخش‌های سیستم</small></label>
+                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="academic_manager" {% if draft.manager_role != "admin" %}checked{% endif %}>مدیر آموزشی<small>مدیریت آموزشی در محدوده تخصیص داده شده</small></label>
+                            <label>عنوان سمت <b class="req">*</b><input name="title" value="{{ draft.title|default:'' }}" placeholder="مدیر آموزش دانشکده" required></label>
+                            <label>نوع دسترسی <b class="req">*</b>
+                                <select name="access_type" required>
+                                    <option value="selected_units" {% if draft.access_type == "selected_units" or not draft.access_type %}selected{% endif %}>محدود به واحدهای منتخب</option>
+                                    <option value="primary_only" {% if draft.access_type == "primary_only" %}selected{% endif %}>فقط واحد اصلی</option>
+                                    <option value="unit_and_children" {% if draft.access_type == "unit_and_children" %}selected{% endif %}>واحد اصلی و زیرمجموعه‌ها</option>
+                                </select>
+                            </label>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="include_child_units" {% if draft.include_child_units or not draft %}checked{% endif %}><span></span>دسترسی به واحدهای زیرمجموعه</label>
+                        </article>
                     </div>
+                    {{ org_units|json_script:"org-units-data" }}
                 </section>
             {% elif step == 3 %}
                 <section class="teacher-wizard-panel">
                     <header><h2>تعیین سطح دسترسی مدیر</h2></header>
                     <div class="manager-permission-layout">
-                        <aside class="manager-restrictions">
-                            <h3>محدودیت‌های دسترسی</h3>
-                            <label class="teacher-wizard-switch"><input type="checkbox" name="limit_to_units" {% if draft.limit_to_units or not draft %}checked{% endif %}><span></span>فقط واحدهای تحت مدیریت</label>
-                            <label class="teacher-wizard-switch"><input type="checkbox" name="view_sensitive" {% if draft.view_sensitive %}checked{% endif %}><span></span>مشاهده اطلاعات محرمانه</label>
-                            <label class="teacher-wizard-switch"><input type="checkbox" name="allow_exports" {% if draft.allow_exports or not draft %}checked{% endif %}><span></span>خروجی گرفتن از اطلاعات</label>
-                        </aside>
                         <div>
-                            <label>الگوی دسترسی <select name="permission_template"><option>مدیر آموزشی</option><option>مدیر سیستم</option><option>سفارشی</option></select></label>
-                            <table class="teacher-wizard-table manager-permission-table">
+                            <div class="manager-permission-toolbar">
+                                <label>الگوی دسترسی
+                                    <select name="permission_template" data-permission-template>
+                                        <option>مدیر آموزشی</option>
+                                        <option>مدیر سیستم</option>
+                                        <option>سفارشی</option>
+                                    </select>
+                                </label>
+                                <button type="button" class="teacher-wizard-combo-addbtn" data-apply-template>
+                                    <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                    اعمال الگو
+                                </button>
+                            </div>
+                            <table class="teacher-wizard-table manager-permission-table" data-permission-table>
                                 <thead><tr><th>ماژول / دسترسی</th>{% for key,label in actions %}<th>{{ label }}</th>{% endfor %}</tr></thead>
                                 <tbody>
                                     {% for key,label,allowed in modules %}
                                         <tr>
                                             <td>{{ label }}</td>
                                             {% for action_key,action_label in actions %}
-                                                <td>{% if action_key in allowed %}<input type="checkbox" name="perm_{{ key }}_{{ action_key }}" {% if not permissions %}checked{% endif %}>{% endif %}</td>
+                                                <td>{% if action_key in allowed %}<input type="checkbox" name="perm_{{ key }}_{{ action_key }}" data-perm-action="{{ action_key }}" {% if not permissions %}checked{% elif permissions|get_item:key|get_item:action_key %}checked{% endif %}>{% endif %}</td>
                                             {% endfor %}
                                         </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
+                        <aside class="manager-restrictions">
+                            <h3>محدودیت‌های دسترسی</h3>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="limit_to_units" {% if draft.limit_to_units or not draft %}checked{% endif %}><span></span>فقط واحدهای تحت مدیریت</label>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="view_sensitive" {% if draft.view_sensitive %}checked{% endif %}><span></span>مشاهده اطلاعات محرمانه</label>
+                            <label class="teacher-wizard-switch"><input type="checkbox" name="allow_exports" {% if draft.allow_exports or not draft %}checked{% endif %}><span></span>خروجی گرفتن از اطلاعات</label>
+                            <div class="manager-permission-badge">
+                                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+                                <div>
+                                    <b data-active-perm-count>{{ active_permissions|fa_digits }}</b> مجوز فعال از <b>{{ total_permissions|fa_digits }}</b>
+                                    <span>نرخ فعال‌سازی: <span data-perm-rate>{{ permission_rate|fa_digits }}</span>٪</span>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
                 </section>
             {% else %}
                 <section class="teacher-wizard-final">
-                    <article class="teacher-wizard-summary">
-                        <a href="?step=1">ویرایش</a>
-                        <h2>خلاصه اطلاعات مدیر</h2>
-                        <dl>
-                            <div><dt>نام مدیر:</dt><dd>{{ draft.first_name }} {{ draft.last_name }}</dd></div>
-                            <div><dt>شماره پرسنلی:</dt><dd>{{ draft.personnel_code|default:"ایجاد خودکار"|fa_digits }}</dd></div>
-                            <div><dt>نقش:</dt><dd>{% if draft.manager_role == "admin" %}مدیر سیستم{% else %}مدیر آموزشی{% endif %}</dd></div>
-                            <div><dt>واحد اصلی:</dt><dd>{% for item in selected_scopes|slice:":1" %}{{ item.label }}{% empty %}-{% endfor %}</dd></div>
-                            <div><dt>دامنه مدیریت:</dt><dd>{{ scope_ids|length|fa_digits }} واحد</dd></div>
-                        </dl>
-                    </article>
                     <article class="teacher-wizard-panel">
                         <header><h2>تنظیمات حساب کاربری</h2></header>
-                        <label>نام کاربری <input name="username" value="{{ wizard_username }}" required></label>
-                        <label>ایمیل ورود <input type="email" name="login_email" value="{{ wizard_login_email }}"></label>
-                        <label>روش فعال‌سازی حساب <select name="password_method"><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option></select></label>
+                        <label><span>نام کاربری <b class="req">*</b></span><input name="username" value="{{ wizard_username }}" required></label>
+                        <label><span>ایمیل ورود <b class="req">*</b></span><input type="email" name="login_email" value="{{ wizard_login_email }}" required></label>
+                        <label><span>روش فعال‌سازی حساب <b class="req">*</b></span>
+                            <select name="password_method" required>
+                                <option value="activation_link">ارسال لینک فعال‌سازی</option>
+                                <option value="manual_password">رمز عبور دستی</option>
+                            </select>
+                        </label>
                         <label class="teacher-wizard-switch"><input type="checkbox" name="email_verified_required" checked><span></span>فعال بودن حساب پس از تایید ایمیل</label>
                         <label class="teacher-wizard-switch"><input type="checkbox" name="must_change_password" checked><span></span>الزام تغییر رمز در اولین ورود</label>
-                        <label>وضعیت حساب <select name="account_status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
-                        <div class="teacher-wizard-ready">اطلاعات برای ثبت نهایی کامل است.</div>
+                        <label><span>وضعیت حساب <b class="req">*</b></span>
+                            <select name="account_status" required>
+                                <option value="active">فعال</option>
+                                <option value="inactive">غیرفعال</option>
+                                <option value="blocked">مسدود</option>
+                            </select>
+                        </label>
                         <label class="teacher-wizard-confirm"><input type="checkbox" name="confirm_final" required> صحت اطلاعات ثبت‌شده را تایید می‌کنم</label>
+                    </article>
+                    <article class="teacher-wizard-summary">
+                        <div class="teacher-wizard-summary-head">
+                            <div class="teacher-wizard-summary-avatar">
+                                {% if draft.avatar_url %}<img src="{{ draft.avatar_url }}" alt="">{% else %}<span>{{ draft.first_name|slice:":1"|default:"م" }}</span>{% endif %}
+                            </div>
+                            <div>
+                                <h2>{{ draft.first_name }} {{ draft.last_name }}</h2>
+                                <small>شماره پرسنلی: {{ draft.personnel_code|default:"ایجاد خودکار"|fa_digits }}</small>
+                            </div>
+                        </div>
+                        <dl>
+                            <div><dt>نقش:</dt><dd>{% if draft.manager_role == "admin" %}مدیر سیستم{% else %}مدیر آموزشی{% endif %}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>واحد اصلی:</dt><dd>{{ primary_scope_path.label|default:"-" }}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>دامنه مدیریت:</dt><dd>{{ scope_ids|length|fa_digits }} واحد</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>مجوزهای فعال:</dt><dd>{{ active_permissions|fa_digits }} مورد</dd><a href="?step=3"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                        </dl>
+                        <div class="teacher-wizard-ready"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>اطلاعات شما برای ثبت نهایی کامل است.</div>
                     </article>
                 </section>
             {% endif %}
 
             <footer class="teacher-wizard-actions">
-                <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="teacher-wizard-primary">{% if step == 4 %}ثبت نهایی مدیر{% else %}ذخیره و ادامه{% endif %}<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
-                <button type="submit" name="wizard_action" value="save_draft" class="teacher-wizard-secondary">ذخیره موقت</button>
-                {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="teacher-wizard-link">مرحله قبل</button>{% endif %}
-                <button type="submit" name="wizard_action" value="cancel" class="teacher-wizard-link">انصراف</button>
+                <div class="teacher-wizard-actions-buttons">
+                    <button type="submit" name="wizard_action" value="cancel" class="teacher-wizard-link" formnovalidate>انصراف</button>
+                    {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="teacher-wizard-link" formnovalidate>مرحله قبل</button>{% endif %}
+                    <button type="submit" name="wizard_action" value="save_draft" class="teacher-wizard-secondary" formnovalidate>
+                        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                        ذخیره موقت
+                    </button>
+                    <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="teacher-wizard-primary">
+                        {% if step == 4 %}ثبت نهایی مدیر<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{% else %}ذخیره و ادامه<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>{% endif %}
+                    </button>
+                </div>
+                {% if draft %}<span class="teacher-wizard-autosave"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>آخرین ذخیره: همین حالا</span>{% endif %}
             </footer>
         </form>
     </main>
 </section>
+
+<script>
+(() => {
+    const input = document.getElementById('manager-avatar-input');
+    const preview = document.getElementById('manager-avatar-preview');
+    if (!input || !preview) return;
+    const img = preview.querySelector('img');
+    const icon = preview.querySelector('svg');
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        img.src = URL.createObjectURL(file);
+        img.hidden = false;
+        icon.hidden = true;
+    });
+})();
+
+(() => {
+    const dataNode = document.getElementById('org-units-data');
+    const select = document.querySelector('[data-primary-scope]');
+    const breadcrumb = document.querySelector('[data-org-breadcrumb]');
+    if (!dataNode || !select || !breadcrumb) return;
+    const units = JSON.parse(dataNode.textContent || '[]');
+    const byId = new Map(units.map((u) => [String(u.id), u]));
+
+    function renderBreadcrumb() {
+        breadcrumb.innerHTML = '';
+        const value = select.value;
+        if (!value || !byId.has(value)) {
+            breadcrumb.hidden = true;
+            return;
+        }
+        const chain = [];
+        let node = byId.get(value);
+        while (node) {
+            chain.unshift(node);
+            node = node.parent_id ? byId.get(String(node.parent_id)) : null;
+        }
+        chain.forEach((node, idx) => {
+            if (idx > 0) {
+                const sep = document.createElement('span');
+                sep.className = 'teacher-wizard-org-chevron';
+                sep.textContent = '‹';
+                breadcrumb.appendChild(sep);
+            }
+            const chip = document.createElement('span');
+            chip.className = 'teacher-wizard-org-crumb';
+            chip.textContent = node.name;
+            breadcrumb.appendChild(chip);
+        });
+        breadcrumb.hidden = chain.length === 0;
+    }
+
+    select.addEventListener('change', renderBreadcrumb);
+    renderBreadcrumb();
+})();
+
+(() => {
+    const combo = document.querySelector('[data-combo="scope"]');
+    if (!combo) return;
+    const trigger = combo.querySelector('[data-combo-trigger]');
+    const panel = combo.querySelector('[data-combo-panel]');
+
+    function open() {
+        panel.hidden = false;
+        combo.classList.add('is-open');
+    }
+    function close() {
+        panel.hidden = true;
+        combo.classList.remove('is-open');
+    }
+
+    trigger.addEventListener('click', () => {
+        if (panel.hidden) open(); else close();
+    });
+    document.addEventListener('click', (event) => {
+        if (!combo.contains(event.target)) close();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') close();
+    });
+
+    const options = Array.from(combo.querySelectorAll('[data-scope-option]'));
+    const chips = combo.parentElement.querySelector('[data-scope-chips]');
+    const countEl = document.querySelector('[data-scope-count]');
+    const subcountEl = document.querySelector('[data-scope-subcount]');
+    const faDigits = (n) => String(n).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+
+    function updateScopeSummary() {
+        const checkedCount = options.filter((option) => option.querySelector('input').checked).length;
+        const primarySelected = document.querySelector('[data-primary-scope]')?.value ? 1 : 0;
+        const total = checkedCount + primarySelected;
+        if (countEl) countEl.textContent = `${faDigits(total)} واحد سازمانی`;
+        if (subcountEl) subcountEl.textContent = faDigits(checkedCount);
+    }
+
+    function renderChips() {
+        chips.innerHTML = '';
+        options.forEach((option) => {
+            const optInput = option.querySelector('input');
+            if (!optInput.checked) return;
+            const chip = document.createElement('span');
+            chip.className = 'teacher-wizard-chip';
+            chip.textContent = option.dataset.label;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.setAttribute('aria-label', 'حذف');
+            remove.textContent = '×';
+            remove.addEventListener('click', () => {
+                optInput.checked = false;
+                renderChips();
+                updateScopeSummary();
+            });
+            chip.appendChild(remove);
+            chips.appendChild(chip);
+        });
+    }
+
+    options.forEach((option) => {
+        option.querySelector('input').addEventListener('change', () => {
+            renderChips();
+            updateScopeSummary();
+        });
+    });
+    document.querySelector('[data-primary-scope]')?.addEventListener('change', updateScopeSummary);
+
+    renderChips();
+})();
+
+(() => {
+    const table = document.querySelector('[data-permission-table]');
+    const templateSelect = document.querySelector('[data-permission-template]');
+    const applyBtn = document.querySelector('[data-apply-template]');
+    const activeCountEl = document.querySelector('[data-active-perm-count]');
+    const rateEl = document.querySelector('[data-perm-rate]');
+    if (!table) return;
+    const checkboxes = Array.from(table.querySelectorAll('input[type="checkbox"]'));
+    const total = checkboxes.length;
+    const faDigits = (n) => String(n).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+
+    function updateBadge() {
+        const active = checkboxes.filter((c) => c.checked).length;
+        if (activeCountEl) activeCountEl.textContent = faDigits(active);
+        if (rateEl) rateEl.textContent = faDigits(total ? Math.round((active / total) * 100) : 0);
+    }
+
+    checkboxes.forEach((c) => c.addEventListener('change', updateBadge));
+
+    applyBtn?.addEventListener('click', () => {
+        const value = templateSelect ? templateSelect.value : '';
+        if (value === 'سفارشی') return;
+        checkboxes.forEach((c) => {
+            if (value === 'مدیر سیستم') {
+                c.checked = true;
+            } else {
+                c.checked = c.dataset.permAction === 'view' || c.dataset.permAction === 'create' || c.dataset.permAction === 'edit';
+            }
+        });
+        updateBadge();
+    });
+
+    updateBadge();
+})();
+</script>
 {% endblock %}

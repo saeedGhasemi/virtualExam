@@ -17,7 +17,6 @@
     </header>
 
     <main class="teacher-wizard-card">
-        <a class="teacher-wizard-back" href="{{ back_url }}"><svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>بازگشت به فهرست دانشجویان</a>
         <ol class="teacher-wizard-steps">
             {% for item in steps %}
                 <li class="{% if item.number < step %}is-done{% elif item.number == step %}is-active{% endif %}">
@@ -33,22 +32,21 @@
 
             {% if step == 1 %}
                 <section class="teacher-wizard-panel">
-                    <header><h2>اطلاعات پایه دانشجو</h2></header>
                     <div class="teacher-wizard-basic">
-                        <div class="teacher-wizard-photo">
-                            <div>
-                                {% if draft.avatar_url %}
-                                    <img src="{{ draft.avatar_url }}" alt="">
-                                {% else %}
-                                    <span>{{ draft.first_name|slice:":1"|default:"د" }}</span>
-                                {% endif %}
+                        <div class="teacher-wizard-photo-card">
+                            <span class="teacher-wizard-photo-label">تصویر دانشجو <b class="req">*</b></span>
+                            <div class="teacher-wizard-photo">
+                                <div class="teacher-wizard-photo-preview" id="wizard-avatar-preview">
+                                    <img src="{{ draft.avatar_url|default:'' }}" alt="" {% if not draft.avatar_url %}hidden{% endif %}>
+                                    <svg viewBox="0 0 24 24" fill="currentColor" {% if draft.avatar_url %}hidden{% endif %}><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.24-8 5v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2c0-2.76-3.58-5-8-5Z"/></svg>
+                                </div>
+                                <input type="file" id="wizard-avatar-input" class="teacher-wizard-photo-input" name="avatar" accept="image/png,image/jpeg,image/webp">
+                                <label for="wizard-avatar-input" class="teacher-wizard-photo-btn">
+                                    <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                                    بارگذاری تصویر
+                                </label>
+                                <small>JPG، PNG — حداکثر ۲ مگابایت</small>
                             </div>
-                            <input type="file" id="wizard-avatar-input" class="teacher-wizard-photo-input" name="avatar" accept="image/png,image/jpeg,image/webp">
-                            <label for="wizard-avatar-input" class="teacher-wizard-photo-btn">
-                                <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-                                بارگذاری تصویر
-                            </label>
-                            <small>JPG، PNG — حداکثر ۲ مگابایت</small>
                         </div>
                         <div class="teacher-wizard-grid">
                             <label><span>نام خانوادگی <b class="req">*</b></span><input name="last_name" value="{{ draft.last_name|default:'' }}" required></label>
@@ -66,7 +64,12 @@
                                     <option value="female" {% if draft.gender == "female" %}selected{% endif %}>زن</option>
                                 </select>
                             </label>
-                            <label><span>تاریخ تولد <b class="req">*</b></span><input name="birth_date" value="{{ draft.birth_date|default:'' }}" placeholder="۱۳۷۹/۰۵/۱۲" required></label>
+                            <label><span>تاریخ تولد <b class="req">*</b></span>
+                                <div class="teacher-wizard-date-field">
+                                    <input name="birth_date" value="{{ draft.birth_date|default:'' }}" placeholder="۱۳۷۹/۰۵/۱۲" required>
+                                    <svg class="teacher-wizard-date-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                                </div>
+                            </label>
                             <label><span>ایمیل <b class="req">*</b></span><input type="email" name="email" value="{{ draft.email|default:'' }}" required></label>
                             <label><span>شماره همراه <b class="req">*</b></span><input name="phone" value="{{ draft.phone|default:'' }}" required></label>
                         </div>
@@ -94,20 +97,21 @@
                     <div class="teacher-wizard-org-picker" data-org-picker>
                         <strong>انتساب سازمانی</strong>
                         <div class="teacher-wizard-org-chain">
-                            <label data-org-select-wrap>
-                                <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
-                                <select data-org-level="0"></select>
-                            </label>
-                            <span class="teacher-wizard-org-chevron">‹</span>
-                            <label data-org-select-wrap>
-                                <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
-                                <select data-org-level="1"></select>
-                            </label>
-                            <span class="teacher-wizard-org-chevron">‹</span>
-                            <label data-org-select-wrap>
-                                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
-                                <select data-org-level="2"></select>
-                            </label>
+                            {% for level in org_level_config %}
+                                {% if not forloop.first %}<span class="teacher-wizard-org-chevron">‹</span>{% endif %}
+                                <label data-org-select-wrap>
+                                    {% if forloop.counter == 1 %}
+                                        <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                                    {% elif forloop.counter == 2 %}
+                                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                                    {% elif forloop.counter == 3 %}
+                                        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+                                    {% else %}
+                                        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                                    {% endif %}
+                                    <select data-org-level="{{ forloop.counter0 }}" data-org-title="{{ level.title }}"></select>
+                                </label>
+                            {% endfor %}
                         </div>
                         <input type="hidden" name="org_unit_id" value="{{ draft.org_unit_id|default:'' }}" data-org-hidden>
                         <small>مسیر سازمانی براساس ساختار تعریف‌شده سامانه نمایش داده می‌شود</small>
@@ -120,25 +124,38 @@
                     <div class="student-choice-layout">
                         <aside class="student-choice-summary">
                             <strong>خلاصه انتخاب‌ها</strong>
-                            <div><b data-course-count>{{ selected_course_ids|length|fa_digits }}</b><span>درس</span></div>
-                            <div><b data-group-count>{{ selected_group_ids|length|fa_digits }}</b><span>گروه انتخاب‌شده</span></div>
+                            <div>
+                                <p><b data-course-count>{{ selected_course_ids|length|fa_digits }}</b><span>درس</span></p>
+                                <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
+                            </div>
+                            <div>
+                                <p><b data-group-count>{{ selected_group_ids|length|fa_digits }}</b><span>گروه انتخاب‌شده</span></p>
+                                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+                            </div>
                         </aside>
                         <div class="student-choice-main" data-group-picker>
                             <strong>عضویت در گروه‌ها</strong>
-                            <div class="teacher-wizard-course-tools">
-                                <label>
-                                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                                    <input type="text" placeholder="جست‌وجوی نام گروه" data-group-search>
-                                </label>
+                            <span class="teacher-wizard-combo-label">انتخاب گروه‌ها <b class="req">*</b></span>
+                            <div class="teacher-wizard-combo" data-combo>
+                                <div class="teacher-wizard-combo-trigger" data-combo-trigger>
+                                    <svg class="teacher-wizard-combo-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+                                    <svg class="teacher-wizard-combo-search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                                    <input type="text" placeholder="جست‌وجوی نام گروه" data-group-search autocomplete="off">
+                                </div>
+                                <div class="teacher-wizard-combo-panel" data-combo-panel hidden>
+                                    <div data-group-list>
+                                        {% for group in groups %}
+                                            <label data-group-option data-label="{{ group.group_code|default:'گروه' }} {{ group.course_name }}">
+                                                <input type="checkbox" name="group_ids" value="{{ group.id }}" {% if group.id|stringformat:"s" in selected_group_ids %}checked{% endif %}>
+                                                <span>{{ group.group_code|default:"گروه" }} · {{ group.course_name|fa_digits }}</span>
+                                            </label>
+                                        {% empty %}
+                                            <p>گروهی برای انتخاب ثبت نشده است.</p>
+                                        {% endfor %}
+                                    </div>
+                                </div>
                             </div>
                             <div class="teacher-wizard-chipbox" data-group-chips></div>
-                            <div class="student-group-picker" data-group-list>
-                                {% for group in groups %}
-                                    <label data-group-option data-label="{{ group.group_code|default:'گروه' }} {{ group.course_name }}"><input type="checkbox" name="group_ids" value="{{ group.id }}" {% if group.id|stringformat:"s" in selected_group_ids %}checked{% endif %}> {{ group.group_code|default:"گروه" }} · {{ group.course_name|fa_digits }}</label>
-                                {% empty %}
-                                    <p>گروهی برای انتخاب ثبت نشده است.</p>
-                                {% endfor %}
-                            </div>
                         </div>
                     </div>
                     <div class="teacher-wizard-course-tools">
@@ -162,6 +179,19 @@
                 </section>
             {% else %}
                 <section class="teacher-wizard-final">
+                    <article class="teacher-wizard-panel">
+                        <header><h2>تنظیم حساب کاربری</h2></header>
+                        <label><span>نام کاربری <b class="req">*</b></span><input name="username" value="{{ wizard_username }}" required></label>
+                        <label><span>روش تعیین رمز عبور <b class="req">*</b></span><select name="password_method"><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option><option value="sms_code">ارسال کد پیامکی</option></select></label>
+                        <label>شماره همراه جهت ارسال <input value="{{ draft.phone|default:'' }}" readonly></label>
+                        <label><span>وضعیت حساب <b class="req">*</b></span><select name="account_status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
+                        <label class="teacher-wizard-switch"><input type="checkbox" name="must_change_password" checked><span></span>اجبار به تغییر رمز در اولین ورود</label>
+                        <label class="teacher-wizard-switch"><input type="checkbox" name="send_welcome_message" checked><span></span>ارسال پیام خوش‌آمدگویی</label>
+                        <label>نقش کاربری <input value="دانشجو" disabled>
+                            <small class="teacher-wizard-hint">نقش کاربری پس از ثبت توسط مدیر قابل تغییر است</small>
+                        </label>
+                        <label class="teacher-wizard-confirm"><input type="checkbox" name="confirm_final" required> صحت اطلاعات ثبت‌شده را تایید می‌کنم</label>
+                    </article>
                     <article class="teacher-wizard-summary">
                         <div class="teacher-wizard-summary-head">
                             <div class="teacher-wizard-summary-avatar">
@@ -173,57 +203,54 @@
                             </div>
                         </div>
                         <dl>
-                            <div><dt>رشته تحصیلی:</dt><dd>{{ draft.field_of_study|default:"-" }}</dd><a href="?step=2">ویرایش</a></div>
-                            <div><dt>ورودی:</dt><dd>{{ draft.entry_year|default:"-"|fa_digits }}</dd><a href="?step=2">ویرایش</a></div>
-                            <div><dt>مسیر سازمانی:</dt><dd>{{ active_unit.label|default:"-" }}</dd><a href="?step=2">ویرایش</a></div>
-                            <div><dt>گروه‌ها:</dt><dd>{{ selected_group_ids|length|fa_digits }} گروه</dd><a href="?step=3">ویرایش</a></div>
-                            <div><dt>درس‌ها:</dt><dd>{{ selected_course_ids|length|fa_digits }} درس</dd><a href="?step=3">ویرایش</a></div>
+                            <div><dt>رشته تحصیلی:</dt><dd>{{ draft.field_of_study|default:"-" }}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>ورودی:</dt><dd>{{ draft.entry_year|default:"-"|fa_digits }}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>مسیر سازمانی:</dt><dd>{{ active_unit.label|default:"-" }}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>گروه‌ها:</dt><dd>{{ selected_group_ids|length|fa_digits }} گروه</dd><a href="?step=3"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>درس‌ها:</dt><dd>{{ selected_course_ids|length|fa_digits }} درس</dd><a href="?step=3"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
                         </dl>
                         <div class="teacher-wizard-ready"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>اطلاعات برای ثبت نهایی کامل است.</div>
-                    </article>
-                    <article class="teacher-wizard-panel">
-                        <header><h2>تنظیم حساب کاربری</h2></header>
-                        <label>نام کاربری <input name="username" value="{{ wizard_username }}" required></label>
-                        <label>روش تعیین رمز عبور <select name="password_method"><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option><option value="sms_code">ارسال کد پیامکی</option></select></label>
-                        <label>شماره همراه جهت ارسال <input value="{{ draft.phone|default:'' }}" readonly></label>
-                        <label>وضعیت حساب <select name="account_status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
-                        <label class="teacher-wizard-switch"><input type="checkbox" name="must_change_password" checked><span></span>اجبار به تغییر رمز در اولین ورود</label>
-                        <label class="teacher-wizard-switch"><input type="checkbox" name="send_welcome_message" checked><span></span>ارسال پیام خوش‌آمدگویی</label>
-                        <label>نقش کاربری <input value="دانشجو" disabled>
-                            <small class="teacher-wizard-hint">نقش کاربری پس از ثبت توسط مدیر قابل تغییر است</small>
-                        </label>
-                        <label class="teacher-wizard-confirm"><input type="checkbox" name="confirm_final" required> صحت اطلاعات ثبت‌شده را تایید می‌کنم</label>
                     </article>
                 </section>
             {% endif %}
 
             <footer class="teacher-wizard-actions">
-                {% if draft %}<span class="teacher-wizard-autosave"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>آخرین ذخیره: همین حالا</span>{% endif %}
                 <div class="teacher-wizard-actions-buttons">
-                    <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="teacher-wizard-primary">{% if step == 4 %}ثبت نهایی دانشجو{% else %}ذخیره و ادامه{% endif %}<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
-                    <button type="submit" name="wizard_action" value="save_draft" class="teacher-wizard-secondary">ذخیره موقت</button>
-                    {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="teacher-wizard-link">مرحله قبل</button>{% endif %}
-                    <button type="submit" name="wizard_action" value="cancel" class="teacher-wizard-link">انصراف</button>
+                    <button type="submit" name="wizard_action" value="cancel" class="teacher-wizard-link" formnovalidate>انصراف</button>
+                    {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="teacher-wizard-link" formnovalidate>مرحله قبل</button>{% endif %}
+                    <button type="submit" name="wizard_action" value="save_draft" class="teacher-wizard-secondary" formnovalidate>ذخیره موقت</button>
+                    <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="teacher-wizard-primary">{% if step == 4 %}ثبت نهایی دانشجو<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{% else %}ذخیره و ادامه<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>{% endif %}</button>
                 </div>
+                {% if draft %}<span class="teacher-wizard-autosave"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>آخرین ذخیره: همین حالا</span>{% endif %}
             </footer>
         </form>
     </main>
 </section>
 <script>
 (() => {
+    const input = document.getElementById('wizard-avatar-input');
+    const preview = document.getElementById('wizard-avatar-preview');
+    if (!input || !preview) return;
+    const img = preview.querySelector('img');
+    const icon = preview.querySelector('svg');
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        img.src = URL.createObjectURL(file);
+        img.hidden = false;
+        icon.hidden = true;
+    });
+})();
+
+(() => {
     const dataNode = document.getElementById('org-units-data');
     if (!dataNode) return;
     const units = JSON.parse(dataNode.textContent || '[]');
     const byId = new Map(units.map((u) => [String(u.id), u]));
-    const typeOrder = ['university', 'faculty', 'department', 'group'];
-    const levelFilters = [
-        (u) => u.type === 'university',
-        (u) => u.type === 'faculty',
-        (u) => u.type !== 'university' && u.type !== 'faculty',
-    ];
     const wrap = document.querySelector('[data-org-picker]');
+    if (!wrap) return;
     const hidden = wrap.querySelector('[data-org-hidden]');
-    const selects = [0, 1, 2].map((level) => wrap.querySelector(`[data-org-level="${level}"]`));
+    const selects = Array.from(wrap.querySelectorAll('[data-org-level]'));
 
     function fillSelect(select, items, placeholder) {
         select.innerHTML = '';
@@ -244,32 +271,33 @@
         return units.filter((u) => String(u.parent_id || '') === String(parentId || ''));
     }
 
-    function refreshLevel(level, parentId) {
-        if (level === 0) {
-            fillSelect(selects[0], units.filter(levelFilters[0]), 'دانشگاه');
-        } else if (level === 1) {
-            const items = parentId ? childrenOf(parentId).filter((u) => u.type === 'faculty' || u.type !== 'university') : [];
-            fillSelect(selects[1], items, 'دانشکده');
-        } else if (level === 2) {
-            const items = parentId ? childrenOf(parentId) : [];
-            fillSelect(selects[2], items, 'گروه / دپارتمان');
-        }
+    function refreshLevel(levelIdx, parentId) {
+        const select = selects[levelIdx];
+        if (!select) return;
+        const items = levelIdx === 0
+            ? units.filter((u) => (u.level_index || 1) === 1)
+            : (parentId ? childrenOf(parentId) : []);
+        fillSelect(select, items, select.dataset.orgTitle || '');
     }
 
-    function onChange(level) {
-        const value = selects[level].value;
-        if (level < 2) refreshLevel(level + 1, value);
-        if (level === 2) {
-            hidden.value = value || selects[1].value || selects[0].value || '';
-        } else if (level === 1 && !childrenOf(value).some((u) => u.type !== 'faculty')) {
-            hidden.value = value || selects[0].value || '';
-        } else {
-            hidden.value = '';
+    function deepestSelectedId() {
+        for (let i = selects.length - 1; i >= 0; i -= 1) {
+            if (selects[i].value) return selects[i].value;
         }
+        return '';
     }
 
-    selects.forEach((select, level) => {
-        select.addEventListener('change', () => onChange(level));
+    function onChange(levelIdx) {
+        const value = selects[levelIdx].value;
+        for (let i = levelIdx + 1; i < selects.length; i += 1) {
+            fillSelect(selects[i], [], selects[i].dataset.orgTitle || '');
+        }
+        if (levelIdx + 1 < selects.length) refreshLevel(levelIdx + 1, value);
+        hidden.value = deepestSelectedId();
+    }
+
+    selects.forEach((select, levelIdx) => {
+        select.addEventListener('change', () => onChange(levelIdx));
     });
 
     refreshLevel(0);
@@ -283,19 +311,44 @@
             chain.unshift(node);
             node = node.parent_id ? byId.get(String(node.parent_id)) : null;
         }
-        if (chain[0]) {
-            selects[0].value = chain[0].id;
-            refreshLevel(1, chain[0].id);
-        }
-        if (chain[1]) {
-            selects[1].value = chain[1].id;
-            refreshLevel(2, chain[1].id);
-        }
-        if (chain[2]) {
-            selects[2].value = chain[2].id;
-        }
+        chain.forEach((node, idx) => {
+            if (!selects[idx]) return;
+            selects[idx].value = node.id;
+            if (idx + 1 < selects.length) refreshLevel(idx + 1, node.id);
+        });
         hidden.value = presetId;
     }
+})();
+
+(() => {
+    const combo = document.querySelector('[data-combo]');
+    if (!combo) return;
+    const trigger = combo.querySelector('[data-combo-trigger]');
+    const panel = combo.querySelector('[data-combo-panel]');
+    const input = combo.querySelector('[data-group-search]');
+
+    function open() {
+        panel.hidden = false;
+        combo.classList.add('is-open');
+    }
+    function close() {
+        panel.hidden = true;
+        combo.classList.remove('is-open');
+    }
+
+    trigger.addEventListener('click', () => {
+        if (panel.hidden) {
+            open();
+            input.focus();
+        }
+    });
+    input.addEventListener('focus', open);
+    document.addEventListener('click', (event) => {
+        if (!combo.contains(event.target)) close();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') close();
+    });
 })();
 
 (() => {

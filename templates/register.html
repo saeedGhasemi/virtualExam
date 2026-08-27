@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}?v=20260826b">
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
-    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=auth-card-mask-fix-20260827c">
 </head>
 <body class="auth-page auth-register-page">
     <main class="auth-card">
@@ -49,7 +49,7 @@
 
                     <label class="auth-register-field">
                         <span>شماره دانشجویی</span>
-                        <input type="text" name="{{ form.student_number.html_name }}" id="{{ form.student_number.id_for_label }}" value="{{ form.student_number.value|default:'' }}" autocomplete="off" placeholder="اختیاری">
+                        <input type="text" dir="ltr" name="{{ form.student_number.html_name }}" id="{{ form.student_number.id_for_label }}" value="{{ form.student_number.value|default:'' }}" autocomplete="off" placeholder="اختیاری">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h2M15 13h2M15 9h2"/></svg>
                         {% if form.student_number.errors %}<small class="auth-field-error">{{ form.student_number.errors|striptags }}</small>{% endif %}
                     </label>
@@ -57,14 +57,14 @@
 
                 <label class="auth-register-field">
                     <span>ایمیل</span>
-                    <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default:'' }}" autocomplete="email" placeholder="you@example.com" required>
+                    <input type="email" dir="ltr" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default:'' }}" autocomplete="email" placeholder="you@example.com" required>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
                     {% if form.email.errors %}<small class="auth-field-error">{{ form.email.errors|striptags }}</small>{% endif %}
                 </label>
 
                 <label class="auth-register-field">
                     <span>رمز عبور</span>
-                    <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" autocomplete="new-password" placeholder="حداقل ۸ کاراکتر" required>
+                    <input type="password" dir="ltr" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" autocomplete="new-password" placeholder="حداقل ۸ کاراکتر" required>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
                     {% if form.password.errors %}<small class="auth-field-error">{{ form.password.errors|striptags }}</small>{% endif %}
                 </label>

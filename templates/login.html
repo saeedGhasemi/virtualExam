@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}?v=20260826b">
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
-    <link rel="stylesheet" href="{% static 'dist/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=auth-card-mask-fix-20260827c">
 </head>
 <body class="auth-page">
     <main class="auth-card">
@@ -36,25 +36,20 @@
                 {% endif %}
                 {% if messages %}
                     {% for message in messages %}
-                        <div class="auth-code-alert">{{ message }}</div>
+                        <div class="auth-error">{{ message }}</div>
                     {% endfor %}
-                {% endif %}
-                {% if form.non_field_errors %}
-                    <div class="auth-error">{{ form.non_field_errors|striptags }}</div>
-                {% elif form.errors %}
-                    <div class="auth-error">نام کاربری یا رمز عبور درست نیست.</div>
                 {% endif %}
 
                 <h1 id="login-title">ورود</h1>
 
                 <label class="auth-field">
                     <span>نام کاربری</span>
-                    <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" placeholder="نام کاربری خود را وارد کنید" required>
+                    <input type="text" dir="ltr" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" placeholder="نام کاربری خود را وارد کنید" required>
                 </label>
 
                 <label class="auth-field">
                     <span>رمز عبور</span>
-                    <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" autocomplete="current-password" placeholder="رمز عبور خود را وارد کنید" required>
+                    <input type="password" dir="ltr" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" autocomplete="current-password" placeholder="رمز عبور خود را وارد کنید" required>
                 </label>
 
                 <a class="auth-forgot" href="/admin/password_reset/">رمز عبور را فراموش کرده‌اید؟</a>
