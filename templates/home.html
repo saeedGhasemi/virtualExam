@@ -109,7 +109,7 @@
             <div class="landing-gallery-glow" aria-hidden="true"></div>
             <div class="landing-gallery-ring" aria-hidden="true"></div>
             <figure class="landing-gallery-photo">
-                <video autoplay muted loop playsinline poster="{% static 'img/student-hero.png' %}" aria-label="دانشجو در حال شرکت در آزمون آنلاین متاکوییز">
+                <video autoplay muted loop playsinline preload="auto" aria-label="دانشجو در حال شرکت در آزمون آنلاین متاکوییز">
                     <source src="{% static 'video/hero-student.mp4' %}" type="video/mp4">
                 </video>
             </figure>
@@ -769,6 +769,33 @@
                 });
             }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
             revealTargets.forEach((el) => revealObserver.observe(el));
+        }
+
+        if (!reduceMotion && window.matchMedia('(pointer: fine)').matches) {
+            const clamp = (value, max) => Math.max(-max, Math.min(max, value));
+            document.querySelectorAll('.landing-hero-cta-primary, .landing-hero-cta-ghost, .landing-nav-primary, .landing-cta-band-actions a').forEach((btn) => {
+                btn.addEventListener('mousemove', (event) => {
+                    const rect = btn.getBoundingClientRect();
+                    const relX = event.clientX - rect.left - rect.width / 2;
+                    const relY = event.clientY - rect.top - rect.height / 2;
+                    btn.style.translate = `${clamp(relX * 0.25, 14)}px ${clamp(relY * 0.35, 10)}px`;
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.translate = '';
+                });
+            });
+
+            document.querySelectorAll('.landing-carousel-card, .landing-use-grid article').forEach((card) => {
+                const media = card.querySelector('.landing-carousel-media, .landing-use-media');
+                if (!media) return;
+                card.addEventListener('mousemove', (event) => {
+                    const rect = media.getBoundingClientRect();
+                    const x = ((event.clientX - rect.left) / rect.width) * 100;
+                    const y = ((event.clientY - rect.top) / rect.height) * 100;
+                    media.style.setProperty('--spot-x', `${x}%`);
+                    media.style.setProperty('--spot-y', `${y}%`);
+                });
+            });
         }
     })();
 </script>

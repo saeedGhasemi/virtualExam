@@ -13,10 +13,8 @@
                 افزودن مدیر
             </a>
             <a class="users-secondary-action" href="{% url 'core:super_admin_manager_bulk_import' %}">
-                <span>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
                     ورود گروهی
-                </span>
             </a>
         {% elif active_tab == "students" %}
             <a class="users-primary-action" href="{% url 'core:super_admin_student_create' %}">

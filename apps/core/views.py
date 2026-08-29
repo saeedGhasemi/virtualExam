@@ -7305,7 +7305,6 @@ def super_admin_groups(request):
         'active_groups': sum(1 for row in rows if row.get('is_active')),
         'capacity': sum(int(row.get('capacity') or 0) for row in rows),
         'remaining_capacity': sum(max(int(row.get('capacity') or 0) - int(row.get('members_count') or 0), 0) for row in rows),
-        'pending_requests': sum(1 for row in rows if int(row.get('members_count') or 0) < max(1, int(row.get('capacity') or 0)) and int(row.get('fill_percent') or 0) < 70),
     }
     return render(request, 'super_admin/groups.html', {
         'title': 'گروه‌بندی',

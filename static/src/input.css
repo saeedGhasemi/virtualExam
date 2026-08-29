@@ -268,6 +268,19 @@
     @apply bg-[#2b56d6] text-white;
   }
 
+  /* Magnetic pointer-follow pull on primary CTAs (Skiper/Vengeance UI-style
+     micro-interaction). JS sets the `translate` property on pointermove;
+     kept separate from the `transform`/`scale` utilities below so the
+     existing :active press-scale still composes instead of being clobbered
+     by an inline transform. */
+  .landing-hero-cta-primary,
+  .landing-hero-cta-ghost,
+  .landing-nav-primary,
+  .landing-cta-band-actions a {
+    translate: 0 0;
+    transition: translate 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+
   .landing-hero-stats {
     @apply mt-8 flex flex-wrap items-center divide-x divide-x-reverse divide-[#d7dfea];
   }
@@ -917,6 +930,27 @@
     @apply h-full w-full object-cover;
   }
 
+  /* Cursor-follow spotlight glow over card media, tracked via --spot-x/--spot-y
+     custom properties set from JS on pointermove (Skiper/Vengeance UI-style
+     card interaction). Media already clips via overflow-hidden above. */
+  .landing-carousel-media::after,
+  .landing-use-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(220px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(255, 255, 255, 0.4), transparent 65%);
+    mix-blend-mode: soft-light;
+    transition: opacity 0.4s ease;
+  }
+
+  .landing-carousel-card:hover .landing-carousel-media::after,
+  .landing-use-grid article:hover .landing-use-media::after {
+    opacity: 1;
+  }
+
   .landing-carousel-tag {
     @apply absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-black text-[#2b56d6] shadow-sm;
   }
@@ -1215,7 +1249,8 @@
   .js-reveal .landing-testimonial-card,
   .js-reveal .landing-steps-card,
   .js-reveal .landing-code-card {
-    @apply opacity-0 transition-opacity duration-700 ease-out;
+    @apply opacity-0 translate-y-4 scale-[0.98] transition-[opacity,transform] duration-700;
+    transition-timing-function: cubic-bezier(0.16, 0.84, 0.44, 1);
   }
 
   .js-reveal .landing-section-head,
@@ -1227,7 +1262,7 @@
   }
 
   .js-reveal .is-in-view {
-    @apply !opacity-100 !translate-y-0;
+    @apply !opacity-100 !translate-y-0 !scale-100;
   }
 
   .js-reveal .landing-ring circle:nth-child(2) {
@@ -13532,6 +13567,10 @@
     @apply mx-auto mb-6 w-full max-w-[1540px];
   }
 
+  .manager-bulk-card {
+    @apply relative mx-auto max-w-[1540px] rounded-[1.35rem] border border-white/80 bg-white/70 p-7 shadow-[0_24px_70px_rgba(30,55,95,.10)] backdrop-blur-2xl;
+  }
+
   .manager-bulk-title {
     @apply flex items-center gap-4 text-right;
   }
@@ -13559,7 +13598,7 @@
   }
 
   .manager-bulk-steps {
-    @apply mx-auto mt-8 grid w-full max-w-[1540px] grid-cols-4 gap-4;
+    @apply grid w-full grid-cols-4 gap-4;
   }
 
   .manager-bulk-steps li {
@@ -13599,7 +13638,7 @@
   }
 
   .manager-bulk-form {
-    @apply mx-auto mt-4 w-full max-w-[1540px];
+    @apply mt-6 w-full;
   }
 
   .manager-bulk-grid,
@@ -13732,13 +13771,15 @@
     @apply mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500 px-6 text-sm font-black text-blue-700;
   }
 
-  .manager-bulk-side h2 {
+  .manager-bulk-side h2,
+  .manager-bulk-help h2 {
     @apply flex items-center gap-2;
   }
 
   .manager-bulk-side h2 svg,
-  .manager-bulk-side a svg {
-    @apply h-5 w-5 fill-none stroke-current stroke-2;
+  .manager-bulk-side a svg,
+  .manager-bulk-help h2 svg {
+    @apply h-5 w-5 shrink-0 fill-none stroke-current stroke-2;
   }
 
   .manager-bulk-hint-note {

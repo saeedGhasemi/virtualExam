@@ -11,9 +11,6 @@
     </div>
     <header class="teacher-wizard-head manager-bulk-head">
         <div class="teacher-wizard-title">
-            <span class="teacher-wizard-title-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/><path d="M16 21v-2a4 4 0 0 0-8 0"/></svg>
-            </span>
             <div>
                 <h1>ورود گروهی دانشجویان</h1>
                 <p>کاربران / دانشجویان / ورود گروهی</p>
@@ -21,6 +18,7 @@
         </div>
     </header>
 
+    <main class="manager-bulk-card">
     <ol class="manager-bulk-steps">
         {% for item in steps %}
             <li class="{% if item.number < step %}is-done{% elif item.number == step %}is-active{% endif %}">
@@ -245,17 +243,18 @@
         {% endif %}
 
         <footer class="manager-bulk-actions">
-            {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="manager-bulk-secondary">مرحله قبل</button>{% endif %}
+            {% if step > 1 %}<button type="submit" name="wizard_action" value="prev" class="manager-bulk-secondary" formnovalidate>مرحله قبل</button>{% endif %}
             <div>
-                <button type="submit" name="wizard_action" value="cancel" class="manager-bulk-link">انصراف</button>
-                <button type="submit" name="wizard_action" value="save_draft" class="manager-bulk-secondary">ذخیره موقت</button>
+                <button type="submit" name="wizard_action" value="cancel" class="manager-bulk-link" formnovalidate>انصراف</button>
+                <button type="submit" name="wizard_action" value="save_draft" class="manager-bulk-secondary" formnovalidate>ذخیره موقت</button>
                 <button type="submit" name="wizard_action" value="{% if step == 4 %}finish{% else %}next{% endif %}" class="manager-bulk-primary">
                     {% if step == 1 %}ادامه و تطبیق ستون‌ها{% elif step == 2 %}ادامه و بررسی اطلاعات{% elif step == 3 %}ادامه و ثبت نهایی{% else %}ثبت نهایی {{ valid_count|fa_digits }} دانشجو{% endif %}
-                    <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
                 </button>
             </div>
         </footer>
     </form>
+    </main>
 </section>
 
 <script>

@@ -14,8 +14,8 @@
     .groups-shell{max-width:1510px;margin:0 auto;padding-bottom:1.1rem}
     .groups-hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.2rem;align-items:end;margin-bottom:1rem}
     .groups-actions{display:flex;align-items:center;gap:.75rem}
-    .group-primary,.group-secondary,.group-outline{display:inline-flex;height:3.35rem;align-items:center;justify-content:center;gap:.6rem;border-radius:.78rem;padding:0 1.2rem;font-weight:950}
-    .group-primary{min-width:12.3rem;border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;box-shadow:0 16px 32px rgba(49,92,255,.22)}
+    .group-primary,.group-secondary,.group-outline{display:inline-flex;height:3.35rem;align-items:center;justify-content:center;gap:.6rem;border-radius:9999px;padding:0 1.4rem;font-weight:950}
+    .group-primary{min-width:12.3rem;border:0;background:linear-gradient(135deg,#5a54f0,#443ce0);color:#fff;box-shadow:0 16px 32px rgba(68,60,224,.28)}
     .group-secondary,.group-outline{border:1px solid #c7d8ee;background:rgba(255,255,255,.78);color:#17305f;box-shadow:0 12px 28px rgba(30,55,95,.06)}
     .groups-title{text-align:right;justify-self:end}
     .groups-title h1{margin:0;font-size:2rem;font-weight:950;color:#071936}
@@ -27,15 +27,11 @@
     .stat-card strong{display:block;margin-top:.35rem;font-size:1.95rem;font-weight:950;color:#071936}
     .stat-icon{display:grid;width:4rem;height:4rem;place-items:center;border-radius:50%;background:#eef4ff;color:#315cff}
     .stat-icon.is-green{background:#e8f8ef;color:#16a34a}.stat-icon.is-orange{background:#fff2e6;color:#f97316}.stat-icon.is-violet{background:#f0eaff;color:#7c3aed}
-    .groups-content{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:1rem}
+    .groups-content{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
     .groups-table-card{overflow:hidden}
     .groups-table-head{display:grid;grid-template-columns:auto 1fr;align-items:start;gap:1rem;padding:1.3rem 1.25rem .9rem}
     .groups-table-head h2{margin:0;font-size:1.35rem;font-weight:950}
     .groups-table-head p{margin:.35rem 0 0;color:#65728a;font-weight:850}
-    .pending-card{padding:1rem;text-align:center}
-    .pending-card .stat-icon{margin:0 auto .6rem}
-    .pending-card span{display:block;color:#53617b;font-weight:900}
-    .pending-card strong{display:block;margin:.3rem 0 .75rem;font-size:1.75rem;font-weight:950}
     .group-filters{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:.9rem;padding:0 1.25rem 1rem}
     .group-search,.group-filter{display:flex;height:3.05rem;align-items:center;gap:.6rem;border:1px solid #cbd9ec;border-radius:.75rem;background:#fff;padding:0 .8rem;color:#50607a}
     .group-search input,.group-filter select{width:100%;min-width:0;border:0;background:transparent;outline:0;color:#071936;font-weight:850}
@@ -64,7 +60,7 @@
     .group-selected-box div{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.65rem}.group-selected-box span{display:inline-flex;align-items:center;gap:.35rem;border-radius:999px;background:#eef4ff;color:#315cff;padding:.35rem .65rem;font-weight:850}.group-selected-box button{border:0;background:transparent;color:inherit}
     .group-modal-panel footer{display:flex;gap:.8rem;justify-content:flex-end;border-top:1px solid #e5ecf6;margin-top:1rem;padding-top:1rem}.group-save{height:3rem;border:0;border-radius:.75rem;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;padding:0 1.3rem;font-weight:950}.group-cancel{height:3rem;border:1px solid #d0dceb;border-radius:.75rem;background:#fff;color:#34435f;padding:0 1.3rem;font-weight:950}
     .am-toast{position:fixed;z-index:160;left:1.5rem;bottom:1.5rem;border:1px solid #bbf7d0;border-radius:.8rem;background:#f0fdf4;color:#15803d;padding:.85rem 1rem;font-weight:950;box-shadow:0 18px 42px rgba(30,55,95,.12);opacity:0;transform:translateY(12px);transition:.2s}.am-toast.is-visible{opacity:1;transform:translateY(0)}
-    @media (max-width:1120px){.groups-hero,.groups-content{grid-template-columns:1fr}.groups-stat-grid{grid-template-columns:repeat(2,1fr)}.group-filters{grid-template-columns:1fr 1fr}.groups-table-card{overflow:auto}.groups-table{min-width:980px}.group-org-grid,.group-form-grid{grid-template-columns:1fr 1fr}}
+    @media (max-width:1120px){.groups-hero{grid-template-columns:1fr}.groups-stat-grid{grid-template-columns:repeat(2,1fr)}.group-filters{grid-template-columns:1fr 1fr}.groups-table-card{overflow:auto}.groups-table{min-width:980px}.group-org-grid,.group-form-grid{grid-template-columns:1fr 1fr}}
     @media (max-width:680px){.groups-stat-grid,.group-filters,.group-org-grid,.group-form-grid{grid-template-columns:1fr}.groups-actions{flex-direction:column;align-items:stretch}.group-primary,.group-secondary{width:100%}.groups-pagination{grid-template-columns:1fr;gap:.8rem}.page-size{justify-self:stretch}}
 </style>
 
@@ -147,12 +143,6 @@
                     <span>نمایش ۱ تا {{ rows|length|fa_digits }} از {{ stats.groups|fa_digits }} گروه درسی</span>
                 </footer>
             </section>
-            <aside class="groups-card pending-card">
-                <span class="stat-icon is-orange"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
-                <span>در انتظار ثبت‌نام</span>
-                <strong>{{ stats.pending_requests|fa_digits }} نفر</strong>
-                <button class="group-outline" type="button">بررسی درخواست‌ها</button>
-            </aside>
         </main>
     </div>
 
