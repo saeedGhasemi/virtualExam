@@ -14,9 +14,13 @@
     .groups-shell{max-width:1510px;margin:0 auto;padding-bottom:1.1rem}
     .groups-hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.2rem;align-items:end;margin-bottom:1rem}
     .groups-actions{display:flex;align-items:center;gap:.75rem}
-    .group-primary,.group-secondary,.group-outline{display:inline-flex;height:3.35rem;align-items:center;justify-content:center;gap:.6rem;border-radius:9999px;padding:0 1.4rem;font-weight:950}
-    .group-primary{min-width:12.3rem;border:0;background:linear-gradient(135deg,#5a54f0,#443ce0);color:#fff;box-shadow:0 16px 32px rgba(68,60,224,.28)}
-    .group-secondary,.group-outline{border:1px solid #c7d8ee;background:rgba(255,255,255,.78);color:#17305f;box-shadow:0 12px 28px rgba(30,55,95,.06)}
+    .group-primary,.group-secondary,.group-outline{display:inline-flex;height:3rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.5rem;padding:0 1.25rem;font-size:13px;font-weight:900;transition:transform .15s ease,background-color .15s ease,border-color .15s ease}
+    .group-primary{min-width:12.3rem;border:0;background:#4b46ff;color:#fff;box-shadow:0 16px 34px rgba(75,70,255,.28)}
+    .group-primary:hover{background:#3932e5;transform:translateY(-1px)}
+    .group-secondary,.group-outline{border:1px solid #cfdaf0;background:#fff;color:#3159ff;box-shadow:0 12px 28px rgba(50,76,140,.08)}
+    .group-secondary:hover,.group-outline:hover{border-color:#3159ff;background:#f8fbff;transform:translateY(-1px)}
+    .group-primary span{font-size:1.5rem;line-height:1}
+    .group-secondary svg,.group-outline svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     .groups-title{text-align:right;justify-self:end}
     .groups-title h1{margin:0;font-size:2rem;font-weight:950;color:#071936}
     .groups-title p{margin:.45rem 0 0;color:#53617b;font-weight:850}

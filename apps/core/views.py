@@ -12519,7 +12519,7 @@ def _teacher_student_rows(teacher_id, group_id=None):
         SELECT
             p.id,
             COALESCE(NULLIF(p.full_name, ''), NULLIF(sgm.full_name, ''), p.username, 'دانشجو') AS name,
-            COALESCE(NULLIF(sp.student_number, ''), NULLIF(sgm.student_number, ''), p.identifier, p.username, p.id) AS code,
+            COALESCE(NULLIF(sp.student_number, ''), NULLIF(sgm.student_number, ''), p.identifier, p.username, CAST(p.id AS TEXT)) AS code,
             COALESCE(NULLIF(p.email, ''), '-') AS email,
             COALESCE(NULLIF(p.phone, ''), '-') AS phone,
             COALESCE(NULLIF(sp.field_of_study, ''), 'علوم کامپیوتر') AS field_of_study,
