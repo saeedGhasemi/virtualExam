@@ -3957,13 +3957,18 @@ def _super_admin_collection(request, *, title, kicker, description, form_class=N
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_courses(request):
+    managed_unit_ids = _erd_managed_unit_ids(request)
     if request.method == 'POST':
         action = request.POST.get('course_action')
         if action == 'delete':
             course_id = request.POST.get('course_id')
             if course_id:
+                if managed_unit_ids is not None:
+                    existing = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [course_id])
+                    if not existing or str(existing.get('org_unit_id') or '') not in managed_unit_ids:
+                        return JsonResponse({'ok': False, 'error': 'این درس خارج از محدوده‌ی دسترسی شماست.'}, status=403)
                 erd_execute('DELETE FROM courses WHERE id = %s', [course_id])
                 return JsonResponse({'ok': True})
         if action == 'save':
@@ -3980,7 +3985,13 @@ def super_admin_courses(request):
             description = request.POST.get('description', '').strip()
             if not title:
                 return JsonResponse({'ok': False, 'error': 'عنوان درس الزامی است.'}, status=400)
-            if erd_row('SELECT 1 FROM courses WHERE id = %s', [course_id]):
+            existing = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [course_id])
+            if managed_unit_ids is not None:
+                if existing and str(existing.get('org_unit_id') or '') not in managed_unit_ids:
+                    return JsonResponse({'ok': False, 'error': 'این درس خارج از محدوده‌ی دسترسی شماست.'}, status=403)
+                if not org_unit_id or str(org_unit_id) not in managed_unit_ids:
+                    return JsonResponse({'ok': False, 'error': 'واحد سازمانی انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.'}, status=403)
+            if existing:
                 erd_execute(
                     """
                     UPDATE courses
@@ -3997,13 +4008,13 @@ def super_admin_courses(request):
                     """,
                     [course_id, title, code, description, org_unit_id, credit_units],
                 )
-            row = _course_rows(course_id=course_id)[0]
+            row = _course_rows(request, course_id=course_id)[0]
             return JsonResponse({'ok': True, 'message': 'درس ذخیره شد.', 'course': row})
 
     q = request.GET.get('q', '').strip()
     status_filter = request.GET.get('status', '').strip()
     unit_filter = request.GET.get('unit', '').strip()
-    rows = _course_rows(query=q, status_filter=status_filter, unit_filter=unit_filter)
+    rows = _course_rows(request, query=q, status_filter=status_filter, unit_filter=unit_filter)
     org_units = erd_rows(
         """
         SELECT id, parent_id, type, name, code, is_active
@@ -4032,8 +4043,9 @@ def super_admin_courses(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_course_form(request, course_id=None):
+    managed_unit_ids = _erd_managed_unit_ids(request)
     org_units = erd_rows(
         """
         SELECT id, parent_id, type, name, code, is_active
@@ -4043,7 +4055,7 @@ def super_admin_course_form(request, course_id=None):
     )
     course = None
     if course_id:
-        rows = _course_rows(course_id=course_id)
+        rows = _course_rows(request, course_id=course_id)
         if not rows:
             raise Http404('درس پیدا نشد.')
         course = rows[0]
@@ -4059,6 +4071,12 @@ def super_admin_course_form(request, course_id=None):
             or None
         )
         description = request.POST.get('description', '').strip()
+        if managed_unit_ids is not None and (not org_unit_id or str(org_unit_id) not in managed_unit_ids):
+            return HttpResponseForbidden('واحد سازمانی انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+        if managed_unit_ids is not None and course_id:
+            existing = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [course_id])
+            if existing and str(existing.get('org_unit_id') or '') not in managed_unit_ids:
+                return HttpResponseForbidden('این درس خارج از محدوده‌ی دسترسی شماست.')
         if not title:
             messages.error(request, 'عنوان درس الزامی است.')
         else:
@@ -4094,7 +4112,8 @@ def super_admin_course_form(request, course_id=None):
     })
 
 
-def _course_rows(course_id=None, query='', status_filter='', unit_filter=''):
+def _course_rows(request, course_id=None, query='', status_filter='', unit_filter=''):
+    managed_unit_ids = _erd_managed_unit_ids(request)
     org_units = erd_rows(
         """
         SELECT id, parent_id, type, name, code, is_active
@@ -4147,6 +4166,8 @@ def _course_rows(course_id=None, query='', status_filter='', unit_filter=''):
             'created_display': '-',
             'credit_units': item.get('credit_units') or '-',
         }
+        if managed_unit_ids is not None and str(row.get('org_unit_id') or '') not in managed_unit_ids:
+            continue
         if query and not _matches_query(query, row['title'], row['code'], row['university'], row['faculty'], row['department']):
             continue
         if status_filter and row['status'] != status_filter:
@@ -12170,6 +12191,13 @@ def _erd_is_admin_request(request):
     return getattr(request, 'erd_role', None) == 'admin'
 
 
+def _erd_managed_unit_ids(request):
+    if _erd_is_admin_request(request):
+        return None
+    rows = erd_rows(_erd_manager_scope_cte() + "SELECT id FROM managed_units", [request.erd_profile_id])
+    return {str(row['id']) for row in rows}
+
+
 def _erd_profile_in_manager_scope(request, profile_id, kind):
     if _erd_is_admin_request(request):
         return True
@@ -13968,60 +13996,12 @@ def _em_base_context(request, page, title, icon='book'):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_course_detail(request, course_id):
-    courses = _em_course_rows(request, course_id)
-    if not courses:
-        raise Http404('درس پیدا نشد.')
-    course = courses[0]
-    groups = _em_group_rows(request, course_id=course_id)
-    teacher = groups[0] if groups else course
-    next_exam = erd_row(
-        """
-        SELECT title, start_at, duration_minutes
-        FROM exams
-        WHERE course_id = %s
-        ORDER BY start_at DESC NULLS LAST, title
-        LIMIT 1
-        """,
-        [course_id],
-    ) or {'title': 'آزمون میان‌ترم', 'start_at': '۱۴۰۵/۰۶/۱۵', 'duration_minutes': '۱۰۰'}
-    context = _em_base_context(request, 'course_detail', course['title'], 'book')
-    context.update({
-        'course': course,
-        'groups': groups,
-        'teacher': teacher,
-        'next_exam': next_exam,
-        'stats': {
-            'groups': course['groups_count'],
-            'students': course['students_count'],
-            'teachers': len({g.get('teacher_id') for g in groups if g.get('teacher_id')}) or 1,
-            'exams': course['exams_count'],
-        },
-        'activities': _em_activity_rows(course=course),
-    })
-    return render(request, 'exam_manager/courses.html', context)
+    return super_admin_course_form(request, course_id=course_id)
 
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_course_create(request):
-    org_units = erd_rows("SELECT id, name, type FROM org_units ORDER BY name LIMIT 200")
-    if request.method == 'POST':
-        course_id = str(uuid.uuid4())
-        title = (request.POST.get('title') or '').strip()
-        code = (request.POST.get('code') or '').strip()
-        credit_units = request.POST.get('credit_units') or 0
-        org_unit_id = request.POST.get('org_unit_id') or (org_units[0]['id'] if org_units else None)
-        if not title:
-            messages.error(request, 'نام درس الزامی است.')
-        else:
-            erd_execute(
-                "INSERT INTO courses (id, title, code, description, org_unit_id, credit_units) VALUES (%s, %s, %s, %s, %s, %s)",
-                [course_id, title, code, request.POST.get('description') or '', org_unit_id, credit_units],
-            )
-            messages.success(request, 'درس جدید با موفقیت ثبت شد.')
-            return redirect('core:exam_manager_course_detail', course_id=course_id)
-    context = _em_base_context(request, 'course_create', 'ایجاد درس جدید', 'book')
-    context.update({'org_units': org_units, 'progress_percent': 33})
-    return render(request, 'exam_manager/courses.html', context)
+    return super_admin_course_form(request)
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -14180,24 +14160,7 @@ def exam_manager_group_teacher_assign(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_courses(request):
-    groups = _em_group_rows(request)
-    query = (request.GET.get('q') or '').strip()
-    if query:
-        groups = [g for g in groups if _matches_query(query, g.get('course_title'), g.get('group_code'), g.get('teacher_name'))]
-    context = _em_base_context(request, 'groups', 'گروه‌های درسی', 'users')
-    total_students = sum(group['students_count'] for group in groups)
-    context.update({
-        'groups': groups,
-        'query': query,
-        'stats': {
-            'groups': len(groups),
-            'active_groups': sum(1 for group in groups if group['status_tone'] == 'ok'),
-            'students': total_students,
-            'needs': sum(1 for group in groups if group['students_count'] < 3),
-        },
-        'activities': _em_activity_rows(group=groups[0] if groups else None),
-    })
-    return render(request, 'exam_manager/courses.html', context)
+    return super_admin_courses(request)
 
 
 def _em_account_label(status):

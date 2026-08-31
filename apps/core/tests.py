@@ -99,9 +99,9 @@ class ExamManagerScopingTests(_ScopedOrgFixture):
         self.client.force_login(self.manager_user)
         courses_response = self.client.get(reverse('core:exam_manager_courses'))
         self.assertEqual(courses_response.status_code, 200)
-        group_ids = {row['id'] for row in courses_response.context['groups']}
-        self.assertIn(self.group_in_id, group_ids)
-        self.assertNotIn(self.group_out_id, group_ids)
+        course_ids = {row['id'] for row in courses_response.context['rows']}
+        self.assertIn(self.course_in_id, course_ids)
+        self.assertNotIn(self.course_out_id, course_ids)
 
         groups_response = self.client.get(reverse('core:exam_manager_groups'))
         self.assertEqual(groups_response.status_code, 200)
@@ -177,3 +177,54 @@ class SuperAdminUsersUnificationTests(_ScopedOrgFixture):
 
         profile_url = reverse('core:super_admin_user_profile', args=['student', self.student_in_id])
         self.assertEqual(self.client.get(profile_url).status_code, 200)
+
+
+class SuperAdminCoursesUnificationTests(_ScopedOrgFixture):
+    """
+    صفحه‌ی درس‌های مدیر آموزشی و مدیر سیستم هم اکنون یک صفحه‌ی مشترک است
+    (super_admin_courses/super_admin_course_form). قبلاً exam_manager_courses
+    به‌اشتباه لیست گروه‌ها را نشان می‌داد، نه لیست درس‌ها؛ این هم در همین
+    یکسان‌سازی رفع شد.
+    """
+
+    def test_exam_manager_and_super_admin_course_urls_show_identical_scoped_content(self):
+        self.client.force_login(self.manager_user)
+        for url_name in ('core:exam_manager_courses', 'core:super_admin_courses'):
+            response = self.client.get(reverse(url_name))
+            self.assertEqual(response.status_code, 200)
+            course_ids = {row['id'] for row in response.context['rows']}
+            self.assertIn(self.course_in_id, course_ids)
+            self.assertNotIn(self.course_out_id, course_ids)
+
+    def test_manager_blocked_from_mutating_out_of_scope_course(self):
+        self.client.force_login(self.manager_user)
+        courses_url = reverse('core:super_admin_courses')
+
+        delete_response = self.client.post(courses_url, {'course_action': 'delete', 'course_id': self.course_out_id})
+        self.assertEqual(delete_response.status_code, 403)
+
+        save_response = self.client.post(courses_url, {
+            'course_action': 'save',
+            'course_id': self.course_out_id,
+            'title': 'دستکاری',
+            'department_id': self.ou_scoped,
+        })
+        self.assertEqual(save_response.status_code, 403)
+
+        hijack_response = self.client.post(courses_url, {
+            'course_action': 'save',
+            'title': 'درس جدید با واحد غیرمجاز',
+            'department_id': self.ou_other,
+        })
+        self.assertEqual(hijack_response.status_code, 403)
+
+    def test_manager_can_manage_in_scope_course(self):
+        self.client.force_login(self.manager_user)
+        courses_url = reverse('core:super_admin_courses')
+        response = self.client.post(courses_url, {
+            'course_action': 'save',
+            'title': 'درس جدید داخل محدوده',
+            'department_id': self.ou_scoped,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
