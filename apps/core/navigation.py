@@ -131,69 +131,14 @@ def _profile_sidebar_groups(role_code):
     return groups
 
 
-def app_shell(request):
-    profile = None
-    role_code = 'student'
-    if request.user.is_authenticated:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT p.full_name, ur.role
-                FROM profiles p
-                LEFT JOIN user_roles ur ON ur.user_id = p.id
-                WHERE p.username = %s OR p.email = %s
-                ORDER BY CASE ur.role
-                    WHEN 'admin' THEN 1
-                    WHEN 'academic_manager' THEN 2
-                    WHEN 'teacher' THEN 3
-                    WHEN 'student' THEN 4
-                    ELSE 5
-                END
-                LIMIT 1
-                """,
-                [request.user.username, request.user.email or ''],
-            )
-            row = cursor.fetchone()
-        if row:
-            profile = {'full_name': row[0], 'role': row[1]}
-            role_code = {
-                'admin': 'super_admin',
-                'academic_manager': 'exam_manager',
-                'teacher': 'teacher',
-                'student': 'student',
-            }.get(row[1], 'student')
-    groups = []
-    for label, items in ROLE_NAV.get(role_code, ROLE_NAV['student']):
-        groups.append({
-            'label': label,
-            'items': [
-                {
-                    'label': item_label,
-                    'url': _safe_reverse(url_name),
-                    'icon': ICON_MAP.get(icon, '•'),
-                    'active': request.path.startswith(_safe_reverse(url_name)),
-                }
-                for item_label, url_name, icon in items
-            ],
-        })
-    display_name = (
-        profile['full_name']
-        if profile
-        else request.user.get_full_name() or request.user.username
-        if request.user.is_authenticated
-        else ''
-    )
-    return {
-        'app_nav_groups': groups,
-        'app_display_name': display_name,
-        'app_role_name': {
-            'admin': 'مدیر سامانه',
-            'academic_manager': 'مدیر آموزشی',
-            'teacher': 'استاد',
-            'student': 'دانشجو',
-        }.get(profile['role'], '') if profile else '',
-        'app_is_shell_page': request.user.is_authenticated and request.resolver_match and request.resolver_match.url_name not in {'home', 'login', 'login_2fa'},
-    }
+PANEL_CHROME_ROLES = {'super_admin', 'exam_manager'}
+
+PANEL_HOME_URL = {
+    'super_admin': 'core:dashboard',
+    'exam_manager': 'core:exam_manager_dashboard',
+    'teacher': 'core:teacher_panel',
+    'student': 'core:dashboard',
+}
 
 
 def app_shell(request):
@@ -275,6 +220,8 @@ def app_shell(request):
         'role_label': role_label,
         'role_code': role_code,
         'is_super_admin_shell': role_code == 'super_admin',
+        'use_panel_chrome': role_code in PANEL_CHROME_ROLES,
+        'panel_home_url': _safe_reverse(PANEL_HOME_URL.get(role_code, 'core:dashboard')),
         'app_is_shell_page': (
             request.user.is_authenticated
             and request.resolver_match

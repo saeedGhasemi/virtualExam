@@ -878,6 +878,23 @@ def erd_primary_role(user):
     return None
 
 
+def erd_role_required(*allowed_roles):
+    def decorator(view_func):
+        @login_required
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            role = erd_primary_role(request.user)
+            if role not in allowed_roles:
+                return HttpResponseForbidden('دسترسی برای این نقش مجاز نیست.')
+            profile = erd_profile_for_user(request.user)
+            request.erd_profile = profile
+            request.erd_profile_id = profile['id'] if profile else None
+            request.erd_role = role
+            return view_func(request, *args, **kwargs)
+        return wrapped
+    return decorator
+
+
 def erd_role_code(user):
     return {
         'admin': 'super_admin',
@@ -1895,12 +1912,15 @@ def super_admin_institution_create(request):
     return render(request, 'super_admin/institution_form.html', {'form': form})
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_users(request):
+    is_admin = _erd_is_admin_request(request)
     query = request.GET.get('q', '').strip()
     active_tab = request.GET.get('tab', 'students').strip()
     if active_tab not in {'managers', 'teachers', 'students'}:
         active_tab = 'managers'
+    if not is_admin and active_tab == 'managers':
+        active_tab = 'students'
     status_filter = request.GET.get('status', '').strip()
     cooperation_filter = request.GET.get('cooperation', '').strip()
     manager_type_filter = request.GET.get('manager_type', '').strip()
@@ -1938,6 +1958,8 @@ def super_admin_users(request):
     approval_labels = {'approved': 'تایید شده', 'pending': 'در انتظار', 'rejected': 'رد شده'}
 
     if request.method == 'POST' and request.POST.get('admin_action') == 'save':
+        if not is_admin:
+            return HttpResponseForbidden('فقط مدیر سیستم می‌تواند مدیران را مدیریت کند.')
         admin_id = request.POST.get('admin_id') or str(uuid.uuid4())
         first_name = request.POST.get('first_name', '').strip()
         last_name = request.POST.get('last_name', '').strip()
@@ -1987,7 +2009,7 @@ def super_admin_users(request):
         ORDER BY CASE ur.role WHEN 'admin' THEN 0 ELSE 1 END, p.full_name
         LIMIT 300
         """
-    )
+    ) if is_admin else []
     scopes = erd_rows("SELECT manager_id, org_unit_id FROM academic_manager_scopes")
     scopes_by_manager = {}
     for scope in scopes:
@@ -2076,7 +2098,7 @@ def super_admin_users(request):
     entry_year_filter = request.GET.get('entry_year', '').strip()
     academic_labels = {'active': 'مشغول به تحصیل', 'leave': 'مرخصی', 'graduated': 'فارغ التحصیل', 'inactive': 'غیرفعال'}
     students = erd_rows(
-        """
+        ('' if is_admin else _erd_manager_scope_cte()) + f"""
         SELECT p.id, p.full_name, p.first_name, p.last_name, p.username, p.email, p.phone,
                p.national_id, p.identifier, p.avatar_url, p.status, p.created_at, p.last_login_at,
                sp.student_number, sp.field_of_study, sp.degree, sp.class_group, sp.semester,
@@ -2102,9 +2124,11 @@ def super_admin_users(request):
                ), 0) AS upcoming_exams_count
         FROM student_profiles sp
         JOIN profiles p ON p.id = sp.user_id
+        WHERE {'1=1' if is_admin else _erd_student_scope_condition()}
         ORDER BY p.full_name
         LIMIT 300
-        """
+        """,
+        [] if is_admin else [request.erd_profile_id],
     )
     student_rows = []
     entry_years = []
@@ -2168,7 +2192,7 @@ def super_admin_users(request):
     }
 
     teachers = erd_rows(
-        """
+        ('' if is_admin else _erd_manager_scope_cte()) + f"""
         SELECT p.id, p.full_name, p.first_name, p.last_name, p.username, p.email, p.phone,
                p.national_id, p.identifier, p.avatar_url, p.status, p.created_at, p.last_login_at,
                tp.personnel_code, tp.department, tp.specialty, tp.approval_status, tp.org_unit_id,
@@ -2189,9 +2213,11 @@ def super_admin_users(request):
                ), 0) AS courses_count
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
+        WHERE {'1=1' if is_admin else _erd_teacher_scope_condition()}
         ORDER BY p.full_name
         LIMIT 200
-        """
+        """,
+        [] if is_admin else [request.erd_profile_id],
     )
 
     rows = []
@@ -2266,12 +2292,17 @@ def super_admin_users(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_toggle_account_status(request, kind, user_id):
     if request.method != 'POST':
         raise Http404
     if kind not in {'manager', 'teacher', 'student'}:
         raise Http404
+    is_admin = _erd_is_admin_request(request)
+    if kind == 'manager' and not is_admin:
+        return HttpResponseForbidden('فقط مدیر سیستم می‌تواند وضعیت مدیران را تغییر دهد.')
+    if not is_admin and not _erd_profile_in_manager_scope(request, user_id, kind):
+        return HttpResponseForbidden('این کاربر خارج از محدوده‌ی دسترسی شماست.')
     action = request.POST.get('action')
     if action not in {'activate', 'deactivate'}:
         raise Http404
@@ -2300,12 +2331,14 @@ def super_admin_toggle_account_status(request, kind, user_id):
     return redirect(next_url)
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_delete_account(request, kind, user_id):
     if request.method != 'POST':
         raise Http404
     if kind not in {'teacher', 'student'}:
         raise Http404
+    if not _erd_is_admin_request(request) and not _erd_profile_in_manager_scope(request, user_id, kind):
+        return HttpResponseForbidden('این کاربر خارج از محدوده‌ی دسترسی شماست.')
 
     profile = erd_row("SELECT full_name, username FROM profiles WHERE id = %s", [user_id])
     if not profile:
@@ -2333,11 +2366,16 @@ def super_admin_delete_account(request, kind, user_id):
     return redirect(next_url)
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_user_profile(request, kind, user_id):
     kind = (kind or '').strip()
     if kind not in {'manager', 'teacher', 'student'}:
         raise Http404('نوع پروفایل نامعتبر است.')
+    is_admin = _erd_is_admin_request(request)
+    if kind == 'manager' and not is_admin:
+        raise Http404('نوع پروفایل نامعتبر است.')
+    if kind in {'teacher', 'student'} and not is_admin and not _erd_profile_in_manager_scope(request, user_id, kind):
+        raise Http404('کاربر پیدا نشد.')
 
     org_units = erd_rows(
         """
@@ -4710,18 +4748,26 @@ def super_admin_manager_bulk_import(request):
     def validate_rows():
         upload_rows = draft.get('rows') or []
         mapping = draft.get('mapping') or {}
+        ignored_rows = set(draft.get('ignored_rows') or [])
         records = []
-        counts = {'ok': 0, 'warning': 0, 'error': 0}
+        counts = {'ok': 0, 'warning': 0, 'error': 0, 'ignored': 0}
+        seen_national = set()
+        seen_personnel = set()
         for index, raw in enumerate(upload_rows, start=2):
             record = {field['key']: cell(raw, mapping.get(field['key'])) for field in field_defs}
-            errors = []
-            warnings = []
+            issues = []
             for field in field_defs:
                 if field['required'] and not record.get(field['key']):
-                    errors.append(f"{field['label']} خالی است.")
+                    issues.append(('error', field['key'], f"{field['label']} خالی است."))
+            if record.get('national_id') and record['national_id'] in seen_national:
+                issues.append(('error', 'national_id', 'کد ملی تکراری است.'))
+            if record.get('personnel_code') and record['personnel_code'] in seen_personnel:
+                issues.append(('error', 'personnel_code', 'شماره پرسنلی تکراری است.'))
+            seen_national.add(record.get('national_id'))
+            seen_personnel.add(record.get('personnel_code'))
             unit_id = resolve_unit(record.get('org_unit'))
             if unit_id is None:
-                errors.append('واحد سازمانی مطابق با لیست موجود نیست.')
+                issues.append(('error', 'org_unit', 'واحد سازمانی مطابق با لیست موجود نیست.'))
             record['row_number'] = index
             record['status'] = import_status(record.get('status'))
             record['manager_role'] = manager_role(record.get('manager_type'))
@@ -4730,8 +4776,16 @@ def super_admin_manager_bulk_import(request):
             record['org_unit_label'] = unit_path(unit_id).get('label') if unit_id else 'تمام سازمان'
             record['access_template'] = record.get('access_template') or record['manager_type_label']
             record['full_name'] = f"{record.get('first_name')} {record.get('last_name')}".strip()
+            errors = [msg for level, _key, msg in issues if level == 'error']
+            warnings = [msg for level, _key, msg in issues if level == 'warning']
             record['issues'] = errors + warnings
-            record['level'] = 'error' if errors else ('warning' if warnings else 'ok')
+            if index in ignored_rows:
+                record['level'] = 'ignored'
+            else:
+                record['level'] = 'error' if errors else ('warning' if warnings else 'ok')
+            primary_issue = next(iter(issues), None)
+            record['primary_issue_field'] = primary_issue[1] if primary_issue else ''
+            record['primary_issue_label'] = next((f['label'] for f in field_defs if f['key'] == (primary_issue[1] if primary_issue else '')), '')
             counts[record['level']] += 1
             records.append(record)
         draft['records'] = records
@@ -4756,6 +4810,55 @@ def super_admin_manager_bulk_import(request):
             request.session.modified = True
             messages.success(request, 'پیش‌نویس ورود گروهی مدیران ذخیره شد.')
             return redirect(f'{reverse("core:super_admin_manager_bulk_import")}?step={step}')
+        if nav_action == 'fix_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            field_key = request.POST.get('fix_field', '').strip()
+            new_value = request.POST.get('fix_value', '').strip()
+            mapping = draft.get('mapping') or {}
+            upload_rows = draft.get('rows') or []
+            row_index = (row_number - 2) if row_number else -1
+            if field_key in mapping and 0 <= row_index < len(upload_rows):
+                header = mapping.get(field_key)
+                if not header:
+                    header = field_key
+                    mapping[field_key] = header
+                    draft['mapping'] = mapping
+                upload_rows[row_index][header] = new_value
+                draft['rows'] = upload_rows
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+                messages.success(request, f'ردیف {row_number} اصلاح شد.')
+            return redirect(f'{reverse("core:super_admin_manager_bulk_import")}?step=3')
+        if nav_action == 'ignore_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            if row_number:
+                ignored = set(draft.get('ignored_rows') or [])
+                ignored.add(row_number)
+                draft['ignored_rows'] = list(ignored)
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+            return redirect(f'{reverse("core:super_admin_manager_bulk_import")}?step=3')
+        if nav_action == 'restore_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            if row_number:
+                ignored = set(draft.get('ignored_rows') or [])
+                ignored.discard(row_number)
+                draft['ignored_rows'] = list(ignored)
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+            return redirect(f'{reverse("core:super_admin_manager_bulk_import")}?step=3')
 
         if step == 1:
             uploaded = request.FILES.get('excel_file')
@@ -4827,7 +4930,7 @@ def super_admin_manager_bulk_import(request):
             try:
                 with connection.cursor() as cursor:
                     for record in records:
-                        if record['level'] == 'error' or (record['level'] == 'warning' and skip_warnings):
+                        if record['level'] in ('error', 'ignored') or (record['level'] == 'warning' and skip_warnings):
                             continue
                         manager_id = str(uuid.uuid4())
                         username = record.get('email') if username_method == 'email' and record.get('email') else record.get('personnel_code')
@@ -4922,11 +5025,15 @@ def super_admin_manager_bulk_import(request):
         validate_rows()
 
     records = draft.get('records') or []
-    counts = draft.get('counts') or {'ok': 0, 'warning': 0, 'error': 0}
+    counts = draft.get('counts') or {'ok': 0, 'warning': 0, 'error': 0, 'ignored': 0}
     type_summary = {'مدیر سیستم': 0, 'مدیر آموزشی': 0, 'مدیر واحد': 0}
     for record in records:
-        if record.get('level') != 'error':
+        if record.get('level') not in ('error', 'ignored'):
             type_summary[record.get('manager_type_label') or 'مدیر آموزشی'] = type_summary.get(record.get('manager_type_label') or 'مدیر آموزشی', 0) + 1
+    org_unit_options = sorted(
+        ({'id': unit['id'], 'label': unit_path(unit['id']).get('label') or unit.get('name')} for unit in org_units),
+        key=lambda item: item['label'],
+    )
     steps = [
         {'number': 1, 'label': 'بارگذاری فایل'},
         {'number': 2, 'label': 'تطبیق ستون‌ها'},
@@ -4946,6 +5053,7 @@ def super_admin_manager_bulk_import(request):
         'valid_count': counts.get('ok', 0) + counts.get('warning', 0),
         'required_fields': [field for field in field_defs if field['required']],
         'optional_fields': [field for field in field_defs if not field['required']],
+        'org_unit_options': org_unit_options,
         'back_url': f'{reverse("core:super_admin_users")}?tab=managers',
     })
 
@@ -6037,29 +6145,29 @@ def super_admin_teacher_bulk_import(request):
     def validate_rows():
         upload_rows = draft.get('rows') or []
         mapping = draft.get('mapping') or {}
+        ignored_rows = set(draft.get('ignored_rows') or [])
         records = []
-        counts = {'ok': 0, 'warning': 0, 'error': 0}
+        counts = {'ok': 0, 'warning': 0, 'error': 0, 'ignored': 0}
         seen_national = set()
         seen_phone = set()
         for index, raw in enumerate(upload_rows, start=2):
             record = {field['key']: cell(raw, mapping.get(field['key'])) for field in field_defs}
-            errors = []
-            warnings = []
+            issues = []
             for field in field_defs:
                 if field['required'] and not record.get(field['key']):
-                    errors.append(f"{field['label']} خالی است.")
+                    issues.append(('error', field['key'], f"{field['label']} خالی است."))
             if record.get('national_id') and record['national_id'] in seen_national:
-                errors.append('کد ملی تکراری است.')
+                issues.append(('error', 'national_id', 'کد ملی تکراری است.'))
             if record.get('phone') and record['phone'] in seen_phone:
-                warnings.append('شماره همراه تکراری است.')
+                issues.append(('warning', 'phone', 'شماره همراه تکراری است.'))
             seen_national.add(record.get('national_id'))
             seen_phone.add(record.get('phone'))
             org_unit_id = resolve_unit(record.get('org_unit'))
             if org_unit_id is None:
-                errors.append('واحد سازمانی یافت نشد.')
+                issues.append(('error', 'org_unit', 'واحد سازمانی یافت نشد.'))
             course_ids = resolve_courses(record.get('course_names'))
             if record.get('course_names') and not course_ids:
-                warnings.append('درس‌های فایل با درس‌های سامانه تطبیق نشد.')
+                issues.append(('warning', 'course_names', 'درس‌های فایل با درس‌های سامانه تطبیق نشد.'))
             record['row_number'] = index
             record['status'] = import_status(record.get('status'))
             record['org_unit_id'] = org_unit_id or ''
@@ -6067,8 +6175,16 @@ def super_admin_teacher_bulk_import(request):
             record['course_ids'] = course_ids
             record['personnel_code'] = record.get('personnel_code') or f"TCH-{record.get('national_id') or uuid.uuid4().hex[:6]}"
             record['full_name'] = f"{record.get('first_name')} {record.get('last_name')}".strip()
+            errors = [msg for level, _key, msg in issues if level == 'error']
+            warnings = [msg for level, _key, msg in issues if level == 'warning']
             record['issues'] = errors + warnings
-            record['level'] = 'error' if errors else ('warning' if warnings else 'ok')
+            if index in ignored_rows:
+                record['level'] = 'ignored'
+            else:
+                record['level'] = 'error' if errors else ('warning' if warnings else 'ok')
+            primary_issue = next(iter(issues), None)
+            record['primary_issue_field'] = primary_issue[1] if primary_issue else ''
+            record['primary_issue_label'] = next((f['label'] for f in field_defs if f['key'] == (primary_issue[1] if primary_issue else '')), '')
             counts[record['level']] += 1
             records.append(record)
         draft['records'] = records
@@ -6093,6 +6209,55 @@ def super_admin_teacher_bulk_import(request):
             request.session.modified = True
             messages.success(request, 'پیش‌نویس ورود گروهی اساتید ذخیره شد.')
             return redirect(f'{reverse("core:super_admin_teacher_bulk_import")}?step={step}')
+        if nav_action == 'fix_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            field_key = request.POST.get('fix_field', '').strip()
+            new_value = request.POST.get('fix_value', '').strip()
+            mapping = draft.get('mapping') or {}
+            upload_rows = draft.get('rows') or []
+            row_index = (row_number - 2) if row_number else -1
+            if field_key in mapping and 0 <= row_index < len(upload_rows):
+                header = mapping.get(field_key)
+                if not header:
+                    header = field_key
+                    mapping[field_key] = header
+                    draft['mapping'] = mapping
+                upload_rows[row_index][header] = new_value
+                draft['rows'] = upload_rows
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+                messages.success(request, f'ردیف {row_number} اصلاح شد.')
+            return redirect(f'{reverse("core:super_admin_teacher_bulk_import")}?step=3')
+        if nav_action == 'ignore_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            if row_number:
+                ignored = set(draft.get('ignored_rows') or [])
+                ignored.add(row_number)
+                draft['ignored_rows'] = list(ignored)
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+            return redirect(f'{reverse("core:super_admin_teacher_bulk_import")}?step=3')
+        if nav_action == 'restore_row':
+            try:
+                row_number = int(request.POST.get('row_number', ''))
+            except (TypeError, ValueError):
+                row_number = None
+            if row_number:
+                ignored = set(draft.get('ignored_rows') or [])
+                ignored.discard(row_number)
+                draft['ignored_rows'] = list(ignored)
+                request.session[session_key] = draft
+                request.session.modified = True
+                validate_rows()
+            return redirect(f'{reverse("core:super_admin_teacher_bulk_import")}?step=3')
 
         if step == 1:
             uploaded = request.FILES.get('excel_file')
@@ -6158,7 +6323,7 @@ def super_admin_teacher_bulk_import(request):
             try:
                 with connection.cursor() as cursor:
                     for record in records:
-                        if record['level'] == 'error' or (record['level'] == 'warning' and skip_warnings):
+                        if record['level'] in ('error', 'ignored') or (record['level'] == 'warning' and skip_warnings):
                             continue
                         teacher_id = str(uuid.uuid4())
                         username = record.get('email') or record.get('phone') or record.get('personnel_code')
@@ -6231,13 +6396,13 @@ def super_admin_teacher_bulk_import(request):
     if step >= 3 and draft.get('rows') and draft.get('mapping'):
         validate_rows()
     records = draft.get('records') or []
-    counts = draft.get('counts') or {'ok': 0, 'warning': 0, 'error': 0}
+    counts = draft.get('counts') or {'ok': 0, 'warning': 0, 'error': 0, 'ignored': 0}
     valid_count = counts.get('ok', 0) + counts.get('warning', 0)
     matched_headers = sum(1 for value in (draft.get('mapping') or {}).values() if value)
     optional_count = max(0, len(draft.get('headers') or []) - matched_headers)
     ranks = {}
     for record in records:
-        if record.get('level') != 'error':
+        if record.get('level') not in ('error', 'ignored'):
             ranks[record.get('academic_rank') or 'نامشخص'] = ranks.get(record.get('academic_rank') or 'نامشخص', 0) + 1
     steps = [
         {'number': 1, 'label': 'بارگذاری فایل'},
@@ -7071,10 +7236,14 @@ def super_admin_group_edit(request, group_id):
 @super_admin_required
 def super_admin_groups(request):
     q = request.GET.get('q', '').strip()
-    year_filter = request.GET.get('year', '').strip()
-    semester_filter = request.GET.get('semester', '').strip()
+    term_filter = request.GET.get('term', '').strip()
+    year_filter, _, semester_raw = term_filter.partition('|')
+    semester_filter = semester_raw
     sort = request.GET.get('sort', 'newest')
     tab = request.GET.get('tab', 'all')
+    status_filter = request.GET.get('status', '').strip()
+    fill_filter = request.GET.get('fill', '').strip()
+    teacher_filter = request.GET.get('teacher', '').strip()
 
     org_units = erd_rows(
         """
@@ -7223,6 +7392,8 @@ def super_admin_groups(request):
         """
     )
     terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms ORDER BY year DESC, semester LIMIT 100')
+    for term in terms:
+        term['value'] = f"{term.get('year') or ''}|{term.get('semester') or ''}"
     years = sorted(
         {term.get('year') for term in terms if term.get('year')} |
         {str(row.get('academic_year')) for row in erd_rows('SELECT DISTINCT academic_year FROM student_groups WHERE academic_year IS NOT NULL') if row.get('academic_year')},
@@ -7233,12 +7404,17 @@ def super_admin_groups(request):
         order_sql = 'sg.academic_year ASC, sg.course_name'
     elif sort == 'capacity':
         order_sql = 'members_count DESC, sg.course_name'
+    capacity_col = 'sg.capacity' if erd_has_column('student_groups', 'capacity') else '30 AS capacity'
+    status_col = 'sg.status' if erd_has_column('student_groups', 'status') else "'active' AS status"
+    schedule_col = 'sg.class_schedule' if erd_has_column('student_groups', 'class_schedule') else 'NULL AS class_schedule'
+    location_col = 'sg.class_location' if erd_has_column('student_groups', 'class_location') else 'NULL AS class_location'
     groups = erd_rows(
         f"""
         SELECT sg.id, sg.teacher_id, sg.course_id, sg.course_name, sg.academic_year, sg.semester,
                sg.group_code, sg.description, COALESCE(sg.is_active, true) AS is_active,
+               {capacity_col}, {status_col}, {schedule_col}, {location_col},
                COALESCE(c.title, sg.course_name) AS course_title, c.code AS course_code, c.org_unit_id AS course_org_unit_id,
-               COALESCE(tp.full_name, '-') AS primary_teacher,
+               COALESCE(tp.full_name, '-') AS primary_teacher, tp.avatar_url AS teacher_avatar,
                COALESCE(teacher_names.names, '-') AS teachers_text,
                COALESCE(members.members_count, 0) AS members_count
         FROM student_groups sg
@@ -7260,7 +7436,14 @@ def super_admin_groups(request):
         """
     )
     teacher_links = erd_rows('SELECT group_id, teacher_id FROM group_teachers')
-    student_links = erd_rows('SELECT group_id, student_user_id, full_name, national_id, student_number FROM student_group_members ORDER BY full_name')
+    student_links = erd_rows(
+        """
+        SELECT sgm.group_id, sgm.student_user_id, sgm.full_name, sgm.national_id, sgm.student_number, p.avatar_url
+        FROM student_group_members sgm
+        LEFT JOIN profiles p ON p.id = sgm.student_user_id
+        ORDER BY sgm.full_name
+        """
+    )
     teachers_by_group = {}
     students_by_group = {}
     for link in teacher_links:
@@ -7273,8 +7456,10 @@ def super_admin_groups(request):
     for group in groups:
         primary = unit_path(group.get('course_org_unit_id'))
         selected_students = students_by_group.get(str(group['id']), [])
-        capacity = max(int(group.get('members_count') or 0), 40)
-        percent = min(100, round((int(group.get('members_count') or 0) / capacity) * 100)) if capacity else 0
+        group_teacher_ids = teachers_by_group.get(str(group['id']), [])
+        capacity = max(int(group.get('capacity') or 30), 1)
+        percent = min(100, round((int(group.get('members_count') or 0) / capacity) * 100))
+        status_value = group.get('status') or 'active'
         if tab == 'current' and group.get('academic_year') not in current_years:
             continue
         if tab == 'archive' and group.get('academic_year') in current_years:
@@ -7283,12 +7468,24 @@ def super_admin_groups(request):
             continue
         if semester_filter and normalize_semester(group.get('semester')) != normalize_semester(semester_filter):
             continue
+        if status_filter and status_value != status_filter:
+            continue
+        if fill_filter == 'low' and percent >= 50:
+            continue
+        if fill_filter == 'mid' and not (50 <= percent < 90):
+            continue
+        if fill_filter == 'full' and percent < 90:
+            continue
+        if teacher_filter and teacher_filter != str(group.get('teacher_id') or '') and teacher_filter not in group_teacher_ids:
+            continue
         if q and not _matches_query(q, group.get('course_name'), group.get('group_code'), group.get('primary_teacher'), group.get('teachers_text'), group.get('academic_year'), primary['label']):
             continue
         rows.append({
             **group,
             'semester_label': semester_label(group.get('semester')),
-            'teacher_ids': teachers_by_group.get(str(group['id']), []),
+            'status_value': status_value,
+            'status_label': 'فعال' if status_value == 'active' else 'پیش‌نویس',
+            'teacher_ids': group_teacher_ids,
             'student_ids': [str(item.get('student_user_id') or '') for item in selected_students if item.get('student_user_id')],
             'students_json': selected_students,
             'capacity': capacity,
@@ -7301,17 +7498,46 @@ def super_admin_groups(request):
         'groups': len(rows),
         'students': sum(int(row.get('members_count') or 0) for row in rows),
         'courses': len({str(row.get('course_id') or row.get('course_name') or '') for row in rows if row.get('course_id') or row.get('course_name')}),
+        'active_courses': len({str(row.get('course_id') or row.get('course_name') or '') for row in rows if (row.get('course_id') or row.get('course_name')) and row.get('is_active')}),
         'current_year': (next(iter(current_years), None) or (years[0] if years else '1403-1404')),
+        'current_term_label': (current_term or {}).get('label') or (next(iter(current_years), None) or (years[0] if years else '1403-1404')),
         'active_groups': sum(1 for row in rows if row.get('is_active')),
         'capacity': sum(int(row.get('capacity') or 0) for row in rows),
         'remaining_capacity': sum(max(int(row.get('capacity') or 0) - int(row.get('members_count') or 0), 0) for row in rows),
     }
+
+    total_rows = len(rows)
+    page_size = request.GET.get('page_size')
+    page_size = int(page_size) if str(page_size).isdigit() and int(page_size) in (10, 25, 50) else 10
+    total_pages = max(1, math.ceil(total_rows / page_size))
+    page = request.GET.get('page')
+    page = int(page) if str(page).isdigit() else 1
+    page = min(max(page, 1), total_pages)
+    start_index = (page - 1) * page_size
+    end_index = start_index + page_size
+    page_rows = rows[start_index:end_index]
+    window_start = max(1, page - 2)
+    window_end = min(total_pages, window_start + 4)
+    window_start = max(1, window_end - 4)
+    page_numbers = list(range(window_start, window_end + 1))
+
     return render(request, 'super_admin/groups.html', {
         'title': 'گروه‌بندی',
-        'rows': rows,
+        'rows': page_rows,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': total_pages,
+        'total_rows': total_rows,
+        'start_index': start_index + 1 if page_rows else 0,
+        'end_index': min(end_index, total_rows),
+        'page_numbers': page_numbers,
         'query': q,
         'year_filter': year_filter,
         'semester_filter': semester_filter,
+        'term_filter': term_filter,
+        'status_filter': status_filter,
+        'fill_filter': fill_filter,
+        'teacher_filter': teacher_filter,
         'sort': sort,
         'tab': tab,
         'years': years,
@@ -11377,15 +11603,22 @@ def _super_admin_profile_view(request, page_context):
         """,
         [profile['id']],
     )
-    activity_labels = {
-        'registration_approved': 'تأیید ثبت‌نام کاربر',
-        'registration_rejected': 'رد درخواست ثبت‌نام',
-        'profile_updated': 'ویرایش اطلاعات پروفایل',
-        'password_changed': 'تغییر رمز عبور',
-        'sessions_terminated': 'خروج اجباری از نشست‌های دیگر',
+    activity_meta = {
+        'registration_approved': {'label': 'تأیید ثبت‌نام کاربر', 'icon': 'user-check', 'tone': 'green'},
+        'registration_rejected': {'label': 'رد درخواست ثبت‌نام', 'icon': 'user-x', 'tone': 'red'},
+        'account_activated': {'icon': 'user-check', 'tone': 'green'},
+        'account_deactivated': {'icon': 'user-x', 'tone': 'red'},
+        'account_deleted': {'icon': 'user-x', 'tone': 'red'},
+        'profile_updated': {'label': 'ویرایش اطلاعات پروفایل', 'icon': 'edit', 'tone': 'purple'},
+        'password_changed': {'label': 'تغییر رمز عبور', 'icon': 'lock', 'tone': 'blue'},
+        'sessions_terminated': {'label': 'خروج اجباری از نشست‌های دیگر', 'icon': 'logout', 'tone': 'red'},
+        'system_settings_updated': {'icon': 'settings', 'tone': 'purple'},
     }
     for item in recent_activities:
-        item['label'] = activity_labels.get(item['action'], item.get('reason') or item['action'])
+        meta = activity_meta.get(item['action'], {})
+        item['label'] = meta.get('label') or item.get('reason') or item['action']
+        item['icon'] = meta.get('icon', 'dot')
+        item['tone'] = meta.get('tone', 'blue')
 
     login_rows = safe_rows(
         """
@@ -11444,22 +11677,22 @@ def _super_admin_profile_view(request, page_context):
         'profile_completion': profile_completion,
         'security_score': security_score,
         'stat_tiles': [
-            {'label': 'هشدار امنیتی', 'value': pending_registrations, 'tone': 'red'},
-            {'label': 'آزمون فعال', 'value': active_exams, 'tone': 'blue'},
-            {'label': 'استاد', 'value': teachers_count, 'tone': 'purple'},
-            {'label': 'کاربر', 'value': total_users, 'tone': 'teal'},
+            {'label': 'هشدار امنیتی', 'value': pending_registrations, 'tone': 'red', 'icon': 'alert'},
+            {'label': 'آزمون فعال', 'value': active_exams, 'tone': 'blue', 'icon': 'clipboard'},
+            {'label': 'استاد', 'value': teachers_count, 'tone': 'purple', 'icon': 'user-check'},
+            {'label': 'کاربر', 'value': total_users, 'tone': 'teal', 'icon': 'users'},
         ],
         'access_items': [
-            {'label': 'نقش فعال', 'value': 'مدیر سیستم'},
-            {'label': 'دامنه دسترسی', 'value': 'کل سامانه'},
-            {'label': 'واحد سازمانی', 'value': 'مدیریت مرکزی'},
-            {'label': 'سطح دسترسی', 'value': 'دسترسی کامل'},
+            {'label': 'نقش فعال', 'value': 'مدیر سیستم', 'icon': 'user'},
+            {'label': 'دامنه دسترسی', 'value': 'کل سامانه', 'icon': 'globe'},
+            {'label': 'واحد سازمانی', 'value': 'مدیریت مرکزی', 'icon': 'building'},
+            {'label': 'سطح دسترسی', 'value': 'دسترسی کامل', 'icon': 'shield-check'},
         ],
         'shortcuts': [
-            {'label': 'مدیریت کاربران', 'url': reverse('core:super_admin_users')},
-            {'label': 'تنظیمات سامانه', 'url': reverse('core:super_admin_settings')},
-            {'label': 'ساختار سازمانی', 'url': reverse('core:super_admin_org_units')},
-            {'label': 'درخواست‌های ثبت‌نام', 'url': f'{reverse("core:super_admin_users")}?tab=students&status=pending'},
+            {'label': 'مدیریت کاربران', 'url': reverse('core:super_admin_users'), 'icon': 'users'},
+            {'label': 'تنظیمات سامانه', 'url': reverse('core:super_admin_settings'), 'icon': 'settings'},
+            {'label': 'ساختار سازمانی', 'url': reverse('core:super_admin_org_units'), 'icon': 'org'},
+            {'label': 'گزارش رخدادها', 'url': reverse('core:super_admin_reports'), 'icon': 'report'},
         ],
         'recent_activities': recent_activities,
         'login_history': login_history,
@@ -11854,23 +12087,6 @@ def erd_user_profile_id(user):
     return profile['id'] if profile else None
 
 
-def erd_role_required(*allowed_roles):
-    def decorator(view_func):
-        @login_required
-        @wraps(view_func)
-        def wrapped(request, *args, **kwargs):
-            role = erd_primary_role(request.user)
-            if role not in allowed_roles:
-                return HttpResponseForbidden('دسترسی برای این نقش مجاز نیست.')
-            profile = erd_profile_for_user(request.user)
-            request.erd_profile = profile
-            request.erd_profile_id = profile['id'] if profile else None
-            request.erd_role = role
-            return view_func(request, *args, **kwargs)
-        return wrapped
-    return decorator
-
-
 def _erd_manager_scope_cte():
     return """
         WITH RECURSIVE managed_units(id) AS (
@@ -11916,8 +12132,68 @@ def _erd_exam_scope_condition():
     """
 
 
+def _erd_teacher_scope_condition():
+    return """
+        (
+            tp.org_unit_id IN (SELECT id FROM managed_units)
+            OR EXISTS (
+                SELECT 1
+                FROM student_groups sg_scope
+                LEFT JOIN courses c_scope ON c_scope.id = sg_scope.course_id
+                WHERE sg_scope.teacher_id = tp.user_id
+                  AND c_scope.org_unit_id IN (SELECT id FROM managed_units)
+            )
+        )
+    """
+
+
+def _erd_student_scope_condition():
+    return """
+        (
+            sp.org_unit_id IN (SELECT id FROM managed_units)
+            OR EXISTS (
+                SELECT 1
+                FROM student_group_members sgm_scope
+                JOIN student_groups sg_scope ON sg_scope.id = sgm_scope.group_id
+                LEFT JOIN courses c_scope ON c_scope.id = sg_scope.course_id
+                WHERE sgm_scope.student_user_id = sp.user_id
+                  AND (
+                    c_scope.org_unit_id IN (SELECT id FROM managed_units)
+                    OR sg_scope.teacher_id IN (SELECT user_id FROM teacher_profiles WHERE org_unit_id IN (SELECT id FROM managed_units))
+                  )
+            )
+        )
+    """
+
+
 def _erd_is_admin_request(request):
     return getattr(request, 'erd_role', None) == 'admin'
+
+
+def _erd_profile_in_manager_scope(request, profile_id, kind):
+    if _erd_is_admin_request(request):
+        return True
+    if kind == 'teacher':
+        row = erd_row(
+            _erd_manager_scope_cte() + f"""
+            SELECT 1 AS ok
+            FROM teacher_profiles tp
+            WHERE tp.user_id = %s AND {_erd_teacher_scope_condition()}
+            """,
+            [request.erd_profile_id, profile_id],
+        )
+    elif kind == 'student':
+        row = erd_row(
+            _erd_manager_scope_cte() + f"""
+            SELECT 1 AS ok
+            FROM student_profiles sp
+            WHERE sp.user_id = %s AND {_erd_student_scope_condition()}
+            """,
+            [request.erd_profile_id, profile_id],
+        )
+    else:
+        return False
+    return bool(row)
 
 
 def _erd_scoped_count(request, key):
@@ -13480,41 +13756,74 @@ def _em_term_label(row):
     return semester if 'نیمسال' in str(semester) else f'نیمسال {semester} {year}'.strip()
 
 
-def _em_teacher_options():
+def _em_teacher_options(request):
+    if _erd_is_admin_request(request):
+        return erd_rows(
+            """
+            SELECT p.id, p.full_name, COALESCE(tp.department, '') AS department, COALESCE(tp.specialty, '') AS specialty
+            FROM teacher_profiles tp
+            JOIN profiles p ON p.id = tp.user_id
+            ORDER BY p.full_name
+            LIMIT 200
+            """
+        )
     return erd_rows(
-        """
+        _erd_manager_scope_cte() + f"""
         SELECT p.id, p.full_name, COALESCE(tp.department, '') AS department, COALESCE(tp.specialty, '') AS specialty
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
+        WHERE {_erd_teacher_scope_condition()}
         ORDER BY p.full_name
         LIMIT 200
-        """
+        """,
+        [request.erd_profile_id],
     )
 
 
-def _em_student_options():
+def _em_student_options(request):
+    if _erd_is_admin_request(request):
+        return erd_rows(
+            """
+            SELECT p.id, p.full_name, COALESCE(sp.student_number, p.identifier, '') AS student_number,
+                   COALESCE(sp.field_of_study, '') AS field_of_study,
+                   COALESCE(sp.academic_status, p.status, 'active') AS status,
+                   COALESCE(p.avatar_url, '') AS avatar_url
+            FROM student_profiles sp
+            JOIN profiles p ON p.id = sp.user_id
+            ORDER BY p.full_name
+            LIMIT 500
+            """
+        )
     return erd_rows(
-        """
+        _erd_manager_scope_cte() + f"""
         SELECT p.id, p.full_name, COALESCE(sp.student_number, p.identifier, '') AS student_number,
                COALESCE(sp.field_of_study, '') AS field_of_study,
                COALESCE(sp.academic_status, p.status, 'active') AS status,
                COALESCE(p.avatar_url, '') AS avatar_url
         FROM student_profiles sp
         JOIN profiles p ON p.id = sp.user_id
+        WHERE {_erd_student_scope_condition()}
         ORDER BY p.full_name
         LIMIT 500
-        """
+        """,
+        [request.erd_profile_id],
     )
 
 
-def _em_course_rows(course_id=None):
+def _em_course_rows(request, course_id=None):
+    is_admin = _erd_is_admin_request(request)
     where = ['1=1']
     params = []
+    if not is_admin:
+        where.append('c.org_unit_id IN (SELECT id FROM managed_units)')
     if course_id:
         where.append('c.id = %s')
         params.append(course_id)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_params = [] if is_admin else [request.erd_profile_id]
     rows = erd_rows(
         f"""
+        {scope_cte}
         SELECT c.id, c.title, COALESCE(c.code, '') AS code, COALESCE(c.description, '') AS description,
                COALESCE(c.credit_units, 0) AS credit_units, c.org_unit_id,
                COALESCE(ou.name, 'دانشکده پزشکی') AS department,
@@ -13537,7 +13846,7 @@ def _em_course_rows(course_id=None):
         ORDER BY c.title
         LIMIT 300
         """,
-        params,
+        scope_params + params,
     )
     for row in rows:
         row['term_label'] = _em_term_label(row)
@@ -13550,17 +13859,28 @@ def _em_course_rows(course_id=None):
     return rows
 
 
-def _em_group_rows(group_id=None, course_id=None):
+def _em_group_rows(request, group_id=None, course_id=None):
+    is_admin = _erd_is_admin_request(request)
     where = ['1=1']
     params = []
+    if not is_admin:
+        where.append("""
+            (
+                c.org_unit_id IN (SELECT id FROM managed_units)
+                OR sg.teacher_id IN (SELECT user_id FROM teacher_profiles WHERE org_unit_id IN (SELECT id FROM managed_units))
+            )
+        """)
     if group_id:
         where.append('sg.id = %s')
         params.append(group_id)
     if course_id:
         where.append('sg.course_id = %s')
         params.append(course_id)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_params = [] if is_admin else [request.erd_profile_id]
     rows = erd_rows(
         f"""
+        {scope_cte}
         SELECT sg.id, sg.teacher_id, sg.course_id, sg.course_name, COALESCE(c.title, sg.course_name) AS course_title,
                COALESCE(c.code, '') AS course_code, COALESCE(c.credit_units, 0) AS credit_units,
                COALESCE(sg.academic_year, 'Û±Û´Û°Ûµ') AS academic_year,
@@ -13584,7 +13904,7 @@ def _em_group_rows(group_id=None, course_id=None):
         ORDER BY sg.academic_year DESC, sg.course_name, sg.group_code
         LIMIT 400
         """,
-        params,
+        scope_params + params,
     )
     for row in rows:
         if '?' in str(row.get('group_code') or ''):
@@ -13648,11 +13968,11 @@ def _em_base_context(request, page, title, icon='book'):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_course_detail(request, course_id):
-    courses = _em_course_rows(course_id)
+    courses = _em_course_rows(request, course_id)
     if not courses:
         raise Http404('درس پیدا نشد.')
     course = courses[0]
-    groups = _em_group_rows(course_id=course_id)
+    groups = _em_group_rows(request, course_id=course_id)
     teacher = groups[0] if groups else course
     next_exam = erd_row(
         """
@@ -13706,7 +14026,7 @@ def exam_manager_course_create(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_groups(request):
-    groups = _em_group_rows()
+    groups = _em_group_rows(request)
     query = (request.GET.get('q') or '').strip()
     if query:
         groups = [g for g in groups if _matches_query(query, g.get('course_title'), g.get('group_code'), g.get('teacher_name'))]
@@ -13731,8 +14051,8 @@ def exam_manager_groups(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_group_create(request):
-    courses = _em_course_rows()
-    teachers = _em_teacher_options()
+    courses = _em_course_rows(request)
+    teachers = _em_teacher_options(request)
     if request.method == 'POST':
         group_id = str(uuid.uuid4())
         course_id = request.POST.get('course_id') or (courses[0]['id'] if courses else None)
@@ -13769,12 +14089,12 @@ def exam_manager_group_create(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_group_students_add(request, group_id):
-    group_rows = _em_group_rows(group_id=group_id)
+    group_rows = _em_group_rows(request, group_id=group_id)
     if not group_rows:
         raise Http404('گروه پیدا نشد.')
     group = group_rows[0]
     group['status_label'] = 'فعال' if group.get('status_tone') == 'ok' else 'نیازمند تکمیل'
-    students = _em_student_options()
+    students = _em_student_options(request)
     members = _em_member_rows(group_id)
     member_ids = {str(item.get('student_user_id')) for item in members}
     if request.method == 'POST':
@@ -13804,7 +14124,7 @@ def exam_manager_group_import(request):
     if request.method == 'POST':
         messages.success(request, 'فایل دریافت شد. داده‌ها برای بررسی آماده هستند.')
         return redirect(reverse('core:exam_manager_group_import') + '?step=review')
-    groups = _em_group_rows()
+    groups = _em_group_rows(request)
     context = _em_base_context(request, 'group_import', 'ورود گروهی دانشجویان', 'users')
     context.update({
         'step': request.GET.get('step') or 'upload',
@@ -13822,7 +14142,7 @@ def exam_manager_group_import(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_group_detail(request, group_id):
-    group_rows = _em_group_rows(group_id=group_id)
+    group_rows = _em_group_rows(request, group_id=group_id)
     if not group_rows:
         raise Http404('گروه پیدا نشد.')
     group = group_rows[0]
@@ -13840,8 +14160,8 @@ def exam_manager_group_detail(request, group_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_group_teacher_assign(request):
-    groups = _em_group_rows()
-    teachers = _em_teacher_options()
+    groups = _em_group_rows(request)
+    teachers = _em_teacher_options(request)
     if request.method == 'POST':
         teacher_id = request.POST.get('teacher_id') or (teachers[0]['id'] if teachers else None)
         selected_groups = request.POST.getlist('group_ids')
@@ -13860,7 +14180,7 @@ def exam_manager_group_teacher_assign(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_courses(request):
-    groups = _em_group_rows()
+    groups = _em_group_rows(request)
     query = (request.GET.get('q') or '').strip()
     if query:
         groups = [g for g in groups if _matches_query(query, g.get('course_title'), g.get('group_code'), g.get('teacher_name'))]
@@ -13899,6 +14219,11 @@ def _em_account_tone(status):
 def _em_users_context(request, active_tab='students'):
     institution = get_exam_manager_institution(request.user)
     query = (request.GET.get('q') or '').strip()
+    is_admin = _erd_is_admin_request(request)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_params = [] if is_admin else [request.erd_profile_id]
+    student_scope_where = '1=1' if is_admin else _erd_student_scope_condition()
+    teacher_scope_where = '1=1' if is_admin else _erd_teacher_scope_condition()
     course_titles_expr = (
         "STRING_AGG(DISTINCT c.title, '، ' ORDER BY c.title)"
         if connection.vendor != 'sqlite'
@@ -13906,7 +14231,8 @@ def _em_users_context(request, active_tab='students'):
     )
     students = []
     student_rows = erd_rows(
-        """
+        f"""
+        {scope_cte}
         SELECT p.id, p.full_name, COALESCE(p.email, '') AS email, COALESCE(p.phone, '') AS phone,
                COALESCE(p.avatar_url, '') AS avatar_url, COALESCE(p.status, sp.academic_status, 'active') AS status,
                COALESCE(p.updated_at, p.last_login_at, p.created_at) AS last_activity,
@@ -13920,11 +14246,13 @@ def _em_users_context(request, active_tab='students'):
         JOIN profiles p ON p.id = sp.user_id
         LEFT JOIN org_units ou ON ou.id = sp.org_unit_id
         LEFT JOIN student_group_members sgm ON sgm.student_user_id = p.id
+        WHERE {student_scope_where}
         GROUP BY p.id, p.full_name, p.email, p.phone, p.avatar_url, p.status, p.updated_at, p.last_login_at, p.created_at,
                  sp.academic_status, sp.student_number, p.identifier, sp.field_of_study, sp.degree, sp.entry_year, ou.name, sp.department
         ORDER BY p.full_name
         LIMIT 200
-        """
+        """,
+        scope_params,
     )
     if query:
         student_rows = [row for row in student_rows if _matches_query(query, row.get('full_name'), row.get('student_number'), row.get('field_of_study'))]
@@ -13947,6 +14275,7 @@ def _em_users_context(request, active_tab='students'):
     teachers = []
     teacher_rows = erd_rows(
         f"""
+        {scope_cte}
         SELECT p.id, p.full_name, COALESCE(p.email, '') AS email, COALESCE(p.phone, '') AS phone,
                COALESCE(p.avatar_url, '') AS avatar_url, COALESCE(p.status, tp.approval_status, 'active') AS status,
                COALESCE(p.updated_at, p.last_login_at, p.created_at) AS last_activity,
@@ -13961,11 +14290,13 @@ def _em_users_context(request, active_tab='students'):
         LEFT JOIN org_units ou ON ou.id = tp.org_unit_id
         LEFT JOIN student_groups sg ON sg.teacher_id = p.id
         LEFT JOIN courses c ON c.id = sg.course_id
+        WHERE {teacher_scope_where}
         GROUP BY p.id, p.full_name, p.email, p.phone, p.avatar_url, p.status, tp.approval_status, p.updated_at, p.last_login_at, p.created_at,
                  tp.personnel_code, p.identifier, tp.specialty, ou.name, tp.department
         ORDER BY p.full_name
         LIMIT 200
-        """
+        """,
+        scope_params,
     )
     if query:
         teacher_rows = [row for row in teacher_rows if _matches_query(query, row.get('full_name'), row.get('personnel_code'), row.get('specialty'))]
@@ -14018,11 +14349,7 @@ def _em_users_context(request, active_tab='students'):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_users(request):
-    active_tab = request.GET.get('tab') if request.GET.get('tab') in {'students', 'teachers'} else 'students'
-    context = _em_base_context(request, 'users', 'مدیریت کاربران', 'users')
-    context.update(_em_users_context(request, active_tab=active_tab))
-    context['page_subtitle'] = 'دانشجویان و اساتید دانشکده پزشکی'
-    return render(request, 'exam_manager/users.html', context)
+    return super_admin_users(request)
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -14460,7 +14787,7 @@ def exam_manager_calendar(request):
     if query:
         events = [item for item in events if _matches_query(query, item.get('title'), item.get('course_title'), item.get('group_label'), item.get('type_label'))]
     context = _em_base_context(request, 'calendar', 'تقویم آموزشی', 'calendar')
-    context.update(_em_calendar_context(events, mode=mode, query=query))
+    context.update(_em_calendar_context(request, events, mode=mode, query=query))
     return render(request, 'exam_manager/calendar.html', context)
 
 
@@ -14564,7 +14891,7 @@ def _em_calendar_rows():
     return sorted(all_rows, key=lambda item: (str(item.get('event_date') or ''), str(item.get('start_time') or '')), reverse=True)
 
 
-def _em_calendar_context(events, mode='month', query=''):
+def _em_calendar_context(request, events, mode='month', query=''):
     days = []
     for day in range(1, 32):
         day_events = [item for item in events if item.get('day') == day]
@@ -14598,16 +14925,16 @@ def _em_calendar_context(events, mode='month', query=''):
             'conflicts': len(conflicts),
             'deadlines': sum(1 for e in events if e.get('event_type') == 'deadline'),
         },
-        'courses': _em_course_rows(),
-        'groups': _em_group_rows(),
+        'courses': _em_course_rows(request),
+        'groups': _em_group_rows(request),
     }
 
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_calendar_create(request):
     _em_calendar_ensure_table()
-    courses = _em_course_rows()
-    groups = _em_group_rows()
+    courses = _em_course_rows(request)
+    groups = _em_group_rows(request)
     if request.method == 'POST':
         title = (request.POST.get('title') or '').strip()
         if not title:
@@ -14802,8 +15129,8 @@ def _em_exam_rows(exam_id=None):
     return rows
 
 
-def _em_exam_groups(course_id=None):
-    groups = _em_group_rows(course_id=course_id) if course_id else _em_group_rows()
+def _em_exam_groups(request, course_id=None):
+    groups = _em_group_rows(request, course_id=course_id) if course_id else _em_group_rows(request)
     return groups[:200]
 
 
@@ -14898,9 +15225,9 @@ def exam_manager_exams(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_exam_create(request):
-    courses = _em_course_rows()
-    groups = _em_exam_groups()
-    teachers = _em_teacher_options()
+    courses = _em_course_rows(request)
+    groups = _em_exam_groups(request)
+    teachers = _em_teacher_options(request)
     if request.method == 'POST':
         course_id = request.POST.get('course_id') or (courses[0]['id'] if courses else None)
         course = next((item for item in courses if str(item.get('id')) == str(course_id)), None)
@@ -14993,7 +15320,7 @@ def exam_manager_exam_detail(request, exam_id):
         raise Http404('آزمون پیدا نشد.')
     exam = exams[0]
     attempts = _em_exam_attempt_rows(exam_id)
-    groups = _em_exam_groups(exam.get('course_id'))
+    groups = _em_exam_groups(request, exam.get('course_id'))
     members = _em_member_rows(groups[0]['id']) if groups else []
     participants = attempts or members[:8]
     capacity = (groups[0]['capacity'] if groups else max(len(participants), 1)) or 1

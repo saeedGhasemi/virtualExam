@@ -6,51 +6,55 @@
 {% block content %}
 {% include 'partials/super_admin_chrome.html' %}
 <section class="super-admin-page super-admin-workspace users-hub-page" dir="rtl" data-fixed-scroll-page>
-    <div class="users-hub-actions">
-        {% if active_tab == "managers" %}
-            <a class="users-primary-action" href="{% url 'core:super_admin_manager_create' %}">
-                <span>+</span>
-                افزودن مدیر
-            </a>
-            <a class="users-secondary-action" href="{% url 'core:super_admin_manager_bulk_import' %}">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-                    ورود گروهی
-            </a>
-        {% elif active_tab == "students" %}
-            <a class="users-primary-action" href="{% url 'core:super_admin_student_create' %}">
-                <span>+</span>
-                افزودن دانشجو
-            </a>
-            <a class="users-secondary-action" href="{% url 'core:super_admin_student_bulk_import' %}">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-                    ورود گروهی
-            </a>
-        {% else %}
-            <a class="users-primary-action" href="{% url 'core:super_admin_teacher_create' %}">
-                <span>+</span>
-                افزودن استاد
-            </a>
-            <a class="users-secondary-action" href="{% url 'core:super_admin_teacher_bulk_import' %}">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
-                    ورود گروهی
-            </a>
-        {% endif %}
-    </div>
+    <div class="users-hub-top">
+        <div class="users-hub-actions">
+            {% if active_tab == "managers" %}
+                <a class="users-primary-action" href="{% url 'core:super_admin_manager_create' %}">
+                    <span>+</span>
+                    افزودن مدیر
+                </a>
+                <a class="users-secondary-action" href="{% url 'core:super_admin_manager_bulk_import' %}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                        ورود گروهی
+                </a>
+            {% elif active_tab == "students" %}
+                <a class="users-primary-action" href="{% url 'core:super_admin_student_create' %}">
+                    <span>+</span>
+                    افزودن دانشجو
+                </a>
+                <a class="users-secondary-action" href="{% url 'core:super_admin_student_bulk_import' %}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                        ورود گروهی
+                </a>
+            {% else %}
+                <a class="users-primary-action" href="{% url 'core:super_admin_teacher_create' %}">
+                    <span>+</span>
+                    افزودن استاد
+                </a>
+                <a class="users-secondary-action" href="{% url 'core:super_admin_teacher_bulk_import' %}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+                        ورود گروهی
+                </a>
+            {% endif %}
+        </div>
 
-    <nav class="users-role-tabs" aria-label="تب‌های کاربران">
-        <a class="{% if active_tab == 'students' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=students">
-            دانشجویان
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
-        </a>
-        <a class="{% if active_tab == 'teachers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=teachers">
-            اساتید
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
-        </a>
-        <a class="{% if active_tab == 'managers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=managers">
-            مدیران
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </a>
-    </nav>
+        <nav class="users-role-tabs" aria-label="تب‌های کاربران">
+            <a class="{% if active_tab == 'students' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=students">
+                دانشجویان
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+            </a>
+            <a class="{% if active_tab == 'teachers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=teachers">
+                اساتید
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+            </a>
+            {% if is_super_admin_shell %}
+            <a class="{% if active_tab == 'managers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=managers">
+                مدیران
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </a>
+            {% endif %}
+        </nav>
+    </div>
 
     {% if active_tab == "managers" %}
         <div class="users-stats-grid users-stats-grid--managers">
