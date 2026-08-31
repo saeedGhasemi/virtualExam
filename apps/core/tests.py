@@ -63,6 +63,11 @@ class _ScopedOrgFixture(TestCase):
             [cls.group_out_id, cls.teacher_out_id, cls.course_out_id, 'درس خارج محدوده', '1403'],
         )
 
+        cls.exam_in_id = str(uuid.uuid4())
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id'], [cls.exam_in_id, 'آزمون داخل محدوده', cls.teacher_in_id, cls.course_in_id])
+        cls.exam_out_id = str(uuid.uuid4())
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id'], [cls.exam_out_id, 'آزمون خارج محدوده', cls.teacher_out_id, cls.course_out_id])
+
         cls.admin_id = cls._make_profile('admin_test', 'مدیر سیستم تست')
         _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), cls.admin_id, 'admin'])
 
@@ -285,3 +290,70 @@ class SuperAdminGroupsUnificationTests(_ScopedOrgFixture):
         }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['ok'])
+
+
+class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
+    """
+    صفحه‌ی آزمون‌های مدیر آموزشی و مدیر سیستم هم اکنون یک صفحه‌ی مشترک
+    است (super_admin_exams/super_admin_exam_detail/super_admin_exam_edit).
+    این تست همچنین حفره‌ی scope مستقلی را پوشش می‌دهد که در _em_exam_rows
+    پیدا شد: قبلاً هر مدیر آموزشی همه‌ی آزمون‌های کل سیستم را می‌دید.
+    """
+
+    def test_exam_manager_and_super_admin_exam_urls_show_identical_scoped_content(self):
+        self.client.force_login(self.manager_user)
+        for url_name in ('core:exam_manager_exams', 'core:super_admin_exams'):
+            response = self.client.get(reverse(url_name))
+            self.assertEqual(response.status_code, 200)
+            exam_ids = {row['id'] for row in response.context['rows']}
+            self.assertIn(self.exam_in_id, exam_ids)
+            self.assertNotIn(self.exam_out_id, exam_ids)
+
+    def test_admin_still_sees_every_exam(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse('core:super_admin_exams'))
+        exam_ids = {row['id'] for row in response.context['rows']}
+        self.assertIn(self.exam_in_id, exam_ids)
+        self.assertIn(self.exam_out_id, exam_ids)
+
+    def test_manager_cannot_view_out_of_scope_exam(self):
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_detail', args=[self.exam_out_id])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_edit', args=[self.exam_out_id])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('core:exam_manager_exam_questions', args=[self.exam_out_id])).status_code, 404)
+
+    def test_manager_can_view_in_scope_exam(self):
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_detail', args=[self.exam_in_id])).status_code, 200)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_edit', args=[self.exam_in_id])).status_code, 200)
+
+    def test_manager_blocked_from_creating_exam_with_out_of_scope_group(self):
+        self.client.force_login(self.manager_user)
+        response = self.client.post(reverse('core:super_admin_exams'), {
+            'exam_action': 'create',
+            'group_id': self.group_out_id,
+            'title': 'آزمون نفوذی',
+        })
+        self.assertEqual(response.status_code, 403)
+
+
+class ExamManagerCalendarScopeTests(_ScopedOrgFixture):
+    """
+    حفره‌ی scope در _em_calendar_rows: قبلاً تقویم مدیر آموزشی همه‌ی
+    آزمون‌ها و رویدادهای تقویمی کل سیستم را نشان می‌داد.
+    """
+
+    def test_manager_calendar_only_shows_in_scope_exams(self):
+        self.client.force_login(self.manager_user)
+        response = self.client.get(reverse('core:exam_manager_calendar'))
+        self.assertEqual(response.status_code, 200)
+        event_ids = {event['id'] for event in response.context['events']}
+        self.assertIn(self.exam_in_id, event_ids)
+        self.assertNotIn(self.exam_out_id, event_ids)
+
+    def test_admin_calendar_shows_every_exam(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse('core:exam_manager_calendar'))
+        event_ids = {event['id'] for event in response.context['events']}
+        self.assertIn(self.exam_in_id, event_ids)
+        self.assertIn(self.exam_out_id, event_ids)

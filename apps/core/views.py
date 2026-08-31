@@ -7596,7 +7596,7 @@ def super_admin_groups(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_exam_create(request):
     def parse_local_datetime(value):
         value = (value or '').strip()
@@ -7687,6 +7687,8 @@ def super_admin_exam_create(request):
         if not title or not course_id or not teacher_id:
             messages.error(request, 'عنوان آزمون، درس و استاد الزامی است.')
             return redirect('core:super_admin_exam_create')
+        if not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
+            return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         if not selected_groups and not selected_students:
             messages.error(request, 'حداقل یک گروه یا دانشجو برای آزمون انتخاب کنید.')
             return redirect('core:super_admin_exam_create')
@@ -7812,7 +7814,7 @@ def super_admin_exam_create(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_exams(request):
     if request.method == 'POST' and request.POST.get('exam_action') == 'create':
         group_id = request.POST.get('group_id') or ''
@@ -7828,6 +7830,8 @@ def super_admin_exams(request):
         )
         if not group:
             return JsonResponse({'ok': False, 'message': 'گروه انتخاب‌شده معتبر نیست.'}, status=400)
+        if not _erd_group_assignment_in_scope(request, group.get('course_id'), [group.get('selected_teacher_id') or group.get('teacher_id')]):
+            return JsonResponse({'ok': False, 'message': 'این گروه خارج از محدوده‌ی دسترسی شماست.'}, status=403)
 
         title = request.POST.get('title', '').strip()
         if not title:
@@ -7921,8 +7925,13 @@ def super_admin_exams(request):
     teacher_filter = request.GET.get('teacher', '').strip()
     date_filter = request.GET.get('date', '').strip()
 
+    is_admin = _erd_is_admin_request(request)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_where = '1=1' if is_admin else _erd_exam_scope_condition()
+    scope_params = [] if is_admin else [request.erd_profile_id]
     exams = erd_rows(
-        """
+        f"""
+        {scope_cte}
         SELECT e.id, e.title, e.description, e.duration_minutes, e.start_at, e.end_at,
                '-' AS start_date,
                '-' AS start_time,
@@ -7952,9 +7961,11 @@ def super_admin_exams(request):
             FROM exam_attempts
             GROUP BY exam_id
         ) attempts ON attempts.exam_id = e.id
+        WHERE {scope_where}
         ORDER BY e.start_at DESC NULLS LAST, e.title
         LIMIT 300
-        """
+        """,
+        scope_params,
     )
 
     now = timezone.now()
@@ -8354,7 +8365,7 @@ def super_admin_exam_bulk_import(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_exam_edit(request, exam_id):
     def parse_local_datetime_pair(date_value, time_value):
         date_value = (date_value or '').strip()
@@ -8413,6 +8424,8 @@ def super_admin_exam_edit(request, exam_id):
         [exam_id],
     )
     if not exam:
+        raise Http404('آزمون پیدا نشد.')
+    if not _erd_exam_in_manager_scope(request, exam_id):
         raise Http404('آزمون پیدا نشد.')
 
     start_at = erd_datetime(exam.get('start_at'))
@@ -8750,7 +8763,7 @@ def super_admin_exam_edit(request, exam_id):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_exam_detail(request, exam_id):
     tab = request.GET.get('tab', 'overview').strip() or 'overview'
     exam = erd_row(
@@ -8791,6 +8804,8 @@ def super_admin_exam_detail(request, exam_id):
         [exam_id],
     )
     if not exam:
+        raise Http404('آزمون پیدا نشد.')
+    if not _erd_exam_in_manager_scope(request, exam_id):
         raise Http404('آزمون پیدا نشد.')
 
     exam['start_at'] = erd_datetime(exam.get('start_at'))
@@ -12227,6 +12242,20 @@ def _erd_managed_unit_ids(request):
     return {str(row['id']) for row in rows}
 
 
+def _erd_exam_in_manager_scope(request, exam_id):
+    if _erd_is_admin_request(request):
+        return True
+    row = erd_row(
+        _erd_manager_scope_cte() + f"""
+        SELECT 1 AS ok
+        FROM exams e
+        WHERE e.id = %s AND {_erd_exam_scope_condition()}
+        """,
+        [request.erd_profile_id, exam_id],
+    )
+    return bool(row)
+
+
 def _erd_group_in_manager_scope(request, group_id):
     if _erd_is_admin_request(request):
         return True
@@ -14770,7 +14799,7 @@ def exam_manager_calendar(request):
     mode = request.GET.get('mode') or 'month'
     if mode not in {'month', 'week', 'events'}:
         mode = 'month'
-    events = _em_calendar_rows()
+    events = _em_calendar_rows(request)
     query = (request.GET.get('q') or '').strip()
     if query:
         events = [item for item in events if _matches_query(query, item.get('title'), item.get('course_title'), item.get('group_label'), item.get('type_label'))]
@@ -14819,16 +14848,21 @@ def _em_calendar_status_meta(status):
     }.get(status or 'published', ('منتشر شده', 'ok'))
 
 
-def _em_calendar_rows():
+def _em_calendar_rows(request):
     _em_calendar_ensure_table()
+    is_admin = _erd_is_admin_request(request)
     if connection.vendor == 'sqlite':
         calendar_course_join = 'c.id = ace.course_id'
         calendar_group_join = 'sg.id = ace.group_id'
     else:
         calendar_course_join = "c.id = NULLIF(ace.course_id, '')::uuid"
         calendar_group_join = "sg.id = NULLIF(ace.group_id, '')::uuid"
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_params = [] if is_admin else [request.erd_profile_id]
+    calendar_scope_where = '1=1' if is_admin else _erd_group_scope_condition()
     rows = erd_rows(
         f"""
+        {scope_cte}
         SELECT ace.id, ace.title, COALESCE(ace.event_type, 'session') AS event_type,
                ace.course_id, ace.group_id, COALESCE(c.title, '') AS course_title,
                COALESCE(sg.group_code, '') AS group_code,
@@ -14842,12 +14876,16 @@ def _em_calendar_rows():
         FROM academic_calendar_events ace
         LEFT JOIN courses c ON {calendar_course_join}
         LEFT JOIN student_groups sg ON {calendar_group_join}
+        WHERE {calendar_scope_where}
         ORDER BY ace.starts_at DESC NULLS LAST, ace.title
         LIMIT 200
-        """
+        """,
+        scope_params,
     )
+    exam_scope_where = '1=1' if is_admin else _erd_exam_scope_condition()
     exam_rows = erd_rows(
-        """
+        f"""
+        {scope_cte}
         SELECT e.id, e.title, 'exam' AS event_type, e.course_id, sg.id AS group_id,
                COALESCE(c.title, 'درس') AS course_title, COALESCE(sg.group_code, '') AS group_code,
                COALESCE(replace(substr(CAST(e.start_at AS text), 1, 10), '-', '/'), '-') AS event_date,
@@ -14862,9 +14900,11 @@ def _em_calendar_rows():
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         LEFT JOIN student_groups sg ON sg.course_id = e.course_id
+        WHERE {exam_scope_where}
         ORDER BY e.start_at DESC NULLS LAST, e.title
         LIMIT 200
-        """
+        """,
+        scope_params,
     )
     all_rows = rows + exam_rows
     for row in all_rows:
@@ -14925,6 +14965,16 @@ def exam_manager_calendar_create(request):
     groups = _em_group_rows(request)
     if request.method == 'POST':
         title = (request.POST.get('title') or '').strip()
+        event_course_id = request.POST.get('course_id') or None
+        event_group_id = request.POST.get('group_id') or None
+        managed_unit_ids = _erd_managed_unit_ids(request)
+        if managed_unit_ids is not None:
+            if event_course_id:
+                course = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [event_course_id])
+                if not course or str(course.get('org_unit_id') or '') not in managed_unit_ids:
+                    return HttpResponseForbidden('درس انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+            if event_group_id and not _erd_group_in_manager_scope(request, event_group_id):
+                return HttpResponseForbidden('گروه انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         if not title:
             messages.error(request, 'عنوان رویداد الزامی است.')
         else:
@@ -15062,14 +15112,18 @@ def _em_int(value, default=0):
     return int(digits) if digits else default
 
 
-def _em_exam_rows(exam_id=None):
-    where = ['1=1']
+def _em_exam_rows(request, exam_id=None):
+    is_admin = _erd_is_admin_request(request)
+    where = ['1=1'] if is_admin else [_erd_exam_scope_condition()]
     params = []
     if exam_id:
         where.append('e.id = %s')
         params.append(exam_id)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_params = [] if is_admin else [request.erd_profile_id]
     rows = erd_rows(
         f"""
+        {scope_cte}
         SELECT e.id, e.teacher_id, e.course_id, e.title, COALESCE(e.description, '') AS description,
                COALESCE(e.duration_minutes, 90) AS duration_minutes,
                COALESCE(to_char(e.start_at, 'YYYY/MM/DD'), '-') AS exam_date,
@@ -15103,7 +15157,7 @@ def _em_exam_rows(exam_id=None):
         ORDER BY e.start_at DESC NULLS LAST, e.title
         LIMIT 300
         """,
-        params,
+        scope_params + params,
     )
     for row in rows:
         row['duration_minutes'] = _em_int(row.get('duration_minutes'), 90)
@@ -15191,24 +15245,7 @@ def _em_exam_attempt_rows(exam_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_exams(request):
-    exams = _em_exam_rows()
-    query = (request.GET.get('q') or '').strip()
-    if query:
-        exams = [e for e in exams if _matches_query(query, e.get('title'), e.get('course_title'), e.get('teacher_name'), e.get('status_label'))]
-    context = _em_base_context(request, 'exams', 'مدیریت آزمون‌ها', 'exam')
-    context.update({
-        'exams': exams,
-        'query': query,
-        'stats': {
-            'total': len(exams),
-            'active': sum(1 for e in exams if e['status_label'] in {'در حال برگزاری', 'آماده انتشار'}),
-            'today': sum(1 for e in exams if e.get('exam_date') not in {'-', None}),
-            'needs': sum(1 for e in exams if e['status_tone'] in {'warn', 'bad'}),
-        },
-        'today_exams': exams[:3],
-        'attention_items': [e for e in exams if e['status_tone'] in {'warn', 'bad'}][:3],
-    })
-    return render(request, 'exam_manager/exams.html', context)
+    return super_admin_exams(request)
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -15225,6 +15262,8 @@ def exam_manager_exam_create(request):
         title = (request.POST.get('title') or '').strip()
         if not title:
             messages.error(request, 'عنوان آزمون الزامی است.')
+        elif not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
+            return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         else:
             exam_id = str(uuid.uuid4())
             start_date = request.POST.get('start_date') or timezone.localdate().isoformat()
@@ -15274,13 +15313,13 @@ def exam_manager_exam_import(request):
         messages.success(request, 'فایل آزمون دریافت شد و برای بررسی داده‌ها آماده است.')
         return redirect('core:exam_manager_exams')
     context = _em_base_context(request, 'exam_import', 'ورود گروهی آزمون‌ها', 'exam')
-    context.update({'review_rows': _em_exam_rows()[:5]})
+    context.update({'review_rows': _em_exam_rows(request)[:5]})
     return render(request, 'exam_manager/exams.html', context)
 
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_exam_questions(request, exam_id):
-    exams = _em_exam_rows(exam_id)
+    exams = _em_exam_rows(request, exam_id)
     if not exams:
         raise Http404('آزمون پیدا نشد.')
     exam = exams[0]
@@ -15303,7 +15342,7 @@ def exam_manager_exam_questions(request, exam_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_exam_detail(request, exam_id):
-    exams = _em_exam_rows(exam_id)
+    exams = _em_exam_rows(request, exam_id)
     if not exams:
         raise Http404('آزمون پیدا نشد.')
     exam = exams[0]
@@ -15335,7 +15374,7 @@ def exam_manager_exam_detail(request, exam_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_exam_results(request, exam_id):
-    exams = _em_exam_rows(exam_id)
+    exams = _em_exam_rows(request, exam_id)
     if not exams:
         raise Http404('آزمون پیدا نشد.')
     exam = exams[0]
