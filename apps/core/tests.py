@@ -105,7 +105,7 @@ class ExamManagerScopingTests(_ScopedOrgFixture):
 
         groups_response = self.client.get(reverse('core:exam_manager_groups'))
         self.assertEqual(groups_response.status_code, 200)
-        group_ids = {row['id'] for row in groups_response.context['groups']}
+        group_ids = {row['id'] for row in groups_response.context['rows']}
         self.assertIn(self.group_in_id, group_ids)
         self.assertNotIn(self.group_out_id, group_ids)
 
@@ -226,5 +226,62 @@ class SuperAdminCoursesUnificationTests(_ScopedOrgFixture):
             'title': 'درس جدید داخل محدوده',
             'department_id': self.ou_scoped,
         })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+
+
+class SuperAdminGroupsUnificationTests(_ScopedOrgFixture):
+    """
+    صفحه‌ی گروه‌بندی مدیر آموزشی و مدیر سیستم هم اکنون یک صفحه‌ی مشترک
+    است (super_admin_groups/super_admin_group_create/super_admin_group_edit).
+    """
+
+    def test_exam_manager_and_super_admin_group_urls_show_identical_scoped_content(self):
+        self.client.force_login(self.manager_user)
+        for url_name in ('core:exam_manager_groups', 'core:super_admin_groups'):
+            response = self.client.get(reverse(url_name))
+            self.assertEqual(response.status_code, 200)
+            group_ids = {row['id'] for row in response.context['rows']}
+            self.assertIn(self.group_in_id, group_ids)
+            self.assertNotIn(self.group_out_id, group_ids)
+
+    def test_manager_cannot_view_or_edit_out_of_scope_group(self):
+        self.client.force_login(self.manager_user)
+        edit_url = reverse('core:super_admin_group_edit', args=[self.group_out_id])
+        self.assertEqual(self.client.get(edit_url).status_code, 404)
+
+        detail_url = reverse('core:exam_manager_group_detail', args=[self.group_out_id])
+        self.assertEqual(self.client.get(detail_url).status_code, 404)
+
+    def test_manager_blocked_from_assigning_out_of_scope_course_or_teacher(self):
+        self.client.force_login(self.manager_user)
+        groups_url = reverse('core:super_admin_groups')
+
+        delete_response = self.client.post(groups_url, {'group_action': 'delete', 'group_id': self.group_out_id})
+        self.assertEqual(delete_response.status_code, 403)
+
+        hijack_response = self.client.post(groups_url, {
+            'group_action': 'save',
+            'course_id': self.course_out_id,
+            'teacher_id': self.teacher_out_id,
+            'course_name': 'گروه نفوذی',
+        })
+        self.assertEqual(hijack_response.status_code, 403)
+
+        edit_response = self.client.post(reverse('core:super_admin_group_edit', args=[self.group_in_id]), {
+            'course_id': self.course_out_id,
+            'teacher_ids': [self.teacher_out_id],
+        })
+        self.assertEqual(edit_response.status_code, 403)
+
+    def test_manager_can_manage_in_scope_group(self):
+        self.client.force_login(self.manager_user)
+        groups_url = reverse('core:super_admin_groups')
+        response = self.client.post(groups_url, {
+            'group_action': 'save',
+            'course_id': self.course_in_id,
+            'teacher_id': self.teacher_in_id,
+            'course_name': 'گروه جدید داخل محدوده',
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['ok'])

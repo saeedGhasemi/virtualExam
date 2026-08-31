@@ -6984,7 +6984,7 @@ def _legacy_super_admin_groups(request):
     )
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_group_create(request):
     def parse_local_datetime(value):
         value = (value or '').strip()
@@ -7054,6 +7054,8 @@ def super_admin_group_create(request):
         academic_year = request.POST.get('academic_year', '').strip() or current_year
         semester = normalize_semester_value(request.POST.get('semester'))
         selected_students = [item for item in request.POST.getlist('student_ids') if item]
+        if not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
+            return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         created_by = (erd_profile_for_user(request.user) or {}).get('id')
         optional_columns = [
             ('capacity', int(request.POST.get('capacity') or 30)),
@@ -7119,10 +7121,12 @@ def super_admin_group_create(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_group_edit(request, group_id):
     group = erd_row('SELECT * FROM student_groups WHERE id = %s', [group_id])
     if not group:
+        raise Http404('Group not found')
+    if not _erd_group_in_manager_scope(request, group_id):
         raise Http404('Group not found')
 
     def normalize_semester_value(value):
@@ -7145,6 +7149,8 @@ def super_admin_group_edit(request, group_id):
         teacher_id = request.POST.get('teacher_id') or (selected_teachers[0] if selected_teachers else None)
         if teacher_id and teacher_id not in selected_teachers:
             selected_teachers.insert(0, teacher_id)
+        if not _erd_group_assignment_in_scope(request, course_id, selected_teachers):
+            return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         assignments = [
             ('teacher_id', teacher_id),
             ('course_id', course_id),
@@ -7254,7 +7260,7 @@ def super_admin_group_edit(request, group_id):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_groups(request):
     q = request.GET.get('q', '').strip()
     term_filter = request.GET.get('term', '').strip()
@@ -7313,6 +7319,8 @@ def super_admin_groups(request):
     if request.method == 'POST' and request.POST.get('group_action') == 'delete':
         group_id = request.POST.get('group_id')
         wants_json = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        if group_id and not _erd_group_in_manager_scope(request, group_id):
+            return HttpResponseForbidden('این گروه خارج از محدوده‌ی دسترسی شماست.')
         if group_id:
             with connection.cursor() as cursor:
                 cursor.execute('DELETE FROM student_group_members WHERE group_id = %s', [group_id])
@@ -7327,11 +7335,16 @@ def super_admin_groups(request):
 
     if request.method == 'POST' and request.POST.get('group_action') == 'save':
         wants_json = request.headers.get('x-requested-with') == 'XMLHttpRequest'
-        group_id = request.POST.get('group_id') or str(uuid.uuid4())
+        existing_group_id = request.POST.get('group_id') or None
+        group_id = existing_group_id or str(uuid.uuid4())
         course_id = request.POST.get('course_id') or None
         teacher_id = request.POST.get('teacher_id') or None
         selected_teachers = request.POST.getlist('teacher_ids') or ([teacher_id] if teacher_id else [])
         student_ids = request.POST.getlist('student_ids')
+        if existing_group_id and not _erd_group_in_manager_scope(request, existing_group_id):
+            return HttpResponseForbidden('این گروه خارج از محدوده‌ی دسترسی شماست.')
+        if not _erd_group_assignment_in_scope(request, course_id, selected_teachers):
+            return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         course_title = request.POST.get('course_name', '').strip()
         if course_id:
             course = erd_row('SELECT title FROM courses WHERE id = %s', [course_id])
@@ -7429,8 +7442,13 @@ def super_admin_groups(request):
     status_col = 'sg.status' if erd_has_column('student_groups', 'status') else "'active' AS status"
     schedule_col = 'sg.class_schedule' if erd_has_column('student_groups', 'class_schedule') else 'NULL AS class_schedule'
     location_col = 'sg.class_location' if erd_has_column('student_groups', 'class_location') else 'NULL AS class_location'
+    is_admin = _erd_is_admin_request(request)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_where = '1=1' if is_admin else _erd_group_scope_condition()
+    scope_params = [] if is_admin else [request.erd_profile_id]
     groups = erd_rows(
         f"""
+        {scope_cte}
         SELECT sg.id, sg.teacher_id, sg.course_id, sg.course_name, sg.academic_year, sg.semester,
                sg.group_code, sg.description, COALESCE(sg.is_active, true) AS is_active,
                {capacity_col}, {status_col}, {schedule_col}, {location_col},
@@ -7452,9 +7470,11 @@ def super_admin_groups(request):
             FROM student_group_members
             GROUP BY group_id
         ) members ON members.group_id = sg.id
+        WHERE {scope_where}
         ORDER BY {order_sql}
         LIMIT 300
-        """
+        """,
+        scope_params,
     )
     teacher_links = erd_rows('SELECT group_id, teacher_id FROM group_teachers')
     student_links = erd_rows(
@@ -12168,6 +12188,15 @@ def _erd_teacher_scope_condition():
     """
 
 
+def _erd_group_scope_condition():
+    return """
+        (
+            c.org_unit_id IN (SELECT id FROM managed_units)
+            OR sg.teacher_id IN (SELECT user_id FROM teacher_profiles WHERE org_unit_id IN (SELECT id FROM managed_units))
+        )
+    """
+
+
 def _erd_student_scope_condition():
     return """
         (
@@ -12196,6 +12225,38 @@ def _erd_managed_unit_ids(request):
         return None
     rows = erd_rows(_erd_manager_scope_cte() + "SELECT id FROM managed_units", [request.erd_profile_id])
     return {str(row['id']) for row in rows}
+
+
+def _erd_group_in_manager_scope(request, group_id):
+    if _erd_is_admin_request(request):
+        return True
+    row = erd_row(
+        _erd_manager_scope_cte() + f"""
+        SELECT 1 AS ok
+        FROM student_groups sg
+        LEFT JOIN courses c ON c.id = sg.course_id
+        WHERE sg.id = %s AND {_erd_group_scope_condition()}
+        """,
+        [request.erd_profile_id, group_id],
+    )
+    return bool(row)
+
+
+def _erd_group_assignment_in_scope(request, course_id, teacher_ids):
+    managed = _erd_managed_unit_ids(request)
+    if managed is None:
+        return True
+    if course_id:
+        course = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [course_id])
+        if course and str(course.get('org_unit_id') or '') in managed:
+            return True
+    teacher_ids = [item for item in teacher_ids if item]
+    if teacher_ids:
+        placeholders = ', '.join(['%s'] * len(teacher_ids))
+        rows = erd_rows(f'SELECT org_unit_id FROM teacher_profiles WHERE user_id IN ({placeholders})', teacher_ids)
+        if any(str(row.get('org_unit_id') or '') in managed for row in rows):
+            return True
+    return False
 
 
 def _erd_profile_in_manager_scope(request, profile_id, kind):
@@ -13892,12 +13953,7 @@ def _em_group_rows(request, group_id=None, course_id=None):
     where = ['1=1']
     params = []
     if not is_admin:
-        where.append("""
-            (
-                c.org_unit_id IN (SELECT id FROM managed_units)
-                OR sg.teacher_id IN (SELECT user_id FROM teacher_profiles WHERE org_unit_id IN (SELECT id FROM managed_units))
-            )
-        """)
+        where.append(_erd_group_scope_condition())
     if group_id:
         where.append('sg.id = %s')
         params.append(group_id)
@@ -14006,27 +14062,7 @@ def exam_manager_course_create(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_groups(request):
-    groups = _em_group_rows(request)
-    query = (request.GET.get('q') or '').strip()
-    if query:
-        groups = [g for g in groups if _matches_query(query, g.get('course_title'), g.get('group_code'), g.get('teacher_name'))]
-    for group in groups:
-        group['status_label'] = 'فعال' if group.get('status_tone') == 'ok' else 'نیازمند تکمیل'
-        group['term_label'] = _em_term_label(group)
-    total_students = sum(group['students_count'] for group in groups)
-    context = _em_base_context(request, 'groups', 'مدیریت گروه‌های درسی', 'users')
-    context.update({
-        'groups': groups,
-        'query': query,
-        'stats': {
-            'groups': len(groups),
-            'active_groups': sum(1 for group in groups if group['status_tone'] == 'ok'),
-            'students': total_students,
-            'needs': sum(1 for group in groups if group['students_count'] < 3),
-        },
-        'activities': _em_activity_rows(group=groups[0] if groups else None),
-    })
-    return render(request, 'exam_manager/grouping.html', context)
+    return super_admin_groups(request)
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -14038,6 +14074,8 @@ def exam_manager_group_create(request):
         course_id = request.POST.get('course_id') or (courses[0]['id'] if courses else None)
         course = next((item for item in courses if str(item['id']) == str(course_id)), None)
         teacher_id = request.POST.get('teacher_id') or (teachers[0]['id'] if teachers else None)
+        if not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
+            return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         erd_execute(
             """
             INSERT INTO student_groups (id, teacher_id, course_id, course_name, academic_year, semester, group_code, description, is_active, created_by, capacity, status)
@@ -14122,20 +14160,7 @@ def exam_manager_group_import(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_group_detail(request, group_id):
-    group_rows = _em_group_rows(request, group_id=group_id)
-    if not group_rows:
-        raise Http404('گروه پیدا نشد.')
-    group = group_rows[0]
-    group['status_label'] = 'فعال' if group.get('status_tone') == 'ok' else 'نیازمند تکمیل'
-    members = _em_member_rows(group_id)
-    context = _em_base_context(request, 'group_detail', f"گروه {group.get('group_code')} · {group.get('course_title')}", 'users')
-    context.update({
-        'group': group,
-        'members': members,
-        'activities': _em_activity_rows(group=group),
-        'next_exam': {'title': 'آزمون میان‌ترم', 'date': '۱۴۰۵/۰۲/۲۵', 'time': '۱۰:۰۰'},
-    })
-    return render(request, 'exam_manager/grouping.html', context)
+    return super_admin_group_edit(request, group_id=group_id)
 
 
 @erd_role_required('academic_manager', 'admin')
