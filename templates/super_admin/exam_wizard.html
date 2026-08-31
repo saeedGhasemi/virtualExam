@@ -11,9 +11,9 @@
     .exam-wizard button,.exam-wizard input,.exam-wizard select,.exam-wizard textarea{font:inherit}
     .exam-wizard svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     .wizard-shell{max-width:1510px;margin:0 auto;padding-bottom:1rem}
-    .wizard-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:1.2rem}
-    .wizard-step{display:flex;height:4.05rem;align-items:center;justify-content:center;gap:.7rem;border:1px solid #d6e1f0;border-radius:1.1rem;background:rgba(255,255,255,.72);color:#42506a;font-weight:950;box-shadow:0 14px 34px rgba(30,55,95,.07)}
-    .wizard-step b{display:grid;width:2.25rem;height:2.25rem;place-items:center;border-radius:50%;border:1px solid #d4deec;background:#fff}
+    .wizard-steps{display:grid;grid-template-columns:repeat(7,1fr);gap:.6rem;margin-bottom:1.2rem}
+    .wizard-step{display:flex;height:4.05rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid #d6e1f0;border-radius:1.1rem;background:rgba(255,255,255,.72);color:#42506a;font-weight:950;box-shadow:0 14px 34px rgba(30,55,95,.07);font-size:.86rem}
+    .wizard-step b{display:grid;width:2.1rem;height:2.1rem;flex-shrink:0;place-items:center;border-radius:50%;border:1px solid #d4deec;background:#fff}
     .wizard-step.is-active{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border-color:transparent}.wizard-step.is-active b{color:#315cff}
     .wizard-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1rem}
     .wizard-card{border:1px solid rgba(205,218,236,.95);border-radius:1rem;background:var(--panel);box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(145%);-webkit-backdrop-filter:blur(20px) saturate(145%)}
@@ -25,125 +25,269 @@
     .subgrid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}
     .mini-card{border:1px solid #e1e8f3;border-radius:.9rem;background:#fbfdff;padding:1rem}.mini-card h3{margin:0 0 .85rem;color:#315cff;font-size:1rem;font-weight:950}
     .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.75rem 0;border-bottom:1px solid #e7eef7;color:#3e4c66;font-weight:850}.toggle-row:last-child{border-bottom:0}
-    .switch{position:relative;width:3.05rem;height:1.6rem;border-radius:99px;background:#cbd5e1}.switch:before{content:"";position:absolute;top:.18rem;left:.18rem;width:1.22rem;height:1.22rem;border-radius:50%;background:#fff;box-shadow:0 4px 10px rgba(15,23,42,.18)}input:checked+.switch{background:linear-gradient(135deg,#315cff,#7447f5)}input:checked+.switch:before{left:1.65rem}.toggle-row input{display:none}
+    .switch{position:relative;width:3.05rem;height:1.6rem;border-radius:99px;background:#cbd5e1;flex-shrink:0}.switch:before{content:"";position:absolute;top:.18rem;left:.18rem;width:1.22rem;height:1.22rem;border-radius:50%;background:#fff;box-shadow:0 4px 10px rgba(15,23,42,.18)}input:checked+.switch{background:linear-gradient(135deg,#315cff,#7447f5)}input:checked+.switch:before{left:1.65rem}.toggle-row input{display:none}
     .summary-card{padding:1.1rem;position:sticky;top:1rem}.summary-card h2{margin:0 0 1rem;color:#315cff;font-size:1.12rem;font-weight:950}.summary-status{border:1px solid #fed7aa;border-radius:.8rem;background:#fff7ed;color:#ea580c;padding:.85rem;text-align:center;font-weight:950}
     .summary-list{display:grid;margin-top:1rem;border:1px solid #e4ebf5;border-radius:.85rem;overflow:hidden}.summary-list div{display:grid;grid-template-columns:1fr 1.3fr;gap:.55rem;padding:.75rem;border-bottom:1px solid #e8eef7}.summary-list div:last-child{border-bottom:0}.summary-list span{color:#7a8597;font-size:.78rem;font-weight:850}.summary-list strong{justify-self:end;font-size:.82rem;font-weight:950}
+    .chips-field{display:flex;flex-wrap:wrap;gap:.5rem;border:1px solid #cbd9ec;border-radius:.72rem;background:#fff;padding:.6rem}
+    .chips-field select{border:0;flex:1;min-width:9rem;padding:.4rem}
+    .chip{display:inline-flex;align-items:center;gap:.4rem;border-radius:.6rem;background:#eef1ff;color:#315cff;font-weight:900;font-size:.8rem;padding:.35rem .55rem}
+    .chip button{border:0;background:none;color:#315cff;cursor:pointer;font-weight:950;line-height:1}
+    .upload-drop{position:relative;display:grid;place-items:center;gap:.4rem;border:2px dashed #cbd9ec;border-radius:.9rem;background:#fbfdff;padding:1.5rem;text-align:center;color:#65728a;font-weight:850;min-height:9rem}
+    .upload-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .upload-drop img{max-height:6.5rem;border-radius:.6rem;object-fit:cover}
+    .upload-drop .remove-upload{position:absolute;top:.5rem;left:.5rem;z-index:2;border:0;border-radius:50%;width:1.7rem;height:1.7rem;background:#fff;color:#dc2626;box-shadow:0 6px 16px rgba(30,55,95,.15)}
     .participant-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:1rem}.participant-tabs button{height:3.2rem;border:1px solid #d6e1f0;border-radius:.8rem;background:#fff;color:#34435f;font-weight:950}.participant-tabs button.is-active{background:#f1f0ff;color:#315cff;border-color:#a9bfff}
+    .participant-pane{display:none}.participant-pane.is-active{display:block}
     .selector-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1rem}.selection-list{border:1px solid #dbe4f1;border-radius:.85rem;background:#fff;overflow:hidden}.selection-toolbar{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:.7rem;padding:.8rem;border-bottom:1px solid #e5ecf6}.selection-toolbar input,.selection-toolbar select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.65rem;padding:0 .8rem;outline:0}
-    .table{width:100%;border-collapse:collapse;font-size:.86rem}.table th,.table td{height:3.25rem;border-bottom:1px solid #edf2f7;padding:0 .8rem;text-align:right}.table th{color:#53617b;font-weight:950}.table td{font-weight:850}.table input{width:1.05rem;height:1.05rem}
-    .selected-panel{padding:1rem}.selected-stats{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}.selected-stats div{border:1px solid #e1e8f3;border-radius:.75rem;background:#fbfdff;padding:.9rem;text-align:center}.selected-stats strong{display:block;font-size:1.5rem;color:#315cff}.chip-list{display:grid;gap:.55rem;margin-top:1rem}.chip-list span{display:flex;align-items:center;justify-content:space-between;border:1px solid #dbe4f1;border-radius:.65rem;background:#f8faff;padding:.65rem;color:#4f46e5;font-weight:850}
+    .table{width:100%;border-collapse:collapse;font-size:.86rem}.table th,.table td{height:3.25rem;border-bottom:1px solid #edf2f7;padding:0 .8rem;text-align:right}.table th{color:#53617b;font-weight:950}.table td{font-weight:850}.table input[type=checkbox]{width:1.05rem;height:1.05rem}
+    .selected-panel{padding:1rem}.selected-stats{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}.selected-stats div{border:1px solid #e1e8f3;border-radius:.75rem;background:#fbfdff;padding:.9rem;text-align:center}.selected-stats strong{display:block;font-size:1.5rem;color:#315cff}.chip-list{display:grid;gap:.55rem;margin-top:1rem;max-height:22rem;overflow:auto}.chip-list span{display:flex;align-items:center;justify-content:space-between;border:1px solid #dbe4f1;border-radius:.65rem;background:#f8faff;padding:.65rem;color:#4f46e5;font-weight:850}
+    .import-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin:1rem 0}.import-summary div{border:1px solid #e1e8f3;border-radius:.75rem;background:#fbfdff;text-align:center;padding:.85rem}.import-summary strong{display:block;font-size:1.4rem;color:#315cff}
+    .import-summary div.is-bad strong{color:#dc2626}.import-summary div.is-warn strong{color:#ca8a04}.import-summary div.is-ok strong{color:#15803d}
+    .staff-department-tabs{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}.staff-department-tabs button{height:2.7rem;border:1px solid #d6e1f0;border-radius:.7rem;background:#fff;color:#34435f;font-weight:900;padding:0 .9rem;font-size:.82rem}.staff-department-tabs button.is-active{background:#eef1ff;color:#315cff;border-color:#a9bfff}
+    .staff-department-pane{display:none}.staff-department-pane.is-active{display:block}
+    .role-badge{display:inline-flex;border-radius:.5rem;padding:.25rem .6rem;font-size:.75rem;font-weight:950;background:#eef4ff;color:#315cff}
     .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1rem}.type-card{height:7.1rem;border:1px solid #e1e8f3;border-radius:.9rem;background:#fff;color:#23314d;font-weight:950;display:grid;place-items:center;text-align:center}.type-card span{display:grid;width:2.7rem;height:2.7rem;margin:0 auto .5rem;place-items:center;border-radius:.7rem;background:#eef4ff;color:#315cff}
     .question-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1rem}.question-compose{display:flex;justify-content:flex-end;gap:.7rem;margin-bottom:1rem}.question-compose button{height:2.9rem;border-radius:.7rem;padding:0 1rem;font-weight:950}.primary{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.outline{border:1px solid #cbd9ec;background:#fff;color:#315cff}
     .question-row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:.8rem;align-items:center;border-bottom:1px solid #edf2f7;padding:.75rem}.badge{display:inline-flex;border-radius:.5rem;padding:.25rem .55rem;font-size:.73rem;font-weight:950}.badge.easy{background:#dcfce7;color:#15803d}.badge.medium{background:#fff7d6;color:#ca8a04}.badge.hard{background:#fee2e2;color:#dc2626}.badge.type{background:#eef4ff;color:#315cff}
     .composition{padding:1rem}.composition-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}.composition-stats div{border:1px solid #e1e8f3;border-radius:.75rem;background:#fbfdff;text-align:center;padding:.85rem}.composition-stats strong{display:block;font-size:1.45rem;color:#315cff}.dist-list{display:grid;gap:.55rem;margin-top:1rem}.dist-list div{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.6rem;font-size:.82rem;font-weight:850}.dist-list i{display:block;height:.22rem;border-radius:99px;background:#5b6cff}
+    .type-count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin:1rem 0}.type-count-grid .stepper{border:1px solid #e1e8f3;border-radius:.75rem;background:#fff;padding:.7rem;text-align:center}.type-count-grid .stepper span{display:block;font-size:.72rem;color:#65728a;font-weight:850;margin-bottom:.35rem}.type-count-grid .stepper-controls{display:flex;align-items:center;justify-content:center;gap:.5rem}.type-count-grid button{width:1.9rem;height:1.9rem;border-radius:.5rem;border:1px solid #cbd9ec;background:#f8faff;color:#315cff;font-weight:950}.type-count-grid strong{min-width:1.6rem;display:inline-block}
     .rules-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr);gap:1rem}.rule-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem}.rule-box{border:1px solid #e1e8f3;border-radius:.85rem;background:#fff;padding:1rem}.rule-box strong{display:block;margin-bottom:.4rem}.rule-box p{margin:0;color:#65728a;font-size:.78rem;line-height:1.8}
-    .review-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1rem}.review-box{padding:1rem}.review-box a{color:#315cff;font-weight:950}.review-box strong{display:block;margin-bottom:.7rem}.ready-list{display:grid;gap:.65rem}.ready-list div{display:flex;align-items:center;justify-content:space-between;color:#33435f;font-weight:850}.ready-list b{color:#10b981}.publish-options{display:grid;gap:.85rem}.publish-options label{display:grid;gap:.2rem;border:1px solid #dbe4f1;border-radius:.85rem;background:#fff;padding:1rem}.publish-options input{display:none}.publish-options label:has(input:checked){border-color:#6b7cff;background:#f7f8ff}.publish-options strong{color:#315cff}
-    .wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.wizard-footer div{display:flex;gap:.8rem}.nav-btn,.save-btn,.publish-btn{display:inline-flex;height:3.1rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.75rem;padding:0 1.3rem;font-weight:950}.nav-btn,.save-btn{border:1px solid #cbd9ec;background:#fff;color:#315cff}.publish-btn{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}
-    @media(max-width:1180px){.wizard-layout,.selector-grid,.question-layout,.rules-layout{grid-template-columns:1fr}.wizard-steps{grid-template-columns:1fr 1fr}.form-grid,.form-grid.four,.rule-grid,.review-grid,.type-grid{grid-template-columns:1fr 1fr}.summary-card{position:static}}
-    @media(max-width:700px){.wizard-steps,.form-grid,.form-grid.two,.form-grid.four,.subgrid,.selection-toolbar,.type-grid,.rule-grid,.review-grid{grid-template-columns:1fr}.wizard-footer{align-items:stretch;flex-direction:column}.wizard-footer div{flex-direction:column}.nav-btn,.save-btn,.publish-btn{width:100%}}
+    .security-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem;margin-bottom:1rem}.security-card{border:1px solid #e1e8f3;border-radius:.9rem;background:#fff;padding:1rem 1.2rem;display:grid;gap:.5rem;text-align:center;cursor:pointer}.security-card input{display:none}.security-card span{display:grid;width:2.6rem;height:2.6rem;margin:0 auto;place-items:center;border-radius:50%;background:#eef4ff;color:#315cff}.security-card:has(input:checked){border-color:#6b7cff;background:#f7f8ff}
+    .review-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1rem}.review-box{padding:1rem}.review-box a{color:#315cff;font-weight:950;cursor:pointer}.review-box strong{display:block;margin-bottom:.7rem}.ready-list{display:grid;gap:.65rem}.ready-list div{display:flex;align-items:center;justify-content:space-between;color:#33435f;font-weight:850}.ready-list b{color:#10b981}.publish-options{display:grid;gap:.85rem}.publish-options label{display:grid;gap:.2rem;border:1px solid #dbe4f1;border-radius:.85rem;background:#fff;padding:1rem}.publish-options input{display:none}.publish-options label:has(input:checked){border-color:#6b7cff;background:#f7f8ff}.publish-options strong{color:#315cff}
+    .wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.wizard-footer div{display:flex;gap:.8rem}.nav-btn,.save-btn,.publish-btn{display:inline-flex;height:3.1rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.75rem;padding:0 1.3rem;font-weight:950}.nav-btn,.save-btn{border:1px solid #cbd9ec;background:#fff;color:#315cff}.publish-btn{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.nav-btn[hidden],.save-btn[hidden],.publish-btn[hidden]{display:none}
+    @media(max-width:1180px){.wizard-layout,.selector-grid,.question-layout,.rules-layout{grid-template-columns:1fr}.wizard-steps{grid-template-columns:repeat(4,1fr)}.form-grid,.form-grid.four,.rule-grid,.review-grid,.type-grid,.security-grid,.import-summary,.type-count-grid{grid-template-columns:1fr 1fr}.summary-card{position:static}}
+    @media(max-width:700px){.wizard-steps,.form-grid,.form-grid.two,.form-grid.four,.subgrid,.selection-toolbar,.type-grid,.rule-grid,.review-grid,.security-grid,.import-summary,.type-count-grid{grid-template-columns:1fr}.wizard-footer{align-items:stretch;flex-direction:column}.wizard-footer div{flex-direction:column}.nav-btn,.save-btn,.publish-btn{width:100%}}
 </style>
 
 <section class="super-admin-page super-admin-workspace exam-wizard" dir="rtl" data-fixed-scroll-page>
-    <form class="wizard-shell" method="post" data-exam-wizard>
+    <form class="wizard-shell" method="post" enctype="multipart/form-data" data-exam-wizard>
         {% csrf_token %}
-        <input type="hidden" name="publish_mode" value="draft" data-publish-mode>
+        <input type="hidden" name="publish_choice" value="draft" data-publish-mode>
         <nav class="wizard-steps" aria-label="مراحل ایجاد آزمون">
-            <button type="button" class="wizard-step is-active" data-step-button="1"><b>۱</b>اطلاعات پایه</button>
-            <button type="button" class="wizard-step" data-step-button="2"><b>۲</b>شرکت‌کنندگان</button>
-            <button type="button" class="wizard-step" data-step-button="3"><b>۳</b>سوالات</button>
-            <button type="button" class="wizard-step" data-step-button="4"><b>۴</b>زمان و قوانین</button>
-            <button type="button" class="wizard-step" data-step-button="5"><b>۵</b>بازبینی و انتشار</button>
+            <button type="button" class="wizard-step is-active" data-step-button="1"><b>۱</b>مشخصات پایه</button>
+            <button type="button" class="wizard-step" data-step-button="2"><b>۲</b>زمان‌بندی و قوانین</button>
+            <button type="button" class="wizard-step" data-step-button="3"><b>۳</b>انتخاب سوالات</button>
+            <button type="button" class="wizard-step" data-step-button="4"><b>۴</b>مخاطبان و عوامل</button>
+            <button type="button" class="wizard-step" data-step-button="5"><b>۵</b>نمره‌دهی و تصحیح</button>
+            <button type="button" class="wizard-step" data-step-button="6"><b>۶</b>امنیت و برگزاری</button>
+            <button type="button" class="wizard-step" data-step-button="7"><b>۷</b>پیش‌نمایش و انتشار</button>
         </nav>
 
         <div class="wizard-layout">
             <main class="wizard-card wizard-main">
                 <section class="wizard-pane is-active" data-pane="1">
-                    <div class="section-title"><h2>مشخصات آزمون</h2><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3v4M15 3v4"/></svg></div>
+                    <div class="section-title"><h2>مشخصات پایه آزمون</h2><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3v4M15 3v4"/></svg></div>
                     <div class="form-grid">
-                        <label class="field">عنوان آزمون *<input name="title" maxlength="100" value="آزمون میان‌ترم مبانی برنامه‌نویسی" required data-summary="title"></label>
-                        <label class="field">درس *<select name="course_id" required data-summary="course">{% for course in courses %}<option value="{{ course.id }}">{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
-                        <label class="field">استاد *<select name="teacher_id" required data-summary="teacher">{% for teacher in teachers %}<option value="{{ teacher.id }}">{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
-                        <label class="field">نوع آزمون *<select name="exam_type" data-summary="type"><option value="midterm">آزمون میان‌ترم</option><option value="final">آزمون پایان‌ترم</option><option value="standard">آزمون عادی</option></select></label>
-                        <label class="field">سال تحصیلی و ترم *<input name="academic_year" value="1403 - 1404 / نیمسال اول" data-summary="year"></label>
-                        <label class="field">نمره کل *<input name="passing_score" type="number" value="20" step="0.25"></label>
-                        <label class="field is-full">توضیحات آزمون<textarea name="description" maxlength="500">این آزمون شامل مباحث فصل‌های ۱ تا ۵ می‌باشد.</textarea></label>
+                        <label class="field">عنوان آزمون *<input name="title" maxlength="100" required data-summary="title"></label>
+                        <label class="field">درس *<select name="course_id" required data-summary="course"><option value="">انتخاب کنید</option>{% for course in courses %}<option value="{{ course.id }}">{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
+                        <label class="field">استاد *<select name="teacher_id" required data-summary="teacher"><option value="">انتخاب کنید</option>{% for teacher in teachers %}<option value="{{ teacher.id }}">{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
+                        <label class="field">نوع آزمون<div class="form-grid two" style="grid-column:1/-1"><label><input type="radio" name="exam_mode" value="practice"> آزمون آزمایشی</label><label><input type="radio" name="exam_mode" value="training"> آزمون تمرینی</label><label><input type="radio" name="exam_mode" value="standard" checked> آزمون عادی</label></div></label>
+                        <label class="field">دوره / ترم<select name="academic_term" data-summary="year">{% for term in terms %}<option value="{{ term.year }}/{{ term.semester }}">{{ term.label|fa_digits }}</option>{% endfor %}</select></label>
+                        <label class="field">گروه‌های هدف *
+                            <div class="chips-field" data-chips="group">
+                                <select data-chip-source>
+                                    <option value="">افزودن گروه...</option>
+                                    {% for group in groups %}<option value="{{ group.id }}" data-label="{{ group.course_title|fa_digits }} - گروه {{ group.group_code|default:'-'|fa_digits }}">{{ group.course_title|fa_digits }} - گروه {{ group.group_code|default:'-'|fa_digits }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        </label>
+                        <label class="field is-full">توضیحات آزمون<textarea name="description" maxlength="500"></textarea></label>
+                        <label class="field">تگ‌ها (اختیاری)<input name="tags" placeholder="مثلا: میان‌ترم، فصل ۱، پایه"></label>
+                        <label class="field is-full">تصویر کاور (اختیاری)
+                            <div class="upload-drop" data-upload-drop>
+                                <input type="file" name="cover_image" accept=".jpg,.jpeg,.png" data-upload-input>
+                                <span data-upload-placeholder>برای آپلود کلیک کنید یا فایل را اینجا بکشید<br><small>فرمت‌های مجاز: JPG, PNG | حداکثر حجم: ۲ مگابایت</small></span>
+                            </div>
+                        </label>
                     </div>
                     <div class="subgrid">
-                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid"><label class="field">نمره قبولی<input type="number" name="minimum_score" value="10"></label><label class="field">نمره منفی<input type="number" name="negative_factor" value="0.25" step="0.01"></label></div></div>
+                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid two"><label class="field">نمره کل آزمون<input type="number" name="passing_score" step="0.25" placeholder="مثلا ۲۰"></label><label class="field">قالب نمره‌دهی<select name="grading_template"><option value="total_score">نمره کل</option><option value="detailed_score">نمره تشریحی</option></select></label></div></div>
                         <div class="mini-card"><h3>تنظیمات اولیه</h3><label class="toggle-row"><input type="checkbox" name="autosave_enabled" checked><span class="switch"></span><span>ذخیره خودکار</span></label><label class="toggle-row"><input type="checkbox" name="show_instructions_before_start" checked><span class="switch"></span><span>نمایش دستورالعمل پیش از شروع</span></label></div>
                     </div>
                 </section>
 
                 <section class="wizard-pane" data-pane="2">
-                    <div class="participant-tabs"><button type="button" class="is-active">گروه‌های درسی</button><button type="button">انتخاب دانشجویان</button><button type="button">ورود گروهی</button></div>
-                    <div class="selector-grid">
-                        <div class="selection-list">
-                            <div class="selection-toolbar"><input data-filter-list="participant" placeholder="جستجوی نام یا شماره دانشجویی"><select><option>دانشکده مهندسی</option></select><select><option>مهندسی کامپیوتر</option></select><select><option>همه گروه‌ها</option></select></div>
-                            <table class="table">
-                                <thead><tr><th></th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>گروه درسی</th><th>وضعیت</th></tr></thead>
-                                <tbody>
-                                    {% for student in students|slice:":8" %}
-                                        <tr data-participant-row><td><input type="checkbox" name="student_ids" value="{{ student.id }}" {% if forloop.counter <= 3 %}checked{% endif %}></td><td>{{ student.full_name|fa_digits }}</td><td>{{ student.student_number|fa_digits }}</td><td>{{ student.class_group|fa_digits }}</td><td><span class="badge easy">انتخاب شده</span></td></tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <aside class="wizard-card selected-panel">
-                            <h2>شرکت‌کنندگان انتخاب‌شده</h2>
-                            <div class="selected-stats"><div><strong data-selected-students-count>۰</strong><span>نفر</span></div><div><strong data-selected-groups-count>۰</strong><span>گروه درسی</span></div></div>
-                            <h3>گروه‌های درسی</h3>
-                            <div class="chip-list">
-                                {% for group in groups|slice:":4" %}
-                                    <label><input type="checkbox" name="group_ids" value="{{ group.id }}" {% if forloop.counter <= 2 %}checked{% endif %}> <span>{{ group.course_title|fa_digits }} - گروه {{ group.group_code|default:"-"|fa_digits }}</span></label>
-                                {% endfor %}
-                            </div>
-                        </aside>
+                    <div class="mini-card"><h3>زمان آزمون</h3><div class="form-grid four"><label class="field">تاریخ و زمان شروع آزمون *<input name="start_at" type="datetime-local" required></label><label class="field">مدت زمان آزمون (دقیقه) *<input name="duration_minutes" type="number" value="90" required></label><label class="field">زمان پایان (تقریبی)<input type="text" disabled placeholder="بر اساس مدت زمان محاسبه می‌شود" data-computed-end></label><label class="field">تاریخ و زمان پایان<input name="end_at" type="datetime-local"></label></div></div>
+                    <div class="mini-card" style="margin-top:1rem"><h3>بازه ثبت‌نام و دسترسی</h3><div class="form-grid four"><label class="field">شروع دسترسی<input name="registration_start_at" type="datetime-local"></label><label class="field">آخرین زمان مجاز ورود<input name="last_entry_at" type="datetime-local"></label><label class="field">پایان دسترسی<input name="registration_end_at" type="datetime-local"></label><label class="field">تعداد تلاش مجاز<select name="max_attempts"><option value="1">۱</option><option value="2">۲</option><option value="3">۳</option></select></label></div></div>
+                    <div class="mini-card" style="margin-top:1rem"><h3>قوانین و تنظیمات آزمون</h3><div class="rule-grid">
+                        <label class="rule-box toggle-row"><input type="checkbox" name="auto_submit_on_time_end" checked><span class="switch"></span><div><strong>ارسال خودکار در پایان زمان</strong><p>در پایان زمان، پاسخ‌ها خودکار ثبت می‌شوند.</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="allow_flagging_questions" checked><span class="switch"></span><div><strong>امکان علامت‌گذاری سوال</strong><p>داوطلب می‌تواند سوال را برای بازبینی علامت بزند.</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="show_question_list" checked><span class="switch"></span><div><strong>نمایش فهرست سوالات در هر صفحه</strong><p>فهرست سوالات کنار صفحه آزمون دیده می‌شود.</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="one_question_per_page"><span class="switch"></span><div><strong>نمایش یک سوال در هر صفحه</strong><p>سوالات به‌صورت تک‌صفحه‌ای نمایش داده می‌شوند.</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="allow_answer_changes" checked><span class="switch"></span><div><strong>امکان تغییر پاسخ</strong><p>داوطلب می‌تواند پاسخ ثبت‌شده را ویرایش کند.</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="review_answers_enabled" checked><span class="switch"></span><div><strong>امکان بازگشت به سوال قبلی</strong><p>حرکت بین سوالات در هر جهت آزاد است.</p></div></label>
+                    </div></div>
+                    <div class="subgrid">
+                        <div class="mini-card"><h3>پس از پایان آزمون</h3><label class="field">نمایش توضیح پاسخ<select name="explanation_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">دستی</option></select></label><label class="field">نمایش پاسخ صحیح<select name="correct_answer_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">دستی</option></select></label><label class="field">نمایش نمره<select name="score_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">دستی</option></select></label></div>
+                        <div class="mini-card"></div>
                     </div>
                 </section>
 
                 <section class="wizard-pane" data-pane="3">
                     <h2>نوع سوال را انتخاب کنید</h2>
-                    <div class="type-grid">{% for item in question_type_cards %}<button type="button" class="type-card"><span>{{ forloop.counter|fa_digits }}</span>{{ item.label }}</button>{% endfor %}</div>
-                    <div class="question-compose"><button type="button" class="outline">افزودن از بانک سوال</button><button type="button" class="primary">+ ساخت سوال جدید</button></div>
+                    <div class="type-grid">{% for item in question_type_cards %}<button type="button" class="type-card" data-type-card="{{ item.key }}"><span>{{ forloop.counter|fa_digits }}</span>{{ item.label }}</button>{% endfor %}</div>
+                    <div class="type-count-grid">{% for item in question_type_cards %}<div class="stepper"><span>{{ item.label }}</span><div class="stepper-controls"><button type="button" data-count-down="{{ item.key }}">−</button><strong data-count-value="{{ item.key }}">۰</strong><button type="button" data-count-up="{{ item.key }}">+</button><input type="hidden" name="type_target_{{ item.key }}" value="0" data-count-input="{{ item.key }}"></div></div>{% endfor %}</div>
+                    <div class="question-compose"><a class="outline" href="{% url 'core:super_admin_settings' %}" style="text-decoration:none;display:inline-flex;align-items:center;height:2.9rem;border-radius:.7rem;padding:0 1rem;font-weight:950;border:1px solid #cbd9ec;color:#315cff">افزودن از بانک سوال</a></div>
                     <div class="question-layout">
                         <div class="selection-list">
-                            <div class="selection-toolbar"><input data-filter-list="question" placeholder="جستجوی سوال"><select><option>گروه‌بندی سوالات</option></select><select><option>تصادفی‌سازی</option></select><select><option>همه سختی‌ها</option></select></div>
-                            {% for question in questions|slice:":12" %}
-                                <div class="question-row" data-question-row>
-                                    <input type="checkbox" name="question_ids" value="{{ question.id }}" {% if forloop.counter <= 5 %}checked{% endif %}>
-                                    <div><strong>{{ question.text|truncatechars:82|fa_digits }}</strong><small>{{ question.course_title|fa_digits }}</small></div>
+                            <div class="selection-toolbar">
+                                <input data-filter-list="question" placeholder="جستجوی متن سوال">
+                                <select data-filter-select="course"><option value="">همه درس‌ها</option>{% for course in courses %}<option value="{{ course.title|fa_digits }}">{{ course.title|fa_digits }}</option>{% endfor %}</select>
+                                <select data-filter-select="difficulty"><option value="">همه سطوح دشواری</option><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">سخت</option></select>
+                                <select data-filter-select="type"><option value="">همه انواع</option>{% for item in question_type_cards %}<option value="{{ item.key }}">{{ item.label }}</option>{% endfor %}</select>
+                            </div>
+                            {% for question in questions|slice:":200" %}
+                                <div class="question-row" data-question-row data-course="{{ question.course_title|fa_digits }}" data-difficulty="{{ question.difficulty|default:'medium' }}" data-type="{{ question.type|default:'single' }}" data-points="{{ question.points|default:'1' }}">
+                                    <input type="checkbox" name="question_ids" value="{{ question.id }}">
+                                    <div><strong>{{ question.text|truncatechars:82|fa_digits }}</strong><small>{{ question.course_title|fa_digits }} · {{ question.teacher_name|fa_digits }}{% if question.tags %} · {{ question.tags|fa_digits }}{% endif %}</small></div>
                                     <span class="badge type">{{ question.type|default:"سوال" }}</span>
                                     <span class="badge {{ question.difficulty|default:'medium' }}">{{ question.difficulty|default:"medium" }}</span>
                                     <span>{{ question.points|fa_digits }}</span>
                                 </div>
+                            {% empty %}
+                                <p style="padding:1rem;color:#65728a">سوالی در بانک سوال یافت نشد.</p>
                             {% endfor %}
                         </div>
                         <aside class="wizard-card composition">
                             <h2>ترکیب آزمون</h2>
-                            <div class="composition-stats"><div><strong data-selected-questions-count>۰</strong><span>سوال</span></div><div><strong data-score-total>۰</strong><span>نمره</span></div><div><strong>۴۵</strong><span>دقیقه</span></div></div>
-                            <div class="dist-list">{% for item in question_type_cards|slice:":7" %}<div><span>{{ item.label }}</span><i style="width:{% cycle '33' '20' '12' '8' '12' '8' '4' %}%"></i></div>{% endfor %}</div>
+                            <div class="composition-stats"><div><strong data-selected-questions-count>۰</strong><span>سوال</span></div><div><strong data-score-total>۰</strong><span>نمره</span></div><div><strong data-duration-display>۰</strong><span>دقیقه</span></div></div>
+                            <div class="dist-list" data-dist-list></div>
                         </aside>
                     </div>
                 </section>
 
                 <section class="wizard-pane" data-pane="4">
-                    <div class="rules-layout">
-                        <div>
-                            <div class="mini-card"><h3>زمان برگزاری</h3><div class="form-grid four"><label class="field">تاریخ شروع<input name="start_at" type="datetime-local"></label><label class="field">ساعت شروع<input value="09:00"></label><label class="field">تاریخ پایان<input name="end_at" type="datetime-local"></label><label class="field">ساعت پایان<input value="12:00"></label></div></div>
-                            <div class="mini-card" style="margin-top:1rem"><h3>قوانین آزمون</h3><div class="rule-grid"><label class="rule-box toggle-row"><input type="checkbox" name="review_answers_enabled" checked><span class="switch"></span><div><strong>امکان بازگشت به سوال قبل</strong><p>شرکت‌کننده می‌تواند پاسخ‌ها را ویرایش کند.</p></div></label><label class="rule-box toggle-row"><input type="checkbox" name="shuffle_options" checked><span class="switch"></span><div><strong>ترتیب تصادفی گزینه‌ها</strong><p>گزینه‌ها برای هر سوال تصادفی می‌شوند.</p></div></label><label class="rule-box toggle-row"><input type="checkbox" name="shuffle_questions" checked><span class="switch"></span><div><strong>ترتیب تصادفی سوالات</strong><p>سوالات برای هر نفر متفاوت نمایش داده می‌شوند.</p></div></label><label class="rule-box toggle-row"><input type="checkbox" name="track_tab_exit" checked><span class="switch"></span><div><strong>ثبت خروج از صفحه</strong><p>خروج از صفحه در گزارش ثبت می‌شود.</p></div></label><label class="rule-box toggle-row"><input type="checkbox" name="fullscreen_required"><span class="switch"></span><div><strong>تمام‌صفحه اجباری</strong><p>آزمون فقط در حالت تمام‌صفحه اجرا شود.</p></div></label><label class="rule-box toggle-row"><input type="checkbox" name="allow_partial" checked><span class="switch"></span><div><strong>ذخیره خودکار پاسخ‌ها</strong><p>پاسخ‌ها در حین آزمون ذخیره شوند.</p></div></label></div></div>
-                        </div>
-                        <aside>
-                            <div class="mini-card"><h3>تنظیمات آزمون</h3><label class="field">مدت آزمون<select name="duration_minutes"><option value="45">۴۵ دقیقه</option><option value="60">۶۰ دقیقه</option><option value="90">۹۰ دقیقه</option></select></label><label class="field">دفعات مجاز شرکت<select name="max_attempts"><option value="1">۱ بار</option><option value="2">۲ بار</option></select></label></div>
-                            <div class="mini-card" style="margin-top:1rem"><h3>بازخورد و نتیجه</h3><label class="field">زمان نمایش نتیجه<select name="result_release_mode"><option value="after_exam">پس از پایان آزمون</option><option value="manual">دستی</option><option value="immediate">بلافاصله</option></select></label><label class="toggle-row"><input type="checkbox" name="show_correct_answers" checked><span class="switch"></span><span>نمایش پاسخ صحیح</span></label><label class="toggle-row"><input type="checkbox" name="show_score" checked><span class="switch"></span><span>نمایش نمره</span></label><label class="toggle-row"><input type="checkbox" name="show_feedback" checked><span class="switch"></span><span>نمایش بازخورد</span></label></div>
-                        </aside>
+                    <div class="section-title"><h2>دانشجویان هدف آزمون</h2></div>
+                    <div class="participant-tabs">
+                        <button type="button" class="is-active" data-participant-tab="groups">گروه‌های درسی</button>
+                        <button type="button" data-participant-tab="students">انتخاب فردی</button>
+                        <button type="button" data-participant-tab="excel">ورود از فایل اکسل</button>
                     </div>
+                    <div class="participant-pane is-active" data-participant-pane="groups">
+                        <div class="chip-list">{% for group in groups %}<label><input type="checkbox" name="group_ids" value="{{ group.id }}"> <span>{{ group.course_title|fa_digits }} - گروه {{ group.group_code|default:"-"|fa_digits }} ({{ group.members_count|fa_digits }} نفر)</span></label>{% endfor %}</div>
+                    </div>
+                    <div class="participant-pane" data-participant-pane="students">
+                        <div class="selector-grid">
+                            <div class="selection-list">
+                                <div class="selection-toolbar" style="grid-template-columns:1fr"><input data-filter-list="participant" placeholder="جستجوی نام یا شماره دانشجویی"></div>
+                                <table class="table">
+                                    <thead><tr><th></th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>رشته</th></tr></thead>
+                                    <tbody>
+                                        {% for student in students|slice:":150" %}
+                                            <tr data-participant-row><td><input type="checkbox" name="student_ids" value="{{ student.id }}" data-manual-student></td><td>{{ student.full_name|fa_digits }}</td><td>{{ student.student_number|fa_digits }}</td><td>{{ student.field_of_study|fa_digits }}</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <aside class="wizard-card selected-panel">
+                                <h2>شرکت‌کنندگان انتخاب‌شده</h2>
+                                <div class="selected-stats"><div><strong data-selected-students-count>۰</strong><span>نفر</span></div><div><strong data-selected-groups-count>۰</strong><span>گروه درسی</span></div></div>
+                            </aside>
+                        </div>
+                    </div>
+                    <div class="participant-pane" data-participant-pane="excel">
+                        <div class="upload-drop" data-upload-drop="excel">
+                            <input type="file" accept=".xlsx,.xls,.csv" data-excel-input>
+                            <span data-upload-placeholder>فایل اکسل شامل ستون «کد ملی یا شماره دانشجویی» را اینجا بارگذاری کنید.<br><small>فقط دانشجویانی که در سامانه ثبت‌شده باشند، نام‌نویسی خواهند شد.</small></span>
+                        </div>
+                        <div class="import-summary" data-excel-summary hidden>
+                            <div class="is-ok"><strong data-excel-found>۰</strong><span>یافت شد در سامانه</span></div>
+                            <div><strong data-excel-total>۰</strong><span>تعداد کل سطرها</span></div>
+                            <div class="is-bad"><strong data-excel-not-found>۰</strong><span>نامعتبر / عدم تطابق</span></div>
+                            <div class="is-warn"><strong data-excel-duplicate>۰</strong><span>تکراری</span></div>
+                        </div>
+                        <div class="chip-list" data-excel-found-list></div>
+                    </div>
+
+                    <div class="section-title" style="margin-top:1.5rem"><h2>اساتید مرتبط با آزمون</h2></div>
+                    <div class="staff-department-tabs">{% for group in teachers_by_department %}<button type="button" class="{% if forloop.first %}is-active{% endif %}" data-staff-tab="{{ forloop.counter0 }}">{{ group.department|fa_digits }} ({{ group.teachers|length|fa_digits }})</button>{% endfor %}</div>
+                    {% for group in teachers_by_department %}
+                    <div class="staff-department-pane {% if forloop.first %}is-active{% endif %}" data-staff-pane="{{ forloop.counter0 }}">
+                        <table class="table">
+                            <thead><tr><th></th><th>نام و نام‌خانوادگی</th><th>ایمیل / کد پرسنلی</th><th>نقش در آزمون</th></tr></thead>
+                            <tbody>
+                                {% for teacher in group.teachers %}
+                                <tr>
+                                    <td><input type="checkbox" data-staff-checkbox value="{{ teacher.id }}"></td>
+                                    <td>{{ teacher.full_name|fa_digits }}</td>
+                                    <td>{{ teacher.email|default:teacher.code|fa_digits }}</td>
+                                    <td><select data-staff-role disabled>{% for key, label in staff_role_labels.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endfor %}
+                    <div data-staff-hidden-inputs></div>
                 </section>
 
                 <section class="wizard-pane" data-pane="5">
-                    <div class="review-grid"><article class="wizard-card review-box"><a data-go-step="1">ویرایش</a><strong>اطلاعات پایه</strong><p data-review-title>-</p></article><article class="wizard-card review-box"><a data-go-step="2">ویرایش</a><strong>شرکت‌کنندگان</strong><p><span data-review-participants>۰</span> شرکت‌کننده</p></article><article class="wizard-card review-box"><a data-go-step="3">ویرایش</a><strong>سوالات</strong><p><span data-review-questions>۰</span> سوال</p></article><article class="wizard-card review-box"><a data-go-step="4">ویرایش</a><strong>زمان‌بندی</strong><p>مدت زمان: ۴۵ دقیقه</p></article><article class="wizard-card review-box"><strong>قوانین</strong><p>قوانین فعال بررسی شدند</p></article></div>
+                    <div class="mini-card"><h3>تنظیمات نمره‌دهی و ارزیابی</h3><div class="form-grid two">
+                        <label class="field">روش نمره‌دهی کل<select name="grading_method"><option value="weighted_by_type">نمره‌دهی وزنی بر اساس نوع سوال</option><option value="uniform">یکسان برای همه سوالات</option></select></label>
+                        <label class="field">مجموع نمرات کل آزمون<input type="number" name="passing_score_total" step="0.5" placeholder="مثلا ۱۰۰"></label>
+                        <label class="field">حداقل نمره قبولی (درصد)<input type="number" name="min_passing_percent" placeholder="مثلا ۶۰"></label>
+                        <label class="field">مقدار جریمه برای پاسخ غلط<input type="number" name="negative_factor" step="0.01" value="0.25"></label>
+                        <label class="toggle-row"><input type="checkbox" name="negative_marking"><span class="switch"></span><span>نمره منفی (جریمه)</span></label>
+                        <label class="toggle-row"><input type="checkbox" name="allow_partial" checked><span class="switch"></span><span>اعطای نمره جزئی (Partial Credit)</span></label>
+                        <label class="toggle-row"><input type="checkbox" name="manual_review_required" checked><span class="switch"></span><span>نیاز به بازبینی دستی برای سوالات تشریحی</span></label>
+                    </div></div>
+                    <div class="subgrid">
+                        <div class="mini-card"><h3>مهلت اعلام نمرات</h3><label class="field">مهلت نهایی انتشار نمرات<select name="results_deadline"><option value="3_days_after_end">۳ روز پس از تاریخ پایان آزمون</option><option value="7_days_after_end">۷ روز پس از تاریخ پایان آزمون</option><option value="manual">دستی توسط استاد</option></select></label><label class="field">قالب روبریک<select name="rubric_template"><option value="">بدون روبریک</option><option value="analytic_multilevel">روبریک تحلیلی چندسطحی</option><option value="holistic">روبریک کل‌نگر</option></select></label></div>
+                        <div class="mini-card"><h3>دستورالعمل تصحیح</h3><label class="field is-full"><textarea name="correction_instructions" placeholder="دستورالعمل عمومی تصحیح برای این آزمون را وارد کنید."></textarea></label></div>
+                    </div>
+                    <div class="mini-card" style="margin-top:1rem"><h3>حالت تصحیح</h3><div class="publish-options" style="grid-template-columns:1fr 1fr;display:grid">
+                        <label><input type="radio" name="correction_mode" value="manual" checked><strong>تصحیح دستی توسط مدرس</strong><span>تصحیح دستی سوالات تشریحی و موارد کیفی</span></label>
+                        <label><input type="radio" name="correction_mode" value="auto_then_manual"><strong>خودکار پس از تصحیح کامل</strong><span>تصحیح خودکار سوالات عینی، سپس بازبینی دستی</span></label>
+                    </div></div>
+                </section>
+
+                <section class="wizard-pane" data-pane="6">
+                    <div class="section-title"><h2>سطح امنیت</h2></div>
+                    <div class="security-grid">
+                        <label class="security-card"><input type="radio" name="security_level" value="low"><span><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3Z"/></svg></span><strong>کم</strong><small>حداقل تنظیمات امنیتی</small></label>
+                        <label class="security-card"><input type="radio" name="security_level" value="medium" checked><span><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3Z"/></svg></span><strong>متوسط</strong><small>تعادل بین امنیت و تجربه کاربری</small></label>
+                        <label class="security-card"><input type="radio" name="security_level" value="high"><span><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3Z"/></svg></span><strong>زیاد</strong><small>بیشترین سطح امنیت</small></label>
+                    </div>
+                    <div class="section-title"><h2>حالت برگزاری آزمون</h2></div>
+                    <div class="security-grid">
+                        <label class="security-card"><input type="radio" name="execution_mode" value="web" checked><span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span><strong>وب (هر دستگاه)</strong><small>اجرای آزمون در مرورگر وب</small></label>
+                        <label class="security-card"><input type="radio" name="execution_mode" value="lockdown_browser"><span><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></span><strong>مرورگر متمرکز</strong><small>Safe Exam Browser</small></label>
+                        <label class="security-card"><input type="radio" name="execution_mode" value="in_app"><span><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/></svg></span><strong>در دسکتاپ</strong><small>نصب و اجرای نرم‌افزار دسکتاپ</small></label>
+                    </div>
+                    <div class="rule-grid">
+                        <label class="rule-box toggle-row"><input type="checkbox" name="identity_verification_required" checked><span class="switch"></span><div><strong>احراز هویت داوطلب</strong><p>ورود با نام کاربری و رمز عبور</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="device_limit_enabled" checked><span class="switch"></span><div><strong>محدودیت دستگاه</strong><p>فقط یک دستگاه در هر بار ورود</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="ip_restriction_enabled"><span class="switch"></span><div><strong>محدودیت IP</strong><p>اجازه فقط از محدوده IP مشخص</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="fullscreen_required" checked><span class="switch"></span><div><strong>اجبار تمام‌صفحه</strong><p>نمایش در حالت تمام‌صفحه</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="webcam_monitoring" checked><span class="switch"></span><div><strong>نظارت وبکم</strong><p>نظارت لحظه‌ای وبکم</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="mic_monitoring"><span class="switch"></span><div><strong>نظارت میکروفون</strong><p>نظارت لحظه‌ای میکروفون</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="track_tab_exit" checked><span class="switch"></span><div><strong>هشدار تعویض تب</strong><p>هشدار در صورت تعویض تب</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="copy_paste_prevention" checked><span class="switch"></span><div><strong>جلوگیری از کپی و چسباندن</strong><p>غیرفعال‌سازی کپی/پیست در صفحه</p></div></label>
+                        <label class="rule-box toggle-row"><input type="checkbox" name="screenshot_prevention" checked><span class="switch"></span><div><strong>جلوگیری از اسکرین‌شات</strong><p>جلوگیری از گرفتن اسکرین‌شات</p></div></label>
+                    </div>
+                    <div class="mini-card" style="margin-top:1rem"><label class="field" style="max-width:20rem">محدوده IP مجاز<input name="ip_restriction_range" placeholder="مثال: 192.168.1.0/24"></label></div>
+                    <div class="subgrid">
+                        <div class="mini-card"><h3>ذخیره‌سازی و اتصال</h3><label class="field">بازه ذخیره خودکار پاسخ‌ها<select name="autosave_interval_seconds"><option value="15">۱۵ ثانیه</option><option value="30" selected>۳۰ ثانیه</option><option value="60">۶۰ ثانیه</option></select></label><label class="field">قطع شدن اینترنت<select name="internet_disconnect_policy"><option value="resume_from_last_save">ادامه از آخرین ذخیره</option><option value="pause">توقف آزمون</option><option value="none">بدون واکنش خاص</option></select></label></div>
+                        <div class="mini-card"><h3>کمک‌های ضدتقلب</h3><label class="toggle-row"><input type="checkbox" name="shuffle_questions" checked><span class="switch"></span><span>مخلوط‌سازی سوالات</span></label><label class="toggle-row"><input type="checkbox" name="shuffle_options" checked><span class="switch"></span><span>مخلوط‌سازی گزینه‌ها</span></label></div>
+                    </div>
+                    <div class="mini-card" style="margin-top:1rem"><h3>پیوست فایل راهنما (اختیاری)</h3><div class="upload-drop"><input type="file" name="guidance_file" accept=".pdf,.jpg,.jpeg,.png"><span data-upload-placeholder>فایل را بکشید و رها کنید یا کلیک کنید (حداکثر ۱۰ مگابایت)</span></div></div>
+                </section>
+
+                <section class="wizard-pane" data-pane="7">
+                    <div class="review-grid">
+                        <article class="wizard-card review-box"><a data-go-step="1">ویرایش</a><strong>مشخصات پایه</strong><p data-review-title>-</p></article>
+                        <article class="wizard-card review-box"><a data-go-step="2">ویرایش</a><strong>زمان‌بندی</strong><p><span data-review-duration>-</span> دقیقه</p></article>
+                        <article class="wizard-card review-box"><a data-go-step="3">ویرایش</a><strong>سوالات</strong><p><span data-review-questions>۰</span> سوال</p></article>
+                        <article class="wizard-card review-box"><a data-go-step="4">ویرایش</a><strong>مخاطبان</strong><p><span data-review-participants>۰</span> شرکت‌کننده</p></article>
+                        <article class="wizard-card review-box"><a data-go-step="6">ویرایش</a><strong>امنیت</strong><p data-review-security>متوسط</p></article>
+                    </div>
                     <div class="selector-grid">
-                        <section class="wizard-card composition"><h2>آماده انتشار</h2><div class="ready-list"><div>اطلاعات پایه تکمیل شده است <b>✓</b></div><div>حداقل یک گروه/دانشجو انتخاب شده است <b>✓</b></div><div>تعداد سوالات در محدوده مجاز است <b>✓</b></div><div>مدت زمان آزمون تعیین شده است <b>✓</b></div><div>حداقل یک قانون تعریف شده است <b>✓</b></div></div></section>
-                        <section class="wizard-card composition"><h2>گزینه‌های انتشار</h2><div class="publish-options"><label><input type="radio" name="publish_choice" value="immediate" checked><strong>انتشار فوری</strong><span>آزمون بلافاصله برای شرکت‌کنندگان فعال می‌شود.</span></label><label><input type="radio" name="publish_choice" value="scheduled"><strong>زمان‌بندی انتشار</strong><span>انتشار در تاریخ مشخص انجام شود.</span></label><label><input type="radio" name="publish_choice" value="draft"><strong>فقط ذخیره به عنوان پیش‌نویس</strong><span>آزمون منتشر نمی‌شود.</span></label></div></section>
+                        <section class="wizard-card composition"><h2>هشدارها و نکات</h2><div class="ready-list" data-readiness-list></div></section>
+                        <section class="wizard-card composition"><h2>روش انتشار</h2><div class="publish-options">
+                            <label><input type="radio" name="publish_choice_ui" value="draft" checked><strong>ذخیره به‌عنوان پیش‌نویس</strong><span>برای تکمیل و بررسی بیشتر، بدون انتشار</span></label>
+                            <label><input type="radio" name="publish_choice_ui" value="immediate"><strong>انتشار فوری</strong><span>آزمون بلافاصله برای دانشجویان قابل دسترسی می‌شود</span></label>
+                            <label><input type="radio" name="publish_choice_ui" value="scheduled"><strong>زمان‌بندی انتشار</strong><span>آزمون در زمان مشخص‌شده منتشر شود</span><input type="datetime-local" name="scheduled_publish_at" style="margin-top:.5rem;width:100%;border:1px solid #cbd9ec;border-radius:.6rem;padding:.5rem"></label>
+                        </div></section>
                     </div>
                 </section>
             </main>
@@ -152,12 +296,15 @@
                 <h2>خلاصه آزمون</h2>
                 <div class="summary-status">وضعیت: پیش‌نویس</div>
                 <div class="summary-list">
-                    <div><span>عنوان آزمون</span><strong data-summary-title>آزمون میان‌ترم مبانی برنامه‌نویسی</strong></div>
+                    <div><span>عنوان آزمون</span><strong data-summary-title>-</strong></div>
                     <div><span>درس</span><strong data-summary-course>-</strong></div>
                     <div><span>استاد</span><strong data-summary-teacher>-</strong></div>
-                    <div><span>نوع آزمون</span><strong data-summary-type>آزمون میان‌ترم</strong></div>
-                    <div><span>سال تحصیلی و ترم</span><strong data-summary-year>۱۴۰۳ - ۱۴۰۴ / نیمسال اول</strong></div>
-                    <div><span>تاریخ ایجاد</span><strong>امروز</strong></div>
+                    <div><span>تعداد سوالات</span><strong data-selected-questions-count-2>۰</strong></div>
+                    <div><span>مدت زمان</span><strong data-summary-duration>-</strong></div>
+                    <div><span>گروه‌های هدف</span><strong data-selected-groups-count-2>۰</strong></div>
+                    <div><span>دانشجویان</span><strong data-selected-students-count-2>۰</strong></div>
+                    <div><span>اساتید</span><strong data-selected-staff-count>۰</strong></div>
+                    <div><span>نحوه نمره‌دهی</span><strong data-summary-grading>نمره کل</strong></div>
                 </div>
             </aside>
         </div>
@@ -166,7 +313,7 @@
             <button class="save-btn" type="submit" data-save-draft>ذخیره پیش‌نویس</button>
             <div>
                 <button class="nav-btn" type="button" data-prev-step>مرحله قبل</button>
-                <button class="publish-btn" type="button" data-next-step>ادامه</button>
+                <button class="publish-btn" type="button" data-next-step>مرحله بعد</button>
                 <button class="publish-btn" type="submit" data-publish-exam hidden>انتشار آزمون</button>
             </div>
         </footer>
@@ -176,57 +323,208 @@
 <script>
 (() => {
     const form = document.querySelector('[data-exam-wizard]');
+    const TOTAL_STEPS = 7;
     let step = 1;
     const fa = (value) => String(value ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
     const selectedText = (select) => select?.selectedOptions?.[0]?.textContent?.trim() || '-';
+
     const updateCounts = () => {
         const students = form.querySelectorAll('[name="student_ids"]:checked').length;
         const groups = form.querySelectorAll('[name="group_ids"]:checked').length;
-        const questions = [...form.querySelectorAll('[name="question_ids"]:checked')];
-        const score = questions.reduce((sum, item) => sum + Number(item.closest('[data-question-row]')?.lastElementChild?.textContent || 1), 0);
-        document.querySelector('[data-selected-students-count]').textContent = fa(students);
-        document.querySelector('[data-selected-groups-count]').textContent = fa(groups);
-        document.querySelector('[data-selected-questions-count]').textContent = fa(questions.length);
-        document.querySelector('[data-score-total]').textContent = fa(score || questions.length);
-        document.querySelector('[data-review-participants]').textContent = fa(students);
-        document.querySelector('[data-review-questions]').textContent = fa(questions.length);
+        const questionEls = [...form.querySelectorAll('[name="question_ids"]:checked')];
+        const score = questionEls.reduce((sum, item) => sum + Number(item.closest('[data-question-row]')?.dataset.points || 1), 0);
+        const staff = form.querySelectorAll('[data-staff-checkbox]:checked').length;
+        document.querySelectorAll('[data-selected-students-count],[data-selected-students-count-2]').forEach((el) => el.textContent = fa(students));
+        document.querySelectorAll('[data-selected-groups-count],[data-selected-groups-count-2]').forEach((el) => el.textContent = fa(groups));
+        document.querySelectorAll('[data-selected-questions-count],[data-selected-questions-count-2]').forEach((el) => el.textContent = fa(questionEls.length));
+        const scoreEl = document.querySelector('[data-score-total]'); if (scoreEl) scoreEl.textContent = fa(score || questionEls.length);
+        const reviewQ = document.querySelector('[data-review-questions]'); if (reviewQ) reviewQ.textContent = fa(questionEls.length);
+        const reviewP = document.querySelector('[data-review-participants]'); if (reviewP) reviewP.textContent = fa(students + groups);
+        const staffEl = document.querySelector('[data-selected-staff-count]'); if (staffEl) staffEl.textContent = fa(staff);
     };
+
     const updateSummary = () => {
         const title = form.elements.title.value || '-';
         document.querySelector('[data-summary-title]').textContent = title;
         document.querySelector('[data-review-title]').textContent = title;
         document.querySelector('[data-summary-course]').textContent = selectedText(form.elements.course_id);
         document.querySelector('[data-summary-teacher]').textContent = selectedText(form.elements.teacher_id);
-        document.querySelector('[data-summary-type]').textContent = selectedText(form.elements.exam_type);
-        document.querySelector('[data-summary-year]').textContent = fa(form.elements.academic_year.value || '-');
+        const duration = form.elements.duration_minutes?.value || '-';
+        document.querySelector('[data-summary-duration]').textContent = duration === '-' ? '-' : `${fa(duration)} دقیقه`;
+        const reviewDuration = document.querySelector('[data-review-duration]'); if (reviewDuration) reviewDuration.textContent = fa(duration);
+        const gradingSelect = form.querySelector('[name="grading_template"]');
+        const gradingEl = document.querySelector('[data-summary-grading]'); if (gradingEl && gradingSelect) gradingEl.textContent = selectedText(gradingSelect);
+        const securitySelected = form.querySelector('[name="security_level"]:checked');
+        const securityEl = document.querySelector('[data-review-security]'); if (securityEl && securitySelected) securityEl.textContent = securitySelected.closest('.security-card').querySelector('strong').textContent;
     };
+
+    const updateDistribution = () => {
+        const distList = document.querySelector('[data-dist-list]');
+        if (!distList) return;
+        const counts = {};
+        form.querySelectorAll('[name="question_ids"]:checked').forEach((el) => {
+            const type = el.closest('[data-question-row]')?.dataset.type || 'other';
+            counts[type] = (counts[type] || 0) + 1;
+        });
+        const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+        distList.innerHTML = Object.entries(counts).map(([type, count]) => `<div><span>${type}</span><i style="width:${Math.round(count / total * 100)}%"></i></div>`).join('') || '<p style="color:#65728a;font-size:.8rem">هنوز سوالی انتخاب نشده است.</p>';
+    };
+
+    const updateReadiness = () => {
+        const list = document.querySelector('[data-readiness-list]');
+        if (!list) return;
+        const checks = [
+            [!!form.elements.title.value, 'عنوان و مشخصات پایه تکمیل شده است.'],
+            [form.querySelectorAll('[name="group_ids"]:checked, [name="student_ids"]:checked').length > 0, 'حداقل یک گروه یا دانشجو انتخاب شده است.'],
+            [form.querySelectorAll('[name="question_ids"]:checked').length > 0, 'حداقل یک سوال انتخاب شده است.'],
+            [!!form.elements.duration_minutes.value, 'مدت زمان آزمون تعیین شده است.'],
+        ];
+        list.innerHTML = checks.map(([ok, label]) => `<div>${label} <b>${ok ? '✓' : '!'}</b></div>`).join('');
+    };
+
     const setStep = (nextStep) => {
-        step = Math.max(1, Math.min(5, Number(nextStep)));
+        step = Math.max(1, Math.min(TOTAL_STEPS, Number(nextStep)));
         document.querySelectorAll('[data-pane]').forEach((pane) => pane.classList.toggle('is-active', Number(pane.dataset.pane) === step));
         document.querySelectorAll('[data-step-button]').forEach((button) => button.classList.toggle('is-active', Number(button.dataset.stepButton) === step));
         document.querySelector('[data-prev-step]').hidden = step === 1;
-        document.querySelector('[data-next-step]').hidden = step === 5;
-        document.querySelector('[data-publish-exam]').hidden = step !== 5;
-        updateCounts();
-        updateSummary();
+        document.querySelector('[data-next-step]').hidden = step === TOTAL_STEPS;
+        document.querySelector('[data-publish-exam]').hidden = step !== TOTAL_STEPS;
+        updateCounts(); updateSummary(); updateDistribution(); updateReadiness();
     };
+
     document.querySelectorAll('[data-step-button],[data-go-step]').forEach((button) => button.addEventListener('click', () => setStep(button.dataset.stepButton || button.dataset.goStep)));
     document.querySelector('[data-next-step]').addEventListener('click', () => setStep(step + 1));
     document.querySelector('[data-prev-step]').addEventListener('click', () => setStep(step - 1));
-    form.addEventListener('input', () => { updateCounts(); updateSummary(); });
-    form.addEventListener('change', () => { updateCounts(); updateSummary(); });
-    document.querySelector('[data-save-draft]').addEventListener('click', () => { document.querySelector('[data-publish-mode]').value = 'draft'; });
+    form.addEventListener('input', () => { updateCounts(); updateSummary(); updateDistribution(); updateReadiness(); });
+    form.addEventListener('change', () => { updateCounts(); updateSummary(); updateDistribution(); updateReadiness(); });
+
+    document.querySelector('[data-save-draft]').addEventListener('click', () => { form.querySelector('[data-publish-mode]').value = 'draft'; });
     document.querySelector('[data-publish-exam]').addEventListener('click', () => {
-        const selected = form.querySelector('[name="publish_choice"]:checked')?.value || 'draft';
-        document.querySelector('[data-publish-mode]').value = selected;
+        const selected = form.querySelector('[name="publish_choice_ui"]:checked')?.value || 'draft';
+        form.querySelector('[data-publish-mode]').value = selected;
     });
+
     document.querySelectorAll('[data-filter-list]').forEach((input) => {
         input.addEventListener('input', () => {
-            const selector = input.dataset.filterList === 'question' ? '[data-question-row]' : '[data-participant-row]';
             const q = input.value.trim().toLowerCase();
-            document.querySelectorAll(selector).forEach((row) => row.hidden = q && !row.textContent.toLowerCase().includes(q));
+            document.querySelectorAll('[data-question-row]').forEach((row) => {
+                const matches = !q || row.textContent.toLowerCase().includes(q);
+                row.dataset.textMatch = matches ? '1' : '0';
+                applyQuestionFilters();
+            });
         });
     });
+    const applyQuestionFilters = () => {
+        const courseFilter = document.querySelector('[data-filter-select="course"]')?.value || '';
+        const difficultyFilter = document.querySelector('[data-filter-select="difficulty"]')?.value || '';
+        const typeFilter = document.querySelector('[data-filter-select="type"]')?.value || '';
+        document.querySelectorAll('[data-question-row]').forEach((row) => {
+            const textOk = row.dataset.textMatch !== '0';
+            const courseOk = !courseFilter || row.dataset.course === courseFilter;
+            const difficultyOk = !difficultyFilter || row.dataset.difficulty === difficultyFilter;
+            const typeOk = !typeFilter || row.dataset.type === typeFilter;
+            row.hidden = !(textOk && courseOk && difficultyOk && typeOk);
+        });
+    };
+    document.querySelectorAll('[data-filter-select]').forEach((select) => select.addEventListener('change', applyQuestionFilters));
+
+    document.querySelectorAll('[data-participant-tab]').forEach((tab) => tab.addEventListener('click', () => {
+        document.querySelectorAll('[data-participant-tab]').forEach((t) => t.classList.toggle('is-active', t === tab));
+        document.querySelectorAll('[data-participant-pane]').forEach((pane) => pane.classList.toggle('is-active', pane.dataset.participantPane === tab.dataset.participantTab));
+    }));
+
+    document.querySelectorAll('[data-staff-tab]').forEach((tab) => tab.addEventListener('click', () => {
+        document.querySelectorAll('[data-staff-tab]').forEach((t) => t.classList.toggle('is-active', t === tab));
+        document.querySelectorAll('[data-staff-pane]').forEach((pane) => pane.classList.toggle('is-active', pane.dataset.staffPane === tab.dataset.staffTab));
+    }));
+
+    document.querySelectorAll('[data-staff-checkbox]').forEach((checkbox) => checkbox.addEventListener('change', () => {
+        const roleSelect = checkbox.closest('tr').querySelector('[data-staff-role]');
+        roleSelect.disabled = !checkbox.checked;
+        syncStaffHiddenInputs();
+    }));
+    document.querySelectorAll('[data-staff-role]').forEach((select) => select.addEventListener('change', syncStaffHiddenInputs));
+    function syncStaffHiddenInputs() {
+        const container = document.querySelector('[data-staff-hidden-inputs]');
+        container.innerHTML = '';
+        document.querySelectorAll('[data-staff-checkbox]:checked').forEach((checkbox) => {
+            const role = checkbox.closest('tr').querySelector('[data-staff-role]').value;
+            container.insertAdjacentHTML('beforeend', `<input type="hidden" name="staff_teacher_id" value="${checkbox.value}"><input type="hidden" name="staff_role" value="${role}">`);
+        });
+        updateCounts();
+    }
+
+    document.querySelectorAll('[data-type-card]').forEach((card) => card.addEventListener('click', () => {
+        const input = document.querySelector(`[data-count-input="${card.dataset.typeCard}"]`);
+        input.value = Number(input.value) + 1;
+        document.querySelector(`[data-count-value="${card.dataset.typeCard}"]`).textContent = fa(input.value);
+    }));
+    document.querySelectorAll('[data-count-up]').forEach((btn) => btn.addEventListener('click', () => {
+        const key = btn.dataset.countUp;
+        const input = document.querySelector(`[data-count-input="${key}"]`);
+        input.value = Number(input.value) + 1;
+        document.querySelector(`[data-count-value="${key}"]`).textContent = fa(input.value);
+    }));
+    document.querySelectorAll('[data-count-down]').forEach((btn) => btn.addEventListener('click', () => {
+        const key = btn.dataset.countDown;
+        const input = document.querySelector(`[data-count-input="${key}"]`);
+        input.value = Math.max(0, Number(input.value) - 1);
+        document.querySelector(`[data-count-value="${key}"]`).textContent = fa(input.value);
+    }));
+
+    const chipsField = document.querySelector('[data-chips="group"]');
+    if (chipsField) {
+        const select = chipsField.querySelector('[data-chip-source]');
+        select.addEventListener('change', () => {
+            const option = select.selectedOptions[0];
+            if (!option || !option.value) return;
+            if (chipsField.querySelector(`[data-chip-value="${option.value}"]`)) { select.value = ''; return; }
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            chip.dataset.chipValue = option.value;
+            chip.innerHTML = `${option.dataset.label}<button type="button">×</button><input type="hidden" name="group_ids" value="${option.value}">`;
+            chip.querySelector('button').addEventListener('click', () => { chip.remove(); updateCounts(); });
+            chipsField.insertBefore(chip, select);
+            select.value = '';
+            updateCounts();
+        });
+    }
+
+    const excelInput = document.querySelector('[data-excel-input]');
+    if (excelInput) {
+        excelInput.addEventListener('change', async () => {
+            const file = excelInput.files[0];
+            if (!file) return;
+            const body = new FormData();
+            body.append('excel_file', file);
+            const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+            try {
+                const response = await fetch('{% url "core:super_admin_exam_participants_match" %}', { method: 'POST', body, headers: { 'X-CSRFToken': csrftoken } });
+                const data = await response.json();
+                if (!response.ok) { alert(data.error || 'خطا در پردازش فایل.'); return; }
+                document.querySelector('[data-excel-summary]').hidden = false;
+                document.querySelector('[data-excel-found]').textContent = fa(data.found.length);
+                document.querySelector('[data-excel-total]').textContent = fa(data.total_rows);
+                document.querySelector('[data-excel-not-found]').textContent = fa(data.not_found.length);
+                document.querySelector('[data-excel-duplicate]').textContent = fa(data.duplicate_count);
+                const list = document.querySelector('[data-excel-found-list]');
+                list.innerHTML = '';
+                data.found.forEach((student) => {
+                    const existing = form.querySelector(`input[name="student_ids"][value="${student.id}"]`);
+                    if (!existing) {
+                        const hidden = document.createElement('input');
+                        hidden.type = 'hidden'; hidden.name = 'student_ids'; hidden.value = student.id;
+                        form.appendChild(hidden);
+                    }
+                    list.insertAdjacentHTML('beforeend', `<span>${student.full_name} (${student.student_number || student.national_id})</span>`);
+                });
+                updateCounts();
+            } catch (error) {
+                alert('خطا در ارتباط با سرور.');
+            }
+        });
+    }
+
     setStep(1);
 })();
 </script>

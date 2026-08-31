@@ -1,3 +1,4 @@
+import io
 import uuid
 
 from django.contrib.auth import get_user_model
@@ -69,6 +70,13 @@ class _ScopedOrgFixture(TestCase):
         _insert('exams', ['id', 'title', 'teacher_id', 'course_id', 'start_at'], [cls.exam_in_id, 'آزمون داخل محدوده', cls.teacher_in_id, cls.course_in_id, now])
         cls.exam_out_id = str(uuid.uuid4())
         _insert('exams', ['id', 'title', 'teacher_id', 'course_id', 'start_at'], [cls.exam_out_id, 'آزمون خارج محدوده', cls.teacher_out_id, cls.course_out_id, now])
+
+        cls.question_in_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'default_points'],
+                [cls.question_in_id, cls.teacher_in_id, cls.course_in_id, 'سوال داخل محدوده', 2])
+        cls.question_out_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'default_points'],
+                [cls.question_out_id, cls.teacher_out_id, cls.course_out_id, 'سوال خارج محدوده', 2])
 
         cls.admin_id = cls._make_profile('admin_test', 'مدیر سیستم تست')
         _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), cls.admin_id, 'admin'])
@@ -429,3 +437,134 @@ class SuperAdminExamBulkImportScopeTests(_ScopedOrgFixture):
         self.assertIn(record['level'], {'ok', 'warning'})
         self.assertEqual(record['course_id'], self.course_out_id)
         self.assertEqual(record['teacher_id'], self.teacher_out_id)
+
+
+class SuperAdminExamWizardTests(_ScopedOrgFixture):
+    """
+    ویزارد ۷ مرحله‌ای ایجاد آزمون: منابع (درس/استاد/دانشجو/گروه/سوال) باید
+    برای مدیر آموزشی scope شوند و ثبت نهایی هم سمت سرور دوباره بررسی شود،
+    نه فقط مخفی‌کردن گزینه‌های خارج از محدوده در فرم.
+    """
+
+    def _base_payload(self, **overrides):
+        payload = {
+            'title': 'آزمون تست',
+            'course_id': self.course_in_id,
+            'teacher_id': self.teacher_in_id,
+            'group_ids': [self.group_in_id],
+            'question_ids': [self.question_in_id],
+            'duration_minutes': '90',
+            'start_at': '2026-09-10T09:00',
+            'publish_choice': 'draft',
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_manager_sees_only_in_scope_resources_on_get(self):
+        self.client.force_login(self.manager_user)
+        response = self.client.get(reverse('core:super_admin_exam_create'))
+        self.assertEqual(response.status_code, 200)
+        course_ids = {c['id'] for c in response.context['courses']}
+        teacher_ids = {t['id'] for t in response.context['teachers']}
+        question_ids = {q['id'] for q in response.context['questions']}
+        group_ids = {g['id'] for g in response.context['groups']}
+        self.assertIn(self.course_in_id, course_ids)
+        self.assertNotIn(self.course_out_id, course_ids)
+        self.assertIn(self.teacher_in_id, teacher_ids)
+        self.assertNotIn(self.teacher_out_id, teacher_ids)
+        self.assertIn(self.question_in_id, question_ids)
+        self.assertNotIn(self.question_out_id, question_ids)
+        self.assertIn(self.group_in_id, group_ids)
+        self.assertNotIn(self.group_out_id, group_ids)
+
+    def test_manager_can_create_exam_with_in_scope_resources_and_staff(self):
+        self.client.force_login(self.manager_user)
+        payload = self._base_payload(staff_teacher_id=[self.teacher_in_id], staff_role=['designer'])
+        response = self.client.post(reverse('core:super_admin_exam_create'), payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id, security_level, execution_mode, exam_mode FROM exams WHERE title = 'آزمون تست'")
+            row = cursor.fetchone()
+        self.assertIsNotNone(row)
+        exam_id, security_level, execution_mode, exam_mode = row
+        self.assertEqual(security_level, 'medium')
+        self.assertEqual(execution_mode, 'web')
+        self.assertEqual(exam_mode, 'standard')
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT teacher_id, role FROM exam_staff WHERE exam_id = %s', [exam_id])
+            staff_rows = cursor.fetchall()
+        self.assertEqual(staff_rows, [(self.teacher_in_id, 'designer')])
+
+    def test_manager_blocked_from_using_out_of_scope_course(self):
+        self.client.force_login(self.manager_user)
+        payload = self._base_payload(course_id=self.course_out_id)
+        response = self.client.post(reverse('core:super_admin_exam_create'), payload)
+        self.assertEqual(response.status_code, 403)
+
+    def test_manager_blocked_from_using_out_of_scope_question(self):
+        self.client.force_login(self.manager_user)
+        payload = self._base_payload(question_ids=[self.question_out_id])
+        response = self.client.post(reverse('core:super_admin_exam_create'), payload)
+        self.assertEqual(response.status_code, 403)
+
+    def test_manager_blocked_from_assigning_out_of_scope_staff(self):
+        self.client.force_login(self.manager_user)
+        payload = self._base_payload(staff_teacher_id=[self.teacher_out_id], staff_role=['observer'])
+        response = self.client.post(reverse('core:super_admin_exam_create'), payload)
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_sees_all_resources_and_can_use_any(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse('core:super_admin_exam_create'))
+        course_ids = {c['id'] for c in response.context['courses']}
+        self.assertIn(self.course_in_id, course_ids)
+        self.assertIn(self.course_out_id, course_ids)
+        payload = self._base_payload(title='آزمون ادمین', course_id=self.course_out_id, teacher_id=self.teacher_out_id, question_ids=[self.question_out_id])
+        response = self.client.post(reverse('core:super_admin_exam_create'), payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM exams WHERE title = 'آزمون ادمین'")
+            self.assertIsNotNone(cursor.fetchone())
+
+
+class SuperAdminExamParticipantsMatchTests(_ScopedOrgFixture):
+    """تطبیق فایل مخاطبان آزمون هم باید مثل تطبیق دانشجویان bulk-import محدود به scope مدیر باشد."""
+
+    NID_IN = 'NID-IN-001'
+    NID_OUT = 'NID-OUT-002'
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE profiles SET national_id = %s WHERE id = %s', [cls.NID_IN, cls.student_in_id])
+            cursor.execute('UPDATE profiles SET national_id = %s WHERE id = %s', [cls.NID_OUT, cls.student_out_id])
+
+    def _upload_csv(self, url, identifier):
+        content = f'کد ملی یا شماره دانشجویی\n{identifier}\n'.encode('utf-8-sig')
+        upload = io.BytesIO(content)
+        upload.name = 'participants.csv'
+        return self.client.post(url, {'excel_file': upload})
+
+    def test_manager_can_match_in_scope_student(self):
+        self.client.force_login(self.manager_user)
+        response = self._upload_csv(reverse('core:super_admin_exam_participants_match'), self.NID_IN)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data['found']), 1)
+        self.assertEqual(data['found'][0]['id'], self.student_in_id)
+
+    def test_manager_cannot_match_out_of_scope_student(self):
+        self.client.force_login(self.manager_user)
+        response = self._upload_csv(reverse('core:super_admin_exam_participants_match'), self.NID_OUT)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data['found']), 0)
+        self.assertEqual(data['not_found'], [self.NID_OUT])
+
+    def test_admin_can_match_any_student(self):
+        self.client.force_login(self.admin_user)
+        response = self._upload_csv(reverse('core:super_admin_exam_participants_match'), self.NID_OUT)
+        data = response.json()
+        self.assertEqual(len(data['found']), 1)
+        self.assertEqual(data['found'][0]['id'], self.student_out_id)
