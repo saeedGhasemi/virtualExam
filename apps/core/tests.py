@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 
 def _insert(table, columns, values):
@@ -63,10 +64,11 @@ class _ScopedOrgFixture(TestCase):
             [cls.group_out_id, cls.teacher_out_id, cls.course_out_id, 'درس خارج محدوده', '1403'],
         )
 
+        now = timezone.now()
         cls.exam_in_id = str(uuid.uuid4())
-        _insert('exams', ['id', 'title', 'teacher_id', 'course_id'], [cls.exam_in_id, 'آزمون داخل محدوده', cls.teacher_in_id, cls.course_in_id])
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id', 'start_at'], [cls.exam_in_id, 'آزمون داخل محدوده', cls.teacher_in_id, cls.course_in_id, now])
         cls.exam_out_id = str(uuid.uuid4())
-        _insert('exams', ['id', 'title', 'teacher_id', 'course_id'], [cls.exam_out_id, 'آزمون خارج محدوده', cls.teacher_out_id, cls.course_out_id])
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id', 'start_at'], [cls.exam_out_id, 'آزمون خارج محدوده', cls.teacher_out_id, cls.course_out_id, now])
 
         cls.admin_id = cls._make_profile('admin_test', 'مدیر سیستم تست')
         _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), cls.admin_id, 'admin'])
@@ -337,23 +339,28 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         self.assertEqual(response.status_code, 403)
 
 
-class ExamManagerCalendarScopeTests(_ScopedOrgFixture):
+class SuperAdminCalendarUnificationTests(_ScopedOrgFixture):
     """
-    حفره‌ی scope در _em_calendar_rows: قبلاً تقویم مدیر آموزشی همه‌ی
-    آزمون‌ها و رویدادهای تقویمی کل سیستم را نشان می‌داد.
+    تقویم مدیر آموزشی و مدیر سیستم هم اکنون یک صفحه‌ی مشترک است
+    (super_admin_calendar) که از تبدیل واقعی میلادی-به-جلالی استفاده
+    می‌کند، نه محاسبه‌ی جعلی/هاردکد قبلی exam_manager (`is_today = day
+    == 25` و ...). این هم اکنون حفره‌ی scope مستقل _em_calendar_rows را
+    پوشش می‌دهد: قبلاً تقویم مدیر آموزشی همه‌ی آزمون‌ها و رویدادهای
+    تقویمی کل سیستم را نشان می‌داد.
     """
 
-    def test_manager_calendar_only_shows_in_scope_exams(self):
+    def test_exam_manager_and_super_admin_calendar_urls_show_identical_scoped_content(self):
         self.client.force_login(self.manager_user)
-        response = self.client.get(reverse('core:exam_manager_calendar'))
-        self.assertEqual(response.status_code, 200)
-        event_ids = {event['id'] for event in response.context['events']}
-        self.assertIn(self.exam_in_id, event_ids)
-        self.assertNotIn(self.exam_out_id, event_ids)
+        for url_name in ('core:exam_manager_calendar', 'core:super_admin_calendar'):
+            response = self.client.get(reverse(url_name))
+            self.assertEqual(response.status_code, 200)
+            event_ids = {event['id'] for event in response.context['events']}
+            self.assertIn(self.exam_in_id, event_ids)
+            self.assertNotIn(self.exam_out_id, event_ids)
 
     def test_admin_calendar_shows_every_exam(self):
         self.client.force_login(self.admin_user)
-        response = self.client.get(reverse('core:exam_manager_calendar'))
+        response = self.client.get(reverse('core:super_admin_calendar'))
         event_ids = {event['id'] for event in response.context['events']}
         self.assertIn(self.exam_in_id, event_ids)
         self.assertIn(self.exam_out_id, event_ids)

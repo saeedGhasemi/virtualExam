@@ -8980,7 +8980,7 @@ def super_admin_exam_detail(request, exam_id):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_calendar(request):
     def gregorian_to_jalali(date_value):
         g_days = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
@@ -9032,22 +9032,58 @@ def super_admin_calendar(request):
     teacher_filter = request.GET.get('teacher', '').strip()
     days_in_month = 31 if selected_month <= 6 else 30 if selected_month <= 11 else 29
 
+    is_admin = _erd_is_admin_request(request)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_params = [] if is_admin else [request.erd_profile_id]
+    exam_scope_where = '1=1' if is_admin else _erd_exam_scope_condition()
     exams = erd_rows(
-        """
+        f"""
+        {scope_cte}
         SELECT e.id, e.title, e.start_at, e.end_at, e.duration_minutes,
                COALESCE(e.academic_year, '-') AS academic_year,
                COALESCE(e.semester, '-') AS semester,
                COALESCE(e.is_published, false) AS is_published,
                COALESCE(e.is_cancelled, false) AS is_cancelled,
                COALESCE(c.title, '-') AS course,
-               COALESCE(p.full_name, '-') AS teacher
+               COALESCE(p.full_name, '-') AS teacher,
+               'exam' AS event_type
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         LEFT JOIN profiles p ON p.id = e.teacher_id
+        WHERE {exam_scope_where}
         ORDER BY e.start_at ASC NULLS LAST, e.title
         LIMIT 300
-        """
+        """,
+        scope_params,
     )
+    _em_calendar_ensure_table()
+    if connection.vendor == 'sqlite':
+        calendar_course_join = 'c.id = ace.course_id'
+        calendar_group_join = 'sg.id = ace.group_id'
+    else:
+        calendar_course_join = "c.id = NULLIF(ace.course_id, '')::uuid"
+        calendar_group_join = "sg.id = NULLIF(ace.group_id, '')::uuid"
+    calendar_scope_where = '1=1' if is_admin else _erd_group_scope_condition()
+    calendar_events = erd_rows(
+        f"""
+        {scope_cte}
+        SELECT ace.id, ace.title, ace.starts_at AS start_at, ace.ends_at AS end_at, NULL AS duration_minutes,
+               '-' AS academic_year, '-' AS semester,
+               (ace.status = 'published') AS is_published,
+               false AS is_cancelled,
+               COALESCE(c.title, '-') AS course,
+               '-' AS teacher,
+               COALESCE(ace.event_type, 'session') AS event_type
+        FROM academic_calendar_events ace
+        LEFT JOIN courses c ON {calendar_course_join}
+        LEFT JOIN student_groups sg ON {calendar_group_join}
+        WHERE {calendar_scope_where}
+        ORDER BY ace.starts_at ASC NULLS LAST, ace.title
+        LIMIT 200
+        """,
+        scope_params,
+    )
+    exams = exams + calendar_events
     terms = erd_rows(
         """
         SELECT id, year, semester, COALESCE(label, semester, year) AS label, COALESCE(is_current, false) AS is_current
@@ -9070,14 +9106,17 @@ def super_admin_calendar(request):
             continue
         if timezone.is_naive(start_at):
             start_at = timezone.make_aware(start_at)
-        if event_type_filter and event_type_filter != 'exam':
+        if event_type_filter and event_type_filter != exam.get('event_type', 'exam'):
             continue
         if course_filter and course_filter != exam['course']:
             continue
         if teacher_filter and teacher_filter != exam['teacher']:
             continue
         jy, jm, jd = gregorian_to_jalali(start_at.date())
-        tone = 'danger' if exam['is_cancelled'] else 'success' if exam['is_published'] else 'purple'
+        if exam.get('event_type', 'exam') == 'exam':
+            tone = 'danger' if exam['is_cancelled'] else 'success' if exam['is_published'] else 'purple'
+        else:
+            _, tone = _em_calendar_type_meta(exam.get('event_type'))
         event = {
             **exam,
             'start_at': start_at,
@@ -9130,6 +9169,7 @@ def super_admin_calendar(request):
         'month_title': f'{month_names[selected_month]} {selected_year}',
         'weekday_names': weekday_names,
         'calendar_days': calendar_days,
+        'events': normalized_events,
         'today_events': today_events,
         'upcoming_events': upcoming_events,
         'important_events': important_events,
@@ -14796,16 +14836,7 @@ def grade_attempt(attempt_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_calendar(request):
-    mode = request.GET.get('mode') or 'month'
-    if mode not in {'month', 'week', 'events'}:
-        mode = 'month'
-    events = _em_calendar_rows(request)
-    query = (request.GET.get('q') or '').strip()
-    if query:
-        events = [item for item in events if _matches_query(query, item.get('title'), item.get('course_title'), item.get('group_label'), item.get('type_label'))]
-    context = _em_base_context(request, 'calendar', 'تقویم آموزشی', 'calendar')
-    context.update(_em_calendar_context(request, events, mode=mode, query=query))
-    return render(request, 'exam_manager/calendar.html', context)
+    return super_admin_calendar(request)
 
 
 def _em_calendar_ensure_table():
