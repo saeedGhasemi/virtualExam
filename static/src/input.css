@@ -2953,23 +2953,9 @@
     @apply flex items-center gap-3;
   }
 
-  .group-primary,
-  .group-lite-button,
   .group-filters select,
   .group-search {
     @apply h-11 rounded-2xl border border-[#d7e0ea] bg-white shadow-[0_3px_8px_rgba(15,23,42,0.08)];
-  }
-
-  .group-primary {
-    @apply inline-flex items-center justify-center gap-3 border-0 bg-[#142a5f] px-6 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(20,42,95,0.18)] hover:bg-[#0f214b];
-  }
-
-  .group-primary span {
-    @apply text-lg leading-none;
-  }
-
-  .group-lite-button {
-    @apply inline-flex items-center justify-center gap-3 px-5 text-[13px] font-black text-[#071327] transition hover:border-[#142a5f];
   }
 
   .group-filters label {
@@ -3763,15 +3749,6 @@
     grid-template-columns: auto 1fr auto;
     gap: 14px;
     margin-bottom: 16px;
-  }
-
-  .groupings-page .group-primary {
-    height: 42px;
-    border-radius: 8px;
-    background: #6d4aff;
-    padding-inline: 22px;
-    font-size: 13px;
-    box-shadow: 0 10px 22px rgba(109, 74, 255, .22);
   }
 
   .groupings-page .group-lite-button,
@@ -6626,18 +6603,22 @@
     max-width: none !important;
   }
 
+  .users-hub-top {
+    @apply mb-8 grid grid-cols-[1fr_auto_1fr] items-center gap-4;
+  }
+
   .users-hub-actions {
-    @apply mb-8 flex flex-wrap items-center justify-end gap-3;
+    @apply flex flex-wrap items-center justify-self-start gap-3;
   }
 
   .users-primary-action,
   .users-secondary-action,
   .users-clear-button {
-    @apply inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#cfdaf0] bg-white px-5 text-[13px] font-black text-[#3159ff] shadow-[0_12px_28px_rgba(50,76,140,0.08)] transition hover:-translate-y-0.5 hover:border-[#3159ff] hover:bg-[#f8fbff];
+    @apply inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#cfdaf0] bg-white px-5 text-[13px] font-black !text-[#3159ff] shadow-[0_12px_28px_rgba(50,76,140,0.08)] transition hover:-translate-y-0.5 hover:border-[#3159ff] hover:bg-[#f8fbff];
   }
 
   .users-primary-action {
-    @apply border-transparent bg-[#4b46ff] text-white shadow-[0_16px_34px_rgba(75,70,255,0.28)] hover:bg-[#3932e5];
+    @apply border-transparent bg-[#4b46ff] !text-white shadow-[0_16px_34px_rgba(75,70,255,0.28)] hover:bg-[#3932e5];
   }
 
   .users-primary-action span {
@@ -6663,11 +6644,11 @@
   }
 
   .users-role-tabs {
-    @apply mx-auto mb-8 grid w-full max-w-[530px] grid-cols-3 gap-0 rounded-2xl border border-[#dbe4f3] bg-white/75 p-1.5 shadow-[0_14px_36px_rgba(33,55,104,0.12)];
+    @apply col-start-2 grid w-[36rem] max-w-full grid-cols-3 justify-self-center gap-1 rounded-2xl border border-[#dbe4f3] bg-white/75 p-2 shadow-[0_14px_36px_rgba(33,55,104,0.12)];
   }
 
   .users-role-tabs a {
-    @apply flex h-12 items-center justify-center gap-2 rounded-lg text-[13px] font-black text-[#62708a] transition hover:text-[#3159ff];
+    @apply flex h-14 items-center justify-center gap-2.5 rounded-xl text-[15px] font-black text-[#62708a] transition hover:text-[#3159ff];
   }
 
   .users-role-tabs a.is-active {
@@ -6675,7 +6656,7 @@
   }
 
   .users-role-tabs svg {
-    @apply size-5;
+    @apply size-6;
   }
 
   .users-stats-grid {
@@ -7296,6 +7277,18 @@
   @media (max-width: 980px) {
     .users-hub-page {
       @apply px-4;
+    }
+
+    .users-hub-top {
+      @apply grid-cols-1;
+    }
+
+    .users-hub-actions {
+      @apply justify-self-stretch;
+    }
+
+    .users-role-tabs {
+      @apply col-start-1 w-full justify-self-stretch;
     }
 
     .users-filter-bar {
@@ -9433,7 +9426,14 @@
 
   .teacher-menu-toggle {
     position: absolute;
-    left: -9999px;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .teacher-menu-btn {
@@ -13555,16 +13555,24 @@
     @apply mx-auto mb-4 flex w-full max-w-[1540px] justify-start;
   }
 
+  .manager-bulk-breadcrumb {
+    @apply mx-auto w-full max-w-[1540px] text-sm font-extrabold text-slate-500;
+  }
+
+  .manager-bulk-head-row {
+    @apply mx-auto mt-2 mb-6 flex w-full max-w-[1540px] flex-row-reverse items-center justify-between gap-4;
+  }
+
+  .manager-bulk-head-row h1 {
+    @apply text-3xl font-black text-slate-950;
+  }
+
   .manager-bulk-back {
     @apply inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 no-underline transition hover:border-blue-300 hover:text-blue-700;
   }
 
   .manager-bulk-back svg {
     @apply h-4 w-4 fill-none stroke-current stroke-2;
-  }
-
-  .manager-bulk-head.teacher-wizard-head {
-    @apply mx-auto mb-6 w-full max-w-[1540px];
   }
 
   .manager-bulk-card {
@@ -13641,17 +13649,161 @@
     @apply mt-6 w-full;
   }
 
-  .manager-bulk-grid,
-  .manager-bulk-map-layout,
+  .manager-bulk-grid {
+    @apply grid grid-cols-[minmax(320px,.9fr)_minmax(0,1.45fr)] gap-4;
+  }
+
+  .manager-bulk-map-layout {
+    @apply grid grid-cols-[minmax(360px,2fr)_minmax(0,1fr)] gap-4;
+  }
+
   .manager-bulk-final {
     @apply grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.9fr)] gap-4;
   }
 
   .manager-bulk-upload,
   .manager-bulk-side article,
+  .manager-bulk-aside-stack article,
   .manager-bulk-panel,
   .manager-bulk-help {
     @apply rounded-2xl border border-slate-200 bg-white/75 p-5 shadow-lg shadow-slate-200/60 backdrop-blur-xl;
+  }
+
+  .manager-bulk-aside-stack {
+    @apply grid gap-4;
+  }
+
+  .manager-bulk-aside-stack article h2 {
+    @apply flex items-center gap-2 text-lg font-black text-slate-950;
+  }
+
+  .manager-bulk-aside-stack article h2 svg {
+    @apply h-5 w-5 shrink-0 fill-none stroke-current stroke-2;
+  }
+
+  .manager-bulk-aside-stack article p {
+    @apply mt-3 text-sm font-bold leading-7 text-slate-600;
+  }
+
+  .manager-bulk-aside-stack article a {
+    @apply mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500 px-6 text-sm font-black text-blue-700;
+  }
+
+  .manager-bulk-aside-stack article a svg {
+    @apply h-5 w-5 shrink-0 fill-none stroke-current stroke-2;
+  }
+
+  .manager-bulk-checklist {
+    @apply mt-4 grid gap-2.5 text-sm font-bold text-slate-600;
+  }
+
+  .manager-bulk-checklist li {
+    @apply flex items-start gap-2;
+  }
+
+  .manager-bulk-checklist svg {
+    @apply mt-0.5 h-4 w-4 shrink-0 fill-none stroke-emerald-600 stroke-[2.5];
+  }
+
+  .manager-bulk-tags.is-neutral {
+    @apply border-slate-200 bg-slate-50;
+  }
+
+  .manager-bulk-tags.is-neutral strong {
+    @apply text-slate-600;
+  }
+
+  .manager-bulk-tags.is-neutral span {
+    @apply border border-slate-200 bg-white text-slate-700;
+  }
+
+  .manager-bulk-required-list {
+    @apply mt-4 grid gap-2.5;
+  }
+
+  .manager-bulk-required-list li {
+    @apply flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700;
+  }
+
+  .manager-bulk-required-list svg {
+    @apply h-4 w-4 shrink-0 fill-none stroke-emerald-600 stroke-[2.5];
+  }
+
+  .manager-bulk-note-list {
+    @apply mt-4 grid gap-3 text-sm font-bold leading-6 text-slate-600;
+  }
+
+  .manager-bulk-note-list li {
+    @apply border-b border-slate-100 pb-3 last:border-b-0 last:pb-0;
+  }
+
+  .manager-bulk-help .manager-bulk-warn-box {
+    @apply mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800;
+  }
+
+  .manager-bulk-warn-box strong {
+    @apply block font-black;
+  }
+
+  .manager-bulk-help .manager-bulk-warn-box p {
+    @apply mt-1 font-bold leading-6 text-amber-800;
+  }
+
+  .manager-bulk-warn-box a {
+    @apply mt-2 inline-flex items-center gap-1 font-black text-amber-900 underline;
+  }
+
+  .manager-bulk-req-optional-grid {
+    @apply mt-4 grid grid-cols-2 gap-3;
+  }
+
+  .manager-bulk-req-optional-grid .manager-bulk-tags {
+    @apply mt-0;
+  }
+
+  .manager-bulk-guide-list {
+    @apply mt-4 grid gap-3 text-sm font-bold leading-6 text-slate-600;
+  }
+
+  .manager-bulk-guide-list li {
+    @apply flex items-start gap-2;
+  }
+
+  .manager-bulk-guide-list li::before {
+    content: "";
+    @apply mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400;
+  }
+
+  .manager-bulk-checkbox-row {
+    @apply mt-4 flex items-center gap-3 text-sm font-bold text-slate-700;
+  }
+
+  .manager-bulk-checkbox-row input {
+    @apply h-5 w-5 accent-blue-600;
+  }
+
+  .manager-import-page .manager-bulk-map-table th:nth-child(1),
+  .manager-import-page .manager-bulk-map-table td:nth-child(1) {
+    @apply w-[14%];
+  }
+
+  .manager-import-page .manager-bulk-map-table th:nth-child(2),
+  .manager-import-page .manager-bulk-map-table td:nth-child(2) {
+    @apply w-[30%];
+  }
+
+  .manager-import-page .manager-bulk-map-table th:nth-child(3),
+  .manager-import-page .manager-bulk-map-table td:nth-child(3) {
+    @apply w-[28%];
+  }
+
+  .manager-import-page .manager-bulk-map-table th:nth-child(4),
+  .manager-import-page .manager-bulk-map-table td:nth-child(4) {
+    @apply w-[28%];
+  }
+
+  .manager-import-page .manager-bulk-final {
+    @apply grid-cols-[minmax(320px,.9fr)_minmax(0,1.45fr)];
   }
 
   .manager-bulk-drop {
@@ -13753,7 +13905,11 @@
   }
 
   .manager-bulk-side {
-    @apply grid gap-4;
+    @apply grid gap-4 rounded-2xl border border-slate-200 bg-white/75 p-5 shadow-lg shadow-slate-200/60 backdrop-blur-xl;
+  }
+
+  .manager-bulk-upload {
+    @apply grid gap-4 rounded-2xl border border-slate-200 bg-white/75 p-5 shadow-lg shadow-slate-200/60 backdrop-blur-xl;
   }
 
   .manager-bulk-side h2,
@@ -13840,6 +13996,10 @@
     @apply w-full border-collapse overflow-hidden rounded-xl text-sm;
   }
 
+  .manager-bulk-map-table {
+    @apply table-fixed text-xs;
+  }
+
   .manager-bulk-map-table th,
   .manager-bulk-map-table td,
   .manager-bulk-review-table th,
@@ -13848,8 +14008,51 @@
   }
 
   .manager-bulk-map-table th,
+  .manager-bulk-map-table td {
+    @apply px-2 py-2 align-middle;
+  }
+
+  .student-bulk-page .manager-bulk-map-table th:first-child,
+  .student-bulk-page .manager-bulk-map-table td:first-child {
+    @apply w-[30%];
+  }
+
+  .student-bulk-page .manager-bulk-map-table th:last-child,
+  .student-bulk-page .manager-bulk-map-table td:last-child {
+    @apply w-[22%];
+  }
+
+  .teacher-bulk-page .manager-bulk-map-table th:nth-child(1),
+  .teacher-bulk-page .manager-bulk-map-table td:nth-child(1) {
+    @apply w-[14%];
+  }
+
+  .teacher-bulk-page .manager-bulk-map-table th:nth-child(2),
+  .teacher-bulk-page .manager-bulk-map-table td:nth-child(2) {
+    @apply w-[30%];
+  }
+
+  .teacher-bulk-page .manager-bulk-map-table th:nth-child(3),
+  .teacher-bulk-page .manager-bulk-map-table td:nth-child(3) {
+    @apply w-[28%];
+  }
+
+  .teacher-bulk-page .manager-bulk-map-table th:nth-child(4),
+  .teacher-bulk-page .manager-bulk-map-table td:nth-child(4) {
+    @apply w-[28%];
+  }
+
+  .manager-bulk-map-table th,
   .manager-bulk-review-table th {
     @apply bg-slate-50 font-black text-slate-700;
+  }
+
+  .manager-bulk-map-table th {
+    @apply whitespace-normal break-words text-xs leading-5;
+  }
+
+  .manager-bulk-map-table td:first-child {
+    @apply whitespace-normal break-words leading-5;
   }
 
   .manager-bulk-map-table select,
@@ -13857,8 +14060,16 @@
     @apply h-10 min-w-52 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
   }
 
+  .manager-bulk-map-table select {
+    @apply h-9 w-full min-w-0 px-2 text-xs;
+  }
+
   .manager-bulk-status {
     @apply inline-flex min-w-20 items-center justify-center rounded-lg px-3 py-1 text-xs font-black;
+  }
+
+  .manager-bulk-map-table .manager-bulk-status {
+    @apply min-w-0 w-full px-1.5 py-1 text-[.68rem];
   }
 
   .manager-bulk-status.is-ok {
@@ -13974,7 +14185,8 @@
     @apply font-bold text-slate-400;
   }
 
-  .manager-bulk-fix-box input {
+  .manager-bulk-fix-box input,
+  .manager-bulk-fix-box select {
     @apply h-10 w-56 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
   }
 
@@ -14096,7 +14308,13 @@
   .manager-bulk-primary,
   .manager-bulk-secondary,
   .manager-bulk-link {
-    @apply inline-flex h-12 items-center justify-center gap-3 rounded-xl px-8 text-sm font-black transition;
+    @apply inline-flex h-12 shrink-0 items-center justify-center gap-3 whitespace-nowrap rounded-xl px-8 text-sm font-black transition;
+  }
+
+  .manager-bulk-primary svg,
+  .manager-bulk-secondary svg,
+  .manager-bulk-link svg {
+    @apply size-4 shrink-0;
   }
 
   .manager-bulk-primary {
@@ -17446,35 +17664,9 @@
   }
 }
 
-.app-shell:has(.edu-dashboard) {
-  display: block;
-  height: auto;
-  min-height: 100vh;
-  overflow: visible;
-  font-size: 0;
-  line-height: 0;
-}
-
-.app-shell:has(.edu-dashboard) > .profile-sidebar,
-.app-shell:has(.edu-dashboard) .panel-topbar,
-.app-shell:has(.edu-dashboard) .app-topbar,
 .app-shell:has(.edu-dashboard) > .app-menu-toggle,
 .app-shell:has(.edu-dashboard) > .app-mobile-backdrop {
   display: none !important;
-}
-
-.app-shell:has(.edu-dashboard) > .app-main,
-.app-shell:has(.edu-dashboard) .app-content {
-  height: auto;
-  min-height: 100vh;
-  overflow: visible;
-  padding: 0 !important;
-}
-
-.app-shell:has(.edu-dashboard) .app-content {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
 }
 
 .edu-dashboard {
@@ -17552,7 +17744,14 @@
 
 .edu-menu-toggle {
   position: absolute;
-  left: -9999px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .edu-menu-btn {
@@ -18265,4 +18464,73 @@
   padding: 0 15px;
   border-radius: 18px;
   font-size: .88rem;
+}
+
+/* Jalali (Shamsi) datetime picker — reusable project-wide component */
+
+.jalali-field {
+  @apply relative;
+}
+
+.jalali-field [data-jalali-display] {
+  @apply cursor-pointer;
+}
+
+.jalali-popup {
+  @apply absolute z-40 mt-2 w-72 rounded-2xl border border-[#d7dfea] bg-white p-4 text-right shadow-[0_24px_56px_rgba(15,23,42,0.18)];
+  top: 100%;
+  right: 0;
+}
+
+.jalali-popup-head {
+  @apply mb-3 flex items-center justify-between;
+}
+
+.jalali-popup-head strong {
+  @apply text-sm font-black text-[#0b1628];
+}
+
+.jalali-popup-head button {
+  @apply grid h-8 w-8 place-items-center rounded-lg border border-[#d7dfea] bg-white text-[#3159ff] transition hover:border-[#4b46ff] hover:bg-[#f3f4ff];
+}
+
+.jalali-popup-head button svg {
+  @apply h-4 w-4;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.jalali-weekdays {
+  @apply mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-black text-[#8a94a8];
+}
+
+.jalali-grid {
+  @apply grid grid-cols-7 gap-1;
+}
+
+.jalali-day {
+  @apply grid h-8 w-8 place-items-center rounded-lg text-[13px] font-bold text-[#0b1628] transition hover:bg-[#eef1ff];
+}
+
+.jalali-day.is-selected {
+  @apply bg-[#4b46ff] text-white hover:bg-[#4b46ff];
+}
+
+.jalali-time-row {
+  @apply mt-3 grid grid-cols-2 gap-2 border-t border-[#eef1f8] pt-3;
+}
+
+.jalali-time-row label {
+  @apply grid gap-1 text-[11px] font-bold text-[#65728a];
+}
+
+.jalali-time-row input {
+  @apply h-9 rounded-lg border border-[#d7dfea] bg-white px-2 text-center text-[13px] font-black text-[#0b1628] outline-none;
+}
+
+.jalali-confirm {
+  @apply mt-3 h-10 w-full rounded-lg bg-[#4b46ff] text-[13px] font-black text-white transition hover:bg-[#3932e5];
 }
