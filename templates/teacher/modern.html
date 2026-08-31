@@ -8,62 +8,7 @@
 {% block public_header %}{% endblock %}
 
 {% block content %}
-<section class="teacher-console" dir="rtl">
-    <aside class="teacher-side-nav" aria-label="منوی استاد">
-        <a class="{% if page == 'dashboard' %}is-active{% endif %}" href="{% url 'core:teacher_panel' %}" title="داشبورد" aria-label="داشبورد">
-            <svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-8.5Z"/></svg>
-        </a>
-        <a class="{% if page == 'calendar' %}is-active{% endif %}" href="{% url 'core:teacher_calendar' %}" title="تقویم" aria-label="تقویم">
-            <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
-        </a>
-        <a class="{% if page == 'questions' or page == 'question_type' or page == 'question_create' or page == 'question_edit' or page == 'question_import' %}is-active{% endif %}" href="{% url 'core:teacher_questions' %}" title="سوالات" aria-label="سوالات">
-            <svg viewBox="0 0 24 24"><path d="M8 4h8l3 3v13H5V4h3Z"/><path d="M15 4v4h4M8 12h8M8 16h6"/></svg>
-        </a>
-        <a class="{% if page == 'announcements' %}is-active{% endif %}" href="{% url 'core:teacher_announcements' %}" title="پیام‌ها" aria-label="پیام‌ها">
-            <svg viewBox="0 0 24 24"><path d="M5 6h14v10H8l-3 3V6Z"/><path d="M9 10h6M9 13h4"/></svg>
-        </a>
-        <a class="{% if page == 'courses' or page == 'course_detail' or page == 'group_students' or page == 'student_profile' or page == 'group_activity' %}is-active{% endif %}" href="{% url 'core:teacher_courses' %}" title="دانشجویان" aria-label="دانشجویان">
-            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.8 20a5.2 5.2 0 0 1 10.4 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 15.5A4.7 4.7 0 0 1 20.5 20"/></svg>
-        </a>
-        <a class="{% if page == 'results' %}is-active{% endif %}" href="{% url 'core:teacher_results' %}" title="گزارش‌ها" aria-label="گزارش‌ها">
-            <svg viewBox="0 0 24 24"><path d="M5 19V9M12 19V5M19 19v-8"/><path d="M3 19h18"/></svg>
-        </a>
-        <a class="{% if page == 'teacher_settings' or page == 'security' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}" title="امنیت" aria-label="امنیت">
-            <svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3Z"/><path d="m9.5 12 1.8 1.8 3.7-4"/></svg>
-        </a>
-        <a class="{% if page == 'profile' %}is-active{% endif %}" href="{% url 'core:teacher_profile_page' %}" title="پروفایل" aria-label="پروفایل">
-            <svg viewBox="0 0 24 24"><path d="M12 4a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V8a4 4 0 0 1 4-4Z"/><path d="M6 21a6 6 0 0 1 12 0"/></svg>
-        </a>
-        <a class="teacher-side-logout" href="{% url 'core:logout' %}" title="خروج" aria-label="خروج">
-            <svg viewBox="0 0 24 24"><path d="M14 7V5a2 2 0 0 0-2-2H5v18h7a2 2 0 0 0 2-2v-2"/><path d="M10 12h10M17 9l3 3-3 3"/></svg>
-        </a>
-    </aside>
-
-    <div class="teacher-workspace">
-        <input type="checkbox" id="teacher-menu-toggle" class="teacher-menu-toggle">
-        <header class="teacher-topbar" dir="rtl">
-            <label for="teacher-menu-toggle" class="teacher-menu-btn" aria-label="باز کردن منو">
-                <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>
-            </label>
-            <nav class="teacher-top-menu" aria-label="منوی بالای استاد">
-                <a class="teacher-top-link {% if page == 'dashboard' %}is-active{% endif %}" href="{% url 'core:teacher_panel' %}">داشبورد</a>
-                <a class="teacher-top-link {% if page == 'exams' or page == 'exam_create' or page == 'monitoring' %}is-active{% endif %}" href="{% url 'core:teacher_exams' %}">آزمون‌ها</a>
-                <a class="teacher-top-link {% if page == 'courses' or page == 'course_detail' or page == 'group_students' or page == 'group_activity' %}is-active{% endif %}" href="{% url 'core:teacher_courses' %}">کلاس‌ها</a>
-                <a class="teacher-top-link {% if page == 'questions' or page == 'question_type' or page == 'question_create' or page == 'question_edit' or page == 'question_import' %}is-active{% endif %}" href="{% url 'core:teacher_questions' %}">سوالات</a>
-                <a class="teacher-top-link {% if page == 'results' or page == 'reviews' or page == 'objections' %}is-active{% endif %}" href="{% url 'core:teacher_results' %}">گزارش‌ها</a>
-                <a class="teacher-top-link {% if page == 'student_profile' %}is-active{% endif %}" href="{% url 'core:teacher_group_students' selected_group_id %}">دانشجویان</a>
-                <a class="teacher-top-link {% if page == 'teacher_settings' or page == 'security' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}">تنظیمات</a>
-            </nav>
-            <div class="teacher-top-actions">
-                <a class="teacher-bell" href="{% url 'core:teacher_announcements' %}" aria-label="اعلان‌ها"><span>۳</span><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></a>
-                <a class="teacher-top-profile" href="{% url 'core:teacher_profile_page' %}">
-                    <b>{% if teacher_profile.avatar %}<img src="{{ teacher_profile.avatar }}" alt="{{ teacher_profile.name }}">{% else %}{{ teacher_profile.name|slice:":1" }}{% endif %}</b>
-                    <span><strong>{{ teacher_profile.name }}</strong><small>{{ teacher_profile.role }}</small></span>
-                    <svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg>
-                </a>
-            </div>
-        </header>
-
+<section class="super-admin-page teacher-console" dir="rtl">
         <main class="teacher-content">
     {% if page != 'questions' and page != 'question_type' and page != 'question_create' and page != 'question_edit' and page != 'question_import' and page != 'courses' and page != 'course_detail' and page != 'group_students' and page != 'student_profile' and page != 'group_activity' and page != 'teacher_settings' %}
     <div class="teacher-console-head">
@@ -1337,7 +1282,6 @@
         <div class="teacher-two-col"><section class="teacher-panel"><h2>تغییر رمز عبور</h2><label>رمز عبور فعلی<input type="password"></label><label>رمز عبور جدید<input type="password"></label><label>تایید رمز جدید<input type="password"></label><button class="teacher-primary">به‌روزرسانی رمز عبور</button></section><section class="teacher-panel"><h2>احراز هویت دو مرحله‌ای</h2><span class="teacher-badge is-ok">فعال</span><p>حساب شما با استفاده از Google Authenticator محافظت می‌شود.</p><button>مشاهده کدهای پشتیبان</button><h2>نشست‌های فعال</h2><div class="teacher-task-list"><span>Windows / Chrome - تهران</span><span>Windows / Chrome - مشهد</span></div></section></div>
     {% endif %}
         </main>
-    </div>
 </section>
 <script>
 (() => {

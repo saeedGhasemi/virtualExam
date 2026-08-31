@@ -77,6 +77,8 @@
         <nav class="super-admin-nav" aria-label="ناوبری پنل">
             {% if role_code == 'exam_manager' %}
                 {% include 'partials/exam_manager_nav_items.html' %}
+            {% elif role_code == 'teacher' %}
+                {% include 'partials/teacher_nav_items.html' %}
             {% else %}
                 <a class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'super_admin_dashboard' %}is-active{% endif %}" href="{% url 'core:dashboard' %}"><span class="super-admin-nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>داشبورد</a>
                 <a class="{% if request.resolver_match.url_name == 'super_admin_courses' or request.resolver_match.url_name == 'super_admin_course_new' or request.resolver_match.url_name == 'super_admin_course_edit' %}is-active{% endif %}" href="{% url 'core:super_admin_courses' %}"><span class="super-admin-nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></span>درس‌ها</a>
@@ -99,6 +101,8 @@
     <aside class="super-admin-rail" aria-label="میانبرهای پنل">
         {% if role_code == 'exam_manager' %}
             {% include 'partials/exam_manager_rail_items.html' %}
+        {% elif role_code == 'teacher' %}
+            {% include 'partials/teacher_rail_items.html' %}
         {% else %}
             <a class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'super_admin_dashboard' %}is-active{% endif %}" href="{% url 'core:dashboard' %}" title="داشبورد"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></a>
             <a class="{% if request.resolver_match.url_name == 'super_admin_courses' or request.resolver_match.url_name == 'super_admin_course_new' or request.resolver_match.url_name == 'super_admin_course_edit' %}is-active{% endif %}" href="{% url 'core:super_admin_courses' %}" title="درس‌ها"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></a>

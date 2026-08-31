@@ -9372,12 +9372,7 @@
   }
 
   .teacher-console {
-    @apply grid min-h-screen grid-cols-[minmax(0,1fr)_88px] overflow-hidden text-[#071936];
-    direction: ltr;
-    background:
-      radial-gradient(circle at 12% 2%, rgba(80, 122, 255, .13), transparent 22rem),
-      radial-gradient(circle at 75% 16%, rgba(34, 197, 94, .08), transparent 24rem),
-      linear-gradient(135deg, #f8fbff 0%, #eef5ff 58%, #f7faff 100%);
+    @apply block text-[#071936];
   }
 
   .site-shell:has(.teacher-console) {
@@ -11177,7 +11172,7 @@
   }
 
   .bulk-import-side-summary {
-    @apply fixed right-10 top-52 z-10 grid w-72 gap-3 bg-white/75 p-4 backdrop-blur-xl;
+    @apply fixed right-28 top-52 z-10 grid w-72 gap-3 bg-white/75 p-4 backdrop-blur-xl;
   }
 
   .bulk-import-side-summary article {
