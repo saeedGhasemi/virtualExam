@@ -364,3 +364,68 @@ class SuperAdminCalendarUnificationTests(_ScopedOrgFixture):
         event_ids = {event['id'] for event in response.context['events']}
         self.assertIn(self.exam_in_id, event_ids)
         self.assertIn(self.exam_out_id, event_ids)
+
+
+class SuperAdminExamBulkImportScopeTests(_ScopedOrgFixture):
+    """
+    ویزارد ورود گروهی آزمون قبلاً کد درس/استاد/گروه را در کل سیستم
+    تطبیق می‌داد (بدون scope) و برای هیچ نقشی جز admin در دسترس نبود.
+    این تست تایید می‌کند مدیر آموزشی هم اکنون به آن دسترسی دارد، اما
+    فقط می‌تواند به درس/استاد داخل محدوده‌ی خودش وصل شود.
+    """
+
+    def _set_draft(self, rows):
+        session = self.client.session
+        session['super_admin_exam_bulk_import'] = {
+            'step': 3,
+            'headers': list(rows[0].keys()),
+            'rows': rows,
+            'mapping': {
+                'title': 'title', 'course_code': 'course_code', 'teacher_code': 'teacher_code',
+                'group_code': 'group_code', 'date': 'date', 'start_time': 'start_time',
+                'duration': 'duration', 'passing_score': 'passing_score',
+            },
+        }
+        session.save()
+
+    def test_manager_can_reach_wizard(self):
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_bulk_import')).status_code, 200)
+
+    def test_manager_row_matching_in_scope_course_and_teacher_resolves_ok(self):
+        self.client.force_login(self.manager_user)
+        self._set_draft([{
+            'title': 'آزمون وارداتی', 'course_code': 'درس داخل محدوده', 'teacher_code': 'استاد داخل محدوده',
+            'group_code': '01', 'date': '1404/03/25', 'start_time': '09:00', 'duration': '90', 'passing_score': '10',
+        }])
+        response = self.client.get(reverse('core:super_admin_exam_bulk_import'), {'step': 3})
+        record = response.context['records'][0]
+        self.assertIn(record['level'], {'ok', 'warning'})
+        self.assertEqual(record['course_id'], self.course_in_id)
+        self.assertEqual(record['teacher_id'], self.teacher_in_id)
+
+    def test_manager_row_matching_out_of_scope_course_and_teacher_fails(self):
+        self.client.force_login(self.manager_user)
+        self._set_draft([{
+            'title': 'آزمون نفوذی', 'course_code': 'درس خارج محدوده', 'teacher_code': 'استاد خارج محدوده',
+            'group_code': '01', 'date': '1404/03/25', 'start_time': '09:00', 'duration': '90', 'passing_score': '10',
+        }])
+        response = self.client.get(reverse('core:super_admin_exam_bulk_import'), {'step': 3})
+        record = response.context['records'][0]
+        self.assertEqual(record['level'], 'error')
+        self.assertIn('کد درس در سامانه پیدا نشد.', record['issues'])
+        self.assertIn('کد استاد در سامانه پیدا نشد.', record['issues'])
+        self.assertEqual(record['course_id'], '')
+        self.assertEqual(record['teacher_id'], '')
+
+    def test_admin_row_matching_out_of_scope_course_and_teacher_resolves_ok(self):
+        self.client.force_login(self.admin_user)
+        self._set_draft([{
+            'title': 'آزمون سراسری', 'course_code': 'درس خارج محدوده', 'teacher_code': 'استاد خارج محدوده',
+            'group_code': '01', 'date': '1404/03/25', 'start_time': '09:00', 'duration': '90', 'passing_score': '10',
+        }])
+        response = self.client.get(reverse('core:super_admin_exam_bulk_import'), {'step': 3})
+        record = response.context['records'][0]
+        self.assertIn(record['level'], {'ok', 'warning'})
+        self.assertEqual(record['course_id'], self.course_out_id)
+        self.assertEqual(record['teacher_id'], self.teacher_out_id)

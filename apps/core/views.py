@@ -1926,13 +1926,7 @@ def super_admin_users(request):
     manager_type_filter = request.GET.get('manager_type', '').strip()
     unit_filter = request.GET.get('unit', '').strip()
 
-    org_units = erd_rows(
-        """
-        SELECT id, parent_id, type, name, code, is_active
-        FROM org_units
-        ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
-        """
-    )
+    org_units = _erd_manager_visible_org_units(request)
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -4015,13 +4009,7 @@ def super_admin_courses(request):
     status_filter = request.GET.get('status', '').strip()
     unit_filter = request.GET.get('unit', '').strip()
     rows = _course_rows(request, query=q, status_filter=status_filter, unit_filter=unit_filter)
-    org_units = erd_rows(
-        """
-        SELECT id, parent_id, type, name, code, is_active
-        FROM org_units
-        ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
-        """
-    )
+    org_units = _erd_manager_visible_org_units(request)
     total = len(rows)
     active = sum(1 for row in rows if row['status'] == 'active')
     inactive = sum(1 for row in rows if row['status'] == 'inactive')
@@ -4046,13 +4034,7 @@ def super_admin_courses(request):
 @erd_role_required('academic_manager', 'admin')
 def super_admin_course_form(request, course_id=None):
     managed_unit_ids = _erd_managed_unit_ids(request)
-    org_units = erd_rows(
-        """
-        SELECT id, parent_id, type, name, code, is_active
-        FROM org_units
-        ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
-        """
-    )
+    org_units = _erd_manager_visible_org_units(request)
     course = None
     if course_id:
         rows = _course_rows(request, course_id=course_id)
@@ -7272,13 +7254,7 @@ def super_admin_groups(request):
     fill_filter = request.GET.get('fill', '').strip()
     teacher_filter = request.GET.get('teacher', '').strip()
 
-    org_units = erd_rows(
-        """
-        SELECT id, parent_id, type, name, code, is_active
-        FROM org_units
-        ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
-        """
-    )
+    org_units = _erd_manager_visible_org_units(request)
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -8082,7 +8058,7 @@ def super_admin_exams(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_exam_bulk_import(request):
     session_key = 'super_admin_exam_bulk_import'
     draft = request.session.get(session_key, {})
@@ -8138,17 +8114,44 @@ def super_admin_exam_bulk_import(request):
         value = normalize_text(value)
         return value in {'1', 'true', 'yes', 'بله', 'بلی', 'فعال', 'دارد'}
 
-    courses = erd_rows('SELECT id, title, code FROM courses ORDER BY title LIMIT 800')
+    is_admin = _erd_is_admin_request(request)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_params = [] if is_admin else [request.erd_profile_id]
+    courses = erd_rows(
+        f"""
+        {scope_cte}
+        SELECT id, title, code
+        FROM courses
+        WHERE {'1=1' if is_admin else 'org_unit_id IN (SELECT id FROM managed_units)'}
+        ORDER BY title
+        LIMIT 800
+        """,
+        scope_params,
+    )
     teachers = erd_rows(
-        """
+        f"""
+        {scope_cte}
         SELECT tp.user_id AS id, COALESCE(tp.personnel_code, p.identifier, p.username, '') AS code, p.full_name
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
+        WHERE {'1=1' if is_admin else _erd_teacher_scope_condition()}
         ORDER BY p.full_name
         LIMIT 800
-        """
+        """,
+        scope_params,
     )
-    groups = erd_rows('SELECT id, course_id, teacher_id, course_name, group_code, academic_year, semester FROM student_groups ORDER BY course_name LIMIT 800')
+    groups = erd_rows(
+        f"""
+        {scope_cte}
+        SELECT sg.id, sg.course_id, sg.teacher_id, sg.course_name, sg.group_code, sg.academic_year, sg.semester
+        FROM student_groups sg
+        LEFT JOIN courses c ON c.id = sg.course_id
+        WHERE {'1=1' if is_admin else _erd_group_scope_condition()}
+        ORDER BY sg.course_name
+        LIMIT 800
+        """,
+        scope_params,
+    )
     course_by_key = {}
     for course in courses:
         course_by_key[normalize_text(course.get('code'))] = course
@@ -12275,6 +12278,37 @@ def _erd_is_admin_request(request):
     return getattr(request, 'erd_role', None) == 'admin'
 
 
+def _erd_manager_visible_org_units(request):
+    """واحدهای سازمانی قابل‌نمایش برای select آبشاری: زیردرخت مدیر + زنجیره‌ی والدینش (دانشگاه/دانشکده)."""
+    if _erd_is_admin_request(request):
+        return erd_rows(
+            """
+            SELECT id, parent_id, type, name, code, is_active
+            FROM org_units
+            ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
+            """
+        )
+    return erd_rows(
+        """
+        WITH RECURSIVE descendant_units(id) AS (
+            SELECT org_unit_id FROM academic_manager_scopes WHERE manager_id = %s
+            UNION
+            SELECT ou.id FROM org_units ou JOIN descendant_units du ON ou.parent_id = du.id
+        ),
+        ancestor_units(id) AS (
+            SELECT org_unit_id FROM academic_manager_scopes WHERE manager_id = %s
+            UNION
+            SELECT ou.parent_id FROM org_units ou JOIN ancestor_units au ON ou.id = au.id WHERE ou.parent_id IS NOT NULL
+        )
+        SELECT id, parent_id, type, name, code, is_active
+        FROM org_units
+        WHERE id IN (SELECT id FROM descendant_units) OR id IN (SELECT id FROM ancestor_units)
+        ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
+        """,
+        [request.erd_profile_id, request.erd_profile_id],
+    )
+
+
 def _erd_managed_unit_ids(request):
     if _erd_is_admin_request(request):
         return None
@@ -14273,137 +14307,6 @@ def _em_account_tone(status):
     return 'ok'
 
 
-def _em_users_context(request, active_tab='students'):
-    institution = get_exam_manager_institution(request.user)
-    query = (request.GET.get('q') or '').strip()
-    is_admin = _erd_is_admin_request(request)
-    scope_cte = '' if is_admin else _erd_manager_scope_cte()
-    scope_params = [] if is_admin else [request.erd_profile_id]
-    student_scope_where = '1=1' if is_admin else _erd_student_scope_condition()
-    teacher_scope_where = '1=1' if is_admin else _erd_teacher_scope_condition()
-    course_titles_expr = (
-        "STRING_AGG(DISTINCT c.title, '، ' ORDER BY c.title)"
-        if connection.vendor != 'sqlite'
-        else "GROUP_CONCAT(DISTINCT c.title)"
-    )
-    students = []
-    student_rows = erd_rows(
-        f"""
-        {scope_cte}
-        SELECT p.id, p.full_name, COALESCE(p.email, '') AS email, COALESCE(p.phone, '') AS phone,
-               COALESCE(p.avatar_url, '') AS avatar_url, COALESCE(p.status, sp.academic_status, 'active') AS status,
-               COALESCE(p.updated_at, p.last_login_at, p.created_at) AS last_activity,
-               COALESCE(sp.student_number, p.identifier, '') AS student_number,
-               COALESCE(sp.field_of_study, '') AS field_of_study,
-               COALESCE(sp.degree, '') AS degree,
-               COALESCE(sp.entry_year, '') AS entry_year,
-               COALESCE(ou.name, sp.department, 'دانشکده پزشکی') AS unit,
-               COUNT(DISTINCT sgm.group_id) AS groups_count
-        FROM student_profiles sp
-        JOIN profiles p ON p.id = sp.user_id
-        LEFT JOIN org_units ou ON ou.id = sp.org_unit_id
-        LEFT JOIN student_group_members sgm ON sgm.student_user_id = p.id
-        WHERE {student_scope_where}
-        GROUP BY p.id, p.full_name, p.email, p.phone, p.avatar_url, p.status, p.updated_at, p.last_login_at, p.created_at,
-                 sp.academic_status, sp.student_number, p.identifier, sp.field_of_study, sp.degree, sp.entry_year, ou.name, sp.department
-        ORDER BY p.full_name
-        LIMIT 200
-        """,
-        scope_params,
-    )
-    if query:
-        student_rows = [row for row in student_rows if _matches_query(query, row.get('full_name'), row.get('student_number'), row.get('field_of_study'))]
-    for row in student_rows[:80]:
-        students.append({
-            'id': row['id'],
-            'profile_id': row['id'],
-            'name': row['full_name'],
-            'student_number': row.get('student_number') or '-',
-            'field': row.get('field_of_study') or 'پزشکی عمومی',
-            'unit': row.get('unit') or 'دانشکده پزشکی',
-            'entry_year': row.get('entry_year') or 1403,
-            'groups_count': int(row.get('groups_count') or 0),
-            'last_activity': row.get('last_activity'),
-            'status': row.get('status') or 'active',
-            'status_label': _em_account_label(row.get('status')),
-            'tone': _em_account_tone(row.get('status')),
-            'avatar_url': row.get('avatar_url') or '',
-        })
-    teachers = []
-    teacher_rows = erd_rows(
-        f"""
-        {scope_cte}
-        SELECT p.id, p.full_name, COALESCE(p.email, '') AS email, COALESCE(p.phone, '') AS phone,
-               COALESCE(p.avatar_url, '') AS avatar_url, COALESCE(p.status, tp.approval_status, 'active') AS status,
-               COALESCE(p.updated_at, p.last_login_at, p.created_at) AS last_activity,
-               COALESCE(tp.personnel_code, p.identifier, '') AS personnel_code,
-               COALESCE(tp.specialty, '') AS specialty,
-               COALESCE(ou.name, tp.department, 'داخلی') AS department,
-               COUNT(DISTINCT sg.id) AS groups_count,
-               COUNT(DISTINCT c.id) AS courses_count,
-               {course_titles_expr} AS course_titles
-        FROM teacher_profiles tp
-        JOIN profiles p ON p.id = tp.user_id
-        LEFT JOIN org_units ou ON ou.id = tp.org_unit_id
-        LEFT JOIN student_groups sg ON sg.teacher_id = p.id
-        LEFT JOIN courses c ON c.id = sg.course_id
-        WHERE {teacher_scope_where}
-        GROUP BY p.id, p.full_name, p.email, p.phone, p.avatar_url, p.status, tp.approval_status, p.updated_at, p.last_login_at, p.created_at,
-                 tp.personnel_code, p.identifier, tp.specialty, ou.name, tp.department
-        ORDER BY p.full_name
-        LIMIT 200
-        """,
-        scope_params,
-    )
-    if query:
-        teacher_rows = [row for row in teacher_rows if _matches_query(query, row.get('full_name'), row.get('personnel_code'), row.get('specialty'))]
-    for row in teacher_rows[:80]:
-        titles = [item for item in str(row.get('course_titles') or '').split(',') if item][:2]
-        teachers.append({
-            'id': row['id'],
-            'profile_id': row['id'],
-            'name': row['full_name'],
-            'personnel_code': row.get('personnel_code') or '-',
-            'specialization': row.get('specialty') or 'پزشکی داخلی',
-            'department': row.get('department') or 'داخلی',
-            'courses': '، '.join(titles) if titles else 'بدون درس',
-            'groups_count': int(row.get('groups_count') or 0),
-            'courses_count': int(row.get('courses_count') or 0),
-            'last_activity': row.get('last_activity'),
-            'status': row.get('status') or 'active',
-            'status_label': _em_account_label(row.get('status')),
-            'tone': _em_account_tone(row.get('status')),
-            'avatar_url': row.get('avatar_url') or '',
-        })
-    pending_students = [item for item in students if item['tone'] != 'ok'][:3]
-    pending_teachers = [item for item in teachers if item['tone'] != 'ok'][:2]
-    return {
-        'institution': institution,
-        'active_tab': active_tab,
-        'query': query,
-        'students': students,
-        'teachers': teachers,
-        'stats': {
-            'students': len(students),
-            'active_students': sum(1 for item in students if item['tone'] == 'ok'),
-            'student_needs': sum(1 for item in students if item['tone'] != 'ok'),
-            'student_requests': max(2, len(pending_students)),
-            'teachers': len(teachers),
-            'active_teachers': sum(1 for item in teachers if item['tone'] == 'ok'),
-            'teacher_needs': sum(1 for item in teachers if item['courses'] == 'بدون درس'),
-            'teacher_requests': max(2, len(pending_teachers)),
-        },
-        'student_requests': pending_students or students[:3],
-        'teacher_requests': pending_teachers or teachers[:2],
-        'activities': [
-            {'title': 'به‌روزرسانی اطلاعات کاربری انجام شد', 'time': 'امروز ۱۰:۳۰', 'tone': 'blue'},
-            {'title': 'عضویت جدید برای گروه درسی ثبت شد', 'time': 'امروز ۰۹:۱۵', 'tone': 'green'},
-            {'title': 'فایل ورود گروهی بررسی شد', 'time': 'دیروز ۱۴:۴۵', 'tone': 'purple'},
-            {'title': 'درخواست همکاری استاد تایید شد', 'time': 'دیروز ۱۱:۳۰', 'tone': 'orange'},
-        ],
-    }
-
-
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_users(request):
     return super_admin_users(request)
@@ -14868,125 +14771,6 @@ def _em_calendar_type_meta(event_type):
         'deadline': ('مهلت', 'orange'),
         'holiday': ('تعطیلی', 'red'),
     }.get(event_type or 'session', ('رویداد', 'blue'))
-
-
-def _em_calendar_status_meta(status):
-    return {
-        'published': ('منتشر شده', 'ok'),
-        'draft': ('پیش‌نویس', 'muted'),
-        'done': ('برگزار شده', 'blue'),
-        'pending': ('نیازمند تایید', 'warn'),
-    }.get(status or 'published', ('منتشر شده', 'ok'))
-
-
-def _em_calendar_rows(request):
-    _em_calendar_ensure_table()
-    is_admin = _erd_is_admin_request(request)
-    if connection.vendor == 'sqlite':
-        calendar_course_join = 'c.id = ace.course_id'
-        calendar_group_join = 'sg.id = ace.group_id'
-    else:
-        calendar_course_join = "c.id = NULLIF(ace.course_id, '')::uuid"
-        calendar_group_join = "sg.id = NULLIF(ace.group_id, '')::uuid"
-    scope_cte = '' if is_admin else _erd_manager_scope_cte()
-    scope_params = [] if is_admin else [request.erd_profile_id]
-    calendar_scope_where = '1=1' if is_admin else _erd_group_scope_condition()
-    rows = erd_rows(
-        f"""
-        {scope_cte}
-        SELECT ace.id, ace.title, COALESCE(ace.event_type, 'session') AS event_type,
-               ace.course_id, ace.group_id, COALESCE(c.title, '') AS course_title,
-               COALESCE(sg.group_code, '') AS group_code,
-               COALESCE(replace(substr(CAST(ace.starts_at AS text), 1, 10), '-', '/'), '-') AS event_date,
-               COALESCE(substr(CAST(ace.starts_at AS text), 12, 5), '-') AS start_time,
-               COALESCE(substr(CAST(ace.ends_at AS text), 12, 5), '-') AS end_time,
-               COALESCE(ace.location, '-') AS location,
-               COALESCE(ace.status, 'published') AS status,
-               COALESCE(ace.notify_participants, true) AS notify_participants,
-               'calendar' AS source
-        FROM academic_calendar_events ace
-        LEFT JOIN courses c ON {calendar_course_join}
-        LEFT JOIN student_groups sg ON {calendar_group_join}
-        WHERE {calendar_scope_where}
-        ORDER BY ace.starts_at DESC NULLS LAST, ace.title
-        LIMIT 200
-        """,
-        scope_params,
-    )
-    exam_scope_where = '1=1' if is_admin else _erd_exam_scope_condition()
-    exam_rows = erd_rows(
-        f"""
-        {scope_cte}
-        SELECT e.id, e.title, 'exam' AS event_type, e.course_id, sg.id AS group_id,
-               COALESCE(c.title, 'درس') AS course_title, COALESCE(sg.group_code, '') AS group_code,
-               COALESCE(replace(substr(CAST(e.start_at AS text), 1, 10), '-', '/'), '-') AS event_date,
-               COALESCE(substr(CAST(e.start_at AS text), 12, 5), '-') AS start_time,
-               COALESCE(substr(CAST(e.end_at AS text), 12, 5), '-') AS end_time,
-               COALESCE(sg.class_location, 'سالن آنلاین') AS location,
-               CASE WHEN COALESCE(e.is_cancelled, false) THEN 'draft'
-                    WHEN COALESCE(e.lifecycle_status, '') IN ('finished', 'completed', 'closed') THEN 'done'
-                    ELSE 'published' END AS status,
-               true AS notify_participants,
-               'exam' AS source
-        FROM exams e
-        LEFT JOIN courses c ON c.id = e.course_id
-        LEFT JOIN student_groups sg ON sg.course_id = e.course_id
-        WHERE {exam_scope_where}
-        ORDER BY e.start_at DESC NULLS LAST, e.title
-        LIMIT 200
-        """,
-        scope_params,
-    )
-    all_rows = rows + exam_rows
-    for row in all_rows:
-        type_label, tone = _em_calendar_type_meta(row.get('event_type'))
-        status_label, status_tone = _em_calendar_status_meta(row.get('status'))
-        row['type_label'] = type_label
-        row['tone'] = tone
-        row['status_label'] = status_label
-        row['status_tone'] = status_tone
-        row['group_label'] = f"{row.get('course_title') or 'درس'} / گروه {row.get('group_code') or '۱'}"
-        row['day'] = _em_int(str(row.get('event_date') or '').split('/')[-1], 1)
-    return sorted(all_rows, key=lambda item: (str(item.get('event_date') or ''), str(item.get('start_time') or '')), reverse=True)
-
-
-def _em_calendar_context(request, events, mode='month', query=''):
-    days = []
-    for day in range(1, 32):
-        day_events = [item for item in events if item.get('day') == day]
-        days.append({'day': day, 'is_today': day == 25, 'events': day_events[:2]})
-    week_days = [
-        {'name': 'شنبه', 'date': 2, 'events': [e for e in events if e.get('day') in {2, 15}]},
-        {'name': 'یکشنبه', 'date': 3, 'events': [e for e in events if e.get('day') in {3, 16}]},
-        {'name': 'دوشنبه', 'date': 4, 'events': [e for e in events if e.get('day') in {4, 17}]},
-        {'name': 'سه‌شنبه', 'date': 5, 'events': [e for e in events if e.get('day') in {5, 18}]},
-        {'name': 'چهارشنبه', 'date': 6, 'events': [e for e in events if e.get('day') in {6, 19}]},
-        {'name': 'پنجشنبه', 'date': 7, 'events': [e for e in events if e.get('day') in {7, 20}]},
-        {'name': 'جمعه', 'date': 8, 'events': [e for e in events if e.get('day') in {8, 21}]},
-    ]
-    if events and not any(day['events'] for day in week_days):
-        for index, event in enumerate(events[:7]):
-            week_days[index % len(week_days)]['events'].append(event)
-    pending = [e for e in events if e.get('status_tone') == 'warn'][:3]
-    conflicts = [e for e in events if e.get('event_type') == 'deadline'][:2]
-    today_events = events[:3]
-    return {
-        'mode': mode,
-        'query': query,
-        'events': events,
-        'calendar_days': days,
-        'week_days': week_days,
-        'today_events': today_events,
-        'pending_events': pending or events[:3],
-        'conflict_events': conflicts or events[:2],
-        'stats': {
-            'pending': len(pending),
-            'conflicts': len(conflicts),
-            'deadlines': sum(1 for e in events if e.get('event_type') == 'deadline'),
-        },
-        'courses': _em_course_rows(request),
-        'groups': _em_group_rows(request),
-    }
 
 
 @erd_role_required('academic_manager', 'admin')
