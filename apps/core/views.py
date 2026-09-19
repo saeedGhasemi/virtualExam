@@ -7103,6 +7103,83 @@ def super_admin_group_create(request):
     })
 
 
+def _erd_parse_participant_upload(uploaded):
+    """فایل اکسل/CSV مخاطبان را می‌خواند و به (ردیف‌های خام, فهرست شناسه‌های کد ملی/شماره دانشجویی) تبدیل می‌کند."""
+    suffix = Path(uploaded.name).suffix.lower()
+    if suffix == '.csv':
+        rows = list(csv.DictReader(io.StringIO(uploaded.read().decode('utf-8-sig'))))
+    else:
+        rows = read_xlsx_dicts(uploaded)
+    if not rows:
+        return rows, []
+    first_column = next(iter(rows[0].keys()))
+    identifiers = [str(row.get(first_column) or '').strip() for row in rows]
+    return rows, [item for item in identifiers if item]
+
+
+def _erd_match_students_by_identifier(request, identifiers):
+    """هر شناسه (کد ملی یا شماره دانشجویی) را به دانشجوی متناظرِ داخل محدوده‌ی دسترسی درخواست‌کننده وصل می‌کند."""
+    is_admin = _erd_is_admin_request(request)
+    scope_cte = '' if is_admin else _erd_manager_scope_cte()
+    scope_condition = '1=1' if is_admin else _erd_student_scope_condition()
+    scope_params = [] if is_admin else [request.erd_profile_id]
+
+    found = []
+    not_found = []
+    seen_ids = set()
+    duplicate_count = 0
+    for identifier in dict.fromkeys(identifiers):
+        student = erd_row(
+            f"""
+            {scope_cte}
+            SELECT p.id, p.full_name, p.avatar_url,
+                   COALESCE(sp.student_number, p.identifier, '') AS student_number,
+                   COALESCE(p.national_id, '') AS national_id,
+                   COALESCE(sp.entry_year, '') AS entry_year
+            FROM student_profiles sp
+            JOIN profiles p ON p.id = sp.user_id
+            WHERE (sp.student_number = %s OR p.national_id = %s) AND {scope_condition}
+            LIMIT 1
+            """,
+            scope_params + [identifier, identifier],
+        )
+        if student:
+            if str(student['id']) in seen_ids:
+                duplicate_count += 1
+                continue
+            seen_ids.add(str(student['id']))
+            found.append(student)
+        else:
+            not_found.append(identifier)
+    duplicate_count += len(identifiers) - len(dict.fromkeys(identifiers))
+    return found, not_found, duplicate_count
+
+
+@erd_role_required('academic_manager', 'admin')
+def super_admin_group_students_match(request):
+    """تطبیق فایل اکسل/CSV دانشجویان گروه بر اساس کد ملی یا شماره دانشجویی، محدود به محدوده‌ی دسترسی مدیر."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'روش درخواست نامعتبر است.'}, status=405)
+    uploaded = request.FILES.get('excel_file')
+    if not uploaded:
+        return JsonResponse({'error': 'فایلی انتخاب نشده است.'}, status=400)
+    try:
+        rows, identifiers = _erd_parse_participant_upload(uploaded)
+    except (UnicodeDecodeError, KeyError, ET.ParseError, zipfile.BadZipFile):
+        return JsonResponse({'error': 'فایل انتخاب‌شده معتبر نیست. قالب نمونه را دریافت و تکمیل کنید.'}, status=400)
+    if not rows:
+        return JsonResponse({'error': 'فایل انتخاب‌شده ردیفی برای بررسی ندارد.'}, status=400)
+
+    found, not_found, duplicate_count = _erd_match_students_by_identifier(request, identifiers)
+    return JsonResponse({
+        'total': len(identifiers),
+        'total_rows': len(rows),
+        'found': found,
+        'not_found': not_found,
+        'duplicate_count': duplicate_count,
+    })
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_group_edit(request, group_id):
     group = erd_row('SELECT * FROM student_groups WHERE id = %s', [group_id])
@@ -7609,54 +7686,16 @@ def super_admin_exam_participants_match(request):
     uploaded = request.FILES.get('excel_file')
     if not uploaded:
         return JsonResponse({'error': 'فایلی انتخاب نشده است.'}, status=400)
-    suffix = Path(uploaded.name).suffix.lower()
     try:
-        if suffix == '.csv':
-            rows = list(csv.DictReader(io.StringIO(uploaded.read().decode('utf-8-sig'))))
-        else:
-            rows = read_xlsx_dicts(uploaded)
+        rows, identifiers = _erd_parse_participant_upload(uploaded)
     except (UnicodeDecodeError, KeyError, ET.ParseError, zipfile.BadZipFile):
         return JsonResponse({'error': 'فایل انتخاب‌شده معتبر نیست. قالب نمونه را دریافت و تکمیل کنید.'}, status=400)
     if not rows:
         return JsonResponse({'error': 'فایل انتخاب‌شده ردیفی برای بررسی ندارد.'}, status=400)
 
-    first_column = next(iter(rows[0].keys()))
-    identifiers = [str(row.get(first_column) or '').strip() for row in rows]
-    identifiers = [item for item in identifiers if item]
-
-    is_admin = _erd_is_admin_request(request)
-    scope_cte = '' if is_admin else _erd_manager_scope_cte()
-    scope_where = '1=1' if is_admin else _erd_student_scope_condition()
-
-    found = []
-    not_found = []
-    seen_ids = set()
-    duplicate_count = 0
-    for identifier in dict.fromkeys(identifiers):
-        student = erd_row(
-            f"""
-            {scope_cte}
-            SELECT p.id, p.full_name, p.avatar_url,
-                   COALESCE(sp.student_number, p.identifier, '') AS student_number,
-                   COALESCE(p.national_id, '') AS national_id
-            FROM student_profiles sp
-            JOIN profiles p ON p.id = sp.user_id
-            WHERE (sp.student_number = %s OR p.national_id = %s) AND {scope_where}
-            LIMIT 1
-            """,
-            ([request.erd_profile_id] if not is_admin else []) + [identifier, identifier],
-        )
-        if student:
-            if str(student['id']) in seen_ids:
-                duplicate_count += 1
-                continue
-            seen_ids.add(str(student['id']))
-            found.append(student)
-        else:
-            not_found.append(identifier)
-    duplicate_count += len(identifiers) - len(dict.fromkeys(identifiers))
-
+    found, not_found, duplicate_count = _erd_match_students_by_identifier(request, identifiers)
     return JsonResponse({
+        'total': len(identifiers),
         'total_rows': len(rows),
         'found': found,
         'not_found': not_found,
@@ -7707,7 +7746,7 @@ def super_admin_exam_create(request):
     teachers = erd_rows(
         f"""
         {scope_cte}
-        SELECT tp.user_id AS id, p.full_name, COALESCE(tp.personnel_code, p.identifier, '') AS code,
+        SELECT tp.user_id AS id, p.full_name, p.avatar_url, COALESCE(tp.personnel_code, p.identifier, '') AS code,
                COALESCE(p.email, '') AS email, COALESCE(ou.name, tp.department, '-') AS department
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
@@ -7793,15 +7832,18 @@ def super_admin_exam_create(request):
                 return HttpResponseForbidden('برخی از عوامل انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
 
         placeholders = ','.join(['%s'] * len(selected_questions))
-        valid_questions = erd_rows(
-            f"""
-            SELECT id, COALESCE(default_points, 1) AS points
-            FROM questions
-            WHERE id IN ({placeholders})
-            ORDER BY text
-            """,
-            selected_questions,
-        )
+        questions_by_id = {
+            str(row['id']): row
+            for row in erd_rows(
+                f"""
+                SELECT id, COALESCE(default_points, 1) AS points
+                FROM questions
+                WHERE id IN ({placeholders})
+                """,
+                selected_questions,
+            )
+        }
+        valid_questions = [questions_by_id[q_id] for q_id in dict.fromkeys(selected_questions) if q_id in questions_by_id]
         duration = int(request.POST.get('duration_minutes') or 45)
         start_at = _parse_exam_wizard_datetime(request.POST.get('start_at'))
         end_at = _parse_exam_wizard_datetime(request.POST.get('end_at'))

@@ -74,6 +74,9 @@ class _ScopedOrgFixture(TestCase):
         cls.question_in_id = str(uuid.uuid4())
         _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'default_points'],
                 [cls.question_in_id, cls.teacher_in_id, cls.course_in_id, 'سوال داخل محدوده', 2])
+        cls.question_in2_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'default_points'],
+                [cls.question_in2_id, cls.teacher_in_id, cls.course_in_id, 'آ - سوال دوم داخل محدوده', 3])
         cls.question_out_id = str(uuid.uuid4())
         _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'default_points'],
                 [cls.question_out_id, cls.teacher_out_id, cls.course_out_id, 'سوال خارج محدوده', 2])
@@ -494,6 +497,23 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
             cursor.execute('SELECT teacher_id, role FROM exam_staff WHERE exam_id = %s', [exam_id])
             staff_rows = cursor.fetchall()
         self.assertEqual(staff_rows, [(self.teacher_in_id, 'designer')])
+
+    def test_exam_questions_preserve_submitted_order_not_alphabetical(self):
+        """
+        ترتیب چینش سوالات (drag-reorder در ویزارد) باید همان ترتیبی باشد که کاربر
+        submit کرده، نه ترتیب الفبایی متن سوال - چون قبلاً کوئری با ORDER BY text
+        این ترتیب را نادیده می‌گرفت.
+        """
+        self.client.force_login(self.manager_user)
+        payload = self._base_payload(question_ids=[self.question_in_id, self.question_in2_id])
+        response = self.client.post(reverse('core:super_admin_exam_create'), payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM exams WHERE title = 'آزمون تست'")
+            exam_id = cursor.fetchone()[0]
+            cursor.execute('SELECT question_id FROM exam_questions WHERE exam_id = %s ORDER BY order_index', [exam_id])
+            ordered_question_ids = [row[0] for row in cursor.fetchall()]
+        self.assertEqual(ordered_question_ids, [self.question_in_id, self.question_in2_id])
 
     def test_manager_blocked_from_using_out_of_scope_course(self):
         self.client.force_login(self.manager_user)

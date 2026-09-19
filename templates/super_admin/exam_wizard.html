@@ -35,7 +35,10 @@
     .upload-drop{position:relative;display:grid;place-items:center;gap:.4rem;border:2px dashed #cbd9ec;border-radius:.9rem;background:#fbfdff;padding:1.5rem;text-align:center;color:#65728a;font-weight:850;min-height:9rem}
     .upload-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
     .upload-drop img{max-height:6.5rem;border-radius:.6rem;object-fit:cover}
-    .upload-drop .remove-upload{position:absolute;top:.5rem;left:.5rem;z-index:2;border:0;border-radius:50%;width:1.7rem;height:1.7rem;background:#fff;color:#dc2626;box-shadow:0 6px 16px rgba(30,55,95,.15)}
+    .upload-drop .remove-upload{position:absolute;top:.5rem;left:.5rem;z-index:2;border:0;border-radius:50%;width:1.7rem;height:1.7rem;background:#fff;color:#dc2626;box-shadow:0 6px 16px rgba(30,55,95,.15);cursor:pointer}
+    .upload-drop.has-file{border-style:solid;border-color:#a9bfff;background:#f7f8ff}
+    .upload-drop .file-name{display:flex;align-items:center;gap:.5rem;color:#315cff;font-weight:900}
+    .upload-drop .file-name svg{width:1.6rem;height:1.6rem;flex-shrink:0}
     .participant-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:1rem}.participant-tabs button{height:3.2rem;border:1px solid #d6e1f0;border-radius:.8rem;background:#fff;color:#34435f;font-weight:950}.participant-tabs button.is-active{background:#f1f0ff;color:#315cff;border-color:#a9bfff}
     .participant-pane{display:none}.participant-pane.is-active{display:block}
     .selector-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1rem}.selection-list{border:1px solid #dbe4f1;border-radius:.85rem;background:#fff;overflow:hidden}.selection-toolbar{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:.7rem;padding:.8rem;border-bottom:1px solid #e5ecf6}.selection-toolbar input,.selection-toolbar select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.65rem;padding:0 .8rem;outline:0}
@@ -46,16 +49,38 @@
     .staff-department-tabs{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}.staff-department-tabs button{height:2.7rem;border:1px solid #d6e1f0;border-radius:.7rem;background:#fff;color:#34435f;font-weight:900;padding:0 .9rem;font-size:.82rem}.staff-department-tabs button.is-active{background:#eef1ff;color:#315cff;border-color:#a9bfff}
     .staff-department-pane{display:none}.staff-department-pane.is-active{display:block}
     .role-badge{display:inline-flex;border-radius:.5rem;padding:.25rem .6rem;font-size:.75rem;font-weight:950;background:#eef4ff;color:#315cff}
-    .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1rem}.type-card{height:7.1rem;border:1px solid #e1e8f3;border-radius:.9rem;background:#fff;color:#23314d;font-weight:950;display:grid;place-items:center;text-align:center}.type-card span{display:grid;width:2.7rem;height:2.7rem;margin:0 auto .5rem;place-items:center;border-radius:.7rem;background:#eef4ff;color:#315cff}
-    .question-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1rem}.question-compose{display:flex;justify-content:flex-end;gap:.7rem;margin-bottom:1rem}.question-compose button{height:2.9rem;border-radius:.7rem;padding:0 1rem;font-weight:950}.primary{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.outline{border:1px solid #cbd9ec;background:#fff;color:#315cff}
+    .type-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:.6rem;margin-bottom:1rem}.type-card{height:6.4rem;border:1px solid #e1e8f3;border-radius:.9rem;background:#fff;color:#23314d;font-weight:950;font-size:.8rem;display:grid;place-items:center;text-align:center}.type-card span{display:grid;width:2.4rem;height:2.4rem;margin:0 auto .4rem;place-items:center;border-radius:.7rem;background:#eef4ff;color:#315cff}.type-card.is-active{border-color:#6b7cff;background:#f1f0ff;color:#315cff}.type-card.is-active span{background:#315cff;color:#fff}
+    .q-filter-row{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 1fr;gap:.7rem;margin-bottom:.85rem}.q-filter-row input,.q-filter-row select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.65rem;padding:0 .8rem;outline:0;background:#fff}
+    .tag-search-row{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}.tag-search-row>span{color:#53617b;font-weight:900;font-size:.86rem;white-space:nowrap}
+    .tag-mode-toggle{display:flex;border:1px solid #cbd9ec;border-radius:.6rem;overflow:hidden;flex-shrink:0}.tag-mode-toggle button{height:2.4rem;padding:0 .9rem;border:0;background:#fff;color:#65728a;font-weight:950;font-size:.78rem}.tag-mode-toggle button.is-active{background:#315cff;color:#fff}
+    .tag-search-row .chips-field{flex:1;min-width:14rem}.tag-search-row .chips-field input{border:0;flex:1;min-width:9rem;padding:.4rem;outline:0}
+    .tag-chip{display:inline-flex;border-radius:.5rem;padding:.2rem .5rem;margin:.12rem;font-size:.72rem;font-weight:900;background:#eef4ff;color:#315cff;white-space:nowrap}
+    .q-bank-table td{vertical-align:middle}
+    .add-question-btn{display:inline-flex;align-items:center;gap:.3rem;height:2.35rem;padding:0 .8rem;border:1px solid #a9bfff;border-radius:.6rem;background:#eef1ff;color:#315cff;font-weight:950;font-size:.78rem;white-space:nowrap}.add-question-btn[disabled]{opacity:.55;cursor:default;background:#f1f5f9;border-color:#e1e8f3;color:#65728a}.add-question-btn svg{width:1rem;height:1rem}
+    .drag-handle{cursor:grab;color:#94a3b8;margin-inline-end:.5rem;display:inline-flex}
+    .row-actions{display:flex;align-items:center;justify-content:flex-end;gap:.5rem}
+    .remove-row-btn{border:0;background:#fee2e2;color:#dc2626;border-radius:.5rem;width:1.9rem;height:1.9rem;flex-shrink:0}
+    .selected-q-table tr[draggable="true"]{cursor:default}
+    .avatar-cell{display:flex;align-items:center;justify-content:center}
+    .avatar-circle{width:2.2rem;height:2.2rem;border-radius:50%;object-fit:cover;background:#eef4ff}
+    .avatar-fallback{width:2.2rem;height:2.2rem;border-radius:50%;background:#eef4ff;color:#315cff;display:grid;place-items:center;font-weight:950;font-size:.8rem}
+    .stat-legend{display:grid;gap:.6rem;margin-top:1rem}
+    .stat-legend div{display:flex;align-items:center;justify-content:space-between;border:1px solid #e4ebf5;border-radius:.7rem;background:#fbfdff;padding:.7rem .9rem;font-weight:850;font-size:.82rem;color:#3e4c66}
+    .stat-legend i{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-inline-start:.5rem}
+    .status-pill{display:inline-flex;border-radius:.5rem;padding:.25rem .6rem;font-size:.72rem;font-weight:950}
+    .status-pill.ok{background:#dcfce7;color:#15803d}
+    .status-pill.bad{background:#fee2e2;color:#dc2626}
+    .link-danger{border:0;background:none;color:#dc2626;font-weight:950;cursor:pointer;font-size:.8rem}
+    [data-excel-results] table{width:100%}
+    .primary{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.outline{border:1px solid #cbd9ec;background:#fff;color:#315cff}
     .question-row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:.8rem;align-items:center;border-bottom:1px solid #edf2f7;padding:.75rem}.badge{display:inline-flex;border-radius:.5rem;padding:.25rem .55rem;font-size:.73rem;font-weight:950}.badge.easy{background:#dcfce7;color:#15803d}.badge.medium{background:#fff7d6;color:#ca8a04}.badge.hard{background:#fee2e2;color:#dc2626}.badge.type{background:#eef4ff;color:#315cff}
     .composition{padding:1rem}.composition-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}.composition-stats div{border:1px solid #e1e8f3;border-radius:.75rem;background:#fbfdff;text-align:center;padding:.85rem}.composition-stats strong{display:block;font-size:1.45rem;color:#315cff}.dist-list{display:grid;gap:.55rem;margin-top:1rem}.dist-list div{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.6rem;font-size:.82rem;font-weight:850}.dist-list i{display:block;height:.22rem;border-radius:99px;background:#5b6cff}
-    .type-count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin:1rem 0}.type-count-grid .stepper{border:1px solid #e1e8f3;border-radius:.75rem;background:#fff;padding:.7rem;text-align:center}.type-count-grid .stepper span{display:block;font-size:.72rem;color:#65728a;font-weight:850;margin-bottom:.35rem}.type-count-grid .stepper-controls{display:flex;align-items:center;justify-content:center;gap:.5rem}.type-count-grid button{width:1.9rem;height:1.9rem;border-radius:.5rem;border:1px solid #cbd9ec;background:#f8faff;color:#315cff;font-weight:950}.type-count-grid strong{min-width:1.6rem;display:inline-block}
+    .type-count-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:.6rem;margin:1rem 0}.type-count-grid .stepper{border:1px solid #e1e8f3;border-radius:.75rem;background:#fff;padding:.7rem;text-align:center}.type-count-grid .stepper span{display:block;font-size:.72rem;color:#65728a;font-weight:850;margin-bottom:.35rem}.type-count-grid .stepper-controls{display:flex;align-items:center;justify-content:center;gap:.5rem}.type-count-grid button{width:1.9rem;height:1.9rem;border-radius:.5rem;border:1px solid #cbd9ec;background:#f8faff;color:#315cff;font-weight:950}.type-count-grid strong{min-width:1.6rem;display:inline-block}
     .rules-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr);gap:1rem}.rule-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem}.rule-box{border:1px solid #e1e8f3;border-radius:.85rem;background:#fff;padding:1rem}.rule-box strong{display:block;margin-bottom:.4rem}.rule-box p{margin:0;color:#65728a;font-size:.78rem;line-height:1.8}
     .security-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem;margin-bottom:1rem}.security-card{border:1px solid #e1e8f3;border-radius:.9rem;background:#fff;padding:1rem 1.2rem;display:grid;gap:.5rem;text-align:center;cursor:pointer}.security-card input{display:none}.security-card span{display:grid;width:2.6rem;height:2.6rem;margin:0 auto;place-items:center;border-radius:50%;background:#eef4ff;color:#315cff}.security-card:has(input:checked){border-color:#6b7cff;background:#f7f8ff}
     .review-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1rem}.review-box{padding:1rem}.review-box a{color:#315cff;font-weight:950;cursor:pointer}.review-box strong{display:block;margin-bottom:.7rem}.ready-list{display:grid;gap:.65rem}.ready-list div{display:flex;align-items:center;justify-content:space-between;color:#33435f;font-weight:850}.ready-list b{color:#10b981}.publish-options{display:grid;gap:.85rem}.publish-options label{display:grid;gap:.2rem;border:1px solid #dbe4f1;border-radius:.85rem;background:#fff;padding:1rem}.publish-options input{display:none}.publish-options label:has(input:checked){border-color:#6b7cff;background:#f7f8ff}.publish-options strong{color:#315cff}
     .wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.wizard-footer div{display:flex;gap:.8rem}.nav-btn,.save-btn,.publish-btn{display:inline-flex;height:3.1rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.75rem;padding:0 1.3rem;font-weight:950}.nav-btn,.save-btn{border:1px solid #cbd9ec;background:#fff;color:#315cff}.publish-btn{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.nav-btn[hidden],.save-btn[hidden],.publish-btn[hidden]{display:none}
-    @media(max-width:1180px){.wizard-layout,.selector-grid,.question-layout,.rules-layout{grid-template-columns:1fr}.wizard-steps{grid-template-columns:repeat(4,1fr)}.form-grid,.form-grid.four,.rule-grid,.review-grid,.type-grid,.security-grid,.import-summary,.type-count-grid{grid-template-columns:1fr 1fr}.summary-card{position:static}}
+    @media(max-width:1180px){.wizard-layout,.selector-grid,.rules-layout{grid-template-columns:1fr}.wizard-steps{grid-template-columns:repeat(4,1fr)}.form-grid,.form-grid.four,.rule-grid,.review-grid,.type-grid,.security-grid,.import-summary,.type-count-grid{grid-template-columns:1fr 1fr}.summary-card{position:static}}
     @media(max-width:700px){.wizard-steps,.form-grid,.form-grid.two,.form-grid.four,.subgrid,.selection-toolbar,.type-grid,.rule-grid,.review-grid,.security-grid,.import-summary,.type-count-grid{grid-template-columns:1fr}.wizard-footer{align-items:stretch;flex-direction:column}.wizard-footer div{flex-direction:column}.nav-btn,.save-btn,.publish-btn{width:100%}}
 </style>
 
@@ -96,6 +121,7 @@
                         <label class="field is-full">تصویر کاور (اختیاری)
                             <div class="upload-drop" data-upload-drop>
                                 <input type="file" name="cover_image" accept=".jpg,.jpeg,.png" data-upload-input>
+                                <button type="button" class="remove-upload" data-remove-upload hidden aria-label="حذف تصویر">×</button>
                                 <span data-upload-placeholder>برای آپلود کلیک کنید یا فایل را اینجا بکشید<br><small>فرمت‌های مجاز: JPG, PNG | حداکثر حجم: ۲ مگابایت</small></span>
                             </div>
                         </label>
@@ -124,42 +150,64 @@
                 </section>
 
                 <section class="wizard-pane" data-pane="3">
-                    <h2>نوع سوال را انتخاب کنید</h2>
+                    <div class="section-title"><h2>انتخاب و چینش سوالات</h2></div>
                     <div class="type-grid">{% for item in question_type_cards %}<button type="button" class="type-card" data-type-card="{{ item.key }}"><span>{{ forloop.counter|fa_digits }}</span>{{ item.label }}</button>{% endfor %}</div>
-                    <div class="type-count-grid">{% for item in question_type_cards %}<div class="stepper"><span>{{ item.label }}</span><div class="stepper-controls"><button type="button" data-count-down="{{ item.key }}">−</button><strong data-count-value="{{ item.key }}">۰</strong><button type="button" data-count-up="{{ item.key }}">+</button><input type="hidden" name="type_target_{{ item.key }}" value="0" data-count-input="{{ item.key }}"></div></div>{% endfor %}</div>
-                    <div class="question-compose"><a class="outline" href="{% url 'core:super_admin_settings' %}" style="text-decoration:none;display:inline-flex;align-items:center;height:2.9rem;border-radius:.7rem;padding:0 1rem;font-weight:950;border:1px solid #cbd9ec;color:#315cff">افزودن از بانک سوال</a></div>
-                    <div class="question-layout">
-                        <div class="selection-list">
-                            <div class="selection-toolbar">
-                                <input data-filter-list="question" placeholder="جستجوی متن سوال">
-                                <select data-filter-select="course"><option value="">همه درس‌ها</option>{% for course in courses %}<option value="{{ course.title|fa_digits }}">{{ course.title|fa_digits }}</option>{% endfor %}</select>
-                                <select data-filter-select="difficulty"><option value="">همه سطوح دشواری</option><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">سخت</option></select>
-                                <select data-filter-select="type"><option value="">همه انواع</option>{% for item in question_type_cards %}<option value="{{ item.key }}">{{ item.label }}</option>{% endfor %}</select>
-                            </div>
-                            {% for question in questions|slice:":200" %}
-                                <div class="question-row" data-question-row data-course="{{ question.course_title|fa_digits }}" data-difficulty="{{ question.difficulty|default:'medium' }}" data-type="{{ question.type|default:'single' }}" data-points="{{ question.points|default:'1' }}">
-                                    <input type="checkbox" name="question_ids" value="{{ question.id }}">
-                                    <div><strong>{{ question.text|truncatechars:82|fa_digits }}</strong><small>{{ question.course_title|fa_digits }} · {{ question.teacher_name|fa_digits }}{% if question.tags %} · {{ question.tags|fa_digits }}{% endif %}</small></div>
-                                    <span class="badge type">{{ question.type|default:"سوال" }}</span>
-                                    <span class="badge {{ question.difficulty|default:'medium' }}">{{ question.difficulty|default:"medium" }}</span>
-                                    <span>{{ question.points|fa_digits }}</span>
-                                </div>
-                            {% empty %}
-                                <p style="padding:1rem;color:#65728a">سوالی در بانک سوال یافت نشد.</p>
-                            {% endfor %}
-                        </div>
-                        <aside class="wizard-card composition">
-                            <h2>ترکیب آزمون</h2>
-                            <div class="composition-stats"><div><strong data-selected-questions-count>۰</strong><span>سوال</span></div><div><strong data-score-total>۰</strong><span>نمره</span></div><div><strong data-duration-display>۰</strong><span>دقیقه</span></div></div>
-                            <div class="dist-list" data-dist-list></div>
-                        </aside>
+
+                    <div class="q-filter-row">
+                        <input data-filter-list="question" placeholder="جستجو در متن سؤال">
+                        <select data-filter-select="course"><option value="">همه درس‌ها</option>{% for course in courses %}<option value="{{ course.title|fa_digits }}">{{ course.title|fa_digits }}</option>{% endfor %}</select>
+                        <select data-filter-select="topic"><option value="">همه موضوعات</option></select>
+                        <select data-filter-select="difficulty"><option value="">همه سطوح دشواری</option><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">سخت</option></select>
+                        <select data-filter-select="source"><option value="">همه منابع</option><option value="own">فقط سوالات استاد انتخاب‌شده</option></select>
                     </div>
+
+                    <div class="tag-search-row">
+                        <span>جستجو بر اساس تگ</span>
+                        <div class="tag-mode-toggle"><button type="button" class="is-active" data-tag-mode="and">AND</button><button type="button" data-tag-mode="or">OR</button></div>
+                        <div class="chips-field" data-tag-chips><input type="text" placeholder="جستجو در تگ‌ها..." data-tag-input></div>
+                    </div>
+
+                    <div class="wizard-card" style="overflow:auto;margin-bottom:1.25rem">
+                        <table class="table q-bank-table">
+                            <thead><tr><th>سؤال</th><th>نوع سؤال</th><th>درس</th><th>موضوع</th><th>سطح دشواری</th><th>تگ‌ها</th><th>نمره</th><th></th></tr></thead>
+                            <tbody data-question-bank-body>
+                                {% for question in questions|slice:":200" %}
+                                <tr data-question-row data-id="{{ question.id }}" data-text="{{ question.text|fa_digits }}" data-course="{{ question.course_title|fa_digits }}" data-difficulty="{{ question.difficulty|default:'medium' }}" data-type="{{ question.type|default:'single' }}" data-points="{{ question.points|default:'1' }}" data-tags="{{ question.tags|default:'' }}" data-teacher="{{ question.teacher_id }}">
+                                    <td><strong>{{ question.text|truncatechars:60|fa_digits }}</strong></td>
+                                    <td><span class="badge type">{{ question.type|default:"سوال" }}</span></td>
+                                    <td>{{ question.course_title|fa_digits }}</td>
+                                    <td>{{ question.tags|default:"-"|fa_digits }}</td>
+                                    <td><span class="badge {{ question.difficulty|default:'medium' }}">{{ question.difficulty|default:"medium" }}</span></td>
+                                    <td data-tags-cell></td>
+                                    <td>{{ question.points|fa_digits }}</td>
+                                    <td><button type="button" class="add-question-btn" data-add-question>افزودن<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="8" style="padding:1rem;color:#65728a">سوالی در بانک سوال یافت نشد.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="section-title"><h2>تعداد کل سوالات آزمون</h2></div>
+                    <div class="type-count-grid">{% for item in question_type_cards %}<div class="stepper"><span>{{ item.label }}</span><div class="stepper-controls"><button type="button" data-count-down="{{ item.key }}">−</button><strong data-count-value="{{ item.key }}">۰</strong><button type="button" data-count-up="{{ item.key }}">+</button><input type="hidden" name="type_target_{{ item.key }}" value="0" data-count-input="{{ item.key }}"></div></div>{% endfor %}</div>
+
+                    <div class="section-title"><h2>سؤالات منتخب (<span data-selected-questions-count>۰</span> سؤال)</h2></div>
+                    <div class="wizard-card" style="overflow:auto">
+                        <table class="table selected-q-table">
+                            <thead><tr><th>ردیف</th><th>سؤال</th><th>تگ‌ها</th><th>سطح دشواری</th><th>نمره</th><th>عملیات</th></tr></thead>
+                            <tbody data-selected-questions-body>
+                                <tr data-empty-row><td colspan="6" style="padding:1rem;color:#65728a;text-align:center">هنوز سوالی انتخاب نشده است.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div data-question-hidden-inputs></div>
                 </section>
 
                 <section class="wizard-pane" data-pane="4">
                     <div class="section-title"><h2>دانشجویان هدف آزمون</h2></div>
                     <div class="participant-tabs">
-                        <button type="button" class="is-active" data-participant-tab="groups">گروه‌های درسی</button>
+                        <button type="button" class="is-active" data-participant-tab="groups">انتخاب گروهی</button>
                         <button type="button" data-participant-tab="students">انتخاب فردی</button>
                         <button type="button" data-participant-tab="excel">ورود از فایل اکسل</button>
                     </div>
@@ -186,39 +234,69 @@
                         </div>
                     </div>
                     <div class="participant-pane" data-participant-pane="excel">
-                        <div class="upload-drop" data-upload-drop="excel">
-                            <input type="file" accept=".xlsx,.xls,.csv" data-excel-input>
-                            <span data-upload-placeholder>فایل اکسل شامل ستون «کد ملی یا شماره دانشجویی» را اینجا بارگذاری کنید.<br><small>فقط دانشجویانی که در سامانه ثبت‌شده باشند، نام‌نویسی خواهند شد.</small></span>
+                        <div class="selector-grid">
+                            <div>
+                                <div class="upload-drop" data-upload-drop="excel">
+                                    <input type="file" accept=".xlsx,.xls,.csv" data-excel-input>
+                                    <span data-upload-placeholder>فایل اکسل شامل ستون «کد ملی یا شماره دانشجویی» را اینجا بارگذاری کنید.<br><small>فقط دانشجویانی که در سامانه ثبت‌شده باشند، نام‌نویسی خواهند شد.</small></span>
+                                </div>
+                                <div class="wizard-card" style="overflow:auto;margin-top:1rem" data-excel-results hidden>
+                                    <table class="table">
+                                        <thead><tr><th>ردیف</th><th>تصویر</th><th>نام و نام‌خانوادگی</th><th>شماره دانشجویی</th><th>کد ملی</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                                        <tbody data-excel-found-body></tbody>
+                                    </table>
+                                </div>
+                                <div data-excel-notfound hidden style="margin-top:1rem">
+                                    <strong style="font-size:.85rem;color:#dc2626">موارد نامعتبر / بدون تطابق:</strong>
+                                    <div class="chip-list" data-excel-notfound-list></div>
+                                </div>
+                                <div data-excel-hidden-inputs></div>
+                            </div>
+                            <aside class="wizard-card selected-panel">
+                                <h2>خلاصه تخصیص دانشجویان</h2>
+                                <div class="stat-legend">
+                                    <div><span><i style="background:#15803d"></i>یافت شد در سامانه</span><strong data-excel-found>۰</strong></div>
+                                    <div><span><i style="background:#315cff"></i>انتخاب شده</span><strong data-excel-selected>۰</strong></div>
+                                    <div><span><i style="background:#dc2626"></i>حذف‌شده</span><strong data-excel-removed>۰</strong></div>
+                                    <div><span><i style="background:#ca8a04"></i>نامعتبر / عدم تطابق</span><strong data-excel-not-found>۰</strong></div>
+                                </div>
+                            </aside>
                         </div>
-                        <div class="import-summary" data-excel-summary hidden>
-                            <div class="is-ok"><strong data-excel-found>۰</strong><span>یافت شد در سامانه</span></div>
-                            <div><strong data-excel-total>۰</strong><span>تعداد کل سطرها</span></div>
-                            <div class="is-bad"><strong data-excel-not-found>۰</strong><span>نامعتبر / عدم تطابق</span></div>
-                            <div class="is-warn"><strong data-excel-duplicate>۰</strong><span>تکراری</span></div>
-                        </div>
-                        <div class="chip-list" data-excel-found-list></div>
                     </div>
 
                     <div class="section-title" style="margin-top:1.5rem"><h2>اساتید مرتبط با آزمون</h2></div>
-                    <div class="staff-department-tabs">{% for group in teachers_by_department %}<button type="button" class="{% if forloop.first %}is-active{% endif %}" data-staff-tab="{{ forloop.counter0 }}">{{ group.department|fa_digits }} ({{ group.teachers|length|fa_digits }})</button>{% endfor %}</div>
-                    {% for group in teachers_by_department %}
-                    <div class="staff-department-pane {% if forloop.first %}is-active{% endif %}" data-staff-pane="{{ forloop.counter0 }}">
-                        <table class="table">
-                            <thead><tr><th></th><th>نام و نام‌خانوادگی</th><th>ایمیل / کد پرسنلی</th><th>نقش در آزمون</th></tr></thead>
-                            <tbody>
-                                {% for teacher in group.teachers %}
-                                <tr>
-                                    <td><input type="checkbox" data-staff-checkbox value="{{ teacher.id }}"></td>
-                                    <td>{{ teacher.full_name|fa_digits }}</td>
-                                    <td>{{ teacher.email|default:teacher.code|fa_digits }}</td>
-                                    <td><select data-staff-role disabled>{% for key, label in staff_role_labels.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="selector-grid">
+                        <div>
+                            <div class="staff-department-tabs">{% for group in teachers_by_department %}<button type="button" class="{% if forloop.first %}is-active{% endif %}" data-staff-tab="{{ forloop.counter0 }}">{{ group.department|fa_digits }} ({{ group.teachers|length|fa_digits }})</button>{% endfor %}</div>
+                            {% for group in teachers_by_department %}
+                            <div class="staff-department-pane {% if forloop.first %}is-active{% endif %}" data-staff-pane="{{ forloop.counter0 }}">
+                                <table class="table">
+                                    <thead><tr><th></th><th>تصویر</th><th>نام و نام‌خانوادگی</th><th>ایمیل / کد پرسنلی</th><th>نقش در آزمون</th></tr></thead>
+                                    <tbody>
+                                        {% for teacher in group.teachers %}
+                                        <tr>
+                                            <td><input type="checkbox" data-staff-checkbox value="{{ teacher.id }}"></td>
+                                            <td class="avatar-cell">{% if teacher.avatar_url %}<img class="avatar-circle" src="{{ teacher.avatar_url }}" alt="">{% else %}<span class="avatar-fallback">{{ teacher.full_name|slice:":1" }}</span>{% endif %}</td>
+                                            <td>{{ teacher.full_name|fa_digits }}</td>
+                                            <td>{{ teacher.email|default:teacher.code|fa_digits }}</td>
+                                            <td><select data-staff-role disabled>{% for key, label in staff_role_labels.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% endfor %}
+                            <div data-staff-hidden-inputs></div>
+                        </div>
+                        <aside class="wizard-card selected-panel">
+                            <h2>خلاصه تخصیص اساتید</h2>
+                            <div class="stat-legend">
+                                <div><span><i style="background:#94a3b8"></i>تعداد کل اساتید</span><strong data-staff-total>{{ teachers|length|fa_digits }}</strong></div>
+                                <div><span><i style="background:#315cff"></i>تخصیص داده‌شده</span><strong data-selected-staff-count>۰</strong></div>
+                                {% for key, label in staff_role_labels.items %}<div><span><i style="background:#7447f5"></i>نقش {{ label }}</span><strong data-staff-role-count="{{ key }}">۰</strong></div>{% endfor %}
+                            </div>
+                        </aside>
                     </div>
-                    {% endfor %}
-                    <div data-staff-hidden-inputs></div>
                 </section>
 
                 <section class="wizard-pane" data-pane="5">
@@ -270,7 +348,13 @@
                         <div class="mini-card"><h3>ذخیره‌سازی و اتصال</h3><label class="field">بازه ذخیره خودکار پاسخ‌ها<select name="autosave_interval_seconds"><option value="15">۱۵ ثانیه</option><option value="30" selected>۳۰ ثانیه</option><option value="60">۶۰ ثانیه</option></select></label><label class="field">قطع شدن اینترنت<select name="internet_disconnect_policy"><option value="resume_from_last_save">ادامه از آخرین ذخیره</option><option value="pause">توقف آزمون</option><option value="none">بدون واکنش خاص</option></select></label></div>
                         <div class="mini-card"><h3>کمک‌های ضدتقلب</h3><label class="toggle-row"><input type="checkbox" name="shuffle_questions" checked><span class="switch"></span><span>مخلوط‌سازی سوالات</span></label><label class="toggle-row"><input type="checkbox" name="shuffle_options" checked><span class="switch"></span><span>مخلوط‌سازی گزینه‌ها</span></label></div>
                     </div>
-                    <div class="mini-card" style="margin-top:1rem"><h3>پیوست فایل راهنما (اختیاری)</h3><div class="upload-drop"><input type="file" name="guidance_file" accept=".pdf,.jpg,.jpeg,.png"><span data-upload-placeholder>فایل را بکشید و رها کنید یا کلیک کنید (حداکثر ۱۰ مگابایت)</span></div></div>
+                    <div class="mini-card" style="margin-top:1rem"><h3>پیوست فایل راهنما (اختیاری)</h3>
+                        <div class="upload-drop" data-upload-drop>
+                            <input type="file" name="guidance_file" accept=".pdf,.jpg,.jpeg,.png" data-upload-input>
+                            <button type="button" class="remove-upload" data-remove-upload hidden aria-label="حذف فایل">×</button>
+                            <span data-upload-placeholder>فایل را بکشید و رها کنید یا کلیک کنید (حداکثر ۱۰ مگابایت)</span>
+                        </div>
+                    </div>
                 </section>
 
                 <section class="wizard-pane" data-pane="7">
@@ -327,12 +411,14 @@
     let step = 1;
     const fa = (value) => String(value ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
     const selectedText = (select) => select?.selectedOptions?.[0]?.textContent?.trim() || '-';
+    const selectedStudentInputs = () => [...form.querySelectorAll('[name="student_ids"]')].filter((el) => el.type === 'checkbox' ? el.checked : !el.disabled);
+    const selectedGroupInputs = () => [...form.querySelectorAll('[name="group_ids"]')].filter((el) => el.type === 'checkbox' ? el.checked : !el.disabled);
 
     const updateCounts = () => {
-        const students = form.querySelectorAll('[name="student_ids"]:checked').length;
-        const groups = form.querySelectorAll('[name="group_ids"]:checked').length;
-        const questionEls = [...form.querySelectorAll('[name="question_ids"]:checked')];
-        const score = questionEls.reduce((sum, item) => sum + Number(item.closest('[data-question-row]')?.dataset.points || 1), 0);
+        const students = selectedStudentInputs().length;
+        const groups = selectedGroupInputs().length;
+        const questionEls = [...form.querySelectorAll('[name="question_ids"]')];
+        const score = questionEls.reduce((sum, item) => sum + Number(item.dataset.points || 1), 0);
         const staff = form.querySelectorAll('[data-staff-checkbox]:checked').length;
         document.querySelectorAll('[data-selected-students-count],[data-selected-students-count-2]').forEach((el) => el.textContent = fa(students));
         document.querySelectorAll('[data-selected-groups-count],[data-selected-groups-count-2]').forEach((el) => el.textContent = fa(groups));
@@ -362,8 +448,8 @@
         const distList = document.querySelector('[data-dist-list]');
         if (!distList) return;
         const counts = {};
-        form.querySelectorAll('[name="question_ids"]:checked').forEach((el) => {
-            const type = el.closest('[data-question-row]')?.dataset.type || 'other';
+        form.querySelectorAll('[name="question_ids"]').forEach((el) => {
+            const type = el.dataset.type || 'other';
             counts[type] = (counts[type] || 0) + 1;
         });
         const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
@@ -375,8 +461,8 @@
         if (!list) return;
         const checks = [
             [!!form.elements.title.value, 'عنوان و مشخصات پایه تکمیل شده است.'],
-            [form.querySelectorAll('[name="group_ids"]:checked, [name="student_ids"]:checked').length > 0, 'حداقل یک گروه یا دانشجو انتخاب شده است.'],
-            [form.querySelectorAll('[name="question_ids"]:checked').length > 0, 'حداقل یک سوال انتخاب شده است.'],
+            [selectedGroupInputs().length > 0 || selectedStudentInputs().length > 0, 'حداقل یک گروه یا دانشجو انتخاب شده است.'],
+            [form.querySelectorAll('[name="question_ids"]').length > 0, 'حداقل یک سوال انتخاب شده است.'],
             [!!form.elements.duration_minutes.value, 'مدت زمان آزمون تعیین شده است.'],
         ];
         list.innerHTML = checks.map(([ok, label]) => `<div>${label} <b>${ok ? '✓' : '!'}</b></div>`).join('');
@@ -404,29 +490,107 @@
         form.querySelector('[data-publish-mode]').value = selected;
     });
 
-    document.querySelectorAll('[data-filter-list]').forEach((input) => {
+    form.addEventListener('submit', (event) => {
+        if (form.checkValidity()) return;
+        event.preventDefault();
+        const invalid = form.querySelector(':invalid');
+        if (!invalid) return;
+        const pane = invalid.closest('[data-pane]');
+        if (pane) setStep(pane.dataset.pane);
+        window.requestAnimationFrame(() => invalid.reportValidity());
+    });
+
+    document.querySelectorAll('[data-filter-list="question"]').forEach((input) => {
         input.addEventListener('input', () => {
             const q = input.value.trim().toLowerCase();
             document.querySelectorAll('[data-question-row]').forEach((row) => {
-                const matches = !q || row.textContent.toLowerCase().includes(q);
-                row.dataset.textMatch = matches ? '1' : '0';
-                applyQuestionFilters();
+                row.dataset.textMatch = (!q || row.textContent.toLowerCase().includes(q)) ? '1' : '0';
+            });
+            applyQuestionFilters();
+        });
+    });
+    document.querySelectorAll('[data-filter-list="participant"]').forEach((input) => {
+        input.addEventListener('input', () => {
+            const q = input.value.trim().toLowerCase();
+            document.querySelectorAll('[data-participant-row]').forEach((row) => {
+                row.hidden = !(!q || row.textContent.toLowerCase().includes(q));
             });
         });
     });
+    const rowTags = (row) => (row.dataset.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+    const activeTagChips = [];
+    let tagMode = 'and';
+
     const applyQuestionFilters = () => {
         const courseFilter = document.querySelector('[data-filter-select="course"]')?.value || '';
         const difficultyFilter = document.querySelector('[data-filter-select="difficulty"]')?.value || '';
-        const typeFilter = document.querySelector('[data-filter-select="type"]')?.value || '';
+        const topicFilter = document.querySelector('[data-filter-select="topic"]')?.value || '';
+        const sourceFilter = document.querySelector('[data-filter-select="source"]')?.value || '';
+        const selectedTeacherId = form.elements.teacher_id?.value || '';
         document.querySelectorAll('[data-question-row]').forEach((row) => {
             const textOk = row.dataset.textMatch !== '0';
             const courseOk = !courseFilter || row.dataset.course === courseFilter;
             const difficultyOk = !difficultyFilter || row.dataset.difficulty === difficultyFilter;
-            const typeOk = !typeFilter || row.dataset.type === typeFilter;
-            row.hidden = !(textOk && courseOk && difficultyOk && typeOk);
+            const tags = rowTags(row);
+            const topicOk = !topicFilter || tags.includes(topicFilter);
+            const sourceOk = sourceFilter !== 'own' || row.dataset.teacher === selectedTeacherId;
+            const tagChipsOk = !activeTagChips.length || (
+                tagMode === 'and'
+                    ? activeTagChips.every((chip) => tags.some((tag) => tag.includes(chip)))
+                    : activeTagChips.some((chip) => tags.some((tag) => tag.includes(chip)))
+            );
+            row.hidden = !(textOk && courseOk && difficultyOk && topicOk && sourceOk && tagChipsOk);
         });
     };
     document.querySelectorAll('[data-filter-select]').forEach((select) => select.addEventListener('change', applyQuestionFilters));
+
+    document.querySelectorAll('[data-question-row]').forEach((row) => {
+        const cell = row.querySelector('[data-tags-cell]');
+        if (cell) cell.innerHTML = rowTags(row).map((tag) => `<span class="tag-chip">${tag}</span>`).join('') || '-';
+    });
+    const topicSelect = document.querySelector('[data-filter-select="topic"]');
+    if (topicSelect) {
+        const topics = new Set();
+        document.querySelectorAll('[data-question-row]').forEach((row) => rowTags(row).forEach((tag) => topics.add(tag)));
+        [...topics].sort().forEach((topic) => {
+            const opt = document.createElement('option');
+            opt.value = topic; opt.textContent = topic;
+            topicSelect.appendChild(opt);
+        });
+    }
+
+    const tagModeToggle = document.querySelectorAll('[data-tag-mode]');
+    tagModeToggle.forEach((btn) => btn.addEventListener('click', () => {
+        tagMode = btn.dataset.tagMode;
+        tagModeToggle.forEach((b) => b.classList.toggle('is-active', b === btn));
+        applyQuestionFilters();
+    }));
+    const tagChipsField = document.querySelector('[data-tag-chips]');
+    const tagInput = document.querySelector('[data-tag-input]');
+    const addTagChip = (value) => {
+        value = value.trim();
+        if (!value || activeTagChips.includes(value)) return;
+        activeTagChips.push(value);
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.innerHTML = `${value}<button type="button">×</button>`;
+        chip.querySelector('button').addEventListener('click', () => {
+            activeTagChips.splice(activeTagChips.indexOf(value), 1);
+            chip.remove();
+            applyQuestionFilters();
+        });
+        tagChipsField.insertBefore(chip, tagInput);
+        applyQuestionFilters();
+    };
+    if (tagInput) {
+        tagInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ',') {
+                event.preventDefault();
+                addTagChip(tagInput.value);
+                tagInput.value = '';
+            }
+        });
+    }
 
     document.querySelectorAll('[data-participant-tab]').forEach((tab) => tab.addEventListener('click', () => {
         document.querySelectorAll('[data-participant-tab]').forEach((t) => t.classList.toggle('is-active', t === tab));
@@ -447,14 +611,19 @@
     function syncStaffHiddenInputs() {
         const container = document.querySelector('[data-staff-hidden-inputs]');
         container.innerHTML = '';
+        const roleCounts = {};
         document.querySelectorAll('[data-staff-checkbox]:checked').forEach((checkbox) => {
             const role = checkbox.closest('tr').querySelector('[data-staff-role]').value;
+            roleCounts[role] = (roleCounts[role] || 0) + 1;
             container.insertAdjacentHTML('beforeend', `<input type="hidden" name="staff_teacher_id" value="${checkbox.value}"><input type="hidden" name="staff_role" value="${role}">`);
         });
+        document.querySelectorAll('[data-staff-role-count]').forEach((el) => { el.textContent = fa(roleCounts[el.dataset.staffRoleCount] || 0); });
         updateCounts();
     }
 
-    document.querySelectorAll('[data-type-card]').forEach((card) => card.addEventListener('click', () => {
+    const typeCards = document.querySelectorAll('[data-type-card]');
+    typeCards.forEach((card) => card.addEventListener('click', () => {
+        typeCards.forEach((c) => c.classList.toggle('is-active', c === card));
         const input = document.querySelector(`[data-count-input="${card.dataset.typeCard}"]`);
         input.value = Number(input.value) + 1;
         document.querySelector(`[data-count-value="${card.dataset.typeCard}"]`).textContent = fa(input.value);
@@ -490,6 +659,153 @@
         });
     }
 
+    const selectedQuestionsBody = document.querySelector('[data-selected-questions-body]');
+    const questionHiddenInputs = document.querySelector('[data-question-hidden-inputs]');
+    const emptyQuestionsRow = selectedQuestionsBody?.querySelector('[data-empty-row]');
+
+    function renumberSelectedQuestions() {
+        [...selectedQuestionsBody.querySelectorAll('tr[data-id]')].forEach((tr, index) => {
+            tr.querySelector('[data-row-index]').textContent = fa(index + 1);
+        });
+        if (emptyQuestionsRow) emptyQuestionsRow.hidden = selectedQuestionsBody.querySelectorAll('tr[data-id]').length > 0;
+    }
+
+    function rebuildQuestionHiddenInputs() {
+        questionHiddenInputs.innerHTML = '';
+        selectedQuestionsBody.querySelectorAll('tr[data-id]').forEach((tr) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'question_ids';
+            input.value = tr.dataset.id;
+            input.dataset.points = tr.dataset.points;
+            input.dataset.type = tr.dataset.type;
+            questionHiddenInputs.appendChild(input);
+        });
+        updateCounts(); updateDistribution(); updateReadiness();
+    }
+
+    function addQuestionToSelection(bankRow) {
+        if (selectedQuestionsBody.querySelector(`tr[data-id="${bankRow.dataset.id}"]`)) return;
+        bankRow.querySelector('[data-add-question]').disabled = true;
+        bankRow.querySelector('[data-add-question]').textContent = 'افزوده شد';
+        const tr = document.createElement('tr');
+        tr.dataset.id = bankRow.dataset.id;
+        tr.dataset.points = bankRow.dataset.points;
+        tr.dataset.type = bankRow.dataset.type;
+        tr.draggable = true;
+        tr.innerHTML = `
+            <td data-row-index></td>
+            <td><span class="drag-handle">⋮⋮</span>${bankRow.dataset.text.slice(0, 60)}</td>
+            <td>${rowTags(bankRow).map((tag) => `<span class="tag-chip">${tag}</span>`).join('') || '-'}</td>
+            <td><span class="badge ${bankRow.dataset.difficulty}">${bankRow.dataset.difficulty}</span></td>
+            <td>${fa(bankRow.dataset.points)}</td>
+            <td class="row-actions"><button type="button" class="remove-row-btn" data-remove-selected-question>×</button></td>
+        `;
+        tr.querySelector('[data-remove-selected-question]').addEventListener('click', () => {
+            tr.remove();
+            const originalBankRow = document.querySelector(`[data-question-row][data-id="${bankRow.dataset.id}"]`);
+            if (originalBankRow) {
+                const btn = originalBankRow.querySelector('[data-add-question]');
+                btn.disabled = false;
+                btn.innerHTML = 'افزودن<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+            }
+            renumberSelectedQuestions();
+            rebuildQuestionHiddenInputs();
+        });
+        selectedQuestionsBody.appendChild(tr);
+        renumberSelectedQuestions();
+        rebuildQuestionHiddenInputs();
+    }
+
+    document.querySelectorAll('[data-add-question]').forEach((btn) => btn.addEventListener('click', () => {
+        addQuestionToSelection(btn.closest('[data-question-row]'));
+    }));
+
+    let dragSrcRow = null;
+    if (selectedQuestionsBody) {
+        selectedQuestionsBody.addEventListener('dragstart', (event) => {
+            const tr = event.target.closest('tr[data-id]');
+            if (!tr) return;
+            dragSrcRow = tr;
+            event.dataTransfer.effectAllowed = 'move';
+        });
+        selectedQuestionsBody.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            const tr = event.target.closest('tr[data-id]');
+            if (!tr || tr === dragSrcRow || !dragSrcRow) return;
+            const rect = tr.getBoundingClientRect();
+            const before = (event.clientY - rect.top) < rect.height / 2;
+            selectedQuestionsBody.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
+        });
+        selectedQuestionsBody.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dragSrcRow = null;
+            renumberSelectedQuestions();
+            rebuildQuestionHiddenInputs();
+        });
+    }
+
+    document.querySelectorAll('[data-upload-drop]').forEach((drop) => {
+        const input = drop.querySelector('[data-upload-input]');
+        const placeholder = drop.querySelector('[data-upload-placeholder]');
+        const removeBtn = drop.querySelector('[data-remove-upload]');
+        const placeholderHtml = placeholder.innerHTML;
+        if (!input) return;
+        const clearPreview = () => {
+            drop.classList.remove('has-file');
+            drop.querySelector('.upload-preview')?.remove();
+            placeholder.innerHTML = placeholderHtml;
+            placeholder.hidden = false;
+            removeBtn.hidden = true;
+        };
+        input.addEventListener('change', () => {
+            const file = input.files[0];
+            if (!file) { clearPreview(); return; }
+            drop.classList.add('has-file');
+            removeBtn.hidden = false;
+            drop.querySelector('.upload-preview')?.remove();
+            if (file.type.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.className = 'upload-preview';
+                img.src = URL.createObjectURL(file);
+                placeholder.hidden = true;
+                drop.insertBefore(img, placeholder);
+            } else {
+                placeholder.hidden = true;
+                const nameEl = document.createElement('div');
+                nameEl.className = 'upload-preview file-name';
+                nameEl.innerHTML = `<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span>${file.name}</span>`;
+                drop.insertBefore(nameEl, placeholder);
+            }
+        });
+        removeBtn?.addEventListener('click', (event) => {
+            event.preventDefault();
+            input.value = '';
+            clearPreview();
+        });
+    });
+
+    function updateExcelStats() {
+        const body = document.querySelector('[data-excel-found-body]');
+        const selected = body ? body.querySelectorAll('tr:not([data-removed])').length : 0;
+        const removed = body ? body.querySelectorAll('tr[data-removed]').length : 0;
+        const foundEl = document.querySelector('[data-excel-found]'); if (foundEl) foundEl.textContent = fa(selected + removed);
+        const selectedEl = document.querySelector('[data-excel-selected]'); if (selectedEl) selectedEl.textContent = fa(selected);
+        const removedEl = document.querySelector('[data-excel-removed]'); if (removedEl) removedEl.textContent = fa(removed);
+    }
+
+    function rebuildExcelHiddenInputs() {
+        const container = document.querySelector('[data-excel-hidden-inputs]');
+        if (!container) return;
+        container.innerHTML = '';
+        document.querySelectorAll('[data-excel-found-body] tr[data-student-id]:not([data-removed])').forEach((tr) => {
+            const input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'student_ids'; input.value = tr.dataset.studentId;
+            container.appendChild(input);
+        });
+        updateCounts();
+    }
+
     const excelInput = document.querySelector('[data-excel-input]');
     if (excelInput) {
         excelInput.addEventListener('change', async () => {
@@ -502,22 +818,47 @@
                 const response = await fetch('{% url "core:super_admin_exam_participants_match" %}', { method: 'POST', body, headers: { 'X-CSRFToken': csrftoken } });
                 const data = await response.json();
                 if (!response.ok) { alert(data.error || 'خطا در پردازش فایل.'); return; }
-                document.querySelector('[data-excel-summary]').hidden = false;
-                document.querySelector('[data-excel-found]').textContent = fa(data.found.length);
-                document.querySelector('[data-excel-total]').textContent = fa(data.total_rows);
                 document.querySelector('[data-excel-not-found]').textContent = fa(data.not_found.length);
-                document.querySelector('[data-excel-duplicate]').textContent = fa(data.duplicate_count);
-                const list = document.querySelector('[data-excel-found-list]');
-                list.innerHTML = '';
-                data.found.forEach((student) => {
-                    const existing = form.querySelector(`input[name="student_ids"][value="${student.id}"]`);
-                    if (!existing) {
-                        const hidden = document.createElement('input');
-                        hidden.type = 'hidden'; hidden.name = 'student_ids'; hidden.value = student.id;
-                        form.appendChild(hidden);
-                    }
-                    list.insertAdjacentHTML('beforeend', `<span>${student.full_name} (${student.student_number || student.national_id})</span>`);
+                document.querySelector('[data-excel-results]').hidden = data.found.length === 0;
+                const resultsBody = document.querySelector('[data-excel-found-body]');
+                resultsBody.innerHTML = '';
+                data.found.forEach((student, index) => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.studentId = student.id;
+                    const avatar = student.avatar_url
+                        ? `<img class="avatar-circle" src="${student.avatar_url}" alt="">`
+                        : `<span class="avatar-fallback">${(student.full_name || '؟').charAt(0)}</span>`;
+                    tr.innerHTML = `
+                        <td>${fa(index + 1)}</td>
+                        <td class="avatar-cell">${avatar}</td>
+                        <td>${student.full_name}</td>
+                        <td>${fa(student.student_number || '-')}</td>
+                        <td>${fa(student.national_id || '-')}</td>
+                        <td><span class="status-pill ok">یافت شد در سامانه</span></td>
+                        <td><button type="button" class="link-danger" data-toggle-excel-row>حذف</button></td>
+                    `;
+                    tr.querySelector('[data-toggle-excel-row]').addEventListener('click', function () {
+                        if (tr.dataset.removed) {
+                            delete tr.dataset.removed;
+                            tr.querySelector('.status-pill').className = 'status-pill ok';
+                            tr.querySelector('.status-pill').textContent = 'یافت شد در سامانه';
+                            this.textContent = 'حذف';
+                        } else {
+                            tr.dataset.removed = '1';
+                            tr.querySelector('.status-pill').className = 'status-pill bad';
+                            tr.querySelector('.status-pill').textContent = 'حذف‌شده';
+                            this.textContent = 'بازگردانی';
+                        }
+                        updateExcelStats(); rebuildExcelHiddenInputs();
+                    });
+                    resultsBody.appendChild(tr);
                 });
+                rebuildExcelHiddenInputs();
+                const notFoundWrap = document.querySelector('[data-excel-notfound]');
+                const notFoundList = document.querySelector('[data-excel-notfound-list]');
+                notFoundList.innerHTML = data.not_found.map((identifier) => `<span>${identifier}</span>`).join('');
+                notFoundWrap.hidden = data.not_found.length === 0;
+                updateExcelStats();
                 updateCounts();
             } catch (error) {
                 alert('خطا در ارتباط با سرور.');
