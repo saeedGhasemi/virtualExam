@@ -955,6 +955,19 @@ class TeacherQuestionBuilderTests(_ScopedOrgFixture):
         self.assertEqual([item['text'] for item in options], ['درست', 'نادرست'])
         self.assertEqual(json.loads(row[4]), options[1]['id'])
 
+    def test_question_bank_type_strip_filters_list(self):
+        self.client.force_login(self.teacher_user)
+        self._create('true_false', {'text': 'فیلتر نوع درست نادرست', 'option_text': ['درست', 'نادرست'], 'correct_options': ['1']})
+        self._create('ordering', {'text': 'فیلتر نوع ترتیبی', 'ordering_item': ['الف', 'ب']})
+        page = self.client.get(f"{reverse('core:teacher_questions')}?type=ordering&q=فیلتر نوع")
+        html = page.content.decode()
+        self.assertIn('فیلتر نوع ترتیبی', html)
+        self.assertNotIn('فیلتر نوع درست نادرست', html)
+        # کارت فعال اکنون باید فیلتر را بردارد و بقیه‌ی فیلترها حفظ شوند
+        self.assertIn('class="is-active" aria-current="true"', html)
+        self.assertIn('?q=%D9%81%DB%8C%D9%84%D8%AA%D8%B1%20%D9%86%D9%88%D8%B9&amp;difficulty=all&amp;status=all&amp;type=all', html)
+        self.assertNotIn('teacher_question_create', html.split('question-type-strip')[1].split('</nav>')[0])
+
 
 class AttemptGradingTests(_ScopedOrgFixture):
     """
@@ -1648,6 +1661,22 @@ class EssayQuestionBuilderTests(_ScopedOrgFixture):
         self.assertNotIn(f'href="{reverse("core:dashboard")}"', page)
         # The mark checkbox sits in the side card but still submits with the answer form.
         self.assertIn(f'name="mark_{question_id}" form="answer-form"', page)
+
+    def test_finish_button_saves_the_answer_before_leaving(self):
+        question_id, attempt_id = str(uuid.uuid4()), str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points'], [question_id, self.teacher_in_id, 'تشخیص را بنویسید', 'short_answer', 1])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, question_id, 1, 1])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'], [attempt_id, self.exam_in_id, self.student_in_id, timezone.now(), 'in_progress'])
+        self.client.force_login(get_user_model().objects.create_user(username='student_in_scope', email='student_in_scope@example.com', password='x'))
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.assertContains(self.client.get(url), 'form="answer-form" name="action" value="finish"')
+        response = self.client.post(url, {f'answer_{question_id}': 'گاستریت', 'action': 'finish'})
+        self.assertRedirects(response, reverse('core:student_attempt_submit', args=[attempt_id]), fetch_redirect_response=False)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id])
+            saved = cursor.fetchone()
+        self.assertIsNotNone(saved)
+        self.assertIn('گاستریت', saved[0] if isinstance(saved[0], str) else json.dumps(saved[0], ensure_ascii=False))
 
     def test_student_attempt_page_renders_fill_blank_answers_and_essay(self):
         """Regression: the essay block must not swallow the fill-blank answer refill."""

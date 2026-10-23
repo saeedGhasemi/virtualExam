@@ -13368,7 +13368,9 @@ def _teacher_question_rows(teacher_id, request=None):
     if status_filter != 'all':
         enriched = [item for item in enriched if item['status_key'] == status_filter]
     if type_filter != 'all':
-        enriched = [item for item in enriched if item.get('type') == type_filter]
+        type_aliases = {'single': {'single', 'multiple_choice'}, 'essay': {'essay', 'descriptive'}}
+        accepted_types = type_aliases.get(type_filter, {type_filter})
+        enriched = [item for item in enriched if item.get('type') in accepted_types]
     if difficulty_filter != 'all':
         enriched = [item for item in enriched if item.get('difficulty') == difficulty_filter]
     return enriched
@@ -16932,6 +16934,9 @@ def student_attempt(request, attempt_id):
         if is_xhr:
             return JsonResponse({'ok': True})
         action = request.POST.get('action')
+        if action == 'finish':
+            # «پایان آزمون» submits the answer form, so the answer on screen is saved before the confirmation page.
+            return redirect('core:student_attempt_submit', attempt_id=attempt_id)
         if action == 'previous':
             current_index = max(1, current_index - 1)
         elif action == 'next':

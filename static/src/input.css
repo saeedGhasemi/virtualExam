@@ -10267,6 +10267,14 @@
     @apply text-2xl font-black text-blue-600;
   }
 
+  .question-type-strip a.is-active {
+    @apply bg-blue-600 text-white hover:bg-blue-700 hover:text-white;
+  }
+
+  .question-type-strip a.is-active b {
+    @apply text-white;
+  }
+
   .question-bank-table {
     @apply mt-3;
   }

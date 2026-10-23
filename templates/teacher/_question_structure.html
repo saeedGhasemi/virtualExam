@@ -26,6 +26,7 @@
     .qs-top .qs-steps i{flex:0 0 5rem;height:1px;background:#cbd5e1}
     .qs-top .qs-steps i.is-active{background:var(--qs-blue);height:2px}
     .qs-back{display:inline-flex;align-items:center;gap:.5rem;height:3rem;padding:0 1.3rem;border:1px solid #d9e2f0;border-radius:.85rem;background:#fff;color:#334155;font-size:.88rem;font-weight:900;text-decoration:none}
+    .qs-top .qs-back{margin-inline-start:auto}
     .qs-back svg{width:1.1rem;height:1.1rem}
     .qs-sheet{padding:1rem 1rem .9rem;border-radius:1.2rem;background:rgba(255,255,255,.75);box-shadow:0 16px 40px rgba(30,64,175,.05)}
     .qs-sheet-head{position:relative;margin-bottom:.8rem;text-align:center}
@@ -100,11 +101,6 @@
                 <span class="qs-head-icon">{% include "teacher/_qb_icon.html" with name="essay" %}</span>
                 <div><h1>ایجاد سؤال جدید</h1><p>نوع سؤال را انتخاب کنید تا مراحل بعدی نمایش داده شود.</p></div>
             </header>
-            <ol class="qs-steps">
-                <li class="is-active"><b>1</b>ساختار سؤال {% include "teacher/_qb_icon.html" with name="single" %}</li><i class="is-active"></i>
-                <li><b>2</b>نوع سؤال {% include "teacher/_qb_icon.html" with name="multi" %}</li><i></i>
-                <li><b>3</b>طراحی و تنظیمات {% include "teacher/_qb_icon.html" with name="settings" %}</li>
-            </ol>
             <a class="qs-back" href="{% url 'core:teacher_questions' %}">بازگشت <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></a>
         </div>
         <section class="qs-sheet">
@@ -119,37 +115,33 @@
                 <b>گروه سؤال سناریوی بیمار:</b> وقتی چند سؤال به یک شرح حال مشترک وابسته‌اند.<br>
                 <b>سؤال مستقل:</b> سؤال تکی بدون وابستگی به سناریو یا ایستگاه؛ نوع آن را از فهرست پایین انتخاب کنید.
             </div>
-            <div class="qs-structs" role="radiogroup" aria-label="ساختار سؤال">
-                <a class="qs-struct" role="radio" aria-checked="false" data-choice="osce" href="{% url 'core:teacher_osce_create' %}"><span class="qs-art">{% include "teacher/_qs_art.html" with name="osce" %}</span><strong>سازنده ایستگاه OSCE</strong><span>ایستگاه بالینی، زمان و چک‌لیست</span></a>
-                <a class="qs-struct" role="radio" aria-checked="false" data-choice="kfp" href="{% url 'core:teacher_question_create' %}?type=kfp"><span class="qs-art">{% include "teacher/_qs_art.html" with name="kfp" %}</span><strong>سازنده سناریوی KFP</strong><span>ارزیابی ویژگی‌های کلیدی تصمیم‌گیری</span></a>
-                <a class="qs-struct" role="radio" aria-checked="false" data-choice="case" href="{% url 'core:teacher_question_create' %}?type=case"><span class="qs-art">{% include "teacher/_qs_art.html" with name="case" %}</span><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>چند سؤال وابسته به یک سناریوی مشترک و یکپارچه</span></a>
+            <div class="qs-structs" aria-label="ساختار سؤال">
+                <a class="qs-struct" data-choice="osce" href="{% url 'core:teacher_osce_create' %}"><span class="qs-art">{% include "teacher/_qs_art.html" with name="osce" %}</span><strong>سازنده ایستگاه OSCE</strong><span>ایستگاه بالینی، زمان و چک‌لیست</span></a>
+                <a class="qs-struct" data-choice="kfp" href="{% url 'core:teacher_question_create' %}?type=kfp"><span class="qs-art">{% include "teacher/_qs_art.html" with name="kfp" %}</span><strong>سازنده سناریوی KFP</strong><span>ارزیابی ویژگی‌های کلیدی تصمیم‌گیری</span></a>
+                <a class="qs-struct" data-choice="case" href="{% url 'core:teacher_question_create' %}?type=case"><span class="qs-art">{% include "teacher/_qs_art.html" with name="case" %}</span><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>چند سؤال وابسته به یک سناریوی مشترک و یکپارچه</span></a>
             </div>
             <div class="qs-indep">
                 <div class="qs-indep-head">
                     <i>{% include "teacher/_qb_icon.html" with name="essay" %}</i>
                     <div><strong>سؤال مستقل</strong><span>انتخاب نوع سؤال مستقل</span></div>
                 </div>
-                <div class="qs-types" role="radiogroup" aria-label="نوع سؤال مستقل">
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="essay" href="{% url 'core:teacher_question_create' %}?type=essay"><span class="qs-art">{% include "teacher/_qs_art.html" with name="essay" %}</span><strong>پاسخ تشریحی</strong></a>
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="short_answer" href="{% url 'core:teacher_question_create' %}?type=short_answer"><span class="qs-art">{% include "teacher/_qs_art.html" with name="short_answer" %}</span><strong>پاسخ کوتاه</strong></a>
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="true_false" href="{% url 'core:teacher_question_create' %}?type=true_false"><span class="qs-art">{% include "teacher/_qs_art.html" with name="true_false" %}</span><strong>درست / نادرست</strong></a>
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="multi" href="{% url 'core:teacher_question_create' %}?type=multi"><span class="qs-art">{% include "teacher/_qs_art.html" with name="multi" %}</span><strong>چندگزینه‌ای (چند پاسخ صحیح)</strong></a>
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="single" href="{% url 'core:teacher_question_create' %}?type=single"><span class="qs-art">{% include "teacher/_qs_art.html" with name="single" %}</span><strong>چهارگزینه‌ای (تک پاسخ صحیح)</strong></a>
+                <div class="qs-types" aria-label="نوع سؤال مستقل">
+                    <a class="qs-type" data-choice="essay" href="{% url 'core:teacher_question_create' %}?type=essay"><span class="qs-art">{% include "teacher/_qs_art.html" with name="essay" %}</span><strong>پاسخ تشریحی</strong></a>
+                    <a class="qs-type" data-choice="short_answer" href="{% url 'core:teacher_question_create' %}?type=short_answer"><span class="qs-art">{% include "teacher/_qs_art.html" with name="short_answer" %}</span><strong>پاسخ کوتاه</strong></a>
+                    <a class="qs-type" data-choice="true_false" href="{% url 'core:teacher_question_create' %}?type=true_false"><span class="qs-art">{% include "teacher/_qs_art.html" with name="true_false" %}</span><strong>درست / نادرست</strong></a>
+                    <a class="qs-type" data-choice="multi" href="{% url 'core:teacher_question_create' %}?type=multi"><span class="qs-art">{% include "teacher/_qs_art.html" with name="multi" %}</span><strong>چندگزینه‌ای (چند پاسخ صحیح)</strong></a>
+                    <a class="qs-type" data-choice="single" href="{% url 'core:teacher_question_create' %}?type=single"><span class="qs-art">{% include "teacher/_qs_art.html" with name="single" %}</span><strong>چهارگزینه‌ای (تک پاسخ صحیح)</strong></a>
                     <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="numeric" %}</span><strong>پاسخ عددی</strong></div>
                     <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="matrix" %}</span><strong>ماتریسی / جدول</strong></div>
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="matching" href="{% url 'core:teacher_question_create' %}?type=matching"><span class="qs-art">{% include "teacher/_qs_art.html" with name="matching" %}</span><strong>تطبیقی</strong></a>
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="ordering" href="{% url 'core:teacher_question_create' %}?type=ordering"><span class="qs-art">{% include "teacher/_qs_art.html" with name="ordering" %}</span><strong>مرتب‌سازی</strong></a>
-                    <a class="qs-type" role="radio" aria-checked="false" data-choice="fill_blank" href="{% url 'core:teacher_question_create' %}?type=fill_blank"><span class="qs-art">{% include "teacher/_qs_art.html" with name="fill_blank" %}</span><strong>جای خالی</strong></a>
+                    <a class="qs-type" data-choice="matching" href="{% url 'core:teacher_question_create' %}?type=matching"><span class="qs-art">{% include "teacher/_qs_art.html" with name="matching" %}</span><strong>تطبیقی</strong></a>
+                    <a class="qs-type" data-choice="ordering" href="{% url 'core:teacher_question_create' %}?type=ordering"><span class="qs-art">{% include "teacher/_qs_art.html" with name="ordering" %}</span><strong>مرتب‌سازی</strong></a>
+                    <a class="qs-type" data-choice="fill_blank" href="{% url 'core:teacher_question_create' %}?type=fill_blank"><span class="qs-art">{% include "teacher/_qs_art.html" with name="fill_blank" %}</span><strong>جای خالی</strong></a>
                     <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="hotspot" %}</span><strong>نقطه‌ای / مربوط به تصویر</strong></div>
                     <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="media" %}</span><strong>صوتی / ویدئویی</strong></div>
                     <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="annotate" %}</span><strong>تصویری / نشانه‌گذاری</strong></div>
                 </div>
             </div>
         </section>
-        <footer class="qs-footer">
-            <a class="is-primary is-blue" data-choice-continue aria-disabled="true">ادامه و انتخاب نوع سؤال {% include "teacher/_qb_icon.html" with name="arrow" %}</a>
-            <a class="is-cancel" href="{% url 'core:teacher_questions' %}">انصراف <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
-        </footer>
         <script>
         (() => {
           const page = document.querySelector('[data-structure-page]');
@@ -160,17 +152,6 @@
             helpBody.hidden = !helpBody.hidden;
             help.setAttribute('aria-expanded', helpBody.hidden ? 'false' : 'true');
           });
-          const continueLink = page.querySelector('[data-choice-continue]');
-          const choices = page.querySelectorAll('[data-choice]');
-          choices.forEach((choice) => choice.addEventListener('click', (event) => {
-            event.preventDefault();
-            choices.forEach((other) => {
-              other.classList.toggle('is-selected', other === choice);
-              other.setAttribute('aria-checked', other === choice ? 'true' : 'false');
-            });
-            continueLink.href = choice.getAttribute('href');
-            continueLink.removeAttribute('aria-disabled');
-          }));
         })();
         </script>
     {% else %}

@@ -190,7 +190,8 @@
     </div>
 
     <footer class="qx-card qx-foot">
-      <a class="qx-btn qx-btn--primary" href="{% url 'core:student_attempt_submit' attempt.pk %}"><svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>پایان آزمون</a>
+      {# Submits the answer form (saving the current answer) and then opens the end-of-exam confirmation. #}
+      <button class="qx-btn qx-btn--primary" type="submit" form="answer-form" name="action" value="finish"><svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>پایان آزمون</button>
       <button class="qx-btn" type="submit" form="answer-form" name="action" value="next"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>{% if current_index < total_questions %}ذخیره پاسخ و سؤال بعدی{% else %}ذخیره پاسخ{% endif %}</button>
       <button class="qx-btn qx-prev" type="submit" form="answer-form" name="action" value="previous"{% if current_index <= 1 %} disabled{% endif %}>سؤال قبلی<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
     </footer>

@@ -359,20 +359,22 @@
             <form class="question-bank-filters" method="get">
                 <label><input name="q" value="{{ question_filters.q }}" placeholder="جستجو در متن سؤال یا کد..."><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
                 <select name="difficulty"><option value="all">همه دشواری‌ها</option><option value="easy" {% if question_filters.difficulty == 'easy' %}selected{% endif %}>آسان</option><option value="medium" {% if question_filters.difficulty == 'medium' %}selected{% endif %}>متوسط</option><option value="hard" {% if question_filters.difficulty == 'hard' %}selected{% endif %}>سخت</option></select>
-                <select name="type"><option value="all">همه انواع سؤال</option><option value="single" {% if question_filters.type == 'single' %}selected{% endif %}>چهارگزینه‌ای</option><option value="multi" {% if question_filters.type == 'multi' %}selected{% endif %}>چندپاسخی</option><option value="essay" {% if question_filters.type == 'essay' %}selected{% endif %}>تشریحی</option></select>
+                <select name="type"><option value="all">همه انواع سؤال</option><option value="single" {% if question_filters.type == 'single' %}selected{% endif %}>چهارگزینه‌ای</option><option value="multi" {% if question_filters.type == 'multi' %}selected{% endif %}>چندپاسخی</option><option value="true_false" {% if question_filters.type == 'true_false' %}selected{% endif %}>درست/نادرست</option><option value="short_answer" {% if question_filters.type == 'short_answer' %}selected{% endif %}>پاسخ کوتاه</option><option value="essay" {% if question_filters.type == 'essay' %}selected{% endif %}>تشریحی</option><option value="fill_blank" {% if question_filters.type == 'fill_blank' %}selected{% endif %}>جای‌خالی</option><option value="matching" {% if question_filters.type == 'matching' %}selected{% endif %}>تطبیقی</option><option value="ordering" {% if question_filters.type == 'ordering' %}selected{% endif %}>ترتیب‌گذاری</option></select>
                 <select name="status"><option value="all">همه وضعیت‌ها</option><option value="active" {% if question_filters.status == 'active' %}selected{% endif %}>فعال</option><option value="draft" {% if question_filters.status == 'draft' %}selected{% endif %}>پیش‌نویس</option><option value="needs_review" {% if question_filters.status == 'needs_review' %}selected{% endif %}>نیازمند بازبینی</option></select>
                 <button type="submit">اعمال فیلتر</button>
             </form>
-            <div class="question-type-strip">
-                <a href="{% url 'core:teacher_question_create' %}?type=single"><b>☷</b><span>چهارگزینه‌ای</span></a>
-                <a href="{% url 'core:teacher_question_create' %}?type=multi"><b>☑</b><span>چندگزینه‌ای</span></a>
-                <a href="{% url 'core:teacher_question_create' %}?type=true_false"><b>⊗</b><span>درست/نادرست</span></a>
-                <a href="{% url 'core:teacher_question_create' %}?type=short_answer"><b>▭</b><span>پاسخ کوتاه</span></a>
-                <a href="{% url 'core:teacher_question_create' %}?type=essay"><b>✎</b><span>تشریحی</span></a>
-                <a href="{% url 'core:teacher_question_create' %}?type=fill_blank"><b>___</b><span>جای‌خالی</span></a>
-                <a href="{% url 'core:teacher_question_create' %}?type=matching"><b>↔</b><span>تطبیقی</span></a>
-                <a href="{% url 'core:teacher_question_create' %}?type=ordering"><b>123</b><span>ترتیب‌گذاری</span></a>
-            </div>
+            {% with qf=question_filters qenc=question_filters.q|urlencode %}{% with base="?q="|add:qenc|add:"&difficulty="|add:qf.difficulty|add:"&status="|add:qf.status|add:"&type=" %}
+            <nav class="question-type-strip" aria-label="فیلتر بر اساس نوع سؤال">
+                <a href="{{ base }}{% if qf.type == 'single' %}all{% else %}single{% endif %}" class="{% if qf.type == 'single' %}is-active{% endif %}" {% if qf.type == 'single' %}aria-current="true"{% endif %}><b>☷</b><span>چهارگزینه‌ای</span></a>
+                <a href="{{ base }}{% if qf.type == 'multi' %}all{% else %}multi{% endif %}" class="{% if qf.type == 'multi' %}is-active{% endif %}" {% if qf.type == 'multi' %}aria-current="true"{% endif %}><b>☑</b><span>چندگزینه‌ای</span></a>
+                <a href="{{ base }}{% if qf.type == 'true_false' %}all{% else %}true_false{% endif %}" class="{% if qf.type == 'true_false' %}is-active{% endif %}" {% if qf.type == 'true_false' %}aria-current="true"{% endif %}><b>⊗</b><span>درست/نادرست</span></a>
+                <a href="{{ base }}{% if qf.type == 'short_answer' %}all{% else %}short_answer{% endif %}" class="{% if qf.type == 'short_answer' %}is-active{% endif %}" {% if qf.type == 'short_answer' %}aria-current="true"{% endif %}><b>▭</b><span>پاسخ کوتاه</span></a>
+                <a href="{{ base }}{% if qf.type == 'essay' %}all{% else %}essay{% endif %}" class="{% if qf.type == 'essay' %}is-active{% endif %}" {% if qf.type == 'essay' %}aria-current="true"{% endif %}><b>✎</b><span>تشریحی</span></a>
+                <a href="{{ base }}{% if qf.type == 'fill_blank' %}all{% else %}fill_blank{% endif %}" class="{% if qf.type == 'fill_blank' %}is-active{% endif %}" {% if qf.type == 'fill_blank' %}aria-current="true"{% endif %}><b>___</b><span>جای‌خالی</span></a>
+                <a href="{{ base }}{% if qf.type == 'matching' %}all{% else %}matching{% endif %}" class="{% if qf.type == 'matching' %}is-active{% endif %}" {% if qf.type == 'matching' %}aria-current="true"{% endif %}><b>↔</b><span>تطبیقی</span></a>
+                <a href="{{ base }}{% if qf.type == 'ordering' %}all{% else %}ordering{% endif %}" class="{% if qf.type == 'ordering' %}is-active{% endif %}" {% if qf.type == 'ordering' %}aria-current="true"{% endif %}><b>123</b><span>ترتیب‌گذاری</span></a>
+            </nav>
+            {% endwith %}{% endwith %}
             <table class="teacher-table question-bank-table">
                 <thead><tr><th>کد</th><th>متن سؤال</th><th>ساختار</th><th>نوع</th><th>درس</th><th>دشواری</th><th>وضعیت</th><th>آخرین ویرایش</th><th>عملیات</th></tr></thead>
                 <tbody>
