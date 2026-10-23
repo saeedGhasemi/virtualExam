@@ -6,16 +6,10 @@
 {% block content %}
 {% include 'partials/super_admin_chrome.html' %}
 <section class="super-admin-page super-admin-workspace manager-bulk-page student-bulk-page" dir="rtl" data-fixed-scroll-page>
-    <div class="manager-bulk-topline">
+    <p class="manager-bulk-breadcrumb">کاربران / دانشجویان / ورود گروهی</p>
+    <header class="manager-bulk-head-row">
         <a class="manager-bulk-back" href="{{ back_url }}"><svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>بازگشت به دانشجویان</a>
-    </div>
-    <header class="teacher-wizard-head manager-bulk-head">
-        <div class="teacher-wizard-title">
-            <div>
-                <h1>ورود گروهی دانشجویان</h1>
-                <p>کاربران / دانشجویان / ورود گروهی</p>
-            </div>
-        </div>
+        <h1>ورود گروهی دانشجویان</h1>
     </header>
 
     <main class="manager-bulk-card">
@@ -34,6 +28,20 @@
 
         {% if step == 1 %}
             <div class="manager-bulk-grid">
+                <aside class="manager-bulk-side">
+                    <h2><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>راهنمای آماده‌سازی فایل</h2>
+                    <a href="?bulk_action=sample"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>دانلود فایل نمونه</a>
+                    <div class="manager-bulk-tags">
+                        <strong>ستون‌های الزامی <b class="manager-bulk-req">*</b></strong>
+                        {% for field in required_fields %}<span>{{ field.label }}</span>{% endfor %}
+                    </div>
+                    <div class="manager-bulk-tags is-optional">
+                        <strong>ستون‌های اختیاری</strong>
+                        {% for field in optional_fields %}<span>{{ field.label }}</span>{% endfor %}
+                    </div>
+                    <div class="manager-bulk-hint-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>کد ملی و کد دانشجویی نباید تکراری باشند.</div>
+                </aside>
+
                 <section class="manager-bulk-upload">
                     <label class="manager-bulk-drop" data-drop-zone>
                         <input type="file" name="excel_file" id="bulk-file-input" accept=".xlsx,.xls,.csv" required data-file-input>
@@ -63,24 +71,35 @@
                     <label class="manager-bulk-switch"><input type="checkbox" name="has_header" checked><span></span>ردیف اول فایل شامل عنوان ستون‌هاست</label>
                     <div class="manager-bulk-note">گروه‌ها و درس‌ها پس از اعتبارسنجی و بر اساس نام‌های موجود در سامانه متصل می‌شوند.</div>
                 </section>
-
-                <aside class="manager-bulk-side">
-                    <h2><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>راهنمای آماده‌سازی فایل</h2>
-                    <a href="?bulk_action=sample"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>دانلود فایل نمونه</a>
-                    <div class="manager-bulk-tags">
-                        <strong>ستون‌های الزامی <b class="manager-bulk-req">*</b></strong>
-                        {% for field in required_fields %}<span>{{ field.label }}</span>{% endfor %}
-                    </div>
-                    <div class="manager-bulk-tags is-optional">
-                        <strong>ستون‌های اختیاری</strong>
-                        {% for field in optional_fields %}<span>{{ field.label }}</span>{% endfor %}
-                    </div>
-                    <div class="manager-bulk-hint-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>کد ملی و کد دانشجویی نباید تکراری باشند.</div>
-                </aside>
             </div>
 
         {% elif step == 2 %}
             <div class="manager-bulk-map-layout">
+                <aside class="manager-bulk-help">
+                    <h2><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>خلاصه فایل بارگذاری‌شده</h2>
+                    <div class="manager-bulk-file-card">
+                        <span class="manager-bulk-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span>
+                        <div>
+                            <b>{{ draft.filename }}</b>
+                            <span>{{ draft.total_rows|default:0|fa_digits }} ردیف · {{ headers|length|fa_digits }} ستون</span>
+                        </div>
+                    </div>
+                    <h2>تنظیمات فایل</h2>
+                    <p>{% if draft.has_header %}ردیف اول شامل عنوان ستون‌هاست{% else %}ردیف اول شامل عنوان ستون‌ها نیست{% endif %}</p>
+                    <h2>پیش‌نمایش داده‌ها</h2>
+                    <div class="manager-bulk-preview-wrap">
+                        <table class="student-bulk-preview">
+                            <thead><tr>{% for field in field_defs %}<th>{{ field.label }}</th>{% endfor %}</tr></thead>
+                            <tbody>
+                                {% for row in preview_rows %}
+                                    <tr>{% for field in field_defs %}<td>{{ row|get_item:field.key|default:"-"|fa_digits }}</td>{% endfor %}</tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small>{{ preview_rows|length|fa_digits }} ردیف از {{ draft.total_rows|default:0|fa_digits }} ردیف نمایش داده شده است.</small>
+                </aside>
+
                 <section class="manager-bulk-panel">
                     <h2>تطبیق ستون‌های فایل با فیلدهای سامانه</h2>
                     <table class="manager-bulk-map-table">
@@ -106,30 +125,6 @@
                     </table>
                     <p class="manager-bulk-req-hint"><b class="manager-bulk-req">*</b> فیلد الزامی</p>
                 </section>
-                <aside class="manager-bulk-help">
-                    <h2><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>خلاصه فایل بارگذاری‌شده</h2>
-                    <div class="manager-bulk-file-card">
-                        <span class="manager-bulk-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span>
-                        <div>
-                            <b>{{ draft.filename }}</b>
-                            <span>{{ draft.total_rows|default:0|fa_digits }} ردیف · {{ headers|length|fa_digits }} ستون</span>
-                        </div>
-                    </div>
-                    <h2>تنظیمات فایل</h2>
-                    <p>{% if draft.has_header %}ردیف اول شامل عنوان ستون‌هاست{% else %}ردیف اول شامل عنوان ستون‌ها نیست{% endif %}</p>
-                    <h2>پیش‌نمایش داده‌ها</h2>
-                    <div class="manager-bulk-preview-wrap">
-                        <table class="student-bulk-preview">
-                            <thead><tr>{% for field in field_defs %}<th>{{ field.label }}</th>{% endfor %}</tr></thead>
-                            <tbody>
-                                {% for row in preview_rows %}
-                                    <tr>{% for field in field_defs %}<td>{{ row|get_item:field.key|default:"-"|fa_digits }}</td>{% endfor %}</tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <small>{{ preview_rows|length|fa_digits }} ردیف از {{ draft.total_rows|default:0|fa_digits }} ردیف نمایش داده شده است.</small>
-                </aside>
             </div>
 
         {% elif step == 3 %}

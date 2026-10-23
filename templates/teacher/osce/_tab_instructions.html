@@ -1,0 +1,64 @@
+{% load core_extras %}
+{% with ins=form.details.instructions %}
+<div class="ob-ins-grid">
+    <div class="ob-ins-main">
+        <div class="ob-section-head">
+            {% include "teacher/_qb_icon.html" with name="text" %}
+            <div><h3>دستورالعمل دانشجو</h3><p>دستورالعملی که دانشجو در ابتدای ایستگاه مشاهده می‌کند. این دستورالعمل باید واضح، مختصر و شامل هدف، وظایف و محدودیت‌های زمانی باشد.</p></div>
+        </div>
+        <div class="ob-seg">
+            <span class="is-active">{% include "teacher/_qb_icon.html" with name="essay" %}ویرایش دستورالعمل</span>
+            <button type="button" data-insert-template>{% include "teacher/_qb_icon.html" with name="text" %}الگوی آماده</button>
+        </div>
+        <p class="ob-group-title">متن دستورالعمل دانشجو <em>*</em></p>
+        {% include "teacher/osce/_rich_editor.html" with field="instructions_body" delta=ins.body limit=1500 %}
+        {{ osce_instruction_template|json_script:"osce-instruction-template" }}
+
+        <section class="ob-panel" style="margin-top:.9rem">
+            <h3>{% include "teacher/_qb_icon.html" with name="image" %}فایل‌های پیوست برای دانشجو</h3>
+            <p class="ob-aside-hint" style="margin:0 0 .7rem">در صورت نیاز می‌توانید تصاویر، فایل‌ها یا فرم‌های مورد استفاده دانشجو را بارگذاری کنید.</p>
+            {% include "teacher/osce/_file_list.html" with files=ins.attachments input_name="instruction_files" remove_name="remove_attachment" accept=".pdf,.jpg,.jpeg,.png,.mp4" hint="PDF، JPG، PNG، MP4 — حداکثر ۲۰ مگابایت برای هر فایل" %}
+        </section>
+
+        <div class="ob-ins-bottom">
+            <section class="ob-panel">
+                <h3>{% include "teacher/_qb_icon.html" with name="info" %}نکات ویژه</h3>
+                <label class="ob-field"><textarea name="special_notes" maxlength="500" data-count-source placeholder="در صورت نیاز نکات خاص یا محدودیت‌ها را بنویسید...">{{ ins.special_notes|default:'' }}</textarea><span class="ob-count" data-count-target>0/500</span></label>
+            </section>
+            <section class="ob-panel">
+                <h3>{% include "teacher/_qb_icon.html" with name="eye" %}نمایش اضافی</h3>
+                <p class="ob-aside-hint" style="margin:0 0 .5rem">مواردی که در ابتدای ایستگاه برای دانشجو نمایش داده می‌شود.</p>
+                <label class="ob-check"><input type="checkbox" name="show_remaining_time" value="1"{% if not ins or ins.show_remaining_time %} checked{% endif %} data-preview-toggle="time">نمایش زمان باقی‌مانده در صفحه دستورالعمل</label>
+                <label class="ob-check"><input type="checkbox" name="show_start_button" value="1"{% if not ins or ins.show_start_button %} checked{% endif %} data-preview-toggle="start">نمایش دکمه شروع ایستگاه</label>
+                <label class="ob-check"><input type="checkbox" name="show_task_list" value="1"{% if ins.show_task_list %} checked{% endif %} data-preview-toggle="tasks">نمایش فهرست مختصر وظایف</label>
+            </section>
+        </div>
+    </div>
+
+    <aside class="ob-panel ob-preview" data-preview>
+        <h3>{% include "teacher/_qb_icon.html" with name="eye" %}پیش‌نمایش دستورالعمل دانشجو</h3>
+        <div class="ob-preview-modes" role="group" aria-label="حالت پیش‌نمایش">
+            <button type="button" class="is-active" data-preview-mode="screen" aria-pressed="true">نمایش دانشجو</button>
+            <button type="button" data-preview-mode="print" aria-pressed="false">نمایش چاپ</button>
+        </div>
+        <div class="ob-preview-card" data-preview-card>
+            <div class="ob-preview-top">
+                <div>
+                    <span class="ob-preview-chip">ایستگاه {{ st.position|fa_digits }} از {{ osce_station_count|fa_digits }}</span>
+                    <strong>{{ st.title }}</strong>
+                    <span class="ob-preview-time" data-preview-part="time"{% if ins and not ins.show_remaining_time %} hidden{% endif %}>{% include "teacher/_qb_icon.html" with name="clock" %}{{ st.duration_minutes|fa_digits }} دقیقه</span>
+                </div>
+                <span class="ob-art">{% with art='st_'|add:st.station_type %}{% include "teacher/_qs_art.html" with name=art %}{% endwith %}</span>
+            </div>
+            <div class="ob-preview-body">
+                <b>{% include "teacher/_qb_icon.html" with name="info" %}دستورالعمل شما</b>
+                <div class="ob-rich-output" data-preview-body>{{ osce_instructions_html|safe }}</div>
+                <ul class="ob-preview-tasks" data-preview-part="tasks"{% if not ins.show_task_list %} hidden{% endif %}>
+                    {% for item in form.objectives %}<li>{{ item }}</li>{% empty %}<li>هدفی برای این ایستگاه ثبت نشده است.</li>{% endfor %}
+                </ul>
+            </div>
+            <button class="ob-btn is-primary ob-preview-start" type="button" disabled title="فقط پیش‌نمایش؛ در آزمون واقعی فعال است" data-preview-part="start"{% if ins and not ins.show_start_button %} hidden{% endif %}>شروع ایستگاه</button>
+        </div>
+    </aside>
+</div>
+{% endwith %}

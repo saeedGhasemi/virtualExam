@@ -2,7 +2,7 @@
 {% load core_extras %}
 
 {% block title %}
-{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'group_students' %}دانشجویان گروه{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'group_activity' %}عملیات گروهی دانشجویان{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'exam_create' %}ایجاد آزمون{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
+{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'group_students' %}دانشجویان گروه{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'group_activity' %}عملیات گروهی دانشجویان{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'osce_builder' %}سازنده ایستگاه OSCE{% elif page == 'osce_list' %}آزمون‌های OSCE{% elif page == 'osce_preview' %}پیش‌نمایش آزمون OSCE{% elif page == 'grading_detail' %}تصحیح پاسخ تشریحی{% elif page == 'exam_create' %}ایجاد آزمون{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
 {% endblock %}
 
 {% block public_header %}{% endblock %}
@@ -10,7 +10,7 @@
 {% block content %}
 <section class="super-admin-page teacher-console" dir="rtl">
         <main class="teacher-content">
-    {% if page != 'questions' and page != 'question_type' and page != 'question_create' and page != 'question_edit' and page != 'question_import' and page != 'courses' and page != 'course_detail' and page != 'group_students' and page != 'student_profile' and page != 'group_activity' and page != 'teacher_settings' %}
+    {% if page != 'osce_builder' and page != 'osce_list' and page != 'osce_preview' and page != 'reviews' and page != 'grading_detail' and page != 'questions' and page != 'question_type' and page != 'question_create' and page != 'question_edit' and page != 'question_import' and page != 'courses' and page != 'course_detail' and page != 'group_students' and page != 'student_profile' and page != 'group_activity' and page != 'teacher_settings' %}
     <div class="teacher-console-head">
         <div>
             <small>سامانه آزمون آنلاین</small>
@@ -307,10 +307,6 @@
             <a href="{% url 'core:teacher_question_bulk_import' %}">ورود گروهی</a>
             <a class="teacher-primary" href="{% url 'core:teacher_question_type' %}">+ سؤال جدید</a>
         </div>
-        <div class="question-bank-actions">
-            <a class="teacher-primary" href="{% url 'core:teacher_question_create' %}?type=single">+ بانک سؤال جدید</a>
-            <a href="{% url 'core:teacher_question_bulk_import' %}">↥ ورود گروهی سؤال</a>
-        </div>
         <nav class="question-view-tabs">
             <a class="{% if question_view == 'all' %}is-active{% endif %}" href="{% url 'core:teacher_questions' %}">همه سؤال‌ها</a>
             <a class="{% if question_view == 'banks' %}is-active{% endif %}" href="{% url 'core:teacher_questions' %}?view=banks">بانک‌ها</a>
@@ -417,68 +413,19 @@
         </section>
         {% endif %}
     {% elif page == 'question_type' %}
-        <div class="question-flow-shell">
-            <div class="question-studio-head question-studio-head--center">
-                <div><h1>ایجاد سؤال جدید</h1><p>بانک سؤالات / ایجاد سؤال</p></div>
-                <span class="question-autosave">● ذخیره خودکار: همین حالا</span>
-                <a href="#">پیش‌نمایش دانشجو</a>
-            </div>
-            <ol class="question-wizard-steps"><li class="{% if request.GET.structure %}is-done{% else %}is-active{% endif %}">۱ ساختار سؤال</li><li class="{% if request.GET.structure %}is-active{% endif %}">۲ نوع سؤال</li><li>۳ طراحی و تنظیمات</li></ol>
-            {% if not request.GET.structure %}
-            <section class="question-structure-stage">
-                <h2>این سؤال در چه ساختاری قرار دارد؟</h2>
-                <div class="question-structure-grid">
-                    <a href="{% url 'core:teacher_question_type' %}?structure=case"><b>▱</b><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>چند سؤال وابسته به یک سناریوی مشترک</span></a>
-                    <a href="{% url 'core:teacher_question_type' %}?structure=kfp"><b>▦</b><strong>سازنده سناریوی KFP</strong><span>ارزیابی ویژگی‌های کلیدی تصمیم‌گیری</span></a>
-                    <a href="{% url 'core:teacher_question_type' %}?structure=osce"><b>▤</b><strong>سازنده ایستگاه OSCE</strong><span>ایستگاه بالینی، زمان و چک‌لیست ممتحن</span></a>
-                    <a class="is-selected" href="{% url 'core:teacher_question_type' %}?structure=independent"><b>◯</b><strong>مستقل</strong><span>سؤال بدون وابستگی به سناریو یا ایستگاه</span></a>
-                </div>
-                <div class="question-structure-note"><strong>ساختار مستقل انتخاب شد.</strong><span>این سؤال بدون وابستگی به سناریو یا ایستگاه طراحی می‌شود.</span></div>
-            </section>
-            {% else %}
-            <section class="question-type-stage">
-                <header>
-                    <h2>{% if request.GET.structure == 'case' %}ایجاد گروه سؤال مبتنی بر سناریوی بیمار{% elif request.GET.structure == 'kfp' %}ایجاد سناریوی KFP{% elif request.GET.structure == 'osce' %}ایجاد ایستگاه OSCE{% else %}انتخاب نوع سؤال{% endif %}</h2>
-                    <span>ساختار: {% if request.GET.structure == 'case' %}سناریوی بیمار{% elif request.GET.structure == 'kfp' %}KFP{% elif request.GET.structure == 'osce' %}ایستگاه OSCE{% else %}مستقل{% endif %}</span>
-                </header>
-                {% if request.GET.structure == 'case' %}
-                <div class="question-structure-grid question-structure-grid--single">
-                    <a class="is-selected" href="{% url 'core:teacher_question_create' %}?type=case"><b>▱</b><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>اطلاعات سناریو، مرحله‌های افشا و سؤال‌های وابسته را بسازید.</span></a>
-                </div>
-                <div class="question-structure-note"><strong>ساختار سناریوی بیمار انتخاب شد.</strong><span>در مرحله بعد اطلاعات سناریو، مرحله‌ها، سؤال‌های وابسته و تنظیمات انتشار ساخته می‌شود.</span></div>
-                {% elif request.GET.structure == 'kfp' %}
-                <div class="question-structure-grid question-structure-grid--single">
-                    <a class="is-selected" href="{% url 'core:teacher_question_create' %}?type=kfp"><b>▦</b><strong>سازنده سناریوی KFP</strong><span>مسئله بالینی، ویژگی‌های کلیدی، وزن‌ها و ماتریس نمره‌دهی را تعریف کنید.</span></a>
-                </div>
-                <div class="question-structure-note"><strong>ساختار KFP انتخاب شد.</strong><span>در مرحله بعد سناریو و ویژگی‌های کلیدی تصمیم‌گیری ساخته می‌شود.</span></div>
-                {% elif request.GET.structure == 'osce' %}
-                <div class="question-structure-grid question-structure-grid--single">
-                    <a class="is-selected" href="{% url 'core:teacher_question_create' %}?type=osce"><b>▤</b><strong>سازنده ایستگاه OSCE</strong><span>مشخصات ایستگاه، دستورالعمل‌ها، چک‌لیست ممتحن و زمان‌بندی را تنظیم کنید.</span></a>
-                </div>
-                <div class="question-structure-note"><strong>ساختار ایستگاه OSCE انتخاب شد.</strong><span>در مرحله بعد فرم کامل ایستگاه بالینی، امتیازدهی و انتشار باز می‌شود.</span></div>
-                {% else %}
-                <div class="teacher-type-grid question-type-grid">
-                    <a class="is-selected" href="{% url 'core:teacher_question_create' %}?type=single"><b>☷</b><strong>سؤال چهارگزینه‌ای</strong><span>یک پاسخ صحیح بین چهار گزینه</span></a>
-                    <a href="{% url 'core:teacher_question_create' %}?type=multi"><b>☑</b><strong>سؤال چندپاسخی</strong><span>انتخاب چند پاسخ صحیح</span></a>
-                    <a href="{% url 'core:teacher_question_create' %}?type=true_false"><b>⊙</b><strong>سؤال درست یا نادرست</strong><span>گزینه دوحالته و سریع</span></a>
-                    <a href="{% url 'core:teacher_question_create' %}?type=short_answer"><b>▭</b><strong>سؤال پاسخ کوتاه</strong><span>پاسخ متنی کوتاه</span></a>
-                    <a href="{% url 'core:teacher_question_create' %}?type=essay"><b>✎</b><strong>سؤال تشریحی و روبریک نمره‌دهی</strong><span>پاسخ کامل با معیارهای تصحیح</span></a>
-                    <a href="{% url 'core:teacher_question_create' %}?type=fill_blank"><b>___</b><strong>سؤال جای خالی</strong><span>تعریف پاسخ‌های پذیرفته‌شده</span></a>
-                    <a href="{% url 'core:teacher_question_create' %}?type=matching"><b>↔</b><strong>سؤال تطبیقی</strong><span>تطبیق موارد ستون‌ها</span></a>
-                    <a href="{% url 'core:teacher_question_create' %}?type=ordering"><b>☰</b><strong>سؤال مرتب‌سازی</strong><span>چیدن مراحل به ترتیب درست</span></a>
-                </div>
-                {% endif %}
-            </section>
-            <div class="question-type-note"><span>Aa</span><span>تصویر</span><span>صوت</span><span>فیلم</span><p>پشتیبانی از متن، تصویر، صوت و فیلم در صورت سؤال و پاسخ‌ها</p><i>i</i></div>
-            {% endif %}
-            <div class="question-fixed-footer"><a href="{% if request.GET.structure %}{% url 'core:teacher_question_type' %}{% else %}{% url 'core:teacher_questions' %}{% endif %}">بازگشت</a><a class="teacher-primary" href="{% if request.GET.structure == 'case' %}{% url 'core:teacher_question_create' %}?type=case{% elif request.GET.structure == 'kfp' %}{% url 'core:teacher_question_create' %}?type=kfp{% elif request.GET.structure == 'osce' %}{% url 'core:teacher_question_create' %}?type=osce{% elif request.GET.structure == 'independent' %}{% url 'core:teacher_question_create' %}?type=single{% else %}{% url 'core:teacher_question_type' %}?structure=independent{% endif %}">ادامه و طراحی سؤال ←</a></div>
-        </div>
+        {% include 'teacher/_question_structure.html' %}
+    {% elif page == 'osce_builder' %}
+        {% include 'teacher/osce/_builder.html' %}
+    {% elif page == 'osce_list' %}
+        {% include 'teacher/osce/_list.html' %}
+    {% elif page == 'osce_preview' %}
+        {% include 'teacher/osce/_preview.html' %}
     {% elif page == 'question_create' %}
+        {% if request.GET.type == 'kfp' or request.GET.type == 'case' %}
         <div class="question-studio-head">
-            <div><h1>{% if request.GET.type == 'multi' %}سؤال چندپاسخی{% elif request.GET.type == 'true_false' %}سؤال درست یا نادرست{% elif request.GET.type == 'short_answer' %}سؤال پاسخ کوتاه{% elif request.GET.type == 'essay' %}سؤال تشریحی و روبریک نمره‌دهی{% elif request.GET.type == 'fill_blank' %}سؤال جای‌خالی{% elif request.GET.type == 'matching' %}سؤال تطبیقی{% elif request.GET.type == 'ordering' %}سؤال مرتب‌سازی{% elif request.GET.type == 'kfp' %}ایجاد سناریوی KFP{% elif request.GET.type == 'osce' %}ایجاد ایستگاه OSCE{% elif request.GET.type == 'case' %}ایجاد گروه سؤال مبتنی بر سناریوی بیمار{% else %}سؤال چهارگزینه‌ای{% endif %}</h1><p>بانک سؤالات / ایجاد سؤال</p></div>
-            <span class="question-autosave">● ذخیره خودکار: ۲ دقیقه پیش</span>
-            <a href="#">پیش‌نمایش دانشجو</a>
+            <div><h1>{% if request.GET.type == 'multi' %}سؤال چندپاسخی{% elif request.GET.type == 'true_false' %}سؤال درست یا نادرست{% elif request.GET.type == 'short_answer' %}سؤال پاسخ کوتاه{% elif request.GET.type == 'essay' %}سؤال تشریحی و روبریک نمره‌دهی{% elif request.GET.type == 'fill_blank' %}سؤال جای‌خالی{% elif request.GET.type == 'matching' %}سؤال تطبیقی{% elif request.GET.type == 'ordering' %}سؤال مرتب‌سازی{% elif request.GET.type == 'kfp' %}ایجاد سناریوی KFP{% elif request.GET.type == 'case' %}ایجاد گروه سؤال مبتنی بر سناریوی بیمار{% else %}سؤال چهارگزینه‌ای{% endif %}</h1><p>بانک سؤالات / ایجاد سؤال</p></div>
         </div>
+        {% endif %}
         {% if request.GET.type == 'kfp' %}
         <form class="kfp-scenario-builder" method="post">
             {% csrf_token %}
@@ -568,89 +515,6 @@
             <div class="kfp-footer"><a class="teacher-primary" href="?type=kfp&kfp_step=features">مرحله بعد</a><span>تمام فیلدهای الزامی تکمیل شده‌اند.</span></div>
             {% endif %}
         </form>
-        {% elif request.GET.type == 'osce' %}
-        <form class="osce-station-builder" method="post">
-            {% csrf_token %}
-            <input type="hidden" name="type" value="osce">
-            <input type="hidden" name="structure" value="osce">
-            <input type="hidden" name="difficulty" value="medium">
-            <input type="hidden" name="default_points" value="30">
-            <input type="hidden" name="negative_points" value="0">
-            <input type="hidden" name="suggested_time_seconds" value="600">
-            <input type="hidden" name="tags" value="OSCE, احراز هویت, مهارت بالینی">
-            <input type="hidden" name="text" value="ایستگاه OSCE برای ارزیابی مهارت بالینی دانشجو در برخورد با بیمار استاندارد">
-            <input type="hidden" name="scenario_title" value="معاینه قلب و ریه">
-            <input type="hidden" name="osce_station_name" value="معاینه قلب و ریه">
-            <input type="hidden" name="osce_station_type" value="مهارت بالینی">
-            <input type="hidden" name="osce_skill_course" value="مهارت‌های بالینی">
-            <input type="hidden" name="osce_location" value="اتاق مهارت ۲">
-            <input type="hidden" name="osce_study_minutes" value="5">
-            <input type="hidden" name="osce_performance_minutes" value="10">
-            <input type="hidden" name="osce_transition_minutes" value="2">
-            <input type="hidden" name="osce_total_score" value="30">
-            <input type="hidden" name="osce_pass_score" value="18">
-            <input type="hidden" name="osce_equipment" value="گوشی پزشکی، فشارسنج، دستکش">
-            <input type="hidden" name="osce_standardized_patient" value="مرد ۶۰ ساله با سابقه دیابت">
-            <input type="hidden" name="osce_student_content_mode" value="film">
-            <input type="hidden" name="osce_student_content_mode" value="audio">
-            <input type="hidden" name="osce_student_content_mode" value="image">
-            <input type="hidden" name="osce_student_content_mode" value="text">
-            <input type="hidden" name="osce_examiner_guide" value="در این بخش راهنمای اختصاصی ممتحن برای اجرای این ایستگاه را وارد کنید. شامل نکات کلیدی، اهداف ارزیابی و موارد مهم در حین ارزیابی باشد.">
-            <input type="hidden" data-osce-seed-field name="osce_checklist_item" value="معرفی و احراز هویت">
-            <input type="hidden" name="osce_checklist_weight_1" value="4">
-            <input type="hidden" data-osce-seed-field name="osce_checklist_item" value="شست‌وشوی دست">
-            <input type="hidden" name="osce_checklist_weight_2" value="4">
-            <input type="hidden" data-osce-seed-field name="osce_checklist_item" value="اخذ شرح حال">
-            <input type="hidden" name="osce_checklist_weight_3" value="4">
-            <input type="hidden" data-osce-seed-field name="osce_checklist_item" value="انجام مهارت">
-            <input type="hidden" name="osce_checklist_weight_4" value="6">
-            <input type="hidden" data-osce-seed-field name="osce_checklist_item" value="ارتباط حرفه‌ای">
-            <input type="hidden" name="osce_checklist_weight_5" value="4">
-            <input type="hidden" data-osce-seed-field name="osce_checklist_item" value="جمع‌بندی">
-            <input type="hidden" name="osce_checklist_weight_6" value="2">
-            <input type="hidden" name="osce_global_rating" value="4">
-            <input type="hidden" name="osce_circuit" value="مدار ۱">
-            <input type="hidden" name="osce_exam_date" value="Û±Û´Û°Û³/Û°Û³/Û³Û°">
-            <input type="hidden" name="osce_room" value="اتاق مهارت ۲">
-            <input type="hidden" name="osce_capacity" value="12">
-            <input type="hidden" name="osce_examiner" value="دکتر احمدی">
-            <input type="hidden" name="osce_examiner" value="دکتر رضایی">
-            <input type="hidden" name="osce_critical_fail" value="1">
-            <input type="hidden" name="osce_independent_examiner_score" value="1">
-            <input type="hidden" name="osce_offline_scenario" value="1">
-            <input type="hidden" name="osce_student_preview" value="1">
-            <ol class="osce-stepper">
-                <li class="{% if request.GET.osce_step == 'checklist' or request.GET.osce_step == 'schedule' %}is-done{% else %}is-active{% endif %}"><b>۳</b><span>مشخصات ایستگاه</span></li>
-                <li class="{% if request.GET.osce_step == 'schedule' %}is-done{% elif request.GET.osce_step == 'checklist' %}is-active{% endif %}"><b>۵</b><span>دستورالعمل و چک‌لیست</span></li>
-                <li class="{% if request.GET.osce_step == 'schedule' %}is-active{% endif %}"><b>۵</b><span>زمان‌بندی و انتشار</span></li>
-            </ol>
-            {% if request.GET.osce_step == 'checklist' %}
-            <section class="osce-page-card">
-                <div class="osce-guide-tabs"><button type="button">دستورالعمل دانشجو</button><button class="is-active" type="button">راهنمای ممتحن</button><button type="button">راهنمای بیمار استاندارد</button><button type="button">چک‌لیست</button></div>
-                <section class="osce-rich-card">
-                    <div class="osce-toolbar"><span>↶</span><span>↷</span><span>☷</span><span>☰</span><span>↕</span><span>⊕</span><span>☍</span><span>B</span><span>I</span><span>▱</span></div>
-                    <div class="osce-guide-body"><p>در این بخش راهنمای اختصاصی ممتحن برای اجرای این ایستگاه را وارد کنید. شامل نکات کلیدی، اهداف ارزیابی و موارد مهمی که باید در حین ارزیابی رعایت شود.</p><i>☑</i></div>
-                </section>
-                <section class="osce-check-table" data-osce-check-table><h2>چک‌لیست ارزیابی مهارت</h2><table><tr><th>ردیف</th><th>آیتم ارزیابی</th><th>انجام کامل</th><th>ناقص</th><th>انجام نشد</th><th>وزن</th><th>خطای بحرانی</th></tr><tr data-osce-check-row><td>۱</td><td contenteditable="true">معرفی و احراز هویت</td><td>◉</td><td>○</td><td>○</td><td contenteditable="true">۴</td><td><span></span></td></tr><tr data-osce-check-row><td>۲</td><td contenteditable="true">شست‌وشوی دست</td><td>◉</td><td>○</td><td>○</td><td contenteditable="true">۴</td><td><span></span></td></tr><tr data-osce-check-row><td>۳</td><td contenteditable="true">اخذ شرح حال</td><td>○</td><td>○</td><td>○</td><td contenteditable="true">۴</td><td><span></span></td></tr><tr data-osce-check-row><td>۴</td><td contenteditable="true">انجام مهارت</td><td>◉</td><td>○</td><td>○</td><td contenteditable="true">۶</td><td><span></span></td></tr><tr data-osce-check-row><td>۵</td><td contenteditable="true">ارتباط حرفه‌ای</td><td>○</td><td>○</td><td>○</td><td contenteditable="true">۴</td><td><span></span></td></tr><tr data-osce-check-row><td>۶</td><td contenteditable="true">جمع‌بندی</td><td>◉</td><td>○</td><td>○</td><td contenteditable="true">۲</td><td><span></span></td></tr></table><button type="button" data-add-osce-check>+ افزودن آیتم</button></section>
-                <section class="osce-global-rating"><h2>ارزیابی کلی (Global Rating)</h2><div><span>۱</span><span>۲</span><span>۳</span><span>۴</span><span>۵</span><span>۶</span></div><textarea placeholder="نکات، بازخورد یا موارد قابل‌توجه در مورد عملکرد دانشجو را یادداشت کنید..."></textarea></section>
-            </section>
-            <div class="osce-footer"><a href="?type=osce">مرحله قبل</a><button type="submit" name="draft" value="1">ذخیره پیش‌نویس</button><a class="teacher-primary" href="?type=osce&osce_step=schedule">مرحله بعد</a></div>
-            {% elif request.GET.osce_step == 'schedule' %}
-            <section class="osce-page-card">
-                <section class="osce-circuit-card"><h2>توالی زمانی ایستگاه در مدار</h2><div><span>۱</span><span>۴</span><span class="is-active">۳</span><span>۲</span><span>۵</span><span>n</span></div></section>
-                <section class="osce-schedule-grid"><h2>جزئیات زمان‌بندی و تنظیمات</h2><label>تاریخ آزمون<input value="۱۴۰۳/۰۳/۳۰"></label><label>مدار (Circuit)<select><option>مدار ۱</option></select></label><label>اتاق/محل اجرا<select><option>اتاق مهارت ۲</option></select></label><label>ظرفیت (تعداد دانشجو)<input value="۱۲"></label><label class="is-wide">تخصیص ممتحنان<div><span>دکتر احمدی ×</span><span>دکتر رضایی ×</span><button type="button">+</button></div></label><label class="is-wide">بیمار استاندارد<input value="مرد ۶۰ ساله با سابقه دیابت"></label></section>
-                <section class="osce-score-summary"><h2>خلاصه امتیازدهی</h2><div><span class="is-green">حد قبولی <b>۱۸ امتیاز</b></span><span class="is-cyan">مجموع کل <b>۳۰ امتیاز</b></span><span class="is-purple">ارزیابی کلی <b>۶ امتیاز</b></span><span class="is-blue">چک‌لیست <b>۲۴/۲۴</b></span></div></section>
-                <section class="osce-publish-settings"><h2>تنظیمات ارزیابی و انتشار</h2><label class="question-switch"><input type="checkbox" checked><span></span><div><b>قانون خطای بحرانی (Critical-Fail)</b><small>در صورت انتخاب هر آیتم با خطای بحرانی، ایستگاه نمره قبولی نمی‌گیرد.</small></div></label><label class="question-switch"><input type="checkbox" checked><span></span><div><b>امتیازدهی مستقل توسط هر ممتحن</b><small>نمرات ممتحنان به صورت مستقل ثبت و محاسبه می‌شود.</small></div></label><label class="question-switch"><input type="checkbox" checked><span></span><div><b>سناریوی آفلاین (بدون اینترنت)</b><small>امکان ثبت نمره بدون نیاز به اینترنت در زمان آزمون.</small></div></label><label class="question-switch"><input type="checkbox" checked><span></span><div><b>نمایش پیش‌نمایش برای دانشجو</b><small>دانشجویان بتوانند قبل از آزمون محتوای این ایستگاه را مشاهده کنند.</small></div></label></section>
-            </section>
-            <div class="osce-footer"><button type="submit" name="draft" value="1">ذخیره پیش‌نویس</button><button type="button">پیش‌نمایش ایستگاه</button><button class="teacher-primary" type="submit" name="is_published" value="1">ثبت و انتشار</button></div>
-            {% else %}
-            <section class="osce-page-card">
-                <section class="osce-base-card"><h2>اطلاعات پایه ایستگاه</h2><div class="osce-base-grid"><label>نام ایستگاه<input value="معاینه قلب و ریه"></label><label>درس و مهارت<select><option>مهارت‌های بالینی</option></select></label><label>نوع ایستگاه<select><option>مهارت بالینی</option></select></label><label>مکان (اتاق/محل)<input value="اتاق مهارت ۲"></label><label>زمان مطالعه (دقیقه)<input value="۵"></label><label>زمان اجرا (دقیقه)<input value="۱۰"></label><label>زمان جابه‌جایی (دقیقه)<input value="۲"></label><label>نمره کل<input value="۳۰"></label><label>حد قبولی<input value="۱۸"></label><label class="is-wide">تجهیزات موردنیاز<input value="گوشی پزشکی، فشارسنج، دستکش ..."></label><label class="is-wide">نقش بیمار استاندارد<input value="مرد ۶۰ ساله با سابقه دیابت"></label></div></section>
-                <section class="osce-student-content"><h2>محتوای ایستگاه برای دانشجو</h2><p>متن و رسانه‌هایی موردنیاز را برای دانشجویان بارگذاری کنید.</p><div><button class="is-green" type="button">فیلم</button><button class="is-purple" type="button">صوت</button><button class="is-cyan" type="button">تصویر</button><button class="is-blue" type="button">متن</button></div></section>
-            </section>
-            <div class="osce-footer"><a class="teacher-primary" href="?type=osce&osce_step=checklist">مرحله بعد</a></div>
-            {% endif %}
-        </form>
         {% elif request.GET.type == 'case' %}
         <form class="case-scenario-builder" method="post">
             {% csrf_token %}
@@ -677,13 +541,13 @@
             <input type="hidden" name="scenario_media_text" value="متن سناریو، اطلاعات اولیه و داده‌های هر مرحله در زمان مناسب افشا می‌شود.">
             <input type="hidden" name="scenario_stage_title" value="مرحله ۱: مراجعه اولیه">
             <input type="hidden" name="scenario_stage_description" value="اطلاعات اولیه بیمار">
-            <input type="hidden" name="scenario_stage_questions" value="Û²">
+            <input type="hidden" name="scenario_stage_questions" value="۲">
             <input type="hidden" name="scenario_stage_title" value="مرحله ۲: نتایج آزمایش">
             <input type="hidden" name="scenario_stage_description" value="افشای نتایج جدید">
-            <input type="hidden" name="scenario_stage_questions" value="Û²">
+            <input type="hidden" name="scenario_stage_questions" value="۲">
             <input type="hidden" name="scenario_stage_title" value="مرحله ۳: ادامه درمان">
             <input type="hidden" name="scenario_stage_description" value="پیگیری درمان و پاسخ بیمار">
-            <input type="hidden" name="scenario_stage_questions" value="Û²">
+            <input type="hidden" name="scenario_stage_questions" value="۲">
             <input type="hidden" name="scenario_question_text" value="با توجه به یافته‌های اولیه، محتمل‌ترین تشخیص کدام است؟">
             <input type="hidden" name="scenario_question_type_1" value="single">
             <input type="hidden" name="scenario_question_stage_1" value="1">
@@ -765,309 +629,15 @@
             {% endif %}
         </form>
         {% else %}
-        <form class="teacher-question-builder" method="post" data-question-create-form>
-            {% csrf_token %}
-            <input type="hidden" name="type" value="{{ request.GET.type|default:'single' }}">
-            <input type="hidden" name="structure" value="{% if request.GET.type == 'case' %}case{% elif request.GET.type == 'kfp' %}kfp{% elif request.GET.type == 'osce' %}osce{% else %}independent{% endif %}">
-            <input type="hidden" name="subject" value="{% if request.GET.type == 'short_answer' %}زخم‌های گوارشی{% elif request.GET.type == 'fill_blank' %}آناتومی محوری{% elif request.GET.type == 'matching' %}ابزار جراحی{% elif request.GET.type == 'ordering' %}مدیریت راه هوایی{% else %}قلب و عروق{% endif %}">
-            <input type="hidden" name="difficulty" value="{% if request.GET.type == 'multi' %}hard{% else %}medium{% endif %}">
-            <input type="hidden" name="default_points" value="{% if request.GET.type == 'essay' %}10{% elif request.GET.type == 'fill_blank' %}9{% elif request.GET.type == 'ordering' %}5{% else %}2{% endif %}">
-            <input type="hidden" name="negative_points" value="-0.5">
-            <input type="hidden" name="suggested_time_seconds" value="{% if request.GET.type == 'essay' %}900{% else %}180{% endif %}">
-            <input type="hidden" name="tags" value="قلب و عروق, ECG, فیزیولوژی">
-            <input type="hidden" name="question_image" value="ecg_strip.png">
-            <input type="hidden" name="question_audio" value="pronunciation.mp3">
-            <input type="hidden" data-seed-field name="correct_options" value="{% if request.GET.type == 'true_false' %}1{% else %}2{% endif %}">
-            <input type="hidden" data-seed-field name="option_text" value="فیبریلاسیون دهلیزی">
-            <input type="hidden" data-seed-field name="option_text" value="تاکی‌کاردی فوق‌بطنی پاروکسیسمال (SVT)">
-            <input type="hidden" data-seed-field name="option_text" value="بلوک دهلیزی-بطنی درجه دو نوع ۱">
-            <input type="hidden" data-seed-field name="option_text" value="تاکی‌کاردی بطنی">
-            <input type="hidden" data-seed-field name="accepted_answer" value="neurocranium">
-            <input type="hidden" data-seed-field name="accepted_answer" value="viscerocranium">
-            <input type="hidden" data-seed-field name="accepted_answer" value="mandible">
-            <input type="hidden" data-seed-field name="matching_left" value="بنس آلیس">
-            <input type="hidden" data-seed-field name="matching_right" value="برای گرفتن بافت محکم">
-            <input type="hidden" data-seed-field name="matching_left" value="قیچی متزنبام">
-            <input type="hidden" data-seed-field name="matching_right" value="برای برش بافت ظریف">
-            <input type="hidden" data-seed-field name="ordering_item" value="اکسیژن‌رسانی و پیش‌اکسیژناسیون">
-            <input type="hidden" data-seed-field name="ordering_item" value="القای بیهوشی">
-            <input type="hidden" data-seed-field name="ordering_item" value="لوله‌گذاری تراشه">
-            <input type="hidden" data-seed-field name="ordering_item" value="تأیید جایگذاری لوله">
-            <input type="hidden" data-seed-field name="rubric_criterion" value="دقت علمی">
-            <input type="hidden" data-seed-field name="rubric_weak" value="اطلاعات ناکافی">
-            <input type="hidden" data-seed-field name="rubric_average" value="اطلاعات صحیح با نقص">
-            <input type="hidden" data-seed-field name="rubric_excellent" value="پاسخ دقیق و کامل">
-            <input type="hidden" data-seed-field name="rubric_points" value="10">
-            <input type="hidden" name="partial_credit" value="1">
-            <input type="hidden" name="negative_marking" value="1">
-            <input type="hidden" name="shuffle_options" value="1">
-            <input type="hidden" name="feedback_mode" value="text">
-            <input type="hidden" name="feedback_text" value="پس از پاسخ‌دهی، توضیح کلیدی و رسانه‌های تکمیلی نمایش داده می‌شود.">
-            <ol class="question-wizard-steps"><li class="is-done">۱ ساختار سؤال</li><li class="is-done">۲ نوع سؤال</li><li class="is-active">۳ طراحی و تنظیمات</li></ol>
-            <div class="question-template-tabs"><span>قالب تخصصی</span><a class="is-active" href="?type={{ request.GET.type|default:'single' }}">سؤال مستقل</a><a href="?type=case">سناریوی بیمار</a><a href="?type=kfp">KFP</a><a href="?type=osce">OSCE</a></div>
-            <aside class="question-settings-panel">
-                <section><h2>اطلاعات سؤال</h2><label>قالب تخصصی<select><option>سؤال مستقل</option></select></label><label>درس<select><option>پرستاری داخلی ۱</option><option>داروشناسی عمومی</option></select></label><label>مبحث<select><option>قلب و عروق</option><option>تنظیم فشار خون</option></select></label><div class="question-tags"><span>قلب و عروق ×</span><span>فشار خون ×</span><a>+ افزودن تگ</a></div><label>سطح دشواری<select><option>متوسط</option><option>آسان</option><option>سخت</option></select></label><div class="question-mini-grid"><label>بارم<input value="۲"></label><label>زمان پیشنهادی<input value="۰۲:۵۰"></label></div><label class="question-switch"><input type="checkbox" checked><span></span>وضعیت انتشار</label></section>
-                <section><h2>بازخورد کلی اختیاری</h2><div class="question-segment"><button class="is-active">متن</button><button>صوت</button><button>ویدئو</button></div><textarea placeholder="توضیح بازخوردی که پس از پاسخ‌دهی نمایش داده می‌شود..."></textarea></section>
-                <section><h2>تنظیمات نمره‌دهی</h2><div class="question-segment"><button class="is-active">نمره جزئی</button><button>نمره کلی</button></div><label class="question-switch"><input type="checkbox" checked><span></span>نمره منفی</label><label>جریمه هر پاسخ نادرست<select><option>-۰.۵</option><option>-۰.۲۵</option></select></label><label class="question-switch"><input type="checkbox" checked><span></span>تصادفی‌سازی گزینه‌ها</label></section>
-            </aside>
-            <main class="question-canvas">
-                <header class="question-create-title">
-                    {% if request.GET.type == 'multi' %}<i>☑</i><h2>سؤال چندپاسخی</h2>
-                    {% elif request.GET.type == 'true_false' %}<i>?</i><h2>سؤال درست یا نادرست</h2>
-                    {% elif request.GET.type == 'short_answer' %}<i>▭</i><h2>سؤال پاسخ کوتاه</h2>
-                    {% elif request.GET.type == 'essay' %}<i>✎</i><h2>سؤال تشریحی و روبریک نمره‌دهی</h2>
-                    {% elif request.GET.type == 'fill_blank' %}<i>___</i><h2>سؤال جای‌خالی</h2>
-                    {% elif request.GET.type == 'matching' %}<i>↔</i><h2>سؤال تطبیقی</h2>
-                    {% elif request.GET.type == 'ordering' %}<i>☰</i><h2>سؤال مرتب‌سازی</h2>
-                    {% elif request.GET.type == 'kfp' %}<i>K</i><h2>تعریف ویژگی‌های کلیدی و مراحل تصمیم‌گیری</h2>
-                    {% elif request.GET.type == 'osce' %}<i>O</i><h2>ایجاد ایستگاه OSCE</h2>
-                    {% elif request.GET.type == 'case' %}<i>▱</i><h2>ایجاد گروه سؤال مبتنی بر سناریوی بیمار</h2>
-                    {% else %}<i>☷</i><h2>سؤال چهارگزینه‌ای</h2>{% endif %}
-                    <p>مورد متنی را با بارگذاری محتوای چندرسانه‌ای تکمیل کنید.</p>
-                </header>
-                <section class="question-editor-card">
-                    <h3>محتوای سؤال</h3>
-                    <div class="question-media-tabs"><button class="is-active">متن</button><button>تصویر</button><button>صوت</button><button>ویدئو</button></div>
-                    <div class="question-rich-toolbar"><span>⋯</span><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>☷</span><span>☰</span><span>🔗</span><span>▧</span></div>
-                    <textarea name="text">{% if request.GET.type == 'fill_blank' %}جمجمه از دو بخش اصلی [۱] و [۲] تشکیل شده است. استخوان [۳] بزرگ‌ترین استخوان جمجمه است.{% elif request.GET.type == 'matching' %}هر ابزار جراحی در ستون الف را با توضیح صحیح آن در ستون ب مطابقت دهید.{% elif request.GET.type == 'ordering' %}مراحل مدیریت راه هوایی در بیمار بیهوشی را به ترتیب صحیح مرتب کنید.{% else %}کدام یک از موارد زیر شایع‌ترین علت نارسایی قلبی سیستولیک در بیماران مسن می‌باشد؟{% endif %}</textarea>
-                    <div class="question-attachments"><article><b>تصویر</b><span>ecg_sample.jpg</span></article><article><b>صوت</b><span>pronunciation.mp3</span></article><article class="is-upload">افزودن تصویر/صوت/ویدئو</article></div>
-                </section>
-                {% if request.GET.type == 'kfp' %}
-                    <section class="question-answer-card kfp-builder-card">
-                        <h3>ویژگی‌های کلیدی</h3>
-                        <div class="kfp-feature-list">
-                            <article class="is-green"><b>۱</b><strong>تشخیص</strong><span>تشخیص صحیح بیمار و انتخاب پاسخ مناسب</span><em>۴۰٪</em><small>جریمه -۱</small></article>
-                            <article class="is-blue"><b>۲</b><strong>اقدام بعدی</strong><span>انتخاب اقدام فوری برای مدیریت بیمار</span><em>۳۰٪</em><small>جریمه -۰.۵</small></article>
-                            <article class="is-purple"><b>۳</b><strong>درمان</strong><span>انتخاب درمان اولیه و ایمن</span><em>۳۰٪</em><small>جریمه -۰.۵</small></article>
-                        </div>
-                        <div class="question-type-strip question-type-strip--compact"><a><b>☷</b><span>چهارگزینه‌ای</span></a><a><b>☑</b><span>چندپاسخی</span></a><a><b>▭</b><span>پاسخ کوتاه</span></a><a><b>✎</b><span>تشریحی</span></a></div>
-                    </section>
-                    <section class="question-preview-box"><h3>ماتریس نمره‌دهی KFP</h3><div class="kfp-matrix"><span>تشخیص: ۶ نمره</span><span>اقدام بعدی: ۴.۵ نمره</span><span>درمان: ۴.۵ نمره</span><strong>جمع کل: ۱۵</strong></div></section>
-                {% elif request.GET.type == 'osce' %}
-                    <section class="question-answer-card osce-builder-card">
-                        <h3>دستورالعمل‌ها و چک‌لیست ممتحن</h3>
-                        <textarea>در این بخش راهنمای اختصاصی ممتحن برای اجرای ایستگاه را وارد کنید. اهداف ارزیابی، نکات کلیدی و موارد ایمنی باید در همین زمان رعایت شود.</textarea>
-                        <div class="osce-checklist"><span>معرفی و احراز هویت <b>۴</b></span><span>شست‌وشوی دست <b>۴</b></span><span>اخذ شرح حال <b>۴</b></span><span>انجام مهارت <b>۶</b></span><span>ارتباط حرفه‌ای <b>۴</b></span><span>جمع‌بندی <b>۲</b></span></div>
-                    </section>
-                    <section class="question-preview-box"><h3>زمان‌بندی، ممتحنان و انتشار</h3><div class="osce-summary"><span>تاریخ آزمون: ۱۴۰۳/۰۳/۳۰</span><span>مدار: مدار ۱</span><span>ظرفیت: ۱۲ دانشجو</span><strong>حد قبولی: ۱۸ امتیاز</strong></div></section>
-                {% elif request.GET.type == 'case' %}
-                    <section class="question-answer-card case-builder-card">
-                        <h3>مراحل افشای سناریو و سؤال‌های وابسته</h3>
-                        <div class="case-stage-list"><article><b>مرحله ۱</b><strong>مراجعه اولیه</strong><span>اطلاعات اولیه سناریو</span><button type="button">افزودن سؤال</button></article><article><b>مرحله ۲</b><strong>نتایج آزمایش</strong><span>افشای نتایج و اطلاعات جدید</span><button type="button">افزودن سؤال</button></article><article><b>مرحله ۳</b><strong>ادامه درمان</strong><span>پیگیری و پاسخ به درمان</span><button type="button">افزودن سؤال</button></article></div>
-                        <div class="case-question-list"><span>سؤال ۱: با توجه به نتایج آزمایش، محتمل‌ترین علت کم‌خونی بیمار کدام است؟</span><span>سؤال ۲: کدام اقدام در کاهش ظرفیت حمل اکسیژن خون مؤثر است؟</span></div>
-                    </section>
-                    <section class="question-preview-box"><h3>تنظیمات اجرای گروه سؤال</h3><div class="case-summary"><span>ترتیب اجباری مراحل</span><span>جلوگیری از بازگشت</span><span>زمان هر مرحله: ۱۵ دقیقه</span><strong>۳ مرحله، ۲ سؤال، ۲۰ نمره</strong></div></section>
-                {% elif request.GET.type == 'essay' %}
-                    <section class="question-answer-card"><h3>دستورالعمل برای دانشجو</h3><textarea>پاسخ خود را بر اساس مفاهیم بالینی توضیح دهید و در صورت نیاز از شکل یا نمودار برای شفاف‌سازی استفاده کنید.</textarea><h3>قالب پاسخ دانشجو و روبریک</h3><div class="question-rubric"><table><tr><th>معیار</th><th>عملکرد ضعیف</th><th>عملکرد متوسط</th><th>عملکرد عالی</th><th>نمره</th></tr><tr><td>دقت علمی</td><td>اطلاعات ناکافی</td><td>اطلاعات صحیح با نقص</td><td>پاسخ دقیق و کامل</td><td>۱۰</td></tr><tr><td>استدلال بالینی</td><td>استدلال ضعیف</td><td>قابل قبول</td><td>منطقی و یکپارچه</td><td>۱۰</td></tr></table></div></section>
-                {% elif request.GET.type == 'fill_blank' %}
-                    <section class="question-answer-card"><h3>تعریف جای‌خالی‌ها و پاسخ‌های پذیرفته شده</h3><div class="blank-list"><article><b>۱</b><input value="neurocranium"><input value="۳"></article><article><b>۲</b><input value="viscerocranium"><input value="۳"></article><article><b>۳</b><input value="mandible"><input value="۳"></article></div><button type="button">+ افزودن جای خالی</button></section>
-                {% elif request.GET.type == 'matching' %}
-                    <section class="question-answer-card"><h3>ستون‌ها و موارد تطبیقی</h3><div class="matching-board"><article><h4>ستون الف</h4><span contenteditable="true">بنس آلیس</span><span contenteditable="true">قیچی متزنبام</span><span contenteditable="true">کلمپ هموستات</span><span contenteditable="true">رترکتور</span></article><article><h4>ستون ب</h4><span contenteditable="true">برای گرفتن بافت محکم</span><span contenteditable="true">برای برش بافت ظریف</span><span contenteditable="true">برای مهار خون</span><span contenteditable="true">برای کنار زدن بافت</span></article></div><button type="button">+ افزودن جفت تطبیقی</button></section>
-                {% elif request.GET.type == 'ordering' %}
-                    <section class="question-answer-card"><h3>موارد مرتب‌سازی توسط دانشجو</h3><div class="ordering-list"><span contenteditable="true">۱ اکسیژن‌رسانی و پیش‌اکسیژناسیون</span><span contenteditable="true">۲ القای بیهوشی</span><span contenteditable="true">۳ لوله‌گذاری تراشه</span><span contenteditable="true">۴ تأیید جایگذاری لوله</span><span contenteditable="true">۵ فیکس کردن و مراقبت نهایی</span></div><div class="ordering-score"><input value="۰.۳۳"><input value="نمره منفی"><input value="چیدمان معیار"></div><button type="button">+ افزودن مرحله</button></section>
-                {% elif request.GET.type == 'short_answer' %}
-                    <section class="question-answer-card"><h3>پاسخ‌های پذیرفته‌شده</h3><div class="short-answer-list"><article><b>۱</b><input value="گاستریت ناشی از هلیکوباکتر پیلوری"><input value="۲"></article><article><b>۲</b><input value="H. pylori gastritis"><input value="۱"></article></div><button type="button">+ افزودن پاسخ جایگزین</button></section>
-                {% else %}
-                    <section class="question-answer-card"><h3>{% if request.GET.type == 'multi' %}گزینه‌ها؛ حداقل ۱ و حداکثر ۳ پاسخ انتخاب شود{% elif request.GET.type == 'true_false' %}گزینه‌های پاسخ{% else %}گزینه‌ها؛ یک گزینه صحیح است{% endif %}</h3><div class="option-list"><article><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}"><span>سرفه خشک</span><em>۱</em><small>-۰.۵</small></article><article class="is-correct"><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}" checked><span>تاکی‌کاردی فوق‌بطنی پاروکسیسمال (SVT)</span><em>۱</em><small>-۰.۵</small></article><article><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}"><span>هیپرکالمی</span><em>۱</em><small>-۰.۵</small></article><article><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}"><span>تاکی‌کاردی بطنی</span><em>۱</em><small>-۰.۵</small></article></div><button type="button">+ افزودن گزینه</button></section>
-                {% endif %}
-                <section class="question-preview-box"><h3>پیش‌نمایش دانشجو</h3><p>سؤال و پاسخ‌ها با همین ساختار برای دانشجو نمایش داده می‌شود.</p></section>
-            </main>
-            <div class="question-fixed-footer"><a href="{% url 'core:teacher_questions' %}">انصراف</a><button type="submit" name="draft" value="1">ذخیره پیش‌نویس</button><button type="submit" name="save_next" value="1">ذخیره و سؤال بعدی</button><button class="teacher-primary" type="submit" name="is_published" value="1">ثبت سؤال ✓</button></div>
-        </form>
+        {% include 'teacher/_question_form.html' %}
         {% endif %}
     {% elif page == 'question_edit' %}
-        <section class="question-edit-designer">
-            <header class="edit-page-header">
-                <div class="edit-breadcrumb">بانک سؤال / مدیریت سؤال / ویرایش سؤال</div>
-                <h1>
-                    {% if request.GET.type == 'short_answer' %}ویرایش سؤال پاسخ کوتاه
-                    {% elif request.GET.type == 'fill_blank' %}ویرایش سؤال جای‌خالی
-                    {% elif request.GET.type == 'matching' %}ویرایش سؤال تطبیقی
-                    {% elif request.GET.type == 'ordering' %}ویرایش سؤال مرتب‌سازی
-                    {% elif request.GET.type == 'true_false' %}ویرایش سؤال درست یا نادرست
-                    {% elif request.GET.type == 'essay' %}ویرایش سؤال تشریحی
-                    {% elif request.GET.type == 'multi' %}ویرایش سؤال چندپاسخی
-                    {% else %}ویرایش سؤال چهارگزینه‌ای{% endif %}
-                    <span>✎</span>
-                </h1>
-                <div class="edit-status-strip">
-                    <span class="edit-pill edit-pill-id">شناسه سؤال: {{ question_id|default:'Q-24567' }}</span>
-                    <span class="edit-pill edit-pill-ok">ذخیره‌شده ✓</span>
-                    <span class="edit-pill">آخرین ویرایش: امروز، ۱۰:۳۳</span>
-                    <span class="edit-pill edit-pill-warn">● تغییرات ذخیره‌نشده</span>
-                </div>
-            </header>
-
-            <nav class="edit-structure-tabs" aria-label="ساختار سؤال">
-                <a class="is-active" href="{% url 'core:teacher_question_edit' question_id %}?type={{ request.GET.type|default:'single' }}">مستقل <span>◉</span></a>
-                <a href="{% url 'core:teacher_question_edit' question_id %}?type=case">سناریوی بیمار <span>♙</span></a>
-                <a href="{% url 'core:teacher_question_edit' question_id %}?type=kfp">KFP <span>â–¦</span></a>
-                <a href="{% url 'core:teacher_question_edit' question_id %}?type=osce">ایستگاه OSCE <span>⌁</span></a>
-            </nav>
-
-            <div class="edit-workspace {% if request.GET.type == 'short_answer' or request.GET.type == 'fill_blank' or request.GET.type == 'matching' or request.GET.type == 'true_false' %}edit-workspace--wide{% endif %}">
-                <aside class="edit-side-panel">
-                    {% if request.GET.type == 'matching' %}
-                        <h2>تنظیمات سؤال تطبیقی</h2>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>تصادفی‌سازی ستون دوم</label>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>هر پاسخ فقط یک‌بار</label>
-                        <label>تعداد پاسخ‌های انحرافی<input value="۱"></label>
-                        <label>روش نمره‌دهی<select><option>نسبت تعداد جفت‌های صحیح</option></select></label>
-                        <article class="edit-score-summary"><b>خلاصه تطابق</b><p>۴ جفت صحیح</p><small>۱ پاسخ انحرافی</small></article>
-                    {% elif request.GET.type == 'ordering' %}
-                        <h2>تنظیمات نمره‌دهی و رفتار سؤال</h2>
-                        <label><input type="radio"> نمره کامل</label>
-                        <label><input type="radio" checked> نمره جزئی بر اساس جایگاه</label>
-                        <label><input type="radio"> نمره زوج‌های متوالی</label>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>نمایش تصادفی به دانشجو</label>
-                        <label>حداقل مراحل قابل نمایش<input value="۵"></label>
-                        <section class="edit-mini-preview"><b>پیش‌نمایش دانشجو</b><p>ترتیب مراحل برای دانشجو به صورت تصادفی نمایش داده می‌شود.</p></section>
-                    {% elif request.GET.type == 'true_false' %}
-                        <h2>تنظیمات سؤال</h2>
-                        <label>نمره<input value="۱"></label>
-                        <label>نمره منفی<input value="-۰.۲۵"></label>
-                        <label>زمان پاسخگویی تقریبی<input value="۰۱ دقیقه"></label>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>الزام ثبت دلیل توسط دانشجو</label>
-                        <h2>توضیح پاسخ صحیح</h2>
-                        <div class="edit-rich-mini">در سرخک، آنتی‌بادی IgM معمولاً همزمان با ظهور راش افزایش می‌یابد و برای چند هفته مثبت باقی می‌ماند.</div>
-                    {% elif request.GET.type == 'essay' %}
-                        <h2>نمره و تنظیمات تصحیح</h2>
-                        <label>نمره کل سؤال<input value="۱۰"></label>
-                        <label>نمره منفی<input value="۰"></label>
-                        <label>نوع روبریک<select><option>تحلیلی</option></select></label>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>تصحیح ناشناس</label>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>الزام بازبینی استاد</label>
-                        <article class="edit-total-mark">جمع نمره روبریک<b>۱۰ نمره</b></article>
-                    {% elif request.GET.type == 'fill_blank' %}
-                        <h2>خلاصه امتیاز و تنظیمات</h2>
-                        <article class="edit-big-score"><b>۳.۰۰</b><span>امتیاز</span></article>
-                        <p>جمع امتیاز جای‌خالی‌ها: ۳.۰۰ از ۳.۰۰</p>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>نمره‌دهی جزئی</label>
-                        <label class="edit-switch"><input type="checkbox" checked><span></span>نمایش شماره جای‌خالی‌ها</label>
-                        <section class="edit-warning">هشدار پاسخ تکراری؛ برای این سؤال پاسخ‌های مشابه نمایش داده می‌شود.</section>
-                    {% elif request.GET.type == 'short_answer' %}
-                        <h2>امتیازدهی و تنظیمات</h2>
-                        <label>امتیاز مثبت<input value="۱.۰"></label>
-                        <label>امتیاز منفی<input value="۰.۲۵"></label>
-                        <label>زمان پاسخ‌گویی<input value="۱ دقیقه و ۳۰ ثانیه"></label>
-                        <textarea placeholder="یادداشت داخلی اختیاری..."></textarea>
-                        <section class="edit-audit">
-                            <span>تاریخ ایجاد: ۱۴۰۳/۱۰/۲۱</span>
-                            <span>ایجادکننده: دکتر محمدی</span>
-                            <span>آخرین ویرایش: امروز، ۱۱:۲۴</span>
-                        </section>
-                    {% else %}
-                        <h2>{% if request.GET.type == 'multi' %}تنظیمات نمره‌دهی{% else %}تنظیمات سؤال{% endif %}</h2>
-                        {% if request.GET.type == 'multi' %}
-                            <div class="edit-segment"><button>همه یا هیچ</button><button class="is-active">نمره جزئی</button><button>کسر برای انتخاب غلط</button></div>
-                            <label class="edit-switch"><input type="checkbox" checked><span></span>ترتیب نمایش گزینه‌ها به‌صورت تصادفی</label>
-                            <label>حداقل تعداد انتخاب‌های مجاز<input value="۲"></label>
-                            <label>حداکثر تعداد انتخاب‌های مجاز<input value="۵"></label>
-                            <article class="edit-score-summary"><b>خلاصه نمره‌دهی</b><p>نمره کل سؤال: ۲</p><p>تعداد گزینه‌های صحیح: ۳</p><strong>جمع نمره نهایی: ۲ نمره</strong></article>
-                        {% else %}
-                            <label class="edit-switch"><input type="checkbox" checked><span></span>ترتیب تصادفی گزینه‌ها</label>
-                            <label class="edit-switch"><input type="checkbox"><span></span>نمایش گزینه «هیچ‌کدام»</label>
-                            <label>نمره منفی<input value="۰.۲۵"></label>
-                            <h2>توضیح پاسخ</h2>
-                            <div class="edit-rich-mini">در این سناریو بیمار دچار هیپوکالمی است و شروع انفوزیون پتاسیم کلراید با سرعت کنترل‌شده، اقدام مناسب‌تری است.</div>
-                        {% endif %}
-                    {% endif %}
-                </aside>
-
-                <main class="edit-main-panel">
-                    <section class="edit-editor-card">
-                        <div class="edit-card-title"><h2>{% if request.GET.type == 'matching' %}متن دستور سؤال{% else %}متن سؤال{% endif %}<sup>*</sup></h2></div>
-                        <div class="edit-rich-toolbar" aria-label="ابزار ویرایش">
-                            <span>↶</span><span>↷</span><span>⋯</span><span>🔗</span><span>▦</span><span>Ω</span><span>☰</span><span>☷</span><span>B</span><span>I</span><span>U</span><span>A</span>
-                        </div>
-                        <div class="edit-question-text">
-                            {% if request.GET.type == 'short_answer' %}
-                                مرد ۵۶ ساله با ضعف پیش‌رونده و خستگی مراجعه کرده است. در آزمایش خون، پتاسیم سرم 2.6 mEq/L گزارش شده است و نوار قلب وجود تغییرات تی و موج U را نشان می‌دهد. محتمل‌ترین تشخیص علت این یافته‌ها چیست؟
-                            {% elif request.GET.type == 'fill_blank' %}
-                                بیمار ۶۲ ساله با شکایت تنگی نفس تدریجی و ورم اندام تحتانی مراجعه کرده است. در معاینه، فشار خون ۱۶۰/۹۰ میلی‌متر جیوه و ادم گوده‌گذار دارد. آزمایش ادرار وجود <mark>جای‌خالی ۱</mark> و سیلندرهای دانه‌ای قهوه‌ای را نشان می‌دهد. محتمل‌ترین تشخیص در این بیمار <mark>جای‌خالی ۲</mark> و <mark>جای‌خالی ۳</mark> است.
-                            {% elif request.GET.type == 'matching' %}
-                                هر عبارت در ستون اول را با مناسب‌ترین پاسخ در ستون دوم مطابقت دهید.
-                            {% elif request.GET.type == 'ordering' %}
-                                شما پرستار بخش اورژانس هستید. لطفاً مراحل مداخلات پرستاری زیر را در اولویت صحیح مرتب کنید.
-                            {% elif request.GET.type == 'true_false' %}
-                                در سرخک، آنتی‌بادی IgM معمولاً همزمان با ظهور راش افزایش می‌یابد.
-                            {% elif request.GET.type == 'essay' %}
-                                بیمار مرد ۵۸ ساله با تب، سرفه خشک، تنگی نفس پیشرونده و کاهش وزن مراجعه کرده است. رادیوگرافی قفسه سینه ضایعه نفوذی در لوب تحتانی راست را نشان می‌دهد. الف) محتمل‌ترین تشخیص افتراقی را مطرح کرده و استدلال خود را بنویسید. ب) اولویت اقدامات تشخیصی و درمانی اولیه را با ذکر دلیل شرح دهید.
-                            {% elif request.GET.type == 'multi' %}
-                                کدام یک از یافته‌ها و اقدامات زیر در برخورد اولیه با بیمار مبتلا به نارسایی قلبی حاد در اورژانس مناسب هستند؟ <br><small>(حداقل ۲ و حداکثر ۵ مورد را انتخاب کنید.)</small>
-                            {% else %}
-                                پرستار بخش داخلی در حال مراقبت از بیماری است که پتاسیم سرم او ۳ mEq/L گزارش شده است. بیمار از ضعف عضلانی، تهوع و تپش قلب شکایت دارد. اولین اقدام پرستار برای مدیریت این وضعیت کدام است؟
-                            {% endif %}
-                        </div>
-                        <div class="edit-attach-row"><button>افزودن تصویر ▧</button><button>افزودن صوت ♫</button><button>افزودن ویدئو ▷</button></div>
-                    </section>
-
-                    {% if request.GET.type == 'short_answer' %}
-                        <section class="edit-answer-card edit-short-card">
-                            <h2>پیکربندی پاسخ</h2>
-                            <div class="short-answer-grid">
-                                <div class="accepted-list"><b>پاسخ‌های قابل قبول</b><span>هیپوکالمی ×</span><span>کاهش پتاسیم ×</span><span>کاهش پتاسیم سرم ×</span><span>هیپو کالمی ×</span><button>+ افزودن پاسخ قابل قبول</button></div>
-                                <div class="matching-settings"><label>روش تطابق<select><option>تطابق دقیق</option></select></label><label class="edit-switch"><input type="checkbox" checked><span></span>نادیده‌گرفتن فاصله‌های اضافی</label><label class="edit-switch"><input type="checkbox"><span></span>حساس به حروف</label><label>تلورانس عددی<input value="± ۰.۰۱"></label></div>
-                                <aside class="answer-result"><b>آزمون پاسخ</b><p>کاهش پتاسیم سرم</p><strong>پذیرفته می‌شود ✓</strong><small>روش تطابق: تطابق دقیق</small></aside>
-                            </div>
-                        </section>
-                    {% elif request.GET.type == 'fill_blank' %}
-                        <section class="edit-answer-card">
-                            <h2>پاسخ‌های جای‌خالی</h2>
-                            <div class="blank-edit-list">
-                                <article><b>جای‌خالی ۱</b><div>نارسایی کلیوی × نارسایی کلیه ×</div><select><option>تطابق کامل</option></select><label><input type="checkbox"> حساس به فاصله</label><input value="۱.۰۰"></article>
-                                <article><b>جای‌خالی ۲</b><div>پروتئینوری ×</div><select><option>تطابق کامل</option></select><label><input type="checkbox" checked> حساس به فاصله</label><input value="۱.۰۰"></article>
-                                <article><b>جای‌خالی ۳</b><div>نفروسکلروزیس ×</div><select><option>تطابق کامل</option></select><label><input type="checkbox"> حساس به فاصله</label><input value="۱.۰۰"></article>
-                            </div>
-                            <button class="edit-dashed-button">+ افزودن پاسخ جایگزین</button>
-                        </section>
-                    {% elif request.GET.type == 'matching' %}
-                        <section class="edit-answer-card">
-                            <div class="matching-canvas">
-                                <div class="match-column"><h3>ستون اول - عبارات</h3><article><b>A</b><span>شایع‌ترین علت کم‌خونی میکروسیتیک</span></article><article><b>B</b><span>هورمون اصلی کاهنده قند خون</span></article><article><b>C</b><span>اولین خط درمان دیابت نوع ۲</span></article><article><b>D</b><span>بزرگ‌ترین سرخرگ خروجی از بطن چپ</span></article><button>+ افزودن عبارت</button></div>
-                                <svg viewBox="0 0 180 310" preserveAspectRatio="none"><path d="M5 40 C70 40 100 40 175 40"/><path d="M5 110 C70 110 100 110 175 110"/><path d="M5 180 C70 180 100 180 175 250"/><path d="M5 250 C70 250 100 250 175 180"/></svg>
-                                <div class="match-column"><h3>ستون دوم - پاسخ‌ها</h3><article><b>۱</b><span>فقر آهن</span></article><article><b>۲</b><span>انسولین</span></article><article><b>۳</b><span>متفورمین</span></article><article><b>۴</b><span>آئورت</span></article><article><b>۵</b><span>گلوکاگون</span></article><button>+ افزودن پاسخ</button></div>
-                            </div>
-                        </section>
-                    {% elif request.GET.type == 'ordering' %}
-                        <section class="edit-answer-card">
-                            <h2>ترتیب صحیح</h2>
-                            <div class="ordering-edit-list"><article><span>۱</span><input value="بررسی علائم حیاتی و ارزیابی اولیه وضعیت بیمار"><button>حذف</button></article><article><span>۲</span><input value="اولویت‌بندی مشکلات و تعیین اهداف فوری مراقبتی"><button>حذف</button></article><article><span>۳</span><input value="اجرای مداخلات پرستاری و نظارت بر پاسخ بیمار"><button>حذف</button></article><article><span>۴</span><input value="آماده‌سازی تجهیزات و داروهای مورد نیاز"><button>حذف</button></article><article><span>۵</span><input value="ثبت اقدامات پرستاری و گزارش به تیم درمان"><button>حذف</button></article></div>
-                        </section>
-                    {% elif request.GET.type == 'true_false' %}
-                        <section class="edit-answer-card">
-                            <h2>گزینه‌های پاسخ</h2>
-                            <div class="truefalse-grid"><article>درست <span>✓</span></article><article class="is-correct">نادرست <span>×</span><b>پاسخ صحیح</b></article></div>
-                            <div class="edit-taxonomy-row"><select><option>بیماری‌های عفونی</option></select><select><option>سرخک</option></select><select><option>متوسط</option></select><select><option>فهمیدن</option></select></div>
-                        </section>
-                    {% elif request.GET.type == 'essay' %}
-                        <section class="edit-answer-card essay-rubric-card">
-                            <h2>روبریک نمره‌دهی</h2>
-                            <table><thead><tr><th>معیار</th><th>عالی</th><th>قابل قبول</th><th>نیازمند بهبود</th><th>نمره</th></tr></thead><tbody><tr><td>تشخیص مسئله</td><td>تشخیص اصلی صحیح و کامل</td><td>تشخیص صحیح با چند نقص</td><td>تشخیص نادرست یا ناقص</td><td>۴</td></tr><tr><td>استدلال بالینی</td><td>استدلال منطقی و مبتنی بر شواهد</td><td>استدلال تا حدی منطقی</td><td>استدلال فاقد انسجام</td><td>۳</td></tr><tr><td>اولویت اقدامات</td><td>اولویت‌بندی صحیح و عملی</td><td>اولویت‌بندی نسبتاً صحیح</td><td>اولویت‌بندی نادرست</td><td>۳</td></tr></tbody></table>
-                        </section>
-                    {% else %}
-                        <section class="edit-answer-card">
-                            <h2>{% if request.GET.type == 'multi' %}گزینه‌ها{% else %}گزینه‌ها{% endif %}<sup>*</sup></h2>
-                            <div class="edit-option-rows">
-                                <article><span class="drag">☷</span><button class="trash">⌫</button><input value="{% if request.GET.type == 'multi' %}تجویز اکسیژن در صورت اشباع کمتر از ۹۰٪ یا علامت هیپوکسی{% else %}افزایش سریع‌ترین محلول پتاسیم‌کلراید برای اصلاح سریع پتاسیم{% endif %}"><button>▧</button><input class="score" value="{% if request.GET.type == 'multi' %}۰.۶۷{% else %}۰{% endif %}"><label><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}" {% if request.GET.type == 'multi' %}checked{% endif %}></label><b>۱</b></article>
-                                <article class="is-correct"><span class="drag">☷</span><button class="trash">⌫</button><input value="{% if request.GET.type == 'multi' %}افزایش حجم مایعات وریدی به‌عنوان اقدام اولیه{% else %}شروع انفوزیون پتاسیم کلراید با سرعت کنترل‌شده مطابق دستور پزشک و پایش ECG{% endif %}"><button>▧</button><input class="score" value="۱"><label><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}" checked></label><b>۲</b></article>
-                                <article><span class="drag">☷</span><button class="trash">⌫</button><input value="{% if request.GET.type == 'multi' %}تجویز نیتروگلیسیرین زیرزبانی در صورت نبود افت فشار خون{% else %}تجویز دیورتیک لوپ برای افزایش دفع پتاسیم{% endif %}"><button>▧</button><input class="score" value="{% if request.GET.type == 'multi' %}۰.۶۷{% else %}۰{% endif %}"><label><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}" {% if request.GET.type == 'multi' %}checked{% endif %}></label><b>۳</b></article>
-                                <article><span class="drag">☷</span><button class="trash">⌫</button><input value="{% if request.GET.type == 'multi' %}قطع ناگهانی تمام داروهای قلبی بیمار{% else %}افزایش مصرف غذاهای حاوی پتاسیم به‌صورت خوراکی{% endif %}"><button>▧</button><input class="score" value="۰"><label><input type="{% if request.GET.type == 'multi' %}checkbox{% else %}radio{% endif %}"></label><b>۴</b></article>
-                                {% if request.GET.type == 'multi' %}<article><span class="drag">☷</span><button class="trash">⌫</button><input value="استفاده از دیورتیک وریدی جهت کاهش احتقان ریوی"><button>▧</button><input class="score" value="۰.۶۷"><label><input type="checkbox" checked></label><b>۵</b></article>{% endif %}
-                            </div>
-                            <button class="edit-dashed-button">+ افزودن گزینه</button>
-                        </section>
-                    {% endif %}
-                </main>
-            </div>
-
-            <footer class="edit-fixed-footer">
-                <a href="{% url 'core:teacher_questions' %}">انصراف</a>
-                <button type="button">پیش‌نمایش ◉</button>
-                <button type="button">ذخیره پیش‌نویس ▣</button>
-                <button class="edit-save-button" type="button">ذخیره تغییرات ✓</button>
-            </footer>
-        </section>
+        {% if qf %}
+            {% include 'teacher/_question_form.html' %}
+        {% else %}
+            <div class="question-studio-head"><div><h1>ویرایش سؤال</h1><p>بانک سؤالات / ویرایش سؤال</p></div></div>
+            <section class="question-answer-card"><h3>ویرایش این قالب هنوز پشتیبانی نمی‌شود</h3><p>ویرایش سؤال‌های سناریوی بیمار، KFP و OSCE در حال توسعه است.</p><a class="teacher-primary" href="{% url 'core:teacher_questions' %}">بازگشت به بانک سؤال</a></section>
+        {% endif %}
     {% elif page == 'question_import' %}
         <section class="bulk-import-shell">
             <div class="bulk-import-head">
@@ -1141,17 +711,16 @@
             <div class="teacher-form-actions"><button class="teacher-primary">ذخیره و ادامه</button><a href="{% url 'core:teacher_exams' %}">انصراف</a></div>
         </form>
     {% elif page == 'exams' %}
-        <div class="teacher-toolbar"><a class="teacher-primary" href="{% url 'core:teacher_exam_create' %}">+ ایجاد آزمون جدید</a><label><input placeholder="جستجو بر عنوان آزمون..."></label><select><option>همه وضعیت‌ها</option></select></div>
+        <div class="teacher-toolbar"><a class="teacher-primary" href="{% url 'core:teacher_exam_create' %}">+ ایجاد آزمون جدید</a><a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a><label><input placeholder="جستجو بر عنوان آزمون..."></label><select><option>همه وضعیت‌ها</option></select></div>
         <section class="teacher-panel"><table class="teacher-table"><thead><tr><th>عنوان آزمون</th><th>کلاس</th><th>گروه</th><th>تاریخ برگزاری</th><th>تعداد سوالات</th><th>شرکت‌کنندگان</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>{{ exam.course|default:"ریاضی دهم" }}</td><td>گروه الف</td><td>{{ exam.start_at|default:"۱۴۰۳/۰۳/۲۵"|fa_digits }}</td><td>۳۰</td><td>۲۸/۳۰</td><td><span class="teacher-badge is-ok">{{ exam.status|default:"در حال برگزاری" }}</span></td><td><a href="{% url 'core:teacher_monitoring' %}">پایش</a></td></tr>{% endfor %}</tbody></table></section>
     {% elif page == 'monitoring' %}
         <section class="teacher-monitor-hero"><h2>اصول حسابداری ۱ - میان‌ترم</h2><span>زمان باقی‌مانده: ۰۰:۴۷:۲۸</span></section>
         <div class="teacher-stat-grid"><article><span>کل شرکت‌کنندگان</span><strong>۱۲۳</strong></article><article><span>آنلاین</span><strong>۱۰۸</strong></article><article><span>قطع اتصال</span><strong>۷</strong></article><article><span>تحویل داده‌اند</span><strong>۸</strong></article></div>
         <div class="teacher-three-col"><section class="teacher-panel"><h2>هشدارها و رخدادها</h2><div class="teacher-alert-list"><span>قطع اتصال مکرر دانشجو</span><span>خروج از تمام صفحه</span><span>تغییر تب مرورگر</span></div></section><section class="teacher-panel"><h2>رویدادها</h2><div class="teacher-timeline"><span>آزمون توسط مدرس شروع شد</span><span>۸ نفر وارد آزمون شدند</span><span>سارا محمدی قطع اتصال داشت</span></div></section><aside class="teacher-panel teacher-actions-grid"><h2>کنترل‌های مدرس</h2><button>ارسال پیام برای همه</button><button>تمدید زمان آزمون</button><button>قفل کردن آزمون</button><button class="is-danger">پایان آزمون</button></aside></div>
     {% elif page == 'reviews' %}
-        <div class="teacher-review-layout">
-            <section class="teacher-panel"><h2>سؤال ۲ - توضیح دهید...</h2><p class="teacher-answer-box">پاسخ دانشجو در این بخش نمایش داده می‌شود و استاد می‌تواند امتیاز و بازخورد ثبت کند.</p><label>یادداشت خصوصی<textarea></textarea></label></section>
-            <aside class="teacher-panel"><h2>پیشرفت تصحیح</h2><b class="teacher-big-number">۱۲۳</b><span>کل پاسخ‌ها</span><label>نمره<input value="۳"></label><textarea placeholder="بازخورد به دانشجو"></textarea><button class="teacher-primary">ذخیره و بعدی</button></aside>
-        </div>
+        {% include 'teacher/grading/_list.html' %}
+    {% elif page == 'grading_detail' %}
+        {% include 'teacher/grading/_detail.html' %}
     {% elif page == 'results' %}
         <div class="teacher-stat-grid"><article><span>تعداد شرکت‌کنندگان</span><strong>۱۲۴</strong></article><article><span>میانگین نمره</span><strong>۶۴.۲</strong></article><article><span>بالاترین نمره</span><strong>۹۸.۵</strong></article><article><span>نرخ قبولی</span><strong>۷۲.۶٪</strong></article></div>
         <div class="teacher-two-col"><section class="teacher-panel teacher-bar-chart"><h2>نمودار توزیع نمرات</h2><div><i style="height:18%"></i><i style="height:28%"></i><i style="height:42%"></i><i style="height:58%"></i><i style="height:76%"></i><i style="height:88%"></i><i style="height:64%"></i></div></section><section class="teacher-panel"><h2>توزیع نمرات</h2><div class="teacher-donut"></div></section></div>
@@ -1285,154 +854,6 @@
 </section>
 <script>
 (() => {
-  const createForm = document.querySelector('[data-question-create-form]');
-  if (createForm) {
-    const addHidden = (name, value) => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = value || '';
-      input.dataset.generatedField = '1';
-      createForm.append(input);
-    };
-
-    const renumber = (container, selector = 'article') => {
-      [...container.querySelectorAll(selector)].forEach((row, index) => {
-        const label = row.querySelector('b');
-        if (label && /^\d+$|^[Û°-Û¹]+$/.test(label.textContent.trim())) label.textContent = String(index + 1);
-      });
-    };
-
-    createForm.addEventListener('click', (event) => {
-      const button = event.target.closest('button');
-      if (!button) return;
-      if (button.type === 'submit' && (button.name || button.closest('.question-fixed-footer'))) return;
-      event.preventDefault();
-
-      const optionList = button.closest('.question-answer-card')?.querySelector('.option-list');
-      if (optionList && button.textContent.includes('افزودن گزینه')) {
-        const inputType = optionList.querySelector('input[type="checkbox"]') ? 'checkbox' : 'radio';
-        const article = document.createElement('article');
-        article.innerHTML = `<input type="${inputType}"><span contenteditable="true">گزینه جدید</span><em>۱</em><small>-۰.۵</small><button type="button" data-remove-create-row>حذف</button>`;
-        optionList.append(article);
-        return;
-      }
-
-      const blankList = button.closest('.question-answer-card')?.querySelector('.blank-list');
-      if (blankList && button.textContent.includes('افزودن')) {
-        const article = document.createElement('article');
-        article.innerHTML = `<b>${blankList.children.length + 1}</b><input value="پاسخ جدید"><input value="۱">`;
-        blankList.append(article);
-        return;
-      }
-
-      const shortList = button.closest('.question-answer-card')?.querySelector('.short-answer-list');
-      if (shortList && button.textContent.includes('افزودن')) {
-        const article = document.createElement('article');
-        article.innerHTML = `<b>${shortList.children.length + 1}</b><input value="پاسخ جایگزین جدید"><input value="۱">`;
-        shortList.append(article);
-        return;
-      }
-
-      const matchingBoard = button.closest('.question-answer-card')?.querySelector('.matching-board');
-      if (matchingBoard && button.textContent.includes('افزودن')) {
-        matchingBoard.querySelector('article:first-child')?.insertAdjacentHTML('beforeend', '<span contenteditable="true">عبارت جدید</span>');
-        matchingBoard.querySelector('article:last-child')?.insertAdjacentHTML('beforeend', '<span contenteditable="true">پاسخ متناظر جدید</span>');
-        return;
-      }
-
-      const orderingList = button.closest('.question-answer-card')?.querySelector('.ordering-list');
-      if (orderingList && button.textContent.includes('افزودن')) {
-        orderingList.insertAdjacentHTML('beforeend', `<span contenteditable="true">${orderingList.children.length + 1} مرحله جدید</span>`);
-        return;
-      }
-
-      const caseStage = button.closest('.case-stage-list article');
-      if (caseStage && button.textContent.includes('افزودن سؤال')) {
-        const target = createForm.querySelector('.case-question-list');
-        const stageTitle = caseStage.querySelector('strong')?.textContent || 'مرحله';
-        const item = document.createElement('span');
-        item.contentEditable = 'true';
-        item.textContent = `${stageTitle}: سؤال جدید وابسته به سناریو`;
-        target?.append(item);
-        return;
-      }
-
-      const remove = button.closest('[data-remove-create-row]');
-      if (remove) {
-        const parent = remove.closest('article');
-        const container = parent?.parentElement;
-        parent?.remove();
-        if (container) renumber(container);
-      }
-    });
-
-    createForm.addEventListener('change', (event) => {
-      const option = event.target.closest('.option-list article');
-      if (!option || !event.target.matches('input[type="radio"], input[type="checkbox"]')) return;
-      if (event.target.type === 'radio') {
-        option.parentElement.querySelectorAll('article').forEach(row => row.classList.toggle('is-correct', row === option));
-      } else {
-        option.classList.toggle('is-correct', event.target.checked);
-      }
-    });
-
-    createForm.addEventListener('submit', () => {
-      createForm.querySelectorAll('[data-generated-field]').forEach(item => item.remove());
-      createForm.querySelectorAll('[data-seed-field]').forEach(item => { item.disabled = true; });
-
-      const text = createForm.querySelector('textarea[name="text"]')?.value?.trim();
-      if (text) addHidden('text', text);
-
-      const formType = createForm.querySelector('input[name="type"]')?.value || 'single';
-      const options = [...createForm.querySelectorAll('.option-list article')];
-      const checkedIndexes = options
-        .map((row, index) => row.querySelector('input[type="radio"], input[type="checkbox"]')?.checked ? index + 1 : null)
-        .filter(Boolean);
-      const singleCorrectIndex = checkedIndexes.length ? checkedIndexes[checkedIndexes.length - 1] : 1;
-      options.forEach((row, index) => {
-        const textValue = row.querySelector('span')?.textContent?.trim() || '';
-        const checked = formType === 'multi'
-          ? row.querySelector('input[type="checkbox"]')?.checked
-          : index + 1 === singleCorrectIndex;
-        addHidden('option_text', textValue);
-        addHidden(`option_points_${index + 1}`, row.querySelector('em')?.textContent?.trim() || '1');
-        addHidden(`option_negative_${index + 1}`, row.querySelector('small')?.textContent?.trim() || '-0.5');
-        if (checked) addHidden('correct_options', String(index + 1));
-      });
-
-      [...createForm.querySelectorAll('.blank-list article, .short-answer-list article')].forEach((row, index) => {
-        const inputs = row.querySelectorAll('input');
-        addHidden('accepted_answer', inputs[0]?.value || '');
-        addHidden(`accepted_points_${index + 1}`, inputs[1]?.value || '1');
-      });
-
-      const left = createForm.querySelectorAll('.matching-board article:first-child span');
-      const right = createForm.querySelectorAll('.matching-board article:last-child span');
-      left.forEach((item, index) => {
-        addHidden('matching_left', item.textContent.trim());
-        addHidden('matching_right', right[index]?.textContent.trim() || '');
-      });
-
-      createForm.querySelectorAll('.ordering-list span').forEach(item => addHidden('ordering_item', item.textContent.replace(/^\s*[\dÛ°-Û¹]+\s*/, '').trim()));
-
-      createForm.querySelectorAll('.question-rubric table tr:not(:first-child)').forEach((row) => {
-        const cells = row.querySelectorAll('td');
-        addHidden('rubric_criterion', cells[0]?.textContent.trim() || '');
-        addHidden('rubric_weak', cells[1]?.textContent.trim() || '');
-        addHidden('rubric_average', cells[2]?.textContent.trim() || '');
-        addHidden('rubric_excellent', cells[3]?.textContent.trim() || '');
-        addHidden('rubric_points', cells[4]?.textContent.trim() || '');
-      });
-
-      createForm.querySelectorAll('.case-question-list span').forEach((item, index) => {
-        addHidden('scenario_question_text', item.textContent.trim());
-        addHidden(`scenario_question_stage_${index + 1}`, String(index + 1));
-        addHidden(`scenario_question_type_${index + 1}`, 'single');
-      });
-    });
-  }
-
   const kfpForm = document.querySelector('.kfp-scenario-builder');
   if (kfpForm) {
     let activeKfpType = document.querySelector('[data-kfp-type].is-active')?.dataset.kfpType || 'multi';
@@ -1489,35 +910,6 @@
           addHidden(`kfp_question_type_${qIndex}`, row.dataset.kfpQuestionType || 'multi');
           qIndex += 1;
         });
-      });
-    });
-  }
-
-  const osceForm = document.querySelector('.osce-station-builder');
-  if (osceForm) {
-    const addHidden = (name, value) => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = value || '';
-      input.dataset.osceGeneratedField = '1';
-      osceForm.append(input);
-    };
-    document.querySelector('[data-add-osce-check]')?.addEventListener('click', () => {
-      const table = document.querySelector('[data-osce-check-table] table');
-      const count = table.querySelectorAll('[data-osce-check-row]').length + 1;
-      const row = document.createElement('tr');
-      row.dataset.osceCheckRow = '1';
-      row.innerHTML = `<td>${count}</td><td contenteditable="true">آیتم جدید چک‌لیست</td><td>○</td><td>○</td><td>○</td><td contenteditable="true">۲</td><td><span></span></td>`;
-      table.append(row);
-    });
-    osceForm.addEventListener('submit', () => {
-      osceForm.querySelectorAll('[data-osce-generated-field]').forEach(item => item.remove());
-      osceForm.querySelectorAll('[data-osce-seed-field]').forEach(item => { item.disabled = true; });
-      document.querySelectorAll('[data-osce-check-row]').forEach((row, index) => {
-        const cells = row.querySelectorAll('td');
-        addHidden('osce_checklist_item', cells[1]?.textContent.trim() || '');
-        addHidden(`osce_checklist_weight_${index + 1}`, cells[5]?.textContent.trim() || '');
       });
     });
   }

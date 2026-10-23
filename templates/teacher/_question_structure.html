@@ -1,0 +1,214 @@
+{% load core_extras %}
+<style>
+    .qs{--qs-blue:#2563eb;--qs-indigo:#4f46e5;--qs-ink:#0f172a;--qs-muted:#64748b;--qs-line:#e3e9f4;direction:rtl;max-width:1180px;margin:0 auto;padding-bottom:1.5rem;font-family:Vazirmatn,Tahoma,Arial,sans-serif;color:var(--qs-ink)}
+    .qs *{box-sizing:border-box}
+    .qs-top{display:flex;align-items:center;gap:1.2rem;margin-bottom:.8rem}
+    .qs-head{display:flex;align-items:flex-start;gap:.6rem;margin-bottom:1.2rem}
+    .qs-top .qs-head{margin:0;flex:0 0 auto}
+    .qs-head-icon{display:grid;place-items:center;width:2.8rem;height:2.8rem;border-radius:.9rem;background:#eef2ff;color:var(--qs-indigo)}
+    .qs-top .qs-head-icon{width:auto;height:auto;background:none;color:var(--qs-blue)}
+    .qs-head-icon svg{width:1.4rem;height:1.4rem}
+    .qs-head h1{margin:0;font-size:1.5rem;font-weight:900}
+    .qs-head p{margin:.15rem 0 0;color:var(--qs-muted);font-size:.75rem;font-weight:800}
+    .qs-steps{display:flex;align-items:center;gap:.5rem;margin:0 0 1.6rem;padding:0;list-style:none}
+    .qs-steps li{display:flex;align-items:center;gap:.5rem;flex:1;padding:.55rem .8rem;border:1px solid var(--qs-line);border-radius:.85rem;background:#fff;color:#94a3b8;font-size:.8rem;font-weight:900}
+    .qs-steps li b{display:grid;place-items:center;width:1.7rem;height:1.7rem;border-radius:999px;background:#e2e8f0;color:#64748b;font-size:.78rem}
+    .qs-steps li.is-active{border-color:#a5b4fc;color:var(--qs-indigo);box-shadow:0 8px 20px rgba(79,70,229,.12)}
+    .qs-steps li.is-active b{background:var(--qs-indigo);color:#fff}
+    .qs-steps li.is-done{color:#15803d}
+    .qs-steps li.is-done b{background:#dcfce7;color:#15803d}
+    .qs-steps i{flex:0 0 1.6rem;height:2px;background:#cbd5e1}
+    .qs-top .qs-steps{flex:1;justify-content:center;margin:0}
+    .qs-top .qs-steps li{flex:0 0 auto;padding:.45rem .6rem .45rem 1.1rem;border-radius:999px;color:#475569}
+    .qs-top .qs-steps li svg{width:1.35rem;height:1.35rem}
+    .qs-top .qs-steps li.is-active{border-color:#93c5fd;color:var(--qs-blue);box-shadow:0 8px 20px rgba(37,99,235,.1)}
+    .qs-top .qs-steps li.is-active b{background:var(--qs-blue)}
+    .qs-top .qs-steps i{flex:0 0 5rem;height:1px;background:#cbd5e1}
+    .qs-top .qs-steps i.is-active{background:var(--qs-blue);height:2px}
+    .qs-back{display:inline-flex;align-items:center;gap:.5rem;height:3rem;padding:0 1.3rem;border:1px solid #d9e2f0;border-radius:.85rem;background:#fff;color:#334155;font-size:.88rem;font-weight:900;text-decoration:none}
+    .qs-back svg{width:1.1rem;height:1.1rem}
+    .qs-sheet{padding:1rem 1rem .9rem;border-radius:1.2rem;background:rgba(255,255,255,.75);box-shadow:0 16px 40px rgba(30,64,175,.05)}
+    .qs-sheet-head{position:relative;margin-bottom:.8rem;text-align:center}
+    .qs-sheet-head h2{margin:0;font-size:1.3rem;font-weight:900}
+    .qs-sheet-head p{margin:.25rem 0 0;color:var(--qs-muted);font-size:.85rem;font-weight:700}
+    .qs-help{position:absolute;top:0;inset-inline-start:0;display:inline-flex;align-items:center;gap:.4rem;padding:.6rem .8rem;border:1px solid #dbeafe;border-radius:.6rem;background:#f8fbff;color:var(--qs-blue);font:inherit;font-size:.74rem;font-weight:800;cursor:pointer}
+    .qs-help svg{width:1.1rem;height:1.1rem}
+    .qs-help-body{margin:0 0 1rem;padding:.9rem 1.1rem;border:1px dashed #bfdbfe;border-radius:.9rem;background:#f8fbff;color:#334155;font-size:.8rem;font-weight:700;line-height:2}
+    .qs-help-body b{color:var(--qs-ink);font-weight:900}
+    .qs-structs{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:.6rem}
+    .qs-struct{position:relative;display:grid;justify-items:center;gap:.15rem;padding:.55rem .8rem .7rem;border:1.5px solid var(--qs-line);border-radius:.8rem;background:#fff;color:inherit;text-align:center;text-decoration:none;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+    .qs-struct:hover{border-color:#bfdbfe}
+    .qs-struct::before{content:"";position:absolute;top:.85rem;inset-inline-end:.85rem;width:1.3rem;height:1.3rem;border:1.5px solid #64748b;border-radius:999px;background:#fff}
+    .qs-struct.is-selected{border-color:var(--qs-blue);box-shadow:0 12px 28px rgba(37,99,235,.12)}
+    .qs-struct.is-selected::before{border:5px solid var(--qs-blue)}
+    .qs-art{display:grid;place-items:center;width:6.5rem;height:3.6rem;border-radius:999px;background:radial-gradient(ellipse at center,#eef4ff 0,#f5f8ff 55%,transparent 72%)}
+    .qs-art svg{width:4.4rem;height:3.3rem}
+    .qs-struct strong{font-size:1rem;font-weight:900}
+    .qs-struct span{color:var(--qs-muted);font-size:.8rem;font-weight:700}
+    .qs-indep{padding:.7rem 1rem .9rem;border:1.5px solid #c7d7f5;border-radius:.9rem;background:#f5f8fe}
+    .qs-indep-head{display:flex;align-items:center;gap:.7rem;margin-bottom:.6rem}
+    .qs-indep-head > i{display:grid;place-items:center;width:2.8rem;height:2.8rem;border:1px solid #c7d7f5;border-radius:.8rem;background:#fff;color:var(--qs-blue)}
+    .qs-indep-head > i svg{width:1.4rem;height:1.4rem}
+    .qs-indep-head strong{display:block;color:var(--qs-blue);font-size:1.15rem;font-weight:900}
+    .qs-indep-head span{color:var(--qs-muted);font-size:.78rem;font-weight:700}
+    .qs-types{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.55rem}
+    .qs-type{position:relative;display:grid;justify-items:center;gap:.1rem;padding:.35rem .4rem .5rem;border:1.5px solid #e5ebf5;border-radius:.6rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+    .qs-type:hover{border-color:#bfdbfe}
+    .qs-type .qs-art{width:5rem;height:2.7rem}
+    .qs-type .qs-art svg{width:3.3rem;height:2.5rem}
+    .qs-type strong{font-size:.85rem;font-weight:900}
+    .qs-type.is-selected{border-color:var(--qs-blue);box-shadow:0 10px 24px rgba(37,99,235,.14)}
+    .qs-type.is-disabled{cursor:not-allowed;opacity:.55}
+    .qs-type.is-disabled:hover{border-color:#e5ebf5}
+    .qs-type small{position:absolute;top:.45rem;inset-inline-end:.45rem;padding:.1rem .45rem;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.62rem;font-weight:900}
+    .qs-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .qs-card{position:relative;display:grid;justify-items:center;gap:.5rem;padding:1.6rem 1.2rem;border:1.5px solid var(--qs-line);border-radius:1.1rem;background:#fff;color:inherit;text-align:center;text-decoration:none;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+    .qs-card:hover{border-color:#c7d2fe;transform:translateY(-1px)}
+    .qs-card svg{width:3.4rem;height:3.4rem;color:var(--qs-indigo);stroke-width:1.3}
+    .qs-card strong{font-size:1.05rem;font-weight:900}
+    .qs-card span{color:var(--qs-muted);font-size:.8rem;font-weight:800;line-height:1.8}
+    .qs-card .qs-check{position:absolute;top:.8rem;left:.8rem;display:none;place-items:center;width:1.9rem;height:1.9rem;border-radius:999px;background:var(--qs-indigo);color:#fff}
+    .qs-card .qs-check svg{width:1.1rem;height:1.1rem;color:#fff;stroke-width:2.2}
+    .qs-card.is-selected{border-color:var(--qs-indigo);background:#fafaff;box-shadow:0 12px 28px rgba(79,70,229,.14)}
+    .qs-card.is-selected .qs-check{display:grid}
+    .qs h2{margin:0 0 1rem;text-align:center;font-size:1.05rem;font-weight:900}
+    .qs-footer{display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:1.3rem}
+    .qs-footer a{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:3rem;padding:0 1.4rem;border:1px solid #d9e2f0;border-radius:.85rem;background:#fff;color:#334155;font-size:.88rem;font-weight:900;text-decoration:none}
+    .qs-footer a.is-primary{min-width:16rem;border-color:transparent;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;box-shadow:0 12px 26px rgba(79,70,229,.28)}
+    .qs-footer a.is-blue{background:var(--qs-blue);box-shadow:0 12px 26px rgba(37,99,235,.28);border-radius:.6rem;height:3rem;padding:0 1.6rem;font-size:1rem}
+    .qs-footer a.is-primary[aria-disabled="true"]{opacity:.5;pointer-events:none;box-shadow:none}
+    .qs-footer a.is-cancel{min-width:10rem;height:3rem;border-radius:.6rem;gap:2.2rem;font-size:1rem;color:#475569}
+    .qs-footer svg{width:1.1rem;height:1.1rem}
+    .qs-sheet + .qs-footer{margin-top:.8rem}
+    .qs-type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9rem}
+    .qs-type-grid .qs-card{padding:1.2rem .9rem}
+    .qs-type-grid .qs-card svg{width:2.4rem;height:2.4rem}
+    .qs-type-grid .qs-card strong{font-size:.92rem}
+    .qs-type-grid .qs-card span{font-size:.74rem}
+    .qs-media-note{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.6rem;margin-top:1rem;padding:.8rem;border:1px dashed #c7d2fe;border-radius:.9rem;background:#f8faff;color:#475569;font-size:.76rem;font-weight:800}
+    .qs-media-note span{display:inline-flex;align-items:center;gap:.3rem;color:var(--qs-indigo);font-weight:900}
+    .qs-media-note svg{width:1rem;height:1rem}
+    @media (max-width:1100px){.qs-top{flex-wrap:wrap}.qs-top .qs-steps{order:3;flex-basis:100%}.qs-top .qs-steps i{flex-basis:2rem}.qs-back{margin-inline-start:auto}.qs-types{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media (max-width:760px){.qs-structs{grid-template-columns:1fr}.qs-help{position:static;margin-top:.7rem}.qs-types{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:640px){.qs-grid{grid-template-columns:1fr}.qs-steps{flex-wrap:wrap}.qs-steps i{display:none}.qs-footer{flex-direction:column-reverse}.qs-footer a{width:100%}.qs-top .qs-steps li{flex:1}}
+</style>
+{% with structure=request.GET.structure %}
+<div class="qs" data-structure-page>
+    {% if not structure %}
+        <div class="qs-top">
+            <header class="qs-head">
+                <span class="qs-head-icon">{% include "teacher/_qb_icon.html" with name="essay" %}</span>
+                <div><h1>ایجاد سؤال جدید</h1><p>نوع سؤال را انتخاب کنید تا مراحل بعدی نمایش داده شود.</p></div>
+            </header>
+            <ol class="qs-steps">
+                <li class="is-active"><b>1</b>ساختار سؤال {% include "teacher/_qb_icon.html" with name="single" %}</li><i class="is-active"></i>
+                <li><b>2</b>نوع سؤال {% include "teacher/_qb_icon.html" with name="multi" %}</li><i></i>
+                <li><b>3</b>طراحی و تنظیمات {% include "teacher/_qb_icon.html" with name="settings" %}</li>
+            </ol>
+            <a class="qs-back" href="{% url 'core:teacher_questions' %}">بازگشت <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></a>
+        </div>
+        <section class="qs-sheet">
+            <div class="qs-sheet-head">
+                <h2>این سؤال در چه ساختاری قرار دارد؟</h2>
+                <p>ساختار سؤال را انتخاب کنید تا بتوانید سؤال مناسب سناریوی خود ایجاد کنید.</p>
+                <button class="qs-help" type="button" aria-expanded="false" aria-controls="qs-help-body" data-structure-help>{% include "teacher/_qb_icon.html" with name="info" %}کدام ساختار مناسب شماست؟</button>
+            </div>
+            <div class="qs-help-body" id="qs-help-body" hidden>
+                <b>ایستگاه OSCE:</b> برای آزمون بالینی ایستگاهی با زمان‌بندی و چک‌لیست ممتحن.<br>
+                <b>سناریوی KFP:</b> برای سنجش تصمیم‌های کلیدی در یک مسئله‌ی بالینی.<br>
+                <b>گروه سؤال سناریوی بیمار:</b> وقتی چند سؤال به یک شرح حال مشترک وابسته‌اند.<br>
+                <b>سؤال مستقل:</b> سؤال تکی بدون وابستگی به سناریو یا ایستگاه؛ نوع آن را از فهرست پایین انتخاب کنید.
+            </div>
+            <div class="qs-structs" role="radiogroup" aria-label="ساختار سؤال">
+                <a class="qs-struct" role="radio" aria-checked="false" data-choice="osce" href="{% url 'core:teacher_osce_create' %}"><span class="qs-art">{% include "teacher/_qs_art.html" with name="osce" %}</span><strong>سازنده ایستگاه OSCE</strong><span>ایستگاه بالینی، زمان و چک‌لیست</span></a>
+                <a class="qs-struct" role="radio" aria-checked="false" data-choice="kfp" href="{% url 'core:teacher_question_create' %}?type=kfp"><span class="qs-art">{% include "teacher/_qs_art.html" with name="kfp" %}</span><strong>سازنده سناریوی KFP</strong><span>ارزیابی ویژگی‌های کلیدی تصمیم‌گیری</span></a>
+                <a class="qs-struct" role="radio" aria-checked="false" data-choice="case" href="{% url 'core:teacher_question_create' %}?type=case"><span class="qs-art">{% include "teacher/_qs_art.html" with name="case" %}</span><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>چند سؤال وابسته به یک سناریوی مشترک و یکپارچه</span></a>
+            </div>
+            <div class="qs-indep">
+                <div class="qs-indep-head">
+                    <i>{% include "teacher/_qb_icon.html" with name="essay" %}</i>
+                    <div><strong>سؤال مستقل</strong><span>انتخاب نوع سؤال مستقل</span></div>
+                </div>
+                <div class="qs-types" role="radiogroup" aria-label="نوع سؤال مستقل">
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="essay" href="{% url 'core:teacher_question_create' %}?type=essay"><span class="qs-art">{% include "teacher/_qs_art.html" with name="essay" %}</span><strong>پاسخ تشریحی</strong></a>
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="short_answer" href="{% url 'core:teacher_question_create' %}?type=short_answer"><span class="qs-art">{% include "teacher/_qs_art.html" with name="short_answer" %}</span><strong>پاسخ کوتاه</strong></a>
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="true_false" href="{% url 'core:teacher_question_create' %}?type=true_false"><span class="qs-art">{% include "teacher/_qs_art.html" with name="true_false" %}</span><strong>درست / نادرست</strong></a>
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="multi" href="{% url 'core:teacher_question_create' %}?type=multi"><span class="qs-art">{% include "teacher/_qs_art.html" with name="multi" %}</span><strong>چندگزینه‌ای (چند پاسخ صحیح)</strong></a>
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="single" href="{% url 'core:teacher_question_create' %}?type=single"><span class="qs-art">{% include "teacher/_qs_art.html" with name="single" %}</span><strong>چهارگزینه‌ای (تک پاسخ صحیح)</strong></a>
+                    <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="numeric" %}</span><strong>پاسخ عددی</strong></div>
+                    <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="matrix" %}</span><strong>ماتریسی / جدول</strong></div>
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="matching" href="{% url 'core:teacher_question_create' %}?type=matching"><span class="qs-art">{% include "teacher/_qs_art.html" with name="matching" %}</span><strong>تطبیقی</strong></a>
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="ordering" href="{% url 'core:teacher_question_create' %}?type=ordering"><span class="qs-art">{% include "teacher/_qs_art.html" with name="ordering" %}</span><strong>مرتب‌سازی</strong></a>
+                    <a class="qs-type" role="radio" aria-checked="false" data-choice="fill_blank" href="{% url 'core:teacher_question_create' %}?type=fill_blank"><span class="qs-art">{% include "teacher/_qs_art.html" with name="fill_blank" %}</span><strong>جای خالی</strong></a>
+                    <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="hotspot" %}</span><strong>نقطه‌ای / مربوط به تصویر</strong></div>
+                    <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="media" %}</span><strong>صوتی / ویدئویی</strong></div>
+                    <div class="qs-type is-disabled" aria-disabled="true" title="این نوع سؤال هنوز پیاده‌سازی نشده است"><small>در حال توسعه</small><span class="qs-art">{% include "teacher/_qs_art.html" with name="annotate" %}</span><strong>تصویری / نشانه‌گذاری</strong></div>
+                </div>
+            </div>
+        </section>
+        <footer class="qs-footer">
+            <a class="is-primary is-blue" data-choice-continue aria-disabled="true">ادامه و انتخاب نوع سؤال {% include "teacher/_qb_icon.html" with name="arrow" %}</a>
+            <a class="is-cancel" href="{% url 'core:teacher_questions' %}">انصراف <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
+        </footer>
+        <script>
+        (() => {
+          const page = document.querySelector('[data-structure-page]');
+          if (!page) return;
+          const help = page.querySelector('[data-structure-help]');
+          const helpBody = page.querySelector('#qs-help-body');
+          help.addEventListener('click', () => {
+            helpBody.hidden = !helpBody.hidden;
+            help.setAttribute('aria-expanded', helpBody.hidden ? 'false' : 'true');
+          });
+          const continueLink = page.querySelector('[data-choice-continue]');
+          const choices = page.querySelectorAll('[data-choice]');
+          choices.forEach((choice) => choice.addEventListener('click', (event) => {
+            event.preventDefault();
+            choices.forEach((other) => {
+              other.classList.toggle('is-selected', other === choice);
+              other.setAttribute('aria-checked', other === choice ? 'true' : 'false');
+            });
+            continueLink.href = choice.getAttribute('href');
+            continueLink.removeAttribute('aria-disabled');
+          }));
+        })();
+        </script>
+    {% else %}
+        <header class="qs-head">
+            <span class="qs-head-icon">{% include "teacher/_qb_icon.html" with name="essay" %}</span>
+            <div><h1>ایجاد سؤال جدید</h1><p>بانک سؤالات / ایجاد سؤال</p></div>
+        </header>
+        <ol class="qs-steps">
+            <li class="is-done"><b>✓</b>ساختار سؤال</li><i></i>
+            <li class="is-active"><b>۲</b>نوع سؤال</li><i></i>
+            <li><b>۳</b>طراحی و تنظیمات</li>
+        </ol>
+        <h2>{% if structure == 'case' %}ایجاد گروه سؤال مبتنی بر سناریوی بیمار{% elif structure == 'kfp' %}ایجاد سناریوی KFP{% else %}نوع سؤال مستقل را انتخاب کنید{% endif %}</h2>
+        {% if structure == 'case' or structure == 'kfp' %}
+            <div class="qs-grid" style="grid-template-columns:1fr">
+                <a class="qs-card is-selected" href="{% url 'core:teacher_question_create' %}?type={{ structure }}"><i class="qs-check">{% include "teacher/_qb_icon.html" with name="check" %}</i>{% include "teacher/_qb_icon.html" with name=structure %}<strong>{% if structure == 'case' %}گروه سؤال مبتنی بر سناریوی بیمار{% elif structure == 'kfp' %}سازنده سناریوی KFP{% else %}سازنده ایستگاه OSCE{% endif %}</strong><span>{% if structure == 'case' %}اطلاعات سناریو، مرحله‌های افشا و سؤال‌های وابسته را بسازید.{% elif structure == 'kfp' %}مسئله‌ی بالینی، ویژگی‌های کلیدی، وزن‌ها و ماتریس نمره‌دهی را تعریف کنید.{% else %}مشخصات ایستگاه، دستورالعمل‌ها، چک‌لیست ممتحن و زمان‌بندی را تنظیم کنید.{% endif %}</span></a>
+            </div>
+            <footer class="qs-footer">
+                <a class="is-primary" href="{% url 'core:teacher_question_create' %}?type={{ structure }}">ادامه و طراحی {% include "teacher/_qb_icon.html" with name="arrow" %}</a>
+                <a href="{% url 'core:teacher_question_type' %}">بازگشت</a>
+            </footer>
+        {% else %}
+            <div class="qs-type-grid">
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=single">{% include "teacher/_qb_icon.html" with name="single" %}<strong>سؤال چهارگزینه‌ای</strong><span>یک پاسخ صحیح بین گزینه‌ها</span></a>
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=multi">{% include "teacher/_qb_icon.html" with name="multi" %}<strong>سؤال چندپاسخی</strong><span>انتخاب چند پاسخ صحیح</span></a>
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=true_false">{% include "teacher/_qb_icon.html" with name="true_false" %}<strong>سؤال درست یا نادرست</strong><span>گزینه‌ی دوحالته و سریع</span></a>
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=short_answer">{% include "teacher/_qb_icon.html" with name="short_answer" %}<strong>سؤال پاسخ کوتاه</strong><span>پاسخ متنی کوتاه با تصحیح خودکار</span></a>
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=essay">{% include "teacher/_qb_icon.html" with name="essay" %}<strong>سؤال تشریحی و روبریک</strong><span>پاسخ کامل با معیارهای تصحیح</span></a>
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=fill_blank">{% include "teacher/_qb_icon.html" with name="fill_blank" %}<strong>سؤال جای خالی</strong><span>تکمیل جاهای خالی متن</span></a>
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=matching">{% include "teacher/_qb_icon.html" with name="matching" %}<strong>سؤال تطبیقی</strong><span>تطبیق موارد دو ستون</span></a>
+                <a class="qs-card" href="{% url 'core:teacher_question_create' %}?type=ordering">{% include "teacher/_qb_icon.html" with name="ordering" %}<strong>سؤال مرتب‌سازی</strong><span>چیدن مراحل به ترتیب درست</span></a>
+            </div>
+            <div class="qs-media-note"><span>{% include "teacher/_qb_icon.html" with name="text" %}متن</span><span>{% include "teacher/_qb_icon.html" with name="image" %}تصویر</span><span>{% include "teacher/_qb_icon.html" with name="audio" %}صوت</span><span>{% include "teacher/_qb_icon.html" with name="video" %}ویدئو</span>پشتیبانی از متن، تصویر، صوت و ویدئو در صورت سؤال و پاسخ‌ها</div>
+            <footer class="qs-footer">
+                <span></span>
+                <a href="{% url 'core:teacher_question_type' %}">بازگشت</a>
+            </footer>
+        {% endif %}
+    {% endif %}
+</div>
+{% endwith %}

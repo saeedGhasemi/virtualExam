@@ -1,0 +1,52 @@
+{% load core_extras %}
+{% with ex=osce_exam_settings %}
+<div class="ob-crit-banner">
+    <div>
+        <h3>تنظیمات تکمیلی آزمون</h3>
+        <p>این تنظیمات برای کل آزمون OSCE (همه ایستگاه‌ها) است و هنگام اجرای آزمون اعمال می‌شود.</p>
+    </div>
+    <span class="ob-art">{% include "teacher/_qs_art.html" with name="osce" %}</span>
+</div>
+<div class="ob-set-grid">
+    <section class="ob-panel">
+        <h3>{% include "teacher/_qb_icon.html" with name="eye" %}تنظیمات ظاهری و نمایش</h3>
+        <label class="ob-field ob-set-line">تم سامانه<select disabled title="انتخاب تم هنوز پیاده‌سازی نشده است"><option>مدرن (آبی روشن)</option></select><small class="ob-dev">در حال توسعه</small></label>
+        {% for key, label in osce_exam_display_options %}
+            <label class="ob-switch ob-switch-row">{{ label }}<input type="checkbox" name="{{ key }}" value="1"{% if not ex or ex|get_item:key %} checked{% endif %}><span></span></label>
+        {% endfor %}
+    </section>
+    <section class="ob-panel">
+        <h3>{% include "teacher/_qb_icon.html" with name="warning" %}تنظیمات امنیت و دسترسی</h3>
+        <label class="ob-field ob-set-line">محدودیت دسترسی به آزمون<select name="access_scope">{% for key, label in osce_access_scopes.items %}<option value="{{ key }}"{% if ex.access_scope == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="ob-field ob-set-line">محدودیت تعداد تلاش<input type="number" name="max_attempts" min="1" max="5" value="{{ ex.max_attempts|default:'1' }}"></label>
+        {% for key, label in osce_exam_security_toggles %}
+            <label class="ob-switch ob-switch-row">{{ label }}<input type="checkbox" name="{{ key }}" value="1"{% if not ex or ex|get_item:key %} checked{% endif %}><span></span></label>
+        {% endfor %}
+    </section>
+    <section class="ob-panel">
+        <h3>{% include "teacher/_qb_icon.html" with name="info" %}تنظیمات اطلاع‌رسانی و گزارش‌ها</h3>
+        {% for key, label in osce_exam_notify_options %}
+            <label class="ob-switch ob-switch-row">{{ label }}<input type="checkbox" name="{{ key }}" value="1"{% if not ex or ex|get_item:key %} checked{% endif %}><span></span></label>
+        {% endfor %}
+    </section>
+    <section class="ob-panel">
+        <h3>{% include "teacher/_qb_icon.html" with name="ordering" %}تنظیمات ارزیابی و نمره‌دهی</h3>
+        <label class="ob-field ob-set-line">نمره قبولی آزمون (از ۱۰۰)<input type="number" name="exam_pass_score" min="0.25" max="100" step="0.25" required value="{{ ex.pass_score|default:'60' }}"></label>
+        <label class="ob-field ob-set-line">نمره منفی برای پاسخ غلط (۰ تا ۱)<input type="number" name="negative_mark" min="0" max="1" step="0.05" value="{{ ex.negative_mark|default:'0' }}"></label>
+        <label class="ob-switch ob-switch-row">نمایش پاسخ صحیح پس از آزمون<input type="checkbox" name="show_correct_after" value="1"{% if ex.show_correct_after %} checked{% endif %}><span></span></label>
+    </section>
+    <section class="ob-panel ob-set-wide">
+        <h3>{% include "teacher/_qb_icon.html" with name="settings" %}تنظیمات پیشرفته (اختیاری)</h3>
+        <div class="ob-row is-half">
+            <div class="ob-field">
+                <span>برچسب‌ها و دسته‌بندی‌ها</span>
+                <div class="ob-tags" data-tags>
+                    {% for tag in ex.tags %}<span class="ob-tag"><input type="hidden" name="tags" value="{{ tag }}">{{ tag }}<button type="button" data-tag-remove aria-label="حذف برچسب {{ tag }}">×</button></span>{% endfor %}
+                </div>
+                <div class="ob-tag-add"><input type="text" maxlength="30" placeholder="برچسب جدید" aria-label="برچسب جدید" data-tag-input><button class="ob-btn" type="button" data-tag-add>{% include "teacher/_qb_icon.html" with name="plus" %}افزودن برچسب جدید</button></div>
+            </div>
+            <label class="ob-field">توضیحات تکمیلی برای آزمون<textarea name="exam_notes" maxlength="500" data-count-source placeholder="در صورت نیاز توضیحات تکمیلی را وارد کنید...">{{ ex.notes|default:'' }}</textarea><span class="ob-count" data-count-target>0/500</span></label>
+        </div>
+    </section>
+</div>
+{% endwith %}

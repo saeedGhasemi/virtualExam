@@ -1,0 +1,1 @@
+{% if item.media %}<span class="qx-item-media">{% if item.media_kind == 'image' %}<img src="{{ item.media }}" alt="" loading="lazy">{% elif item.media_kind == 'audio' %}<audio src="{{ item.media }}" controls preload="none"></audio>{% elif item.media_kind == 'video' %}<video src="{{ item.media }}" controls preload="metadata"></video>{% endif %}</span>{% endif %}

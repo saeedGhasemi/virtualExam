@@ -131,7 +131,7 @@ def _profile_sidebar_groups(role_code):
     return groups
 
 
-PANEL_CHROME_ROLES = {'super_admin', 'exam_manager', 'teacher'}
+PANEL_CHROME_ROLES = {'super_admin', 'exam_manager', 'teacher', 'student'}
 
 PANEL_HOME_URL = {
     'super_admin': 'core:dashboard',

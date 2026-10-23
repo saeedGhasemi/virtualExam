@@ -1,0 +1,1745 @@
+{% load core_extras static %}
+<link rel="stylesheet" href="{% static 'js/vendor/quill-2.0.3/quill.snow.css' %}">
+<style>
+    .teacher-console:has(.qb){background:radial-gradient(circle at 12% 5%,rgba(96,165,250,.16),transparent 28rem),radial-gradient(circle at 82% 8%,rgba(168,85,247,.12),transparent 30rem),linear-gradient(180deg,#f8fbff 0%,#f4f7ff 100%)}
+    .qb{--qb-blue:#2563eb;--qb-blue-soft:#eef4ff;--qb-ink:#172554;--qb-muted:#64748b;--qb-line:#e3e9f4;--qb-green:#16a34a;--qb-red:#dc2626;direction:rtl;font-family:Vazirmatn,Tahoma,Arial,sans-serif;color:var(--qb-ink);padding-bottom:1rem}
+    .qb *{box-sizing:border-box}
+    .qb svg{width:1.1rem;height:1.1rem;flex:0 0 auto}
+    .qb button,.qb input,.qb select,.qb textarea{font:inherit;color:inherit}
+    .qb-input,.qb select,.qb textarea,.qb input[type=text],.qb input[type=number],.qb input:not([type]){width:100%;min-width:0;height:2.6rem;padding:0 .8rem;border:1px solid #d9e2f0;border-radius:.7rem;background:#fff;font-size:.86rem;font-weight:700;outline:0;transition:border-color .15s,box-shadow .15s}
+    .qb textarea{height:auto;min-height:7rem;padding:.75rem .9rem;line-height:1.9;resize:vertical}
+    .qb input:focus,.qb select:focus,.qb textarea:focus{border-color:#93b4ff;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+    .qb input[type=checkbox],.qb input[type=radio]{width:1.15rem;height:1.15rem;min-width:1.15rem;padding:0;accent-color:var(--qb-blue)}
+    /* header */
+    .qb-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.1rem;padding:1rem 1.25rem;border:1px solid var(--qb-line);border-radius:1.1rem;background:rgba(255,255,255,.85);box-shadow:0 10px 30px rgba(30,55,110,.05)}
+    .qb-head nav{color:var(--qb-muted);font-size:.75rem;font-weight:800}
+    .qb-head h1{margin:.2rem 0 0;font-size:1.35rem;font-weight:900}
+    .qb-head-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem}
+    .qb-autosave{display:inline-flex;align-items:center;gap:.4rem;color:var(--qb-green);font-size:.75rem;font-weight:900}
+    .qb-autosave svg{width:1rem;height:1rem;padding:.1rem;border-radius:999px;background:#dcfce7}
+    .qb-autosave.is-error{color:var(--qb-red)}
+    .qb-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;height:2.7rem;padding:0 1.1rem;border:1px solid #cfdcf5;border-radius:.75rem;background:#fff;color:var(--qb-blue);font-size:.85rem;font-weight:900;text-decoration:none;cursor:pointer;white-space:nowrap}
+    .qb-btn:hover{background:var(--qb-blue-soft)}
+    .qb-btn--primary{border-color:transparent;background:linear-gradient(135deg,#2563eb,#3b6cf6);color:#fff;box-shadow:0 10px 22px rgba(37,99,235,.25)}
+    .qb-btn--primary:hover{background:#1d4ed8}
+    .qb-btn--muted{color:#475569;border-color:#e2e8f0}
+    .qb-type-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.1rem}
+    .qb-type-title{display:flex;align-items:center;gap:.9rem}
+    .qb-type-icon{display:grid;place-items:center;width:3.4rem;height:3.4rem;border-radius:1rem;background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4f46e5;box-shadow:inset 0 0 0 1px #c7d2fe}
+    .qb-type-icon svg{width:1.7rem;height:1.7rem}
+    .qb-type-title h2{margin:0;font-size:1.6rem;font-weight:900}
+    .qb-type-title p{margin:.2rem 0 0;color:var(--qb-muted);font-size:.8rem;font-weight:800}
+    /* pill tabs (app tab standard) */
+    .qb-pills{display:flex;gap:.35rem;padding:.3rem;border:1px solid #dbe5f3;border-radius:1rem;background:rgba(244,248,253,.9)}
+    .qb-pills a,.qb-pills button,.qb-pills label{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;flex:1;min-height:2.3rem;padding:0 .9rem;border:1px solid transparent;border-radius:.75rem;background:transparent;color:#54617a;font-size:.8rem;font-weight:900;text-decoration:none;cursor:pointer;white-space:nowrap}
+    .qb-pills .is-active,.qb-pills label:has(input:checked){border-color:#bfdbfe;background:#fff;color:var(--qb-blue);box-shadow:0 6px 16px rgba(37,99,235,.14)}
+    .qb-pills label input{position:absolute;opacity:0;pointer-events:none}
+    .qb-pills svg{width:1rem;height:1rem}
+    /* layout */
+    .qb-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1.1rem;align-items:start}
+    .qb-main,.qb-side{display:grid;gap:1.1rem;min-width:0}
+    .qb-card{padding:1.15rem 1.25rem;border:1px solid var(--qb-line);border-radius:1.1rem;background:#fff;box-shadow:0 10px 30px rgba(30,55,110,.05)}
+    .qb-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.9rem}
+    .qb-card-head h3{display:flex;align-items:center;gap:.45rem;margin:0;font-size:.98rem;font-weight:900}
+    .qb-card-head h3 svg{color:var(--qb-blue)}
+    .qb-card-head small{color:var(--qb-muted);font-size:.72rem;font-weight:800}
+    .qb-field{display:grid;gap:.4rem;margin-bottom:.85rem;font-size:.76rem;font-weight:900;color:#475569}
+    .qb-field:last-child{margin-bottom:0}
+    .qb-field small,.qb-help{color:var(--qb-muted);font-size:.7rem;font-weight:800;line-height:1.7}
+    .qb-row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+    .qb-unit-input{position:relative;display:block}
+    .qb-unit-input input{padding-left:3.2rem}
+    .qb-unit-input em{position:absolute;top:50%;left:.8rem;transform:translateY(-50%);color:#94a3b8;font-size:.74rem;font-style:normal;font-weight:900;pointer-events:none}
+    /* scoring options read as checkbox rows (design), same inputs as the switches */
+    .qb-scoring .qb-switch{justify-content:flex-start;flex-direction:row-reverse;gap:.6rem}
+    .qb-scoring .qb-switch > span:first-child{flex:1}
+    .qb-scoring .qb-switch input[type=checkbox]{position:static;opacity:1;pointer-events:auto;margin-top:.15rem;align-self:flex-start}
+    .qb-scoring .qb-switch .qb-switch-ui{display:none}
+    .qb-icon-input{position:relative}
+    .qb-icon-input svg{position:absolute;top:50%;left:.75rem;transform:translateY(-50%);color:#94a3b8}
+    .qb-icon-input input{padding-left:2.3rem;direction:ltr;text-align:right}
+    .qb-hint{margin:0 0 .85rem;color:var(--qb-muted);font-size:.76rem;font-weight:800;line-height:1.85}
+    .qb-warn{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:.9rem;padding:.8rem 1rem;border:1px dashed #fca5a5;border-radius:.8rem;background:#fef2f2;color:var(--qb-red);font-size:.8rem;font-weight:900}
+    .qb-warn[hidden]{display:none}
+    .qb-add{display:inline-flex;align-items:center;gap:.4rem;margin-top:.85rem;height:2.5rem;padding:0 1rem;border:1px dashed #bcd0f7;border-radius:.75rem;background:#f8fbff;color:var(--qb-blue);font-size:.8rem;font-weight:900;cursor:pointer}
+    .qb-icon-btn{display:inline-grid;place-items:center;width:2.4rem;height:2.4rem;border:1px solid #fee2e2;border-radius:.65rem;background:#fff;color:var(--qb-red);cursor:pointer}
+    .qb-handle{display:inline-grid;place-items:center;width:1.6rem;color:#a3b0c5;cursor:grab}
+    .qb-badge{display:inline-grid;place-items:center;min-width:2.1rem;height:2.1rem;padding:0 .4rem;border-radius:.65rem;background:var(--qb-blue);color:#fff;font-size:.82rem;font-weight:900}
+    .qb-dragging{opacity:.45}
+    /* switches & segmented */
+    .qb-switch{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.85rem;font-size:.8rem;font-weight:900;color:#334155;cursor:pointer}
+    .qb-switch input{position:absolute;opacity:0;pointer-events:none}
+    .qb-switch-ui{position:relative;flex:0 0 auto;width:2.6rem;height:1.45rem;border-radius:999px;background:#cbd5e1;transition:background .15s}
+    .qb-switch-ui::after{content:"";position:absolute;top:.18rem;right:.18rem;width:1.1rem;height:1.1rem;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .15s}
+    .qb-switch input:checked + .qb-switch-ui{background:var(--qb-blue)}
+    .qb-switch input:checked + .qb-switch-ui::after{transform:translateX(-1.15rem)}
+    .qb-switch input:disabled + .qb-switch-ui{opacity:.5}
+    .qb-switch > span:first-child{display:grid;gap:.15rem}
+    .qb-switch > span:first-child small{color:var(--qb-muted);font-size:.68rem;font-weight:800}
+    .qb-stepper{display:grid;grid-template-columns:2.3rem 1fr 2.3rem;align-items:center;border:1px solid #d9e2f0;border-radius:.7rem;overflow:hidden;background:#fff}
+    .qb-stepper button{height:2.5rem;border:0;background:#f8fafc;color:#475569;font-weight:900;cursor:pointer}
+    .qb-stepper input{height:2.5rem;border:0!important;border-radius:0!important;text-align:center;box-shadow:none!important;direction:ltr}
+    .qb-dev{opacity:.62}
+    .qb-dev-badge{display:inline-block;margin-inline-start:.35rem;padding:.08rem .45rem;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.62rem;font-weight:900;vertical-align:middle}
+    /* tags */
+    .qb-tags{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;min-height:2.6rem;padding:.4rem;border:1px solid #d9e2f0;border-radius:.7rem;background:#fff}
+    .qb-tags .qb-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .6rem;border-radius:.55rem;background:var(--qb-blue-soft);color:#1d4ed8;font-size:.74rem;font-weight:900}
+    .qb-tags .qb-chip button{border:0;background:none;color:#64748b;font-weight:900;cursor:pointer;padding:0}
+    .qb-tags input[data-tags-input]{flex:1;min-width:6rem;height:1.9rem;border:0;padding:0 .3rem;box-shadow:none}
+    /* content card */
+    .qb-media-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:.9rem;margin-top:.9rem}
+    .qb-media-panel{display:grid;gap:.6rem;padding:.8rem;border:1px solid var(--qb-line);border-radius:.9rem;background:#fbfcff}
+    .qb-media-panel[hidden]{display:none}
+    .qb-media-panel > span{display:flex;align-items:center;gap:.4rem;font-size:.76rem;font-weight:900;color:#475569}
+    .qb-insert-blank{margin-top:.6rem}
+    /* media slot */
+    .qf-media--large{display:grid}
+    .qf-drop{display:grid;justify-items:center;gap:.4rem;width:100%;padding:1.2rem .8rem;border:1.5px dashed #a9c1f5;border-radius:.9rem;background:#f8fbff;color:#475569;text-align:center;cursor:pointer;transition:background .15s,border-color .15s}
+    .qf-drop svg{width:2rem;height:2rem;color:var(--qb-blue)}
+    .qf-drop strong{font-size:.78rem;font-weight:900}
+    .qf-drop strong span{color:var(--qb-blue)}
+    .qf-drop small{color:#94a3b8;font-size:.68rem;font-weight:800}
+    .qf-media.is-dragover .qf-drop{background:#e8f0ff;border-color:var(--qb-blue)}
+    .qf-media-filled{display:none;gap:.6rem}
+    .qf-media--large.has-media .qf-drop{display:none}
+    .qf-media--large.has-media .qf-media-filled{display:grid}
+    .qf-media--large .qf-media-preview{display:grid;place-items:center;min-height:5rem;border-radius:.75rem;background:#fff;overflow:hidden;border:1px solid var(--qb-line)}
+    .qf-media--large .qf-media-preview img{max-width:100%;max-height:13rem;object-fit:contain}
+    .qf-media--large .qf-media-preview video{max-width:100%;max-height:13rem;background:#0f172a}
+    .qf-media--large .qf-media-preview audio{width:100%}
+    .qf-media-info{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;font-size:.72rem;font-weight:800;color:#475569}
+    .qf-media-info [data-media-name]{overflow:hidden;max-width:12rem;text-overflow:ellipsis;white-space:nowrap}
+    .qf-media-info small{color:#94a3b8}
+    .qf-media-actions{display:flex;gap:.4rem;margin-inline-start:auto}
+    .qf-media-actions button{display:inline-flex;align-items:center;gap:.3rem;height:2.1rem;padding:0 .7rem;border:1px solid #cfdcf5;border-radius:.6rem;background:#fff;color:var(--qb-blue);font-size:.72rem;font-weight:900;cursor:pointer}
+    .qf-media-actions button.is-danger{border-color:#fecaca;color:var(--qb-red)}
+    .qf-media--compact{display:contents}
+    .qf-media-buttons{display:inline-flex;gap:.25rem}
+    .qf-media-buttons button{display:inline-grid;place-items:center;width:2.1rem;height:2.1rem;border:1px solid #dbe5f3;border-radius:.55rem;background:#fff;color:#64748b;cursor:pointer}
+    .qf-media-buttons button:hover{color:var(--qb-blue);border-color:#bfdbfe;background:var(--qb-blue-soft)}
+    .qf-media--compact .qf-media-line{display:none;order:99;flex-basis:100%;align-items:center;gap:.6rem;padding:.45rem .6rem;border:1px solid var(--qb-line);border-radius:.7rem;background:#f8fbff}
+    .qf-media--compact.has-media .qf-media-line{display:flex}
+    .qf-media--compact .qf-media-preview img{display:block;height:3.6rem;max-width:7rem;object-fit:cover;border-radius:.5rem}
+    .qf-media--compact .qf-media-preview video{display:block;height:3.6rem;max-width:7rem;border-radius:.5rem;background:#0f172a}
+    .qf-media--compact .qf-media-preview audio{height:2.2rem;max-width:16rem}
+    .qf-media--compact .qf-media-line small{flex:1;overflow:hidden;color:#64748b;font-size:.7rem;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+    .qf-media-clear{display:inline-grid;place-items:center;width:1.7rem;height:1.7rem;padding:0;border:1px solid #fecaca;border-radius:999px;background:#fff;color:var(--qb-red);font-weight:900;cursor:pointer}
+    /* options */
+    .qb-rows{display:grid;gap:.65rem}
+    .qb-option{display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;padding:.6rem .75rem;border:1px solid var(--qb-line);border-radius:.9rem;background:#fff;transition:border-color .15s,background .15s}
+    .qb-option > .qb-option-text{flex:1 1 12rem}
+    .qb-option.is-correct{border-color:#86efac;background:#f0fdf4;box-shadow:inset 0 0 0 1px #bbf7d0}
+    .qb-option .qb-correct-badge{display:none;padding:.2rem .55rem;border-radius:.45rem;background:var(--qb-green);color:#fff;font-size:.68rem;font-weight:900}
+    .qb-option.is-correct .qb-correct-badge{display:inline-block}
+    .qb-option--tf.is-wrong{border-color:#fecaca;background:#fff7f7}
+    .qb-option--tf .qb-wrong-badge{display:none;padding:.2rem .55rem;border-radius:.45rem;background:#fee2e2;color:var(--qb-red);font-size:.68rem;font-weight:900}
+    .qb-option--tf.is-wrong .qb-wrong-badge{display:inline-block}
+    .qb-option--tf.is-correct{border-color:#93c5fd;background:#f5f9ff;box-shadow:inset 0 0 0 1px #bfdbfe}
+    .qb-mini{width:5rem!important;text-align:center;direction:ltr}
+    .qb-option-head{display:flex;justify-content:flex-end;gap:.55rem;padding:0 .75rem .35rem;color:var(--qb-muted);font-size:.68rem;font-weight:900}
+    .qb-option-head span{width:5rem;text-align:center}
+    .qb-option-head span:last-child{width:2.4rem}
+    /* table-like rows */
+    .qb-table-head,.qb-blank{display:grid;grid-template-columns:2.4rem minmax(0,1fr) 5.5rem 6.5rem 6.5rem 8.4rem 2.4rem;gap:.6rem;align-items:center}
+    .qb-table-head{padding:0 .2rem .35rem;color:var(--qb-muted);font-size:.68rem;font-weight:900;text-align:center}
+    .qb-table-head span:nth-child(2){text-align:right}
+    .qb-blank{padding:.5rem .2rem;border-bottom:1px dashed var(--qb-line)}
+    .qb-blank:last-child{border-bottom:0}
+    .qb-blank label{display:flex;justify-content:center}
+    .qb-blank:nth-child(3n+2) .qb-badge{background:#16a34a}
+    .qb-blank:nth-child(3n+3) .qb-badge{background:#7c3aed}
+    /* matching */
+    .qb-pair-head{display:grid;grid-template-columns:2.4rem minmax(0,1fr) 3rem minmax(0,1fr) 2.4rem;gap:.6rem;padding-bottom:.4rem;color:var(--qb-blue);font-size:.78rem;font-weight:900;text-align:center}
+    .qb-pair{display:grid;grid-template-columns:2.4rem minmax(0,1fr) 3rem minmax(0,1fr) 2.4rem;gap:.6rem;align-items:center}
+    .qb-pair-card{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem;padding:.5rem;border:1px solid var(--qb-line);border-radius:.85rem;background:#fff}
+    .qb-pair-card > input{flex:1 1 8rem}
+    .qb-pair-link{position:relative;height:2px;background:#93b4ff}
+    .qb-pair-link::before,.qb-pair-link::after{content:"";position:absolute;top:50%;width:.6rem;height:.6rem;border:2px solid var(--qb-blue);border-radius:999px;background:#fff;transform:translateY(-50%)}
+    .qb-pair-link::before{right:-.2rem}
+    .qb-pair-link::after{left:-.2rem}
+    .qb-distractor{display:grid;grid-template-columns:minmax(0,1fr) 2.4rem;gap:.6rem;align-items:center;margin-top:.55rem}
+    .qb-subcard{margin-top:1rem;padding:.9rem 1rem;border:1px solid var(--qb-line);border-radius:.9rem;background:#fbfcff}
+    .qb-subcard h4{margin:0 0 .6rem;font-size:.8rem;font-weight:900}
+    /* ordering */
+    .qb-order{display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;padding:.6rem .75rem;border:1px solid var(--qb-line);border-radius:.9rem;background:#fff}
+    .qb-order > input{flex:1 1 12rem}
+    .qb-order-chips{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;direction:rtl}
+    .qb-order-chips span{display:inline-grid;place-items:center;min-width:2rem;height:2rem;padding:0 .5rem;border:1px solid #c7d7f8;border-radius:.55rem;background:#fff;color:var(--qb-blue);font-size:.78rem;font-weight:900}
+    .qb-order-chips i{color:#94a3b8;font-style:normal}
+    /* short answer */
+    .qb-accepted{display:grid;gap:.6rem;padding:.75rem .85rem;border:1px solid var(--qb-line);border-radius:.9rem;background:#fff}
+    .qb-accepted-top{display:flex;align-items:center;gap:.55rem}
+    .qb-accepted-top > input{flex:1}
+    .qb-accepted-top .qb-badge{background:#eef2ff;color:#4f46e5;box-shadow:inset 0 0 0 1px #c7d2fe}
+    [data-row-list="accepted-main"] .qb-accepted{border-color:#c7d2fe;background:#fafbff}
+    .qb-accepted-points{display:inline-flex;align-items:center;gap:.4rem;color:#64748b;font-size:.7rem;font-weight:900;white-space:nowrap}
+    .qb-accepted-points input{width:5rem!important;text-align:center;direction:ltr}
+    .qb-accepted-rules{display:flex;flex-wrap:wrap;align-items:end;gap:.75rem;padding-top:.55rem;border-top:1px dashed var(--qb-line);font-size:.7rem;font-weight:900;color:#64748b}
+    .qb-accepted-rules label.qb-switch--inline{display:inline-flex;align-items:center;gap:.5rem;height:2.4rem;margin:0;font-size:.7rem;color:#64748b}
+    .qb-switch:has(input:disabled){cursor:not-allowed;opacity:.7}
+    .qb-accepted-rules label{display:grid;gap:.3rem}
+    .qb-accepted-rules label.qb-check{display:inline-flex;align-items:center;gap:.35rem;height:2.4rem}
+    .qb-accepted-rules select{width:8.5rem;height:2.4rem}
+    .qb-accepted-rules input[type=number]{width:6rem;height:2.4rem;direction:ltr;text-align:center}
+    /* essay */
+    .qb-formats{display:flex;flex-wrap:wrap;gap:.5rem}
+    .qb-formats span{display:inline-flex;align-items:center;gap:.35rem;height:2.4rem;padding:0 .8rem;border:1px solid #dbe5f3;border-radius:.65rem;background:#fff;color:#64748b;font-size:.75rem;font-weight:900}
+    .qb-format{position:relative;display:inline-flex;align-items:center;gap:.35rem;height:2.4rem;padding:0 .8rem;border:1px solid #dbe5f3;border-radius:.65rem;background:#fff;color:#64748b;font-size:.75rem;font-weight:900;cursor:pointer}
+    .qb-format input{position:absolute;opacity:0}
+    .qb-format svg{width:1rem;height:1rem}
+    .qb-format:has(input:checked){border-color:#bfdbfe;background:var(--qb-blue-soft);color:var(--qb-blue)}
+    .qb-format:has(input:focus-visible){outline:2px solid #93c5fd;outline-offset:2px}
+    .qb-formats span.is-active{border-color:#bfdbfe;background:var(--qb-blue-soft);color:var(--qb-blue)}
+    .qb-rubric{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--qb-line);border-radius:.8rem;overflow:hidden}
+    .qb-rubric th{padding:.55rem;background:#f8fafc;color:#475569;font-size:.7rem;font-weight:900;text-align:center}
+    .qb-rubric td{padding:.4rem;border-top:1px solid var(--qb-line)}
+    .qb-rubric td input{height:2.3rem;font-size:.78rem}
+    .qb-rubric tfoot td{background:#f8fafc;font-size:.8rem;font-weight:900;text-align:center}
+    .qb-grading-box{display:grid;gap:.1rem;padding:.8rem;border:1px solid var(--qb-line);border-radius:.85rem;background:#fbfcff}
+    .qb-grading-box label{display:flex;align-items:center;gap:.5rem;min-height:2.1rem;font-size:.78rem;font-weight:900;color:#334155}
+    /* feedback */
+    .qb-count{display:block;margin-top:.3rem;color:#94a3b8;font-size:.68rem;font-weight:800;text-align:left}
+    /* footer */
+    .qb-footer{position:sticky;bottom:.75rem;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-top:1.2rem;padding:.8rem 1rem;border:1px solid var(--qb-line);border-radius:1.1rem;background:rgba(255,255,255,.94);box-shadow:0 -6px 30px rgba(30,55,110,.08);backdrop-filter:blur(8px)}
+    .qb-footer > :nth-child(2){margin-inline-start:auto}
+    /* draft banner */
+    .qf-draft-banner{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;margin:0 0 1rem;padding:.8rem 1rem;border:1px solid #fcd34d;border-radius:.8rem;background:#fffbeb;color:#92400e;font-size:.82rem;font-weight:900}
+    .qf-draft-banner span{flex:1;min-width:14rem}
+    .qf-draft-banner a{padding:.4rem .9rem;border-radius:.6rem;border:1px solid #fcd34d;background:#fff;color:#92400e;text-decoration:none}
+    .qf-draft-banner a.is-primary{background:#f59e0b;border-color:#f59e0b;color:#fff}
+    /* preview modal */
+    /* essay: rich stem, instructions, rubric aside */
+    .qb-rich .ql-toolbar.ql-snow{border-color:var(--qb-line);border-radius:.8rem .8rem 0 0;background:#f8fafc;direction:ltr}
+    .qb-rich .ql-container.ql-snow{min-height:8rem;border-color:var(--qb-line);border-radius:0 0 .8rem .8rem;background:#fff;font-family:inherit;font-size:.9rem}
+    .qb-rich .ql-editor{direction:rtl;text-align:right;line-height:2.1}
+    .qb-rich .ql-editor.ql-blank::before{right:15px;left:15px;color:#94a3b8;font-style:normal}
+    .qb-rich-count{display:block;margin-top:.3rem;color:#64748b;font-size:.68rem;font-weight:800;text-align:left}
+    .qb-rich-count.is-over{color:var(--qb-red)}
+    .qb-essay-rubric{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:1rem;align-items:start}
+    .qb-essay-aside{display:grid;gap:.8rem}
+    .qb-essay-aside h4{margin:0 0 .5rem;font-size:.82rem;font-weight:900}
+    .qb-rubric td small{display:block;margin-top:.2rem;color:#64748b;font-size:.62rem;font-weight:800;text-align:center}
+    .qb-rubric th small{display:block;color:#94a3b8;font-size:.6rem;font-weight:800}
+    .qb-sample-file{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.72rem;font-weight:800}
+    .qb-sample-file a{color:var(--qb-blue)}
+    .qb-upload-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;width:100%;height:2.5rem;margin-top:.5rem;border:1px solid #bfdbfe;border-radius:.65rem;background:#fff;color:var(--qb-blue);font-size:.75rem;font-weight:900;cursor:pointer}
+    .qb-upload-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .qb-upload-btn svg{width:1rem;height:1rem}
+    /* true/false layout: stem media managed in the side card, labeled option media, 4-button footer */
+    .qf-media-info small[data-media-duration]:empty{display:none}
+    .qb--tf .qb-tf-stem-media{display:grid;gap:.6rem;margin-top:.8rem}
+    .qb--tf .qb-tf-stem-media:empty{display:none}
+    .qb--tf .qb-tf-stem-media img,.qb--tf .qb-tf-stem-media video{display:block;max-width:min(100%,26rem);max-height:16rem;border-radius:.8rem;background:#0f172a;object-fit:contain}
+    .qb--tf .qb-tf-stem-media img{background:#fff;border:1px solid var(--qb-line)}
+    .qb--tf .qb-tf-stem-media audio{width:min(100%,26rem)}
+    .qb--tf .qb-tf-drop{margin-top:.9rem;background:#f8fafc;border-color:#cbd5e1}
+    .qb--tf .qb-tf-drop.is-dragover{background:#e8f0ff;border-color:var(--qb-blue)}
+    .qb--tf .qb-tf-media-card .qb-media-grid{grid-template-columns:1fr;margin-top:0}
+    .qb--tf .qb-tf-media-card .qb-media-panel{padding:0;border:0;background:none}
+    .qb--tf .qb-tf-media-card .qb-media-panel + .qb-media-panel:not([hidden]){padding-top:.9rem;border-top:1px dashed var(--qb-line)}
+    .qb--tf .qb-tf-media-card .qf-media-info{display:grid;grid-template-columns:1fr 1fr;gap:.35rem .6rem}
+    .qb--tf .qb-tf-media-card .qf-media-info [data-media-name]{grid-column:1/-1;max-width:none;color:#172554;font-weight:900}
+    .qb--tf .qb-tf-media-card .qf-media-info small:not(:empty){padding:.45rem .6rem;border:1px solid var(--qb-line);border-radius:.6rem;background:#fff;text-align:center}
+    .qb--tf .qb-tf-media-card .qf-media-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;margin:0}
+    .qb--tf .qb-tf-media-card .qf-media-actions button{justify-content:center;height:2.4rem}
+    .qb--tf .qb-tf-media-card .qf-media-actions button.is-danger{background:#fff5f5}
+    .qb--tf .qb-tf-media-card .qb-media-panel textarea,.qb--tf .qb-tf-media-card .qb-media-panel input[type=text]{background:#fbfcff}
+    .qb--tf .qb-option--tf{gap:.7rem;padding:.85rem 1rem;border-width:1.5px;border-radius:1rem}
+    .qb--tf .qb-option--tf > [data-correct-marker]{order:-2;width:1.35rem;height:1.35rem;min-width:1.35rem}
+    .qb--tf .qb-option--tf > .qb-option-text{order:-1;flex:0 1 9rem;border:0;background:transparent;font-size:.95rem;font-weight:900;padding:0 .2rem;box-shadow:none}
+    .qb--tf .qb-option--tf > .qf-media--compact .qf-media-buttons{order:0;margin-inline-start:auto;gap:.45rem}
+    .qb--tf .qb-option--tf > .qb-correct-badge,.qb--tf .qb-option--tf > .qb-wrong-badge{order:1}
+    .qb--tf .qb-option--tf > .qb-handle{order:2}
+    .qb--tf .qf-media-buttons button{width:auto;gap:.35rem;padding:0 .7rem;font-size:.74rem;font-weight:900}
+    .qb--tf .qf-media-buttons button:nth-child(2){color:#7c3aed}
+    .qb--tf .qf-media-buttons button svg{width:1rem;height:1rem}
+    .qb--tf .qb-option--tf.is-correct{border-color:#3b82f6;background:#f8fbff;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+    .qb--tf .qb-option--tf.is-wrong{border-color:#fca5a5;background:#fff5f5}
+    .qb--tf .qb-option--tf .qb-correct-badge{border:1px solid #bbf7d0;background:#f0fdf4;color:var(--qb-green)}
+    .qb--tf .qb-option--tf .qb-wrong-badge{border:1px solid #fecaca;background:#fff;color:var(--qb-red)}
+    .qb--tf .qb-option--tf .qf-media-line{background:#fff;border-color:#e9e5ff}
+    .qb--tf .qb-option--tf .qf-media-preview audio{max-width:22rem;width:100%}
+    .qb--v2 .qb-footer{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
+    .qb--v2 .qb-footer > [data-open-preview]{display:none}
+    .qb--v2 .qb-footer > *{order:4;margin:0}
+    .qb--v2 .qb-footer > .qb-btn--primary{order:1}
+    .qb--v2 .qb-footer > [name=save_next]{order:2}
+    .qb--v2 .qb-footer > [name=draft]{order:3}
+    /* fill-in-the-blank layout */
+    /* per-blank media hint: buttons sit in their column, the attached file spans the row below */
+    .qb-blank .qf-media-buttons{justify-content:center}
+    .qb-blank .qf-media-line{grid-column:2/-1}
+    .qb-fb-markers{margin:.7rem 0 0;padding:.7rem .9rem;border:1px dashed var(--qb-line);border-radius:.8rem;background:#fbfcff;font-size:.88rem;font-weight:700;line-height:2.3}
+    .qb-fb-markers:empty{display:none}
+    .qb-fb-chip{display:inline-grid;place-items:center;min-width:2rem;height:1.7rem;margin:0 .2rem;padding:0 .45rem;border:1px solid #bfdbfe;border-radius:.45rem;background:#eff6ff;color:var(--qb-blue);font-size:.78rem;font-weight:900;vertical-align:middle}
+    .qb-fb-chip[data-color="1"]{border-color:#bbf7d0;background:#f0fdf4;color:#16a34a}
+    .qb-fb-chip[data-color="2"]{border-color:#ddd6fe;background:#f5f3ff;color:#7c3aed}
+    .qb-fb-chip.is-missing{border-color:#fecaca;background:#fef2f2;color:var(--qb-red)}
+    .qb--fb .qb-media-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));align-items:start}
+    .qb--fb .qb-media-panel{padding:.6rem;background:#fff}
+    .qb--fb .qb-media-panel > span{font-size:.72rem}
+    .qb--fb .qf-media--large .qf-media-preview{min-height:7.5rem}
+    .qb--fb .qf-media--large .qf-media-preview img,.qb--fb .qf-media--large .qf-media-preview video{max-height:9rem}
+    .qb--fb .qf-media-info{gap:.3rem .5rem}
+    .qb--fb .qf-media-info [data-media-name]{max-width:100%;flex:1 1 100%}
+    .qb--fb .qf-media-actions{margin:0;width:100%}
+    .qb--fb .qf-media-actions button{flex:1;justify-content:center;height:1.9rem;padding:0 .5rem}
+    .qb--fb .qb-media-panel .qb-field{font-size:.7rem}
+    .qb--fb .qb-fb-add{height:100%;min-height:10rem;align-content:center}
+    .qb--fb .qb-fb-add.is-dragover{background:#e8f0ff;border-color:var(--qb-blue)}
+    .qb--fb .qb-side{gap:0;border:1px solid var(--qb-line);border-radius:1.1rem;background:#fff;box-shadow:0 10px 30px rgba(30,55,110,.05);overflow:hidden}
+    .qb--fb .qb-side > .qb-card{border:0;border-radius:0;box-shadow:none}
+    .qb--fb .qb-side > .qb-card + .qb-card{border-top:1px solid var(--qb-line)}
+    /* multiple-answer layout */
+    .qb--mc .qb-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+    .qb--mc .qb-head > div:first-child{display:contents}
+    .qb--mc .qb-head nav{grid-column:1;justify-self:start}
+    .qb--mc .qb-head h1{grid-column:2;margin:0}
+    .qb--mc .qb-head-actions{grid-column:3;justify-self:end}
+    .qb--mc .qb-head [data-open-preview]{display:none}
+    .qb--mc .qb-type-row{flex-direction:column;align-items:flex-start;gap:.6rem}
+    .qb-mc-template{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+    .qb-mc-template small{display:inline-flex;align-items:center;gap:.3rem;color:var(--qb-muted);font-size:.74rem;font-weight:900}
+    .qb-mc-template small svg{width:.95rem;height:.95rem}
+    .qb-mc-template .qb-pills a{min-width:5rem;justify-content:center}
+    .qb--mc .qb-card-head:has([data-media-tabs]){flex-wrap:wrap}
+    .qb--mc [data-media-tabs]{order:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;padding:.25rem;border:1px solid var(--qb-line);border-radius:.8rem;background:#f8fafc}
+    .qb--mc [data-media-tabs] button{justify-content:center}
+    .qb-collapse-btn{display:inline-grid;place-items:center;width:1.8rem;height:1.8rem;margin-inline-end:.35rem;border:0;border-radius:.5rem;background:none;color:#475569;cursor:pointer;vertical-align:middle;transition:transform .15s}
+    .qb-collapse-btn svg{width:1rem;height:1rem}
+    .qb-card.is-collapsed .qb-collapse-btn{transform:rotate(-90deg)}
+    .qb-card.is-collapsed > :not(.qb-card-head){display:none !important}
+    .qb--mc .qb-warn{margin-top:.8rem;border:1.5px dashed #fca5a5;background:#fef2f2;color:var(--qb-red);justify-content:center}
+    .qb--mc .qb-option-head span{display:inline-flex;align-items:center;justify-content:center;gap:.2rem}
+    .qb--mc .qb-option-head svg{width:.85rem;height:.85rem;color:#3b82f6}
+    .qb--mc .qb-option{padding:.8rem .9rem;border-radius:.9rem}
+    .qb--mc .qb-option .qb-correct-badge{display:none}
+    .qb--mc .qb-option [data-correct-marker]{accent-color:#7c3aed;width:1.2rem;height:1.2rem}
+    .qb--mc .qb-option.is-correct{border-color:#c4b5fd;background:#faf8ff}
+    .qb-segment{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-bottom:.85rem;padding:.25rem;border:1px solid var(--qb-line);border-radius:.75rem;background:#f8fafc}
+    .qb-segment label{position:relative;display:grid;place-items:center;height:2.3rem;border-radius:.55rem;color:#475569;font-size:.78rem;font-weight:900;cursor:pointer}
+    .qb-segment input{position:absolute;opacity:0}
+    .qb-segment label:has(input:checked){background:#6366f1;color:#fff;box-shadow:0 6px 14px rgba(99,102,241,.25)}
+    .qb-segment label:has(input:focus-visible){outline:2px solid #a5b4fc;outline-offset:2px}
+    .qb--mc .qb-footer{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem}
+    .qb--mc .qb-footer > [data-open-preview]{display:inline-flex;order:0;margin-inline-end:auto;border:0;background:none;box-shadow:none}
+    .qb--mc .qb-footer > a{order:1}
+    .qb--mc .qb-footer > [name=draft]{order:2}
+    .qb--mc .qb-footer > [name=save_next]{order:3}
+    .qb--mc .qb-footer > .qb-btn--primary{order:4;min-width:9rem}
+    @media (max-width:720px){.qb--mc .qb-head{grid-template-columns:1fr;justify-items:start}.qb--mc .qb-head > div:first-child{display:block}.qb--mc .qb-head-actions{justify-self:start}.qb--mc .qb-footer > [data-open-preview]{margin-inline-end:0}}
+    @media (max-width:720px){.qb--v2 .qb-footer{grid-template-columns:1fr 1fr}.qb--tf .qb-option--tf > .qf-media--compact .qf-media-buttons{margin-inline-start:0}}
+    @media (max-width:1100px){.qb-essay-rubric{grid-template-columns:1fr}}
+    @media (max-width:1100px){.qb-grid{grid-template-columns:1fr}}
+    @media (max-width:720px){
+        .qb-table-head{display:none}
+        .qb-blank{grid-template-columns:2.4rem 1fr 1fr}
+        .qb-pair,.qb-pair-head{grid-template-columns:2.4rem 1fr}
+        .qb-pair-link{display:none}
+        .qb-row2{grid-template-columns:1fr}
+        .qb-footer > :nth-child(2){margin-inline-start:0}
+    }
+</style>
+<div class="qb{% if qf.type == 'true_false' %} qb--tf qb--v2{% elif qf.type == 'fill_blank' %} qb--fb qb--v2{% elif qf.type == 'multi' %} qb--mc qb--v2{% endif %}">
+{% if question_draft_saved_at %}
+    <div class="qf-draft-banner">
+        {% if question_draft_restored %}
+            <span>پیش‌نویس خودکارِ ذخیره‌شده در {{ question_draft_saved_at|fa_digits }} بازیابی شد. فایل‌هایی که پیش از ذخیره‌ی نهایی انتخاب شده بودند باید دوباره انتخاب شوند.</span>
+            <a href="?{% if not question_id %}type={{ qf.type }}&amp;{% endif %}draft=discard">حذف پیش‌نویس</a>
+        {% else %}
+            <span>یک پیش‌نویس خودکار ذخیره‌نشده از {{ question_draft_saved_at|fa_digits }} برای این فرم وجود دارد.</span>
+            <a class="is-primary" href="?{% if not question_id %}type={{ qf.type }}&amp;{% endif %}draft=restore">بازیابی</a>
+            <a href="?{% if not question_id %}type={{ qf.type }}&amp;{% endif %}draft=discard">حذف</a>
+        {% endif %}
+    </div>
+{% endif %}
+<form class="qb-form" method="post" enctype="multipart/form-data" data-question-create-form data-question-type="{{ qf.type }}" data-autosave-url="{% url 'core:teacher_question_autosave' %}"{% if question_id %} data-question-id="{{ question_id }}"{% endif %}>
+    {% csrf_token %}
+    <input type="hidden" name="type" value="{{ qf.type }}">
+    <input type="hidden" name="structure" value="independent">
+    <input type="hidden" name="feedback_mode" value="text">
+
+    <header class="qb-head">
+        <div>
+            <nav>بانک سؤالات / {% if question_id %}ویرایش سؤال{% else %}ایجاد سؤال{% endif %}</nav>
+            <h1>{% if question_id %}ویرایش سؤال{% else %}ایجاد سؤال جدید{% endif %}</h1>
+        </div>
+        <div class="qb-head-actions">
+            <span class="qb-autosave" data-autosave-state>{% include "teacher/_qb_icon.html" with name="check" %}<span data-autosave-text>ذخیره خودکار فعال است</span></span>
+            <button type="button" class="qb-btn" data-open-preview>{% include "teacher/_qb_icon.html" with name="eye" %}پیش‌نمایش دانشجو</button>
+        </div>
+    </header>
+
+    <section class="qb-type-row">
+        {% if qf.type == 'multi' and not question_id %}
+            {# Navigation only: another template opens its own builder. #}
+            <div class="qb-mc-template">
+                <small title="سؤال مستقل یا یکی از ساختارهای سناریو">{% include "teacher/_qb_icon.html" with name="info" %}قالب تخصصی</small>
+                <nav class="qb-pills" aria-label="قالب تخصصی">
+                    <a class="is-active" href="?type={{ qf.type }}" aria-current="page">سؤال مستقل</a>
+                    <a href="?type=case">سناریوی بیمار</a>
+                    <a href="?type=kfp">KFP</a>
+                    <a href="{% url 'core:teacher_osce_create' %}">OSCE</a>
+                </nav>
+            </div>
+        {% endif %}
+        <div class="qb-type-title">
+            <span class="qb-type-icon">{% include "teacher/_qb_icon.html" with name=qf.type %}</span>
+            <div>
+                <h2>{{ question_builder_label }}</h2>
+                <p>{% if qf.type == 'single' %}یک پاسخ صحیح بین گزینه‌ها{% elif qf.type == 'multi' %}انتخاب چند پاسخ صحیح از بین گزینه‌ها{% elif qf.type == 'true_false' %}گزینه‌ی دوحالته‌ی درست یا نادرست{% elif qf.type == 'short_answer' %}پاسخ متنی کوتاه با تصحیح خودکار{% elif qf.type == 'essay' %}پاسخ کامل با روبریک تصحیح{% elif qf.type == 'fill_blank' %}عبارات را با واژه‌های مناسب کامل کنید{% elif qf.type == 'matching' %}موارد ستون الف را با موارد مناسب ستون ب مطابقت دهید{% elif qf.type == 'ordering' %}موارد را به ترتیب صحیح مرتب کنید{% endif %}</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="qb-grid">
+        <main class="qb-main">
+            <section class="qb-card"{% if qf.type == 'multi' %} data-collapsible{% endif %}>
+                <div class="qb-card-head">
+                    <h3>{% if qf.type == 'multi' %}<button type="button" class="qb-collapse-btn" data-collapse-toggle aria-expanded="true" aria-label="جمع/باز کردن محتوای سؤال"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>{% endif %}محتوای سؤال <sup>*</sup></h3>
+                    <nav class="qb-pills" data-media-tabs>
+                        <button type="button" class="is-active" data-media-tab="text">{% include "teacher/_qb_icon.html" with name="text" %}متن</button>
+                        <button type="button" data-media-tab="image">{% include "teacher/_qb_icon.html" with name="image" %}تصویر</button>
+                        <button type="button" data-media-tab="audio">{% include "teacher/_qb_icon.html" with name="audio" %}صوت</button>
+                        <button type="button" data-media-tab="video">{% include "teacher/_qb_icon.html" with name="video" %}ویدئو</button>
+                    </nav>
+                </div>
+                <div class="qb-rich" data-stem-rich data-placeholder="{% if qf.type == 'fill_blank' %}مثال: جمجمه از دو بخش اصلی [۱] و [۲] تشکیل شده است.{% else %}متن سؤال را وارد کنید...{% endif %}">
+                    <div data-stem-editor></div>
+                    <small class="qb-rich-count" data-stem-count>۰/۵۰۰۰</small>
+                </div>
+                <input type="hidden" name="text_delta" value="{{ qf.text_delta|json_dumps }}" data-stem-delta>
+                {{ qf.text_delta|json_script:"question-text-delta" }}
+                <textarea name="text" data-question-text hidden>{{ qf.text }}</textarea>
+                {% if qf.type == 'fill_blank' %}
+                    <button type="button" class="qb-btn qb-insert-blank" data-insert-blank>{% include "teacher/_qb_icon.html" with name="plus" %}درج جای خالی در محل نشانگر</button>
+                    {# Live read-only view of the stem with each [n] marker in its blank row's colour. #}
+                    <p class="qb-fb-markers" data-fb-markers aria-live="polite"></p>
+                {% endif %}
+                {% if qf.type == 'true_false' %}
+                    {# True/false: stem media is attached here and managed in the side «رسانه سؤال» card. #}
+                    <div class="qb-tf-stem-media" data-tf-stem-mirror></div>
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.mp4,.webm" data-stem-pick hidden>
+                    <button type="button" class="qf-drop qb-tf-drop" data-stem-drop>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97M12 12v8m0-8-3 3m3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <strong>برای انتخاب، با کشیدن و رها کردن فایل یا <span>کلیک</span> اینجا اقدام کنید</strong>
+                        <small>تصویر حداکثر ۵، صوت ۲۰ و ویدئو ۳۰۰ مگابایت</small>
+                    </button>
+                {% elif qf.type == 'fill_blank' %}
+                    {% include "teacher/_qf_stem_media.html" with fb_layout=True %}
+                {% else %}
+                    {% include "teacher/_qf_stem_media.html" %}
+                {% endif %}
+                {% if qf.type == 'multi' %}<div class="qb-warn" data-multi-warning hidden>{% include "teacher/_qb_icon.html" with name="warning" %}<span data-multi-warning-text></span></div>{% endif %}
+            </section>
+
+            {% if qf.type == 'single' or qf.type == 'multi' or qf.type == 'true_false' %}
+                <section class="qb-card"{% if qf.type == 'multi' %} data-collapsible{% endif %}>
+                    <div class="qb-card-head">
+                        <h3>{% if qf.type == 'multi' %}<button type="button" class="qb-collapse-btn" data-collapse-toggle aria-expanded="true" aria-label="جمع/باز کردن گزینه‌ها"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>گزینه‌ها <small data-multi-range>(حداقل {{ qf.settings.min_correct|fa_digits }}{% if qf.settings.max_correct %} و حداکثر {{ qf.settings.max_correct|fa_digits }}{% endif %} پاسخ صحیح)</small>{% elif qf.type == 'true_false' %}گزینه‌های پاسخ {% include "teacher/_qb_icon.html" with name="info" %}{% else %}گزینه‌ها <small>(یک گزینه صحیح است)</small>{% endif %}</h3>
+                        <small>{% if qf.type == 'multi' %}همه‌ی گزینه‌های صحیح را علامت بزنید{% elif qf.type == 'true_false' %}یک گزینه را به عنوان پاسخ صحیح انتخاب کنید.{% else %}گزینه‌ی صحیح را انتخاب کنید{% endif %}</small>
+                    </div>
+                    {% if qf.type == 'multi' %}<div class="qb-option-head"><span title="امتیازی که انتخاب این گزینه‌ی صحیح در نمره‌دهی جزئی می‌گیرد (وزن گزینه)">امتیاز انتخاب{% include "teacher/_qb_icon.html" with name="info" %}</span><span title="کسری که انتخاب این گزینه در صورت نادرست بودن از نمره کم می‌کند">جریمه انتخاب نادرست{% include "teacher/_qb_icon.html" with name="info" %}</span><span></span></div>{% endif %}
+                    <div class="qb-rows" data-row-list="option" data-sortable>
+                        {% for option in qf.options %}
+                            <article class="qb-option{% if qf.type == 'true_false' %} qb-option--tf{% endif %}{% if option.is_correct %} is-correct{% endif %}">
+                                <span class="qb-handle" data-drag-handle title="جابه‌جایی">{% include "teacher/_qb_icon.html" with name="grip" %}</span>
+                                {% if qf.type == 'multi' %}<b class="qb-badge" data-row-number>{{ forloop.counter|fa_digits }}</b>{% endif %}
+                                <input type="{% if qf.type == 'multi' %}checkbox{% else %}radio{% endif %}" name="_correct_marker" data-correct-marker {% if option.is_correct %}checked{% endif %} aria-label="پاسخ صحیح">
+                                <input type="text" class="qb-option-text" data-option-text value="{{ option.text }}" placeholder="متن گزینه" {% if qf.type == 'true_false' %}readonly{% endif %}>
+                                <span class="qb-correct-badge">پاسخ صحیح</span>
+                                {% if qf.type == 'true_false' %}<span class="qb-wrong-badge">پاسخ صحیح نیست</span>{% endif %}
+                                {% if qf.type == 'true_false' %}{% include "teacher/_qf_media_slot.html" with url=option.media kind=option.media_kind base="option_media" labeled=True %}{% else %}{% include "teacher/_qf_media_slot.html" with url=option.media kind=option.media_kind base="option_media" %}{% endif %}
+                                {% if qf.type == 'multi' %}
+                                    <input type="number" class="qb-mini" data-option-points value="{{ option.points }}" step="0.25" min="0" title="امتیاز انتخاب این گزینه (وزن)">
+                                    <input type="number" class="qb-mini" data-option-penalty value="{{ option.penalty|default:'-0.5' }}" step="0.25" max="0" title="جریمه‌ی انتخاب این گزینه در صورت نادرست بودن">
+                                {% else %}
+                                    <input type="hidden" data-option-points value="{{ option.points }}">
+                                {% endif %}
+                                {% if qf.type != 'true_false' %}<button type="button" class="qb-icon-btn" data-remove-row title="حذف گزینه">{% include "teacher/_qb_icon.html" with name="trash" %}</button>{% endif %}
+                            </article>
+                        {% endfor %}
+                    </div>
+                    {% if qf.type != 'true_false' %}<button type="button" class="qb-add" data-add-row="option">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن گزینه</button>{% endif %}
+                </section>
+            {% elif qf.type == 'fill_blank' %}
+                <section class="qb-card">
+                    <div class="qb-card-head"><h3>تعریف جای‌خالی‌ها و پاسخ‌های پذیرفته‌شده</h3></div>
+                    <p class="qb-hint">در متن سؤال، محل هر جای خالی را با [۱]، [۲]، ... مشخص کنید (یا دکمه‌ی «درج جای خالی» را بزنید). دانشجو پاسخ را تایپ می‌کند؛ پاسخ‌های قابل قبول هر جای خالی را با کاما جدا کنید. ارقام فارسی/عربی و حروف «ي/ك» خودکار یکسان‌سازی می‌شوند.</p>
+                    <div class="qb-table-head"><span>#</span><span>پاسخ صحیح (پاسخ‌های پذیرفته‌شده)</span><span>بارم این جای خالی</span><span>حساس به حروف بزرگ/کوچک</span><span>نادیده گرفتن فاصله‌ها</span><span>راهنمای رسانه‌ای</span><span></span></div>
+                    <div data-row-list="blank">
+                        {% for blank in qf.blanks %}
+                            <article class="qb-blank">
+                                <b class="qb-badge" data-row-number>{{ forloop.counter|fa_digits }}</b>
+                                <input type="text" data-blank-answers value="{{ blank.answers }}" placeholder="مثلاً نوروکرانیوم، neurocranium">
+                                <input type="number" class="qb-mini" data-blank-points value="{{ blank.points }}" step="0.5" min="0" title="وزن این جای خالی در نمره">
+                                <label title="حساس به حروف بزرگ/کوچک"><input type="checkbox" data-blank-case {% if blank.case_sensitive %}checked{% endif %}></label>
+                                <label title="نادیده گرفتن فاصله‌ها"><input type="checkbox" data-blank-spaces {% if blank.ignore_spaces %}checked{% endif %}></label>
+                                {% include "teacher/_qf_media_slot.html" with url=blank.media kind=blank.media_kind base="blank_media" %}
+                                <button type="button" class="qb-icon-btn" data-remove-row title="حذف">{% include "teacher/_qb_icon.html" with name="trash" %}</button>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="qb-add" data-add-row="blank">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن جای خالی</button>
+                </section>
+            {% elif qf.type == 'matching' %}
+                <section class="qb-card">
+                    <div class="qb-card-head"><h3>جفت‌های تطبیقی</h3><small>هر ردیف یک جفت صحیح است؛ ستون ب برای دانشجو جابه‌جا نمایش داده می‌شود.</small></div>
+                    <div class="qb-pair-head"><span></span><span>ستون الف</span><span></span><span>ستون ب (پاسخ متناظر)</span><span></span></div>
+                    <div class="qb-rows" data-row-list="pair">
+                        {% for pair in qf.pairs %}
+                            <article class="qb-pair">
+                                <b class="qb-badge" data-row-number>{{ forloop.counter|fa_digits }}</b>
+                                <div class="qb-pair-card"><input type="text" data-pair-left value="{{ pair.left }}" placeholder="عبارت ستون الف">{% include "teacher/_qf_media_slot.html" with url=pair.left_media kind=pair.left_media_kind base="matching_left_media" %}</div>
+                                <span class="qb-pair-link" aria-hidden="true"></span>
+                                <div class="qb-pair-card"><input type="text" data-pair-right value="{{ pair.right }}" placeholder="پاسخ متناظر در ستون ب">{% include "teacher/_qf_media_slot.html" with url=pair.right_media kind=pair.right_media_kind base="matching_right_media" %}</div>
+                                <button type="button" class="qb-icon-btn" data-remove-row title="حذف جفت">{% include "teacher/_qb_icon.html" with name="trash" %}</button>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="qb-add" data-add-row="pair">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن جفت تطبیقی</button>
+                    <div class="qb-subcard">
+                        <h4>گزینه‌های اضافی ستون ب (مشتت‌کننده)</h4>
+                        <div data-row-list="distractor">
+                            {% for word in qf.distractors %}
+                                <article class="qb-distractor"><input type="text" data-distractor value="{{ word }}" placeholder="گزینه‌ی انحرافی"><button type="button" class="qb-icon-btn" data-remove-row title="حذف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></article>
+                            {% endfor %}
+                        </div>
+                        <template data-row-template="distractor"><article class="qb-distractor"><input type="text" data-distractor value="" placeholder="گزینه‌ی انحرافی"><button type="button" class="qb-icon-btn" data-remove-row title="حذف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></article></template>
+                        <input type="hidden" name="matching_distractors" value="" data-distractors-value>
+                        <button type="button" class="qb-add" data-add-row="distractor">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن گزینه اضافی (مشتت‌کننده)</button>
+                    </div>
+                    <div class="qb-subcard">
+                        <h4>نوع تطابق</h4>
+                        <div class="qb-pills">
+                            <label><input type="radio" name="matching_mode" value="one_to_one" {% if qf.settings.matching_mode != 'many_to_one' %}checked{% endif %}>یک‌به‌یک</label>
+                            <label><input type="radio" name="matching_mode" value="many_to_one" {% if qf.settings.matching_mode == 'many_to_one' %}checked{% endif %}>چند به یک (پاسخ مشترک مجاز)</label>
+                        </div>
+                    </div>
+                </section>
+            {% elif qf.type == 'ordering' %}
+                <section class="qb-card">
+                    <div class="qb-card-head"><h3>موارد (مرتب‌سازی توسط دانشجو)</h3><small>موارد را به ترتیب صحیح وارد کنید؛ با دستگیره جابه‌جا می‌شوند.</small></div>
+                    <div class="qb-rows" data-row-list="order" data-sortable>
+                        {% for item in qf.ordering %}
+                            <article class="qb-order">
+                                <span class="qb-handle" data-drag-handle title="جابه‌جایی">{% include "teacher/_qb_icon.html" with name="grip" %}</span>
+                                <b class="qb-badge" data-row-number>{{ forloop.counter|fa_digits }}</b>
+                                <input type="text" data-order-item value="{{ item.text }}" placeholder="عنوان مرحله">
+                                {% include "teacher/_qf_media_slot.html" with url=item.media kind=item.media_kind base="ordering_media" %}
+                                <button type="button" class="qb-icon-btn" data-remove-row title="حذف مرحله">{% include "teacher/_qb_icon.html" with name="trash" %}</button>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="qb-add" data-add-row="order">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن مرحله</button>
+                    <div class="qb-subcard">
+                        <h4>روش امتیازدهی</h4>
+                        <div class="qb-pills">
+                            <label><input type="radio" name="ordering_mode" value="exact" {% if qf.settings.ordering_mode == 'exact' %}checked{% endif %}>ترتیب دقیق</label>
+                            <label><input type="radio" name="ordering_mode" value="position" {% if qf.settings.ordering_mode == 'position' %}checked{% endif %}>جایگاه درست</label>
+                            <label><input type="radio" name="ordering_mode" value="adjacent" {% if qf.settings.ordering_mode == 'adjacent' %}checked{% endif %}>جفت‌های مجاور</label>
+                        </div>
+                        <p class="qb-help">«ترتیب دقیق»: فقط ترتیب کاملاً صحیح نمره می‌گیرد. «جایگاه درست»: به نسبت مواردی که در جای درست هستند. «جفت‌های مجاور»: به نسبت جفت‌های متوالیِ درست.</p>
+                    </div>
+                    <div class="qb-subcard">
+                        <h4>ترتیب صحیح (فقط برای طراح)</h4>
+                        <div class="qb-order-chips" data-order-chips></div>
+                    </div>
+                </section>
+            {% elif qf.type == 'short_answer' %}
+                <section class="qb-card">
+                    <div class="qb-card-head"><h3>پاسخ‌های پذیرفته‌شده {% include "teacher/_qb_icon.html" with name="info" %}</h3><small>حداقل یک پاسخ اصلی الزامی است.</small></div>
+                    <div class="qb-rows" data-row-list="accepted-main">
+                        {% include "teacher/_qf_accepted_row.html" with item=qf.accepted.0 number=1 main=True %}
+                    </div>
+                </section>
+                <section class="qb-card">
+                    <div class="qb-card-head"><h3>پاسخ‌های جایگزین {% include "teacher/_qb_icon.html" with name="info" %}</h3><small>املای دیگر، مترادف یا پاسخ کمتر کامل؛ با «امتیاز (٪)» نمره‌ی جزئی بگیرید.</small></div>
+                    <div class="qb-rows" data-row-list="accepted" data-number-offset="1">
+                        {% for item in qf.accepted|slice:"1:" %}
+                            {% include "teacher/_qf_accepted_row.html" with item=item number=forloop.counter|add:1 %}
+                        {% endfor %}
+                    </div>
+                    <template data-row-template="accepted">{% include "teacher/_qf_accepted_row.html" with item=None number=2 %}</template>
+                    <button type="button" class="qb-add" data-add-row="accepted">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن پاسخ جایگزین</button>
+                </section>
+            {% elif qf.type == 'essay' %}
+                <section class="qb-card">
+                    <div class="qb-card-head"><h3>دستورالعمل برای دانشجو</h3><small>در صفحه آزمون زیر صورت سؤال نمایش داده می‌شود.</small></div>
+                    <textarea name="student_instructions" rows="3" maxlength="1000" data-count-source placeholder="مثلاً: پاسخ خود را با استناد به منابع درسی ارائه دهید. توضیحات باید منظم، کامل و مبتنی بر شواهد فیزیولوژیک باشد.">{{ qf.essay.student_instructions }}</textarea>
+                    <small class="qb-count" data-count-out></small>
+                </section>
+                <section class="qb-card">
+                    <div class="qb-card-head"><h3>قالب پاسخ دانشجو <small>(انتخابی)</small></h3></div>
+                    <div class="qb-formats" role="group" aria-label="قالب پاسخ دانشجو">
+                        {% for key, label in essay_answer_formats.items %}
+                            <label class="qb-format"><input type="checkbox" name="answer_formats" value="{{ key }}"{% if key in qf.essay.answer_formats %} checked{% endif %}>{% if key == 'text' %}{% include "teacher/_qb_icon.html" with name="text" %}{% elif key == 'file' %}{% include "teacher/_qb_icon.html" with name="essay" %}{% else %}{% include "teacher/_qb_icon.html" with name=key %}{% endif %}{{ label }}</label>
+                        {% endfor %}
+                    </div>
+                    <p class="qb-help">دانشجو می‌تواند هر یک از قالب‌های انتخاب‌شده را در پاسخ استفاده کند (تصویر ۱۰، صوت ۲۰، ویدئو ۱۰۰ و فایل PDF/Word ۲۰ مگابایت؛ حداکثر ۵ فایل).</p>
+                </section>
+                <section class="qb-card">
+                    <div class="qb-essay-rubric">
+                        <div>
+                            <div class="qb-card-head"><h3>روبریک نمره‌دهی</h3><small>جمع کل: <b data-rubric-total>۰</b> نمره</small></div>
+                            <table class="qb-rubric">
+                                <thead><tr><th>معیار</th><th>عملکرد ضعیف<small>تا ۲۰٪ نمره</small></th><th>عملکرد متوسط<small>تا ۶۵٪ نمره</small></th><th>عملکرد عالی<small>تا نمره کامل</small></th><th>نمره</th></tr></thead>
+                                <tbody data-row-list="rubric">
+                                    {% for row in qf.rubric %}
+                                        <tr><td><input data-rubric-criterion value="{{ row.criterion }}" placeholder="مثلاً دقت علمی"></td><td><input data-rubric-weak value="{{ row.weak }}" placeholder="توصیف عملکرد ضعیف"><small data-rubric-range="weak"></small></td><td><input data-rubric-average value="{{ row.average }}" placeholder="توصیف عملکرد متوسط"><small data-rubric-range="average"></small></td><td><input data-rubric-excellent value="{{ row.excellent }}" placeholder="توصیف عملکرد عالی"><small data-rubric-range="excellent"></small></td><td><input type="number" data-rubric-points value="{{ row.points }}" step="0.5" min="0"></td></tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot><tr><td colspan="4">جمع کل</td><td data-rubric-total>۰</td></tr></tfoot>
+                            </table>
+                            <button type="button" class="qb-add" data-add-row="rubric">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن معیار</button>
+                        </div>
+                        <aside class="qb-essay-aside">
+                            <div>
+                                <h4>تنظیمات تصحیح</h4>
+                                <div class="qb-grading-box">
+                                    <label><input type="checkbox" checked disabled>تصحیح دستی (مدرس)</label>
+                                    <label class="qb-dev"><input type="checkbox" disabled>تصحیح ناشناس (Blind)<i class="qb-dev-badge">در حال توسعه</i></label>
+                                    <label class="qb-dev"><input type="checkbox" disabled>تصحیح توسط نمره‌دهنده دوم<i class="qb-dev-badge">در حال توسعه</i></label>
+                                </div>
+                            </div>
+                            <div class="qb-grading-box">
+                                <h4>پاسخ نمونه (اختیاری)</h4>
+                                <textarea name="sample_answer_text" rows="4" maxlength="3000" placeholder="پاسخ نمونه برای راهنمایی مصحح؛ به دانشجو نمایش داده نمی‌شود.">{{ qf.essay.sample_answer_text }}</textarea>
+                                {% if qf.essay.sample_answer_file %}
+                                    <div class="qb-sample-file">
+                                        <a href="{{ qf.essay.sample_answer_file.url }}" target="_blank" rel="noopener">{{ qf.essay.sample_answer_file.name }}</a>
+                                        <label><input type="checkbox" name="remove_sample_answer_file" value="1">حذف</label>
+                                        <input type="hidden" name="existing_sample_answer_file" value="{{ qf.essay.sample_answer_file.url }}">
+                                        <input type="hidden" name="existing_sample_answer_name" value="{{ qf.essay.sample_answer_file.name }}">
+                                    </div>
+                                {% endif %}
+                                <label class="qb-upload-btn">{% include "teacher/_qb_icon.html" with name="plus" %}<span data-sample-file-label>افزودن فایل پاسخ نمونه</span><input type="file" name="sample_answer_file" accept=".pdf,.jpg,.jpeg,.png" data-sample-file></label>
+                                <small class="qb-help">PDF، JPG، PNG — حداکثر ۱۰ مگابایت</small>
+                            </div>
+                        </aside>
+                    </div>
+                </section>
+            {% endif %}
+        </main>
+
+        <aside class="qb-side">
+            {% if qf.type == 'true_false' %}
+                <section class="qb-card qb-tf-media-card">
+                    <div class="qb-card-head"><h3>{% include "teacher/_qb_icon.html" with name="video" %}رسانه سؤال</h3></div>
+                    <p class="qb-help" data-tf-media-empty>هنوز رسانه‌ای برای صورت سؤال افزوده نشده است. از زبانه‌های «تصویر»، «صوت» یا «ویدئو» یا کادر بارگذاری استفاده کنید.</p>
+                    {% include "teacher/_qf_stem_media.html" with tf_layout=True %}
+                </section>
+            {% endif %}
+            <section class="qb-card">
+                <div class="qb-card-head"><h3>{% include "teacher/_qb_icon.html" with name="info" %}اطلاعات سؤال</h3></div>
+                {% if not question_id and qf.type != 'multi' %}
+                    {# Navigation only (no name): picking another template opens that template's own builder. #}
+                    <label class="qb-field">قالب تخصصی
+                        <select data-template-select>
+                            <option value="" selected>سؤال مستقل</option>
+                            <option value="?type=case">سناریوی بیمار</option>
+                            <option value="?type=kfp">KFP</option>
+                            <option value="{% url 'core:teacher_osce_create' %}">OSCE</option>
+                        </select>
+                    </label>
+                {% endif %}
+                <label class="qb-field">درس
+                    <select name="course_id" {% if question_course_options %}required{% endif %}>
+                        <option value="">انتخاب درس</option>
+                        {% for course in question_course_options %}<option value="{{ course.id }}" {% if course.id|stringformat:"s" == qf.course_id %}selected{% endif %}>{{ course.title|fa_digits }}</option>{% endfor %}
+                    </select>
+                    {% if not question_course_options %}<small>درسی به شما تخصیص داده نشده است؛ سؤال بدون درس ذخیره می‌شود.</small>{% endif %}
+                </label>
+                <label class="qb-field">مبحث<input type="text" name="subject" value="{{ qf.subject }}" placeholder="مثلاً قلب و عروق"></label>
+                <div class="qb-field">تگ‌ها
+                    <div class="qb-tags" data-tags>
+                        <input type="hidden" name="tags" value="{{ qf.tags }}" data-tags-value>
+                        <input type="text" data-tags-input placeholder="+ افزودن تگ (Enter)">
+                    </div>
+                </div>
+                <label class="qb-field">سطح دشواری
+                    <select name="difficulty">
+                        <option value="easy" {% if qf.difficulty == 'easy' %}selected{% endif %}>آسان</option>
+                        <option value="medium" {% if qf.difficulty == 'medium' %}selected{% endif %}>متوسط</option>
+                        <option value="hard" {% if qf.difficulty == 'hard' %}selected{% endif %}>دشوار</option>
+                    </select>
+                </label>
+                <div class="qb-row2">
+                    <label class="qb-field">بارم کل<span class="qb-unit-input"><input type="number" name="default_points" step="0.25" min="0" value="{{ qf.default_points }}"><em>نمره</em></span></label>
+                    <label class="qb-field">زمان پیشنهادی
+                        <span class="qb-icon-input">{% include "teacher/_qb_icon.html" with name="clock" %}<input type="text" data-time-input value="{{ qf.time_display }}" inputmode="numeric" placeholder="۰۲:۰۰" title="دقیقه:ثانیه"></span>
+                        <input type="hidden" name="suggested_time_seconds" value="{{ qf.suggested_time_seconds }}" data-time-value>
+                    </label>
+                </div>
+                <label class="qb-field">وضعیت انتشار
+                    <select name="is_published">
+                        <option value="1" {% if qf.is_published %}selected{% endif %}>منتشرشده — قابل استفاده در آزمون</option>
+                        <option value="" {% if not qf.is_published %}selected{% endif %}>پیش‌نویس</option>
+                    </select>
+                </label>
+            </section>
+
+            <section class="qb-card">
+                <div class="qb-card-head"><h3>بازخورد کلی (اختیاری)</h3></div>
+                <nav class="qb-pills" data-feedback-tabs style="margin-bottom:.75rem">
+                    <button type="button" class="{% if not qf.feedback_media %}is-active{% endif %}" data-feedback-tab="text">متن</button>
+                    <button type="button" class="{% if qf.feedback_media_kind == 'image' %}is-active{% endif %}" data-feedback-tab="image">تصویر</button>
+                    <button type="button" class="{% if qf.feedback_media_kind == 'audio' %}is-active{% endif %}" data-feedback-tab="audio">صوت</button>
+                    <button type="button" class="{% if qf.feedback_media_kind == 'video' %}is-active{% endif %}" data-feedback-tab="video">ویدئو</button>
+                </nav>
+                <div data-feedback-panel="text"{% if qf.feedback_media %} hidden{% endif %}>
+                    <textarea name="feedback_text" rows="4" maxlength="500" data-count-source placeholder="توضیح بازخورد که پس از پاسخ‌دهی به دانشجو نمایش داده می‌شود...">{{ qf.feedback_text }}</textarea>
+                    <small class="qb-count" data-count-out></small>
+                </div>
+                <div data-feedback-panel="media"{% if not qf.feedback_media %} hidden{% endif %}>
+                    {% include "teacher/_qf_media_slot.html" with url=qf.feedback_media kind=qf.feedback_media_kind file_name="feedback_media_file" existing_name="existing_feedback_media" remove_name="remove_feedback_media" label="فایل بازخورد" hint="تصویر ۵، صوت ۲۰، ویدئو ۳۰۰ مگابایت" large=True %}
+                    <p class="qb-help">بازخورد فقط یک رسانه دارد؛ فایل جدید جایگزین فایل قبلی می‌شود. متن بازخورد در زبانه‌ی «متن» حفظ می‌شود.</p>
+                </div>
+            </section>
+
+            <section class="qb-card qb-scoring">
+                <div class="qb-card-head"><h3>{% include "teacher/_qb_icon.html" with name="settings" %}تنظیمات امتیازدهی</h3></div>
+                {% if qf.type == 'multi' %}
+                    <div class="qb-segment" role="radiogroup" aria-label="شیوه نمره‌دهی">
+                        <label><input type="radio" name="scoring_mode" value="partial"{% if qf.settings.scoring_mode != 'all_or_nothing' %} checked{% endif %}>نمره‌دهی جزئی</label>
+                        <label><input type="radio" name="scoring_mode" value="all_or_nothing"{% if qf.settings.scoring_mode == 'all_or_nothing' %} checked{% endif %}>همه یا هیچ</label>
+                    </div>
+                    <label class="qb-field">نمره منفی <small>برای هر پاسخ نادرست؛ روی جریمه‌ی همه‌ی گزینه‌ها اعمال می‌شود</small>
+                        <span class="qb-stepper"><button type="button" data-step="0.25">+</button><input type="number" step="0.25" min="-10" max="0" value="-0.5" data-penalty-all aria-label="جریمه‌ی پیش‌فرض همه‌ی گزینه‌ها"><button type="button" data-step="-0.25">−</button></span>
+                    </label>
+                {% elif qf.type == 'fill_blank' or qf.type == 'matching' %}
+                    {# Unchecked box → the hidden value (all-or-nothing) is the one posted. #}
+                    <input type="hidden" name="scoring_mode" value="all_or_nothing">
+                    <label class="qb-switch"><span>امتیازدهی جزئی (Partial Credit)<small>خاموش: فقط پاسخ کاملاً درست نمره می‌گیرد (همه یا هیچ)</small></span><input type="checkbox" name="scoring_mode" value="partial" {% if qf.settings.scoring_mode != 'all_or_nothing' %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                {% endif %}
+                {% if qf.type == 'fill_blank' %}
+                    <input type="hidden" name="normalize_answers" value="0">
+                    <label class="qb-switch"><span>نرمال‌سازی پاسخ‌ها<small>یکسان‌سازی ارقام فارسی/عربی، حروف «ي/ك» و اعراب پیش از مقایسه</small></span><input type="checkbox" name="normalize_answers" value="1" {% if qf.settings.normalize_answers %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                {% endif %}
+                {% if qf.type == 'multi' %}
+                    <div class="qb-row2">
+                        <label class="qb-field">حداقل پاسخ صحیح<input type="number" name="min_correct" min="1" value="{{ qf.settings.min_correct }}" data-min-correct></label>
+                        <label class="qb-field">حداکثر انتخاب<input type="number" name="max_correct" min="0" value="{{ qf.settings.max_correct }}" data-max-correct></label>
+                    </div>
+                    <p class="qb-help">حداکثر انتخاب ۰ یعنی بدون محدودیت؛ انتخاب بیش از حد مجاز پاسخ غلط است. در نمره‌ی جزئی، «امتیاز انتخاب» وزن هر گزینه‌ی صحیح و «جریمه» کسر هر گزینه‌ی غلطِ انتخاب‌شده است.</p>
+                    <label class="qb-switch"><span>حداقل نمره کل: ۰<small>نمره کل هرگز از صفر کمتر نشود</small></span><input type="checkbox" name="floor_zero" value="1" {% if qf.settings.floor_zero %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                {% endif %}
+                {% if qf.type != 'essay' and qf.type != 'short_answer' and qf.type != 'multi' %}
+                    <label class="qb-switch"><span>اعمال جریمه نمره منفی<small>برای هر پاسخ نادرست{% if qf.type != 'single' and qf.type != 'true_false' %} (در حالت همه یا هیچ){% endif %}</small></span><input type="checkbox" name="negative_marking" value="1" {% if qf.settings.negative_marking %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                    <label class="qb-field">ضریب نمره‌ی منفی (کسری از بارم)
+                        <span class="qb-stepper"><button type="button" data-step="0.05">+</button><input type="number" name="negative_value" step="0.05" min="0" max="1" value="{{ qf.settings.negative_value }}"><button type="button" data-step="-0.05">−</button></span>
+                        <small>مثلاً ۰٫۲۵ یعنی پاسخ غلط یک‌چهارم بارم کسر می‌کند؛ سؤال بی‌پاسخ نمره‌ی منفی ندارد.</small>
+                    </label>
+                {% endif %}
+                {% if qf.type == 'single' or qf.type == 'multi' %}
+                    <label class="qb-switch"><span>تصادفی‌سازی گزینه‌ها<small>ترتیب گزینه‌ها برای هر دانشجو متفاوت است</small></span><input type="checkbox" name="shuffle_options" value="1" {% if qf.settings.shuffle_options %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                {% endif %}
+                {% if qf.type == 'short_answer' %}
+                    <label class="qb-switch"><span>نمره‌ی منفی<small>در این نوع سؤال پاسخ نامنطبق به‌جای کسر نمره به تصحیح دستی می‌رود</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span></label>
+                    <input type="hidden" name="scoring_mode" value="all_or_nothing">
+                    <label class="qb-switch"><span>امتیاز بخشی<small>پاسخ‌های جایگزین به اندازه‌ی «امتیاز (٪)» خود نمره بگیرند؛ خاموش: فقط پاسخ ۱۰۰٪ نمره دارد</small></span><input type="checkbox" name="scoring_mode" value="partial" {% if qf.settings.scoring_mode != 'all_or_nothing' %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                    <label class="qb-field">حداقل امتیاز برای پاسخ صحیح (٪)<input type="number" name="correct_threshold" min="0" max="100" step="5" value="{{ qf.settings.correct_threshold }}"><small>پاسخی با امتیاز کمتر از این درصد در گزارش‌ها «صحیح» شمرده نمی‌شود؛ نمره‌ی آن تغییری نمی‌کند.</small></label>
+                    <label class="qb-switch"><span>بر هم زدن ترتیب گزینه‌ها<small>در این نوع سؤال غیرفعال است</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span></label>
+                    <p class="qb-help">پاسخ‌ها با قواعد هر ردیف خودکار تصحیح می‌شوند و بهترین تطابق نمره می‌گیرد. پاسخی که با هیچ قاعده‌ای منطبق نباشد صفر نمی‌شود و برای بازبینی به صف تصحیح دستی استاد می‌رود.</p>
+                {% endif %}
+                {% if qf.type == 'essay' %}
+                    <p class="qb-help">پاسخ تشریحی همیشه به‌صورت دستی و با کمک روبریک تصحیح می‌شود.</p>
+                {% endif %}
+                {% if qf.type == 'ordering' %}
+                    <p class="qb-help">روش امتیازدهی ترتیب در پایین فهرست موارد تنظیم می‌شود.</p>
+                {% endif %}
+            </section>
+        </aside>
+    </div>
+
+    <footer class="qb-footer">
+        <button type="button" class="qb-btn qb-btn--muted" data-open-preview>{% include "teacher/_qb_icon.html" with name="eye" %}پیش‌نمایش دانشجو</button>
+        <a class="qb-btn qb-btn--muted" href="{% url 'core:teacher_questions' %}">انصراف</a>
+        <button type="submit" class="qb-btn" name="draft" value="1">{% include "teacher/_qb_icon.html" with name="save" %}ذخیره پیش‌نویس</button>
+        {% if not question_id %}<button type="submit" class="qb-btn" name="save_next" value="1">{% include "teacher/_qb_icon.html" with name="arrow" %}ذخیره و سؤال بعدی</button>{% endif %}
+        <button type="submit" class="qb-btn qb-btn--primary" name="save" value="1">{% include "teacher/_qb_icon.html" with name="check" %}{% if question_id %}ذخیره تغییرات{% else %}ثبت سؤال{% endif %}</button>
+    </footer>
+</form>
+</div>
+{# Outside .qb so the builder's form-control styles don't leak into the exam view. #}
+{% include "teacher/_qf_exam_preview.html" %}
+<script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>
+<script src="{% static 'js/waveform-player.js' %}" defer></script>
+<script>
+(() => {
+  const createForm = document.querySelector('[data-question-create-form]');
+  if (!createForm) return;
+  const questionType = createForm.dataset.questionType || 'single';
+  const toFa = (value) => String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const toEn = (value) => String(value).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  const mediaLimits = { image: 5, audio: 20, video: 300 };
+  const pickAccept = { image: '.jpg,.jpeg,.png,.webp,.gif', audio: '.mp3,.wav,.ogg,.m4a', video: '.mp4,.webm' };
+  const allAccept = Object.values(pickAccept).join(',');
+  const textArea = createForm.querySelector('[data-question-text]');
+  createForm.querySelectorAll('[data-collapse-toggle]').forEach((button) => button.addEventListener('click', () => {
+    const card = button.closest('[data-collapsible]');
+    card.classList.toggle('is-collapsed');
+    button.setAttribute('aria-expanded', card.classList.contains('is-collapsed') ? 'false' : 'true');
+  }));
+  // Multiple-answer: one penalty field sets every option's «جریمه انتخاب نادرست».
+  const penaltyAll = createForm.querySelector('[data-penalty-all]');
+  if (penaltyAll) {
+    const penalties = [...createForm.querySelectorAll('[data-option-penalty]')].map((input) => input.value);
+    if (penalties.length && penalties.every((value) => value === penalties[0])) penaltyAll.value = penalties[0];
+    penaltyAll.addEventListener('input', () => {
+      const value = Math.min(0, Number(toEn(penaltyAll.value)) || 0);
+      createForm.querySelectorAll('[data-option-penalty]').forEach((input) => { input.value = String(value); });
+    });
+  }
+  // Question stem: Quill edits a Delta; the server renders safe HTML from it and derives the plain `text`.
+  let stemQuill = null;
+  const stemRich = createForm.querySelector('[data-stem-rich]');
+  if (stemRich && window.Quill) {
+    const deltaInput = createForm.querySelector('[data-stem-delta]');
+    const counter = stemRich.querySelector('[data-stem-count]');
+    stemQuill = new Quill(stemRich.querySelector('[data-stem-editor]'), {
+      theme: 'snow',
+      placeholder: stemRich.dataset.placeholder || 'متن سؤال را وارد کنید...',
+      modules: { toolbar: [[{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], [{ align: [] }], ['link'], ['clean']] },
+    });
+    const stored = JSON.parse(document.getElementById('question-text-delta').textContent);
+    if (stored && Array.isArray(stored.ops)) stemQuill.setContents(stored, 'silent');
+    const syncStem = () => {
+      deltaInput.value = JSON.stringify(stemQuill.getContents());
+      const plain = stemQuill.getText().trim();
+      textArea.value = plain;
+      counter.textContent = `${toFa(plain.length)}/۵۰۰۰`;
+      counter.classList.toggle('is-over', plain.length > 5000);
+    };
+    stemQuill.on('text-change', () => {
+      syncStem();
+      textArea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    syncStem();
+  } else if (stemRich) {
+    stemRich.querySelector('[data-stem-editor]').textContent = 'ویرایشگر بارگذاری نشد؛ صفحه را دوباره بارگذاری کنید.';
+  }
+  createForm.querySelector('[data-sample-file]')?.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    createForm.querySelector('[data-sample-file-label]').textContent = file ? file.name : 'افزودن فایل پاسخ نمونه';
+  });
+  const formatSize = (bytes) => bytes >= 1024 * 1024 ? `${toFa((bytes / 1024 / 1024).toFixed(1))} MB` : `${toFa(Math.max(1, Math.round(bytes / 1024)))} KB`;
+
+  const addHidden = (name, value) => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value ?? '';
+    input.dataset.generatedField = '1';
+    createForm.append(input);
+  };
+  const renumber = (list) => {
+    const offset = Number(list.dataset.numberOffset || 0);
+    [...list.children].forEach((row, index) => {
+      const label = row.querySelector('[data-row-number]');
+      if (label) label.textContent = toFa(index + 1 + offset);
+    });
+  };
+  const syncCorrectClass = () => {
+    const anyChecked = !!createForm.querySelector('[data-row-list="option"] [data-correct-marker]:checked');
+    createForm.querySelectorAll('[data-row-list="option"] article').forEach((row) => {
+      const checked = !!row.querySelector('[data-correct-marker]')?.checked;
+      row.classList.toggle('is-correct', checked);
+      // True/false: the other option is flagged «پاسخ صحیح نیست» only once a correct answer is chosen.
+      if (row.classList.contains('qb-option--tf')) row.classList.toggle('is-wrong', anyChecked && !checked);
+    });
+    checkMultiRange();
+  };
+
+  // ----- media slots -----
+  const resetMediaSlot = (slot, removed) => {
+    const file = slot.querySelector('[data-media-file]');
+    file.value = '';
+    slot.querySelector('[data-media-existing]').value = '';
+    slot.querySelector('[data-media-remove]').value = removed ? '1' : '';
+    const preview = slot.querySelector('[data-media-preview]');
+    preview.querySelectorAll('img, audio, video').forEach((el) => { if (el.src.startsWith('blob:')) URL.revokeObjectURL(el.src); });
+    preview.innerHTML = '';
+    slot.querySelectorAll('[data-media-name], [data-media-size], [data-media-duration]').forEach((el) => { el.textContent = ''; });
+    slot.classList.remove('has-media');
+    refreshTfMedia();
+  };
+  // Audio/video length shown next to the file size once the browser has read the metadata.
+  const formatDuration = (seconds) => `${toFa(Math.floor(seconds / 60))}:${toFa(String(Math.floor(seconds % 60)).padStart(2, '0'))}`;
+  const watchDuration = (slot, el) => {
+    const out = slot.querySelector('[data-media-duration]');
+    if (!out || el.tagName === 'IMG') return;
+    const show = () => { if (Number.isFinite(el.duration)) out.textContent = `مدت زمان: ${formatDuration(el.duration)}`; };
+    if (el.readyState >= 1) show(); else el.addEventListener('loadedmetadata', show, { once: true });
+  };
+  const showMediaFile = (slot, file) => {
+    const kind = (file.type || '').split('/')[0];
+    const limit = mediaLimits[kind];
+    const slotLimit = Number(slot.dataset.mediaLimit || 0);
+    if (!limit) { alert('فقط فایل تصویر، صوت یا ویدئو مجاز است.'); return false; }
+    if (file.size > (slotLimit || limit) * 1024 * 1024) { alert(`حجم فایل بیش از ${toFa(slotLimit || limit)} مگابایت است.`); return false; }
+    const preview = slot.querySelector('[data-media-preview]');
+    preview.querySelectorAll('img, audio, video').forEach((el) => { if (el.src.startsWith('blob:')) URL.revokeObjectURL(el.src); });
+    preview.innerHTML = '';
+    const el = document.createElement(kind === 'image' ? 'img' : kind);
+    if (kind === 'image') el.alt = ''; else el.controls = true;
+    el.src = URL.createObjectURL(file);
+    if (kind !== 'image') el.preload = 'metadata';
+    preview.append(el);
+    const duration = slot.querySelector('[data-media-duration]');
+    if (duration) duration.textContent = '';
+    watchDuration(slot, el);
+    const name = slot.querySelector('[data-media-name]');
+    if (name) name.textContent = file.name;
+    const size = slot.querySelector('[data-media-size]');
+    if (size) size.textContent = `اندازه: ${formatSize(file.size)}`;
+    else if (name) name.textContent = `${file.name} — ${formatSize(file.size)}`;
+    slot.querySelector('[data-media-remove]').value = '';
+    slot.classList.add('has-media');
+    refreshTfMedia();
+    return true;
+  };
+  // True/false: the stem's media lives in the side «رسانه سؤال» card; the content card mirrors it
+  // and its single dropzone routes a file to the image/audio/video slot matching its type.
+  // Fill-in-the-blank reuses the same router for its «افزودن تصویر/صوت/ویدئو» tile.
+  const tfMirror = createForm.querySelector('[data-tf-stem-mirror]');
+  const tfEmpty = createForm.querySelector('[data-tf-media-empty]');
+  function refreshTfMedia() {
+    if (!tfMirror) { applySubtitleTrack(); return; }
+    tfMirror.innerHTML = '';
+    createForm.querySelectorAll('[data-media-panel] [data-media-slot].has-media [data-media-preview]').forEach((preview) => {
+      const media = preview.querySelector('img, audio, video');
+      if (!media) return;
+      const copy = document.createElement(media.tagName.toLowerCase());
+      copy.src = media.src;
+      if (copy.tagName === 'IMG') copy.alt = ''; else { copy.controls = true; copy.preload = 'metadata'; }
+      tfMirror.append(copy);
+    });
+    if (tfEmpty) tfEmpty.hidden = [...createForm.querySelectorAll('[data-media-panel]')].some((panel) => !panel.hidden);
+    applySubtitleTrack();
+  }
+  const routeStemFile = (file) => {
+    const kind = (file?.type || '').split('/')[0];
+    const panel = createForm.querySelector(`[data-media-panel="${kind}"]`);
+    if (!panel) { alert('فقط فایل تصویر، صوت یا ویدئو مجاز است.'); return; }
+    const slot = panel.querySelector('[data-media-slot]');
+    const input = slot.querySelector('[data-media-file]');
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+    if (!showMediaFile(slot, file)) { input.value = ''; return; }
+    panel.hidden = false;
+    refreshTfMedia();
+    scheduleAutosave({ target: input });
+  };
+  const stemPick = createForm.querySelector('[data-stem-pick]');
+  // Video subtitles: show the chosen (or saved) WebVTT track on the stem video previews.
+  const subtitleInput = createForm.querySelector('[data-subtitle-file]');
+  let subtitleUrl = createForm.querySelector('[data-subtitle-existing]')?.value || '';
+  function applySubtitleTrack() {
+    createForm.querySelectorAll('[data-media-panel="video"] video, [data-tf-stem-mirror] video').forEach((video) => {
+      video.querySelectorAll('track').forEach((track) => track.remove());
+      if (!subtitleUrl) return;
+      const track = document.createElement('track');
+      Object.assign(track, { kind: 'subtitles', srclang: 'fa', label: 'فارسی', src: subtitleUrl, default: true });
+      video.append(track);
+    });
+  }
+  subtitleInput?.addEventListener('change', () => {
+    const file = subtitleInput.files?.[0];
+    if (file && !/\.vtt$/i.test(file.name)) { alert('فایل زیرنویس باید با پسوند .vtt باشد.'); subtitleInput.value = ''; return; }
+    if (file && file.size > 512 * 1024) { alert('حجم فایل زیرنویس بیش از ۵۱۲ کیلوبایت است.'); subtitleInput.value = ''; return; }
+    if (subtitleUrl.startsWith('blob:')) URL.revokeObjectURL(subtitleUrl);
+    subtitleUrl = file ? URL.createObjectURL(file) : (createForm.querySelector('[data-subtitle-existing]')?.value || '');
+    createForm.querySelector('[data-subtitle-label]').textContent = file ? file.name : 'افزودن فایل زیرنویس (.vtt)';
+    applySubtitleTrack();
+  });
+  stemPick?.addEventListener('change', () => {
+    if (stemPick.files?.[0]) routeStemFile(stemPick.files[0]);
+    stemPick.value = '';
+  });
+  const openPicker = (slot, kind) => {
+    const input = slot.querySelector('[data-media-file]');
+    if (kind) input.accept = pickAccept[kind] || allAccept;
+    input.click();
+  };
+  createForm.addEventListener('dragover', (event) => {
+    const slot = event.target.closest('.qf-media--large, [data-stem-drop]');
+    if (!slot) return;
+    event.preventDefault();
+    slot.classList.add('is-dragover');
+  });
+  createForm.addEventListener('dragleave', (event) => event.target.closest('.qf-media--large, [data-stem-drop]')?.classList.remove('is-dragover'));
+  createForm.addEventListener('drop', (event) => {
+    const stemDrop = event.target.closest('[data-stem-drop]');
+    if (stemDrop && event.dataTransfer?.files?.length) {
+      event.preventDefault();
+      stemDrop.classList.remove('is-dragover');
+      routeStemFile(event.dataTransfer.files[0]);
+      return;
+    }
+    const slot = event.target.closest('.qf-media--large');
+    if (!slot || !event.dataTransfer?.files?.length) return;
+    event.preventDefault();
+    slot.classList.remove('is-dragover');
+    const input = slot.querySelector('[data-media-file]');
+    const transfer = new DataTransfer();
+    transfer.items.add(event.dataTransfer.files[0]);
+    input.files = transfer.files;
+    if (!showMediaFile(slot, input.files[0])) input.value = '';
+    scheduleAutosave(event);
+  });
+
+  // ----- rows -----
+  const cloneRow = (list) => {
+    if (!list) return null;
+    const template = list.lastElementChild || createForm.querySelector(`template[data-row-template="${list.dataset.rowList}"]`)?.content.firstElementChild;
+    if (!template) return null;
+    const clone = template.cloneNode(true);
+    clone.classList.remove('is-correct', 'qb-dragging');
+    clone.querySelectorAll('[data-media-slot]').forEach((slot) => resetMediaSlot(slot, false));
+    clone.querySelectorAll('input, select').forEach((input) => {
+      if (input.matches('[data-media-existing], [data-media-remove], [data-media-file]')) return;
+      if (input.tagName === 'SELECT') input.selectedIndex = 0;
+      else if (input.type === 'radio' || input.type === 'checkbox') input.checked = input.matches('[data-blank-spaces], [data-accepted-normalize]');
+      else if (input.matches('[data-option-points], [data-blank-points]')) input.value = '1';
+      else if (input.matches('[data-option-penalty]')) input.value = '-0.5';
+      else if (input.matches('[data-accepted-points]')) input.value = '100';
+      else if (input.matches('[data-accepted-tolerance]')) input.value = '0';
+      else input.value = '';
+    });
+    list.append(clone);
+    renumber(list);
+    return clone;
+  };
+  const markerCount = () => {
+    const numbers = [...(textArea?.value || '').matchAll(/\[([۰-۹٠-٩0-9]+)\]/g)].map((m) => Number(toEn(m[1])));
+    return numbers.length ? Math.max(numbers.length, ...numbers) : 0;
+  };
+  const blankList = createForm.querySelector('[data-row-list="blank"]');
+  const ensureBlankRows = () => {
+    if (!blankList) return;
+    while (blankList.children.length < markerCount()) cloneRow(blankList);
+    refreshBlankMarkers();
+  };
+  // Fill-in-the-blank: show the stem with each [n] as a chip coloured like blank row n (red if that row is missing).
+  const blankMarkers = createForm.querySelector('[data-fb-markers]');
+  function refreshBlankMarkers() {
+    if (!blankMarkers) return;
+    const rows = blankList ? blankList.children.length : 0;
+    const safe = String(textArea?.value || '').trim().replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    blankMarkers.innerHTML = safe.replace(/\[([۰-۹٠-٩0-9]+)\]/g, (match, digits) => {
+      const n = Number(toEn(digits));
+      const missing = !n || n > rows;
+      return `<b class="qb-fb-chip${missing ? ' is-missing' : ''}" data-color="${(n - 1) % 3}" title="${missing ? 'ردیف این جای خالی تعریف نشده است' : `جای خالی ${toFa(n)}`}">${toFa(n)}</b>`;
+    });
+  }
+
+  // ----- order chips, rubric total, multi range, counters -----
+  const orderChips = createForm.querySelector('[data-order-chips]');
+  const refreshOrderChips = () => {
+    if (!orderChips) return;
+    const items = [...createForm.querySelectorAll('[data-order-item]')].map((input) => input.value.trim()).filter(Boolean);
+    orderChips.innerHTML = items.length ? items.map((_, i) => `<span>${toFa(i + 1)}</span>`).join('<i>←</i>') : '<small class="qb-help">هنوز موردی وارد نشده است.</small>';
+  };
+  const refreshRubricTotal = () => {
+    const total = [...createForm.querySelectorAll('[data-rubric-points]')].reduce((sum, input) => sum + (Number(toEn(input.value)) || 0), 0);
+    createForm.querySelectorAll('[data-rubric-total]').forEach((el) => { el.textContent = toFa(total); });
+    // Score band of each performance level: weak up to 20%, average up to 65%, excellent up to full marks.
+    createForm.querySelectorAll('[data-row-list="rubric"] tr').forEach((row) => {
+      const points = Number(toEn(row.querySelector('[data-rubric-points]')?.value || 0)) || 0;
+      const step = Number.isInteger(points) && points >= 3 ? 1 : 0.5;
+      const weakTop = Math.floor(points * 0.2 / step) * step;
+      const averageTop = Math.floor(points * 0.65 / step) * step;
+      const bands = { weak: [0, weakTop], average: [weakTop + step, averageTop], excellent: [averageTop + step, points] };
+      row.querySelectorAll('[data-rubric-range]').forEach((el) => {
+        const [low, high] = bands[el.dataset.rubricRange];
+        el.textContent = points && low <= high ? `(${toFa(low)}–${toFa(high)})` : '';
+      });
+    });
+  };
+  const multiWarning = createForm.querySelector('[data-multi-warning]');
+  function checkMultiRange() {
+    if (!multiWarning) return;
+    const min = Number(toEn(createForm.querySelector('[data-min-correct]')?.value || 1)) || 1;
+    const max = Number(toEn(createForm.querySelector('[data-max-correct]')?.value || 0)) || 0;
+    const correct = createForm.querySelectorAll('[data-row-list="option"] [data-correct-marker]:checked').length;
+    const range = max ? `حداقل ${toFa(min)} و حداکثر ${toFa(max)}` : `حداقل ${toFa(min)}`;
+    const label = createForm.querySelector('[data-multi-range]');
+    if (label) label.textContent = `(${range} پاسخ صحیح)`;
+    const bad = correct < 1 || (max && correct > max);
+    multiWarning.hidden = !bad;
+    createForm.querySelector('[data-multi-warning-text]').textContent = correct < 1 ? 'حداقل یک گزینه‌ی صحیح علامت بزنید.' : `تعداد گزینه‌های صحیح (${toFa(correct)}) بیش از حداکثر انتخاب (${toFa(max)}) است.`;
+  }
+  // Each counted field shows its length in the [data-count-out] next to it.
+  const countPairs = [...createForm.querySelectorAll('[data-count-source]')].map((source) => [source, source.parentElement.querySelector('[data-count-out]')]);
+  const refreshCount = () => countPairs.forEach(([source, out]) => { if (out) out.textContent = `${toFa(source.value.length)}/${toFa(source.maxLength)}`; });
+
+  // ----- tags -----
+  const tagsBox = createForm.querySelector('[data-tags]');
+  const tagsValue = createForm.querySelector('[data-tags-value]');
+  const tagsInput = createForm.querySelector('[data-tags-input]');
+  const tagList = () => (tagsValue.value || '').split(/[,،]/).map((tag) => tag.trim()).filter(Boolean);
+  const renderTags = () => {
+    tagsBox.querySelectorAll('.qb-chip').forEach((chip) => chip.remove());
+    tagList().forEach((tag, index) => {
+      const chip = document.createElement('span');
+      chip.className = 'qb-chip';
+      chip.textContent = tag;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `حذف تگ ${tag}`);
+      remove.addEventListener('click', () => {
+        const tags = tagList();
+        tags.splice(index, 1);
+        tagsValue.value = tags.join(', ');
+        renderTags();
+        scheduleAutosave({ target: tagsBox });
+      });
+      chip.append(remove);
+      tagsBox.insertBefore(chip, tagsInput);
+    });
+  };
+  const commitTag = () => {
+    const tag = tagsInput.value.replace(/[,،]/g, '').trim();
+    if (!tag) return;
+    const tags = tagList();
+    if (!tags.includes(tag)) tags.push(tag);
+    tagsValue.value = tags.join(', ');
+    tagsInput.value = '';
+    renderTags();
+  };
+  tagsInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ',' || event.key === '،') { event.preventDefault(); commitTag(); }
+    else if (event.key === 'Backspace' && !tagsInput.value && tagList().length) {
+      tagsValue.value = tagList().slice(0, -1).join(', ');
+      renderTags();
+    }
+  });
+  tagsInput?.addEventListener('blur', commitTag);
+
+  // ----- time (mm:ss) -----
+  const timeInput = createForm.querySelector('[data-time-input]');
+  const timeValue = createForm.querySelector('[data-time-value]');
+  const syncTime = () => {
+    const raw = toEn(timeInput.value).trim();
+    if (!raw) return;
+    const [minutes, seconds = '0'] = raw.split(':');
+    const total = (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
+    timeValue.value = String(Math.max(0, Math.round(total)));
+  };
+  timeInput?.addEventListener('input', syncTime);
+  timeInput?.addEventListener('blur', () => {
+    syncTime();
+    const total = Number(timeValue.value) || 0;
+    timeInput.value = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  });
+
+  // ----- template picker (navigation only) -----
+  createForm.querySelector('[data-template-select]')?.addEventListener('change', (event) => {
+    if (event.target.value) window.location.href = event.target.value;
+  });
+
+  // ----- tabs -----
+  createForm.querySelectorAll('[data-media-tab]').forEach((tab) => tab.addEventListener('click', () => {
+    createForm.querySelectorAll('[data-media-tab]').forEach((other) => other.classList.toggle('is-active', other === tab));
+    const kind = tab.dataset.mediaTab;
+    createForm.querySelectorAll('[data-media-panel]').forEach((panel) => {
+      const hasMedia = panel.querySelector('[data-media-slot]')?.classList.contains('has-media');
+      panel.hidden = !(hasMedia || panel.dataset.mediaPanel === kind);
+    });
+    refreshTfMedia();
+    if (kind === 'text') { textArea?.focus(); return; }
+    createForm.querySelector(`[data-media-panel="${kind}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }));
+  const feedbackSlot = createForm.querySelector('[data-feedback-panel="media"] [data-media-slot]');
+  createForm.querySelectorAll('[data-feedback-tab]').forEach((tab) => tab.addEventListener('click', () => {
+    createForm.querySelectorAll('[data-feedback-tab]').forEach((other) => other.classList.toggle('is-active', other === tab));
+    const kind = tab.dataset.feedbackTab;
+    createForm.querySelector('[data-feedback-panel="text"]').hidden = kind !== 'text';
+    createForm.querySelector('[data-feedback-panel="media"]').hidden = kind === 'text';
+    if (kind !== 'text' && feedbackSlot) {
+      feedbackSlot.querySelector('[data-media-file]').accept = pickAccept[kind];
+      feedbackSlot.dataset.mediaLimit = mediaLimits[kind];
+    }
+  }));
+
+  // ----- drag reorder (options / ordering) -----
+  let dragRow = null;
+  createForm.addEventListener('pointerdown', (event) => {
+    const handle = event.target.closest('[data-drag-handle]');
+    if (handle) handle.closest('article').draggable = true;
+  });
+  createForm.addEventListener('pointerup', (event) => {
+    const row = event.target.closest('[data-drag-handle]')?.closest('article');
+    if (row && row !== dragRow) row.draggable = false;
+  });
+  createForm.addEventListener('dragstart', (event) => {
+    const row = event.target.closest?.('[data-sortable] > article');
+    if (!row || !row.draggable) return;
+    dragRow = row;
+    row.classList.add('qb-dragging');
+    event.dataTransfer.effectAllowed = 'move';
+  });
+  createForm.addEventListener('dragend', () => {
+    if (!dragRow) return;
+    dragRow.classList.remove('qb-dragging');
+    dragRow.draggable = false;
+    renumber(dragRow.parentElement);
+    refreshOrderChips();
+    dragRow = null;
+  });
+  createForm.querySelectorAll('[data-sortable]').forEach((list) => list.addEventListener('dragover', (event) => {
+    if (!dragRow || dragRow.parentElement !== list) return;
+    event.preventDefault();
+    const after = [...list.children].find((row) => row !== dragRow && event.clientY < row.getBoundingClientRect().top + row.offsetHeight / 2);
+    list.insertBefore(dragRow, after || null);
+  }));
+
+  // ----- clicks -----
+  createForm.addEventListener('click', (event) => {
+    const addButton = event.target.closest('[data-add-row]');
+    if (addButton) {
+      const clone = cloneRow(createForm.querySelector(`[data-row-list="${addButton.dataset.addRow}"]`));
+      clone?.querySelector('input[type="text"], input:not([type])')?.focus();
+      refreshOrderChips();
+      refreshBlankMarkers();
+      return;
+    }
+    if (event.target.closest('[data-insert-blank]') && textArea) {
+      const marker = `[${toFa(markerCount() + 1)}]`;
+      if (stemQuill) {
+        // Rich stem: insert at the editor caret; text-change syncs the plain text and adds the blank row.
+        const range = stemQuill.getSelection(true) || { index: Math.max(stemQuill.getLength() - 1, 0) };
+        stemQuill.insertText(range.index, marker, 'user');
+        stemQuill.setSelection(range.index + marker.length, 0, 'silent');
+        return;
+      }
+      const start = textArea.selectionStart ?? textArea.value.length;
+      const end = textArea.selectionEnd ?? start;
+      textArea.value = textArea.value.slice(0, start) + marker + textArea.value.slice(end);
+      textArea.focus();
+      textArea.setSelectionRange(start + marker.length, start + marker.length);
+      ensureBlankRows();
+      return;
+    }
+    if (event.target.closest('[data-stem-drop]')) { stemPick?.click(); return; }
+    const pick = event.target.closest('[data-media-pick]');
+    if (pick) { openPicker(pick.closest('[data-media-slot]'), pick.dataset.mediaPick); return; }
+    const drop = event.target.closest('[data-media-drop], [data-media-replace]');
+    if (drop) { openPicker(drop.closest('[data-media-slot]')); return; }
+    const clearButton = event.target.closest('[data-media-clear]');
+    if (clearButton) { resetMediaSlot(clearButton.closest('[data-media-slot]'), true); scheduleAutosave(event); return; }
+    const stepButton = event.target.closest('[data-step]');
+    if (stepButton) {
+      const input = stepButton.parentElement.querySelector('input');
+      const next = Math.min(Math.max((Number(toEn(input.value)) || 0) + Number(stepButton.dataset.step), Number(input.min || 0)), Number(input.max || 1));
+      input.value = String(Math.round(next * 100) / 100);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      scheduleAutosave(event);
+      return;
+    }
+    const removeButton = event.target.closest('[data-remove-row]');
+    if (removeButton) {
+      const row = removeButton.closest('article, tr');
+      const list = row?.parentElement;
+      const optional = ['distractor', 'accepted'].includes(list?.dataset.rowList);
+      if (list && (list.children.length > 1 || optional)) {
+        row.remove();
+        renumber(list);
+      } else if (row) {
+        row.querySelectorAll('[data-media-slot]').forEach((slot) => resetMediaSlot(slot, true));
+        row.querySelectorAll('input[type="text"], input:not([type])').forEach((input) => { input.value = ''; });
+      }
+      syncCorrectClass();
+      refreshOrderChips();
+      refreshRubricTotal();
+      refreshBlankMarkers();
+      scheduleAutosave(event);
+    }
+  });
+
+  createForm.addEventListener('change', (event) => {
+    if (event.target.matches('[data-correct-marker]')) syncCorrectClass();
+    if (event.target.matches('[data-min-correct], [data-max-correct]')) checkMultiRange();
+    if (event.target.matches('[data-media-file]')) {
+      const slot = event.target.closest('[data-media-slot]');
+      const file = event.target.files?.[0];
+      if (file && !showMediaFile(slot, file)) event.target.value = '';
+    }
+  });
+  createForm.addEventListener('input', (event) => {
+    if (event.target === textArea) ensureBlankRows();
+    if (event.target.matches('[data-order-item]')) refreshOrderChips();
+    if (event.target.matches('[data-rubric-points]')) refreshRubricTotal();
+    if (event.target.matches('[data-count-source]')) refreshCount();
+  });
+
+  // ----- serialize repeated rows into the field names the server expects -----
+  const nameRowMedia = (row, index) => {
+    row.querySelectorAll('[data-media-slot][data-media-base]').forEach((slot) => {
+      const base = slot.dataset.mediaBase;
+      const names = index ? [`${base}_file_${index}`, `${base}_${index}`, `${base}_remove_${index}`] : ['', '', ''];
+      [slot.querySelector('[data-media-file]'), slot.querySelector('[data-media-existing]'), slot.querySelector('[data-media-remove]')].forEach((input, i) => {
+        if (names[i]) input.name = names[i]; else input.removeAttribute('name');
+      });
+    });
+  };
+  const serializeForm = () => {
+    createForm.querySelectorAll('[data-generated-field]').forEach((item) => item.remove());
+    if (tagsInput?.value.trim()) commitTag();
+    if (timeInput) syncTime();
+    const value = (el) => (el?.value || '').trim();
+    const checked = (row, selector) => !!row.querySelector(selector)?.checked;
+
+    if (['single', 'multi', 'true_false'].includes(questionType)) {
+      let index = 0;
+      createForm.querySelectorAll('[data-row-list="option"] article').forEach((row) => {
+        const text = value(row.querySelector('[data-option-text]'));
+        if (!text) { nameRowMedia(row, 0); return; }
+        index += 1;
+        nameRowMedia(row, index);
+        addHidden('option_text', text);
+        addHidden(`option_points_${index}`, value(row.querySelector('[data-option-points]')) || '1');
+        addHidden(`option_negative_${index}`, value(row.querySelector('[data-option-penalty]')) || '0');
+        if (checked(row, '[data-correct-marker]')) addHidden('correct_options', String(index));
+      });
+    }
+    if (questionType === 'fill_blank') {
+      const rows = [...createForm.querySelectorAll('[data-row-list="blank"] article')];
+      addHidden('blank_count', String(rows.length));
+      rows.forEach((row, i) => {
+        const index = i + 1;
+        nameRowMedia(row, index);
+        addHidden(`blank_answers_${index}`, value(row.querySelector('[data-blank-answers]')).replace(/\|/g, ' '));
+        addHidden(`blank_points_${index}`, value(row.querySelector('[data-blank-points]')) || '1');
+        if (checked(row, '[data-blank-case]')) addHidden(`blank_case_${index}`, '1');
+        if (checked(row, '[data-blank-spaces]')) addHidden(`blank_spaces_${index}`, '1');
+      });
+    }
+    if (questionType === 'matching') {
+      let index = 0;
+      createForm.querySelectorAll('[data-row-list="pair"] article').forEach((row) => {
+        const left = value(row.querySelector('[data-pair-left]'));
+        const right = value(row.querySelector('[data-pair-right]'));
+        if (!left && !right) { nameRowMedia(row, 0); return; }
+        index += 1;
+        nameRowMedia(row, index);
+        addHidden('matching_left', left);
+        addHidden('matching_right', right);
+        addHidden(`matching_points_${index}`, '1');
+      });
+      createForm.querySelector('[data-distractors-value]').value = [...createForm.querySelectorAll('[data-distractor]')].map((input) => value(input)).filter(Boolean).join('\n');
+    }
+    if (questionType === 'ordering') {
+      let index = 0;
+      createForm.querySelectorAll('[data-row-list="order"] article').forEach((row) => {
+        const text = value(row.querySelector('[data-order-item]'));
+        if (!text) { nameRowMedia(row, 0); return; }
+        index += 1;
+        nameRowMedia(row, index);
+        addHidden('ordering_item', text);
+      });
+    }
+    if (questionType === 'short_answer') {
+      let index = 0;
+      // Main answer card first, then the alternatives — the server treats row order as given.
+      createForm.querySelectorAll('[data-row-list="accepted-main"] article, [data-row-list="accepted"] article').forEach((row) => {
+        const answer = value(row.querySelector('[data-accepted-answer]'));
+        if (!answer) return;
+        index += 1;
+        addHidden('accepted_answer', answer);
+        addHidden(`accepted_points_${index}`, value(row.querySelector('[data-accepted-points]')) || '100');
+        addHidden(`accepted_mode_${index}`, value(row.querySelector('[data-accepted-mode]')) || 'exact');
+        addHidden(`accepted_tolerance_${index}`, value(row.querySelector('[data-accepted-tolerance]')) || '0');
+        addHidden(`accepted_typo_${index}`, value(row.querySelector('[data-accepted-typo]')) || '0');
+        if (checked(row, '[data-accepted-word-order]')) addHidden(`accepted_word_order_${index}`, '1');
+        if (checked(row, '[data-accepted-case]')) addHidden(`accepted_case_${index}`, '1');
+        if (checked(row, '[data-accepted-normalize]')) addHidden(`accepted_normalize_${index}`, '1');
+      });
+    }
+    if (questionType === 'essay') {
+      createForm.querySelectorAll('[data-row-list="rubric"] tr').forEach((row) => {
+        const criterion = value(row.querySelector('[data-rubric-criterion]'));
+        if (!criterion) return;
+        addHidden('rubric_criterion', criterion);
+        addHidden('rubric_weak', value(row.querySelector('[data-rubric-weak]')));
+        addHidden('rubric_average', value(row.querySelector('[data-rubric-average]')));
+        addHidden('rubric_excellent', value(row.querySelector('[data-rubric-excellent]')));
+        addHidden('rubric_points', value(row.querySelector('[data-rubric-points]')));
+      });
+    }
+  };
+
+  // ----- autosave: private server-side draft; selected files are never sent here -----
+  const autosaveState = createForm.querySelector('[data-autosave-state]');
+  const autosaveText = createForm.querySelector('[data-autosave-text]');
+  let autosaveTimer;
+  const autosave = () => {
+    serializeForm();
+    const data = new FormData(createForm);
+    [...data.entries()].forEach(([name, entry]) => { if (entry instanceof File) data.delete(name); });
+    if (createForm.dataset.questionId) data.set('question_id', createForm.dataset.questionId);
+    fetch(createForm.dataset.autosaveUrl, { method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then((response) => response.json().then((body) => ({ ok: response.ok && body.ok, body })))
+      .then(({ ok, body }) => {
+        autosaveState.classList.toggle('is-error', !ok);
+        autosaveText.textContent = ok ? `ذخیره خودکار: ${toFa(body.saved_at)}` : 'ذخیره‌ی خودکار پیش‌نویس ناموفق بود';
+      })
+      .catch(() => { autosaveState.classList.add('is-error'); autosaveText.textContent = 'ذخیره‌ی خودکار پیش‌نویس ناموفق بود'; });
+  };
+  function scheduleAutosave(event) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(autosave, 2500);
+  }
+  createForm.addEventListener('input', scheduleAutosave);
+  createForm.addEventListener('change', scheduleAutosave);
+  createForm.addEventListener('submit', () => {
+    clearTimeout(autosaveTimer);
+    serializeForm();
+  });
+
+  // ----- student preview: exam-style, built from current (unsaved) values -----
+  // Mirrors templates/student/attempt.html markup per type and reuses static/js/exam-interactions.js.
+  const esc = (text) => String(text ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const shuffled = (list) => list.map((item) => [Math.random(), item]).sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+  const fieldValue = (row, selector) => (row.querySelector(selector)?.value || '').trim();
+  const examPreview = document.querySelector('[data-exam-preview]');
+  const qx = (name) => examPreview?.querySelector(`[data-qx-${name}]`);
+  let examTimer;
+  const clock = (seconds) => toFa(`${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`);
+  const el = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  // The media picked in a builder slot, cloned for display (same element kinds the exam page renders).
+  const slotMedia = (slot) => {
+    const source = slot?.classList.contains('has-media') && slot.querySelector('[data-media-preview] img, [data-media-preview] audio, [data-media-preview] video');
+    if (!source) return null;
+    const media = source.cloneNode(true);
+    if (media.tagName !== 'IMG') { media.controls = true; media.preload = 'metadata'; } else media.alt = '';
+    return media;
+  };
+  const itemMedia = (slot) => {
+    const media = slotMedia(slot);
+    if (!media) return null;
+    const box = el('span', 'qx-item-media');
+    box.append(media);
+    return box;
+  };
+  const stemPlainText = () => (stemQuill ? stemQuill.getText() : textArea?.value || '').trim();
+
+  const renderChoices = (area, multiple) => {
+    let rows = [...createForm.querySelectorAll('[data-row-list="option"] article')].filter((row) => fieldValue(row, '[data-option-text]'));
+    if (createForm.querySelector('[name="shuffle_options"]')?.checked) rows = shuffled(rows);
+    const max = multiple ? Number(toEn(createForm.querySelector('[name="max_correct"]')?.value || 0)) || 0 : 0;
+    if (max) area.append(el('p', 'qx-select-hint', `حداکثر ${toFa(max)} گزینه را می‌توانید انتخاب کنید.`));
+    const list = el('div', 'qx-options');
+    list.setAttribute('role', multiple ? 'group' : 'radiogroup');
+    rows.forEach((row, index) => {
+      const label = el('label', 'qx-option');
+      const body = el('span', 'qx-option-body', fieldValue(row, '[data-option-text]'));
+      const media = itemMedia(row.querySelector('[data-media-slot]'));
+      if (media) body.append(media);
+      const input = el('input');
+      input.type = multiple ? 'checkbox' : 'radio';
+      input.name = '_qx_choice';
+      label.append(el('span', 'qx-letter', toFa(index + 1)), body, input);
+      list.append(label);
+    });
+    if (!rows.length) list.append(el('p', 'qx-empty', 'هنوز گزینه‌ای وارد نشده است.'));
+    area.append(list);
+    if (max) window.ExamInteractions.limitChoices(list, max);
+  };
+  const renderShortAnswer = (area) => {
+    area.append(el('h3', '', 'پاسخ شما'));
+    const box = el('div', 'qx-voice');
+    const input = el('input', 'qx-input');
+    input.placeholder = 'پاسخ خود را بنویسید...';
+    input.autocomplete = 'off';
+    input.dataset.qxCountSource = '';
+    const mic = el('button', 'qx-mic');
+    mic.type = 'button';
+    mic.hidden = true;
+    mic.setAttribute('aria-label', 'ورودی صوتی');
+    mic.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    box.append(input, mic);
+    area.append(box);
+    window.ExamInteractions.voiceInput(mic, input);
+  };
+  const renderEssay = (area) => {
+    const formats = [...createForm.querySelectorAll('[name="answer_formats"]:checked')].map((input) => input.value);
+    area.append(el('h3', '', 'پاسخ شما'));
+    if (!formats.length || formats.includes('text')) {
+      const textarea = el('textarea', 'qx-textarea');
+      textarea.placeholder = 'پاسخ تشریحی خود را بنویسید...';
+      area.append(textarea);
+    }
+    const uploads = formats.filter((kind) => kind !== 'text');
+    if (!uploads.length) return;
+    const box = el('div', 'qx-uploads');
+    const actions = el('div', 'qx-upload-actions');
+    const labels = { image: 'بارگذاری تصویر', audio: 'بارگذاری فایل صوتی', video: 'بارگذاری ویدئو', file: 'پیوست فایل' };
+    uploads.forEach((kind) => {
+      if (kind === 'audio') actions.append(el('span', 'qx-upload-btn', '● ضبط صدا'));
+      actions.append(el('span', 'qx-upload-btn', labels[kind] || 'پیوست فایل'));
+    });
+    box.append(actions, el('small', 'qx-upload-hint', 'در آزمون واقعی فایل بلافاصله پس از انتخاب ذخیره می‌شود؛ حداکثر ۵ فایل.'));
+    area.append(box);
+  };
+  // Text with an answer input in place of each [n] marker, keeping the surrounding (rich) formatting.
+  const blankInputs = (container) => {
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((node) => {
+      const parts = node.textContent.split(/(\[[۰-۹٠-٩0-9]+\])/);
+      if (parts.length === 1) return;
+      const fragment = document.createDocumentFragment();
+      parts.forEach((part) => {
+        const marker = part.match(/^\[([۰-۹٠-٩0-9]+)\]$/);
+        if (!marker) { fragment.append(part); return; }
+        const number = toFa(toEn(marker[1]));
+        const input = el('input', 'qx-blank');
+        input.type = 'text';
+        input.placeholder = number;
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', `جای خالی ${number}`);
+        fragment.append(input);
+      });
+      node.replaceWith(fragment);
+    });
+    return container;
+  };
+  const renderFillBlank = (area) => {
+    // Like the exam page: the rich stem (blank_html) when the editor has content, else the plain sentence.
+    if (stemQuill && stemQuill.getText().trim()) {
+      const rich = el('div', 'qx-fillblank qx-fillblank--rich');
+      rich.innerHTML = stemQuill.root.innerHTML;
+      area.append(blankInputs(rich));
+    } else {
+      area.append(blankInputs(el('p', 'qx-fillblank', stemPlainText())));
+    }
+    const hints = el('ul', 'qx-blank-hints');
+    hints.setAttribute('aria-label', 'راهنمای رسانه‌ای جای‌خالی‌ها');
+    createForm.querySelectorAll('[data-row-list="blank"] article').forEach((row, index) => {
+      const media = itemMedia(row.querySelector('[data-media-slot]'));
+      if (!media) return;
+      const hint = el('li');
+      hint.append(el('b', '', toFa(index + 1)), media);
+      hints.append(hint);
+    });
+    if (hints.children.length) area.append(hints);
+  };
+  const renderOrdering = (area) => {
+    const rows = [...createForm.querySelectorAll('[data-row-list="order"] article')].filter((row) => fieldValue(row, '[data-order-item]'));
+    const list = el('ol', 'qx-ordering');
+    shuffled(rows.map((row, index) => ({ row, value: String(index + 1) }))).forEach(({ row, value }, index) => {
+      const item = el('li');
+      item.dataset.value = value;
+      const badge = el('span', 'qx-order-badge', toFa(index + 1));
+      badge.dataset.orderingBadge = '';
+      item.append(el('span', 'qx-drag', '⋮⋮'), badge, el('span', '', fieldValue(row, '[data-order-item]')));
+      const media = itemMedia(row.querySelector('[data-media-slot]'));
+      if (media) item.append(media);
+      list.append(item);
+    });
+    const answer = el('input');
+    answer.type = 'hidden';
+    area.append(list, answer);
+    window.ExamInteractions.ordering(list, answer);
+  };
+  const renderMatching = (area) => {
+    const rows = [...createForm.querySelectorAll('[data-row-list="pair"] article')].filter((row) => fieldValue(row, '[data-pair-left]') && fieldValue(row, '[data-pair-right]'));
+    const manyToOne = createForm.querySelector('[name="matching_mode"]:checked')?.value === 'many_to_one';
+    if (manyToOne) area.append(el('p', 'qx-select-hint', 'ممکن است چند مورد به یک پاسخ مشترک وصل شوند.'));
+    const root = el('div', 'qx-matching');
+    if (manyToOne) root.dataset.manyToOne = '';
+    const left = el('div', 'qx-matching-col');
+    const right = el('div', 'qx-matching-col');
+    const node = (side, value, label, slot) => {
+      const button = el('button', 'qx-match-node', label);
+      button.type = 'button';
+      button.dataset.side = side;
+      button.dataset.value = value;
+      const media = itemMedia(slot);
+      if (media) button.append(media);
+      return button;
+    };
+    const rights = [];
+    const seen = new Set();
+    rows.forEach((row, index) => {
+      const slots = row.querySelectorAll('[data-media-slot]');
+      left.append(node('left', String(index + 1), fieldValue(row, '[data-pair-left]'), slots[0]));
+      const label = fieldValue(row, '[data-pair-right]');
+      if (manyToOne && seen.has(label)) return;
+      seen.add(label);
+      rights.push(node('right', String(index + 1), label, slots[1]));
+    });
+    createForm.querySelectorAll('[data-distractor]').forEach((input, index) => {
+      if (input.value.trim()) rights.push(node('right', `d${index + 1}`, input.value.trim()));
+    });
+    shuffled(rights).forEach((button) => right.append(button));
+    const lines = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    lines.setAttribute('class', 'qx-matching-lines');
+    lines.dataset.matchingLines = '';
+    root.append(left, lines, right);
+    const answer = el('input');
+    answer.type = 'hidden';
+    area.append(root, answer);
+    window.ExamInteractions.matching(root, answer);
+  };
+  const renderAnswerArea = () => {
+    const area = qx('area');
+    area.innerHTML = '';
+    if (['single', 'true_false'].includes(questionType)) renderChoices(area, false);
+    else if (questionType === 'multi') renderChoices(area, true);
+    else if (questionType === 'short_answer') renderShortAnswer(area);
+    else if (questionType === 'essay') renderEssay(area);
+    else if (questionType === 'fill_blank') renderFillBlank(area);
+    else if (questionType === 'ordering') renderOrdering(area);
+    else if (questionType === 'matching') renderMatching(area);
+    const meta = el('div', 'qx-answer-meta');
+    const saved = el('span');
+    saved.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97M12 12v6m0 0-2.5-2.5M12 18l2.5-2.5"/></svg>';
+    saved.append('در آزمون واقعی پاسخ به‌صورت خودکار ذخیره می‌شود');
+    meta.append(saved);
+    if (questionType === 'short_answer') {
+      const count = el('span', '', '۰ نویسه');
+      count.dataset.qxCount = '';
+      meta.append(count);
+    }
+    area.append(meta);
+  };
+  const refreshGuide = () => {
+    let variant = null;
+    if (questionType === 'multi') {
+      const max = Number(toEn(createForm.querySelector('[name="max_correct"]')?.value || 0)) || 0;
+      if (max) variant = examPreview.querySelector('[data-qx-guide-variant="max"]')?.innerHTML.replace('__N__', toFa(max));
+    }
+    if (questionType === 'essay' && [...createForm.querySelectorAll('[name="answer_formats"]:checked')].some((input) => input.value !== 'text')) {
+      variant = examPreview.querySelector('[data-qx-guide-variant="upload"]')?.innerHTML;
+    }
+    qx('guide').dataset.base ??= qx('guide').textContent;
+    qx('guide').textContent = (variant ?? qx('guide').dataset.base).trim();
+  };
+  // Same rule as the exam page: answered once any answer control holds a value.
+  const refreshExamAnswer = () => {
+    const area = qx('area');
+    const answered = [...area.querySelectorAll('input, textarea')].some((field) => ((field.type === 'radio' || field.type === 'checkbox') ? field.checked : field.value.trim()));
+    const marked = qx('mark').getAttribute('aria-pressed') === 'true';
+    const source = area.querySelector('[data-qx-count-source]');
+    if (source) qx('count').textContent = `${toFa(source.value.length)} نویسه`;
+    qx('state').classList.toggle('is-answered', answered);
+    qx('state-text').textContent = answered ? 'پاسخ داده‌شده' : 'بدون پاسخ';
+    qx('cell').classList.toggle('is-answered', answered && !marked);
+    qx('cell').classList.toggle('is-marked', marked);
+  };
+  const renderExamPreview = () => {
+    const course = createForm.querySelector('[name="course_id"]');
+    qx('course').textContent = course?.value ? course.selectedOptions[0].textContent.trim() : 'سؤال بانک (بدون درس)';
+    const points = Number(toEn(createForm.querySelector('[name="default_points"]')?.value || 0)) || 0;
+    qx('points').textContent = `${toFa(points)} نمره`;
+    if (timeInput) syncTime();
+    const seconds = Number(timeValue?.value || 0) || 0;
+    qx('time-chip').hidden = !seconds;
+    qx('time').textContent = `زمان پیشنهادی: ${seconds % 60 ? clock(seconds) : `${toFa(seconds / 60)} دقیقه`}`;
+    // Stem: the teacher's own editor DOM (students get server-rendered HTML from the saved Delta).
+    // Fill-in-the-blank has no separate stem: like the exam page, the sentence with its blanks is the stem.
+    qx('text').hidden = questionType === 'fill_blank';
+    qx('text').innerHTML = stemQuill && stemQuill.getText().trim() ? stemQuill.root.innerHTML : `<p>${esc(textArea?.value || '') || '<em>متن سؤال هنوز وارد نشده است.</em>'}</p>`;
+    const instructions = createForm.querySelector('[name="student_instructions"]')?.value.trim() || '';
+    qx('instructions').textContent = instructions;
+    qx('instructions').hidden = !instructions;
+    qx('media').innerHTML = '';
+    createForm.querySelectorAll('[data-media-panel] [data-media-slot].has-media').forEach((slot) => {
+      const media = slotMedia(slot);
+      if (!media) return;
+      const figure = el('figure', 'qx-figure');
+      figure.append(media);
+      if (media.tagName === 'IMG') {
+        // Like the exam page: alt text (never the file name) plus a zoom button.
+        const alt = createForm.querySelector('[name="question_image_alt"]')?.value.trim() || '';
+        media.alt = alt;
+        const caption = el('figcaption');
+        const zoom = el('button', 'qx-zoom');
+        zoom.type = 'button';
+        zoom.dataset.qxZoom = '';
+        zoom.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر';
+        caption.append(el('span', '', alt), zoom);
+        figure.append(caption);
+      } else if (media.tagName === 'VIDEO') {
+        const videoCaption = createForm.querySelector('[name="question_video_caption"]')?.value.trim();
+        if (videoCaption) figure.append(el('figcaption', '', videoCaption));
+      }
+      qx('media').append(figure);
+    });
+    renderAnswerArea();
+    refreshGuide();
+    qx('mark').setAttribute('aria-pressed', 'false');
+    refreshExamAnswer();
+    clearInterval(examTimer);
+    let remaining = seconds;
+    const tick = () => {
+      qx('clock').textContent = seconds ? clock(Math.max(remaining, 0)) : '—';
+      qx('timer').classList.toggle('is-over', seconds > 0 && remaining <= 0);
+      remaining -= 1;
+      if (remaining < 0) clearInterval(examTimer);
+    };
+    tick();
+    if (seconds) examTimer = setInterval(tick, 1000);
+  };
+  const closeExamPreview = () => {
+    clearInterval(examTimer);
+    examPreview.hidden = true;
+    qx('lightbox').hidden = true;
+    examPreview.querySelectorAll('audio, video').forEach((media) => media.pause());
+    qx('area').innerHTML = '';
+    document.documentElement.style.overflow = '';
+  };
+  if (examPreview) {
+    examPreview.querySelector('[data-exam-preview-close]').addEventListener('click', closeExamPreview);
+    qx('area').addEventListener('input', refreshExamAnswer);
+    qx('area').addEventListener('change', refreshExamAnswer);
+    qx('mark').addEventListener('click', () => {
+      qx('mark').setAttribute('aria-pressed', String(qx('mark').getAttribute('aria-pressed') !== 'true'));
+      refreshExamAnswer();
+    });
+    qx('media').addEventListener('click', (event) => {
+      const zoom = event.target.closest('[data-qx-zoom]');
+      if (!zoom) return;
+      qx('lightbox').querySelector('img').src = zoom.closest('figure').querySelector('img').src;
+      qx('lightbox').hidden = false;
+    });
+    qx('lightbox').addEventListener('click', () => { qx('lightbox').hidden = true; });
+    createForm.querySelectorAll('[data-open-preview]').forEach((button) => button.addEventListener('click', () => {
+      renderExamPreview();
+      examPreview.hidden = false;
+      examPreview.scrollTop = 0;
+      document.documentElement.style.overflow = 'hidden';
+    }));
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || examPreview.hidden) return;
+      if (!qx('lightbox').hidden) qx('lightbox').hidden = true;
+      else closeExamPreview();
+    });
+  }
+
+  // ----- initial state -----
+  if (tagsBox) renderTags();
+  refreshOrderChips();
+  refreshRubricTotal();
+  refreshCount();
+  syncCorrectClass();
+  createForm.querySelectorAll('[data-media-slot].has-media [data-media-preview] audio, [data-media-slot].has-media [data-media-preview] video').forEach((el) => watchDuration(el.closest('[data-media-slot]'), el));
+  refreshTfMedia();
+  refreshBlankMarkers();
+  if (feedbackSlot) {
+    const active = createForm.querySelector('[data-feedback-tab].is-active')?.dataset.feedbackTab;
+    if (active && active !== 'text') feedbackSlot.querySelector('[data-media-file]').accept = pickAccept[active];
+  }
+})();
+</script>

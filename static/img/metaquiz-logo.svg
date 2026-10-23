@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="326" height="96" viewBox="102 12 326 96" fill="none">
+  <g transform="translate(332 20)">
+    <rect x="44" y="0" width="36" height="36" rx="9" fill="#1B3A6B"></rect>
+    <rect x="3.4" y="3.4" width="29.2" height="29.2" rx="5.6" stroke="#1B3A6B" stroke-width="6.8"></rect>
+    <rect x="47.4" y="47.4" width="29.2" height="29.2" rx="5.6" stroke="#1B3A6B" stroke-width="6.8"></rect>
+    <circle cx="18" cy="62" r="18" fill="#1B3A6B"></circle>
+  </g>
+  <text x="296" y="76" text-anchor="start" direction="rtl" xml:lang="fa" font-family="Yekan, Vazirmatn, Tahoma, sans-serif" font-size="56" letter-spacing="-1" fill="#0F1E38">متاکوییز</text>
+</svg>

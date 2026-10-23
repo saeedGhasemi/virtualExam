@@ -1,0 +1,9 @@
+{% load core_extras %}
+{% with delta_id=field|add:"-delta" %}
+<div class="ob-rich" data-rich data-limit="{{ limit }}" data-delta-id="{{ delta_id }}">
+    <div class="ob-rich-editor" data-rich-editor></div>
+    <input type="hidden" name="{{ field }}" value="{{ delta|json_dumps }}" data-rich-input>
+    <span class="ob-count" data-rich-count>0/{{ limit }}</span>
+    {{ delta|json_script:delta_id }}
+</div>
+{% endwith %}

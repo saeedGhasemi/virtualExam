@@ -1,0 +1,40 @@
+{% comment %}
+Question-stem media panels (image / audio / video). Rendered under the stem text for most types;
+true/false renders it in the side "رسانه سؤال" card instead; fill-in-the-blank (fb_layout) shows the panels
+as tiles followed by an "add media" tile that routes a file to the matching slot (see _question_form.html).
+{% endcomment %}
+<div class="qb-media-grid">
+    <div class="qb-media-panel" data-media-panel="image"{% if not qf.media.image %} hidden{% endif %}>
+        <span>{% include "teacher/_qb_icon.html" with name="image" %}تصویر سؤال</span>
+        {% include "teacher/_qf_media_slot.html" with url=qf.media.image kind="image" file_name="question_image_file" existing_name="existing_question_image" remove_name="remove_question_image" accept=".jpg,.jpeg,.png,.webp,.gif" label="تصویر" hint="jpg، png، webp، gif — حداکثر ۵ مگابایت" limit=5 large=True %}
+        <label class="qb-field">متن جایگزین (دسترس‌پذیری)<input type="text" name="question_image_alt" value="{{ qf.media.image_alt }}" placeholder="توضیح تصویر برای کاربرانی که قادر به مشاهده نیستند"></label>
+    </div>
+    <div class="qb-media-panel" data-media-panel="audio"{% if not qf.media.audio %} hidden{% endif %}>
+        <span>{% include "teacher/_qb_icon.html" with name="audio" %}{% if fb_layout %}تلفظ واژه‌ها (اختیاری){% else %}صوت سؤال{% endif %}</span>
+        {% include "teacher/_qf_media_slot.html" with url=qf.media.audio kind="audio" file_name="question_audio_file" existing_name="existing_question_audio" remove_name="remove_question_audio" accept=".mp3,.wav,.ogg,.m4a" label="فایل صوتی" hint="mp3، wav، ogg، m4a — حداکثر ۲۰ مگابایت" limit=20 large=True %}
+    </div>
+    <div class="qb-media-panel" data-media-panel="video"{% if not qf.media.video %} hidden{% endif %}>
+        <span>{% include "teacher/_qb_icon.html" with name="video" %}ویدئوی سؤال</span>
+        {% include "teacher/_qf_media_slot.html" with url=qf.media.video kind="video" file_name="question_video_file" existing_name="existing_question_video" remove_name="remove_question_video" accept=".mp4,.webm" label="ویدئو" hint="mp4، webm — حداکثر ۳۰۰ مگابایت" limit=300 large=True %}
+        <label class="qb-field">زیرنویس / توضیح ویدئو<input type="text" name="question_video_caption" value="{{ qf.media.video_caption }}" placeholder="توضیح کوتاه درباره‌ی محتوای ویدئو"></label>
+        <div class="qb-field" data-subtitle>زیرنویس ویدئو (فایل WebVTT)
+            {% if qf.media.video_subtitle %}
+                <span class="qb-sample-file" data-subtitle-current>
+                    <a href="{{ qf.media.video_subtitle }}" target="_blank" rel="noopener">فایل زیرنویس فعلی</a>
+                    <label><input type="checkbox" name="remove_question_video_subtitle" value="1">حذف</label>
+                    <input type="hidden" name="existing_question_video_subtitle" value="{{ qf.media.video_subtitle }}" data-subtitle-existing>
+                </span>
+            {% endif %}
+            <label class="qb-upload-btn">{% include "teacher/_qb_icon.html" with name="plus" %}<span data-subtitle-label>{% if qf.media.video_subtitle %}جایگزینی فایل زیرنویس{% else %}افزودن فایل زیرنویس (.vtt){% endif %}</span><input type="file" name="question_video_subtitle_file" accept=".vtt,text/vtt" data-subtitle-file></label>
+            <small>فقط با ویدئوی سؤال ذخیره می‌شود — حداکثر ۵۱۲ کیلوبایت</small>
+        </div>
+    </div>
+    {% if fb_layout %}
+        <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.mp4,.webm" data-stem-pick hidden>
+        <button type="button" class="qf-drop qb-fb-add" data-stem-drop>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97M12 12v8m0-8-3 3m3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <strong><span>افزودن تصویر/صوت/ویدئو</span></strong>
+            <small>کلیک کنید یا فایل را بکشید و رها کنید</small>
+        </button>
+    {% endif %}
+</div>

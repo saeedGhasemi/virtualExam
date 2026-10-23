@@ -1,0 +1,136 @@
+{% load core_extras %}
+<style>
+    .op{--op-blue:#2563eb;--op-line:#e3e9f4;--op-muted:#64748b;direction:rtl;max-width:1200px;margin:0 auto;padding-bottom:2rem;font-family:Vazirmatn,Tahoma,Arial,sans-serif;color:#0f172a}
+    .op *{box-sizing:border-box}
+    .op-head{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem;margin-bottom:1rem}
+    .op-head h1{margin:0;font-size:1.35rem;font-weight:900}
+    .op-head p{margin:.15rem 0 0;color:var(--op-muted);font-size:.78rem;font-weight:700}
+    .op-head-tools{display:flex;gap:.5rem;margin-inline-start:auto}
+    .op-btn{display:inline-flex;align-items:center;gap:.4rem;height:2.6rem;padding:0 1rem;border:1px solid #d9e2f0;border-radius:.6rem;background:#fff;color:#334155;font:inherit;font-size:.82rem;font-weight:900;text-decoration:none;cursor:pointer}
+    .op-btn.is-primary{border-color:transparent;background:var(--op-blue);color:#fff}
+    .op-btn.is-danger{border-color:#fecaca;color:#dc2626}
+    .op-btn[disabled]{opacity:.5;cursor:not-allowed}
+    .op-badge{padding:.25rem .7rem;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.74rem;font-weight:900}
+    .op-badge.is-published{background:#dcfce7;color:#15803d}
+    .op-card{margin-bottom:1rem;padding:1rem 1.1rem;border:1px solid var(--op-line);border-radius:1rem;background:#fff}
+    .op-card h2{margin:0 0 .7rem;font-size:1.05rem;font-weight:900}
+    .op-card h3{margin:.9rem 0 .4rem;font-size:.88rem;font-weight:900}
+    .op-issues{margin:0;padding-inline-start:1.2rem;color:#b91c1c;font-size:.82rem;font-weight:700;line-height:2}
+    .op-ready{color:#15803d;font-size:.86rem;font-weight:900}
+    .op-meta{display:flex;flex-wrap:wrap;gap:.4rem}
+    .op-meta span{padding:.25rem .65rem;border-radius:.45rem;background:#f1f5f9;color:#334155;font-size:.74rem;font-weight:800}
+    .op-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .op-rich{color:#1e293b;font-size:.82rem;font-weight:600;line-height:2}
+    .op-rich p,.op-rich h3,.op-rich h4,.op-rich h5{margin:0}
+    .op-rich ol,.op-rich ul,.op-list{margin:0;padding-inline-start:1.2rem;font-size:.8rem;font-weight:700;line-height:2}
+    .op-table-wrap{overflow-x:auto}
+    .op table{width:100%;border-collapse:collapse;font-size:.76rem}
+    .op th,.op td{padding:.45rem .5rem;border:1px solid #eef2f7;text-align:right}
+    .op th{background:#f8fafc;font-weight:900}
+    .op th small{display:block;color:var(--op-muted);font-weight:700}
+    .op-empty{color:var(--op-muted);font-size:.78rem;font-weight:700}
+    .op-station-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem}
+    .op-station-head b{display:grid;place-items:center;width:2rem;height:2rem;border-radius:999px;background:var(--op-blue);color:#fff;font-size:.85rem}
+    .op-station-head h2{margin:0}
+    .op-station-head a{margin-inline-start:auto;color:var(--op-blue);font-size:.78rem;font-weight:900;text-decoration:none}
+    .op-inactive{opacity:.6}
+    @media (max-width:760px){.op-cols{grid-template-columns:1fr}.op-head-tools{width:100%;margin:0}}
+    @media print{.op-head-tools,.op-publish,.op-station-head a{display:none !important}.op-card{break-inside:avoid;border-color:#cbd5e1}}
+</style>
+<div class="op">
+    <div class="op-head">
+        <div>
+            <h1>پیش‌نمایش آزمون OSCE: {{ osce.title }}</h1>
+            <p>{{ osce_stations|length|fa_digits }} ایستگاه · <span class="op-badge{% if osce.status == 'published' %} is-published{% endif %}">{% if osce.status == 'published' %}منتشرشده{% else %}پیش‌نویس{% endif %}</span></p>
+        </div>
+        <div class="op-head-tools">
+            <button class="op-btn" type="button" onclick="window.print()">{% include "teacher/_qb_icon.html" with name="eye" %}چاپ</button>
+            <a class="op-btn" href="{% url 'core:teacher_osce_builder' osce.id %}">بازگشت به سازنده {% include "teacher/_qb_icon.html" with name="arrow" %}</a>
+        </div>
+    </div>
+
+    <section class="op-card op-publish" id="publish">
+        <h2>انتشار آزمون</h2>
+        {% if osce.status == 'published' %}
+            <p class="op-ready">این آزمون منتشر شده و ویرایش آن قفل است.</p>
+            <form method="post" action="{% url 'core:teacher_osce_publish' osce.id %}" onsubmit="return confirm('آزمون به پیش‌نویس برگردد؟')">{% csrf_token %}<input type="hidden" name="action" value="unpublish"><button class="op-btn is-danger" type="submit">بازگشت به پیش‌نویس برای ویرایش</button></form>
+        {% elif osce_issues %}
+            <p class="op-empty" style="margin-top:0">پیش از انتشار این موارد را کامل کنید:</p>
+            <ul class="op-issues">{% for issue in osce_issues %}<li>{{ issue }}</li>{% endfor %}</ul>
+            <button class="op-btn is-primary" type="button" disabled style="margin-top:.6rem">انتشار آزمون</button>
+        {% else %}
+            <p class="op-ready">همه بخش‌ها کامل است و آزمون آماده انتشار است.</p>
+            <form method="post" action="{% url 'core:teacher_osce_publish' osce.id %}" onsubmit="return confirm('آزمون منتشر شود؟ پس از انتشار، ویرایش قفل می‌شود.')">{% csrf_token %}<input type="hidden" name="action" value="publish"><button class="op-btn is-primary" type="submit">انتشار آزمون</button></form>
+        {% endif %}
+    </section>
+
+    <section class="op-card">
+        <h2>تنظیمات آزمون</h2>
+        {% with ex=osce_exam_settings %}
+        {% if ex %}
+            <div class="op-meta">
+                <span>نمره قبولی: {{ ex.pass_score|fa_digits }} از ۱۰۰</span>
+                <span>تعداد تلاش: {{ ex.max_attempts|fa_digits }}</span>
+                <span>دسترسی: {{ osce_access_scopes|get_item:ex.access_scope }}</span>
+                <span>نمره منفی: {{ ex.negative_mark|fa_digits }}</span>
+                {% for tag in ex.tags %}<span>#{{ tag }}</span>{% endfor %}
+            </div>
+            {% if ex.notes %}<p class="op-rich">{{ ex.notes|linebreaksbr }}</p>{% endif %}
+        {% else %}<p class="op-empty">تنظیمات تکمیلی هنوز ذخیره نشده است.</p>{% endif %}
+        {% endwith %}
+        <h3>برنامه زمانی چرخش</h3>
+        {% if osce_schedule %}
+            <div class="op-table-wrap"><table>
+                <thead><tr><th>گروه</th>{% for title in osce_schedule.stations %}<th>ایستگاه {{ forloop.counter|fa_digits }}<small>{{ title }}</small></th>{% endfor %}</tr></thead>
+                <tbody>{% for row in osce_schedule.rows %}<tr><td>گروه {{ row.group|fa_digits }}</td>{% for cell in row.cells %}<td dir="ltr">{{ cell|fa_digits }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+            </table></div>
+            <p class="op-empty">پایان آزمون: ساعت {{ osce_schedule.end_time|fa_digits }}{% if osce_schedule.crosses_midnight %} (روز بعد){% endif %}</p>
+        {% else %}<p class="op-empty">برنامه چرخش هنوز ساخته نشده است.</p>{% endif %}
+    </section>
+
+    {% for st in osce_stations %}
+    {% with d=st.details %}
+    <section class="op-card{% if not st.is_active %} op-inactive{% endif %}">
+        <div class="op-station-head"><b>{{ st.position|fa_digits }}</b><h2>{{ st.title }}{% if not st.is_active %} (غیرفعال){% endif %}</h2><a href="{% url 'core:teacher_osce_builder' osce.id %}?station={{ st.id }}&tab=basic">ویرایش</a></div>
+        <div class="op-meta">
+            <span>{{ st.code }}</span><span>{{ st.type_label }}</span><span>{{ osce_difficulties|get_item:st.difficulty }}</span><span>{{ st.duration_minutes|fa_digits }} دقیقه</span>
+            {% if st.domain %}<span>{{ st.domain }}</span>{% endif %}
+            {% if d.execution_mode %}<span>{{ osce_execution_modes|get_item:d.execution_mode }}</span><span>{{ osce_assessment_methods|get_item:d.assessment_method }}</span>{% endif %}
+            {% if st.primary_examiner_name %}<span>ارزیاب: {{ st.primary_examiner_name }}{% if st.second_examiner_name %} و {{ st.second_examiner_name }}{% endif %}</span>{% endif %}
+        </div>
+        {% if st.description %}<p class="op-rich">{{ st.description }}</p>{% endif %}
+        <div class="op-cols">
+            <div>
+                <h3>دستورالعمل دانشجو</h3>
+                {% if st.instructions_html %}<div class="op-rich">{{ st.instructions_html|safe }}</div>{% else %}<p class="op-empty">ثبت نشده</p>{% endif %}
+                <h3>سناریوی بیمار</h3>
+                {% if d.scenario.patient.chief_complaint %}<div class="op-meta"><span>سن: {{ d.scenario.patient.age }}</span><span>شکایت: {{ d.scenario.patient.chief_complaint }}</span></div>{% endif %}
+                {% if st.story_html %}<div class="op-rich">{{ st.story_html|safe }}</div>{% else %}<p class="op-empty">ثبت نشده</p>{% endif %}
+                {% if st.objectives %}<h3>هدف‌های آموزشی</h3><ul class="op-list">{% for item in st.objectives %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            <div>
+                <h3>معیارهای ارزیابی{% if d.criteria %} — امتیاز کل {{ d.criteria.total_points|fa_digits }}{% endif %}</h3>
+                {% if d.criteria.items or d.criteria.global_items %}
+                    <div class="op-table-wrap"><table>
+                        <thead><tr><th>معیار</th><th>نوع</th><th>امتیاز</th><th>الزامی</th></tr></thead>
+                        <tbody>
+                            {% for item in d.criteria.items %}<tr><td>{{ item.text }}</td><td>{{ osce_criterion_types|get_item:item.type }}</td><td>{{ item.points|fa_digits }}</td><td>{% if item.required %}بله{% else %}-{% endif %}</td></tr>{% endfor %}
+                            {% for item in d.criteria.global_items %}<tr><td>{{ item.text }}</td><td>ارزیابی کلی</td><td>{{ item.points|fa_digits }}</td><td>-</td></tr>{% endfor %}
+                        </tbody>
+                    </table></div>
+                {% else %}<p class="op-empty">تعریف نشده</p>{% endif %}
+                <h3>تجهیزات و منابع</h3>
+                {% if d.resources.equipment or d.resources.supplies or d.resources.staff %}
+                    <ul class="op-list">
+                        {% for row in d.resources.equipment %}<li>{{ row.name }} × {{ row.count|fa_digits }} ({{ osce_resource_status|get_item:row.status }})</li>{% endfor %}
+                        {% for row in d.resources.supplies %}<li>{{ row.name }} × {{ row.count|fa_digits }} ({{ osce_resource_status|get_item:row.status }})</li>{% endfor %}
+                        {% for row in d.resources.staff %}<li>{{ row.name }} × {{ row.count|fa_digits }}{% if row.note %} — {{ row.note }}{% endif %}</li>{% endfor %}
+                    </ul>
+                {% else %}<p class="op-empty">ثبت نشده</p>{% endif %}
+                {% if d.resources.safety_notes %}<h3>نکات ایمنی</h3><p class="op-rich">{{ d.resources.safety_notes|linebreaksbr }}</p>{% endif %}
+            </div>
+        </div>
+    </section>
+    {% endwith %}
+    {% endfor %}
+</div>

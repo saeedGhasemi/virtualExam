@@ -1,0 +1,43 @@
+{% comment %}
+One media attachment slot of the question builder.
+- large=True: dropzone ("click or drag & drop") with preview, file info and replace/delete actions.
+- otherwise: compact row variant with image/audio/video pick buttons (labeled=True adds their text);
+  preview spans the row below.
+Fixed slots pass file_name/existing_name/remove_name; row slots pass `base` and the form script assigns
+indexed names ({base}_file_{i}, {base}_{i}, {base}_remove_{i}) at submit.
+{% endcomment %}
+<div class="qf-media{% if large %} qf-media--large{% else %} qf-media--compact{% endif %}{% if url %} has-media{% endif %}" data-media-slot{% if base %} data-media-base="{{ base }}"{% endif %}{% if limit %} data-media-limit="{{ limit }}"{% endif %}>
+    <input type="hidden" data-media-existing{% if existing_name %} name="{{ existing_name }}"{% endif %} value="{{ url|default:'' }}">
+    <input type="hidden" data-media-remove{% if remove_name %} name="{{ remove_name }}"{% endif %} value="">
+    <input type="file" data-media-file{% if file_name %} name="{{ file_name }}"{% endif %} accept="{{ accept|default:'.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.mp4,.webm' }}" hidden>
+    {% if large %}
+        <button type="button" class="qf-drop" data-media-drop>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97M12 12v8m0-8-3 3m3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <strong>برای افزودن {{ label|default:'فایل' }}، <span>کلیک کنید</span> یا فایل را بکشید و رها کنید</strong>
+            <small>{{ hint|default:'حداکثر حجم ۲۰ مگابایت' }}</small>
+        </button>
+        <div class="qf-media-filled">
+            <span class="qf-media-preview" data-media-preview>{% if url %}{% if kind == 'image' %}<img src="{{ url }}" alt="">{% elif kind == 'audio' %}<audio src="{{ url }}" controls preload="metadata"></audio>{% elif kind == 'video' %}<video src="{{ url }}" controls preload="metadata"></video>{% endif %}{% endif %}</span>
+            <div class="qf-media-info">
+                <span data-media-name>{% if url %}فایل فعلی{% endif %}</span>
+                <small data-media-size></small>
+                <small data-media-duration></small>
+                <span class="qf-media-actions">
+                    <button type="button" data-media-replace><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 0 1-13.7 5.6L4 15m0 5v-5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>جایگزین</button>
+                    <button type="button" class="is-danger" data-media-clear><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>حذف</button>
+                </span>
+            </div>
+        </div>
+    {% else %}
+        <span class="qf-media-buttons">
+            <button type="button" data-media-pick="image" title="افزودن تصویر" aria-label="افزودن تصویر"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.6" fill="currentColor"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>{% if labeled %}<span>تصویر</span>{% endif %}</button>
+            <button type="button" data-media-pick="audio" title="افزودن صوت" aria-label="افزودن صوت"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12-1.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{% if labeled %}<span>صوت</span>{% endif %}</button>
+            <button type="button" data-media-pick="video" title="افزودن ویدئو" aria-label="افزودن ویدئو"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m16 10.5 5-3v9l-5-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>{% if labeled %}<span>ویدئو</span>{% endif %}</button>
+        </span>
+        <span class="qf-media-line">
+            <span class="qf-media-preview" data-media-preview>{% if url %}{% if kind == 'image' %}<img src="{{ url }}" alt="">{% elif kind == 'audio' %}<audio src="{{ url }}" controls preload="none"></audio>{% elif kind == 'video' %}<video src="{{ url }}" controls preload="metadata"></video>{% endif %}{% endif %}</span>
+            <small data-media-name>{% if url %}فایل فعلی{% endif %}</small>
+            <button type="button" class="qf-media-clear" data-media-clear aria-label="حذف رسانه" title="حذف رسانه">×</button>
+        </span>
+    {% endif %}
+</div>

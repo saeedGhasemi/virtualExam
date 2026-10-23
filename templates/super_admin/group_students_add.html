@@ -1,0 +1,174 @@
+{% extends 'base_standalone.html' %}
+{% load static core_extras %}
+
+{% block title %}{{ title }} | متاکوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .group-add-page{--blue:#315cff;--violet:#7447f5;--ink:#071936;--muted:#65728a;--line:#d8e4f4;--panel:rgba(255,255,255,.8);direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .group-add-page *{box-sizing:border-box;letter-spacing:0}
+    .group-add-page [hidden]{display:none}
+    .group-add-page a{text-decoration:none;color:inherit}.group-add-page button,.group-add-page input,.group-add-page select{font:inherit;cursor:pointer}
+    .group-add-page svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .ga-shell{max-width:1400px;margin:0 auto;padding-bottom:1.2rem}
+    .ga-top-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:1rem}
+    .btn-primary,.btn-secondary{display:inline-flex;height:2.9rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.7rem;padding:0 1.15rem;font-weight:950;font-size:.86rem;border:0;white-space:nowrap}
+    .btn-primary{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+    .btn-secondary{border:1px solid #cbd9ec;background:#fff;color:#315cff}
+    .gc-card{border:1px solid rgba(205,218,236,.95);border-radius:1rem;background:var(--panel);box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(145%);-webkit-backdrop-filter:blur(20px) saturate(145%)}
+    .ga-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.1rem 1.3rem;margin-bottom:1rem}
+    .ga-summary h1{margin:0;font-size:1.2rem;font-weight:950}
+    .ga-summary p{margin:.3rem 0 0;color:var(--muted);font-weight:850;font-size:.86rem}
+    .ga-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:1rem}
+    .ga-toolbar{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:.7rem;padding:1.1rem}
+    .ga-toolbar input,.ga-toolbar select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.7rem;background:#fff;padding:0 .8rem;outline:0;color:var(--ink);font-weight:850}
+    .ga-table{width:100%;border-collapse:collapse;font-size:.87rem}
+    .ga-table th,.ga-table td{height:3.5rem;border-bottom:1px solid #edf2f7;padding:0 .9rem;text-align:right}
+    .ga-table th{color:#53617b;font-weight:950}.ga-table td{font-weight:850}
+    .ga-table input[type=checkbox]{width:1.05rem;height:1.05rem}
+    .ga-student-cell{display:flex;align-items:center;gap:.6rem}
+    .avatar{width:2.2rem;height:2.2rem;border-radius:50%;object-fit:cover;background:#dbeafe;display:grid;place-items:center;color:var(--blue);font-weight:950;flex-shrink:0}
+    .status{display:inline-flex;align-items:center;gap:.3rem;border-radius:.5rem;background:#e8f8ef;color:#15803d;padding:.25rem .6rem;font-size:.76rem;font-weight:950}
+    .status.is-inactive{background:#f1f5f9;color:#64748b}
+    .ga-empty{text-align:center;color:#8b96ab!important;height:5rem!important}
+    .ga-sidebar{padding:1.1rem;align-self:start;position:sticky;top:1rem}
+    .ga-sidebar h2{margin:0 0 .3rem;font-size:1rem;font-weight:950}
+    .ga-count{color:var(--muted);font-weight:850;margin-bottom:.8rem}
+    .ga-count b{color:var(--ink);font-size:1.1rem}
+    .ga-capacity-warn{display:flex;align-items:flex-start;gap:.5rem;border:1px solid #fcd9a4;border-radius:.7rem;background:#fff8ec;color:#a15c07;padding:.7rem .85rem;font-size:.8rem;font-weight:850;margin-bottom:.8rem}
+    .ga-selected-list{display:grid;gap:.55rem;max-height:22rem;overflow:auto;margin-bottom:1rem}
+    .ga-srow{display:grid;grid-template-columns:auto 1fr auto;gap:.6rem;align-items:center;border:1px solid #e2eaf5;border-radius:.7rem;background:#fff;padding:.55rem}
+    .ga-srow small{display:block;color:#8b96ab;font-weight:800;font-size:.72rem}
+    .ga-srow button{border:0;background:transparent;color:#ef4444;font-size:1.2rem;cursor:pointer;line-height:1}
+    @media(max-width:1100px){.ga-layout{grid-template-columns:1fr}.ga-toolbar{grid-template-columns:1fr 1fr}}
+</style>
+
+<section class="super-admin-page super-admin-workspace group-add-page" dir="rtl" data-fixed-scroll-page>
+    <form class="ga-shell" method="post" data-add-form>
+        {% csrf_token %}
+        <div class="ga-top-row">
+            <a class="btn-secondary" href="{{ students_url }}"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>بازگشت به مدیریت دانشجویان</a>
+            <button type="submit" class="btn-primary" data-submit-btn {% if not remaining_capacity %}disabled{% endif %}>افزودن <span data-selected-count>۰</span> دانشجوی انتخاب‌شده</button>
+        </div>
+
+        <section class="gc-card ga-summary">
+            <div>
+                <h1>{{ group.course_title|fa_digits }} — گروه {{ group.group_code|fa_digits }}</h1>
+                <p>{{ group.teacher_name|fa_digits }} · {{ group.term_label|fa_digits }}</p>
+            </div>
+            <p style="color:var(--muted);font-weight:850">{{ members_count|fa_digits }} از {{ group.capacity|fa_digits }} نفر ثبت‌شده · ظرفیت باقی‌مانده: <b style="color:var(--ink)">{{ remaining_capacity|fa_digits }}</b> نفر</p>
+        </section>
+
+        <div class="ga-layout">
+            <section class="gc-card">
+                <div class="ga-toolbar">
+                    <input type="text" data-search placeholder="جستجوی نام یا شماره دانشجویی...">
+                    <select data-filter-field><option value="">همه رشته‌ها</option>{% for f in fields %}<option value="{{ f }}">{{ f }}</option>{% endfor %}</select>
+                    <select data-filter-entry><option value="">همه ورودی‌ها</option>{% for y in entry_years %}<option value="{{ y }}">{{ y|fa_digits }}</option>{% endfor %}</select>
+                    <button type="button" class="btn-secondary" data-select-visible><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن همه</button>
+                </div>
+                <div style="overflow-x:auto">
+                    <table class="ga-table">
+                        <thead><tr><th></th><th>دانشجو</th><th>شماره دانشجویی</th><th>رشته</th><th>ورودی</th><th>وضعیت</th></tr></thead>
+                        <tbody>
+                            {% for student in eligible_students %}
+                                <tr data-row data-search="{{ student.full_name }} {{ student.student_number }}" data-field="{{ student.field_of_study }}" data-entry="{{ student.entry_year }}">
+                                    <td><input type="checkbox" name="student_ids" value="{{ student.id }}" data-check data-name="{{ student.full_name }}" data-code="{{ student.student_number }}" data-avatar="{{ student.avatar_url|default:'' }}"></td>
+                                    <td><div class="ga-student-cell">{% if student.avatar_url %}<img class="avatar" src="{{ student.avatar_url }}" alt="">{% else %}<i class="avatar">{{ student.full_name|slice:":1"|default:"د" }}</i>{% endif %}<span>{{ student.full_name|fa_digits }}</span></div></td>
+                                    <td>{{ student.student_number|fa_digits }}</td>
+                                    <td>{{ student.field_of_study|default:"-"|fa_digits }}</td>
+                                    <td>{{ student.entry_year|default:"-"|fa_digits }}</td>
+                                    <td><span class="status {% if student.status != 'active' %}is-inactive{% endif %}">{{ student.status_label|fa_digits }}</span></td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="6" class="ga-empty">همه دانشجویان واجد شرایط قبلاً به این گروه اضافه شده‌اند.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <aside class="gc-card ga-sidebar">
+                <h2>دانشجویان انتخاب‌شده</h2>
+                <div class="ga-count"><b data-selected-count-2>۰</b> از <b>{{ remaining_capacity|fa_digits }}</b> ظرفیت باقی‌مانده</div>
+                {% if not remaining_capacity %}
+                    <div class="ga-capacity-warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>ظرفیت این گروه تکمیل است.</div>
+                {% endif %}
+                <div class="ga-selected-list" data-selected-list></div>
+            </aside>
+        </div>
+    </form>
+</section>
+
+<script>
+(() => {
+    const form = document.querySelector('[data-add-form]');
+    const remainingCapacity = {{ remaining_capacity|default:0 }};
+    const fa = (value) => String(value ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const setAllText = (selector, value) => document.querySelectorAll(selector).forEach((node) => node.textContent = fa(value ?? '0'));
+
+    const renderSelected = () => {
+        const box = document.querySelector('[data-selected-list]');
+        const checked = [...form.querySelectorAll('[data-check]:checked')];
+        setAllText('[data-selected-count], [data-selected-count-2]', checked.length);
+        document.querySelector('[data-submit-btn]').disabled = checked.length === 0;
+        box.innerHTML = '';
+        checked.forEach((input) => {
+            const item = document.createElement('div');
+            item.className = 'ga-srow';
+            const avatar = input.dataset.avatar ? `<img class="avatar" src="${input.dataset.avatar}" alt="">` : `<i class="avatar">${(input.dataset.name || 'د').slice(0,1)}</i>`;
+            item.innerHTML = `${avatar}<span><strong>${input.dataset.name || '-'}</strong><small>${fa(input.dataset.code || '-')}</small></span><button type="button">×</button>`;
+            item.querySelector('button').addEventListener('click', () => { input.checked = false; renderSelected(); });
+            box.appendChild(item);
+        });
+    };
+
+    form.querySelectorAll('[data-check]').forEach((input) => {
+        input.addEventListener('change', () => {
+            const checkedCount = form.querySelectorAll('[data-check]:checked').length;
+            if (remainingCapacity && checkedCount > remainingCapacity) {
+                input.checked = false;
+                alert(`ظرفیت باقی‌مانده گروه ${fa(remainingCapacity)} نفر است.`);
+                return;
+            }
+            renderSelected();
+        });
+    });
+
+    const rows = Array.from(document.querySelectorAll('[data-row]'));
+    const search = document.querySelector('[data-search]');
+    const filterField = document.querySelector('[data-filter-field]');
+    const filterEntry = document.querySelector('[data-filter-entry]');
+    const filtered = () => {
+        const q = (search?.value || '').trim().toLowerCase();
+        const f = filterField?.value || '';
+        const en = filterEntry?.value || '';
+        return rows.filter((row) => {
+            if (q && !(row.dataset.search || '').toLowerCase().includes(q)) return false;
+            if (f && row.dataset.field !== f) return false;
+            if (en && row.dataset.entry !== en) return false;
+            return true;
+        });
+    };
+    const applyFilter = () => {
+        const visible = new Set(filtered());
+        rows.forEach((row) => { row.hidden = !visible.has(row); });
+    };
+    search?.addEventListener('input', applyFilter);
+    filterField?.addEventListener('change', applyFilter);
+    filterEntry?.addEventListener('change', applyFilter);
+    document.querySelector('[data-select-visible]')?.addEventListener('click', () => {
+        const visible = filtered();
+        const currentlyChecked = form.querySelectorAll('[data-check]:checked').length;
+        const room = remainingCapacity ? Math.max(remainingCapacity - currentlyChecked, 0) : visible.length;
+        visible.slice(0, room).forEach((row) => { const box = row.querySelector('[data-check]'); if (box) box.checked = true; });
+        if (remainingCapacity && visible.length > room) alert(`فقط ${fa(room)} نفر از موارد نمایش‌داده‌شده به دلیل محدودیت ظرفیت انتخاب شدند.`);
+        renderSelected();
+    });
+
+    renderSelected();
+})();
+</script>
+{% endblock %}

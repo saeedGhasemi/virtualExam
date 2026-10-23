@@ -1,0 +1,102 @@
+{% load core_extras %}
+{% with tm=form.details.timing rot=osce_rotation %}
+<div class="ob-time-grid" data-timing>
+    <div class="ob-time-main">
+        <div class="ob-crit-banner">
+            <div>
+                <h3>زمان و مدیریت ایستگاه</h3>
+                <p>مدت زمان، الگوی چرخش دانشجویان، تعداد گروه‌ها و سایر تنظیمات مدیریتی این ایستگاه را مشخص کنید.</p>
+            </div>
+            <span class="ob-art">{% include "teacher/_qs_art.html" with name="st_knowledge" %}</span>
+        </div>
+
+        <div class="ob-time-row">
+            <section class="ob-panel">
+                <h3>{% include "teacher/_qb_icon.html" with name="clock" %}زمان‌بندی ایستگاه</h3>
+                <div class="ob-row is-3">
+                    <label class="ob-field">مدت زمان فعالیت (دقیقه) <em>*</em><input type="number" name="duration_minutes" min="1" max="180" required value="{{ form.duration_minutes }}" data-time="activity"></label>
+                    <label class="ob-field">زمان مطالعه (دقیقه)<input type="number" name="study_minutes" min="0" max="60" value="{{ tm.study_minutes|default_if_none:'2' }}" data-time="study"></label>
+                    <label class="ob-field">زمان استراحت / تعویض (دقیقه)<input type="number" name="transition_minutes" min="0" max="30" value="{{ tm.transition_minutes|default_if_none:'1' }}" data-time="transition"></label>
+                </div>
+                <div class="ob-timeline" aria-hidden="true">
+                    <span class="is-study" data-bar="study"></span><span class="is-activity" data-bar="activity"></span><span class="is-transition" data-bar="transition"></span>
+                </div>
+                <div class="ob-timeline-legend"><span class="is-study">مطالعه <b data-legend="study"></b></span><span class="is-activity">فعالیت در ایستگاه <b data-legend="activity"></b></span><span class="is-transition">تعویض <b data-legend="transition"></b></span></div>
+            </section>
+            <section class="ob-panel">
+                <h3>{% include "teacher/_qb_icon.html" with name="matching" %}حالت اجرای ایستگاه</h3>
+                {% for key, info in osce_execution_patterns.items %}
+                    <label class="ob-mode"><input type="radio" name="execution_pattern" value="{{ key }}"{% if tm.execution_pattern == key or not tm and key == 'rotation' %} checked{% endif %}><span><b>{{ info.0 }}</b><small>{{ info.1 }}</small></span></label>
+                {% endfor %}
+            </section>
+        </div>
+
+        <div class="ob-time-row is-3">
+            <section class="ob-panel">
+                <h3>{% include "teacher/_qb_icon.html" with name="independent" %}زمان و هشدارها</h3>
+                {% for key, label in osce_alert_options %}
+                    <label class="ob-switch ob-switch-row">{{ label }}<input type="checkbox" name="{{ key }}" value="1"{% if not tm or tm.alerts|get_item:key %} checked{% endif %}><span></span></label>
+                {% endfor %}
+                <label class="ob-field" style="margin-top:.5rem">نوع هشدار<select name="alert_type">{% for key, label in osce_alert_types.items %}<option value="{{ key }}"{% if tm.alert_type == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            </section>
+            <section class="ob-panel">
+                <h3>{% include "teacher/_qb_icon.html" with name="case" %}اساتید و ارزیابان</h3>
+                <label class="ob-field">ارزیاب اصلی <em>*</em><select name="primary_examiner" required><option value="">انتخاب استاد</option>{% for person in osce_examiner_options %}<option value="{{ person.id }}"{% if tm.primary_examiner == person.id %} selected{% endif %}>{{ person.name }}</option>{% endfor %}</select></label>
+                <label class="ob-field" style="margin-top:.5rem">ارزیاب دوم (در صورت نیاز)<select name="second_examiner"><option value="">بدون ارزیاب دوم</option>{% for person in osce_examiner_options %}<option value="{{ person.id }}"{% if tm.second_examiner == person.id %} selected{% endif %}>{{ person.name }}</option>{% endfor %}</select></label>
+                <label class="ob-switch ob-switch-row" style="margin-top:.5rem">استفاده از ارزیاب همزمان<input type="checkbox" name="concurrent_examiners" value="1"{% if tm.concurrent_examiners %} checked{% endif %}><span></span></label>
+                <small class="ob-aside-hint" style="display:block;margin:.2rem 0 0">دو ارزیاب به‌صورت همزمان حضور دارند (نیازمند ارزیاب دوم).</small>
+                <p class="ob-aside-hint" style="margin:.4rem 0 0">فهرست شامل اساتید واحد سازمانی شماست.</p>
+            </section>
+            <section class="ob-panel">
+                <h3>{% include "teacher/_qb_icon.html" with name="multi" %}مدیریت گروه‌ها و ظرفیت</h3>
+                <label class="ob-field">تعداد گروه‌های دانشجو<input type="number" name="groups_count" min="1" max="50" value="{{ rot.groups_count|default:'4' }}"></label>
+                <label class="ob-field" style="margin-top:.5rem">تعداد دانشجو در هر گروه<input type="number" name="students_per_group" min="1" max="50" value="{{ rot.students_per_group|default:'6' }}"></label>
+                <label class="ob-field" style="margin-top:.5rem">ظرفیت همزمان ایستگاه<input type="number" name="capacity" min="1" max="50" value="{{ tm.capacity|default:'1' }}"></label>
+                <label class="ob-field" style="margin-top:.5rem">ساعت شروع آزمون<input type="text" name="start_time" maxlength="5" dir="ltr" placeholder="09:00" pattern="[0-2][0-9]:[0-5][0-9]" value="{{ rot.start_time|default:'09:00' }}"></label>
+                <p class="ob-aside-hint" style="margin:.4rem 0 0">تعداد گروه‌ها، دانشجو در هر گروه و ساعت شروع برای کل آزمون مشترک است.</p>
+            </section>
+        </div>
+
+        <section class="ob-panel">
+            <div class="ob-table-head">
+                <h3>{% include "teacher/_qb_icon.html" with name="ordering" %}برنامه زمانی چرخش دانشجویان</h3>
+                <button class="ob-btn" type="submit" name="refresh_schedule" value="1">{% include "teacher/_qb_icon.html" with name="clock" %}ذخیره و ایجاد برنامه خودکار</button>
+            </div>
+            {% if osce_schedule %}
+                <p class="ob-aside-hint" style="margin:0 0 .6rem">هر دور {{ osce_schedule.round_minutes|fa_digits }} دقیقه (طولانی‌ترین مطالعه + فعالیت) و {{ osce_schedule.transition_minutes|fa_digits }} دقیقه تعویض؛ {{ osce_schedule.circuits|fa_digits }} مدار؛ پایان ساعت {{ osce_schedule.end_time|fa_digits }}{% if osce_schedule.crosses_midnight %} (روز بعد){% endif %}. فقط ایستگاه‌های فعال در برنامه هستند.</p>
+                <div class="ob-table-wrap">
+                    <table class="ob-crit-table ob-schedule">
+                        <thead><tr><th>گروه</th>{% for title in osce_schedule.stations %}<th>ایستگاه {{ forloop.counter|fa_digits }}<small>{{ title }}</small></th>{% endfor %}</tr></thead>
+                        <tbody>{% for row in osce_schedule.rows %}<tr><td>گروه {{ row.group|fa_digits }}</td>{% for cell in row.cells %}<td class="is-c{{ forloop.counter0|divisibleby:2|yesno:'a,b' }}" dir="ltr">{{ cell|fa_digits }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="ob-aside-hint" style="margin:0">برای ساخت برنامه، ساعت شروع و تعداد گروه‌ها را وارد و ذخیره کنید.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <aside class="ob-crit-side">
+        <section class="ob-panel">
+            <h3>{% include "teacher/_qb_icon.html" with name="eye" %}پیش‌نمایش جریان اجرا</h3>
+            <ol class="ob-flow">
+                <li class="is-blue"><b>ورود دانشجو</b><small>نمایش دستورالعمل و شروع تایمر</small></li>
+                <li class="is-green"><b>مرحله مطالعه</b><small>مطالعه سناریو و پرونده</small><em data-legend="study"></em></li>
+                <li class="is-orange"><b>مرحله اجرا</b><small>انجام فعالیت و ارزیابی</small><em data-legend="activity"></em></li>
+                <li class="is-red"><b>پایان و تعویض</b><small>نمایش پیام پایان زمان</small><em data-legend="transition"></em></li>
+            </ol>
+        </section>
+        <section class="ob-panel">
+            <h3>{% include "teacher/_qb_icon.html" with name="matching" %}نمایش چرخش بین ایستگاه‌ها</h3>
+            {% if osce_ring %}
+                <div class="ob-ring" role="img" aria-label="ترتیب چرخش ایستگاه‌های فعال">
+                    <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="36" fill="none" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3 3"/></svg>
+                    {% for node in osce_ring %}<span class="ob-ring-node is-c{{ forloop.counter0|divisibleby:2|yesno:'a,b' }}" style="left:{{ node.x }}%;top:{{ node.y }}%"><i>{{ node.number|fa_digits }}</i><small>{{ node.title|truncatechars:16 }}</small></span>{% endfor %}
+                </div>
+            {% else %}
+                <p class="ob-aside-hint" style="margin:0">ایستگاه فعالی وجود ندارد.</p>
+            {% endif %}
+        </section>
+    </aside>
+</div>
+{% endwith %}

@@ -1,0 +1,8 @@
+{% load core_extras %}<tr data-table-row>
+    <td class="ob-cell-num" data-row-num>{{ forloop.counter|default:1|fa_digits }}</td>
+    <td><input type="text" name="{{ prefix }}_name" maxlength="120" value="{{ row.name|default:'' }}" aria-label="{{ name_label }}"></td>
+    <td><input type="number" name="{{ prefix }}_count" min="1" max="999" value="{{ row.count|default:'1' }}" class="ob-points" aria-label="تعداد"></td>
+    {% if has_status %}<td><select name="{{ prefix }}_status" aria-label="وضعیت" class="ob-status-select">{% for key, label in osce_resource_status.items %}<option value="{{ key }}"{% if row.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>{% endif %}
+    {% if has_note %}<td><input type="text" name="{{ prefix }}_note" maxlength="150" value="{{ row.note|default:'' }}" aria-label="توضیحات"></td>{% endif %}
+    <td class="ob-cell-tools"><button class="ob-icon-btn is-danger" type="button" data-table-row-delete aria-label="حذف ردیف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></td>
+</tr>

@@ -1,0 +1,179 @@
+{% extends 'base_standalone.html' %}
+{% load static core_extras %}
+
+{% block title %}{{ title }} | متاکوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .group-archive-page{--blue:#315cff;--violet:#7447f5;--ink:#071936;--muted:#65728a;--line:#d8e4f4;--panel:rgba(255,255,255,.8);direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .group-archive-page *{box-sizing:border-box;letter-spacing:0}
+    .group-archive-page [hidden]{display:none}
+    .group-archive-page a{text-decoration:none;color:inherit}.group-archive-page button{font:inherit;cursor:pointer}
+    .group-archive-page svg{width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .gar-shell{max-width:1100px;margin:0 auto;padding-bottom:1.2rem}
+    .btn-secondary{display:inline-flex;height:2.9rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.7rem;padding:0 1.15rem;font-weight:950;font-size:.86rem;border:1px solid #cbd9ec;background:#fff;color:#315cff}
+    .gar-head{margin-bottom:1.1rem}
+    .gar-head h1{margin:.8rem 0 .3rem;font-size:1.4rem;font-weight:950}
+    .gar-head p{margin:0;color:var(--muted);font-weight:850}
+    .gc-card{border:1px solid rgba(205,218,236,.95);border-radius:1rem;background:var(--panel);box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(145%);-webkit-backdrop-filter:blur(20px) saturate(145%)}
+    .gar-summary{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:center;padding:1.1rem 1.3rem;margin-bottom:1.1rem}
+    .gar-summary div{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-weight:850;font-size:.86rem}
+    .gar-summary strong{color:var(--ink)}
+    .gar-summary svg{color:var(--blue)}
+    .gar-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .gar-panel{padding:1.3rem}
+    .gar-panel.is-danger{border-color:#fecaca;background:rgba(255,245,245,.85)}
+    .gar-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem}
+    .gar-panel-head h2{margin:0;font-size:1.05rem;font-weight:950;display:flex;align-items:center;gap:.5rem}
+    .gar-badge{display:inline-flex;border-radius:999px;padding:.25rem .7rem;font-size:.72rem;font-weight:950}
+    .gar-badge.is-danger{background:#fee2e2;color:#dc2626}.gar-badge.is-safe{background:#e8f8ef;color:#16a34a}
+    .gar-icon{display:grid;width:3rem;height:3rem;place-items:center;border-radius:50%;margin-bottom:.9rem}
+    .gar-icon.is-danger{background:#fee2e2;color:#dc2626}.gar-icon.is-safe{background:#eef4ff;color:var(--blue)}
+    .gar-panel p{color:var(--muted);font-weight:850;font-size:.86rem;line-height:1.8;margin:0 0 1rem}
+    .gar-deps{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin-bottom:1rem}
+    .gar-dep{border:1px solid var(--line);border-radius:.7rem;background:#fff;padding:.7rem;text-align:center}
+    .gar-dep b{display:block;font-size:1.3rem;font-weight:950}
+    .gar-dep span{display:block;margin-top:.2rem;color:var(--muted);font-size:.78rem;font-weight:850}
+    .gar-block-note{display:flex;align-items:flex-start;gap:.5rem;border:1px solid #fecaca;border-radius:.7rem;background:#fff5f5;color:#b91c1c;padding:.8rem;font-size:.82rem;font-weight:850;margin-bottom:1rem}
+    .gar-check-list{display:grid;gap:.6rem;margin-bottom:1.1rem}
+    .gar-check-list div{display:flex;align-items:center;gap:.5rem;font-size:.86rem;font-weight:850;color:#3c4658}
+    .gar-check-list svg{color:#16a34a;flex-shrink:0}
+    .gar-action-btn{display:flex;width:100%;align-items:center;justify-content:center;gap:.5rem;height:3rem;border:0;border-radius:.75rem;font-weight:950}
+    .gar-action-btn.is-danger{background:#ef4444;color:#fff}
+    .gar-action-btn.is-danger:disabled{background:#fca5a5;cursor:not-allowed}
+    .gar-action-btn.is-safe{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}
+    .gar-modal{position:fixed;inset:0;z-index:150;display:none;place-items:center;padding:1rem}
+    .gar-modal.is-open{display:grid}
+    .gar-modal-backdrop{position:absolute;inset:0;background:rgba(7,25,54,.4);backdrop-filter:blur(6px)}
+    .gar-modal-panel{position:relative;z-index:1;width:min(30rem,94vw);border-radius:1rem;background:#fff;padding:1.6rem;text-align:center;box-shadow:0 30px 80px rgba(7,25,54,.25)}
+    .gar-modal-icon{display:grid;width:3.4rem;height:3.4rem;margin:0 auto .9rem;place-items:center;border-radius:50%}
+    .gar-modal-icon.is-danger{background:#fee2e2;color:#dc2626}.gar-modal-icon.is-safe{background:#eef4ff;color:var(--blue)}
+    .gar-modal-panel h3{margin:0 0 .6rem;font-size:1.1rem;font-weight:950}
+    .gar-modal-panel p{margin:0 0 1rem;color:var(--muted);font-weight:850;font-size:.86rem;line-height:1.8}
+    .gar-modal-confirm{display:flex;align-items:center;gap:.5rem;justify-content:center;margin-bottom:1.1rem;font-size:.82rem;font-weight:850;color:#3c4658}
+    .gar-modal-actions{display:flex;gap:.7rem}
+    .gar-modal-actions button{flex:1;height:2.9rem;border-radius:.7rem;font-weight:950;border:0}
+    .gar-modal-cancel{border:1px solid #d0dceb!important;background:#fff;color:#34435f}
+    .gar-modal-confirm-btn.is-danger{background:#ef4444;color:#fff}
+    .gar-modal-confirm-btn.is-safe{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}
+    .gar-modal-confirm-btn:disabled{opacity:.5;cursor:not-allowed}
+    @media(max-width:800px){.gar-grid,.gar-deps{grid-template-columns:1fr}}
+</style>
+
+<section class="super-admin-page super-admin-workspace group-archive-page" dir="rtl" data-fixed-scroll-page>
+    <div class="gar-shell">
+        <div class="gar-head">
+            <a class="btn-secondary" href="{{ detail_url }}"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>بازگشت به جزئیات گروه</a>
+            <h1>بایگانی یا حذف گروه درسی</h1>
+            <p>برای حفظ یکپارچگی داده‌ها، لطفاً قبل از حذف هر گزینه، پیامدهای آن را با دقت بررسی کنید.</p>
+        </div>
+
+        <section class="gc-card gar-summary">
+            <div><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/></svg>گروه <strong>{{ group.group_code|fa_digits }}</strong></div>
+            <div><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>کد درس: <strong>{{ group.course_code|default:"-"|fa_digits }}</strong></div>
+            <div><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>استاد: <strong>{{ group.teacher_name|fa_digits }}</strong></div>
+            <div><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>نیمسال: <strong>{{ group.term_label|fa_digits }}</strong></div>
+        </section>
+
+        <div class="gar-grid">
+            <section class="gc-card gar-panel is-danger">
+                <div class="gar-panel-head">
+                    <h2>حذف دائمی گروه</h2>
+                    <span class="gar-badge is-danger">منطقه خطر</span>
+                </div>
+                <span class="gar-icon is-danger"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></span>
+                <p>حذف دائمی غیرقابل بازگشت است و همه اطلاعات مرتبط با این گروه برای همیشه حذف خواهند شد.</p>
+                <div class="gar-deps">
+                    <div class="gar-dep"><b>{{ group.exams_count|fa_digits }}</b><span>آزمون</span></div>
+                    <div class="gar-dep"><b>{{ group.students_count|fa_digits }}</b><span>دانشجو</span></div>
+                </div>
+                {% if has_dependencies %}
+                    <div class="gar-block-note"><svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>به دلیل وجود وابستگی‌های فوق، حذف دائمی گروه امکان‌پذیر نیست. برای حذف دائمی، ابتدا دانشجویان را از گروه خارج کرده و آزمون‌های مرتبط را حذف/منتقل کنید.</div>
+                {% endif %}
+                <button type="button" class="gar-action-btn is-danger" data-open-modal="delete" {% if has_dependencies %}disabled{% endif %}>حذف دائمی</button>
+            </section>
+
+            <section class="gc-card gar-panel">
+                <div class="gar-panel-head">
+                    <h2>بایگانی گروه</h2>
+                    <span class="gar-badge is-safe">گزینه ایمن (توصیه‌شده)</span>
+                </div>
+                <span class="gar-icon is-safe"><svg viewBox="0 0 24 24"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></span>
+                <p>با بایگانی گروه، تمام اطلاعات آن حفظ می‌شود و فقط از فهرست گروه‌های فعال پنهان می‌گردد.</p>
+                <div class="gar-check-list">
+                    <div><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>وضعیت گروه غیرفعال می‌شود</div>
+                    <div><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>در فهرست گروه‌های فعال نمایش داده نمی‌شود</div>
+                    <div><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>دانشجویان، آزمون‌ها و گزارش‌ها حفظ می‌شوند</div>
+                </div>
+                <button type="button" class="gar-action-btn is-safe" data-open-modal="archive">بایگانی گروه</button>
+            </section>
+        </div>
+    </div>
+
+    <div class="gar-modal" data-modal aria-hidden="true">
+        <div class="gar-modal-backdrop" data-close-modal></div>
+        <form method="post" class="gar-modal-panel" role="dialog" aria-modal="true">
+            {% csrf_token %}
+            <input type="hidden" name="action" data-modal-action-input>
+            <span class="gar-modal-icon" data-modal-icon></span>
+            <h3 data-modal-title></h3>
+            <p data-modal-text></p>
+            <label class="gar-modal-confirm"><input type="checkbox" data-modal-ack>از پیامدهای این عملیات مطلع هستم</label>
+            <div class="gar-modal-actions">
+                <button type="button" class="gar-modal-cancel" data-close-modal>انصراف</button>
+                <button type="submit" class="gar-modal-confirm-btn" data-modal-confirm-btn disabled>تایید</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+(() => {
+    const modal = document.querySelector('[data-modal]');
+    const title = modal.querySelector('[data-modal-title]');
+    const text = modal.querySelector('[data-modal-text]');
+    const icon = modal.querySelector('[data-modal-icon]');
+    const ack = modal.querySelector('[data-modal-ack]');
+    const confirmBtn = modal.querySelector('[data-modal-confirm-btn]');
+    const actionInput = modal.querySelector('[data-modal-action-input]');
+
+    const configs = {
+        delete: {
+            title: 'گروه برای همیشه حذف شود؟',
+            text: 'این عملیات غیرقابل بازگشت است و تمام اطلاعات این گروه درسی حذف خواهد شد.',
+            tone: 'danger',
+            btnLabel: 'حذف دائمی',
+        },
+        archive: {
+            title: 'گروه بایگانی شود؟',
+            text: 'گروه از فهرست گروه‌های فعال پنهان می‌شود اما تمام داده‌های آن حفظ خواهد شد.',
+            tone: 'safe',
+            btnLabel: 'بایگانی گروه',
+        },
+    };
+
+    const openModal = (action) => {
+        const config = configs[action];
+        actionInput.value = action;
+        title.textContent = config.title;
+        text.textContent = config.text;
+        confirmBtn.textContent = config.btnLabel;
+        confirmBtn.className = `gar-modal-confirm-btn is-${config.tone}`;
+        icon.className = `gar-modal-icon is-${config.tone}`;
+        icon.innerHTML = action === 'delete'
+            ? '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>'
+            : '<svg viewBox="0 0 24 24"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>';
+        ack.checked = false;
+        confirmBtn.disabled = true;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+    };
+    const closeModal = () => { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); };
+
+    document.querySelectorAll('[data-open-modal]').forEach((btn) => btn.addEventListener('click', () => openModal(btn.dataset.openModal)));
+    document.querySelectorAll('[data-close-modal]').forEach((btn) => btn.addEventListener('click', closeModal));
+    ack.addEventListener('change', () => { confirmBtn.disabled = !ack.checked; });
+})();
+</script>
+{% endblock %}

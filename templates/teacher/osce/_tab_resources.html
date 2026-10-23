@@ -1,0 +1,33 @@
+{% load core_extras %}
+{% with res=form.details.resources %}
+<div data-tables>
+    <div class="ob-crit-banner">
+        <div>
+            <h3>تجهیزات و منابع ایستگاه</h3>
+            <p>در این بخش تجهیزات، ملزومات، افراد مورد نیاز و منابع آموزشی مورد استفاده در ایستگاه را مشخص کنید تا امکان آماده‌سازی مناسب ایستگاه و اجرای بدون مشکل فراهم شود.</p>
+        </div>
+        <span class="ob-art">{% include "teacher/_qs_art.html" with name="kfp" %}</span>
+    </div>
+    <div class="ob-res-grid">
+        <section class="ob-panel ob-res-equipment">
+            {% include "teacher/osce/_resource_table.html" with prefix="equipment" title="تجهیزات" add_label="افزودن تجهیز" rows=res.equipment name_label="نام تجهیز" has_status=True %}
+        </section>
+        <div class="ob-res-side">
+            <section class="ob-panel">
+                {% include "teacher/osce/_resource_table.html" with prefix="supplies" title="مواد مصرفی و ملزومات قابل مصرف" add_label="افزودن مورد" rows=res.supplies name_label="نام مورد" has_status=True %}
+            </section>
+            <section class="ob-panel">
+                {% include "teacher/osce/_resource_table.html" with prefix="staff" title="نیروی انسانی مورد نیاز" add_label="افزودن مورد" rows=res.staff name_label="نقش" has_note=True %}
+            </section>
+        </div>
+        <section class="ob-panel">
+            <h3>{% include "teacher/_qb_icon.html" with name="image" %}فایل‌ها و منابع آموزشی</h3>
+            {% include "teacher/osce/_file_list.html" with files=res.files input_name="resource_files" remove_name="remove_resource_file" accept=".pdf,.jpg,.jpeg,.png,.mp4" hint="PDF، JPG، PNG، MP4 — حداکثر ۵۰ مگابایت برای هر فایل" %}
+        </section>
+        <section class="ob-panel">
+            <h3>{% include "teacher/_qb_icon.html" with name="info" %}نکات اجرایی و ایمنی</h3>
+            <label class="ob-field"><textarea name="safety_notes" maxlength="500" data-count-source placeholder="هر نکته را در یک خط بنویسید؛ مثلاً: قبل از شروع ایستگاه، عملکرد دستگاه اکوکاردیوگرافی بررسی شود.">{{ res.safety_notes|default:'' }}</textarea><span class="ob-count" data-count-target>0/500</span></label>
+        </section>
+    </div>
+</div>
+{% endwith %}

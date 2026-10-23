@@ -1,0 +1,1042 @@
+{% load core_extras static %}
+{% if osce_tab == 'scenario' or osce_tab == 'instructions' %}<link rel="stylesheet" href="{% static 'js/vendor/quill-2.0.3/quill.snow.css' %}">{% endif %}
+<style>
+    .ob{--ob-blue:#2563eb;--ob-ink:#0f172a;--ob-muted:#64748b;--ob-line:#e3e9f4;--ob-soft:#f5f8fe;direction:rtl;max-width:1500px;margin:0 auto;padding-bottom:1rem;font-family:Vazirmatn,Tahoma,Arial,sans-serif;color:var(--ob-ink)}
+    .ob *{box-sizing:border-box}
+    .ob svg{flex:0 0 auto}
+    .ob-top{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
+    .ob-title{display:flex;align-items:flex-start;gap:.5rem;flex:0 0 auto}
+    .ob-title > svg{width:1.6rem;height:1.6rem;color:var(--ob-blue)}
+    .ob-title h1{margin:0;font-size:1.3rem;font-weight:900}
+    .ob-title p{margin:.15rem 0 0;color:var(--ob-muted);font-size:.74rem;font-weight:700}
+    .ob-title + .ob-back{margin-inline-start:auto}
+    .ob-preview-link{margin-inline-start:auto;border-color:#bfdbfe;color:var(--ob-blue)}
+    .ob-back{display:inline-flex;align-items:center;gap:.5rem;height:2.7rem;padding:0 1.1rem;border:1px solid #d9e2f0;border-radius:.7rem;background:#fff;color:#334155;font-size:.85rem;font-weight:900;text-decoration:none}
+    .ob-back svg,.ob-btn svg{width:1.05rem;height:1.05rem}
+    .ob-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:1rem;align-items:start}
+    .ob-card{border:1px solid var(--ob-line);border-radius:1rem;background:#fff;box-shadow:0 14px 34px rgba(30,64,175,.05)}
+    .ob-main{padding:1rem}
+    .ob-head{display:flex;align-items:center;gap:.8rem;margin-bottom:.9rem}
+    .ob-head-icon{display:grid;place-items:center;width:2.8rem;height:2.8rem;border-radius:.8rem;background:var(--ob-blue);color:#fff}
+    .ob-head-icon svg{width:1.4rem;height:1.4rem}
+    .ob-head h2{margin:0;font-size:1.25rem;font-weight:900}
+    .ob-head-edit{display:grid;place-items:center;width:2rem;height:2rem;border:0;border-radius:.5rem;background:none;color:var(--ob-blue);cursor:pointer}
+    .ob-head-edit svg{width:1.1rem;height:1.1rem}
+    .ob-head-tools{display:flex;align-items:center;gap:.45rem;margin-inline-start:auto}
+    .ob-icon-btn{display:grid;place-items:center;width:2.4rem;height:2.4rem;border:1px solid #d9e2f0;border-radius:.6rem;background:#fff;color:#334155;cursor:pointer;text-decoration:none}
+    .ob-icon-btn svg{width:1.1rem;height:1.1rem}
+    .ob-icon-btn.is-danger{border-color:#fecaca;color:#dc2626}
+    .ob-icon-btn.is-off{opacity:.4;pointer-events:none}
+    .ob-switch{position:relative;display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:800;cursor:pointer}
+    .ob-switch input{position:absolute;opacity:0}
+    .ob-switch span{position:relative;width:2.6rem;height:1.45rem;border-radius:999px;background:#cbd5e1;transition:background .15s}
+    .ob-switch span::after{content:"";position:absolute;top:.2rem;inset-inline-start:.2rem;width:1.05rem;height:1.05rem;border-radius:999px;background:#fff;transition:inset-inline-start .15s}
+    .ob-switch input:checked + span{background:var(--ob-blue)}
+    .ob-switch input:checked + span::after{inset-inline-start:1.35rem}
+    .ob-switch input:focus-visible + span{outline:2px solid #93c5fd;outline-offset:2px}
+    .ob-status{padding:.25rem .7rem;border-radius:999px;background:#dcfce7;color:#15803d;font-size:.74rem;font-weight:900}
+    .ob-status.is-off{background:#f1f5f9;color:#64748b}
+    .ob-tabs{display:flex;gap:.2rem;margin:0 0 1rem;padding:.3rem;border:1px solid var(--ob-line);border-radius:.8rem;overflow-x:auto}
+    .ob-tabs a,.ob-tabs span{position:relative;display:grid;justify-items:center;gap:.25rem;flex:1;min-width:6.5rem;padding:.55rem .4rem;border-radius:.55rem;color:#475569;font-size:.78rem;font-weight:800;text-decoration:none;white-space:nowrap}
+    .ob-tabs svg{width:1.2rem;height:1.2rem}
+    .ob-tabs a.is-active{color:var(--ob-blue);box-shadow:inset 0 -3px 0 var(--ob-blue);background:#f8fbff}
+    .ob-tabs span{opacity:.5;cursor:not-allowed}
+    .ob-tabs small{position:absolute;top:.1rem;inset-inline-end:.15rem;padding:0 .3rem;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.55rem;font-weight:900}
+    .ob-basic{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:1rem}
+    .ob-fields{display:grid;gap:.85rem}
+    .ob-row{display:grid;gap:.8rem}
+    .ob-row.is-2{grid-template-columns:2fr 1fr}
+    .ob-row.is-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .ob-row.is-half{grid-template-columns:1fr 1fr}
+    .ob label.ob-field{display:grid;gap:.35rem;font-size:.82rem;font-weight:900}
+    .ob label.ob-field em{color:#dc2626;font-style:normal}
+    .ob input[type=text],.ob input[type=number],.ob select,.ob textarea{width:100%;min-height:2.7rem;padding:0 .8rem;border:1px solid #d9e2f0;border-radius:.6rem;background:#fff;color:var(--ob-ink);font:inherit;font-size:.86rem;font-weight:700}
+    .ob textarea{min-height:7rem;padding:.7rem .8rem;line-height:1.9;resize:vertical}
+    .ob input:focus,.ob select:focus,.ob textarea:focus{outline:2px solid #bfdbfe;border-color:#93c5fd}
+    .ob-count{justify-self:end;color:var(--ob-muted);font-size:.7rem;font-weight:700}
+    .ob-panel{padding:.9rem 1rem;border:1px solid var(--ob-line);border-radius:.8rem;background:var(--ob-soft)}
+    .ob-panel h3{display:flex;align-items:center;gap:.45rem;margin:0 0 .7rem;font-size:.92rem;font-weight:900}
+    .ob-panel h3 svg{width:1.2rem;height:1.2rem;color:var(--ob-blue)}
+    .ob-side{display:grid;gap:.8rem;align-content:start}
+    .ob-illus{display:grid;justify-items:center;gap:.6rem;text-align:center}
+    .ob-illus .qs-art,.ob-art{display:grid;place-items:center;width:9rem;height:7rem;border-radius:999px;background:radial-gradient(ellipse at center,#e6eeff 0,#eef4ff 55%,transparent 72%)}
+    .ob-illus svg,.ob-art svg{width:6rem;height:4.6rem}
+    .ob-illus p{margin:0;color:#475569;font-size:.78rem;font-weight:700;line-height:2}
+    .ob-objectives{display:grid;gap:.45rem}
+    .ob-objective{display:flex;align-items:center;gap:.4rem}
+    .ob-objective input{min-height:2.4rem !important;font-size:.8rem !important}
+    .ob-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;height:2.4rem;padding:0 .9rem;border:1px solid #bfdbfe;border-radius:.55rem;background:#fff;color:var(--ob-blue);font:inherit;font-size:.8rem;font-weight:900;text-decoration:none;cursor:pointer}
+    .ob-btn.is-primary{border-color:transparent;background:var(--ob-blue);color:#fff}
+    .ob-btn[disabled]{opacity:.5;cursor:not-allowed}
+    .ob-types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin-bottom:1rem}
+    .ob-choice{position:relative;display:grid;justify-items:center;gap:.25rem;padding:.8rem .7rem 1rem;border:1.5px solid var(--ob-line);border-radius:.8rem;background:#fff;text-align:center;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+    .ob-choice input{position:absolute;opacity:0}
+    .ob-choice::before{content:"";position:absolute;top:.7rem;inset-inline-end:.7rem;width:1.2rem;height:1.2rem;border:1.5px solid #94a3b8;border-radius:999px;background:#fff}
+    .ob-choice:has(input:checked){border-color:var(--ob-blue);background:#f8fbff;box-shadow:0 10px 24px rgba(37,99,235,.12)}
+    .ob-choice:has(input:checked)::before{border:5px solid var(--ob-blue)}
+    .ob-choice:has(input:focus-visible){outline:2px solid #93c5fd;outline-offset:2px}
+    .ob-choice strong{font-size:1rem;font-weight:900}
+    .ob-choice span{color:var(--ob-muted);font-size:.78rem;font-weight:700;line-height:1.8}
+    .ob-choice .ob-art{width:7rem;height:5rem}
+    .ob-choice .ob-art svg{width:4.6rem;height:3.6rem}
+    .ob-type-body{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:1rem}
+    .ob-mini{display:grid;gap:.55rem;margin-bottom:.9rem}
+    .ob-mini.is-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .ob-mini.is-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .ob-mini .ob-choice{gap:.35rem;padding:.75rem .5rem .6rem}
+    .ob-mini .ob-choice::before{top:.45rem;width:1rem;height:1rem}
+    .ob-mini .ob-choice svg{width:1.6rem;height:1.6rem;color:#475569}
+    .ob-mini .ob-choice:has(input:checked) svg,.ob-mini .ob-choice:has(input:checked) strong{color:var(--ob-blue)}
+    .ob-mini .ob-choice strong{font-size:.82rem}
+    .ob-group-title{margin:0 0 .5rem;font-size:.9rem;font-weight:900}
+    .ob-group-title em{color:#dc2626;font-style:normal}
+    .ob-flags{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;padding-top:.6rem;border-top:1px solid var(--ob-line)}
+    .ob-flags .ob-switch{align-items:flex-start;font-size:.86rem}
+    .ob-flags small{display:block;color:var(--ob-muted);font-size:.72rem;font-weight:700}
+    .ob-about p{margin:0 0 .7rem;color:#334155;font-size:.8rem;font-weight:700;line-height:2}
+    .ob-about div{padding:.7rem .9rem;border-radius:.6rem;background:#eef4ff}
+    .ob-about b{display:block;margin-bottom:.35rem;font-size:.8rem}
+    .ob-about ul{margin:0;padding-inline-start:1.1rem;color:#334155;font-size:.78rem;font-weight:700;line-height:2}
+    .ob-about li::marker{color:var(--ob-blue)}
+    .ob-aside{padding:1rem}
+    .ob-aside-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
+    .ob-aside-head h2{margin:0;font-size:1.05rem;font-weight:900}
+    .ob-aside-hint{margin:.55rem 0 .9rem;color:var(--ob-muted);font-size:.74rem;font-weight:700;line-height:1.9}
+    .ob-settings{display:grid;gap:.6rem;margin-bottom:.9rem;padding:.8rem;border:1px dashed #bfdbfe;border-radius:.7rem;background:#f8fbff}
+    .ob-st-list{display:grid;gap:.6rem;margin:0;padding:0;list-style:none}
+    .ob-st{display:flex;align-items:center;gap:.55rem;padding:.65rem .6rem;border:1px solid var(--ob-line);border-radius:.7rem;background:#fff}
+    .ob-st.is-current{border-color:#93c5fd;background:#f5f9ff;box-shadow:0 8px 20px rgba(37,99,235,.08)}
+    .ob-st.is-dragging{opacity:.45}
+    .ob-st.is-inactive .ob-st-info strong{color:#94a3b8}
+    .ob-grip{display:grid;place-items:center;width:1.2rem;color:#94a3b8;cursor:grab}
+    .ob-grip svg{width:1.1rem;height:1.1rem}
+    .ob-num{display:grid;place-items:center;width:1.7rem;height:1.7rem;border-radius:999px;background:#64748b;color:#fff;font-size:.74rem;font-weight:900}
+    .ob-st.is-current .ob-num{background:var(--ob-blue)}
+    .ob-st-icon{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:.6rem;background:#f1f5ff}
+    .ob-st-icon svg{width:2.1rem;height:1.6rem}
+    .ob-st-info{display:grid;gap:.2rem;flex:1;min-width:0;text-decoration:none;color:inherit}
+    .ob-st-info strong{overflow:hidden;font-size:.84rem;font-weight:900;text-overflow:ellipsis;white-space:nowrap}
+    .ob-st-info span{justify-self:start;padding:.05rem .45rem;border-radius:.35rem;background:#eef2f7;color:#475569;font-size:.66rem;font-weight:800}
+    .ob-st-info small{display:inline-flex;align-items:center;gap:.25rem;color:var(--ob-muted);font-size:.68rem;font-weight:700}
+    .ob-st-info small svg{width:.85rem;height:.85rem}
+    .ob-st form{margin:0}
+    .ob-st .ob-icon-btn{width:2rem;height:2rem}
+    .ob-empty{display:grid;justify-items:center;gap:.7rem;padding:3rem 1rem;color:var(--ob-muted);font-size:.86rem;font-weight:700;text-align:center}
+    .ob-footer{display:flex;align-items:center;gap:.7rem;margin-top:1rem}
+    .ob-footer .ob-btn{height:3rem;padding:0 1.4rem;font-size:.92rem}
+    .ob-footer .is-cancel{margin-inline-start:auto;border-color:#d9e2f0;color:#475569}
+    .ob .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+    .ob-section-head{display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.9rem}
+    .ob-section-head > svg{width:1.6rem;height:1.6rem;color:var(--ob-blue)}
+    .ob-section-head h3{margin:0;font-size:1.1rem;font-weight:900}
+    .ob-section-head p{margin:.2rem 0 0;color:var(--ob-muted);font-size:.78rem;font-weight:700;line-height:1.9}
+    .ob-check{display:flex;align-items:center;gap:.5rem;padding:.3rem 0;font-size:.8rem;font-weight:700;cursor:pointer}
+    .ob-check input{width:1.05rem;height:1.05rem;accent-color:var(--ob-blue)}
+    .ob-scn-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.3fr) 200px;grid-template-areas:"patient editor subnav" "files files subnav" "notes objectives subnav";gap:.8rem;align-items:start}
+    .ob-patient{grid-area:patient}.ob-editor-panel{grid-area:editor}.ob-subnav{grid-area:subnav}.ob-files-panel{grid-area:files}.ob-objectives-panel{grid-area:objectives}.ob-notes-panel{grid-area:notes}
+    .ob-patient-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.7rem;align-items:start}
+    .ob-patient-fields{display:grid;gap:.6rem}
+    .ob-photo{padding:.8rem !important;gap:.6rem !important}
+    .ob-photo .teacher-wizard-photo-preview{width:5.5rem;height:5.5rem}
+    .ob-photo small{color:var(--ob-muted);font-size:.66rem;font-weight:700;text-align:center}
+    .ob-subnav{display:grid;gap:.25rem;padding:.5rem}
+    .ob-subnav button,.ob-subnav a,.ob-subnav span{display:flex;align-items:center;gap:.4rem;padding:.65rem .7rem;border:0;border-radius:.55rem;background:none;color:#334155;font:inherit;font-size:.8rem;font-weight:800;text-align:right;text-decoration:none;cursor:pointer}
+    .ob-subnav button.is-active{background:#e8f0ff;color:var(--ob-blue);box-shadow:inset -3px 0 0 var(--ob-blue)}
+    .ob-subnav span{opacity:.55;cursor:not-allowed}
+    .ob-subnav small{padding:0 .3rem;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.58rem;font-weight:900}
+    .ob-rich{display:grid;gap:.3rem}
+    .ob-rich .ql-toolbar.ql-snow{border-color:#d9e2f0;border-radius:.6rem .6rem 0 0;background:#f8fafc;direction:ltr}
+    .ob-rich .ql-container.ql-snow{min-height:9rem;border-color:#d9e2f0;border-radius:0 0 .6rem .6rem;background:#fff;font-family:inherit;font-size:.88rem}
+    .ob-rich .ql-editor{direction:rtl;text-align:right;line-height:2}
+    .ob-rich .ql-editor.ql-blank::before{right:15px;left:15px;color:#94a3b8;font-style:normal}
+    .ob-count.is-over{color:#dc2626}
+    .ob-files{display:flex;flex-wrap:wrap;gap:.6rem}
+    .ob-drop{position:relative;display:grid;place-items:center;align-content:center;gap:.3rem;width:15rem;min-height:8.5rem;padding:.8rem;border:1.5px dashed #93c5fd;border-radius:.7rem;background:#f8fbff;color:var(--ob-blue);text-align:center;cursor:pointer}
+    .ob-drop.is-over{background:#e8f0ff}
+    .ob-drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .ob-drop svg{width:1.8rem;height:1.8rem}
+    .ob-drop b{color:#334155;font-size:.78rem}
+    .ob-drop small{color:var(--ob-muted);font-size:.68rem;font-weight:700}
+    .ob-file{position:relative;display:grid;gap:.2rem;width:8.5rem;padding:.4rem;border:1px solid var(--ob-line);border-radius:.6rem;background:#fff;text-align:center}
+    .ob-file.is-removed{opacity:.4}
+    .ob-file.is-removed .ob-file-thumb{filter:grayscale(1)}
+    .ob-file-thumb{display:grid;place-items:center;height:5rem;overflow:hidden;border-radius:.45rem;background:#f1f5f9;color:#475569}
+    .ob-file-thumb img{width:100%;height:100%;object-fit:cover}
+    .ob-file-thumb svg{width:2rem;height:2rem}
+    .ob-file b{overflow:hidden;font-size:.68rem;text-overflow:ellipsis;white-space:nowrap;direction:ltr}
+    .ob-file small{color:var(--ob-muted);font-size:.62rem}
+    .ob-file-remove{position:absolute;top:.25rem;inset-inline-start:.25rem;z-index:1;display:grid;place-items:center;width:1.4rem;height:1.4rem;border-radius:.35rem;background:#fff;box-shadow:0 2px 6px rgba(15,23,42,.15);font-size:1rem;font-weight:900;cursor:pointer}
+    .ob-file-remove input{position:absolute;opacity:0}
+    .ob-file-picked{display:contents}
+    .ob-file.is-new{border-color:#93c5fd;background:#f8fbff}
+    .ob-file.is-new::after{content:"جدید";position:absolute;top:.3rem;inset-inline-end:.3rem;padding:0 .35rem;border-radius:999px;background:var(--ob-blue);color:#fff;font-size:.58rem;font-weight:900}
+    .ob-ins-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1rem;align-items:start}
+    .ob-seg{display:inline-flex;gap:.3rem;margin-bottom:.8rem;padding:.3rem;border-radius:.7rem;background:#f1f5f9}
+    .ob-seg span,.ob-seg button{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1rem;border:0;border-radius:.5rem;background:none;color:#475569;font:inherit;font-size:.8rem;font-weight:900;cursor:pointer}
+    .ob-seg svg{width:1.05rem;height:1.05rem}
+    .ob-seg .is-active{background:#dbe7ff;color:var(--ob-blue)}
+    .ob-ins-bottom{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.8rem}
+    .ob-preview{position:sticky;top:1rem}
+    .ob-preview-modes{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.8rem}
+    .ob-preview-modes button{height:2.4rem;border:1px solid #d9e2f0;border-radius:.5rem;background:#fff;color:#475569;font:inherit;font-size:.78rem;font-weight:900;cursor:pointer}
+    .ob-preview-modes button.is-active{border-color:var(--ob-blue);background:var(--ob-blue);color:#fff}
+    .ob-preview-card{display:grid;gap:.8rem;padding:.9rem;border-radius:.8rem;background:#eef4ff}
+    .ob-preview-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+    .ob-preview-top > div{display:grid;gap:.4rem;justify-items:start}
+    .ob-preview-top strong{font-size:1.05rem;font-weight:900}
+    .ob-preview-top .ob-art{width:6rem;height:5rem;background:#fff}
+    .ob-preview-top .ob-art svg{width:4rem;height:3rem}
+    .ob-preview-chip{padding:.15rem .6rem;border-radius:999px;background:#fff;color:#475569;font-size:.7rem;font-weight:800}
+    .ob-preview-time{display:inline-flex;align-items:center;gap:.3rem;color:#334155;font-size:.78rem;font-weight:800}
+    .ob-preview-time svg{width:1rem;height:1rem;color:var(--ob-blue)}
+    .ob-preview-body{padding:.8rem;border-radius:.6rem;background:#fff}
+    .ob-preview-body > b{display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem;font-size:.86rem}
+    .ob-preview-body > b svg{width:1rem;height:1rem;color:var(--ob-blue)}
+    .ob-rich-output{color:#1e293b;font-size:.8rem;font-weight:600;line-height:2}
+    .ob-rich-output p,.ob-rich-output h3,.ob-rich-output h4,.ob-rich-output h5{margin:0}
+    .ob-rich-output ol,.ob-rich-output ul{margin:0;padding-inline-start:1.2rem}
+    .ob-preview-tasks{margin:.5rem 0 0;padding-inline-start:1.2rem;color:#334155;font-size:.76rem;font-weight:700;line-height:1.9}
+    .ob-preview-start{width:100%;height:2.8rem}
+    .ob-preview-card.is-print{border:1px solid #cbd5e1;background:#fff;filter:grayscale(1)}
+    .ob-preview-card.is-print .ob-preview-start{display:none}
+    .ob-crit-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:1rem;align-items:start}
+    .ob-crit-banner{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.9rem;padding:1rem 1.1rem;border-radius:.9rem;background:linear-gradient(90deg,#f5f8ff,#eaf1ff)}
+    .ob-crit-banner h3{margin:0;font-size:1.15rem;font-weight:900}
+    .ob-crit-banner p{margin:.35rem 0;color:#475569;font-size:.78rem;font-weight:700;line-height:1.9}
+    .ob-crit-banner small{color:var(--ob-muted);font-size:.74rem;font-weight:700}
+    .ob-crit-banner a{color:var(--ob-blue);font-weight:900}
+    .ob-crit-banner .ob-art{width:7rem;height:5.5rem;background:#fff}
+    .ob-subtabs{display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:.9rem;border:1px solid var(--ob-line);border-radius:.7rem;overflow:hidden}
+    .ob-subtabs button{padding:.75rem .5rem;border:0;border-inline-start:1px solid var(--ob-line);background:#fff;color:#475569;font:inherit;font-size:.8rem;font-weight:900;cursor:pointer}
+    .ob-subtabs button:first-child{border-inline-start:0}
+    .ob-subtabs button.is-active{color:var(--ob-blue);box-shadow:inset 0 -3px 0 var(--ob-blue);background:#f8fbff}
+    .ob-crit-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.7rem;padding:.6rem;border-radius:.7rem;background:var(--ob-soft)}
+    .ob-stat{padding:.5rem .8rem;border:1px solid var(--ob-line);border-radius:.55rem;background:#fff;color:#475569;font-size:.78rem;font-weight:800}
+    .ob-stat:first-of-type{margin-inline-start:auto}
+    .ob-stat.is-blue{border-color:#bfdbfe;color:var(--ob-blue)}
+    .ob-table-wrap{overflow-x:auto;border:1px solid var(--ob-line);border-radius:.7rem}
+    .ob-crit-table{width:100%;min-width:760px;border-collapse:collapse;font-size:.78rem}
+    .ob-crit-table th{padding:.6rem .5rem;background:#f8fafc;color:#475569;font-weight:900;text-align:right;white-space:nowrap}
+    .ob-crit-table td{padding:.35rem .4rem;border-top:1px solid #eef2f7;vertical-align:middle}
+    .ob-crit-table input[type=text],.ob-crit-table select{min-height:2.3rem !important;font-size:.76rem !important;padding:0 .5rem !important}
+    .ob-crit-table .ob-points{width:4.8rem;min-height:2.3rem !important;font-size:.78rem !important;padding:0 .4rem !important}
+    .ob-crit-table tfoot td{padding:.6rem .5rem;background:#f8fafc;font-weight:900}
+    .ob-cell-num{width:2.5rem;color:var(--ob-muted);font-weight:900;text-align:center}
+    .ob-cell-check{text-align:center}
+    .ob-cell-check input{width:1.1rem;height:1.1rem;accent-color:var(--ob-blue)}
+    .ob-cell-tools{white-space:nowrap}
+    .ob-cell-tools .ob-icon-btn{display:inline-grid;width:1.9rem;height:1.9rem;vertical-align:middle}
+    .ob-cell-tools .ob-grip{display:inline-grid;vertical-align:middle}
+    .ob-crit-table tr.is-dragging{opacity:.4}
+    .ob-crit-bottom{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);gap:.8rem;margin-top:.9rem}
+    .ob-mode{display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.5rem;padding:.65rem .7rem;border:1.5px solid var(--ob-line);border-radius:.6rem;background:#fff;cursor:pointer}
+    .ob-mode:has(input:checked){border-color:var(--ob-blue);background:#f8fbff}
+    .ob-mode input{margin-top:.2rem;accent-color:var(--ob-blue)}
+    .ob-mode b{display:block;font-size:.82rem}
+    .ob-mode small{color:var(--ob-muted);font-size:.7rem;font-weight:700}
+    .ob-levels{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.4rem}
+    .ob-level{display:grid;justify-items:center;gap:.2rem;padding:.55rem .3rem;border-radius:.55rem;text-align:center}
+    .ob-level i,.ob-level-num{display:grid;place-items:center;width:1.5rem;height:1.5rem;border-radius:999px;color:#fff;font-size:.72rem;font-style:normal;font-weight:900}
+    .ob-level b{font-size:.74rem}
+    .ob-level small{color:#64748b;font-size:.64rem;font-weight:700;line-height:1.6}
+    .ob-level.is-l5{background:#ecfdf5}.ob-level.is-l5 i,.ob-level-num.is-l5{background:#16a34a}
+    .ob-level.is-l4{background:#f0fdfa}.ob-level.is-l4 i,.ob-level-num.is-l4{background:#0d9488}
+    .ob-level.is-l3{background:#fefce8}.ob-level.is-l3 i,.ob-level-num.is-l3{background:#ca8a04}
+    .ob-level.is-l2{background:#fff7ed}.ob-level.is-l2 i,.ob-level-num.is-l2{background:#ea580c}
+    .ob-level.is-l1{background:#fef2f2}.ob-level.is-l1 i,.ob-level-num.is-l1{background:#dc2626}
+    .ob-level-edit{display:grid;gap:.6rem}
+    .ob-level-row{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,2fr);align-items:end;gap:.7rem;padding:.6rem .8rem;border:1px solid var(--ob-line);border-radius:.7rem}
+    .ob-level-row .ob-level-num{margin-bottom:.6rem}
+    .ob-crit-side{display:grid;gap:.8rem;align-content:start}
+    .ob-tpl-head{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-bottom:.6rem}
+    .ob-tpl-head h3{margin:0}
+    .ob-tpl-head .ob-btn{height:2.1rem;padding:0 .6rem;font-size:.68rem}
+    .ob-dev{padding:0 .3rem;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.56rem}
+    .ob-tpl-search{width:100%;min-height:2.5rem;margin-bottom:.6rem;padding:0 .8rem;border:1px solid #d9e2f0;border-radius:.6rem;font:inherit;font-size:.8rem}
+    .ob-tpl-list{display:grid;gap:.45rem}
+    .ob-tpl{display:grid;gap:.15rem;width:100%;padding:.65rem .7rem;border:1px solid var(--ob-line);border-radius:.6rem;background:#fff;color:inherit;font:inherit;text-align:right;cursor:pointer}
+    .ob-tpl:hover{border-color:#93c5fd;background:#f8fbff}
+    .ob-tpl b{font-size:.8rem}
+    .ob-tpl small{color:var(--ob-muted);font-size:.68rem;font-weight:700}
+    .ob-tpl-group{margin:.4rem 0 0;color:#475569;font-size:.74rem;font-weight:900}
+    .ob-tpl-mine{display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem}
+    .ob-tpl-mine .ob-icon-btn{width:2rem;height:2rem}
+    .ob-share{flex:0 0 auto;height:2rem;padding:0 .55rem;border:1px solid #bfdbfe;border-radius:.5rem;background:#fff;color:var(--ob-blue);font:inherit;font-size:.66rem;font-weight:900;cursor:pointer}
+    .ob-share.is-on{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}
+    .ob-library{margin-bottom:.8rem;padding:.6rem;border:1px dashed #bfdbfe;border-radius:.6rem;background:#f8fbff}
+    .ob-library .ob-tpl small{display:block}
+    .ob-tpl-save{display:grid;gap:.4rem;margin-top:.8rem;padding-top:.8rem;border-top:1px dashed #cbd5e1}
+    .ob-tpl-save input{min-height:2.4rem;padding:0 .7rem;border:1px solid #d9e2f0;border-radius:.55rem;font:inherit;font-size:.78rem}
+    .ob-tpl-msg{font-size:.7rem;font-weight:800}
+    .ob-tpl-msg.is-error{color:#dc2626}.ob-tpl-msg.is-ok{color:#15803d}
+    .ob-locked{margin-bottom:.8rem;padding:.75rem 1rem;border:1px solid #bbf7d0;border-radius:.7rem;background:#f0fdf4;color:#166534;font-size:.82rem;font-weight:800}
+    .ob-locked a{color:#15803d;font-weight:900}
+    .ob-table-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.6rem}
+    .ob-table-head h3{margin:0}
+    .ob-table-head .ob-btn{height:2.2rem;font-size:.74rem}
+    .ob-res-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:start}
+    .ob-res-side{display:grid;gap:.8rem}
+    .ob-res-table{min-width:0 !important}
+    .ob-res-table .ob-points{width:4rem}
+    .ob-status-select{min-width:6rem}
+    .ob-time-grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:1rem;align-items:start}
+    .ob-time-main{display:grid;gap:.8rem}
+    .ob-time-main .ob-crit-banner{margin:0}
+    .ob-time-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:.8rem;align-items:start}
+    .ob-time-row.is-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .ob-timeline{display:flex;height:.55rem;margin:.9rem 0 .4rem;overflow:hidden;border-radius:999px;background:#e2e8f0}
+    .ob-timeline span{transition:flex-grow .2s}
+    .ob-timeline .is-study,.ob-timeline-legend .is-study::before{background:#3b82f6}
+    .ob-timeline .is-activity,.ob-timeline-legend .is-activity::before{background:#10b981}
+    .ob-timeline .is-transition,.ob-timeline-legend .is-transition::before{background:#f97316}
+    .ob-timeline-legend{display:flex;flex-wrap:wrap;gap:.8rem;color:#475569;font-size:.72rem;font-weight:800}
+    .ob-timeline-legend span{display:inline-flex;align-items:center;gap:.3rem}
+    .ob-timeline-legend span::before{content:"";width:.6rem;height:.6rem;border-radius:999px}
+    .ob-switch-row{justify-content:space-between;width:100%;padding:.45rem 0;border-bottom:1px solid #eef2f7;font-size:.8rem}
+    .ob-switch-row span{order:2}
+    .ob-schedule td,.ob-schedule th{text-align:center !important}
+    .ob-schedule th small{display:block;color:var(--ob-muted);font-size:.64rem;font-weight:700}
+    .ob-schedule td.is-ca{background:#f0f7ff}.ob-schedule td.is-cb{background:#f0fdf4}
+    .ob-flow{display:grid;gap:.9rem;margin:0;padding:0 1.6rem 0 0;list-style:none;border-inline-start:2px solid #e2e8f0}
+    .ob-flow li{position:relative;display:grid;gap:.1rem}
+    .ob-flow li::before{content:"";position:absolute;top:.15rem;right:-2.05rem;width:.8rem;height:.8rem;border:3px solid currentColor;border-radius:999px;background:#fff}
+    .ob-flow li.is-blue{color:#2563eb}.ob-flow li.is-green{color:#10b981}.ob-flow li.is-orange{color:#f97316}.ob-flow li.is-red{color:#ef4444}
+    .ob-flow b{color:#0f172a;font-size:.84rem}
+    .ob-flow small{color:var(--ob-muted);font-size:.7rem;font-weight:700}
+    .ob-flow em{position:absolute;top:0;left:0;padding:.1rem .45rem;border-radius:.4rem;background:#f8fafc;font-size:.68rem;font-style:normal;font-weight:900}
+    .ob-ring{position:relative;width:100%;aspect-ratio:1}
+    .ob-ring svg{position:absolute;inset:0;width:100%;height:100%}
+    .ob-ring-node{position:absolute;display:grid;justify-items:center;gap:.15rem;transform:translate(-50%,-50%)}
+    .ob-ring-node i{display:grid;place-items:center;width:2.2rem;height:2.2rem;border-radius:999px;color:#fff;font-style:normal;font-weight:900;box-shadow:0 6px 14px rgba(15,23,42,.15)}
+    .ob-ring-node.is-ca i{background:#6366f1}.ob-ring-node.is-cb i{background:#10b981}
+    .ob-ring-node small{padding:.05rem .35rem;border-radius:.35rem;background:#fff;font-size:.62rem;font-weight:900;white-space:nowrap}
+    .ob-set-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+    .ob-set-wide{grid-column:1/-1}
+    .ob-set-line{margin-bottom:.5rem}
+    .ob-tags{display:flex;flex-wrap:wrap;gap:.4rem;min-height:2.6rem;padding:.4rem;border:1px solid #d9e2f0;border-radius:.6rem;background:#fff}
+    .ob-tag{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .6rem;border:1px solid #bfdbfe;border-radius:.5rem;background:#eff6ff;color:var(--ob-blue);font-size:.76rem;font-weight:900}
+    .ob-tag button{border:0;background:none;color:inherit;font-size:1rem;cursor:pointer}
+    .ob-tag-add{display:flex;gap:.4rem;margin-top:.4rem}
+    .ob-tag-add input{flex:1}
+    @media (max-width:1200px){.ob-time-grid,.ob-res-grid{grid-template-columns:1fr}.ob-time-row.is-3{grid-template-columns:1fr 1fr}}
+    @media (max-width:760px){.ob-time-row,.ob-time-row.is-3,.ob-set-grid{grid-template-columns:1fr}}
+    @media (max-width:1200px){.ob-crit-grid{grid-template-columns:1fr}}
+    @media (max-width:760px){.ob-crit-bottom{grid-template-columns:1fr}.ob-levels{grid-template-columns:repeat(3,minmax(0,1fr))}.ob-level-row{grid-template-columns:auto 1fr}.ob-level-row label:last-child{grid-column:1/-1}.ob-subtabs{grid-template-columns:1fr}}
+    @media (max-width:1200px){.ob-scn-grid{grid-template-columns:minmax(0,1fr) 200px;grid-template-areas:"patient subnav" "editor subnav" "files files" "notes notes" "objectives objectives"}.ob-ins-grid{grid-template-columns:1fr}.ob-preview{position:static}}
+    @media (max-width:760px){.ob-scn-grid{grid-template-columns:1fr;grid-template-areas:"subnav" "patient" "editor" "files" "notes" "objectives"}.ob-patient-body,.ob-ins-bottom{grid-template-columns:1fr}.ob-drop,.ob-file{width:100%}}
+    @media (max-width:1200px){.ob-layout{grid-template-columns:1fr}.ob-top{flex-wrap:wrap}}
+    @media (max-width:900px){.ob-basic,.ob-type-body{grid-template-columns:1fr}.ob-types,.ob-mini.is-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:640px){.ob-row.is-2,.ob-row.is-3,.ob-row.is-half,.ob-flags,.ob-mini.is-3{grid-template-columns:1fr}.ob-types{grid-template-columns:1fr}.ob-head{flex-wrap:wrap}.ob-footer{flex-wrap:wrap}.ob-footer .ob-btn{flex:1}}
+</style>
+{% with st=osce_station form=osce_form %}
+<div class="ob" data-osce-builder>
+    <div class="ob-top">
+        <div class="ob-title">
+            {% include "teacher/_qb_icon.html" with name="osce" %}
+            <div><h1>سازنده ایستگاه OSCE</h1><p>ایجاد و تنظیم مجموعه‌ای از ایستگاه‌های OSCE{% if osce.title %} — {{ osce.title }}{% endif %}</p></div>
+        </div>
+        {% if osce.id %}<a class="ob-back ob-preview-link" href="{% url 'core:teacher_osce_preview' osce.id %}">{% include "teacher/_qb_icon.html" with name="eye" %}پیش‌نمایش و انتشار</a>{% endif %}
+        <a class="ob-back" href="{% url 'core:teacher_osce_list' %}">بازگشت {% include "teacher/_qb_icon.html" with name="arrow" %}</a>
+    </div>
+
+    {% if osce_is_published %}
+    <div class="ob-locked" role="status">این آزمون منتشر شده و ویرایش آن قفل است. برای تغییر، از <a href="{% url 'core:teacher_osce_preview' osce.id %}#publish">صفحه انتشار</a> آن را به پیش‌نویس برگردانید.</div>
+    {% endif %}
+    <div class="ob-layout">
+        <section class="ob-card ob-main">
+            {% if not st and not osce_is_new %}
+                <div class="ob-empty">
+                    <span class="ob-art">{% include "teacher/_qs_art.html" with name="osce" %}</span>
+                    این آزمون هنوز ایستگاهی ندارد.
+                    <form method="post" action="{% url 'core:teacher_osce_station_add' osce.id %}">{% csrf_token %}<button class="ob-btn is-primary" type="submit">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن ایستگاه جدید</button></form>
+                </div>
+            {% else %}
+            <header class="ob-head">
+                <span class="ob-head-icon">{% include "teacher/_qb_icon.html" with name="osce" %}</span>
+                <h2>{% if st %}ایستگاه {{ st.position|fa_digits }}: {{ st.title }}{% else %}ایستگاه ۱ (جدید){% endif %}</h2>
+                {% if osce_tab == 'basic' %}<button class="ob-head-edit" type="button" data-focus-title aria-label="ویرایش عنوان ایستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></svg></button>{% endif %}
+                <div class="ob-head-tools">
+                    {% if osce_tab == 'basic' %}
+                        <label class="ob-switch">فعال<input type="checkbox" name="is_active" value="1" form="osce-station-form"{% if form.is_active %} checked{% endif %}><span></span></label>
+                    {% elif st %}
+                        <span class="ob-status{% if not st.is_active %} is-off{% endif %}">{% if st.is_active %}فعال{% else %}غیرفعال{% endif %}</span>
+                    {% endif %}
+                    {% if st %}
+                        <a class="ob-icon-btn{% if not osce_prev_station %} is-off{% endif %}" href="{% if osce_prev_station %}?station={{ osce_prev_station.id }}&tab={{ osce_tab }}{% endif %}" aria-label="ایستگاه قبلی"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+                        <a class="ob-icon-btn{% if not osce_next_station %} is-off{% endif %}" href="{% if osce_next_station %}?station={{ osce_next_station.id }}&tab={{ osce_tab }}{% endif %}" aria-label="ایستگاه بعدی"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></a>
+                        <form method="post" action="{% url 'core:teacher_osce_station_delete' osce.id st.id %}" data-confirm="ایستگاه «{{ st.title }}» حذف شود؟">{% csrf_token %}<button class="ob-icon-btn is-danger" type="submit" aria-label="حذف ایستگاه">{% include "teacher/_qb_icon.html" with name="trash" %}</button></form>
+                    {% endif %}
+                </div>
+            </header>
+
+            <nav class="ob-tabs" aria-label="بخش‌های ایستگاه">
+                {% for key, label, enabled in osce_tabs %}
+                    {% if enabled and st %}<a class="{% if key == osce_tab %}is-active{% endif %}" href="?station={{ st.id }}&tab={{ key }}"{% if key == osce_tab %} aria-current="page"{% endif %}>{% include "teacher/osce/_tab_icon.html" %}{{ label }}</a>
+                    {% elif enabled and osce_is_new and key == 'basic' %}<a class="is-active" aria-current="page">{% include "teacher/osce/_tab_icon.html" %}{{ label }}</a>
+                    {% else %}<span title="{% if enabled %}ابتدا اطلاعات پایه را ذخیره کنید{% else %}در حال توسعه{% endif %}">{% if not enabled %}<small>در حال توسعه</small>{% endif %}{% include "teacher/osce/_tab_icon.html" %}{{ label }}</span>{% endif %}
+                {% endfor %}
+            </nav>
+
+            <form id="osce-station-form" method="post" enctype="multipart/form-data" action="{% if osce_is_new %}{% url 'core:teacher_osce_create' %}{% else %}{% url 'core:teacher_osce_builder' osce.id %}{% endif %}" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="tab" value="{{ osce_tab }}">
+                {% if st %}<input type="hidden" name="station_id" value="{{ st.id }}">{% endif %}
+
+                {% if osce_tab == 'basic' %}
+                <div class="ob-basic">
+                    <div class="ob-fields">
+                        {% if osce_is_new %}
+                        <div class="ob-panel">
+                            <h3>{% include "teacher/_qb_icon.html" with name="osce" %}مشخصات آزمون OSCE</h3>
+                            <div class="ob-row is-half">
+                                <label class="ob-field">عنوان آزمون<input type="text" name="exam_title" maxlength="200" value="{{ form.exam_title|default:'' }}" placeholder="مثلاً آزمون OSCE کودکان — نیمسال اول"></label>
+                                <label class="ob-field">درس<select name="course_id"><option value="">بدون درس</option>{% for course in osce_course_options %}<option value="{{ course.id }}"{% if form.course_id == course.id|stringformat:'s' %} selected{% endif %}>{{ course.title }}</option>{% endfor %}</select></label>
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="ob-row is-2">
+                            <label class="ob-field"><span>عنوان ایستگاه <em>*</em></span><input type="text" name="title" maxlength="200" required value="{{ form.title|default:'' }}" data-title-input placeholder="مثلاً ارزیابی معاینه قلب"></label>
+                            <label class="ob-field"><span>کد ایستگاه <em>*</em></span><input type="text" name="code" maxlength="30" required value="{{ form.code|default:'' }}" dir="ltr"></label>
+                        </div>
+                        <div class="ob-row is-3">
+                            <label class="ob-field">نوع ایستگاه<select name="station_type">{% for key, item in osce_station_types.items %}<option value="{{ key }}"{% if form.station_type == key %} selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></label>
+                            <label class="ob-field">حوزه<input type="text" name="domain" maxlength="120" list="osce-domains" value="{{ form.domain|default:'' }}" placeholder="مثلاً قلب و عروق کودکان"><datalist id="osce-domains">{% for item in osce_domain_suggestions %}<option value="{{ item }}">{% endfor %}</datalist></label>
+                            <label class="ob-field">سطح دشواری<select name="difficulty">{% for key, label in osce_difficulties.items %}<option value="{{ key }}"{% if form.difficulty == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                        </div>
+                        <label class="ob-field">توضیحات ایستگاه<textarea name="description" maxlength="500" data-count-source placeholder="هدف و محتوای کلی ایستگاه را کوتاه بنویسید...">{{ form.description|default:'' }}</textarea><span class="ob-count" data-count-target>0/500</span></label>
+                        <div class="ob-row is-half">
+                            <label class="ob-field">جایگاه در برنامه آزمون<select name="position">{% for n in osce_position_options %}<option value="{{ n }}"{% if form.position == n %} selected{% endif %}>ایستگاه {{ n|fa_digits }}</option>{% endfor %}</select></label>
+                            <label class="ob-field">مدت زمان ایستگاه (دقیقه)<input type="number" name="duration_minutes" min="1" max="180" required value="{{ form.duration_minutes|default:'' }}"></label>
+                        </div>
+                    </div>
+                    <aside class="ob-side">
+                        <div class="ob-panel ob-illus">
+                            <span class="qs-art">{% with art='st_'|add:form.station_type %}{% include "teacher/_qs_art.html" with name=art %}{% endwith %}</span>
+                            <p>در این بخش اطلاعات کلی ایستگاه شامل عنوان، کد، نوع، حوزه، سطح دشواری و توضیحات را وارد کنید.</p>
+                        </div>
+                        <div class="ob-panel">
+                            <h3>{% include "teacher/_qb_icon.html" with name="check" %}هدف‌های آموزشی</h3>
+                            <div class="ob-objectives" data-objectives>
+                                {% for item in form.objectives %}
+                                    <div class="ob-objective"><input type="text" name="objectives" maxlength="200" value="{{ item }}"><button class="ob-icon-btn is-danger" type="button" data-remove-objective aria-label="حذف هدف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></div>
+                                {% endfor %}
+                            </div>
+                            <button class="ob-btn" type="button" data-add-objective style="margin-top:.6rem">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن هدف</button>
+                            <template data-objective-template><div class="ob-objective"><input type="text" name="objectives" maxlength="200" placeholder="مثلاً انجام معاینه دقیق قلب در کودک"><button class="ob-icon-btn is-danger" type="button" data-remove-objective aria-label="حذف هدف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></div></template>
+                        </div>
+                    </aside>
+                </div>
+
+                {% elif osce_tab == 'type' %}
+                <h3 class="ob-group-title" style="font-size:1.1rem">انتخاب نوع ایستگاه</h3>
+                <p class="ob-aside-hint" style="margin-top:0">ابتدا نوع ایستگاه را انتخاب کنید. بخش‌های بعدی متناسب با نوع ایستگاه تنظیم خواهد شد.</p>
+                <div class="ob-types" role="radiogroup" aria-label="نوع ایستگاه">
+                    {% for key, item in osce_station_types.items %}
+                        <label class="ob-choice"><input type="radio" name="station_type" value="{{ key }}"{% if form.station_type == key %} checked{% endif %} data-type-radio><span class="ob-art">{% with art='st_'|add:key %}{% include "teacher/_qs_art.html" with name=art %}{% endwith %}</span><strong>{{ item.label }}</strong><span>{{ item.description }}</span></label>
+                    {% endfor %}
+                </div>
+                <div class="ob-type-body">
+                    <div>
+                        <p class="ob-group-title">شیوه اجرا <em>*</em></p>
+                        <div class="ob-mini is-4" role="radiogroup" aria-label="شیوه اجرا">
+                            {% for key, label in osce_execution_modes.items %}
+                                <label class="ob-choice"><input type="radio" name="execution_mode" value="{{ key }}"{% if form.details.execution_mode == key %} checked{% endif %}>{% if key == 'standardized_patient' %}{% include "teacher/_qb_icon.html" with name="independent" %}{% elif key == 'virtual_simulation' %}{% include "teacher/_qb_icon.html" with name="eye" %}{% else %}{% include "teacher/_qb_icon.html" with name="case" %}{% endif %}<strong>{{ label }}</strong></label>
+                            {% endfor %}
+                        </div>
+                        <p class="ob-group-title">روش ارزیابی <em>*</em></p>
+                        <div class="ob-mini is-3" role="radiogroup" aria-label="روش ارزیابی">
+                            {% for key, label in osce_assessment_methods.items %}
+                                <label class="ob-choice"><input type="radio" name="assessment_method" value="{{ key }}"{% if form.details.assessment_method == key %} checked{% endif %}>{% if key == 'checklist' %}{% include "teacher/_qb_icon.html" with name="multi" %}{% elif key == 'global_rating' %}{% include "teacher/_qb_icon.html" with name="ordering" %}{% else %}{% include "teacher/_qb_icon.html" with name="matching" %}{% endif %}<strong>{{ label }}</strong></label>
+                            {% endfor %}
+                        </div>
+                        <div class="ob-flags">
+                            <label class="ob-switch"><input type="checkbox" name="needs_standardized_patient" value="1"{% if form.details.needs_standardized_patient %} checked{% endif %}><span></span><div>نیاز به بیمار استانداردشده<small>استفاده از بیمار آموزش‌دیده با سناریوی مشخص</small></div></label>
+                            <label class="ob-switch"><input type="checkbox" name="examiner_present" value="1"{% if form.details.examiner_present %} checked{% endif %}><span></span><div>حضور ممتحن در ایستگاه<small>حضور ممتحن برای ارزیابی مستقیم دانشجو</small></div></label>
+                        </div>
+                    </div>
+                    <aside class="ob-panel ob-about" data-type-about>
+                        <h3>{% include "teacher/_qb_icon.html" with name="info" %}درباره <span data-about-title>{{ osce_station_types|get_item:form.station_type|get_item:'label' }}</span></h3>
+                        {% with about=osce_type_about|get_item:form.station_type %}
+                        <p data-about-text>{{ about.0 }}</p>
+                        <div><b>موارد قابل ارزیابی شامل:</b><ul data-about-list>{% for item in about.1 %}<li>{{ item }}</li>{% endfor %}</ul></div>
+                        {% endwith %}
+                    </aside>
+                </div>
+                {{ osce_type_about|json_script:"osce-type-about" }}
+                {% elif osce_tab == 'scenario' %}
+                    {% include "teacher/osce/_tab_scenario.html" %}
+                {% elif osce_tab == 'instructions' %}
+                    {% include "teacher/osce/_tab_instructions.html" %}
+                {% elif osce_tab == 'criteria' %}
+                    {% include "teacher/osce/_tab_criteria.html" %}
+                {% elif osce_tab == 'resources' %}
+                    {% include "teacher/osce/_tab_resources.html" %}
+                {% elif osce_tab == 'timing' %}
+                    {% include "teacher/osce/_tab_timing.html" %}
+                {% elif osce_tab == 'settings' %}
+                    {% include "teacher/osce/_tab_settings.html" %}
+                {% endif %}
+            </form>
+            {% endif %}
+        </section>
+
+        <aside class="ob-card ob-aside">
+            <div class="ob-aside-head">
+                <h2>ایستگاه‌های این آزمون ({{ osce_stations|length|fa_digits }})</h2>
+                {% if not osce_is_new %}<button class="ob-icon-btn" type="button" data-toggle-settings aria-expanded="false" aria-controls="osce-settings" aria-label="مشخصات آزمون">{% include "teacher/_qb_icon.html" with name="settings" %}</button>{% endif %}
+            </div>
+            {% if not osce_is_new %}
+            <form class="ob-settings" id="osce-settings" method="post" action="{% url 'core:teacher_osce_settings' osce.id %}" hidden>
+                {% csrf_token %}
+                {% if st %}<input type="hidden" name="station_id" value="{{ st.id }}">{% endif %}
+                <label class="ob-field">عنوان آزمون<input type="text" name="exam_title" maxlength="200" required value="{{ osce.title }}"></label>
+                <label class="ob-field">درس<select name="course_id"><option value="">بدون درس</option>{% for course in osce_course_options %}<option value="{{ course.id }}"{% if osce.course_id == course.id|stringformat:'s' %} selected{% endif %}>{{ course.title }}</option>{% endfor %}</select></label>
+                <button class="ob-btn is-primary" type="submit">ذخیره مشخصات آزمون</button>
+            </form>
+            <form method="post" action="{% url 'core:teacher_osce_station_add' osce.id %}">{% csrf_token %}<button class="ob-btn is-primary" type="submit" style="width:100%;height:2.9rem"{% if osce_is_published %} disabled title="آزمون منتشر شده است"{% endif %}>{% include "teacher/_qb_icon.html" with name="plus" %}افزودن ایستگاه جدید</button></form>
+            <p class="ob-aside-hint">با استفاده از دکمه بالا ایستگاه جدید اضافه کنید و با کشیدن و رها کردن، ترتیب ایستگاه‌ها را تغییر دهید.</p>
+            {% else %}
+            <button class="ob-btn is-primary" type="button" disabled style="width:100%;height:2.9rem" title="ابتدا ایستگاه اول را ذخیره کنید">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن ایستگاه جدید</button>
+            <p class="ob-aside-hint">پس از ذخیره‌ی اطلاعات پایه‌ی ایستگاه اول، آزمون ساخته می‌شود و می‌توانید ایستگاه‌های بعدی را اضافه کنید.</p>
+            {% endif %}
+            <ol class="ob-st-list" data-station-list{% if not osce_is_new %} data-reorder-url="{% url 'core:teacher_osce_station_reorder' osce.id %}"{% endif %}>
+                {% for item in osce_stations %}
+                <li class="ob-st{% if st and item.id == st.id %} is-current{% endif %}{% if not item.is_active %} is-inactive{% endif %}" draggable="true" data-station-id="{{ item.id }}">
+                    <span class="ob-grip" aria-hidden="true">{% include "teacher/_qb_icon.html" with name="grip" %}</span>
+                    <span class="ob-num" data-station-num>{{ item.position|fa_digits }}</span>
+                    <span class="ob-st-icon">{% with art='st_'|add:item.station_type %}{% include "teacher/_qs_art.html" with name=art %}{% endwith %}</span>
+                    <a class="ob-st-info" href="?station={{ item.id }}&tab={{ osce_tab }}"><strong>{{ item.title }}</strong><span>{{ item.type_label }}</span><small>{% include "teacher/_qb_icon.html" with name="clock" %}{{ item.duration_minutes|fa_digits }} دقیقه{% if not item.is_active %} · غیرفعال{% endif %}</small></a>
+                    <a class="ob-icon-btn" href="?station={{ item.id }}&tab=basic" aria-label="ویرایش {{ item.title }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></svg></a>
+                    <form method="post" action="{% url 'core:teacher_osce_station_delete' osce.id item.id %}" data-confirm="ایستگاه «{{ item.title }}» حذف شود؟">{% csrf_token %}<button class="ob-icon-btn is-danger" type="submit" aria-label="حذف {{ item.title }}">{% include "teacher/_qb_icon.html" with name="trash" %}</button></form>
+                </li>
+                {% empty %}
+                    {% if osce_is_new %}<li class="ob-st is-current"><span class="ob-num">۱</span><span class="ob-st-info"><strong>ایستگاه جدید</strong><small>هنوز ذخیره نشده</small></span></li>{% endif %}
+                {% endfor %}
+            </ol>
+        </aside>
+    </div>
+
+    <footer class="ob-footer">
+        {% if st and osce_is_published %}
+            <a class="ob-btn is-primary" href="{% url 'core:teacher_osce_preview' osce.id %}">مشاهده پیش‌نمایش</a>
+        {% elif st or osce_is_new %}
+            <button class="ob-btn is-primary" type="submit" form="osce-station-form" name="next" value="1">{% if osce_next_tab or osce_is_new %}ذخیره و مرحله بعد{% else %}ذخیره و پیش‌نمایش{% endif %} {% include "teacher/_qb_icon.html" with name="arrow" %}</button>
+            <button class="ob-btn" type="submit" form="osce-station-form">{% include "teacher/_qb_icon.html" with name="save" %}ذخیره</button>
+            {% if osce_prev_tab and st %}<a class="ob-btn" href="?station={{ st.id }}&tab={{ osce_prev_tab }}">مرحله قبل</a>{% endif %}
+        {% endif %}
+        <a class="ob-btn is-cancel" href="{% url 'core:teacher_osce_list' %}">انصراف <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
+    </footer>
+</div>
+{% endwith %}
+{% if osce_tab == 'scenario' or osce_tab == 'instructions' %}<script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>{% endif %}
+<script>
+(() => {
+  const root = document.querySelector('[data-osce-builder]');
+  if (!root) return;
+
+  const csrfToken = root.querySelector('input[name=csrfmiddlewaretoken]')?.value;
+  root.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventListener('submit', (event) => {
+    if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+  }));
+
+  const titleInput = root.querySelector('[data-title-input]');
+  root.querySelector('[data-focus-title]')?.addEventListener('click', () => titleInput?.focus());
+
+  root.querySelectorAll('[data-count-source]').forEach((field) => {
+    const counter = field.closest('label')?.querySelector('[data-count-target]');
+    if (!counter) return;
+    const update = () => { counter.textContent = `${field.value.length}/${field.maxLength}`; };
+    field.addEventListener('input', update);
+    update();
+  });
+
+  // Rich text: Quill edits a Delta; the hidden input carries it as JSON and the server renders the HTML.
+  const editors = [];
+  if (window.Quill) {
+    root.querySelectorAll('[data-rich]').forEach((box) => {
+      const limit = Number(box.dataset.limit);
+      const input = box.querySelector('[data-rich-input]');
+      const count = box.querySelector('[data-rich-count]');
+      const quill = new Quill(box.querySelector('[data-rich-editor]'), {
+        theme: 'snow',
+        placeholder: 'متن را وارد کنید...',
+        modules: { toolbar: [[{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], [{ align: [] }], ['link'], ['clean']] },
+      });
+      const stored = JSON.parse(document.getElementById(box.dataset.deltaId).textContent);
+      if (stored && Array.isArray(stored.ops)) quill.setContents(stored, 'silent');
+      const sync = () => {
+        input.value = JSON.stringify(quill.getContents());
+        const length = quill.getText().trim().length;
+        count.textContent = `${length}/${limit}`;
+        count.classList.toggle('is-over', length > limit);
+      };
+      quill.on('text-change', sync);
+      sync();
+      editors.push({ box, quill });
+    });
+  } else {
+    root.querySelectorAll('[data-rich-editor]').forEach((node) => {
+      node.textContent = 'ویرایشگر بارگذاری نشد؛ صفحه را دوباره بارگذاری کنید.';
+    });
+  }
+
+  root.querySelectorAll('[data-section-btn]').forEach((button) => button.addEventListener('click', () => {
+    root.querySelectorAll('[data-section-btn]').forEach((other) => {
+      other.classList.toggle('is-active', other === button);
+      other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
+    });
+    root.querySelectorAll('[data-section]').forEach((panel) => { panel.hidden = panel.dataset.section !== button.dataset.sectionBtn; });
+  }));
+
+  const photoInput = root.querySelector('[data-photo-input]');
+  photoInput?.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    const preview = root.querySelector('[data-photo-preview]');
+    const image = preview.querySelector('img');
+    image.src = URL.createObjectURL(file);
+    image.hidden = false;
+    preview.querySelector('svg').hidden = true;
+  });
+
+  const formatSize = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+  root.querySelectorAll('[data-file-list]').forEach((list) => {
+    const input = list.querySelector('[data-file-input]');
+    const picked = list.querySelector('[data-file-picked]');
+    const drop = input.closest('.ob-drop');
+    ['dragenter', 'dragover'].forEach((name) => drop.addEventListener(name, () => drop.classList.add('is-over')));
+    ['dragleave', 'drop'].forEach((name) => drop.addEventListener(name, () => drop.classList.remove('is-over')));
+    input.addEventListener('change', () => {
+      picked.replaceChildren(...[...input.files].map((file) => {
+        const card = document.createElement('div');
+        card.className = 'ob-file is-new';
+        const thumb = document.createElement('span');
+        thumb.className = 'ob-file-thumb';
+        if (file.type.startsWith('image/')) {
+          thumb.appendChild(Object.assign(document.createElement('img'), { src: URL.createObjectURL(file), alt: file.name }));
+        } else {
+          thumb.textContent = (file.name.split('.').pop() || '').toUpperCase();
+        }
+        card.append(thumb, Object.assign(document.createElement('b'), { textContent: file.name, title: file.name }),
+          Object.assign(document.createElement('small'), { textContent: formatSize(file.size) }));
+        return card;
+      }));
+    });
+    list.addEventListener('change', (event) => {
+      const box = event.target.closest('[data-remove-file]');
+      if (box) box.closest('.ob-file').classList.toggle('is-removed', box.checked);
+    });
+  });
+
+  const templateData = document.getElementById('osce-instruction-template');
+  root.querySelector('[data-insert-template]')?.addEventListener('click', () => {
+    const editor = editors.find((item) => item.box.querySelector('[data-rich-input]').name === 'instructions_body');
+    if (!editor || !templateData) return;
+    if (editor.quill.getText().trim() && !window.confirm('متن فعلی دستورالعمل با الگوی آماده جایگزین شود؟')) return;
+    const lines = JSON.parse(templateData.textContent);
+    const ops = [{ insert: lines[0] }, { insert: '\n', attributes: { header: 3 } }, { insert: `${lines[1]}\n` }];
+    lines.slice(2).forEach((line) => ops.push({ insert: line }, { insert: '\n', attributes: { list: 'ordered' } }));
+    editor.quill.setContents({ ops });
+  });
+
+  const criteria = root.querySelector('[data-criteria]');
+  if (criteria) {
+    const faNum = (value) => String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const readNumber = (value) => {
+      const number = parseFloat(String(value).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+      return Number.isFinite(number) && number > 0 ? number : 0;
+    };
+    let uidCounter = 0;
+    const newRow = (prefix, item) => {
+      uidCounter += 1;
+      const html = criteria.querySelector(`[data-row-template="${prefix}"]`).innerHTML.replaceAll('__uid__', `n${Date.now()}${uidCounter}`);
+      const holder = document.createElement('tbody');
+      holder.innerHTML = html.trim();
+      const row = holder.firstElementChild;
+      if (item) {
+        row.querySelector(`[name="${prefix}_text"]`).value = item.text || '';
+        row.querySelector(`[name="${prefix}_points"]`).value = item.points || '1';
+        row.querySelector(`[name="${prefix}_guide"]`).value = item.guide || '';
+        const type = row.querySelector('[data-row-type]');
+        if (type && item.type) type.value = item.type;
+        const required = row.querySelector('[name="criteria_required"]');
+        if (required) required.checked = Boolean(item.required);
+      }
+      return row;
+    };
+    const refresh = () => {
+      let total = 0;
+      ['criteria', 'global'].forEach((prefix) => {
+        const rows = [...criteria.querySelectorAll(`[data-rows="${prefix}"] [data-row]`)];
+        rows.forEach((row, index) => { row.querySelector('[data-row-num]').textContent = faNum(index + 1); });
+        const sum = rows.reduce((acc, row) => acc + readNumber(row.querySelector('[data-points]').value), 0);
+        criteria.querySelector(`[data-sum="${prefix}"]`).textContent = faNum(+sum.toFixed(2));
+        total += sum;
+        if (prefix === 'criteria') {
+          const filled = rows.filter((row) => row.querySelector('[name="criteria_text"]').value.trim()).length;
+          criteria.querySelector('[data-crit-count]').textContent = faNum(filled);
+        }
+      });
+      criteria.querySelector('[data-crit-total]').textContent = faNum(+total.toFixed(2));
+    };
+    criteria.querySelectorAll('[data-add-row]').forEach((button) => button.addEventListener('click', () => {
+      const prefix = button.dataset.addRow;
+      const row = newRow(prefix);
+      criteria.querySelector(`[data-rows="${prefix}"]`).appendChild(row);
+      row.querySelector('input[type=text]').focus();
+      refresh();
+    }));
+    criteria.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-row]');
+      if (!row) return;
+      if (event.target.closest('[data-row-delete]')) {
+        row.remove();
+        refresh();
+      } else if (event.target.closest('[data-row-copy]')) {
+        const prefix = row.closest('[data-rows]').dataset.rows;
+        const copy = newRow(prefix, {
+          text: row.querySelector(`[name="${prefix}_text"]`).value,
+          points: row.querySelector(`[name="${prefix}_points"]`).value,
+          guide: row.querySelector(`[name="${prefix}_guide"]`).value,
+          type: row.querySelector('[data-row-type]')?.value,
+          required: row.querySelector('[name="criteria_required"]')?.checked,
+        });
+        row.after(copy);
+        refresh();
+      }
+    });
+    criteria.addEventListener('input', refresh);
+
+    let draggedRow = null;
+    criteria.addEventListener('dragstart', (event) => {
+      draggedRow = event.target.closest('[data-row]');
+      draggedRow?.classList.add('is-dragging');
+    });
+    criteria.addEventListener('dragover', (event) => {
+      if (!draggedRow) return;
+      const over = event.target.closest('[data-row]');
+      if (!over || over === draggedRow || over.parentNode !== draggedRow.parentNode) return;
+      event.preventDefault();
+      const box = over.getBoundingClientRect();
+      over.parentNode.insertBefore(draggedRow, event.clientY < box.top + box.height / 2 ? over : over.nextSibling);
+    });
+    criteria.addEventListener('dragend', () => {
+      draggedRow?.classList.remove('is-dragging');
+      draggedRow = null;
+      refresh();
+    });
+
+    criteria.querySelectorAll('[data-crit-tab]').forEach((tab) => tab.addEventListener('click', () => {
+      criteria.querySelectorAll('[data-crit-tab]').forEach((other) => {
+        other.classList.toggle('is-active', other === tab);
+        other.setAttribute('aria-selected', other === tab ? 'true' : 'false');
+      });
+      criteria.querySelectorAll('[data-crit-panel]').forEach((panel) => { panel.hidden = panel.dataset.critPanel !== tab.dataset.critTab; });
+    }));
+
+    criteria.querySelectorAll('[data-scoring-mode]').forEach((radio) => radio.addEventListener('change', () => {
+      criteria.querySelector('[data-pass-score]').hidden = radio.value !== 'pass_fail' || !radio.checked;
+    }));
+    criteria.querySelectorAll('[data-level-input]').forEach((input) => input.addEventListener('input', () => {
+      criteria.querySelector(`[data-level-label="${input.dataset.levelInput}"]`).textContent = input.value;
+    }));
+    criteria.querySelectorAll('[data-level-desc-input]').forEach((input) => input.addEventListener('input', () => {
+      criteria.querySelector(`[data-level-desc="${input.dataset.levelDescInput}"]`).textContent = input.value;
+    }));
+
+    const templates = {
+      builtin: JSON.parse(document.getElementById('osce-builtin-templates').textContent),
+      mine: JSON.parse(document.getElementById('osce-my-templates').textContent),
+    };
+    const applyTemplate = (items) => {
+      const body = criteria.querySelector('[data-rows="criteria"]');
+      const hasContent = [...body.querySelectorAll('[name="criteria_text"]')].some((input) => input.value.trim());
+      if (hasContent && !window.confirm('معیارهای فعلی چک‌لیست با این قالب جایگزین شود؟ (تا زمان ذخیره، چیزی ثبت نمی‌شود)')) return;
+      body.replaceChildren(...items.map((item) => newRow('criteria', item)));
+      criteria.querySelector('[data-crit-tab="checklist"]').click();
+      refresh();
+    };
+    criteria.querySelector('[data-tpl-list]').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-tpl-source]');
+      if (button) applyTemplate(templates[button.dataset.tplSource][Number(button.dataset.tplIndex)].items);
+    });
+    criteria.querySelector('[data-tpl-search]').addEventListener('input', (event) => {
+      const query = event.target.value.trim();
+      criteria.querySelectorAll('[data-tpl-list] .ob-tpl').forEach((button) => {
+        (button.closest('.ob-tpl-mine') || button).hidden = Boolean(query) && !button.textContent.includes(query);
+      });
+    });
+
+    const message = criteria.querySelector('[data-tpl-msg]');
+    const say = (text, ok) => { message.textContent = text; message.className = `ob-tpl-msg ${ok ? 'is-ok' : 'is-error'}`; };
+    const postJson = async (url, data) => {
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }, body: JSON.stringify(data || {}) });
+      const payload = await response.json().catch(() => ({ ok: false, error: 'پاسخ نامعتبر از سرور.' }));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'درخواست انجام نشد.');
+      return payload;
+    };
+    criteria.querySelector('[data-tpl-save]').addEventListener('click', async (event) => {
+      const titleInput = criteria.querySelector('[data-tpl-title]');
+      const items = [...criteria.querySelectorAll('[data-rows="criteria"] [data-row]')].map((row) => ({
+        text: row.querySelector('[name="criteria_text"]').value,
+        type: row.querySelector('[data-row-type]').value,
+        points: row.querySelector('[name="criteria_points"]').value,
+        guide: row.querySelector('[name="criteria_guide"]').value,
+        required: row.querySelector('[name="criteria_required"]').checked,
+      }));
+      try {
+        const { template } = await postJson(event.currentTarget.dataset.tplSave, { title: titleInput.value, items });
+        templates.mine.unshift(template);
+        renderMine();
+        titleInput.value = '';
+        say('قالب ذخیره شد.', true);
+      } catch (error) {
+        say(error.message, false);
+      }
+    });
+    const mineBox = criteria.querySelector('[data-my-templates]');
+    const renderMine = () => {
+      mineBox.replaceChildren(...templates.mine.map((tpl, index) => {
+        const row = document.createElement('div');
+        row.className = 'ob-tpl-mine';
+        const pick = Object.assign(document.createElement('button'), { type: 'button', className: 'ob-tpl' });
+        pick.dataset.tplSource = 'mine';
+        pick.dataset.tplIndex = index;
+        pick.append(Object.assign(document.createElement('b'), { textContent: tpl.title }),
+          Object.assign(document.createElement('small'), { textContent: `${faNum(tpl.items.length)} معیار${tpl.is_shared ? ' · در کتابخانه' : ''}` }));
+        const share = Object.assign(document.createElement('button'), {
+          type: 'button', className: `ob-share${tpl.is_shared ? ' is-on' : ''}`, textContent: tpl.is_shared ? 'لغو اشتراک' : 'اشتراک',
+          title: 'اشتراک در کتابخانه واحد سازمانی',
+        });
+        share.dataset.tplShare = tpl.share_url;
+        share.setAttribute('aria-pressed', tpl.is_shared ? 'true' : 'false');
+        const remove = Object.assign(document.createElement('button'), { type: 'button', className: 'ob-icon-btn is-danger', textContent: '×' });
+        remove.dataset.tplDelete = tpl.delete_url;
+        remove.setAttribute('aria-label', `حذف قالب ${tpl.title}`);
+        row.append(pick, share, remove);
+        return row;
+      }));
+      if (!templates.mine.length) {
+        mineBox.appendChild(Object.assign(document.createElement('p'), { className: 'ob-aside-hint', textContent: 'هنوز قالبی ذخیره نکرده‌اید.' }));
+      }
+    };
+    mineBox.addEventListener('click', async (event) => {
+      const shareButton = event.target.closest('[data-tpl-share]');
+      if (shareButton) {
+        const tpl = templates.mine.find((item) => item.share_url === shareButton.dataset.tplShare);
+        try {
+          const { shared } = await postJson(shareButton.dataset.tplShare, { shared: !tpl.is_shared });
+          tpl.is_shared = shared;
+          renderMine();
+          say(shared ? 'قالب در کتابخانه واحد سازمانی به اشتراک گذاشته شد.' : 'اشتراک قالب لغو شد.', true);
+        } catch (error) {
+          say(error.message, false);
+        }
+        return;
+      }
+      const button = event.target.closest('[data-tpl-delete]');
+      if (!button || !window.confirm('این قالب حذف شود؟')) return;
+      try {
+        await postJson(button.dataset.tplDelete);
+        templates.mine = templates.mine.filter((tpl) => tpl.delete_url !== button.dataset.tplDelete);
+        renderMine();
+        say('قالب حذف شد.', true);
+      } catch (error) {
+        say(error.message, false);
+      }
+    });
+    const libraryToggle = criteria.querySelector('[data-library-toggle]');
+    const libraryPanel = criteria.querySelector('#ob-library');
+    const libraryList = criteria.querySelector('[data-library-list]');
+    let libraryItems = [];
+    let searchTimer = null;
+    const loadLibrary = async (query = '') => {
+      libraryList.replaceChildren(Object.assign(document.createElement('p'), { className: 'ob-aside-hint', textContent: 'در حال بارگذاری...' }));
+      try {
+        const url = new URL(libraryToggle.dataset.libraryToggle, window.location.origin);
+        if (query) url.searchParams.set('q', query);
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error();
+        libraryItems = payload.templates;
+        libraryList.replaceChildren(...libraryItems.map((tpl, index) => {
+          const button = Object.assign(document.createElement('button'), { type: 'button', className: 'ob-tpl' });
+          button.dataset.libraryIndex = index;
+          button.append(Object.assign(document.createElement('b'), { textContent: tpl.title }),
+            Object.assign(document.createElement('small'), { textContent: `${tpl.author} · ${faNum(tpl.items.length)} معیار` }));
+          return button;
+        }));
+        if (!libraryItems.length) {
+          libraryList.replaceChildren(Object.assign(document.createElement('p'), { className: 'ob-aside-hint', textContent: 'قالب اشتراکی‌ای پیدا نشد.' }));
+        }
+      } catch (error) {
+        libraryList.replaceChildren(Object.assign(document.createElement('p'), { className: 'ob-tpl-msg is-error', textContent: 'بارگذاری کتابخانه انجام نشد.' }));
+      }
+    };
+    libraryToggle.addEventListener('click', () => {
+      libraryPanel.hidden = !libraryPanel.hidden;
+      libraryToggle.setAttribute('aria-expanded', libraryPanel.hidden ? 'false' : 'true');
+      if (!libraryPanel.hidden) loadLibrary();
+    });
+    criteria.querySelector('[data-library-search]').addEventListener('input', (event) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => loadLibrary(event.target.value.trim()), 300);
+    });
+    libraryList.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-library-index]');
+      if (button) applyTemplate(libraryItems[Number(button.dataset.libraryIndex)].items);
+    });
+    refresh();
+  }
+
+  root.querySelectorAll('[data-tables]').forEach((box) => {
+    const faNum = (value) => String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const renumber = (body) => body.querySelectorAll('[data-table-row]').forEach((row, index) => {
+      row.querySelector('[data-row-num]').textContent = faNum(index + 1);
+    });
+    box.addEventListener('click', (event) => {
+      const add = event.target.closest('[data-add-table-row]');
+      if (add) {
+        const prefix = add.dataset.addTableRow;
+        const body = box.querySelector(`[data-table-rows="${prefix}"]`);
+        body.appendChild(box.querySelector(`[data-table-template="${prefix}"]`).content.cloneNode(true));
+        renumber(body);
+        body.lastElementChild.querySelector('input').focus();
+        return;
+      }
+      const remove = event.target.closest('[data-table-row-delete]');
+      if (remove) {
+        const body = remove.closest('[data-table-rows]');
+        remove.closest('[data-table-row]').remove();
+        renumber(body);
+      }
+    });
+  });
+
+  const timing = root.querySelector('[data-timing]');
+  if (timing) {
+    const faNum = (value) => String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const updateTimeline = () => {
+      ['study', 'activity', 'transition'].forEach((key) => {
+        const minutes = Math.max(0, parseInt(timing.querySelector(`[data-time="${key}"]`).value, 10) || 0);
+        timing.querySelector(`[data-bar="${key}"]`).style.flexGrow = minutes;
+        timing.querySelectorAll(`[data-legend="${key}"]`).forEach((node) => { node.textContent = `${faNum(minutes)} دقیقه`; });
+      });
+    };
+    timing.querySelectorAll('[data-time]').forEach((input) => input.addEventListener('input', updateTimeline));
+    updateTimeline();
+  }
+
+  const tags = root.querySelector('[data-tags]');
+  if (tags) {
+    const tagInput = root.querySelector('[data-tag-input]');
+    const addTag = () => {
+      const value = tagInput.value.trim();
+      const existing = [...tags.querySelectorAll('input[name=tags]')].map((input) => input.value);
+      if (!value || existing.includes(value) || existing.length >= 10) return;
+      const chip = Object.assign(document.createElement('span'), { className: 'ob-tag' });
+      const hidden = Object.assign(document.createElement('input'), { type: 'hidden', name: 'tags', value });
+      const remove = Object.assign(document.createElement('button'), { type: 'button', textContent: '×' });
+      remove.dataset.tagRemove = '';
+      remove.setAttribute('aria-label', `حذف برچسب ${value}`);
+      chip.append(hidden, value, remove);
+      tags.appendChild(chip);
+      tagInput.value = '';
+    };
+    root.querySelector('[data-tag-add]').addEventListener('click', addTag);
+    tagInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addTag();
+      }
+    });
+    tags.addEventListener('click', (event) => event.target.closest('[data-tag-remove]')?.closest('.ob-tag').remove());
+  }
+
+  const preview = root.querySelector('[data-preview]');
+  if (preview) {
+    const body = preview.querySelector('[data-preview-body]');
+    const editor = editors.find((item) => item.box.querySelector('[data-rich-input]').name === 'instructions_body');
+    // Live preview mirrors the teacher's own editor DOM; the saved page uses the server-rendered HTML.
+    editor?.quill.on('text-change', () => { body.innerHTML = editor.quill.root.innerHTML; });
+    root.querySelectorAll('[data-preview-toggle]').forEach((box) => box.addEventListener('change', () => {
+      preview.querySelector(`[data-preview-part="${box.dataset.previewToggle}"]`).hidden = !box.checked;
+    }));
+    preview.querySelectorAll('[data-preview-mode]').forEach((button) => button.addEventListener('click', () => {
+      preview.querySelectorAll('[data-preview-mode]').forEach((other) => {
+        other.classList.toggle('is-active', other === button);
+        other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
+      });
+      preview.querySelector('[data-preview-card]').classList.toggle('is-print', button.dataset.previewMode === 'print');
+    }));
+  }
+
+  const objectives = root.querySelector('[data-objectives]');
+  const objectiveTemplate = root.querySelector('[data-objective-template]');
+  root.querySelector('[data-add-objective]')?.addEventListener('click', () => {
+    if (objectives.children.length >= 20) return;
+    objectives.appendChild(objectiveTemplate.content.cloneNode(true));
+    objectives.lastElementChild.querySelector('input').focus();
+  });
+  objectives?.addEventListener('click', (event) => {
+    event.target.closest('[data-remove-objective]')?.closest('.ob-objective').remove();
+  });
+
+  const settingsToggle = root.querySelector('[data-toggle-settings]');
+  settingsToggle?.addEventListener('click', () => {
+    const panel = root.querySelector('#osce-settings');
+    panel.hidden = !panel.hidden;
+    settingsToggle.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+  });
+
+  const aboutData = document.getElementById('osce-type-about');
+  if (aboutData) {
+    const about = JSON.parse(aboutData.textContent);
+    root.querySelectorAll('[data-type-radio]').forEach((radio) => radio.addEventListener('change', () => {
+      const item = about[radio.value];
+      if (!item) return;
+      root.querySelector('[data-about-title]').textContent = radio.closest('label').querySelector('strong').textContent;
+      root.querySelector('[data-about-text]').textContent = item[0];
+      const list = root.querySelector('[data-about-list]');
+      list.replaceChildren(...item[1].map((text) => Object.assign(document.createElement('li'), { textContent: text })));
+    }));
+  }
+
+  const list = root.querySelector('[data-station-list]');
+  const reorderUrl = list?.dataset.reorderUrl;
+  if (!list || !reorderUrl) return;
+  const faDigits = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  let dragged = null;
+  list.addEventListener('dragstart', (event) => {
+    dragged = event.target.closest('[data-station-id]');
+    dragged?.classList.add('is-dragging');
+  });
+  list.addEventListener('dragover', (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    const over = event.target.closest('[data-station-id]');
+    if (!over || over === dragged) return;
+    const box = over.getBoundingClientRect();
+    over.parentNode.insertBefore(dragged, event.clientY < box.top + box.height / 2 ? over : over.nextSibling);
+  });
+  list.addEventListener('dragend', async () => {
+    if (!dragged) return;
+    dragged.classList.remove('is-dragging');
+    dragged = null;
+    const items = [...list.querySelectorAll('[data-station-id]')];
+    items.forEach((item, index) => { item.querySelector('[data-station-num]').textContent = faDigits(index + 1); });
+    try {
+      const response = await fetch(reorderUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ order: items.map((item) => item.dataset.stationId) }),
+      });
+      if (!response.ok) throw new Error(response.status);
+      window.location.reload();
+    } catch (error) {
+      window.alert('ذخیره‌ی ترتیب ایستگاه‌ها انجام نشد. صفحه دوباره بارگذاری می‌شود.');
+      window.location.reload();
+    }
+  });
+})();
+</script>

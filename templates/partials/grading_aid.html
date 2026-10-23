@@ -1,0 +1,30 @@
+{% if grading_aid %}
+<article class="super-admin-card grading-aid">
+    <h2>صورت سؤال</h2>
+    {% if grading_aid.text_html %}<div class="grading-aid-rich">{{ grading_aid.text_html|safe }}</div>{% else %}<p>{{ grading_aid.text }}</p>{% endif %}
+    {% if grading_aid.student_instructions %}<h3>دستورالعمل دانشجو</h3><p>{{ grading_aid.student_instructions|linebreaksbr }}</p>{% endif %}
+</article>
+{% if grading_aid.rubric %}
+<article class="super-admin-card grading-aid">
+    <h2>روبریک نمره‌دهی (جمع {{ grading_aid.rubric_total }} نمره)</h2>
+    <table class="grading-aid-table">
+        <thead><tr><th>معیار</th><th>عملکرد ضعیف</th><th>عملکرد متوسط</th><th>عملکرد عالی</th><th>نمره</th></tr></thead>
+        <tbody>{% for row in grading_aid.rubric %}<tr><td>{{ row.criterion }}</td><td>{{ row.weak }}</td><td>{{ row.average }}</td><td>{{ row.excellent }}</td><td>{{ row.points }}</td></tr>{% endfor %}</tbody>
+    </table>
+</article>
+{% endif %}
+{% if grading_aid.sample_answer_text or grading_aid.sample_answer_file %}
+<article class="super-admin-card grading-aid">
+    <h2>پاسخ نمونه</h2>
+    {% if grading_aid.sample_answer_text %}<p>{{ grading_aid.sample_answer_text|linebreaksbr }}</p>{% endif %}
+    {% if grading_aid.sample_answer_file %}<p><a href="{{ grading_aid.sample_answer_file.url }}" target="_blank" rel="noopener">{{ grading_aid.sample_answer_file.name }}</a></p>{% endif %}
+</article>
+{% endif %}
+<style>
+    .grading-aid h3{margin:.8rem 0 .3rem;font-size:.9rem}
+    .grading-aid-rich p,.grading-aid-rich h3,.grading-aid-rich h4,.grading-aid-rich h5{margin:0}
+    .grading-aid-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .grading-aid-table th,.grading-aid-table td{padding:.45rem;border:1px solid #e2e8f0;text-align:right;vertical-align:top}
+    .grading-aid-table th{background:#f8fafc}
+</style>
+{% endif %}

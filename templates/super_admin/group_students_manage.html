@@ -1,0 +1,146 @@
+{% extends 'base_standalone.html' %}
+{% load static core_extras %}
+
+{% block title %}{{ title }} | متاکوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .group-students-page{--blue:#315cff;--violet:#7447f5;--ink:#071936;--muted:#65728a;--line:#d8e4f4;--panel:rgba(255,255,255,.8);direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .group-students-page *{box-sizing:border-box;letter-spacing:0}
+    .group-students-page [hidden]{display:none}
+    .group-students-page a{text-decoration:none;color:inherit}.group-students-page button,.group-students-page input,.group-students-page select{font:inherit;cursor:pointer}
+    .group-students-page svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .gs-shell{max-width:1400px;margin:0 auto;padding-bottom:1.2rem}
+    .gs-top-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:1rem}
+    .btn-primary,.btn-secondary,.btn-danger{display:inline-flex;height:2.9rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.7rem;padding:0 1.15rem;font-weight:950;font-size:.86rem;border:0}
+    .btn-primary{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}
+    .btn-secondary{border:1px solid #cbd9ec;background:#fff;color:#315cff}
+    .btn-danger{background:#fee2e2;color:#dc2626}
+    .btn-danger:disabled{opacity:.5;cursor:not-allowed}
+    .gc-card{border:1px solid rgba(205,218,236,.95);border-radius:1rem;background:var(--panel);box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(145%);-webkit-backdrop-filter:blur(20px) saturate(145%)}
+    .gs-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.1rem 1.3rem;margin-bottom:1rem}
+    .gs-summary h1{margin:0;font-size:1.2rem;font-weight:950}
+    .gs-summary p{margin:.3rem 0 0;color:var(--muted);font-weight:850;font-size:.86rem}
+    .gs-capacity{display:flex;align-items:center;gap:.8rem;min-width:14rem}
+    .gs-capacity-bar{flex:1;height:.55rem;border-radius:99px;background:#e0e7f5;overflow:hidden}
+    .gs-capacity-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#315cff,#7447f5)}
+    .gs-capacity b{white-space:nowrap;font-weight:950}
+    .gs-toolbar{display:grid;grid-template-columns:1.4fr repeat(2,1fr) auto auto;gap:.7rem;padding:1.1rem;align-items:center}
+    .gs-toolbar input,.gs-toolbar select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.7rem;background:#fff;padding:0 .8rem;outline:0;color:var(--ink);font-weight:850}
+    .gs-table{width:100%;border-collapse:collapse;font-size:.87rem}
+    .gs-table th,.gs-table td{height:3.5rem;border-bottom:1px solid #edf2f7;padding:0 .9rem;text-align:right}
+    .gs-table th{color:#53617b;font-weight:950}.gs-table td{font-weight:850}
+    .gs-table input[type=checkbox]{width:1.05rem;height:1.05rem}
+    .gs-student-cell{display:flex;align-items:center;gap:.6rem}
+    .avatar{width:2.2rem;height:2.2rem;border-radius:50%;object-fit:cover;background:#dbeafe;display:grid;place-items:center;color:var(--blue);font-weight:950;flex-shrink:0}
+    .status{display:inline-flex;align-items:center;gap:.3rem;border-radius:.5rem;background:#e8f8ef;color:#15803d;padding:.25rem .6rem;font-size:.76rem;font-weight:950}
+    .status.is-inactive{background:#f1f5f9;color:#64748b}
+    .row-remove-btn{display:inline-grid;width:2.2rem;height:2.2rem;place-items:center;border:1px solid #fecaca;border-radius:.6rem;color:#dc2626;background:#fff}
+    .row-remove-btn:hover{background:#fff5f5}
+    .gs-empty{text-align:center;color:#8b96ab!important;height:5rem!important}
+    .gs-footer{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.1rem;color:var(--muted);font-weight:850;font-size:.86rem}
+    @media(max-width:1100px){.gs-toolbar{grid-template-columns:1fr 1fr}}
+</style>
+
+<section class="super-admin-page super-admin-workspace group-students-page" dir="rtl" data-fixed-scroll-page>
+    <div class="gs-shell">
+        <div class="gs-top-row">
+            <a class="btn-secondary" href="{{ detail_url }}"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>بازگشت به جزئیات گروه</a>
+            <a class="btn-primary" href="{{ add_students_url }}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن دانشجو</a>
+        </div>
+
+        <section class="gc-card gs-summary">
+            <div>
+                <h1>{{ group.course_title|fa_digits }} — گروه {{ group.group_code|fa_digits }}</h1>
+                <p>{{ group.teacher_name|fa_digits }} · {{ group.term_label|fa_digits }}</p>
+            </div>
+            <div class="gs-capacity">
+                <b>{{ group.students_count|fa_digits }} از {{ group.capacity|fa_digits }} نفر</b>
+                <div class="gs-capacity-bar"><i style="width:{{ group.fill_percent }}%"></i></div>
+            </div>
+        </section>
+
+        <section class="gc-card">
+            <form class="gs-toolbar" method="get">
+                <input type="text" name="q" value="{{ query }}" placeholder="جستجو بر اساس نام یا شماره دانشجویی...">
+                <select name="field" onchange="this.form.submit()"><option value="">همه رشته‌ها</option>{% for f in fields %}<option value="{{ f }}" {% if field_filter == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select>
+                <select name="entry" onchange="this.form.submit()"><option value="">همه ورودی‌ها</option>{% for y in entry_years %}<option value="{{ y }}" {% if entry_filter == y %}selected{% endif %}>{{ y|fa_digits }}</option>{% endfor %}</select>
+                <button type="submit" class="btn-secondary"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>جستجو</button>
+                <a class="btn-secondary" href="{{ request.path }}">پاک کردن فیلترها</a>
+            </form>
+            <form method="post" data-remove-form>
+                {% csrf_token %}
+                <input type="hidden" name="action" value="remove">
+                <div style="overflow-x:auto">
+                    <table class="gs-table">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" data-select-all></th>
+                                <th>دانشجو</th>
+                                <th>شماره دانشجویی</th>
+                                <th>رشته</th>
+                                <th>ورودی</th>
+                                <th>وضعیت</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in members %}
+                                <tr>
+                                    <td><input type="checkbox" name="member_ids" value="{{ member.id }}" data-row-check></td>
+                                    <td>
+                                        <div class="gs-student-cell">
+                                            {% if member.avatar_url %}<img class="avatar" src="{{ member.avatar_url }}" alt="">{% else %}<i class="avatar">{{ member.full_name|slice:":1"|default:"د" }}</i>{% endif %}
+                                            <span>{{ member.full_name|fa_digits }}</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ member.student_number|fa_digits }}</td>
+                                    <td>{{ member.field_of_study|fa_digits }}</td>
+                                    <td>{{ member.entry_year|default:"-"|fa_digits }}</td>
+                                    <td><span class="status {% if member.status != 'active' %}is-inactive{% endif %}">{{ member.status_label|fa_digits }}</span></td>
+                                    <td>
+                                        <button type="button" class="row-remove-btn" data-remove-one="{{ member.id }}" title="حذف از گروه"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="7" class="gs-empty">دانشجویی برای نمایش وجود ندارد.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <footer class="gs-footer">
+                    <span>{{ members|length|fa_digits }} از {{ members_total|fa_digits }} دانشجو</span>
+                    <button type="submit" class="btn-danger" data-bulk-remove disabled><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>حذف انتخاب‌شده‌ها از گروه</button>
+                </footer>
+            </form>
+        </section>
+    </div>
+</section>
+
+<script>
+(() => {
+    const form = document.querySelector('[data-remove-form]');
+    const selectAll = document.querySelector('[data-select-all]');
+    const rowChecks = () => [...document.querySelectorAll('[data-row-check]')];
+    const bulkBtn = document.querySelector('[data-bulk-remove]');
+    const updateBulkBtn = () => { bulkBtn.disabled = !rowChecks().some((c) => c.checked); };
+    selectAll?.addEventListener('change', () => { rowChecks().forEach((c) => c.checked = selectAll.checked); updateBulkBtn(); });
+    rowChecks().forEach((c) => c.addEventListener('change', updateBulkBtn));
+    document.querySelectorAll('[data-remove-one]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (!confirm('این دانشجو از گروه حذف شود؟')) return;
+            rowChecks().forEach((c) => c.checked = c.value === btn.dataset.removeOne);
+            form.submit();
+        });
+    });
+    form.addEventListener('submit', (event) => {
+        if (event.submitter?.dataset.bulkRemove !== undefined || event.submitter === bulkBtn) {
+            if (!rowChecks().some((c) => c.checked)) { event.preventDefault(); return; }
+            if (!confirm('دانشجویان انتخاب‌شده از گروه حذف شوند؟')) event.preventDefault();
+        }
+    });
+    updateBulkBtn();
+})();
+</script>
+{% endblock %}

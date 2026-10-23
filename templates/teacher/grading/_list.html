@@ -1,0 +1,60 @@
+{% load core_extras %}
+<style>
+    .gl{direction:rtl;max-width:1200px;margin:0 auto;font-family:Vazirmatn,Tahoma,Arial,sans-serif;color:#0f172a}
+    .gl-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.8rem;margin-bottom:1rem}
+    .gl-head h1{margin:0;font-size:1.35rem;font-weight:900}
+    .gl-head p{margin:.2rem 0 0;color:#64748b;font-size:.8rem;font-weight:700}
+    .gl-tabs{display:flex;gap:.4rem;padding:.3rem;border:1px solid #e3e9f4;border-radius:999px;background:#fff}
+    .gl-tabs a{padding:.45rem .9rem;border-radius:999px;color:#475569;font-size:.78rem;font-weight:900;text-decoration:none}
+    .gl-tabs a.is-active{background:#2563eb;color:#fff}
+    .gl-card{overflow-x:auto;border:1px solid #e3e9f4;border-radius:1rem;background:#fff}
+    .gl table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .gl th,.gl td{padding:.75rem .9rem;border-bottom:1px solid #eef2f7;text-align:right}
+    .gl th{background:#f8fafc;color:#475569;font-weight:900;white-space:nowrap}
+    .gl td.gl-q{max-width:22rem;color:#334155}
+    .gl a.gl-act{color:#2563eb;font-weight:900;text-decoration:none;white-space:nowrap}
+    .gl-badge{padding:.2rem .6rem;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.72rem;font-weight:900;white-space:nowrap}
+    .gl-badge.is-done{background:#dcfce7;color:#15803d}
+    .gl-empty{padding:2.5rem 1rem;color:#64748b;font-weight:700;text-align:center}
+    .gl-pages{display:flex;justify-content:center;gap:.4rem;margin-top:1rem}
+    .gl-pages a,.gl-pages span{padding:.4rem .8rem;border:1px solid #e3e9f4;border-radius:.5rem;background:#fff;color:#334155;font-size:.8rem;font-weight:800;text-decoration:none}
+</style>
+<div class="gl">
+    <div class="gl-head">
+        <div><h1>تصحیح پاسخ‌های تشریحی</h1><p>پاسخ‌های تشریحی آزمون‌های ارسال‌شده که طراحی آن‌ها یا سؤالشان با شماست.</p></div>
+        <nav class="gl-tabs" aria-label="وضعیت تصحیح">
+            {% for key, label in grading_filters.items %}
+                <a class="{% if key == grading_status %}is-active{% endif %}" href="?status={{ key }}">{{ label }} ({{ grading_counts|get_item:key|default:0|fa_digits }})</a>
+            {% endfor %}
+        </nav>
+    </div>
+    <div class="gl-card">
+        {% if grading_rows %}
+        <table>
+            <thead><tr><th>آزمون</th><th>دانشجو</th><th>سؤال</th><th>زمان ارسال</th><th>نمره</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+            <tbody>
+                {% for row in grading_rows %}
+                <tr>
+                    <td>{{ row.exam_title }}</td>
+                    <td>{{ row.student_name }}</td>
+                    <td class="gl-q">{{ row.question_text|truncatechars:90 }}</td>
+                    <td>{{ row.submitted_at|to_jalali|default:'-' }}</td>
+                    <td>{% if row.graded_at %}{{ row.points_awarded|floatformat:"-2"|fa_digits }} از {{ row.max_points|floatformat:"-2"|fa_digits }}{% else %}-{% endif %}</td>
+                    <td>{% if row.needs_manual_grading %}<span class="gl-badge">در انتظار تصحیح</span>{% else %}<span class="gl-badge is-done">تصحیح‌شده</span>{% endif %}</td>
+                    <td><a class="gl-act" href="{% url 'core:teacher_grading_detail' row.id %}">{% if row.needs_manual_grading %}تصحیح{% else %}مشاهده / ویرایش{% endif %}</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="gl-empty">{% if grading_status == 'pending' %}پاسخی در انتظار تصحیح نیست.{% else %}پاسخی پیدا نشد.{% endif %}</p>
+        {% endif %}
+    </div>
+    {% if grading_page.paginator.num_pages > 1 %}
+    <nav class="gl-pages" aria-label="صفحه‌بندی">
+        {% if grading_page.has_previous %}<a href="?status={{ grading_status }}&page={{ grading_page.previous_page_number }}">قبلی</a>{% endif %}
+        <span>صفحه {{ grading_page.number|fa_digits }} از {{ grading_page.paginator.num_pages|fa_digits }}</span>
+        {% if grading_page.has_next %}<a href="?status={{ grading_status }}&page={{ grading_page.next_page_number }}">بعدی</a>{% endif %}
+    </nav>
+    {% endif %}
+</div>

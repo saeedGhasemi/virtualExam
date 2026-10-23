@@ -1,0 +1,20 @@
+{% load core_extras %}
+<div class="ob-files" data-file-list>
+    <label class="ob-drop">
+        <input type="file" name="{{ input_name }}" multiple accept="{{ accept }}" data-file-input>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <b>فایل را اینجا بکشید یا کلیک کنید</b>
+        <small>({{ hint }})</small>
+    </label>
+    {% for file in files %}
+        <div class="ob-file">
+            <label class="ob-file-remove" title="حذف فایل"><input type="checkbox" name="{{ remove_name }}" value="{{ file.url }}" data-remove-file><span aria-hidden="true">×</span><span class="sr-only">حذف {{ file.name }}</span></label>
+            <a class="ob-file-thumb" href="{{ file.url }}" target="_blank" rel="noopener">
+                {% if file.kind == 'image' %}<img src="{{ file.url }}" alt="{{ file.name }}">{% elif file.kind == 'video' %}{% include "teacher/_qb_icon.html" with name="video" %}{% elif file.kind == 'audio' %}{% include "teacher/_qb_icon.html" with name="audio" %}{% else %}{% include "teacher/_qb_icon.html" with name="essay" %}{% endif %}
+            </a>
+            <b title="{{ file.name }}">{{ file.name }}</b>
+            <small>{{ file.size|filesizeformat }}</small>
+        </div>
+    {% endfor %}
+    <div class="ob-file-picked" data-file-picked></div>
+</div>

@@ -1,0 +1,75 @@
+{% load core_extras %}
+{% with scenario=form.details.scenario patient=form.details.scenario.patient needs_sp=form.details.needs_standardized_patient %}
+<div class="ob-section-head">
+    {% include "teacher/_qb_icon.html" with name="short_answer" %}
+    <div><h3>سناریو و محتوای ایستگاه</h3><p>سناریوی بالینی را به‌صورت دقیق و ساختارمند وارد کنید و اطلاعات لازم برای دانشجو، بیمار استانداردشده و ارزیاب را مشخص نمایید.</p></div>
+</div>
+<div class="ob-scn-grid">
+    <section class="ob-panel ob-patient">
+        <h3>{% include "teacher/_qb_icon.html" with name="info" %}مشخصات بیمار استانداردشده</h3>
+        <div class="ob-patient-body">
+            <div class="ob-patient-fields">
+                <label class="ob-field"><span>سن{% if needs_sp %} <em>*</em>{% endif %}</span><input type="text" name="patient_age" maxlength="40" value="{{ patient.age|default:'' }}" placeholder="مثلاً ۷ سال"></label>
+                <label class="ob-field"><span>جنسیت{% if needs_sp %} <em>*</em>{% endif %}</span><select name="patient_gender"><option value="">انتخاب کنید</option>{% for key, label in osce_patient_genders.items %}<option value="{{ key }}"{% if patient.gender == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                <label class="ob-field"><span>شکایت اصلی{% if needs_sp %} <em>*</em>{% endif %}</span><input type="text" name="patient_chief_complaint" maxlength="200" value="{{ patient.chief_complaint|default:'' }}" placeholder="مثلاً تنگی نفس هنگام فعالیت"></label>
+                <label class="ob-field"><span>نقش بیمار{% if needs_sp %} <em>*</em>{% endif %}</span><select name="patient_role"><option value="">انتخاب کنید</option>{% for key, label in osce_patient_roles.items %}<option value="{{ key }}"{% if patient.role == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            </div>
+            <div class="teacher-wizard-photo-card ob-photo">
+                <span class="teacher-wizard-photo-label">تصویر بیمار</span>
+                <div class="teacher-wizard-photo">
+                    <div class="teacher-wizard-photo-preview" data-photo-preview>
+                        <img src="{{ patient.photo.url|default:'' }}" alt="" {% if not patient.photo %}hidden{% endif %}>
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {% if patient.photo %}hidden{% endif %}><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.24-8 5v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2c0-2.76-3.58-5-8-5Z"/></svg>
+                    </div>
+                    <input type="file" id="osce-patient-photo" class="teacher-wizard-photo-input" name="patient_photo" accept="image/png,image/jpeg,image/webp" data-photo-input>
+                    <label for="osce-patient-photo" class="teacher-wizard-photo-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                        بارگذاری تصویر
+                    </label>
+                    {% if patient.photo %}<label class="ob-check"><input type="checkbox" name="remove_patient_photo" value="1">حذف تصویر فعلی</label>{% endif %}
+                    <small>JPG، PNG، WEBP — حداکثر ۲ مگابایت</small>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="ob-panel ob-editor-panel">
+        {% for key, label, placeholder in osce_scenario_sections %}
+            <div class="ob-editor-section" data-section="{{ key }}"{% if not forloop.first %} hidden{% endif %}>
+                <h3>{{ label }}</h3>
+                {% include "teacher/osce/_rich_editor.html" with field="scenario_"|add:key delta=scenario|get_item:key limit=2000 %}
+            </div>
+        {% endfor %}
+    </section>
+
+    <nav class="ob-panel ob-subnav" aria-label="بخش‌های سناریو">
+        {% for key, label, placeholder in osce_scenario_sections %}
+            <button type="button" class="{% if forloop.first %}is-active{% endif %}" data-section-btn="{{ key }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">{{ label }}</button>
+            {% if forloop.first %}<a href="?station={{ st.id }}&tab=instructions">دستورالعمل برای دانشجو</a>{% endif %}
+        {% endfor %}
+        <span title="در حال توسعه">نسخه‌های جایگزین <small>در حال توسعه</small></span>
+    </nav>
+
+    <section class="ob-panel ob-files-panel">
+        <h3>{% include "teacher/_qb_icon.html" with name="image" %}فایل‌ها و رسانه‌های مرتبط</h3>
+        <p class="ob-aside-hint" style="margin:0 0 .7rem">تصاویر، ویدئو، صوت، اسناد و نتایج پاراکلینیک مرتبط با این ایستگاه را بارگذاری کنید (تصویر تا ۱۰، صوت و PDF تا ۲۰ و ویدئو تا ۱۰۰ مگابایت؛ حداکثر ۱۰ فایل).</p>
+        {% include "teacher/osce/_file_list.html" with files=scenario.media input_name="scenario_media" remove_name="remove_media" accept=".jpg,.jpeg,.png,.webp,.mp4,.webm,.mp3,.wav,.ogg,.m4a,.pdf" hint="تصویر، صوت، ویدئو، PDF" %}
+    </section>
+
+    <section class="ob-panel ob-objectives-panel">
+        <h3>{% include "teacher/_qb_icon.html" with name="check" %}نکات آموزشی و اهداف</h3>
+        <p class="ob-aside-hint" style="margin:0 0 .5rem">اهدافی را که این سناریو روی آن‌ها تمرکز دارد علامت بزنید.</p>
+        {% for item in form.objectives %}
+            <label class="ob-check"><input type="checkbox" name="focus_objectives" value="{{ item }}"{% if not scenario or item in scenario.focus_objectives %} checked{% endif %}>{{ item }}</label>
+        {% empty %}
+            <p class="ob-aside-hint" style="margin:0">هنوز هدفی ثبت نشده است.</p>
+        {% endfor %}
+        <label class="ob-field" style="margin-top:.6rem">افزودن هدف<input type="text" name="new_objective" maxlength="200" placeholder="هدف جدید؛ با ذخیره به هدف‌های ایستگاه اضافه می‌شود"></label>
+    </section>
+
+    <section class="ob-panel ob-notes-panel">
+        <h3>{% include "teacher/_qb_icon.html" with name="text" %}یادداشت‌های تکمیلی (اختیاری)</h3>
+        <label class="ob-field"><textarea name="scenario_notes" maxlength="500" data-count-source placeholder="نکات ویژه، نکات ایمنی، موارد خاص برای استانداردسازی ایستگاه...">{{ scenario.notes|default:'' }}</textarea><span class="ob-count" data-count-target>0/500</span></label>
+    </section>
+</div>
+{% endwith %}

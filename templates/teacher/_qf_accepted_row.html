@@ -1,0 +1,28 @@
+{% load core_extras %}<article class="qb-accepted">
+    <div class="qb-accepted-top">
+        <b class="qb-badge" data-row-number>{{ number|fa_digits }}</b>
+        <input type="text" data-accepted-answer value="{{ item.answer }}" placeholder="{% if main %}پاسخ اصلی (کاملاً صحیح){% else %}پاسخ جایگزین قابل قبول{% endif %}">
+        <label class="qb-accepted-points" title="درصدی از بارم سؤال که این پاسخ می‌گیرد">امتیاز (٪)<input type="number" data-accepted-points value="{{ item.points|default:'100' }}" step="5" min="0" max="100"></label>
+        <button type="button" class="qb-icon-btn" data-remove-row title="{% if main %}پاک کردن{% else %}حذف{% endif %}">{% include "teacher/_qb_icon.html" with name="trash" %}</button>
+    </div>
+    <div class="qb-accepted-rules">
+        <label class="qb-switch qb-switch--inline" title="«سندرم کوشینگ» و «کوشینگ سندرم» یکسان پذیرفته می‌شوند"><span>نادیده گرفتن ترتیب کلمات</span><input type="checkbox" data-accepted-word-order {% if item.ignore_word_order %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+        <label title="تعداد حروف جاافتاده/اضافه/اشتباهی که بخشیده می‌شود؛ فقط برای پاسخ‌های ۴ حرف به بالا">تلورانس غلط املایی
+            <select data-accepted-typo>
+                <option value="0" {% if item.typo_tolerance == '0' or not item.typo_tolerance %}selected{% endif %}>بدون</option>
+                <option value="1" {% if item.typo_tolerance == '1' %}selected{% endif %}>کم (۱ حرف)</option>
+                <option value="2" {% if item.typo_tolerance == '2' %}selected{% endif %}>متوسط (۲ حرف)</option>
+            </select>
+        </label>
+        <label title="برای پاسخ عددی: اختلاف مجاز با مقدار صحیح">تلورانس عددی<input type="number" data-accepted-tolerance value="{{ item.tolerance|default:'0' }}" step="any" min="0"></label>
+        <label class="qb-check"><input type="checkbox" data-accepted-normalize {% if item.normalize %}checked{% endif %}>نرمال‌سازی حروف فارسی/عربی</label>
+        <label class="qb-check"><input type="checkbox" data-accepted-case {% if item.case_sensitive %}checked{% endif %}>حساس به حروف بزرگ/کوچک</label>
+        <label>الگوی تطابق
+            <select data-accepted-mode>
+                <option value="exact" {% if item.match_mode == 'exact' %}selected{% endif %}>مساوی (Exact)</option>
+                <option value="contains" {% if item.match_mode == 'contains' %}selected{% endif %}>شامل (Contains)</option>
+                <option value="regex" {% if item.match_mode == 'regex' %}selected{% endif %}>الگو (Regex)</option>
+            </select>
+        </label>
+    </div>
+</article>

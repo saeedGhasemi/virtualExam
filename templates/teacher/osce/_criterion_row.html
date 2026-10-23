@@ -1,0 +1,13 @@
+{% load core_extras %}<tr data-row draggable="true">
+    <td class="ob-cell-num" data-row-num>{{ num|fa_digits }}</td>
+    <td><input type="hidden" name="{{ prefix }}_uid" value="{{ prefix }}-{{ uid }}"><input type="text" name="{{ prefix }}_text" maxlength="300" value="{{ item.text|default:'' }}" placeholder="{% if prefix == 'global' %}مثلاً عملکرد کلی بالینی{% else %}مثلاً معرفی خود و کسب رضایت{% endif %}" aria-label="متن معیار"></td>
+    {% if prefix == 'criteria' %}<td><select name="criteria_type" aria-label="نوع معیار" data-row-type>{% for key, label in osce_criterion_types.items %}<option value="{{ key }}"{% if item.type == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>{% endif %}
+    <td><input type="number" name="{{ prefix }}_points" min="0.25" max="100" step="0.25" value="{{ item.points|default:'1' }}" class="ob-points" aria-label="امتیاز" data-points></td>
+    {% if prefix == 'criteria' %}<td class="ob-cell-check"><input type="checkbox" name="criteria_required" value="criteria-{{ uid }}"{% if item.required %} checked{% endif %} aria-label="الزامی"></td>{% endif %}
+    <td><input type="text" name="{{ prefix }}_guide" maxlength="300" value="{{ item.guide|default:'' }}" placeholder="راهنمای ارزیاب" aria-label="راهنمای ارزیابی"></td>
+    <td class="ob-cell-tools">
+        <button class="ob-icon-btn is-danger" type="button" data-row-delete aria-label="حذف معیار">{% include "teacher/_qb_icon.html" with name="trash" %}</button>
+        <button class="ob-icon-btn" type="button" data-row-copy aria-label="کپی معیار"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+        <span class="ob-grip" title="برای جابه‌جایی بکشید" aria-hidden="true">{% include "teacher/_qb_icon.html" with name="grip" %}</span>
+    </td>
+</tr>

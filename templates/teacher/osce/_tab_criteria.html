@@ -1,0 +1,136 @@
+{% load core_extras %}
+{% with crit=form.details.criteria method=form.details.assessment_method|default:'checklist' %}
+<div class="ob-crit-grid" data-criteria>
+    <div class="ob-crit-main">
+        <div class="ob-crit-banner">
+            <div>
+                <h3>معیارهای ارزیابی (Check List)</h3>
+                <p>معیارهای ارزیابی را به صورت چک‌لیست، مقیاس درجه‌بندی (Rating Scale) یا Global Rating تعریف کنید. می‌توانید از قالب‌های آماده استفاده کرده یا معیارهای اختصاصی خود را طراحی کنید.</p>
+                <small>روش ارزیابی این ایستگاه: <b>{{ osce_assessment_methods|get_item:method }}</b> — <a href="?station={{ st.id }}&tab=type">تغییر در «نوع ایستگاه»</a></small>
+            </div>
+            <span class="ob-art">{% include "teacher/_qs_art.html" with name="multi" %}</span>
+        </div>
+
+        <div class="ob-subtabs" role="tablist" aria-label="نوع معیارها">
+            <button type="button" role="tab" class="is-active" aria-selected="true" data-crit-tab="checklist">چک‌لیست (گام به گام)</button>
+            <button type="button" role="tab" aria-selected="false" data-crit-tab="scale">مقیاس درجه‌بندی (Rating Scale)</button>
+            <button type="button" role="tab" aria-selected="false" data-crit-tab="global">ارزیابی کلی (Global Rating)</button>
+        </div>
+
+        <section data-crit-panel="checklist">
+            <div class="ob-crit-toolbar">
+                <button class="ob-btn is-primary" type="button" data-add-row="criteria">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن معیار جدید</button>
+                <a class="ob-btn" href="#ob-scoring">{% include "teacher/_qb_icon.html" with name="settings" %}تنظیمات نمره‌دهی</a>
+                <span class="ob-stat">تعداد معیارها: <b data-crit-count>{{ crit.items|length|default:0|fa_digits }}</b></span>
+                <span class="ob-stat is-blue">امتیاز کل: <b data-crit-total>{{ crit.total_points|default:'0'|fa_digits }}</b></span>
+            </div>
+            <div class="ob-table-wrap">
+                <table class="ob-crit-table">
+                    <thead><tr><th>ردیف</th><th>معیار ارزیابی (رفتار مورد انتظار)</th><th>نوع</th><th>امتیاز</th><th title="اگر انجام نشود، ایستگاه مردود می‌شود">الزامی</th><th>توضیحات / راهنمای ارزیابی</th><th>عملیات</th></tr></thead>
+                    <tbody data-rows="criteria">
+                        {% for item in crit.items %}
+                            {% include "teacher/osce/_criterion_row.html" with prefix="criteria" uid=forloop.counter0 num=forloop.counter %}
+                        {% empty %}
+                            {% include "teacher/osce/_criterion_row.html" with prefix="criteria" uid=0 num=1 item=None %}
+                        {% endfor %}
+                    </tbody>
+                    <tfoot><tr><td colspan="3">جمع امتیاز چک‌لیست</td><td colspan="4"><b data-sum="criteria">0</b></td></tr></tfoot>
+                </table>
+            </div>
+            <template data-row-template="criteria">{% include "teacher/osce/_criterion_row.html" with prefix="criteria" uid="__uid__" num=0 item=None %}</template>
+
+            <div class="ob-crit-bottom" id="ob-scoring">
+                <section class="ob-panel">
+                    <h3>{% include "teacher/_qb_icon.html" with name="check" %}شیوه نمره‌دهی</h3>
+                    {% for key, info in osce_scoring_modes.items %}
+                        <label class="ob-mode"><input type="radio" name="scoring_mode" value="{{ key }}"{% if crit.scoring_mode == key or not crit and key == 'per_item' %} checked{% endif %} data-scoring-mode><span><b>{{ info.0 }}</b><small>{{ info.1 }}</small></span></label>
+                    {% endfor %}
+                    <label class="ob-field" data-pass-score{% if crit.scoring_mode != 'pass_fail' %} hidden{% endif %}>حد نصاب قبولی (از امتیاز کل)<input type="number" name="pass_score" min="0.25" max="100" step="0.25" value="{{ crit.pass_score|default:'' }}"></label>
+                </section>
+                <section class="ob-panel">
+                    <h3>{% include "teacher/_qb_icon.html" with name="info" %}سطح عملکرد (برای مقیاس‌های درجه‌بندی)</h3>
+                    <div class="ob-levels" data-levels-preview>
+                        {% for level in crit.scale_levels|default:osce_default_levels %}
+                            <div class="ob-level is-l{{ forloop.revcounter }}"><i>{{ forloop.revcounter|fa_digits }}</i><b data-level-label="{{ forloop.counter0 }}">{{ level.label }}</b><small data-level-desc="{{ forloop.counter0 }}">{{ level.description }}</small></div>
+                        {% endfor %}
+                    </div>
+                    <p class="ob-aside-hint" style="margin:.5rem 0 0">امتیاز معیار مقیاسی به نسبت سطح عملکرد محاسبه می‌شود (سطح ۵ = امتیاز کامل). عنوان سطوح را در زبانه «مقیاس درجه‌بندی» تغییر دهید.</p>
+                </section>
+            </div>
+        </section>
+
+        <section data-crit-panel="scale" hidden>
+            <p class="ob-aside-hint" style="margin-top:0">این پنج سطح برای همه معیارهای مقیاسی و ارزیابی کلی استفاده می‌شود؛ سطح ۵ بهترین عملکرد است.</p>
+            <div class="ob-level-edit">
+                {% for level in crit.scale_levels|default:osce_default_levels %}
+                    <div class="ob-level-row">
+                        <span class="ob-level-num is-l{{ forloop.revcounter }}">{{ forloop.revcounter|fa_digits }}</span>
+                        <label class="ob-field">عنوان سطح<input type="text" name="level_label" maxlength="40" required value="{{ level.label }}" data-level-input="{{ forloop.counter0 }}"></label>
+                        <label class="ob-field">توضیح کوتاه<input type="text" name="level_description" maxlength="120" value="{{ level.description }}" data-level-desc-input="{{ forloop.counter0 }}"></label>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section data-crit-panel="global" hidden>
+            <div class="ob-crit-toolbar">
+                <button class="ob-btn is-primary" type="button" data-add-row="global">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن مورد ارزیابی کلی</button>
+                <span class="ob-aside-hint" style="margin:0">ممتحن هر مورد را روی همان مقیاس ۵ سطحی ارزیابی می‌کند.</span>
+            </div>
+            <div class="ob-table-wrap">
+                <table class="ob-crit-table">
+                    <thead><tr><th>ردیف</th><th>حیطه ارزیابی کلی</th><th>امتیاز</th><th>راهنمای ارزیابی</th><th>عملیات</th></tr></thead>
+                    <tbody data-rows="global">
+                        {% for item in crit.global_items %}
+                            {% include "teacher/osce/_criterion_row.html" with prefix="global" uid=forloop.counter0 num=forloop.counter %}
+                        {% endfor %}
+                    </tbody>
+                    <tfoot><tr><td colspan="2">جمع امتیاز ارزیابی کلی</td><td colspan="3"><b data-sum="global">0</b></td></tr></tfoot>
+                </table>
+            </div>
+            <template data-row-template="global">{% include "teacher/osce/_criterion_row.html" with prefix="global" uid="__uid__" num=0 item=None %}</template>
+        </section>
+    </div>
+
+    <aside class="ob-crit-side">
+        <section class="ob-panel">
+            <div class="ob-tpl-head">
+                <h3>قالب‌های آماده</h3>
+                <button class="ob-btn" type="button" data-library-toggle="{{ osce_library_url }}" aria-expanded="false" aria-controls="ob-library">بارگذاری از کتابخانه</button>
+            </div>
+            <div class="ob-library" id="ob-library" hidden>
+                <p class="ob-aside-hint" style="margin:0 0 .4rem">قالب‌هایی که همکاران واحد سازمانی شما به اشتراک گذاشته‌اند.</p>
+                <input type="search" class="ob-tpl-search" placeholder="جستجو در کتابخانه..." aria-label="جستجو در کتابخانه" data-library-search>
+                <div class="ob-tpl-list" data-library-list role="status"></div>
+            </div>
+            <input type="search" class="ob-tpl-search" placeholder="جستجوی قالب..." aria-label="جستجوی قالب" data-tpl-search>
+            <div class="ob-tpl-list" data-tpl-list>
+                {% for tpl in osce_builtin_templates %}
+                    <button type="button" class="ob-tpl" data-tpl-source="builtin" data-tpl-index="{{ forloop.counter0 }}"><b>{{ tpl.title }}</b><small>{{ tpl.subtitle }}</small></button>
+                {% endfor %}
+                <p class="ob-tpl-group">قالب‌های من</p>
+                <div data-my-templates>
+                    {% for tpl in osce_my_templates %}
+                        <div class="ob-tpl-mine"><button type="button" class="ob-tpl" data-tpl-source="mine" data-tpl-index="{{ forloop.counter0 }}"><b>{{ tpl.title }}</b><small>{{ tpl.items|length|fa_digits }} معیار{% if tpl.is_shared %} · در کتابخانه{% endif %}</small></button><button type="button" class="ob-share{% if tpl.is_shared %} is-on{% endif %}" data-tpl-share="{{ tpl.share_url }}" aria-pressed="{% if tpl.is_shared %}true{% else %}false{% endif %}" title="اشتراک در کتابخانه واحد سازمانی">{% if tpl.is_shared %}لغو اشتراک{% else %}اشتراک{% endif %}</button><button type="button" class="ob-icon-btn is-danger" data-tpl-delete="{{ tpl.delete_url }}" aria-label="حذف قالب {{ tpl.title }}">{% include "teacher/_qb_icon.html" with name="trash" %}</button></div>
+                    {% empty %}
+                        <p class="ob-aside-hint" data-my-empty style="margin:0">هنوز قالبی ذخیره نکرده‌اید.</p>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="ob-tpl-save">
+                <input type="text" maxlength="120" placeholder="عنوان قالب جدید" aria-label="عنوان قالب جدید" data-tpl-title>
+                <button class="ob-btn" type="button" data-tpl-save="{% url 'core:teacher_osce_template_save' %}">{% include "teacher/_qb_icon.html" with name="save" %}ذخیره چک‌لیست فعلی به‌عنوان قالب</button>
+                <small class="ob-tpl-msg" data-tpl-msg role="status"></small>
+            </div>
+        </section>
+        <section class="ob-panel">
+            <h3>تنظیمات نمایش در برگه ارزیاب</h3>
+            {% for key, label in osce_display_options %}
+                <label class="ob-check"><input type="checkbox" name="{{ key }}" value="1"{% if crit %}{% if crit.display|get_item:key %} checked{% endif %}{% elif osce_default_display|get_item:key %} checked{% endif %}>{{ label }}</label>
+            {% endfor %}
+        </section>
+    </aside>
+</div>
+{{ osce_builtin_templates|json_script:"osce-builtin-templates" }}
+{{ osce_my_templates|json_script:"osce-my-templates" }}
+{% endwith %}

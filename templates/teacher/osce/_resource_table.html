@@ -1,0 +1,11 @@
+{% load core_extras %}
+<div class="ob-table-head"><h3>{{ title }}</h3><button class="ob-btn" type="button" data-add-table-row="{{ prefix }}">{% include "teacher/_qb_icon.html" with name="plus" %}{{ add_label }}</button></div>
+<div class="ob-table-wrap">
+    <table class="ob-crit-table ob-res-table">
+        <thead><tr><th>ردیف</th><th>{{ name_label }}</th><th>تعداد</th>{% if has_status %}<th>وضعیت</th>{% endif %}{% if has_note %}<th>توضیحات</th>{% endif %}<th>عملیات</th></tr></thead>
+        <tbody data-table-rows="{{ prefix }}">
+            {% for row in rows %}{% include "teacher/osce/_resource_row.html" %}{% empty %}{% include "teacher/osce/_resource_row.html" with row=None %}{% endfor %}
+        </tbody>
+    </table>
+</div>
+<template data-table-template="{{ prefix }}">{% include "teacher/osce/_resource_row.html" with row=None %}</template>
