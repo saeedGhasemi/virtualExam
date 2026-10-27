@@ -535,6 +535,25 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
         response = self.client.post(reverse('core:super_admin_exam_create'), payload)
         self.assertEqual(response.status_code, 403)
 
+    def test_manager_blocked_from_assigning_out_of_scope_group_or_student(self):
+        self.client.force_login(self.manager_user)
+        for payload in (
+            self._base_payload(group_ids=[self.group_in_id, self.group_out_id]),
+            self._base_payload(group_ids=[], student_ids=[self.student_out_id]),
+            self._base_payload(excluded_student_ids=[self.student_out_id]),
+        ):
+            response = self.client.post(reverse('core:super_admin_exam_create'), payload)
+            self.assertEqual(response.status_code, 403)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM exams WHERE title = 'آزمون تست'")
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_manager_can_assign_in_scope_student_directly(self):
+        self.client.force_login(self.manager_user)
+        payload = self._base_payload(group_ids=[], student_ids=[self.student_in_id])
+        response = self.client.post(reverse('core:super_admin_exam_create'), payload)
+        self.assertEqual(response.status_code, 302)
+
     def test_admin_sees_all_resources_and_can_use_any(self):
         self.client.force_login(self.admin_user)
         response = self.client.get(reverse('core:super_admin_exam_create'))

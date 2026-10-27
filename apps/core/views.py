@@ -8075,6 +8075,11 @@ def super_admin_exam_create(request):
             in_scope_teacher_ids = {str(t['id']) for t in teachers}
             if any(str(t_id) not in in_scope_teacher_ids for t_id in staff_teacher_ids):
                 return HttpResponseForbidden('برخی از عوامل انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+            if not all(_erd_group_in_manager_scope(request, group_id) for group_id in dict.fromkeys(selected_groups)):
+                return HttpResponseForbidden('برخی گروه‌های انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+            chosen_students = dict.fromkeys(selected_students + excluded_students)
+            if not all(_erd_profile_in_manager_scope(request, student_id, 'student') for student_id in chosen_students):
+                return HttpResponseForbidden('برخی دانشجویان انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
 
         placeholders = ','.join(['%s'] * len(selected_questions))
         questions_by_id = {
