@@ -13444,6 +13444,175 @@ def _teacher_question_tags(all_questions):
     ]
 
 
+JALALI_MONTH_NAMES = ('فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند')
+JALALI_WEEKDAY_NAMES = ('دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه', 'یکشنبه')  # indexed by date.weekday()
+
+
+def _jalali_long_date(value) -> str:
+    """'شنبه ۲۹ اردیبهشت ۱۴۰۴' for a date/datetime (or ISO text from SQLite); '' when empty."""
+    from .templatetags.core_extras import _gregorian_to_jalali, fa_digits
+
+    value = erd_datetime(value) if not hasattr(value, 'weekday') else value
+    if not value:
+        return ''
+    if hasattr(value, 'hour'):
+        value = timezone.localtime(value)
+    jy, jm, jd = _gregorian_to_jalali(value.year, value.month, value.day)
+    return fa_digits(f'{JALALI_WEEKDAY_NAMES[value.weekday()]} {jd} {JALALI_MONTH_NAMES[jm - 1]} {jy}')
+
+
+TEACHER_DASHBOARD_EXAM_STATUS = {
+    'in_progress': ('در حال برگزاری', 'green'),
+    'published': ('برنامه‌ریزی شده', 'blue'),
+    'approved': ('تأیید شده', 'blue'),
+    'pending_approval': ('در انتظار تأیید', 'orange'),
+    'draft': ('پیش‌نویس', 'violet'),
+}
+
+
+def _teacher_dashboard_participant_counts(exam_ids: list) -> dict:
+    """Assigned students per exam: direct assignments plus group members, minus exclusions."""
+    if not exam_ids:
+        return {}
+    marks = ', '.join(['%s'] * len(exam_ids))
+    rows = erd_rows(
+        f"""
+        SELECT exam_id, COUNT(*) AS count FROM (
+            SELECT ea.exam_id, ea.student_profile_id AS student_id
+            FROM exam_assignments ea
+            WHERE ea.exam_id IN ({marks}) AND ea.student_profile_id IS NOT NULL
+            UNION
+            SELECT ea.exam_id, sgm.student_user_id AS student_id
+            FROM exam_assignments ea
+            JOIN student_group_members sgm ON sgm.group_id = ea.group_id
+            WHERE ea.exam_id IN ({marks})
+              AND NOT EXISTS (
+                  SELECT 1 FROM exam_assignment_exclusions ax
+                  WHERE ax.exam_id = ea.exam_id AND ax.student_profile_id = sgm.student_user_id
+              )
+        ) assigned
+        GROUP BY exam_id
+        """,
+        [*exam_ids, *exam_ids],
+    )
+    return {str(row['exam_id']): row['count'] for row in rows}
+
+
+def _teacher_dashboard_data(teacher_id) -> dict:
+    """Everything the teacher dashboard shows, all scoped to this teacher's exams and questions."""
+    from django.utils.timesince import timesince
+
+    now = timezone.now()
+    lifecycle = "COALESCE(e.lifecycle_status, '')"
+    not_cancelled = 'COALESCE(e.is_cancelled, false) = false'
+
+    active_exams = erd_row(
+        f"""
+        SELECT COUNT(*) AS count FROM exams e
+        WHERE e.teacher_id = %s AND {not_cancelled}
+          AND {lifecycle} IN ('published', 'in_progress')
+          AND (e.start_at IS NULL OR e.start_at <= %s) AND (e.end_at IS NULL OR e.end_at >= %s)
+        """,
+        [teacher_id, now, now],
+    )['count']
+
+    upcoming = erd_rows(
+        f"""
+        SELECT e.id, e.title, COALESCE(c.title, '-') AS course, e.start_at, e.duration_minutes,
+               {lifecycle} AS lifecycle
+        FROM exams e
+        LEFT JOIN courses c ON c.id = e.course_id
+        WHERE e.teacher_id = %s AND {not_cancelled}
+          AND {lifecycle} NOT IN ('closed', 'archived')
+          AND (e.start_at >= %s OR (e.end_at IS NOT NULL AND e.end_at >= %s))
+        ORDER BY e.start_at
+        LIMIT 5
+        """,
+        [teacher_id, now, now],
+    )
+    upcoming_count = erd_row(
+        f"""
+        SELECT COUNT(*) AS count FROM exams e
+        WHERE e.teacher_id = %s AND {not_cancelled} AND {lifecycle} NOT IN ('closed', 'archived') AND e.start_at > %s
+        """,
+        [teacher_id, now],
+    )['count']
+    participants = _teacher_dashboard_participant_counts([str(row['id']) for row in upcoming])
+    for row in upcoming:
+        start_at = erd_datetime(row['start_at'])
+        status_key = row['lifecycle']
+        if status_key == 'published' and start_at and start_at <= now:
+            status_key = 'in_progress'
+        row['status_label'], row['status_tone'] = TEACHER_DASHBOARD_EXAM_STATUS.get(status_key, ('پیش‌نویس', 'violet'))
+        row['date_label'] = _jalali_long_date(start_at)
+        row['time_label'] = timezone.localtime(start_at).strftime('%H:%M') if start_at else ''
+        row['participants'] = participants.get(str(row['id']))
+
+    new_questions = None
+    if erd_has_column('questions', 'created_at'):
+        new_questions = erd_count('questions', 'teacher_id = %s AND created_at >= %s', [teacher_id, now - timedelta(days=30)])
+
+    pending_by_exam = erd_rows(
+        """
+        SELECT e.id, e.title, COUNT(aa.id) AS count
+        FROM attempt_answers aa
+        JOIN questions q ON q.id = aa.question_id
+        JOIN exam_attempts ea ON ea.id = aa.attempt_id
+        JOIN exams e ON e.id = ea.exam_id
+        WHERE COALESCE(aa.needs_manual_grading, false) = true AND q.teacher_id = %s
+        GROUP BY e.id, e.title
+        ORDER BY COUNT(aa.id) DESC, e.title
+        """,
+        [teacher_id],
+    )
+
+    performance = erd_rows(
+        """
+        SELECT e.id, e.title, MAX(e.start_at) AS start_at, AVG(ea.score * 20.0 / ea.max_score) AS average
+        FROM exam_attempts ea
+        JOIN exams e ON e.id = ea.exam_id
+        WHERE e.teacher_id = %s AND ea.score IS NOT NULL AND ea.max_score > 0
+        GROUP BY e.id, e.title
+        ORDER BY MAX(e.start_at) DESC
+        LIMIT 6
+        """,
+        [teacher_id],
+    )
+    performance.reverse()
+    for row in performance:
+        row['average'] = round(max(0.0, min(20.0, float(row['average'] or 0))), 1)
+        row['height'] = round(row['average'] * 5)  # percent of a 20-point axis
+
+    activities = []
+    if erd_has_column('activity_audit_log', 'created_at'):
+        activities = erd_rows(
+            """
+            SELECT action, reason, created_at FROM activity_audit_log
+            WHERE actor_id = %s AND action NOT LIKE 'login%%' AND action NOT LIKE 'two_factor%%'
+              AND COALESCE(reason, '') <> ''
+            ORDER BY created_at DESC
+            LIMIT 5
+            """,
+            [teacher_id],
+        )
+        for row in activities:
+            created_at = erd_datetime(row['created_at'])
+            row['ago'] = f'{timesince(created_at, now, depth=1)} پیش' if created_at else ''
+
+    return {
+        'active_exams': active_exams,
+        'upcoming_count': upcoming_count,
+        'upcoming_exams': upcoming,
+        'next_exam': upcoming[0] if upcoming else None,
+        'new_questions': new_questions,
+        'pending_total': sum(row['count'] for row in pending_by_exam),
+        'pending_exam_count': len(pending_by_exam),
+        'pending_by_exam': pending_by_exam[:4],
+        'performance': performance,
+        'activities': activities,
+    }
+
+
 def _teacher_modern_context(request, page, **extra):
     teacher_id = getattr(request, 'erd_profile_id', None)
     courses = _teacher_courses_rows(teacher_id) if teacher_id else []
@@ -13565,6 +13734,7 @@ def _teacher_modern_context(request, page, **extra):
             'unfinished': sum(1 for student in student_rows_all if (student.get('participation') or 0) < 70),
         },
         'selected_group_id': selected_group_id,
+        'dashboard': _teacher_dashboard_data(teacher_id) if page == 'dashboard' and teacher_id else None,
         **extra,
     }
 

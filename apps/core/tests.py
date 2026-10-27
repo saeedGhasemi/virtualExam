@@ -2236,3 +2236,49 @@ class TeacherDashboardTests(_ScopedOrgFixture):
         response = self.client.get(reverse('core:teacher_panel'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['teacher_stats']['reviews'], 1)
+
+    def _exam(self, teacher_id, title, start_at, **columns):
+        exam_id = str(uuid.uuid4())
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id', 'start_at', 'duration_minutes'] + list(columns),
+                [exam_id, title, teacher_id, self.course_in_id, start_at, 60] + list(columns.values()))
+        return exam_id
+
+    def test_dashboard_lists_only_own_upcoming_exams_with_participants(self):
+        from datetime import timedelta
+        soon = timezone.now() + timedelta(days=3)
+        own_id = self._exam(self.teacher_in_id, 'آزمون آینده من', soon, lifecycle_status='published')
+        self._exam(self.teacher_out_id, 'آزمون آینده دیگری', soon, lifecycle_status='published')
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), self.group_in_id, self.student_in_id, 'دانشجو', '1', '1'])
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), own_id, self.group_in_id])
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_panel'))
+        data = response.context['dashboard']
+        self.assertEqual([row['title'] for row in data['upcoming_exams']], ['آزمون آینده من'])
+        self.assertEqual(data['upcoming_count'], 1)
+        self.assertEqual(data['upcoming_exams'][0]['participants'], 1)
+        self.assertEqual(data['upcoming_exams'][0]['status_label'], 'برنامه‌ریزی شده')
+        self.assertEqual(data['next_exam']['title'], 'آزمون آینده من')
+        page = response.content.decode()
+        self.assertIn('آزمون آینده من', page)
+        self.assertNotIn('آزمون آینده دیگری', page)
+
+    def test_dashboard_pending_and_performance_are_scoped(self):
+        self._pending_answer(self.exam_in_id, self.question_in_id)
+        self._pending_answer(self.exam_in_id, self.question_in2_id)
+        self._pending_answer(self.exam_out_id, self.question_out_id)
+        for exam_id, score in ((self.exam_in_id, 15), (self.exam_in_id, 17), (self.exam_out_id, 2)):
+            _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status', 'score', 'max_score'],
+                    [str(uuid.uuid4()), exam_id, self.student_in_id, timezone.now(), 'graded', score, 20])
+        self.client.force_login(self.teacher_user)
+        data = self.client.get(reverse('core:teacher_panel')).context['dashboard']
+        self.assertEqual(data['pending_total'], 2)
+        self.assertEqual(data['pending_exam_count'], 1)
+        self.assertEqual([(row['title'], row['count']) for row in data['pending_by_exam']], [('آزمون داخل محدوده', 2)])
+        self.assertEqual([(row['title'], row['average']) for row in data['performance']], [('آزمون داخل محدوده', 16.0)])
+
+    def test_jalali_long_date(self):
+        from datetime import date
+        from apps.core.views import _jalali_long_date
+        self.assertEqual(_jalali_long_date(date(2025, 5, 19)), 'دوشنبه ۲۹ اردیبهشت ۱۴۰۴')
+        self.assertEqual(_jalali_long_date(None), '')
