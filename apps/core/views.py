@@ -7903,16 +7903,80 @@ def super_admin_exam_participants_match(request):
     })
 
 
-@erd_role_required('academic_manager', 'admin')
-def super_admin_exam_create(request):
-    is_admin = _erd_is_admin_request(request)
-    managed_unit_ids = _erd_managed_unit_ids(request)
-    scope_cte = '' if is_admin else _erd_manager_scope_cte()
-    scope_params = [] if is_admin else [request.erd_profile_id]
+EXAM_WIZARD_SCOPE_KINDS = ('groups', 'courses', 'teachers', 'students', 'questions')
 
+
+def _exam_wizard_scope(request) -> dict:
+    """SQL filters (condition, params) for every picker of the exam wizard.
+
+    Admin: everything. Academic manager: their managed org units. Teacher: the groups
+    they own or co-teach, those groups' courses, members and teachers, and their own questions.
+    """
+    if getattr(request, 'erd_role', None) == 'teacher':
+        teacher_id = request.erd_profile_id
+        own_groups = '(SELECT id FROM student_groups WHERE teacher_id = %s UNION SELECT group_id FROM group_teachers WHERE teacher_id = %s)'
+        own = [teacher_id, teacher_id]
+        return {
+            'cte': '',
+            'cte_params': [],
+            'groups': (f'sg.id IN {own_groups}', own),
+            'courses': (f'c.id IN (SELECT course_id FROM student_groups WHERE id IN {own_groups})', own),
+            'teachers': (
+                f'(tp.user_id = %s OR tp.user_id IN (SELECT teacher_id FROM student_groups WHERE id IN {own_groups})'
+                f' OR tp.user_id IN (SELECT teacher_id FROM group_teachers WHERE group_id IN {own_groups}))',
+                [teacher_id, *own, *own],
+            ),
+            'students': (f'sp.user_id IN (SELECT student_user_id FROM student_group_members WHERE group_id IN {own_groups})', own),
+            'questions': ('q.teacher_id = %s', [teacher_id]),
+        }
+    if _erd_is_admin_request(request):
+        return {'cte': '', 'cte_params': [], **{kind: ('1=1', []) for kind in EXAM_WIZARD_SCOPE_KINDS}}
+    return {
+        'cte': _erd_manager_scope_cte(),
+        'cte_params': [request.erd_profile_id],
+        'groups': (_erd_group_scope_condition(), []),
+        'courses': ('c.org_unit_id IN (SELECT id FROM managed_units)', []),
+        'teachers': (_erd_teacher_scope_condition(), []),
+        'students': (_erd_student_scope_condition(), []),
+        'questions': (_erd_question_scope_condition(), []),
+    }
+
+
+EXAM_WIZARD_SCOPE_TABLES = {
+    'groups': ('student_groups sg LEFT JOIN courses c ON c.id = sg.course_id', 'sg.id'),
+    'courses': ('courses c', 'c.id'),
+    'teachers': ('teacher_profiles tp', 'tp.user_id'),
+    'students': ('student_profiles sp', 'sp.user_id'),
+    'questions': ('questions q LEFT JOIN courses c ON c.id = q.course_id', 'q.id'),
+}
+
+
+def _exam_wizard_ids_in_scope(scope: dict, kind: str, ids) -> bool:
+    """True when every id of the given kind passes the wizard scope (checked in SQL, not against the capped pickers)."""
+    ids = list(dict.fromkeys(str(item) for item in ids if item))
+    if not ids:
+        return True
+    table, column = EXAM_WIZARD_SCOPE_TABLES[kind]
+    condition, params = scope[kind]
+    row = erd_row(
+        f"""
+        {scope['cte']}
+        SELECT COUNT(DISTINCT {column}) AS count FROM {table}
+        WHERE {column} IN ({', '.join(['%s'] * len(ids))}) AND {condition}
+        """,
+        [*scope['cte_params'], *ids, *params],
+    )
+    return bool(row) and row['count'] == len(ids)
+
+
+def _exam_wizard_resources(request, scope=None) -> dict:
+    """Courses, groups, teachers, students and questions the wizard may offer, filtered by the scope."""
+    scope = scope or _exam_wizard_scope(request)
+    cte, cte_params = scope['cte'], scope['cte_params']
+    group_condition, group_params = scope['groups']
     groups = erd_rows(
         f"""
-        {scope_cte}
+        {cte}
         SELECT sg.id, sg.teacher_id, sg.course_id, sg.course_name, sg.academic_year, sg.semester, sg.group_code,
                COALESCE(c.title, sg.course_name) AS course_title,
                COALESCE(c.code, '-') AS course_code,
@@ -7928,38 +7992,41 @@ def super_admin_exam_create(request):
             FROM student_group_members
             GROUP BY group_id
         ) members ON members.group_id = sg.id
-        WHERE COALESCE(sg.is_active, true) = true AND {'1=1' if is_admin else _erd_group_scope_condition()}
+        WHERE COALESCE(sg.is_active, true) = true AND {group_condition}
         ORDER BY sg.academic_year DESC, sg.course_name, sg.group_code
         LIMIT 300
         """,
-        scope_params,
+        [*cte_params, *group_params],
     )
+    course_condition, course_params = scope['courses']
     courses = erd_rows(
         f"""
-        {scope_cte}
-        SELECT id, title, code FROM courses
-        WHERE {'1=1' if is_admin else 'org_unit_id IN (SELECT id FROM managed_units)'}
-        ORDER BY title LIMIT 300
+        {cte}
+        SELECT c.id, c.title, c.code FROM courses c
+        WHERE {course_condition}
+        ORDER BY c.title LIMIT 300
         """,
-        scope_params,
+        [*cte_params, *course_params],
     )
+    teacher_condition, teacher_params = scope['teachers']
     teachers = erd_rows(
         f"""
-        {scope_cte}
+        {cte}
         SELECT tp.user_id AS id, p.full_name, p.avatar_url, COALESCE(tp.personnel_code, p.identifier, '') AS code,
                COALESCE(p.email, '') AS email, COALESCE(ou.name, tp.department, '-') AS department
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
         LEFT JOIN org_units ou ON ou.id = tp.org_unit_id
-        WHERE {'1=1' if is_admin else _erd_teacher_scope_condition()}
+        WHERE {teacher_condition}
         ORDER BY department, p.full_name
         LIMIT 300
         """,
-        scope_params,
+        [*cte_params, *teacher_params],
     )
+    student_condition, student_params = scope['students']
     students = erd_rows(
         f"""
-        {scope_cte}
+        {cte}
         SELECT p.id, p.full_name, p.avatar_url, COALESCE(sp.student_number, p.identifier, '') AS student_number,
                COALESCE(p.national_id, '') AS national_id,
                COALESCE(sp.field_of_study, '-') AS field_of_study,
@@ -7969,11 +8036,11 @@ def super_admin_exam_create(request):
                COALESCE(sp.academic_status, 'active') AS academic_status
         FROM student_profiles sp
         JOIN profiles p ON p.id = sp.user_id
-        WHERE {'1=1' if is_admin else _erd_student_scope_condition()}
+        WHERE {student_condition}
         ORDER BY p.full_name
         LIMIT 700
         """,
-        scope_params,
+        [*cte_params, *student_params],
     )
     academic_status_labels = {'active': 'فعال', 'leave': 'مرخصی', 'graduated': 'فارغ‌التحصیل', 'inactive': 'غیرفعال'}
     for student in students:
@@ -7999,9 +8066,10 @@ def super_admin_exam_create(request):
         f'q.{column}' if erd_has_column('questions', column) else f'NULL AS {column}'
         for column in ('matching_pairs', 'ordering_items', 'question_media', 'accepted_answers')
     )
+    question_condition, question_params = scope['questions']
     questions = erd_rows(
         f"""
-        {scope_cte}
+        {cte}
         SELECT q.id, q.teacher_id, q.course_id, q.type, q.difficulty, q.text, q.tags,
                q.options, q.correct_answer, q.explanation, q.media_url,
                {wizard_optional_sql},
@@ -8019,11 +8087,11 @@ def super_admin_exam_create(request):
             JOIN exams e ON e.id = eq.exam_id
             GROUP BY eq.question_id
         ) usage_stats ON usage_stats.question_id = q.id
-        WHERE {'1=1' if is_admin else _erd_question_scope_condition()}
+        WHERE {question_condition}
         ORDER BY q.teacher_id, q.course_id, q.text
         LIMIT 1000
         """,
-        scope_params,
+        [*cte_params, *question_params],
     )
     for question in questions:
         question['options'] = _erd_parse_json_field(question.get('options'))
@@ -8033,7 +8101,229 @@ def super_admin_exam_create(request):
         question['question_media'] = _sx_question_media(question.get('question_media'))
         question['accepted_answers'] = _erd_parse_json_field(question.get('accepted_answers')) or []
     terms = erd_rows('SELECT id, year, semester, COALESCE(label, semester, year) AS label FROM academic_terms ORDER BY year DESC, semester LIMIT 50')
-    org_units = _erd_manager_visible_org_units(request)
+    is_teacher = getattr(request, 'erd_role', None) == 'teacher'
+    return {
+        'groups': groups,
+        'courses': courses,
+        'teachers': teachers,
+        'students': students,
+        'questions': questions,
+        'terms': terms,
+        'org_units': [] if is_teacher else _erd_manager_visible_org_units(request),
+        'group_student_map': group_student_map,
+        'entry_years': entry_years,
+        'degrees': degrees,
+    }
+
+
+def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, selected_questions, selected_groups,
+                        selected_students, excluded_students, staff_pairs, publish_choice, is_published,
+                        lifecycle_status, approval_status) -> str:
+    """Create the exam, its questions, audience and staff from an already scope-checked wizard POST."""
+    placeholders = ','.join(['%s'] * len(selected_questions))
+    questions_by_id = {
+        str(row['id']): row
+        for row in erd_rows(
+            f"""
+            SELECT id, COALESCE(default_points, 1) AS points
+            FROM questions
+            WHERE id IN ({placeholders})
+            """,
+            selected_questions,
+        )
+    }
+    valid_questions = [questions_by_id[q_id] for q_id in dict.fromkeys(selected_questions) if q_id in questions_by_id]
+    duration = int(request.POST.get('duration_minutes') or 45)
+    start_at = _parse_exam_wizard_datetime(request.POST.get('start_at'))
+    end_at = _parse_exam_wizard_datetime(request.POST.get('end_at'))
+    if start_at and not end_at:
+        end_at = start_at + timedelta(minutes=duration)
+    registration_start_at = _parse_exam_wizard_datetime(request.POST.get('registration_start_at'))
+    registration_end_at = _parse_exam_wizard_datetime(request.POST.get('registration_end_at'))
+    last_entry_at = _parse_exam_wizard_datetime(request.POST.get('last_entry_at'))
+    scheduled_publish_at = _parse_exam_wizard_datetime(request.POST.get('scheduled_publish_at'))
+
+    exam_id = str(uuid.uuid4())
+
+    cover_image_url = _save_exam_wizard_upload(request, 'cover_image', 'exam-covers', {'jpg', 'jpeg', 'png'})
+    guidance_file_url = _save_exam_wizard_upload(request, 'guidance_file', 'exam-guidance', {'pdf', 'jpg', 'jpeg', 'png'})
+
+    optional_columns = [
+        ('result_release_mode', request.POST.get('result_release_mode') or 'after_exam'),
+        ('review_answers_enabled', bool(request.POST.get('review_answers_enabled'))),
+        ('allow_answer_changes', bool(request.POST.get('allow_answer_changes'))),
+        ('show_instructions_before_start', bool(request.POST.get('show_instructions_before_start'))),
+        ('autosave_enabled', bool(request.POST.get('autosave_enabled'))),
+        ('fullscreen_required', bool(request.POST.get('fullscreen_required'))),
+        ('track_tab_exit', bool(request.POST.get('track_tab_exit'))),
+        ('show_correct_answers', bool(request.POST.get('show_correct_answers'))),
+        ('show_score', bool(request.POST.get('show_score'))),
+        ('show_feedback', bool(request.POST.get('show_feedback'))),
+        ('publish_mode', publish_choice),
+        ('exam_mode', request.POST.get('exam_mode') or 'standard'),
+        ('tags', request.POST.get('tags', '').strip()),
+        ('grading_template', request.POST.get('grading_template') or 'total_score'),
+        ('registration_start_at', registration_start_at),
+        ('registration_end_at', registration_end_at),
+        ('last_entry_at', last_entry_at),
+        ('allow_flagging_questions', bool(request.POST.get('allow_flagging_questions'))),
+        ('show_question_list', bool(request.POST.get('show_question_list'))),
+        ('one_question_per_page', bool(request.POST.get('one_question_per_page'))),
+        ('auto_submit_on_time_end', bool(request.POST.get('auto_submit_on_time_end'))),
+        ('correct_answer_display_mode', request.POST.get('correct_answer_display_mode') or 'after_publish'),
+        ('score_display_mode', request.POST.get('score_display_mode') or 'after_publish'),
+        ('explanation_display_mode', request.POST.get('explanation_display_mode') or 'after_publish'),
+        ('grading_method', request.POST.get('grading_method') or 'weighted_by_type'),
+        ('manual_review_required', bool(request.POST.get('manual_review_required'))),
+        ('results_deadline', request.POST.get('results_deadline') or '3_days_after_end'),
+        ('correction_instructions', request.POST.get('correction_instructions', '').strip()),
+        ('rubric_template', request.POST.get('rubric_template') or ''),
+        ('correction_mode', request.POST.get('correction_mode') or 'manual'),
+        ('security_level', request.POST.get('security_level') or 'medium'),
+        ('execution_mode', request.POST.get('execution_mode') or 'web'),
+        ('identity_verification_required', bool(request.POST.get('identity_verification_required'))),
+        ('device_limit_enabled', bool(request.POST.get('device_limit_enabled'))),
+        ('ip_restriction_enabled', bool(request.POST.get('ip_restriction_enabled'))),
+        ('ip_restriction_range', request.POST.get('ip_restriction_range', '').strip()),
+        ('webcam_monitoring', bool(request.POST.get('webcam_monitoring'))),
+        ('mic_monitoring', bool(request.POST.get('mic_monitoring'))),
+        ('copy_paste_prevention', bool(request.POST.get('copy_paste_prevention'))),
+        ('screenshot_prevention', bool(request.POST.get('screenshot_prevention'))),
+        ('autosave_interval_seconds', int(request.POST.get('autosave_interval_seconds') or 30)),
+        ('internet_disconnect_policy', request.POST.get('internet_disconnect_policy') or 'resume_from_last_save'),
+        ('scheduled_publish_at', scheduled_publish_at),
+        ('notify_students_system_message', bool(request.POST.get('notify_students_system_message'))),
+        ('notify_students_email', bool(request.POST.get('notify_students_email'))),
+        ('show_in_academic_calendar', bool(request.POST.get('show_in_academic_calendar'))),
+    ]
+    if cover_image_url:
+        optional_columns.append(('cover_image_url', cover_image_url))
+    if guidance_file_url:
+        optional_columns.append(('guidance_file_url', guidance_file_url))
+    insert_columns = [
+        'id', 'teacher_id', 'course_id', 'title', 'description', 'duration_minutes', 'start_at', 'end_at',
+        'shuffle_questions', 'shuffle_options', 'negative_marking', 'negative_factor', 'max_attempts',
+        'is_published', 'show_results_immediately', 'passing_score', 'allow_partial', 'approval_status',
+        'exam_type', 'academic_year', 'semester', 'lifecycle_status',
+    ]
+    insert_values = [
+        exam_id,
+        teacher_id,
+        course_id,
+        title,
+        request.POST.get('description', '').strip(),
+        duration,
+        start_at,
+        end_at,
+        bool(request.POST.get('shuffle_questions')),
+        bool(request.POST.get('shuffle_options')),
+        bool(request.POST.get('negative_marking')),
+        request.POST.get('negative_factor') or 0,
+        int(request.POST.get('max_attempts') or 1),
+        is_published,
+        bool(request.POST.get('show_results_immediately')),
+        request.POST.get('passing_score') or None,
+        bool(request.POST.get('allow_partial')),
+        approval_status,
+        request.POST.get('exam_type') or 'standard',
+        request.POST.get('academic_year') or (first_group or {}).get('academic_year') or '',
+        request.POST.get('semester') or (first_group or {}).get('semester') or '',
+        lifecycle_status,
+    ]
+    for column, value in optional_columns:
+        if erd_has_column('exams', column):
+            insert_columns.append(column)
+            insert_values.append(value)
+    with transaction.atomic():
+        erd_execute(
+            f"""
+            INSERT INTO exams ({', '.join(insert_columns)})
+            VALUES ({', '.join(['%s'] * len(insert_columns))})
+            """,
+            insert_values,
+        )
+        with connection.cursor() as cursor:
+            for index, question in enumerate(valid_questions, start=1):
+                cursor.execute(
+                    """
+                    INSERT INTO exam_questions (id, exam_id, question_id, points, order_index)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    [str(uuid.uuid4()), exam_id, question['id'], question['points'] or 1, index],
+                )
+            for group_id in dict.fromkeys(selected_groups):
+                cursor.execute(
+                    "INSERT INTO exam_assignments (id, exam_id, group_id) VALUES (%s, %s, %s)",
+                    [str(uuid.uuid4()), exam_id, group_id],
+                )
+            for student_id in dict.fromkeys(selected_students):
+                cursor.execute(
+                    "INSERT INTO exam_assignments (id, exam_id, student_profile_id) VALUES (%s, %s, %s)",
+                    [str(uuid.uuid4()), exam_id, student_id],
+                )
+            for student_id in dict.fromkeys(excluded_students):
+                if student_id in selected_students:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO exam_assignment_exclusions (id, exam_id, student_profile_id) VALUES (%s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    [str(uuid.uuid4()), exam_id, student_id],
+                )
+            for staff_teacher_id, staff_role in staff_pairs:
+                if not staff_teacher_id or staff_role not in EXAM_STAFF_ROLES:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO exam_staff (id, exam_id, teacher_id, role) VALUES (%s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    [str(uuid.uuid4()), exam_id, staff_teacher_id, staff_role],
+                )
+    return exam_id
+
+
+def _exam_wizard_render(request, resources, **extra):
+    question_type_cards = [
+        {'key': 'short_answer', 'label': 'پاسخ کوتاه', 'icon': 'text'},
+        {'key': 'single', 'label': 'چهارگزینه‌ای', 'icon': 'list'},
+        {'key': 'multi', 'label': 'چندگزینه‌ای', 'icon': 'checks'},
+        {'key': 'true_false', 'label': 'درست / نادرست', 'icon': 'check'},
+        {'key': 'essay', 'label': 'تشریحی', 'icon': 'lines'},
+        {'key': 'fill_blank', 'label': 'جای خالی', 'icon': 'dash'},
+        {'key': 'matching', 'label': 'تطبیقی', 'icon': 'nodes'},
+        {'key': 'ordering', 'label': 'ترتیبی', 'icon': 'order'},
+        {'key': 'image_based', 'label': 'تصویری', 'icon': 'image'},
+        {'key': 'calculation', 'label': 'محاسباتی', 'icon': 'calculator'},
+    ]
+    teachers_by_department = []
+    seen_departments = []
+    for teacher in resources['teachers']:
+        department = teacher.get('department') or '-'
+        if department not in seen_departments:
+            seen_departments.append(department)
+            teachers_by_department.append({'department': department, 'teachers': []})
+        next(item for item in teachers_by_department if item['department'] == department)['teachers'].append(teacher)
+
+    return render(request, 'super_admin/exam_wizard.html', {
+        'title': 'ایجاد آزمون',
+        'teachers_by_department': teachers_by_department,
+        'questions_json': resources['questions'],
+        'question_type_cards': question_type_cards,
+        'staff_role_labels': EXAM_STAFF_ROLE_LABELS,
+        **resources,
+        **extra,
+    })
+
+
+@erd_role_required('academic_manager', 'admin')
+def super_admin_exam_create(request):
+    is_admin = _erd_is_admin_request(request)
+    managed_unit_ids = _erd_managed_unit_ids(request)
+    resources = _exam_wizard_resources(request)
+    courses, teachers, questions = resources['courses'], resources['teachers'], resources['questions']
 
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
@@ -8081,211 +8371,20 @@ def super_admin_exam_create(request):
             if not all(_erd_profile_in_manager_scope(request, student_id, 'student') for student_id in chosen_students):
                 return HttpResponseForbidden('برخی دانشجویان انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
 
-        placeholders = ','.join(['%s'] * len(selected_questions))
-        questions_by_id = {
-            str(row['id']): row
-            for row in erd_rows(
-                f"""
-                SELECT id, COALESCE(default_points, 1) AS points
-                FROM questions
-                WHERE id IN ({placeholders})
-                """,
-                selected_questions,
-            )
-        }
-        valid_questions = [questions_by_id[q_id] for q_id in dict.fromkeys(selected_questions) if q_id in questions_by_id]
-        duration = int(request.POST.get('duration_minutes') or 45)
-        start_at = _parse_exam_wizard_datetime(request.POST.get('start_at'))
-        end_at = _parse_exam_wizard_datetime(request.POST.get('end_at'))
-        if start_at and not end_at:
-            end_at = start_at + timedelta(minutes=duration)
-        registration_start_at = _parse_exam_wizard_datetime(request.POST.get('registration_start_at'))
-        registration_end_at = _parse_exam_wizard_datetime(request.POST.get('registration_end_at'))
-        last_entry_at = _parse_exam_wizard_datetime(request.POST.get('last_entry_at'))
-        scheduled_publish_at = _parse_exam_wizard_datetime(request.POST.get('scheduled_publish_at'))
-
         publish_choice = request.POST.get('publish_choice') or 'draft'
         is_published = publish_choice == 'immediate'
-        lifecycle_status = 'published' if is_published else ('draft' if publish_choice == 'draft' else 'scheduled')
-        exam_id = str(uuid.uuid4())
-
-        cover_image_url = _save_exam_wizard_upload(request, 'cover_image', 'exam-covers', {'jpg', 'jpeg', 'png'})
-        guidance_file_url = _save_exam_wizard_upload(request, 'guidance_file', 'exam-guidance', {'pdf', 'jpg', 'jpeg', 'png'})
-
-        optional_columns = [
-            ('result_release_mode', request.POST.get('result_release_mode') or 'after_exam'),
-            ('review_answers_enabled', bool(request.POST.get('review_answers_enabled'))),
-            ('allow_answer_changes', bool(request.POST.get('allow_answer_changes'))),
-            ('show_instructions_before_start', bool(request.POST.get('show_instructions_before_start'))),
-            ('autosave_enabled', bool(request.POST.get('autosave_enabled'))),
-            ('fullscreen_required', bool(request.POST.get('fullscreen_required'))),
-            ('track_tab_exit', bool(request.POST.get('track_tab_exit'))),
-            ('show_correct_answers', bool(request.POST.get('show_correct_answers'))),
-            ('show_score', bool(request.POST.get('show_score'))),
-            ('show_feedback', bool(request.POST.get('show_feedback'))),
-            ('publish_mode', publish_choice),
-            ('exam_mode', request.POST.get('exam_mode') or 'standard'),
-            ('tags', request.POST.get('tags', '').strip()),
-            ('grading_template', request.POST.get('grading_template') or 'total_score'),
-            ('registration_start_at', registration_start_at),
-            ('registration_end_at', registration_end_at),
-            ('last_entry_at', last_entry_at),
-            ('allow_flagging_questions', bool(request.POST.get('allow_flagging_questions'))),
-            ('show_question_list', bool(request.POST.get('show_question_list'))),
-            ('one_question_per_page', bool(request.POST.get('one_question_per_page'))),
-            ('auto_submit_on_time_end', bool(request.POST.get('auto_submit_on_time_end'))),
-            ('correct_answer_display_mode', request.POST.get('correct_answer_display_mode') or 'after_publish'),
-            ('score_display_mode', request.POST.get('score_display_mode') or 'after_publish'),
-            ('explanation_display_mode', request.POST.get('explanation_display_mode') or 'after_publish'),
-            ('grading_method', request.POST.get('grading_method') or 'weighted_by_type'),
-            ('manual_review_required', bool(request.POST.get('manual_review_required'))),
-            ('results_deadline', request.POST.get('results_deadline') or '3_days_after_end'),
-            ('correction_instructions', request.POST.get('correction_instructions', '').strip()),
-            ('rubric_template', request.POST.get('rubric_template') or ''),
-            ('correction_mode', request.POST.get('correction_mode') or 'manual'),
-            ('security_level', request.POST.get('security_level') or 'medium'),
-            ('execution_mode', request.POST.get('execution_mode') or 'web'),
-            ('identity_verification_required', bool(request.POST.get('identity_verification_required'))),
-            ('device_limit_enabled', bool(request.POST.get('device_limit_enabled'))),
-            ('ip_restriction_enabled', bool(request.POST.get('ip_restriction_enabled'))),
-            ('ip_restriction_range', request.POST.get('ip_restriction_range', '').strip()),
-            ('webcam_monitoring', bool(request.POST.get('webcam_monitoring'))),
-            ('mic_monitoring', bool(request.POST.get('mic_monitoring'))),
-            ('copy_paste_prevention', bool(request.POST.get('copy_paste_prevention'))),
-            ('screenshot_prevention', bool(request.POST.get('screenshot_prevention'))),
-            ('autosave_interval_seconds', int(request.POST.get('autosave_interval_seconds') or 30)),
-            ('internet_disconnect_policy', request.POST.get('internet_disconnect_policy') or 'resume_from_last_save'),
-            ('scheduled_publish_at', scheduled_publish_at),
-            ('notify_students_system_message', bool(request.POST.get('notify_students_system_message'))),
-            ('notify_students_email', bool(request.POST.get('notify_students_email'))),
-            ('show_in_academic_calendar', bool(request.POST.get('show_in_academic_calendar'))),
-        ]
-        if cover_image_url:
-            optional_columns.append(('cover_image_url', cover_image_url))
-        if guidance_file_url:
-            optional_columns.append(('guidance_file_url', guidance_file_url))
-        insert_columns = [
-            'id', 'teacher_id', 'course_id', 'title', 'description', 'duration_minutes', 'start_at', 'end_at',
-            'shuffle_questions', 'shuffle_options', 'negative_marking', 'negative_factor', 'max_attempts',
-            'is_published', 'show_results_immediately', 'passing_score', 'allow_partial', 'approval_status',
-            'exam_type', 'academic_year', 'semester', 'lifecycle_status',
-        ]
-        insert_values = [
-            exam_id,
-            teacher_id,
-            course_id,
-            title,
-            request.POST.get('description', '').strip(),
-            duration,
-            start_at,
-            end_at,
-            bool(request.POST.get('shuffle_questions')),
-            bool(request.POST.get('shuffle_options')),
-            bool(request.POST.get('negative_marking')),
-            request.POST.get('negative_factor') or 0,
-            int(request.POST.get('max_attempts') or 1),
-            is_published,
-            bool(request.POST.get('show_results_immediately')),
-            request.POST.get('passing_score') or None,
-            bool(request.POST.get('allow_partial')),
-            'approved' if is_published else 'pending',
-            request.POST.get('exam_type') or 'standard',
-            request.POST.get('academic_year') or (first_group or {}).get('academic_year') or '',
-            request.POST.get('semester') or (first_group or {}).get('semester') or '',
-            lifecycle_status,
-        ]
-        for column, value in optional_columns:
-            if erd_has_column('exams', column):
-                insert_columns.append(column)
-                insert_values.append(value)
-        erd_execute(
-            f"""
-            INSERT INTO exams ({', '.join(insert_columns)})
-            VALUES ({', '.join(['%s'] * len(insert_columns))})
-            """,
-            insert_values,
+        _exam_wizard_insert(
+            request, title=title, teacher_id=teacher_id, course_id=course_id, first_group=first_group,
+            selected_questions=selected_questions, selected_groups=selected_groups,
+            selected_students=selected_students, excluded_students=excluded_students,
+            staff_pairs=zip(staff_teacher_ids, staff_roles), publish_choice=publish_choice, is_published=is_published,
+            lifecycle_status='published' if is_published else ('draft' if publish_choice == 'draft' else 'scheduled'),
+            approval_status='approved' if is_published else 'pending',
         )
-        with connection.cursor() as cursor:
-            for index, question in enumerate(valid_questions, start=1):
-                cursor.execute(
-                    """
-                    INSERT INTO exam_questions (id, exam_id, question_id, points, order_index)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT DO NOTHING
-                    """,
-                    [str(uuid.uuid4()), exam_id, question['id'], question['points'] or 1, index],
-                )
-            for group_id in dict.fromkeys(selected_groups):
-                cursor.execute(
-                    "INSERT INTO exam_assignments (id, exam_id, group_id) VALUES (%s, %s, %s)",
-                    [str(uuid.uuid4()), exam_id, group_id],
-                )
-            for student_id in dict.fromkeys(selected_students):
-                cursor.execute(
-                    "INSERT INTO exam_assignments (id, exam_id, student_profile_id) VALUES (%s, %s, %s)",
-                    [str(uuid.uuid4()), exam_id, student_id],
-                )
-            for student_id in dict.fromkeys(excluded_students):
-                if student_id in selected_students:
-                    continue
-                cursor.execute(
-                    """
-                    INSERT INTO exam_assignment_exclusions (id, exam_id, student_profile_id) VALUES (%s, %s, %s)
-                    ON CONFLICT DO NOTHING
-                    """,
-                    [str(uuid.uuid4()), exam_id, student_id],
-                )
-            for staff_teacher_id, staff_role in zip(staff_teacher_ids, staff_roles):
-                if not staff_teacher_id or staff_role not in EXAM_STAFF_ROLES:
-                    continue
-                cursor.execute(
-                    """
-                    INSERT INTO exam_staff (id, exam_id, teacher_id, role) VALUES (%s, %s, %s, %s)
-                    ON CONFLICT DO NOTHING
-                    """,
-                    [str(uuid.uuid4()), exam_id, staff_teacher_id, staff_role],
-                )
         messages.success(request, 'آزمون با موفقیت ایجاد شد.')
         return redirect('core:super_admin_exams')
 
-    question_type_cards = [
-        {'key': 'short_answer', 'label': 'پاسخ کوتاه', 'icon': 'text'},
-        {'key': 'single', 'label': 'چهارگزینه‌ای', 'icon': 'list'},
-        {'key': 'multi', 'label': 'چندگزینه‌ای', 'icon': 'checks'},
-        {'key': 'true_false', 'label': 'درست / نادرست', 'icon': 'check'},
-        {'key': 'essay', 'label': 'تشریحی', 'icon': 'lines'},
-        {'key': 'fill_blank', 'label': 'جای خالی', 'icon': 'dash'},
-        {'key': 'matching', 'label': 'تطبیقی', 'icon': 'nodes'},
-        {'key': 'ordering', 'label': 'ترتیبی', 'icon': 'order'},
-        {'key': 'image_based', 'label': 'تصویری', 'icon': 'image'},
-        {'key': 'calculation', 'label': 'محاسباتی', 'icon': 'calculator'},
-    ]
-    teachers_by_department = []
-    seen_departments = []
-    for teacher in teachers:
-        department = teacher.get('department') or '-'
-        if department not in seen_departments:
-            seen_departments.append(department)
-            teachers_by_department.append({'department': department, 'teachers': []})
-        next(item for item in teachers_by_department if item['department'] == department)['teachers'].append(teacher)
-
-    return render(request, 'super_admin/exam_wizard.html', {
-        'title': 'ایجاد آزمون',
-        'groups': groups,
-        'courses': courses,
-        'teachers': teachers,
-        'teachers_by_department': teachers_by_department,
-        'students': students,
-        'questions': questions,
-        'questions_json': questions,
-        'question_type_cards': question_type_cards,
-        'terms': terms,
-        'org_units': org_units,
-        'staff_role_labels': EXAM_STAFF_ROLE_LABELS,
-        'group_student_map': group_student_map,
-        'entry_years': entry_years,
-        'degrees': degrees,
-    })
+    return _exam_wizard_render(request, resources)
 
 
 @erd_role_required('academic_manager', 'admin')
