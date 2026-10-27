@@ -200,3 +200,6 @@ SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', str(not DEBUG)).lower
 CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'false').lower() == 'true'
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
+# مرورگر هدر COOP را فقط روی HTTPS/localhost می‌پذیرد؛ روی استقرار HTTP (مثلاً با IP)
+# مقدار خالی بدهید تا هدر ارسال نشود و خطای کنسول ایجاد نکند.
+SECURE_CROSS_ORIGIN_OPENER_POLICY = os.getenv('SECURE_CROSS_ORIGIN_OPENER_POLICY', 'same-origin').strip() or None
