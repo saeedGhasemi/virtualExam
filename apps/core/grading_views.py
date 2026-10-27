@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 20
 FEEDBACK_MAX = 2000
-ESSAY_TYPES = ('essay', 'descriptive')
+ESSAY_TYPES = ('essay', 'descriptive', 'media_response')
 GRADING_FILTERS = {'pending': 'در انتظار تصحیح', 'graded': 'تصحیح‌شده', 'all': 'همه'}
 
 # Base of every grading query: essay answers of submitted attempts that this teacher may grade.
@@ -45,7 +45,7 @@ _SCOPED_FROM = """
     JOIN questions q ON q.id = aa.question_id
     JOIN profiles p ON p.id = ea.student_id
     LEFT JOIN exam_questions eq ON eq.exam_id = e.id AND eq.question_id = q.id
-    WHERE q.type IN ('essay', 'descriptive')
+    WHERE q.type IN ('essay', 'descriptive', 'media_response')
       AND ea.submitted_at IS NOT NULL
       AND (e.teacher_id = %s OR q.teacher_id = %s)
 """

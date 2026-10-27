@@ -387,7 +387,7 @@
             <span class="qb-type-icon">{% include "teacher/_qb_icon.html" with name=qf.type %}</span>
             <div>
                 <h2>{{ question_builder_label }}</h2>
-                <p>{% if qf.type == 'single' %}یک پاسخ صحیح بین گزینه‌ها{% elif qf.type == 'multi' %}انتخاب چند پاسخ صحیح از بین گزینه‌ها{% elif qf.type == 'true_false' %}گزینه‌ی دوحالته‌ی درست یا نادرست{% elif qf.type == 'short_answer' %}پاسخ متنی کوتاه با تصحیح خودکار{% elif qf.type == 'essay' %}پاسخ کامل با روبریک تصحیح{% elif qf.type == 'fill_blank' %}عبارات را با واژه‌های مناسب کامل کنید{% elif qf.type == 'matching' %}موارد ستون الف را با موارد مناسب ستون ب مطابقت دهید{% elif qf.type == 'ordering' %}موارد را به ترتیب صحیح مرتب کنید{% endif %}</p>
+                <p>{% if qf.type == 'single' %}یک پاسخ صحیح بین گزینه‌ها{% elif qf.type == 'multi' %}انتخاب چند پاسخ صحیح از بین گزینه‌ها{% elif qf.type == 'true_false' %}گزینه‌ی دوحالته‌ی درست یا نادرست{% elif qf.type == 'short_answer' %}پاسخ متنی کوتاه با تصحیح خودکار{% elif qf.type == 'essay' %}پاسخ کامل با روبریک تصحیح{% elif qf.type == 'fill_blank' %}عبارات را با واژه‌های مناسب کامل کنید{% elif qf.type == 'matching' %}موارد ستون الف را با موارد مناسب ستون ب مطابقت دهید{% elif qf.type == 'ordering' %}موارد را به ترتیب صحیح مرتب کنید{% elif qf.type == 'numeric' %}پاسخ عددی با بازه‌ی قابل قبول و واحد، با تصحیح خودکار{% elif qf.type == 'matrix' %}برای هر سطر جدول، ستون(های) صحیح را انتخاب کنید{% elif qf.type == 'image_label' %}بخش‌های مشخص‌شده روی تصویر را نام‌گذاری کنید{% elif qf.type == 'media_response' %}پخش فایل صوتی/ویدئویی و پاسخ متنی، صوتی یا ویدئویی دانشجو{% endif %}</p>
             </div>
         </div>
     </section>
@@ -619,6 +619,8 @@
                         </aside>
                     </div>
                 </section>
+            {% elif qf.type == 'numeric' or qf.type == 'matrix' or qf.type == 'image_label' or qf.type == 'media_response' %}
+                {% include "teacher/_qf_v2_main.html" %}
             {% endif %}
         </main>
 
@@ -697,6 +699,8 @@
                 </div>
             </section>
 
+            {% include "teacher/_qf_v2_side.html" %}
+
             <section class="qb-card qb-scoring">
                 <div class="qb-card-head"><h3>{% include "teacher/_qb_icon.html" with name="settings" %}تنظیمات امتیازدهی</h3></div>
                 {% if qf.type == 'multi' %}
@@ -707,7 +711,7 @@
                     <label class="qb-field">نمره منفی <small>برای هر پاسخ نادرست؛ روی جریمه‌ی همه‌ی گزینه‌ها اعمال می‌شود</small>
                         <span class="qb-stepper"><button type="button" data-step="0.25">+</button><input type="number" step="0.25" min="-10" max="0" value="-0.5" data-penalty-all aria-label="جریمه‌ی پیش‌فرض همه‌ی گزینه‌ها"><button type="button" data-step="-0.25">−</button></span>
                     </label>
-                {% elif qf.type == 'fill_blank' or qf.type == 'matching' %}
+                {% elif qf.type == 'fill_blank' or qf.type == 'matching' or qf.type == 'matrix' or qf.type == 'image_label' %}
                     {# Unchecked box → the hidden value (all-or-nothing) is the one posted. #}
                     <input type="hidden" name="scoring_mode" value="all_or_nothing">
                     <label class="qb-switch"><span>امتیازدهی جزئی (Partial Credit)<small>خاموش: فقط پاسخ کاملاً درست نمره می‌گیرد (همه یا هیچ)</small></span><input type="checkbox" name="scoring_mode" value="partial" {% if qf.settings.scoring_mode != 'all_or_nothing' %}checked{% endif %}><span class="qb-switch-ui"></span></label>
@@ -724,7 +728,10 @@
                     <p class="qb-help">حداکثر انتخاب ۰ یعنی بدون محدودیت؛ انتخاب بیش از حد مجاز پاسخ غلط است. در نمره‌ی جزئی، «امتیاز انتخاب» وزن هر گزینه‌ی صحیح و «جریمه» کسر هر گزینه‌ی غلطِ انتخاب‌شده است.</p>
                     <label class="qb-switch"><span>حداقل نمره کل: ۰<small>نمره کل هرگز از صفر کمتر نشود</small></span><input type="checkbox" name="floor_zero" value="1" {% if qf.settings.floor_zero %}checked{% endif %}><span class="qb-switch-ui"></span></label>
                 {% endif %}
-                {% if qf.type != 'essay' and qf.type != 'short_answer' and qf.type != 'multi' %}
+                {% if qf.type == 'image_label' %}
+                    <label class="qb-switch"><span>پذیرش پاسخ‌های مترادف<small>پاسخ‌های ستون «مترادف‌ها» هم صحیح شمرده شوند</small></span><input type="checkbox" name="label_accept_synonyms" value="1" {% if qf.image_label.accept_synonyms %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                {% endif %}
+                {% if qf.type != 'essay' and qf.type != 'short_answer' and qf.type != 'multi' and qf.type != 'media_response' %}
                     <label class="qb-switch"><span>اعمال جریمه نمره منفی<small>برای هر پاسخ نادرست{% if qf.type != 'single' and qf.type != 'true_false' %} (در حالت همه یا هیچ){% endif %}</small></span><input type="checkbox" name="negative_marking" value="1" {% if qf.settings.negative_marking %}checked{% endif %}><span class="qb-switch-ui"></span></label>
                     <label class="qb-field">ضریب نمره‌ی منفی (کسری از بارم)
                         <span class="qb-stepper"><button type="button" data-step="0.05">+</button><input type="number" name="negative_value" step="0.05" min="0" max="1" value="{{ qf.settings.negative_value }}"><button type="button" data-step="-0.05">−</button></span>
@@ -744,6 +751,10 @@
                 {% endif %}
                 {% if qf.type == 'essay' %}
                     <p class="qb-help">پاسخ تشریحی همیشه به‌صورت دستی و با کمک روبریک تصحیح می‌شود.</p>
+                {% elif qf.type == 'media_response' %}
+                    <p class="qb-help">پاسخ صوتی/ویدئویی همیشه به‌صورت دستی و با کمک روبریک تصحیح می‌شود.</p>
+                {% elif qf.type == 'numeric' %}
+                    <p class="qb-help">پاسخ در بازه‌ی قابل قبول نمره‌ی کامل و خارج از آن صفر (یا نمره‌ی منفی) می‌گیرد.</p>
                 {% endif %}
                 {% if qf.type == 'ordering' %}
                     <p class="qb-help">روش امتیازدهی ترتیب در پایین فهرست موارد تنظیم می‌شود.</p>
@@ -765,6 +776,7 @@
 {% include "teacher/_qf_exam_preview.html" %}
 <script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>
 <script src="{% static 'js/waveform-player.js' %}" defer></script>
+<script src="{% static 'js/question-types-v2.js' %}"></script>
 <script>
 (() => {
   const createForm = document.querySelector('[data-question-create-form]');
@@ -1602,6 +1614,7 @@
     else if (questionType === 'fill_blank') renderFillBlank(area);
     else if (questionType === 'ordering') renderOrdering(area);
     else if (questionType === 'matching') renderMatching(area);
+    else window.QuestionTypesV2?.renderPreview(questionType, area, createForm);
     const meta = el('div', 'qx-answer-meta');
     const saved = el('span');
     saved.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97M12 12v6m0 0-2.5-2.5M12 18l2.5-2.5"/></svg>';
@@ -1656,6 +1669,8 @@
     qx('instructions').hidden = !instructions;
     qx('media').innerHTML = '';
     createForm.querySelectorAll('[data-media-panel] [data-media-slot].has-media').forEach((slot) => {
+      // Image labelling shows the stem image inside its answer area, with the markers.
+      if (questionType === 'image_label' && slot.closest('[data-media-panel="image"]')) return;
       const media = slotMedia(slot);
       if (!media) return;
       const figure = el('figure', 'qx-figure');

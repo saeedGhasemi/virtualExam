@@ -13,6 +13,14 @@
  *     multi-answer: once `max` checkboxes inside root are checked, the others are disabled (0 = no limit).
  *   ExamInteractions.voiceInput(button, target)
  *     speech-to-text into a text input (fa-IR); the button stays hidden where the browser lacks SpeechRecognition.
+ *   ExamInteractions.matrix(root, answerInput)
+ *     matrix question: the checked [data-matrix-cell] inputs (value "row:column") go to answerInput as "r1:c2,...".
+ *   ExamInteractions.imageLabel(root)
+ *     image labelling; root[data-label-drag] = drag mode: [data-label-chip] buttons are dragged (or clicked, then a
+ *     field clicked) into the read-only [data-label-input] fields; [data-label-clear] empties a field.
+ *   ExamInteractions.playback(media, { maxPlays, start, end, storageKey })
+ *     audio/video stimulus rules in the browser: play count (0 = unlimited) and the allowed [start, end] seconds.
+ *     The count survives reloads via localStorage when storageKey is given. This is a client-side limit only.
  */
 (() => {
   const toFa = (value) => String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -147,5 +155,105 @@
     });
   };
 
-  window.ExamInteractions = { ordering, matching, limitChoices, voiceInput };
+  const matrix = (root, answerInput) => {
+    const sync = () => {
+      answerInput.value = Array.from(root.querySelectorAll('[data-matrix-cell]:checked')).map((input) => input.value).join(',');
+      notify(answerInput);
+    };
+    root.addEventListener('change', (event) => { if (event.target.matches('[data-matrix-cell]')) sync(); });
+  };
+
+  const imageLabel = (root) => {
+    if (!root.hasAttribute('data-label-drag')) return;
+    const fields = Array.from(root.querySelectorAll('[data-label-input]'));
+    let picked = null;
+    const markUsed = () => {
+      const used = fields.map((field) => field.value);
+      root.querySelectorAll('[data-label-chip]').forEach((chip) => chip.classList.toggle('is-used', used.includes(chip.textContent.trim())));
+    };
+    const place = (field, text) => {
+      field.value = text;
+      notify(field);
+      markUsed();
+    };
+    root.addEventListener('dragstart', (event) => {
+      const chip = event.target.closest('[data-label-chip]');
+      if (chip) event.dataTransfer.setData('text/plain', chip.textContent.trim());
+    });
+    fields.forEach((field) => {
+      field.addEventListener('dragover', (event) => event.preventDefault());
+      field.addEventListener('drop', (event) => {
+        event.preventDefault();
+        place(field, event.dataTransfer.getData('text/plain'));
+      });
+      // Touch and keyboard: pick a chip, then the field.
+      field.addEventListener('click', () => {
+        if (!picked) return;
+        place(field, picked.textContent.trim());
+        picked.classList.remove('is-picked');
+        picked = null;
+      });
+    });
+    root.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-label-chip]');
+      if (chip) {
+        picked?.classList.remove('is-picked');
+        picked = picked === chip ? null : chip;
+        picked?.classList.add('is-picked');
+        return;
+      }
+      const clear = event.target.closest('[data-label-clear]');
+      if (clear) place(clear.parentElement.querySelector('[data-label-input]'), '');
+    });
+    markUsed();
+  };
+
+  const playback = (media, { maxPlays = 0, start = null, end = null, storageKey = '' } = {}) => {
+    if (!media) return;
+    const from = Number(start) || 0;
+    const until = end === null || end === undefined || end === '' ? null : Number(end);
+    const read = () => { try { return Number(localStorage.getItem(storageKey) || 0); } catch (error) { return 0; } };
+    const write = (value) => { try { if (storageKey) localStorage.setItem(storageKey, String(value)); } catch (error) { /* storage unavailable */ } };
+    let plays = storageKey ? read() : 0;
+    let fresh = true;
+    const note = document.createElement('small');
+    note.className = 'qx-playback-note';
+    media.after(note);
+    const refresh = () => {
+      const left = maxPlays ? Math.max(maxPlays - plays, 0) : null;
+      const range = from || until !== null ? ` — بازه‌ی پخش: ${toFa(clock(from))} تا ${until !== null ? toFa(clock(until)) : 'پایان'}` : '';
+      note.textContent = maxPlays ? `دفعات پخش باقی‌مانده: ${toFa(left)} از ${toFa(maxPlays)}${range}` : range.replace(/^ — /, '');
+      if (maxPlays && left <= 0 && fresh) {
+        media.pause();
+        media.controls = false;
+        media.classList.add('is-exhausted');
+      }
+    };
+    const clock = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+    const finish = () => {
+      media.pause();
+      fresh = true;
+      media.currentTime = from;
+      refresh();
+    };
+    media.addEventListener('loadedmetadata', () => { if (media.currentTime < from) media.currentTime = from; });
+    media.addEventListener('play', () => {
+      if (!fresh) return;
+      if (maxPlays && plays >= maxPlays) { media.pause(); refresh(); return; }
+      fresh = false;
+      plays += 1;
+      write(plays);
+      if (media.currentTime < from || (until !== null && media.currentTime >= until)) media.currentTime = from;
+      refresh();
+    });
+    media.addEventListener('timeupdate', () => { if (until !== null && media.currentTime >= until) finish(); });
+    media.addEventListener('seeking', () => {
+      if (media.currentTime < from) media.currentTime = from;
+      else if (until !== null && media.currentTime > until) media.currentTime = until;
+    });
+    media.addEventListener('ended', finish);
+    refresh();
+  };
+
+  window.ExamInteractions = { ordering, matching, limitChoices, voiceInput, matrix, imageLabel, playback };
 })();

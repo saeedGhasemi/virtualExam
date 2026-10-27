@@ -42,12 +42,15 @@
         {% with media=current_answer.media %}
           {% if media %}
             <div class="qx-media">
-              {% if media.image %}<figure class="qx-figure"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><figcaption><span>{{ media.image_alt }}</span><button type="button" class="qx-zoom" data-zoom><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر</button></figcaption></figure>{% endif %}
-              {% if media.video %}<figure class="qx-figure"><video src="{{ media.video }}" controls preload="metadata">{% if media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ media.video_subtitle }}" default>{% endif %}</video>{% if media.video_caption %}<figcaption>{{ media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
-              {% if media.audio %}<figure class="qx-figure"><audio src="{{ media.audio }}" controls preload="metadata"></audio></figure>{% endif %}
+              {% if media.image and current_answer.type != 'image_label' %}<figure class="qx-figure"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><figcaption><span>{{ media.image_alt }}</span><button type="button" class="qx-zoom" data-zoom><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر</button></figcaption></figure>{% endif %}
+              {% if media.video %}<figure class="qx-figure"><video src="{{ media.video }}" controls preload="metadata"{% if current_answer.playback %} data-playback{% endif %}>{% if media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ media.video_subtitle }}" default>{% endif %}</video>{% if media.video_caption %}<figcaption>{{ media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
+              {% if media.audio %}<figure class="qx-figure"><audio src="{{ media.audio }}" controls preload="metadata"{% if current_answer.playback %} data-playback{% endif %}></audio></figure>{% endif %}
             </div>
           {% endif %}
         {% endwith %}
+        {% if current_answer.playback %}{{ current_answer.playback|json_script:"playback-rules" }}{% endif %}
+        {% if current_answer.transcript %}<details class="qx-transcript"><summary>متن رونویسی</summary><p>{{ current_answer.transcript|linebreaksbr }}</p></details>{% endif %}
+        {% if current_answer.attachment %}<p class="qx-attachment"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg><a href="{{ current_answer.attachment.url }}" target="_blank" rel="noopener">فایل مکمل: {{ current_answer.attachment.name }}</a></p>{% endif %}
 
         <section class="qx-answer">
           {% if current_answer.type == 'single' or current_answer.type == 'multiple_choice' or current_answer.type == 'true_false' %}
@@ -73,7 +76,7 @@
                 </label>
               {% endfor %}
             </div>
-          {% elif current_answer.type == 'essay' or current_answer.type == 'descriptive' %}
+          {% elif current_answer.type == 'essay' or current_answer.type == 'descriptive' or current_answer.type == 'media_response' %}
             <h3>پاسخ شما</h3>
             {% if not current_answer.answer_formats or 'text' in current_answer.answer_formats %}
               <textarea class="qx-textarea" name="answer_{{ current_answer.question_id }}" placeholder="پاسخ تشریحی خود را بنویسید...">{{ current_answer.answer|default_if_none:"" }}</textarea>
@@ -93,20 +96,71 @@
                 {% endif %}
                 <div class="qx-upload-actions">
                   {% for kind, rule in current_answer.upload_rules.items %}
-                    {% if kind == 'audio' %}
-                      <div class="qx-recorder" data-recorder>
-                        <button type="button" class="qx-upload-btn" data-record-start>● ضبط صدا</button>
+                    {% if kind == 'audio' or kind == 'video' and current_answer.type == 'media_response' %}
+                      <div class="qx-recorder" data-recorder data-record-kind="{{ kind }}"{% if current_answer.max_record_seconds %} data-record-max="{{ current_answer.max_record_seconds }}"{% endif %}>
+                        <button type="button" class="qx-upload-btn" data-record-start>● {% if kind == 'video' %}ضبط ویدئو{% else %}ضبط صدا{% endif %}</button>
                         <button type="button" class="qx-upload-btn is-stop" data-record-stop hidden>■ پایان ضبط (<span data-record-time>۰۰:۰۰</span>)</button>
-                        <label class="qx-upload-btn">بارگذاری فایل صوتی<input type="file" name="upload_{{ current_answer.question_id }}_audio" accept="{{ rule.accept }}" data-auto-save data-record-target></label>
+                        <label class="qx-upload-btn">{% if kind == 'video' %}بارگذاری فایل ویدئو{% else %}بارگذاری فایل صوتی{% endif %}<input type="file" name="upload_{{ current_answer.question_id }}_{{ kind }}" accept="{{ rule.accept }}" data-auto-save data-record-target></label>
                       </div>
                     {% else %}
                       <label class="qx-upload-btn">{% if kind == 'image' %}بارگذاری تصویر{% elif kind == 'video' %}بارگذاری ویدئو{% else %}پیوست فایل{% endif %}<input type="file" name="upload_{{ current_answer.question_id }}_{{ kind }}" accept="{{ rule.accept }}"{% if kind != 'video' %} multiple{% endif %} data-auto-save></label>
                     {% endif %}
                   {% endfor %}
                 </div>
-                <small class="qx-upload-hint">فایل بلافاصله پس از انتخاب ذخیره می‌شود. {% for kind, rule in current_answer.upload_rules.items %}{% if kind == 'image' %}تصویر{% elif kind == 'audio' %}صوت{% elif kind == 'video' %}ویدئو{% else %}فایل PDF/Word{% endif %} تا {{ rule.mb|fa_digits }} مگابایت{% if not forloop.last %}، {% endif %}{% endfor %}؛ حداکثر ۵ فایل.</small>
+                <small class="qx-upload-hint">{% if current_answer.max_record_seconds %}حداکثر زمان ضبط {{ current_answer.max_record_seconds|fa_digits }} ثانیه است. {% endif %}فایل بلافاصله پس از انتخاب ذخیره می‌شود. {% for kind, rule in current_answer.upload_rules.items %}{% if kind == 'image' %}تصویر{% elif kind == 'audio' %}صوت{% elif kind == 'video' %}ویدئو{% else %}فایل PDF/Word{% endif %} تا {{ rule.mb|fa_digits }} مگابایت{% if not forloop.last %}، {% endif %}{% endfor %}؛ حداکثر ۵ فایل.</small>
               </div>
             {% endif %}
+          {% elif current_answer.type == 'numeric' %}
+            <h3>پاسخ شما</h3>
+            <div class="qx-numeric">
+              <input class="qx-input" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.numeric_value }}" inputmode="decimal" placeholder="پاسخ خود را وارد کنید" autocomplete="off" aria-label="پاسخ عددی">
+              {% if current_answer.numeric_require_unit %}
+                <input class="qx-input qx-numeric-unit" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.numeric_unit_value }}" placeholder="واحد" autocomplete="off" aria-label="واحد پاسخ">
+              {% elif current_answer.numeric_unit %}
+                <span class="qx-numeric-unit">{{ current_answer.numeric_unit }}</span>
+              {% endif %}
+            </div>
+          {% elif current_answer.type == 'matrix' %}
+            {% if current_answer.matrix_multi %}<p class="qx-select-hint">در هر سطر ممکن است بیش از یک گزینه صحیح باشد.</p>{% endif %}
+            <div class="qx-matrix-wrap">
+              <table class="qx-matrix" data-matrix>
+                {% if current_answer.matrix_show_column_titles %}
+                  <thead><tr><th></th>{% for column in current_answer.matrix_columns %}<th scope="col">{{ column.text }}</th>{% endfor %}</tr></thead>
+                {% endif %}
+                <tbody>
+                  {% for row in current_answer.matrix_rows %}
+                    <tr>
+                      <th scope="row">{% if current_answer.matrix_show_row_titles %}{{ row.text }}{% else %}{{ forloop.counter|fa_digits }}{% endif %}</th>
+                      {% for cell in row.cells %}
+                        <td><input type="{% if current_answer.matrix_multi %}checkbox{% else %}radio{% endif %}" name="mx_{{ current_answer.question_id }}_{{ row.id }}" value="{{ cell.value }}" data-matrix-cell{% if cell.checked %} checked{% endif %} aria-label="{{ row.text }} — {{ cell.label }}"></td>
+                      {% endfor %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <input type="hidden" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.matrix_answer }}" data-matrix-answer>
+          {% elif current_answer.type == 'image_label' %}
+            <div class="qx-label" data-label{% if current_answer.label_drag %} data-label-drag{% endif %}>
+              <div class="qx-label-stage">
+                <img src="{{ current_answer.media.image }}" alt="{{ current_answer.media.image_alt }}">
+                {% for marker in current_answer.label_markers %}<span class="qx-label-pin" style="left:{{ marker.left }}%;top:{{ marker.top }}%">{{ marker.number|fa_digits }}</span>{% endfor %}
+              </div>
+              {% if current_answer.label_drag %}
+                <div class="qx-label-bank" data-label-bank aria-label="برچسب‌ها">
+                  {% for text in current_answer.label_bank %}<button type="button" class="qx-label-chip" draggable="true" data-label-chip>{{ text }}</button>{% endfor %}
+                </div>
+              {% endif %}
+              <ol class="qx-label-answers">
+                {% for marker in current_answer.label_markers %}
+                  <li>
+                    <b>{{ marker.number|fa_digits }}</b>
+                    <input class="qx-input" type="text" name="answer_{{ current_answer.question_id }}" value="{{ marker.value }}" data-label-input aria-label="پاسخ نشانه {{ marker.number|fa_digits }}" autocomplete="off"{% if current_answer.label_drag %} readonly placeholder="برچسب را اینجا رها کنید"{% else %} placeholder="نام بخش"{% endif %}>
+                    {% if current_answer.label_drag %}<button type="button" class="qx-label-clear" data-label-clear aria-label="پاک کردن">×</button>{% endif %}
+                  </li>
+                {% endfor %}
+              </ol>
+            </div>
           {% elif current_answer.type == 'short_answer' %}
             <h3>پاسخ شما</h3>
             <div class="qx-voice">
@@ -268,14 +322,25 @@
     let ticker = null;
     start.addEventListener('click', async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const isVideo = box.dataset.recordKind === 'video';
+        const stream = await navigator.mediaDevices.getUserMedia(isVideo ? { audio: true, video: true } : { audio: true });
+        if (isVideo) {
+          const live = document.createElement('video');
+          live.className = 'qx-record-live';
+          live.muted = true;
+          live.autoplay = true;
+          live.playsInline = true;
+          live.srcObject = stream;
+          box.append(live);
+        }
         const chunks = [];
         recorder = new MediaRecorder(stream);
         recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
         recorder.addEventListener('stop', () => {
           stream.getTracks().forEach((track) => track.stop());
           clearInterval(ticker);
-          const type = recorder.mimeType || 'audio/webm';
+          box.querySelector('.qx-record-live')?.remove();
+          const type = recorder.mimeType || (isVideo ? 'video/webm' : 'audio/webm');
           const extension = type.includes('ogg') ? 'ogg' : 'webm';
           const transfer = new DataTransfer();
           transfer.items.add(new File(chunks, `recording-${Date.now()}.${extension}`, { type }));
@@ -285,11 +350,16 @@
         recorder.start();
         let seconds = 0;
         clock.textContent = fa('00:00');
-        ticker = setInterval(() => { seconds += 1; clock.textContent = fa(`${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`); }, 1000);
+        const maxSeconds = Number(box.dataset.recordMax || 0);
+        ticker = setInterval(() => {
+          seconds += 1;
+          clock.textContent = fa(`${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`);
+          if (maxSeconds && seconds >= maxSeconds && recorder.state === 'recording') { stop.hidden = true; recorder.stop(); }
+        }, 1000);
         start.hidden = true;
         stop.hidden = false;
       } catch (error) {
-        setSaveState('دسترسی به میکروفون ممکن نشد؛ می‌توانید فایل صوتی را بارگذاری کنید.', true);
+        setSaveState(box.dataset.recordKind === 'video' ? 'دسترسی به دوربین یا میکروفون ممکن نشد؛ می‌توانید فایل ویدئو را بارگذاری کنید.' : 'دسترسی به میکروفون ممکن نشد؛ می‌توانید فایل صوتی را بارگذاری کنید.', true);
       }
     });
     stop.addEventListener('click', () => {
@@ -316,6 +386,18 @@
   if (orderingList) window.ExamInteractions.ordering(orderingList, document.querySelector('[data-ordering-answer]'));
   const matchingRoot = document.querySelector('[data-matching]');
   if (matchingRoot) window.ExamInteractions.matching(matchingRoot, document.querySelector('[data-matching-answer]'));
+  const matrixRoot = document.querySelector('[data-matrix]');
+  if (matrixRoot) window.ExamInteractions.matrix(matrixRoot, document.querySelector('[data-matrix-answer]'));
+  const labelRoot = document.querySelector('[data-label]');
+  if (labelRoot) window.ExamInteractions.imageLabel(labelRoot);
+  const playbackRules = document.getElementById('playback-rules');
+  if (playbackRules) {
+    const rules = JSON.parse(playbackRules.textContent);
+    document.querySelectorAll('[data-playback]').forEach((media) => window.ExamInteractions.playback(media, {
+      maxPlays: rules.max_plays, start: rules.start, end: rules.end,
+      storageKey: `exam-plays-{{ attempt.pk }}-{{ current_answer.question_id }}-${media.tagName}`,
+    }));
+  }
 
   // Live «وضعیت سؤال», progress and the current cell's state; the server stays the source of truth on reload.
   const answerName = `answer_${form.dataset.questionId}`;

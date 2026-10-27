@@ -1938,3 +1938,275 @@ class EssayAnswerFlowTests(_ScopedOrgFixture):
         self.assertFalse(pending)
         self.assertEqual(feedback, 'ساختار ضعیف بود')
         self.assertEqual((float(score), status, bool(is_graded)), (4.0, 'graded', True))
+
+
+class QuestionTypesV2Tests(_ScopedOrgFixture):
+    """سؤال‌های پاسخ عددی، ماتریسی، تصویری/نشانه‌گذاری و صوتی/ویدئویی: سازنده، تصحیح و صفحه‌ی آزمون دانشجو."""
+
+    PNG = b'\x89PNG\r\n\x1a\n' + b'0' * 32
+    MP3 = b'ID3' + b'0' * 32
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='student_in_scope@example.com', password='x')
+
+    def setUp(self):
+        for override in (self.settings(MEDIA_ROOT=tempfile.mkdtemp()), self.settings(PRIVATE_MEDIA_ROOT=tempfile.mkdtemp())):
+            override.enable()
+            self.addCleanup(override.disable)
+
+    def _create(self, qtype, data):
+        payload = {'type': qtype, 'structure': 'independent', 'course_id': self.course_in_id, 'is_published': '1', 'default_points': '2'}
+        payload.update(data)
+        return self.client.post(f"{reverse('core:teacher_question_create')}?type={qtype}", payload)
+
+    def _row(self, text):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id, type, options, correct_answer, accepted_answers, scoring_settings, rubric, question_media FROM questions WHERE text = %s', [text])
+            row = cursor.fetchone()
+        if not row:
+            return None
+        load = lambda value: json.loads(value) if isinstance(value, str) and value else value
+        return {'id': row[0], 'type': row[1], 'options': load(row[2]), 'correct_answer': load(row[3]), 'accepted_answers': load(row[4]),
+                'scoring_settings': load(row[5]), 'rubric': load(row[6]), 'question_media': load(row[7])}
+
+    def _attempt(self, question_columns, answer_value=None):
+        question_id, attempt_id = str(uuid.uuid4()), str(uuid.uuid4())
+        columns = {'type': 'numeric', **question_columns}
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'default_points'] + list(columns),
+                [question_id, self.teacher_in_id, self.course_in_id, 'سؤال نوع جدید', 2] + [
+                    json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value for value in columns.values()])
+        exam_id = str(uuid.uuid4())
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id', 'start_at'], [exam_id, 'آزمون نوع جدید', self.teacher_in_id, self.course_in_id, timezone.now()])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), exam_id, question_id, 2, 1])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'], [attempt_id, exam_id, self.student_in_id, timezone.now(), 'in_progress'])
+        if answer_value is not None:
+            _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'needs_manual_grading'],
+                    [str(uuid.uuid4()), attempt_id, question_id, json.dumps({'value': answer_value}, ensure_ascii=False), False])
+        return question_id, attempt_id
+
+    def _score(self, question_columns, answer_value):
+        from apps.core.views import grade_attempt
+        _question_id, attempt_id = self._attempt(question_columns, answer_value)
+        return grade_attempt(attempt_id)
+
+    # ----- builder -----
+
+    def test_builder_pages_render_for_new_types_and_picker_links_them(self):
+        from apps.core.views import _sx_type_label
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_question_create')
+        markers = {'numeric': 'name="numeric_answer"', 'matrix': 'data-matrix-table', 'image_label': 'data-label-canvas', 'media_response': 'name="media_max_plays"'}
+        for kind, marker in markers.items():
+            html = self.client.get(f'{url}?type={kind}').content.decode()
+            self.assertIn(marker, html, kind)
+            self.assertIn(f'سؤال ۱ — {_sx_type_label(kind)}', html, kind)
+            self.assertIn('js/question-types-v2', html, kind)
+        picker = self.client.get(reverse('core:teacher_question_type')).content.decode()
+        for kind in markers:
+            self.assertIn(f'?type={kind}"', picker, kind)
+        self.assertIn('نقطه‌ای / مربوط به تصویر', picker)  # hotspot stays «در حال توسعه»
+
+    def test_numeric_question_saves_tolerance_and_reloads_in_edit_form(self):
+        self.client.force_login(self.teacher_user)
+        response = self._create('numeric', {
+            'text': 'حجم دارو را محاسبه کنید', 'numeric_answer': '۵', 'numeric_unit': 'mL', 'numeric_decimals': '1',
+            'numeric_tolerance_mode': 'absolute', 'numeric_tolerance': '0.1', 'numeric_accept_persian': '1', 'numeric_require_unit': '1',
+        })
+        self.assertEqual(response.status_code, 302)
+        row = self._row('حجم دارو را محاسبه کنید')
+        self.assertEqual(row['type'], 'numeric')
+        self.assertEqual(row['correct_answer'], '5')
+        numeric = row['scoring_settings']['numeric']
+        self.assertEqual((numeric['value'], numeric['unit'], numeric['tolerance'], numeric['require_unit']), (5.0, 'mL', 0.1, True))
+        edit = self.client.get(reverse('core:teacher_question_edit', args=[row['id']])).content.decode()
+        self.assertIn('name="numeric_answer" value="5"', edit)
+        self.assertIn('name="numeric_unit" value="mL"', edit)
+
+    def test_numeric_question_validation(self):
+        self.client.force_login(self.teacher_user)
+        response = self._create('numeric', {'text': 'عدد نامعتبر', 'numeric_answer': 'پنج', 'numeric_require_unit': '1'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'پاسخ صحیح عددی را به‌صورت عدد وارد کنید.')
+        self.assertContains(response, 'واحد پاسخ را وارد کنید')
+        self.assertIsNone(self._row('عدد نامعتبر'))
+
+    def test_matrix_question_saves_rows_with_server_ids(self):
+        self.client.force_login(self.teacher_user)
+        data = {
+            'columns': [{'id': 'cx', 'text': 'پرکاری تیروئید'}, {'id': 'cy', 'text': 'کم‌کاری تیروئید'}],
+            'rows': [
+                {'id': 'ra', 'text': 'تاکی‌کاردی', 'points': 1, 'correct': ['cx']},
+                {'id': 'rb', 'text': 'افزایش وزن', 'points': 2, 'correct': ['cy', 'bogus']},
+            ],
+        }
+        response = self._create('matrix', {'text': 'علائم تیروئید', 'matrix_json': json.dumps(data, ensure_ascii=False),
+                                           'matrix_selection': 'single', 'matrix_show_column_titles': '1', 'scoring_mode': 'partial'})
+        self.assertEqual(response.status_code, 302)
+        row = self._row('علائم تیروئید')
+        self.assertEqual([(item['id'], item['correct'], item['points']) for item in row['options']], [('r1', ['c1'], 1.0), ('r2', ['c2'], 2.0)])
+        self.assertEqual(row['correct_answer'], ['r1:c1', 'r2:c2'])
+        self.assertEqual(row['scoring_settings']['matrix']['columns'][0], {'id': 'c1', 'text': 'پرکاری تیروئید'})
+
+    def test_matrix_validation(self):
+        self.client.force_login(self.teacher_user)
+        data = {'columns': [{'id': 'a', 'text': 'الف'}], 'rows': [{'id': 'r', 'text': 'سطر', 'correct': []}]}
+        response = self._create('matrix', {'text': 'ماتریس ناقص', 'matrix_json': json.dumps(data), 'matrix_selection': 'single'})
+        self.assertContains(response, 'حداقل دو ستون با عنوان وارد کنید.')
+        self.assertContains(response, 'حداقل دو سطر با متن وارد کنید.')
+        self.assertContains(response, 'برای هر سطر پاسخ صحیح را در جدول مشخص کنید.')
+        two = {'columns': [{'id': 'a', 'text': 'الف'}, {'id': 'b', 'text': 'ب'}],
+               'rows': [{'id': 'r1', 'text': 'یک', 'correct': ['a', 'b']}, {'id': 'r2', 'text': 'دو', 'correct': ['a']}]}
+        response = self._create('matrix', {'text': 'ماتریس تک‌گزینه‌ای', 'matrix_json': json.dumps(two), 'matrix_selection': 'single'})
+        self.assertContains(response, 'در حالت تک‌گزینه‌ای هر سطر فقط یک پاسخ صحیح دارد.')
+        self.assertIsNone(self._row('ماتریس تک‌گزینه‌ای'))
+
+    def test_image_label_requires_image_and_saves_markers(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.teacher_user)
+        markers = [{'x': 40.5, 'y': 20, 'answer': 'آئورت', 'synonyms': 'آئورت صعودی، سرخرگ آئورت', 'points': 1},
+                   {'x': 150, 'y': 70, 'answer': 'بطن چپ', 'synonyms': '', 'points': 2}]
+        response = self._create('image_label', {'text': 'بخش‌های قلب', 'label_markers_json': json.dumps(markers, ensure_ascii=False)})
+        self.assertContains(response, 'تصویر سؤال را برای نشانه‌گذاری بارگذاری کنید.')
+        response = self._create('image_label', {
+            'text': 'بخش‌های قلب', 'label_markers_json': json.dumps(markers, ensure_ascii=False), 'label_answer_mode': 'drag',
+            'label_accept_synonyms': '1', 'question_image_file': SimpleUploadedFile('heart.png', self.PNG, content_type='image/png'),
+        })
+        self.assertEqual(response.status_code, 302)
+        row = self._row('بخش‌های قلب')
+        self.assertTrue(row['question_media']['image'].endswith('.png'))
+        self.assertEqual([(m['marker'], m['x'], m['answer'], m['synonyms']) for m in row['accepted_answers']],
+                         [(1, 40.5, 'آئورت', ['آئورت صعودی', 'سرخرگ آئورت']), (2, 100.0, 'بطن چپ', [])])
+        self.assertEqual(row['scoring_settings']['image_label'], {'answer_mode': 'drag', 'accept_synonyms': True})
+
+    def test_media_response_requires_media_and_saves_playback_rubric_and_attachment(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.teacher_user)
+        base = {
+            'text': 'صدای قلب را توضیح دهید', 'media_allow_replay': '1', 'media_range_start': '00:10', 'media_range_end': '00:40',
+            'media_max_plays': '3', 'media_transcript': 'صدای قلب بیمار ۶۵ ساله', 'media_show_transcript': '1',
+            'answer_formats': ['audio', 'text', 'image'], 'media_max_record_seconds': '120',
+            'media_rubric_criterion': ['تشخیص صدا', 'استدلال بالینی'], 'media_rubric_description': ['شناسایی سوفل', 'ارتباط با بیمار'],
+            'media_rubric_points': ['2', '3'],
+        }
+        response = self._create('media_response', base)
+        self.assertContains(response, 'فایل صوتی یا ویدئویی سؤال را بارگذاری کنید.')
+        response = self._create('media_response', {**base, 'media_range_end': '00:05'})
+        self.assertContains(response, 'پایان بازه‌ی مجاز پخش باید بعد از شروع آن باشد.')
+        bad = SimpleUploadedFile('notes.exe', b'MZ')
+        response = self._create('media_response', {**base, 'question_audio_file': SimpleUploadedFile('heart.mp3', self.MP3), 'media_attachment_file': bad})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(self._row('صدای قلب را توضیح دهید'))
+        response = self._create('media_response', {
+            **base, 'question_audio_file': SimpleUploadedFile('heart.mp3', self.MP3),
+            'media_attachment_file': SimpleUploadedFile('guide.pdf', b'%PDF-1.4 test'),
+        })
+        self.assertEqual(response.status_code, 302)
+        row = self._row('صدای قلب را توضیح دهید')
+        media = row['scoring_settings']['media_response']
+        self.assertEqual((media['range_start'], media['range_end'], media['max_plays'], media['max_record_seconds']), (10, 40, 3, 120))
+        self.assertEqual(media['attachment']['name'], 'guide.pdf')
+        self.assertEqual(row['scoring_settings']['essay']['answer_formats'], ['text', 'audio'])  # image is not offered here
+        self.assertEqual([(item['criterion'], item['points']) for item in row['rubric']], [('تشخیص صدا', '2'), ('استدلال بالینی', '3')])
+        edit = self.client.get(reverse('core:teacher_question_edit', args=[row['id']])).content.decode()
+        self.assertIn('name="media_range_start" value="00:10"', edit)
+        self.assertIn('guide.pdf', edit)
+
+    # ----- grading -----
+
+    def test_numeric_grading_tolerance_digits_and_unit(self):
+        numeric = {'value': 5, 'unit': 'mL', 'tolerance_mode': 'absolute', 'tolerance': 0.1, 'accept_persian_digits': True, 'require_unit': False}
+        settings_of = lambda **changes: {'scoring_settings': {'numeric': {**numeric, **changes}}}
+        self.assertEqual(self._score(settings_of(), '5.08')['score'], 2)
+        self.assertEqual(self._score(settings_of(), '۵٫۰۵')['score'], 2)
+        self.assertEqual(self._score(settings_of(), '5.2')['score'], 0)
+        self.assertEqual(self._score(settings_of(accept_persian_digits=False), '۵')['score'], 0)
+        self.assertEqual(self._score(settings_of(tolerance_mode='percent', tolerance=10), '5.4')['score'], 2)
+        self.assertEqual(self._score(settings_of(require_unit=True), ['5', 'ml'])['score'], 2)
+        self.assertEqual(self._score(settings_of(require_unit=True), ['5', 'L'])['score'], 0)
+        self.assertEqual(self._score(settings_of(require_unit=True), '5')['score'], 0)
+
+    def test_matrix_grading_full_partial_and_all_or_nothing(self):
+        rows = [{'id': 'r1', 'text': 'الف', 'points': 1, 'correct': ['c1']}, {'id': 'r2', 'text': 'ب', 'points': 3, 'correct': ['c2']}]
+        question = lambda mode: {'type': 'matrix', 'options': rows, 'scoring_settings': {'scoring_mode': mode, 'matrix': {'columns': [{'id': 'c1'}, {'id': 'c2'}]}}}
+        self.assertEqual(self._score(question('partial'), 'r1:c1,r2:c2')['score'], 2)
+        self.assertEqual(self._score(question('partial'), 'r1:c2,r2:c2')['score'], 1.5)  # 3 of 4 row weight
+        self.assertEqual(self._score(question('all_or_nothing'), 'r1:c2,r2:c2')['score'], 0)
+        self.assertEqual(self._score(question('partial'), 'r1:c1,r1:c2,r2:c2')['score'], 1.5)  # extra pick breaks row 1
+
+    def test_image_label_grading_synonyms_and_partial(self):
+        markers = [{'marker': 1, 'x': 10, 'y': 10, 'answer': 'آئورت', 'synonyms': ['سرخرگ آئورت'], 'points': 1},
+                   {'marker': 2, 'x': 50, 'y': 50, 'answer': 'بطن چپ', 'synonyms': [], 'points': 1}]
+        question = lambda synonyms, mode='partial': {'type': 'image_label', 'accepted_answers': markers,
+                                                     'scoring_settings': {'scoring_mode': mode, 'image_label': {'accept_synonyms': synonyms}}}
+        self.assertEqual(self._score(question(True), ['سرخرگ آئورت', 'بطن  چپ'])['score'], 2)
+        self.assertEqual(self._score(question(False), ['سرخرگ آئورت', 'بطن چپ'])['score'], 1)
+        self.assertEqual(self._score(question(False, 'all_or_nothing'), ['سرخرگ آئورت', 'بطن چپ'])['score'], 0)
+
+    def test_media_response_goes_to_manual_grading_queue(self):
+        result = self._score({'type': 'media_response', 'scoring_settings': {'essay': {'answer_formats': ['text']}}}, 'پاسخ متنی')
+        self.assertEqual(result['score'], 0)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT aa.needs_manual_grading FROM attempt_answers aa JOIN questions q ON q.id = aa.question_id WHERE q.type = 'media_response'")
+            self.assertTrue(cursor.fetchone()[0])
+        self.client.force_login(self.teacher_user)
+        self.assertContains(self.client.get(reverse('core:teacher_reviews')), 'سؤال نوع جدید')
+
+    # ----- student exam page -----
+
+    def test_student_page_renders_matrix_without_correct_answers(self):
+        rows = [{'id': 'r1', 'text': 'تاکی‌کاردی', 'points': 1, 'correct': ['c1']}, {'id': 'r2', 'text': 'افزایش وزن', 'points': 1, 'correct': ['c2']}]
+        _question_id, attempt_id = self._attempt({'type': 'matrix', 'options': rows, 'scoring_settings': {'matrix': {
+            'columns': [{'id': 'c1', 'text': 'پرکاری'}, {'id': 'c2', 'text': 'کم‌کاری'}], 'selection': 'single',
+            'show_column_titles': True, 'show_row_titles': True}}}, 'r1:c1')
+        self.client.force_login(self.student_user)
+        page = self.client.get(reverse('core:student_attempt', args=[attempt_id])).content.decode()
+        self.assertIn('data-matrix', page)
+        self.assertIn('<th scope="col">کم‌کاری</th>', page)
+        self.assertIn('value="r1:c1" data-matrix-cell checked', page)
+        self.assertIn('value="r1:c1" data-matrix-answer', page)
+        self.assertNotIn('"correct"', page)
+
+    def test_student_page_saves_numeric_answer_with_unit(self):
+        question_id, attempt_id = self._attempt({'scoring_settings': {'numeric': {'value': 5, 'unit': 'mL', 'require_unit': True}}})
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.assertContains(self.client.get(url), 'aria-label="واحد پاسخ"')
+        self.client.post(url, {f'answer_{question_id}': ['۵', 'mL']})
+        page = self.client.get(url).content.decode()
+        self.assertIn('value="۵"', page)
+        self.assertIn('value="mL"', page)
+
+    def test_student_page_renders_image_label_pins_and_drag_bank(self):
+        markers = [{'marker': 1, 'x': 33.3333, 'y': 20, 'answer': 'آئورت', 'synonyms': ['سرخرگ آئورت'], 'points': 1}]
+        _question_id, attempt_id = self._attempt({'type': 'image_label', 'accepted_answers': markers,
+                                                  'question_media': {'image': '/media/question-media/heart.png'},
+                                                  'scoring_settings': {'image_label': {'answer_mode': 'drag'}}})
+        self.client.force_login(self.student_user)
+        page = self.client.get(reverse('core:student_attempt', args=[attempt_id])).content.decode()
+        self.assertIn('style="left:33.33%;top:20.00%"', page)
+        self.assertIn('data-label-chip>آئورت</button>', page)
+        self.assertNotIn('سرخرگ آئورت', page)  # synonyms never reach the student
+        self.assertEqual(page.count('/media/question-media/heart.png'), 1)  # not repeated as a plain figure
+
+    def test_student_media_response_page_and_recorded_audio_upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        question_id, attempt_id = self._attempt({'type': 'media_response', 'question_media': {'audio': '/media/question-media/heart.mp3'},
+                                                 'scoring_settings': {'essay': {'answer_formats': ['audio', 'video']}, 'media_response': {
+                                                     'allow_replay': True, 'max_plays': 3, 'range_start': 10, 'range_end': 40,
+                                                     'transcript': 'متن گفتار', 'show_transcript': True, 'max_record_seconds': 90}}})
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        page = self.client.get(url).content.decode()
+        self.assertIn('data-playback', page)
+        self.assertIn('"max_plays": 3', page)
+        self.assertIn('data-record-kind="video" data-record-max="90"', page)
+        self.assertIn('متن گفتار', page)
+        self.client.post(url, {f'answer_{question_id}': '', f'upload_{question_id}_audio': SimpleUploadedFile('recording.mp3', self.MP3)})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer_files FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id])
+            files = json.loads(cursor.fetchone()[0])
+        self.assertEqual([(item['kind'], item['name']) for item in files], [('audio', 'recording.mp3')])

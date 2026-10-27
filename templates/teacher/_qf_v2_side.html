@@ -1,0 +1,30 @@
+{% comment %}
+Side-column cards of the audio/video question builder (included by _question_form.html): transcript, accessibility
+and the optional supplementary file shown to the student.
+{% endcomment %}
+{% if qf.type == 'media_response' %}
+    <section class="qb-card">
+        <div class="qb-card-head"><h3>متن رونویسی (Transcript)</h3></div>
+        <textarea name="media_transcript" rows="5" maxlength="3000" data-count-source placeholder="متن گفتار فایل صوتی/ویدئویی؛ برای دسترس‌پذیری و راهنمای مصحح.">{{ qf.media_response.transcript }}</textarea>
+        <small class="qb-count" data-count-out></small>
+    </section>
+    <section class="qb-card">
+        <div class="qb-card-head"><h3>تنظیمات دسترس‌پذیری</h3></div>
+        <label class="qb-switch"><span>نمایش متن رونویسی برای دانشجو</span><input type="checkbox" name="media_show_transcript" value="1"{% if qf.media_response.show_transcript %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+        <label class="qb-switch"><span>فعال‌سازی زیرنویس خودکار (برای ویدئو)<small>نیازمند سرویس تبدیل گفتار به متن؛ فعلاً فایل زیرنویس WebVTT را در زبانه‌ی «ویدئو» بارگذاری کنید.</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span><i class="qb-dev-badge">در حال توسعه</i></label>
+    </section>
+    <section class="qb-card" data-media-attachment>
+        <div class="qb-card-head"><h3>فایل مکمل (اختیاری)</h3></div>
+        {% if qf.media_response.attachment %}
+            <div class="qb2-attach" data-attach-current>
+                <a href="{{ qf.media_response.attachment.url }}" target="_blank" rel="noopener">{{ qf.media_response.attachment.name }}</a>
+                <label><input type="checkbox" name="remove_media_attachment" value="1">حذف</label>
+                <input type="hidden" name="existing_media_attachment" value="{{ qf.media_response.attachment.url }}">
+                <input type="hidden" name="existing_media_attachment_name" value="{{ qf.media_response.attachment.name }}">
+            </div>
+        {% endif %}
+        <div class="qb2-attach" data-attach-preview hidden></div>
+        <label class="qb-upload-btn">{% include "teacher/_qb_icon.html" with name="plus" %}<span>{% if qf.media_response.attachment %}جایگزینی فایل کمکی{% else %}بارگذاری فایل کمکی{% endif %}</span><input type="file" name="media_attachment_file" accept=".pdf,.docx,.jpg,.jpeg,.png" data-attach-file></label>
+        <small class="qb-help">PDF، DOCX، JPG، PNG — حداکثر ۱۰ مگابایت؛ در صفحه‌ی آزمون برای دانشجو قابل دریافت است.</small>
+    </section>
+{% endif %}

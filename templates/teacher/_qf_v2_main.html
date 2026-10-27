@@ -1,0 +1,202 @@
+{% load core_extras %}{% comment %}
+Main-column cards of the numeric, matrix, image-labelling and audio/video question builders (included by
+_question_form.html). Matrix rows/columns and image markers are edited by static/js/question-types-v2.js and posted
+as JSON in matrix_json / label_markers_json; every other field is a plain named input.
+{% endcomment %}
+{% if qf.type == 'numeric' %}
+    <section class="qb-card" data-v2-numeric>
+        <div class="qb-card-head"><h3>تنظیم پاسخ صحیح</h3></div>
+        <div class="qb2-grid3">
+            <label class="qb-field">پاسخ صحیح عددی <sup>*</sup><input type="text" name="numeric_answer" value="{{ qf.numeric.value }}" inputmode="decimal" placeholder="مثلاً 5" data-num-value></label>
+            <label class="qb-field">واحد پاسخ<input type="text" name="numeric_unit" value="{{ qf.numeric.unit }}" maxlength="30" placeholder="مثلاً mL" data-num-unit></label>
+            <label class="qb-field">تعداد رقم اعشار در نمایش
+                <select name="numeric_decimals" data-num-decimals>{% for n in "0123456" %}<option value="{{ n }}"{% if n == qf.numeric.decimals|stringformat:"s" %} selected{% endif %}>{{ n|fa_digits }}</option>{% endfor %}</select>
+            </label>
+        </div>
+        <h4 class="qb2-subhead">محدوده قبول پاسخ</h4>
+        <div class="qb2-grid2">
+            <div class="qb-field">نوع دامنه قابل قبول
+                <div class="qb-pills" role="radiogroup" aria-label="نوع دامنه قابل قبول">
+                    <label><input type="radio" name="numeric_tolerance_mode" value="absolute"{% if qf.numeric.tolerance_mode != 'percent' %} checked{% endif %} data-num-mode>مطلق (±)</label>
+                    <label><input type="radio" name="numeric_tolerance_mode" value="percent"{% if qf.numeric.tolerance_mode == 'percent' %} checked{% endif %} data-num-mode>درصدی (%)</label>
+                </div>
+            </div>
+            <label class="qb-field">مقدار تلرانس<span class="qb-unit-input"><input type="text" name="numeric_tolerance" value="{{ qf.numeric.tolerance }}" inputmode="decimal" data-num-tolerance><em data-num-tolerance-sign>{% if qf.numeric.tolerance_mode == 'percent' %}%{% else %}±{% endif %}</em></span></label>
+        </div>
+        <p class="qb2-note" data-num-range aria-live="polite"></p>
+        <h4 class="qb2-subhead">تنظیمات تکمیلی</h4>
+        <div class="qb2-grid2">
+            <label class="qb-switch"><span>پذیرش ارقام فارسی و انگلیسی<small>خاموش: فقط ارقام انگلیسی پذیرفته می‌شود</small></span><input type="checkbox" name="numeric_accept_persian" value="1"{% if qf.numeric.accept_persian_digits %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+            <label class="qb-switch"><span>الزامی بودن واحد پاسخ<small>دانشجو باید واحد را هم وارد کند</small></span><input type="checkbox" name="numeric_require_unit" value="1"{% if qf.numeric.require_unit %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+        </div>
+    </section>
+
+{% elif qf.type == 'matrix' %}
+    {{ qf.matrix.data|json_script:"matrix-data" }}
+    <input type="hidden" name="matrix_json" data-matrix-json>
+    <section class="qb-card" data-v2-matrix>
+        <div class="qb-card-head"><h3>جدول گزینه‌ها (ماتریس)</h3>
+            <div class="qb-field qb2-inline">نوع انتخاب در هر سطر
+                <div class="qb-pills" role="radiogroup" aria-label="نوع انتخاب در هر سطر">
+                    <label><input type="radio" name="matrix_selection" value="single"{% if qf.matrix.selection != 'multi' %} checked{% endif %} data-matrix-selection>تک گزینه‌ای</label>
+                    <label><input type="radio" name="matrix_selection" value="multi"{% if qf.matrix.selection == 'multi' %} checked{% endif %} data-matrix-selection>چند گزینه‌ای</label>
+                </div>
+            </div>
+        </div>
+        <div class="qb2-table-wrap"><table class="qb2-matrix" data-matrix-table></table></div>
+        <div class="qb2-actions">
+            <button type="button" class="qb-add" data-matrix-add-row>{% include "teacher/_qb_icon.html" with name="plus" %}افزودن سطر</button>
+            <button type="button" class="qb-add" data-matrix-add-column>{% include "teacher/_qb_icon.html" with name="plus" %}افزودن ستون</button>
+        </div>
+        <p class="qb-help">پاسخ صحیح هر سطر را با انتخاب خانه‌ی ستون مربوط مشخص کنید. حداقل دو سطر و دو ستون لازم است.</p>
+    </section>
+    <section class="qb-card">
+        <div class="qb-card-head"><h3>تنظیمات جدول</h3></div>
+        <label class="qb-switch"><span>نمایش عنوان ستون‌ها (به دانشجو)</span><input type="checkbox" name="matrix_show_column_titles" value="1"{% if qf.matrix.show_column_titles %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+        <label class="qb-switch"><span>نمایش عنوان سطرها (به دانشجو)</span><input type="checkbox" name="matrix_show_row_titles" value="1"{% if qf.matrix.show_row_titles %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+        <label class="qb-switch"><span>درهم‌سازی ترتیب سطرها<small>برای هر دانشجو ترتیب ثابت ولی متفاوت</small></span><input type="checkbox" name="matrix_shuffle_rows" value="1"{% if qf.matrix.shuffle_rows %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+        <label class="qb-switch"><span>درهم‌سازی ترتیب ستون‌ها</span><input type="checkbox" name="matrix_shuffle_columns" value="1"{% if qf.matrix.shuffle_columns %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+    </section>
+
+{% elif qf.type == 'image_label' %}
+    {{ qf.image_label.markers|json_script:"label-markers" }}
+    <input type="hidden" name="label_markers_json" data-label-json>
+    <section class="qb-card" data-v2-label>
+        <div class="qb-card-head"><h3>نشانه‌گذاری روی تصویر</h3><small>تصویر را از زبانه‌ی «تصویر» بالای همین صفحه بارگذاری کنید.</small></div>
+        <div class="qb2-label-editor">
+            <div class="qb2-label-canvas" data-label-canvas>
+                <img alt="" data-label-image hidden>
+                <div class="qb2-label-empty" data-label-empty>
+                    {% include "teacher/_qb_icon.html" with name="image" %}
+                    <strong>هنوز تصویری بارگذاری نشده است</strong>
+                    <button type="button" class="qb-btn" data-label-open-image>بارگذاری تصویر سؤال</button>
+                </div>
+            </div>
+            <div class="qb2-label-tools" role="toolbar" aria-label="ابزار نشانه‌گذاری">
+                <button type="button" class="is-active" data-label-tool="add" aria-pressed="true">{% include "teacher/_qb_icon.html" with name="plus" %}<span>افزودن نشانه</span></button>
+                <button type="button" data-label-tool="move" aria-pressed="false">{% include "teacher/_qb_icon.html" with name="grip" %}<span>جابجایی</span></button>
+                <button type="button" data-label-delete>{% include "teacher/_qb_icon.html" with name="trash" %}<span>حذف</span></button>
+                <button type="button" disabled title="در حال توسعه">✎<span>خط و پیکان</span><i class="qb-dev-badge">در حال توسعه</i></button>
+                <button type="button" disabled title="در حال توسعه">T<span>متن</span><i class="qb-dev-badge">در حال توسعه</i></button>
+            </div>
+        </div>
+        <p class="qb-help" data-label-hint>«افزودن نشانه»: روی تصویر کلیک کنید. «جابجایی»: نشانه را بکشید. برای حذف، نشانه یا ردیف آن را انتخاب کنید و «حذف» را بزنید.</p>
+    </section>
+    <section class="qb-card">
+        <div class="qb-card-head"><h3>پاسخ‌های صحیح و امتیازدهی</h3>
+            <div class="qb-field qb2-inline">روش پاسخ‌دهی
+                <div class="qb-pills" role="radiogroup" aria-label="روش پاسخ‌دهی">
+                    <label><input type="radio" name="label_answer_mode" value="type"{% if qf.image_label.answer_mode != 'drag' %} checked{% endif %}>نوشتن برچسب</label>
+                    <label><input type="radio" name="label_answer_mode" value="drag"{% if qf.image_label.answer_mode == 'drag' %} checked{% endif %}>کشیدن و رها کردن</label>
+                </div>
+            </div>
+        </div>
+        <div class="qb2-table-wrap">
+            <table class="qb2-matrix qb2-markers">
+                <thead><tr><th>شماره نشانه</th><th>پاسخ صحیح</th><th>پاسخ‌های قابل قبول (مترادف‌ها)</th><th>امتیاز</th><th></th></tr></thead>
+                <tbody data-label-rows></tbody>
+            </table>
+        </div>
+        <p class="qb-help" data-label-empty-rows>هنوز نشانه‌ای اضافه نشده است؛ روی تصویر کلیک کنید.</p>
+        <p class="qb-help">در حالت «کشیدن و رها کردن»، پاسخ‌های صحیح به‌صورت درهم به دانشجو نمایش داده می‌شوند تا روی نشانه‌ها بکشد.</p>
+    </section>
+
+{% elif qf.type == 'media_response' %}
+    <section class="qb-card">
+        <div class="qb-card-head"><h3>تنظیمات پخش فایل محرک</h3><small>فایل صوتی یا ویدئویی را از زبانه‌های «صوت» یا «ویدئو» بالای صفحه بارگذاری کنید.</small></div>
+        <div class="qb2-grid3">
+            <div>
+                <label class="qb-switch"><span>اجازه پخش مجدد<small>دانشجو می‌تواند فایل را چند بار پخش کند</small></span><input type="checkbox" name="media_allow_replay" value="1"{% if qf.media_response.allow_replay %} checked{% endif %} data-media-replay><span class="qb-switch-ui"></span></label>
+            </div>
+            <div class="qb-field">بازه مجاز پخش (از ثانیه – تا ثانیه)
+                <span class="qb2-range">
+                    <span class="qb-icon-input">{% include "teacher/_qb_icon.html" with name="clock" %}<input type="text" name="media_range_start" value="{{ qf.media_response.range_start }}" placeholder="00:00" inputmode="numeric" title="دقیقه:ثانیه"></span>
+                    <em>تا</em>
+                    <span class="qb-icon-input">{% include "teacher/_qb_icon.html" with name="clock" %}<input type="text" name="media_range_end" value="{{ qf.media_response.range_end }}" placeholder="پایان فایل" inputmode="numeric" title="دقیقه:ثانیه"></span>
+                </span>
+                <small>خالی: از ابتدا / تا انتهای فایل</small>
+            </div>
+            <label class="qb-field">حداکثر تعداد پخش
+                <select name="media_max_plays" data-media-max-plays>
+                    <option value="0"{% if not qf.media_response.max_plays %} selected{% endif %}>نامحدود</option>
+                    {% for n in "123456789" %}<option value="{{ n }}"{% if n == qf.media_response.max_plays|stringformat:"s" %} selected{% endif %}>{{ n|fa_digits }} بار</option>{% endfor %}
+                </select>
+            </label>
+        </div>
+        <p class="qb-help">محدودیت‌های پخش در مرورگر دانشجو اعمال می‌شوند (کنترل‌گر پخش صفحه‌ی آزمون)؛ سرور نمی‌تواند پخش فایل را کنترل کند.</p>
+    </section>
+    <section class="qb-card">
+        <div class="qb-card-head"><h3>قالب پاسخ دانشجو</h3></div>
+        <div class="qb-formats" role="group" aria-label="قالب پاسخ دانشجو">
+            <label class="qb-format"><input type="checkbox" name="answer_formats" value="text"{% if 'text' in qf.media_response.answer_formats %} checked{% endif %}>{% include "teacher/_qb_icon.html" with name="text" %}متن</label>
+            <label class="qb-format"><input type="checkbox" name="answer_formats" value="audio"{% if 'audio' in qf.media_response.answer_formats %} checked{% endif %}>{% include "teacher/_qb_icon.html" with name="audio" %}ضبط صدا</label>
+            <label class="qb-format"><input type="checkbox" name="answer_formats" value="video"{% if 'video' in qf.media_response.answer_formats %} checked{% endif %}>{% include "teacher/_qb_icon.html" with name="video" %}ضبط ویدئو</label>
+        </div>
+        <label class="qb-field qb2-narrow">حداکثر زمان ضبط
+            <span class="qb-unit-input"><input type="number" name="media_max_record_seconds" min="10" max="600" step="10" value="{{ qf.media_response.max_record_seconds }}"><em>ثانیه</em></span>
+        </label>
+        <p class="qb-help">ضبط پس از این زمان خودکار متوقف و ذخیره می‌شود (صوت تا ۲۰ و ویدئو تا ۱۰۰ مگابایت).</p>
+    </section>
+    <section class="qb-card" data-media-rubric>
+        <div class="qb-card-head"><h3>روبریک نمره‌دهی</h3><small>جمع کل: <b data-media-rubric-total>۰</b> نمره</small></div>
+        <div class="qb2-table-wrap">
+            <table class="qb-rubric">
+                <thead><tr><th>معیار</th><th>توضیحات</th><th>حداکثر نمره</th><th>نوع نمره‌دهی</th><th></th></tr></thead>
+                <tbody data-media-rubric-rows>
+                    {% for row in qf.media_response.rubric %}
+                        <tr>
+                            <td><input name="media_rubric_criterion" value="{{ row.criterion }}" maxlength="120" placeholder="مثلاً تشخیص صدا"></td>
+                            <td><input name="media_rubric_description" value="{{ row.description }}" maxlength="300" placeholder="توضیح معیار برای مصحح"></td>
+                            <td><input type="number" name="media_rubric_points" value="{{ row.points }}" step="0.5" min="0" data-media-rubric-points></td>
+                            <td><select disabled aria-label="نوع نمره‌دهی"><option>دستی توسط مدرس</option></select></td>
+                            <td><button type="button" class="qb-icon-btn" data-media-rubric-remove title="حذف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="button" class="qb-add" data-media-rubric-add>{% include "teacher/_qb_icon.html" with name="plus" %}افزودن معیار</button>
+        <p class="qb-help">پاسخ صوتی/ویدئویی همیشه دستی و با این روبریک در صفحه‌ی «تصحیح پاسخ» نمره‌دهی می‌شود.</p>
+    </section>
+{% endif %}
+<style>
+    .qb2-grid2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;align-items:start}
+    .qb2-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;align-items:start}
+    .qb2-subhead{margin:1rem 0 .5rem;font-size:.85rem;font-weight:900;color:#1e293b}
+    .qb2-note{margin:.75rem 0 0;padding:.65rem .85rem;border-radius:.7rem;background:#eef4ff;color:#1e3a8a;font-size:.78rem;font-weight:800}
+    .qb2-note:empty{display:none}
+    .qb2-inline{flex-direction:row;align-items:center;gap:.6rem;margin:0;font-size:.75rem}
+    .qb2-narrow{max-width:14rem;margin-top:.8rem}
+    .qb2-actions{display:flex;flex-wrap:wrap;gap:.6rem}
+    .qb2-table-wrap{overflow-x:auto}
+    .qb2-matrix{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--qb-line);border-radius:.8rem;overflow:hidden;font-size:.8rem}
+    .qb2-matrix th{padding:.5rem;background:#f8fafc;color:#475569;font-size:.72rem;font-weight:900;text-align:center}
+    .qb2-matrix td{padding:.4rem;border-top:1px solid var(--qb-line);text-align:center;vertical-align:middle}
+    .qb2-matrix td input[type=text],.qb2-matrix th input[type=text]{height:2.3rem;font-size:.78rem}
+    .qb2-matrix th .qb2-col{display:flex;gap:.3rem;align-items:center;min-width:8rem}
+    .qb2-matrix select{height:2.3rem;min-width:4.5rem}
+    .qb2-matrix tr.is-selected td{background:#eef4ff}
+    .qb2-num{display:inline-grid;place-items:center;width:1.9rem;height:1.9rem;border-radius:999px;background:#dbeafe;color:var(--qb-blue);font-weight:900}
+    .qb2-label-editor{display:grid;grid-template-columns:1fr auto;gap:.8rem}
+    .qb2-label-canvas{position:relative;min-height:16rem;border:1px solid var(--qb-line);border-radius:.9rem;background:#f8fafc;overflow:hidden;user-select:none}
+    .qb2-label-canvas img{display:block;width:100%;height:auto;cursor:crosshair}
+    .qb2-label-canvas.is-move img{cursor:default}
+    .qb2-label-empty{display:grid;place-items:center;gap:.6rem;min-height:16rem;color:var(--qb-muted);font-size:.8rem;text-align:center}
+    .qb2-label-empty[hidden]{display:none}
+    /* With an image the canvas is exactly the image, so marker percentages match the student view. */
+    .qb2-label-canvas:has(img:not([hidden])){min-height:0;align-self:start}
+    .qb2-label-empty svg{width:2.2rem;height:2.2rem}
+    .qb2-pin{position:absolute;transform:translate(50%,-50%);display:grid;place-items:center;width:2rem;height:2rem;border:2px solid #fff;border-radius:999px;background:var(--qb-blue);color:#fff;font-size:.82rem;font-weight:900;box-shadow:0 4px 12px rgba(37,99,235,.35);cursor:pointer;padding:0}
+    .qb2-pin.is-selected{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.3)}
+    .qb2-label-canvas.is-move .qb2-pin{cursor:grab}
+    .qb2-label-tools{display:flex;flex-direction:column;gap:.45rem;width:6.5rem}
+    .qb2-label-tools button{display:grid;justify-items:center;gap:.2rem;padding:.55rem .3rem;border:1px solid var(--qb-line);border-radius:.75rem;background:#fff;color:#475569;font-size:.7rem;font-weight:900;cursor:pointer}
+    .qb2-label-tools button.is-active{border-color:#bfdbfe;background:var(--qb-blue-soft);color:var(--qb-blue)}
+    .qb2-label-tools button:disabled{cursor:not-allowed;opacity:.6}
+    .qb2-label-tools .qb-dev-badge{margin:0}
+    .qb2-range{display:flex;align-items:center;gap:.4rem}
+    .qb2-range em{font-style:normal;color:var(--qb-muted);font-size:.75rem}
+    .qb2-attach{display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;font-size:.78rem}
+    .qb2-attach img{width:3rem;height:3rem;border-radius:.5rem;object-fit:cover}
+    @media (max-width:900px){.qb2-grid2,.qb2-grid3{grid-template-columns:1fr}.qb2-label-editor{grid-template-columns:1fr}.qb2-label-tools{flex-direction:row;flex-wrap:wrap;width:auto}}
+</style>

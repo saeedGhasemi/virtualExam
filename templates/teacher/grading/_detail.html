@@ -83,7 +83,7 @@
                         {% for item in grading_rubric %}
                         <tr>
                             <td>{{ item.criterion }}<br><small>حداکثر {{ item.points|fa_digits }}</small></td>
-                            <td><small>ضعیف: {{ item.weak|default:'-' }}<br>متوسط: {{ item.average|default:'-' }}<br>عالی: {{ item.excellent|default:'-' }}</small></td>
+                            <td>{% if item.description %}<small>{{ item.description }}</small>{% else %}<small>ضعیف: {{ item.weak|default:'-' }}<br>متوسط: {{ item.average|default:'-' }}<br>عالی: {{ item.excellent|default:'-' }}</small>{% endif %}</td>
                             <td><input type="number" name="score_{{ item.index }}" min="0" max="{{ item.points }}" step="0.25" required value="{{ item.previous }}" aria-label="نمره {{ item.criterion }}" data-rubric-score></td>
                         </tr>
                         {% endfor %}

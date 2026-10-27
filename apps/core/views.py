@@ -31,6 +31,7 @@ from django.utils.crypto import get_random_string
 from django.utils.dateparse import parse_datetime
 from django.utils.html import format_html
 
+from . import question_kinds
 from .rich_text import clean_delta, delta_length, delta_text, delta_to_html
 from .uploads import delete_private, file_extension, signature_ok, store_private
 from .forms import (
@@ -1013,6 +1014,7 @@ def erd_admin_dashboard_panel():
         'fill_blank': 'جای خالی',
         'matching': 'تطبیقی',
         'ordering': 'مرتب‌سازی',
+        **question_kinds.TYPE_LABELS,
     }
 
     lifecycle_expr = (
@@ -9199,6 +9201,7 @@ def super_admin_exam_edit(request, exam_id):
         'ordering': 'ترتیبی',
         'scenario': 'سناریوی بالینی',
         'clinical': 'سناریوی بالینی',
+        **question_kinds.TYPE_LABELS,
     }
     for question in questions:
         question['type_label'] = type_labels.get(question.get('type'), question.get('type') or 'سوال')
@@ -9334,6 +9337,7 @@ def super_admin_exam_detail(request, exam_id):
         'ordering': 'ترتیبی',
         'scenario': 'سناریوی بالینی',
         'clinical': 'سناریوی بالینی',
+        **question_kinds.TYPE_LABELS,
     }
     questions = erd_rows(
         """
@@ -12868,6 +12872,10 @@ QUESTION_BUILDER_TYPES = {
     'fill_blank': {'label': 'سؤال جای خالی', 'structure': 'independent'},
     'matching': {'label': 'سؤال تطبیقی', 'structure': 'independent'},
     'ordering': {'label': 'سؤال مرتب‌سازی', 'structure': 'independent'},
+    'numeric': {'label': 'سؤال پاسخ عددی', 'structure': 'independent'},
+    'matrix': {'label': 'سؤال ماتریسی / جدول', 'structure': 'independent'},
+    'image_label': {'label': 'سؤال تصویری / نشانه‌گذاری', 'structure': 'independent'},
+    'media_response': {'label': 'سؤال صوتی / ویدئویی', 'structure': 'independent'},
     'case': {'label': 'گروه سؤال مبتنی بر سناریوی بیمار', 'structure': 'case', 'stored_type': 'single'},
     'kfp': {'label': 'سازنده سناریوی KFP', 'structure': 'kfp', 'stored_type': 'single'},
 }
@@ -13251,6 +13259,7 @@ def _teacher_student_rows(teacher_id, group_id=None):
 
 
 QUESTION_TYPE_LABELS = {
+    **question_kinds.TYPE_LABELS,
     'single': 'چهارگزینه‌ای',
     'multiple_choice': 'چهارگزینه‌ای',
     'multi': 'چندپاسخی',
@@ -13789,7 +13798,7 @@ def teacher_question_type(request):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'question_type'))
 
 
-INDEPENDENT_QUESTION_TYPES = {'single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering'}
+INDEPENDENT_QUESTION_TYPES = {'single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering', *question_kinds.V2_TYPES}
 
 
 def _teacher_question_course_options(teacher_id):
@@ -13821,7 +13830,7 @@ def _form_number(post, name, fallback):
 
 
 # Question types whose stem is edited with the rich editor; fill_blank keeps plain text for its [n] markers.
-RICH_STEM_TYPES = {'single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering'}
+RICH_STEM_TYPES = {'single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering', *question_kinds.V2_TYPES}
 STEM_MAX = 5000
 ESSAY_ANSWER_FORMATS = {
     'text': 'ویرایشگر متن',
@@ -13902,6 +13911,8 @@ def _apply_independent_settings(payload, post):
         settings_data['ordering_mode'] = post.get('ordering_mode') if post.get('ordering_mode') in {'exact', 'position', 'adjacent'} else 'exact'
     if kind == 'essay':
         settings_data['essay'] = _essay_settings(post)
+    if kind in question_kinds.V2_TYPES:
+        question_kinds.apply_settings(payload, post, settings_data)
     if kind in RICH_STEM_TYPES:
         settings_data['text_delta'] = clean_delta(post.get('text_delta'))
         # The plain `text` column (lists, search, exports, grading) is derived from the rich stem.
@@ -13955,7 +13966,7 @@ def _question_builder_errors(payload, allowed_course_ids):
     if allowed_course_ids and payload['course_id'] not in allowed_course_ids:
         errors.append('درس انتخاب‌شده معتبر نیست یا به شما تخصیص داده نشده است.')
     options = payload['options']
-    correct = [option for option in options if option['is_correct']]
+    correct = [option for option in options if option.get('is_correct')]
     settings_data = payload.get('scoring_settings') or {}
     if delta_length(settings_data.get('text_delta') or {}) > STEM_MAX:
         errors.append(f'متن سؤال حداکثر {STEM_MAX} نویسه است.')
@@ -13996,6 +14007,8 @@ def _question_builder_errors(payload, allowed_course_ids):
                     re.compile(item['answer'])
                 except re.error:
                     errors.append(f'الگوی «{item["answer"]}» عبارت منظم معتبری نیست.')
+    if kind in question_kinds.V2_TYPES:
+        errors += question_kinds.errors_for(payload)
     return errors
 
 
@@ -14083,7 +14096,7 @@ def _apply_question_uploads(payload, files, post):
             blank['media'], blank['media_kind'] = resolve(f'blank_media_file_{index}', f'blank_media_{index}', f'blank_media_remove_{index}')
     payload['feedback']['media'], payload['feedback']['media_kind'] = resolve('feedback_media_file', 'existing_feedback_media', 'remove_feedback_media')
     essay = (payload.get('scoring_settings') or {}).get('essay')
-    if essay is not None:
+    if essay is not None and payload['stored_type'] == 'essay':
         uploaded = files.get('sample_answer_file')
         existing = (post.get('existing_sample_answer_file') or '').strip()
         if uploaded:
@@ -14094,6 +14107,10 @@ def _apply_question_uploads(payload, files, post):
                 essay['sample_answer_file'] = {'url': url, 'name': uploaded.name[:150]}
         elif existing and not post.get('remove_sample_answer_file') and existing.startswith(f'{settings.MEDIA_URL}question-media/') and '..' not in existing:
             essay['sample_answer_file'] = {'url': existing, 'name': (post.get('existing_sample_answer_name') or 'پاسخ نمونه')[:150]}
+    question_kinds.resolve_uploads(
+        payload, files, post,
+        lambda uploaded, extensions, limit: _store_upload(uploaded, 'question-media', extensions, limit), errors,
+    )
     return errors
 
 
@@ -14250,6 +14267,7 @@ def _question_form_data(source):
             'sample_answer_text': essay.get('sample_answer_text') or '',
             'sample_answer_file': essay.get('sample_answer_file') or None,
         }
+    form.update(question_kinds.form_values(kind, source, settings_data))
     if kind in RICH_STEM_TYPES:
         # Questions saved before the rich editor only have plain text; seed the editor with it.
         delta = _stem_delta(_sx_json(source.get('scoring_settings'), {}) or {})
@@ -15378,6 +15396,8 @@ def _grade_question(row, answer, max_points):
 
     if kind == 'essay':
         return 0, True, False
+    if kind in question_kinds.V2_TYPES:
+        return question_kinds.grade(kind, row, answer, max_points, settings_data, partial, wrong)
     if kind == 'short_answer':
         accepted = [item for item in (_sx_json(row.get('accepted_answers'), []) or []) if isinstance(item, dict) and 'match_mode' in item]
         if not accepted:
@@ -15817,6 +15837,7 @@ def _em_exam_question_rows(exam_id=None):
             'essay': 'تشریحی',
             'short_answer': 'کوتاه‌پاسخ',
             'true_false': 'صحیح/غلط',
+            **question_kinds.TYPE_LABELS,
         }.get(kind, kind)
         difficulty = str(row.get('difficulty') or 'medium').lower()
         row['difficulty_label'] = {'easy': 'آسان', 'medium': 'متوسط', 'hard': 'سخت'}.get(difficulty, difficulty)
@@ -16372,6 +16393,7 @@ def _sx_type_label(kind):
         'fill_blank': 'جای خالی',
         'matching': 'تطبیقی',
         'ordering': 'مرتب‌سازی',
+        **question_kinds.TYPE_LABELS,
     }.get(kind or '', kind or 'سوال')
 
 
@@ -16685,7 +16707,7 @@ def _sx_save_answer_files(request, attempt_id, rows):
         return []
     errors = []
     for row in rows:
-        if (row.get('type') or '') not in {'essay', 'descriptive'}:
+        if (row.get('type') or '') not in {'essay', 'descriptive', 'media_response'}:
             continue
         question_id = str(row['question_id'])
         formats = _essay_view(_sx_json(row.get('scoring_settings'), {}) or {})['answer_formats']
@@ -16947,7 +16969,7 @@ def student_attempt(request, attempt_id):
         kind = row.get('type') or 'single'
         settings_data = _sx_json(row.get('scoring_settings'), {}) or {}
         settings_data = settings_data if isinstance(settings_data, dict) else {}
-        if kind in ('multi', 'fill_blank'):
+        if kind in ('multi', 'fill_blank', 'numeric', 'image_label'):
             raw = _sx_json(row.get('answer'), {})
             answer = raw.get('value') if isinstance(raw, dict) else raw
             if kind == 'fill_blank' and isinstance(answer, str):
@@ -16994,7 +17016,9 @@ def student_attempt(request, attempt_id):
             ]
         if kind != 'fill_blank':
             item['text_html'] = _question_stem_html(settings_data)
-        if item['type'] in {'essay', 'descriptive'}:
+        if kind in question_kinds.V2_TYPES:
+            item.update(question_kinds.student_view(kind, row, settings_data, answer, attempt_id))
+        if item['type'] in {'essay', 'descriptive', 'media_response'}:
             essay_view = _essay_view(settings_data)
             item['student_instructions'] = essay_view['student_instructions']
             item['answer_formats'] = essay_view['answer_formats']
