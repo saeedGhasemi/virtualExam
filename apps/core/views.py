@@ -7163,12 +7163,19 @@ def _erd_parse_participant_upload(uploaded):
     return rows, [item for item in identifiers if item]
 
 
-def _erd_match_students_by_identifier(request, identifiers):
-    """هر شناسه (کد ملی یا شماره دانشجویی) را به دانشجوی متناظرِ داخل محدوده‌ی دسترسی درخواست‌کننده وصل می‌کند."""
-    is_admin = _erd_is_admin_request(request)
-    scope_cte = '' if is_admin else _erd_manager_scope_cte()
-    scope_condition = '1=1' if is_admin else _erd_student_scope_condition()
-    scope_params = [] if is_admin else [request.erd_profile_id]
+def _erd_match_students_by_identifier(request, identifiers, scope=None):
+    """هر شناسه (کد ملی یا شماره دانشجویی) را به دانشجوی متناظرِ داخل محدوده‌ی دسترسی درخواست‌کننده وصل می‌کند.
+
+    scope: an _exam_wizard_scope() dict; when omitted the admin/manager scope is used."""
+    condition_params = []
+    if scope is not None:
+        scope_cte, scope_params = scope['cte'], list(scope['cte_params'])
+        scope_condition, condition_params = scope['students']
+    else:
+        is_admin = _erd_is_admin_request(request)
+        scope_cte = '' if is_admin else _erd_manager_scope_cte()
+        scope_condition = '1=1' if is_admin else _erd_student_scope_condition()
+        scope_params = [] if is_admin else [request.erd_profile_id]
 
     found = []
     not_found = []
@@ -7187,7 +7194,7 @@ def _erd_match_students_by_identifier(request, identifiers):
             WHERE (sp.student_number = %s OR p.national_id = %s) AND {scope_condition}
             LIMIT 1
             """,
-            scope_params + [identifier, identifier],
+            scope_params + [identifier, identifier] + list(condition_params),
         )
         if student:
             if str(student['id']) in seen_ids:
@@ -7881,6 +7888,16 @@ def _save_exam_wizard_upload(request, field_name, subfolder, allowed_extensions)
 @erd_role_required('academic_manager', 'admin')
 def super_admin_exam_participants_match(request):
     """تطبیق فایل اکسل/CSV مخاطبان آزمون بر اساس کد ملی یا شماره دانشجویی، محدود به محدوده‌ی دسترسی مدیر."""
+    return _exam_participants_match_response(request)
+
+
+@erd_role_required('teacher')
+def teacher_exam_participants_match(request):
+    """همان تطبیق فایل مخاطبان، محدود به دانشجویان گروه‌های همین استاد."""
+    return _exam_participants_match_response(request, _exam_wizard_scope(request))
+
+
+def _exam_participants_match_response(request, scope=None):
     if request.method != 'POST':
         return JsonResponse({'error': 'روش درخواست نامعتبر است.'}, status=405)
     uploaded = request.FILES.get('excel_file')
@@ -7893,7 +7910,7 @@ def super_admin_exam_participants_match(request):
     if not rows:
         return JsonResponse({'error': 'فایل انتخاب‌شده ردیفی برای بررسی ندارد.'}, status=400)
 
-    found, not_found, duplicate_count = _erd_match_students_by_identifier(request, identifiers)
+    found, not_found, duplicate_count = _erd_match_students_by_identifier(request, identifiers, scope)
     return JsonResponse({
         'total': len(identifiers),
         'total_rows': len(rows),
@@ -8318,6 +8335,31 @@ def _exam_wizard_render(request, resources, **extra):
     })
 
 
+def _exam_wizard_post_selection(request) -> dict:
+    """The wizard's posted title and id lists, plus the first chosen group (year/semester defaults)."""
+    group_ids = [item for item in request.POST.getlist('group_ids') if item]
+    first_group = erd_row(
+        """
+        SELECT sg.*, COALESCE(gt.teacher_id, sg.teacher_id) AS selected_teacher_id
+        FROM student_groups sg
+        LEFT JOIN group_teachers gt ON gt.group_id = sg.id
+        WHERE sg.id = %s
+        LIMIT 1
+        """,
+        [group_ids[0]],
+    ) if group_ids else None
+    return {
+        'title': request.POST.get('title', '').strip(),
+        'group_ids': group_ids,
+        'student_ids': [item for item in request.POST.getlist('student_ids') if item],
+        'excluded_student_ids': [item for item in request.POST.getlist('excluded_student_ids') if item],
+        'question_ids': [item for item in request.POST.getlist('question_ids') if item],
+        'staff_teacher_ids': request.POST.getlist('staff_teacher_id'),
+        'staff_roles': request.POST.getlist('staff_role'),
+        'first_group': first_group,
+    }
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_exam_create(request):
     is_admin = _erd_is_admin_request(request)
@@ -8326,23 +8368,11 @@ def super_admin_exam_create(request):
     courses, teachers, questions = resources['courses'], resources['teachers'], resources['questions']
 
     if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        selected_groups = [item for item in request.POST.getlist('group_ids') if item]
-        selected_students = [item for item in request.POST.getlist('student_ids') if item]
-        excluded_students = [item for item in request.POST.getlist('excluded_student_ids') if item]
-        selected_questions = [item for item in request.POST.getlist('question_ids') if item]
-        staff_teacher_ids = request.POST.getlist('staff_teacher_id')
-        staff_roles = request.POST.getlist('staff_role')
-        first_group = erd_row(
-            """
-            SELECT sg.*, COALESCE(gt.teacher_id, sg.teacher_id) AS selected_teacher_id
-            FROM student_groups sg
-            LEFT JOIN group_teachers gt ON gt.group_id = sg.id
-            WHERE sg.id = %s
-            LIMIT 1
-            """,
-            [selected_groups[0]],
-        ) if selected_groups else None
+        posted = _exam_wizard_post_selection(request)
+        title, first_group = posted['title'], posted['first_group']
+        selected_groups, selected_students = posted['group_ids'], posted['student_ids']
+        excluded_students, selected_questions = posted['excluded_student_ids'], posted['question_ids']
+        staff_teacher_ids, staff_roles = posted['staff_teacher_ids'], posted['staff_roles']
         course_id = request.POST.get('course_id') or (first_group or {}).get('course_id')
         teacher_id = request.POST.get('teacher_id') or (first_group or {}).get('selected_teacher_id') or (first_group or {}).get('teacher_id')
         if not title or not course_id or not teacher_id:
@@ -14808,19 +14838,56 @@ def teacher_exams(request):
 
 @erd_role_required('teacher')
 def teacher_exam_create(request):
+    """The admin exam wizard, limited to this teacher's groups, students and questions.
+
+    The teacher is always the exam's owner and cannot publish: the exam is saved as a
+    draft or sent to the academic manager for approval."""
+    scope = _exam_wizard_scope(request)
+    resources = _exam_wizard_resources(request, scope)
     if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        if title:
-            erd_execute(
-                """
-                INSERT INTO exams (id, teacher_id, title, description, duration_minutes, is_published, is_cancelled, approval_status)
-                VALUES (%s, %s, %s, %s, %s, false, false, 'pending')
-                """,
-                [str(uuid.uuid4()), request.erd_profile_id, title, request.POST.get('description') or '', request.POST.get('duration_minutes') or 60],
-            )
-            messages.success(request, 'آزمون ذخیره و برای تایید ارسال شد.')
-            return redirect('core:teacher_exams')
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'exam_create'))
+        posted = _exam_wizard_post_selection(request)
+        course_id = request.POST.get('course_id') or (posted['first_group'] or {}).get('course_id')
+        missing = (
+            'عنوان آزمون و درس الزامی است.' if not posted['title'] or not course_id
+            else 'حداقل یک گروه یا دانشجو برای آزمون انتخاب کنید.' if not posted['group_ids'] and not posted['student_ids']
+            else 'حداقل یک سوال برای آزمون انتخاب کنید.' if not posted['question_ids']
+            else None
+        )
+        if missing:
+            messages.error(request, missing)
+            return redirect('core:teacher_exam_create')
+        checks = (
+            ('courses', [course_id]),
+            ('groups', posted['group_ids']),
+            ('students', posted['student_ids'] + posted['excluded_student_ids']),
+            ('questions', posted['question_ids']),
+            ('teachers', posted['staff_teacher_ids']),
+        )
+        if not all(_exam_wizard_ids_in_scope(scope, kind, ids) for kind, ids in checks):
+            return HttpResponseForbidden('برخی موارد انتخاب‌شده خارج از درس‌ها، گروه‌ها یا سؤال‌های شماست.')
+        submit = request.POST.get('publish_choice') == 'submit'
+        exam_id = _exam_wizard_insert(
+            request, title=posted['title'], teacher_id=request.erd_profile_id, course_id=course_id,
+            first_group=posted['first_group'], selected_questions=posted['question_ids'],
+            selected_groups=posted['group_ids'], selected_students=posted['student_ids'],
+            excluded_students=posted['excluded_student_ids'],
+            staff_pairs=zip(posted['staff_teacher_ids'], posted['staff_roles']),
+            publish_choice='submit' if submit else 'draft', is_published=False,
+            lifecycle_status='pending_approval' if submit else 'draft', approval_status='pending',
+        )
+        if submit:
+            log_activity(request.user, 'teacher_exam_submitted', f"آزمون {posted['title']} برای تأیید ارسال شد.", request, {'exam_id': exam_id})
+            messages.success(request, 'آزمون ذخیره و برای تأیید مدیر آموزشی ارسال شد.')
+        else:
+            log_activity(request.user, 'teacher_exam_created', f"آزمون {posted['title']} به‌صورت پیش‌نویس ذخیره شد.", request, {'exam_id': exam_id})
+            messages.success(request, 'آزمون به‌صورت پیش‌نویس ذخیره شد.')
+        return redirect('core:teacher_exams')
+    return _exam_wizard_render(
+        request, resources,
+        page='exam_create',  # highlights «آزمون‌ها» in the teacher nav
+        wizard_role='teacher',
+        participants_match_url=reverse('core:teacher_exam_participants_match'),
+    )
 
 
 @erd_role_required('teacher')

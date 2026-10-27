@@ -722,6 +722,9 @@
                         <div class="step7-col-stack">
                             <section class="wizard-card composition"><h2>روش انتشار</h2><div class="publish-options">
                                 <label><input type="radio" name="publish_choice_ui" value="draft" checked><strong>ذخیره به‌عنوان پیش‌نویس</strong><span>برای تکمیل و بررسی بیشتر، بدون انتشار</span></label>
+                                {% if wizard_role == 'teacher' %}
+                                <label><input type="radio" name="publish_choice_ui" value="submit"><strong>ارسال برای تأیید</strong><span>آزمون پس از تأیید مدیر آموزشی برای دانشجویان منتشر می‌شود</span></label>
+                                {% else %}
                                 <label><input type="radio" name="publish_choice_ui" value="immediate"><strong>انتشار فوری</strong><span>آزمون بلافاصله برای دانشجویان قابل دسترسی می‌شود</span></label>
                                 <label><input type="radio" name="publish_choice_ui" value="scheduled"><strong>زمان‌بندی انتشار</strong><span>آزمون در زمان مشخص‌شده منتشر شود</span>
                                     <div class="jalali-field" data-jalali-field style="margin-top:.5rem">
@@ -729,6 +732,7 @@
                                         <input type="hidden" name="scheduled_publish_at" data-jalali-value>
                                     </div>
                                 </label>
+                                {% endif %}
                             </div></section>
                             <section class="wizard-card composition"><h2>پس از انتشار</h2>
                                 <label class="toggle-row"><input type="checkbox" name="notify_students_system_message" checked><span class="switch"></span><span>اعلان به دانشجویان از طریق پیام سامانه</span></label>
@@ -813,7 +817,7 @@
                 <button class="save-btn" type="submit" data-save-draft><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>ذخیره پیش‌نویس</button>
                 <button class="save-btn" type="button" data-preview-exam hidden><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>پیش‌نمایش آزمون</button>
                 <button class="publish-btn" type="button" data-next-step style="flex:1">مرحله بعد</button>
-                <button class="publish-btn" type="submit" data-publish-exam hidden style="flex:1"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>انتشار آزمون</button>
+                <button class="publish-btn" type="submit" data-publish-exam hidden style="flex:1"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>{% if wizard_role == 'teacher' %}ثبت آزمون{% else %}انتشار آزمون{% endif %}</button>
             </div>
         </footer>
     </form>
@@ -972,7 +976,7 @@
         const statusTextEl = document.querySelector('[data-summary-status-text]');
         if (statusTextEl) {
             const publishChoice = form.querySelector('[name="publish_choice_ui"]:checked')?.value || 'draft';
-            const statusLabels = { draft: 'پیش‌نویس', immediate: 'آماده انتشار فوری', scheduled: 'زمان‌بندی‌شده برای انتشار' };
+            const statusLabels = { draft: 'پیش‌نویس', immediate: 'آماده انتشار فوری', scheduled: 'زمان‌بندی‌شده برای انتشار', submit: 'آماده ارسال برای تأیید' };
             statusTextEl.textContent = statusLabels[publishChoice] || statusLabels.draft;
         }
 
@@ -1962,7 +1966,7 @@
             body.append('excel_file', file);
             const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
             try {
-                const response = await fetch('{% url "core:super_admin_exam_participants_match" %}', { method: 'POST', body, headers: { 'X-CSRFToken': csrftoken } });
+                const response = await fetch('{% if participants_match_url %}{{ participants_match_url }}{% else %}{% url "core:super_admin_exam_participants_match" %}{% endif %}', { method: 'POST', body, headers: { 'X-CSRFToken': csrftoken } });
                 const data = await response.json();
                 if (!response.ok) { alert(data.error || 'خطا در پردازش فایل.'); return; }
                 document.querySelectorAll('[data-excel-not-found]').forEach((el) => el.textContent = fa(data.not_found.length));

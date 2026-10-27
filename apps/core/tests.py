@@ -2304,3 +2304,116 @@ class TeacherDashboardTests(_ScopedOrgFixture):
         from apps.core.views import _jalali_long_date
         self.assertEqual(_jalali_long_date(date(2025, 5, 19)), 'دوشنبه ۲۹ اردیبهشت ۱۴۰۴')
         self.assertEqual(_jalali_long_date(None), '')
+
+
+class TeacherExamWizardTests(_ScopedOrgFixture):
+    """
+    استاد همان ویزارد ایجاد آزمون مدیر را می‌بیند ولی فقط با گروه‌ها، دانشجویان و
+    سؤال‌های خودش؛ مالک آزمون همیشه خود اوست، نمی‌تواند منتشر کند، و همه‌ی
+    انتخاب‌ها هنگام ثبت دوباره سمت سرور بررسی می‌شوند.
+    """
+
+    NID_IN = 'NID-TW-IN'
+    NID_OUT = 'NID-TW-OUT'
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        for student_id, group_id, nid in ((cls.student_in_id, cls.group_in_id, cls.NID_IN), (cls.student_out_id, cls.group_out_id, cls.NID_OUT)):
+            _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                    [str(uuid.uuid4()), group_id, student_id, 'دانشجو', nid, nid])
+            with connection.cursor() as cursor:
+                cursor.execute('UPDATE profiles SET national_id = %s WHERE id = %s', [nid, student_id])
+
+    def _payload(self, **overrides):
+        payload = {
+            'title': 'آزمون استاد',
+            'course_id': self.course_in_id,
+            'group_ids': [self.group_in_id],
+            'question_ids': [self.question_in_id, self.question_in2_id],
+            'duration_minutes': '60',
+            'start_at': '2026-11-10T09:00',
+            'publish_choice': 'draft',
+        }
+        payload.update(overrides)
+        return payload
+
+    def _exam(self, title='آزمون استاد'):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id, teacher_id, lifecycle_status, approval_status, is_published FROM exams WHERE title = %s', [title])
+            return cursor.fetchall()
+
+    def test_get_offers_only_own_resources(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_exam_create'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'super_admin/exam_wizard.html')
+        ctx = response.context
+        self.assertEqual(ctx['wizard_role'], 'teacher')
+        self.assertEqual({g['id'] for g in ctx['groups']}, {self.group_in_id})
+        self.assertEqual({c['id'] for c in ctx['courses']}, {self.course_in_id})
+        self.assertEqual({q['id'] for q in ctx['questions']}, {self.question_in_id, self.question_in2_id})
+        self.assertEqual({s['id'] for s in ctx['students']}, {self.student_in_id})
+        self.assertEqual({t['id'] for t in ctx['teachers']}, {self.teacher_in_id})
+        page = response.content.decode()
+        self.assertIn('ارسال برای تأیید', page)
+        self.assertNotIn('value="immediate"><strong>', page)
+        self.assertIn(reverse('core:teacher_exam_participants_match'), page)
+
+    def test_draft_is_owned_by_teacher_even_if_another_teacher_is_posted(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.post(reverse('core:teacher_exam_create'), self._payload(teacher_id=self.teacher_out_id))
+        self.assertRedirects(response, reverse('core:teacher_exams'), fetch_redirect_response=False)
+        [(exam_id, teacher_id, lifecycle, approval, is_published)] = self._exam()
+        self.assertEqual((teacher_id, lifecycle, approval, bool(is_published)), (self.teacher_in_id, 'draft', 'pending', False))
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT question_id FROM exam_questions WHERE exam_id = %s ORDER BY order_index', [exam_id])
+            self.assertEqual([row[0] for row in cursor.fetchall()], [self.question_in_id, self.question_in2_id])
+            cursor.execute('SELECT group_id FROM exam_assignments WHERE exam_id = %s', [exam_id])
+            self.assertEqual([row[0] for row in cursor.fetchall()], [self.group_in_id])
+
+    def test_submit_sends_for_approval_and_cannot_publish(self):
+        self.client.force_login(self.teacher_user)
+        self.client.post(reverse('core:teacher_exam_create'), self._payload(publish_choice='submit'))
+        [(_id, _teacher, lifecycle, approval, is_published)] = self._exam()
+        self.assertEqual((lifecycle, approval, bool(is_published)), ('pending_approval', 'pending', False))
+        self.client.post(reverse('core:teacher_exam_create'), self._payload(title='آزمون فوری', publish_choice='immediate'))
+        [(_id, _teacher, lifecycle, approval, is_published)] = self._exam('آزمون فوری')
+        self.assertEqual((lifecycle, approval, bool(is_published)), ('draft', 'pending', False))
+
+    def test_out_of_scope_selections_are_rejected(self):
+        self.client.force_login(self.teacher_user)
+        for overrides in (
+            {'course_id': self.course_out_id},
+            {'group_ids': [self.group_in_id, self.group_out_id]},
+            {'student_ids': [self.student_out_id]},
+            {'excluded_student_ids': [self.student_out_id]},
+            {'question_ids': [self.question_in_id, self.question_out_id]},
+            {'staff_teacher_id': [self.teacher_out_id], 'staff_role': ['observer']},
+        ):
+            response = self.client.post(reverse('core:teacher_exam_create'), self._payload(**overrides))
+            self.assertEqual(response.status_code, 403, overrides)
+        self.assertEqual(self._exam(), [])
+
+    def test_missing_audience_or_questions_shows_error(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.post(reverse('core:teacher_exam_create'), self._payload(group_ids=[]))
+        self.assertRedirects(response, reverse('core:teacher_exam_create'), fetch_redirect_response=False)
+        response = self.client.post(reverse('core:teacher_exam_create'), self._payload(question_ids=[]))
+        self.assertRedirects(response, reverse('core:teacher_exam_create'), fetch_redirect_response=False)
+        self.assertEqual(self._exam(), [])
+
+    def test_participants_match_is_limited_to_own_group_members(self):
+        self.client.force_login(self.teacher_user)
+        upload = io.BytesIO(f'کد ملی یا شماره دانشجویی\n{self.NID_IN}\n{self.NID_OUT}\n'.encode('utf-8-sig'))
+        upload.name = 'participants.csv'
+        data = self.client.post(reverse('core:teacher_exam_participants_match'), {'excel_file': upload}).json()
+        self.assertEqual([row['id'] for row in data['found']], [self.student_in_id])
+        self.assertEqual(data['not_found'], [self.NID_OUT])
+
+    def test_wizard_is_teacher_only(self):
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:teacher_exam_create')).status_code, 403)
+        self.assertEqual(self.client.post(reverse('core:teacher_exam_participants_match')).status_code, 403)

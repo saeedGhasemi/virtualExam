@@ -676,16 +676,6 @@
                 <div class="question-fixed-footer"><a href="{% url 'core:teacher_questions' %}">انصراف</a><a class="teacher-primary" href="{% url 'core:teacher_question_bulk_import' %}?step=2">ادامه و دریافت فایل ←</a></div>
             {% endif %}
         </section>
-    {% elif page == 'exam_create' %}
-        <form class="teacher-exam-builder" method="post">
-            {% csrf_token %}
-            <ol class="teacher-steps"><li class="is-active">۱ اطلاعات پایه</li><li>۲ انتخاب سؤالات</li><li>۳ تنظیمات آزمون</li><li>۴ پیش‌نمایش</li><li>۵ انتشار</li></ol>
-            <section class="teacher-panel">
-                <div class="teacher-form-grid"><label>عنوان آزمون<input name="title" value="آزمون فصل اول ریاضی"></label><label>کلاس<select><option>ریاضی دهم</option></select></label><label>گروه‌ها<select><option>گروه الف، گروه ب</option></select></label><label>تاریخ و زمان<input value="۱۴۰۳/۰۳/۲۵ - ۱۰:۰۰"></label><label>مدت زمان<input name="duration_minutes" value="۹۰ دقیقه"></label><label>نوع آزمون<select><option>آنلاین</option><option>حضوری</option></select></label></div>
-                <label>توضیحات<textarea name="description">این آزمون شامل سوالات برنامه‌ریزی‌شده فصل اول است.</textarea></label>
-            </section>
-            <div class="teacher-form-actions"><button class="teacher-primary">ذخیره و ادامه</button><a href="{% url 'core:teacher_exams' %}">انصراف</a></div>
-        </form>
     {% elif page == 'exams' %}
         <div class="teacher-toolbar"><a class="teacher-primary" href="{% url 'core:teacher_exam_create' %}">+ ایجاد آزمون جدید</a><a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a><label><input placeholder="جستجو بر عنوان آزمون..."></label><select><option>همه وضعیت‌ها</option></select></div>
         <section class="teacher-panel"><table class="teacher-table"><thead><tr><th>عنوان آزمون</th><th>کلاس</th><th>گروه</th><th>تاریخ برگزاری</th><th>تعداد سوالات</th><th>شرکت‌کنندگان</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>{{ exam.course|default:"ریاضی دهم" }}</td><td>گروه الف</td><td>{{ exam.start_at|default:"۱۴۰۳/۰۳/۲۵"|fa_digits }}</td><td>۳۰</td><td>۲۸/۳۰</td><td><span class="teacher-badge is-ok">{{ exam.status|default:"در حال برگزاری" }}</span></td><td><a href="{% url 'core:teacher_monitoring' %}">پایش</a></td></tr>{% endfor %}</tbody></table></section>
