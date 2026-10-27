@@ -1,0 +1,149 @@
+{% load core_extras %}
+<div class="tdash">
+    <header class="tdash-hero">
+        <div>
+            <h1>سلام {{ teacher_profile.name }}، خوش آمدید <span aria-hidden="true">👋</span></h1>
+            <p>مرور وضعیت آزمون‌ها، سؤالات و فعالیت‌های آموزشی شما در یک نگاه</p>
+        </div>
+        <span class="tdash-today"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>{{ dashboard.today_label }}</span>
+    </header>
+
+    <div class="tdash-kpis">
+        <article class="tdash-kpi">
+            <div>
+                <h2>آزمون‌های فعال</h2>
+                <strong>{{ dashboard.active_exams|fa_digits }}</strong>
+                <small>{{ dashboard.upcoming_count|fa_digits }} آزمون آینده</small>
+            </div>
+            <i class="is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></svg></i>
+        </article>
+        <article class="tdash-kpi">
+            <div>
+                <h2>سؤالات بانک</h2>
+                <strong>{{ teacher_stats.questions|fa_digits }}</strong>
+                {% if dashboard.new_questions is not None %}
+                    <small class="is-up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>{{ dashboard.new_questions|fa_digits }} سؤال جدید در ۳۰ روز اخیر</small>
+                {% endif %}
+            </div>
+            <i class="is-violet" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></i>
+        </article>
+        <article class="tdash-kpi">
+            <div>
+                <h2>پاسخ‌های در انتظار تصحیح</h2>
+                <strong>{{ dashboard.pending_total|fa_digits }}</strong>
+                <small>در {{ dashboard.pending_exam_count|fa_digits }} آزمون</small>
+            </div>
+            <i class="is-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>
+        </article>
+    </div>
+
+    <section class="tdash-card tdash-quick">
+        <h2>دسترسی سریع</h2>
+        <p>به امکانات پرکاربرد دسترسی سریع داشته باشید.</p>
+        <div class="tdash-quick-grid">
+            <a class="is-primary" href="{% url 'core:teacher_exam_create' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span><b>ایجاد آزمون</b><small>ساخت آزمون جدید</small></span></a>
+            <a class="is-blue" href="{% url 'core:teacher_question_create' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></svg><span><b>ایجاد سؤال</b><small>طراحی سؤال جدید</small></span></a>
+            <a class="is-violet" href="{% url 'core:teacher_questions' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg><span><b>بانک سؤالات</b><small>مشاهده و مدیریت سؤالات</small></span></a>
+            <a class="is-lavender" href="{% url 'core:teacher_reviews' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span><b>تصحیح پاسخ‌ها</b><small>بررسی و تصحیح پاسخ دانشجویان</small></span></a>
+        </div>
+    </section>
+
+    <section class="tdash-card tdash-upcoming">
+        <header class="tdash-card-head">
+            <h2><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>آزمون‌های پیش رو</h2>
+            <a href="{% url 'core:teacher_exams' %}">مشاهده همه آزمون‌ها <span aria-hidden="true">←</span></a>
+        </header>
+        {% if dashboard.upcoming_exams %}
+            <div class="tdash-table-wrap">
+                <table class="tdash-table">
+                    <thead><tr><th>عنوان آزمون</th><th>درس</th><th>تاریخ برگزاری</th><th>تعداد دانشجو</th><th>مدت زمان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                    <tbody>
+                        {% for exam in dashboard.upcoming_exams %}
+                            <tr>
+                                <td class="is-title">{{ exam.title }}</td>
+                                <td>{{ exam.course }}</td>
+                                <td><span class="tdash-cell-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>{{ exam.date_label|default:"-" }}</span><span class="tdash-time">{{ exam.time_label|fa_digits }}</span></td>
+                                <td><span class="tdash-cell-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.8 20a5.2 5.2 0 0 1 10.4 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 15.5A4.7 4.7 0 0 1 20.5 20"/></svg>{% if exam.participants %}{{ exam.participants|fa_digits }} نفر{% else %}-{% endif %}</span></td>
+                                <td><span class="tdash-cell-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</span></td>
+                                <td><span class="tdash-pill is-{{ exam.status_tone }}">{{ exam.status_label }}</span></td>
+                                <td><a class="tdash-view" href="{% url 'core:teacher_exams' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>مشاهده</a></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="tdash-empty">آزمون پیش رویی ندارید. <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون جدید</a></p>
+        {% endif %}
+    </section>
+
+    <div class="tdash-bottom">
+        <section class="tdash-card">
+            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>یادآور آزمون آینده</h2></header>
+            {% with exam=dashboard.next_exam %}
+                {% if exam %}
+                    <div class="tdash-reminder">
+                        <b>{{ exam.title }}</b>
+                        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg>{{ exam.course }}</span>
+                        <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>{{ exam.date_label|default:"-" }}</span>
+                        {% if exam.time_label %}<span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>ساعت {{ exam.time_label|fa_digits }}</span>{% endif %}
+                        {% if exam.participants %}<span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.8 20a5.2 5.2 0 0 1 10.4 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 15.5A4.7 4.7 0 0 1 20.5 20"/></svg>{{ exam.participants|fa_digits }} دانشجو</span>{% endif %}
+                    </div>
+                    <a class="tdash-outline-btn" href="{% url 'core:teacher_exams' %}">مشاهده جزئیات <span aria-hidden="true">←</span></a>
+                {% else %}
+                    <p class="tdash-empty">آزمون زمان‌بندی‌شده‌ای در پیش نیست.</p>
+                {% endif %}
+            {% endwith %}
+        </section>
+
+        <section class="tdash-card">
+            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>فعالیت‌های اخیر</h2></header>
+            {% if dashboard.activities %}
+                <ul class="tdash-activity">
+                    {% for item in dashboard.activities %}
+                        <li><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></i><div><b>{{ item.reason }}</b><small>{{ item.ago|fa_digits }}</small></div></li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="tdash-empty">هنوز فعالیتی ثبت نشده است.</p>
+            {% endif %}
+        </section>
+
+        <section class="tdash-card">
+            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-7M20 20v-4"/></svg>عملکرد دانشجویان</h2></header>
+            {% if dashboard.performance %}
+                <p class="tdash-sub">میانگین نمرات در {{ dashboard.performance|length|fa_digits }} آزمون اخیر (از ۲۰)</p>
+                <div class="tdash-chart" role="img" aria-label="میانگین نمره آزمون‌های اخیر">
+                    <div class="tdash-chart-axis" aria-hidden="true"><span>۲۰</span><span>۱۵</span><span>۱۰</span><span>۵</span><span>۰</span></div>
+                    <div class="tdash-chart-plot">
+                        {% for row in dashboard.performance %}
+                            <div class="tdash-bar" tabindex="0" data-tip="{{ row.title }}: {{ row.average|fa_digits }}">
+                                <span class="tdash-bar-fill" style="height: {{ row.height }}%"><em>{{ row.average|fa_digits }}</em></span>
+                                <small>{{ row.title|truncatechars:12 }}</small>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <table class="sr-only"><caption>میانگین نمره آزمون‌های اخیر</caption><thead><tr><th>آزمون</th><th>میانگین (از ۲۰)</th></tr></thead><tbody>{% for row in dashboard.performance %}<tr><td>{{ row.title }}</td><td>{{ row.average|fa_digits }}</td></tr>{% endfor %}</tbody></table>
+            {% else %}
+                <p class="tdash-empty">هنوز آزمون تصحیح‌شده‌ای وجود ندارد.</p>
+            {% endif %}
+        </section>
+
+        <section class="tdash-card">
+            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/></svg>پاسخ‌های نیازمند تصحیح</h2></header>
+            <div class="tdash-pending-head">
+                <div><strong>{{ dashboard.pending_total|fa_digits }}</strong><small>در {{ dashboard.pending_exam_count|fa_digits }} آزمون مختلف</small></div>
+                <i aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg></i>
+            </div>
+            {% if dashboard.pending_by_exam %}
+                <ul class="tdash-pending-list">
+                    {% for row in dashboard.pending_by_exam %}<li><span>{{ row.title }}</span><b>{{ row.count|fa_digits }} پاسخ</b></li>{% endfor %}
+                </ul>
+            {% else %}
+                <p class="tdash-empty">پاسخی در انتظار تصحیح نیست.</p>
+            {% endif %}
+            <a class="tdash-outline-btn" href="{% url 'core:teacher_reviews' %}">مشاهده و تصحیح پاسخ‌ها <span aria-hidden="true">←</span></a>
+        </section>
+    </div>
+</div>

@@ -9628,6 +9628,353 @@
     @apply text-2xl text-blue-600;
   }
 
+  /* Teacher dashboard (templates/teacher/_dashboard.html) */
+  .tdash {
+    @apply grid gap-5 text-right;
+  }
+
+  .tdash svg {
+    @apply h-5 w-5 shrink-0;
+  }
+
+  .tdash-hero {
+    @apply flex flex-wrap items-start justify-between gap-4;
+  }
+
+  .tdash-hero h1 {
+    @apply text-2xl font-black tracking-normal text-slate-950;
+  }
+
+  .tdash-hero p {
+    @apply mt-2 text-sm font-bold text-slate-500;
+  }
+
+  .tdash-today {
+    @apply inline-flex items-center gap-2 text-sm font-bold text-slate-600;
+  }
+
+  .tdash-today svg {
+    @apply h-6 w-6 text-slate-500;
+  }
+
+  .tdash-card,
+  .tdash-kpi {
+    @apply min-w-0 rounded-xl border border-[#e1e8f3] bg-white p-5 shadow-[0_10px_30px_rgba(33,55,104,.05)];
+  }
+
+  .tdash-kpis {
+    @apply grid grid-cols-3 gap-5;
+  }
+
+  .tdash-kpi {
+    @apply flex items-start justify-between gap-4 px-6 py-6;
+  }
+
+  .tdash-kpi h2 {
+    @apply text-base font-black text-slate-900;
+  }
+
+  .tdash-kpi strong {
+    @apply mt-3 block text-4xl font-black leading-none text-slate-950;
+  }
+
+  .tdash-kpi small {
+    @apply mt-4 flex items-center gap-1 text-xs font-bold text-slate-500;
+  }
+
+  .tdash-kpi small.is-up {
+    @apply text-emerald-600;
+  }
+
+  .tdash-kpi small svg {
+    @apply h-4 w-4;
+  }
+
+  .tdash-kpi i {
+    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl not-italic;
+  }
+
+  .tdash-kpi i svg {
+    @apply h-7 w-7;
+  }
+
+  .tdash-kpi i.is-blue { @apply bg-blue-50 text-blue-600; }
+  .tdash-kpi i.is-violet { @apply bg-violet-50 text-violet-600; }
+  .tdash-kpi i.is-orange { @apply bg-orange-50 text-orange-500; }
+
+  .tdash-card h2 {
+    @apply flex items-center gap-2 text-base font-black text-slate-950;
+  }
+
+  .tdash-quick > p,
+  .tdash-sub {
+    @apply mt-1 text-xs font-bold text-slate-500;
+  }
+
+  .tdash-quick-grid {
+    @apply mt-4 grid grid-cols-4 gap-5;
+  }
+
+  .tdash-quick-grid a {
+    @apply flex min-h-[72px] items-center gap-4 rounded-xl border px-6 py-4 transition hover:-translate-y-0.5;
+  }
+
+  .tdash-quick-grid a svg {
+    @apply h-9 w-9;
+    stroke-width: 1.6;
+  }
+
+  .tdash-quick-grid a span {
+    @apply grid gap-1;
+  }
+
+  .tdash-quick-grid b {
+    @apply text-base font-black;
+  }
+
+  .tdash-quick-grid small {
+    @apply text-xs font-bold text-slate-500;
+  }
+
+  .tdash-quick-grid .is-primary {
+    @apply border-blue-600 bg-blue-600 text-white shadow-[0_14px_28px_rgba(37,99,235,.25)] hover:bg-blue-700;
+  }
+
+  .tdash-quick-grid .is-primary small { @apply text-blue-100; }
+  .tdash-quick-grid .is-blue { @apply border-blue-100 bg-blue-50/60 text-blue-700 hover:border-blue-300; }
+  .tdash-quick-grid .is-violet { @apply border-violet-100 bg-violet-50/50 text-violet-700 hover:border-violet-300; }
+  .tdash-quick-grid .is-lavender { @apply border-indigo-100 bg-indigo-50/50 text-violet-700 hover:border-indigo-300; }
+
+  .tdash-card-head {
+    @apply mb-4 flex items-center justify-between gap-4;
+  }
+
+  .tdash-card-head h2 svg {
+    @apply text-blue-600;
+  }
+
+  .tdash-card-head a {
+    @apply text-sm font-black text-blue-600;
+  }
+
+  .tdash-table-wrap {
+    @apply overflow-x-auto rounded-lg border border-slate-100;
+  }
+
+  .tdash-table {
+    @apply w-full min-w-[760px] border-collapse text-right text-sm;
+  }
+
+  .tdash-table th {
+    @apply h-11 border-b border-slate-100 bg-slate-50/80 px-4 text-xs font-black text-slate-500;
+  }
+
+  .tdash-table td {
+    @apply h-12 whitespace-nowrap border-b border-slate-100 px-4 font-bold text-slate-600;
+  }
+
+  .tdash-table td.is-title {
+    @apply font-black text-slate-900;
+  }
+
+  .tdash-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .tdash-cell-icon {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .tdash-cell-icon svg {
+    @apply h-4 w-4 text-slate-400;
+  }
+
+  .tdash-time {
+    @apply ms-6 text-slate-500;
+  }
+
+  .tdash-pill {
+    @apply inline-flex rounded-full px-3 py-1 text-xs font-black;
+  }
+
+  .tdash-pill.is-green { @apply bg-emerald-50 text-emerald-700; }
+  .tdash-pill.is-blue { @apply bg-blue-50 text-blue-700; }
+  .tdash-pill.is-orange { @apply bg-orange-50 text-orange-700; }
+  .tdash-pill.is-violet { @apply bg-violet-50 text-violet-700; }
+
+  .tdash-view {
+    @apply inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-black text-blue-700 hover:border-blue-400;
+  }
+
+  .tdash-view svg {
+    @apply h-4 w-4;
+  }
+
+  .tdash-bottom {
+    @apply grid grid-cols-4 gap-5;
+  }
+
+  .tdash-bottom > .tdash-card {
+    @apply flex flex-col;
+  }
+
+  .tdash-reminder {
+    @apply grid gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-sm font-bold text-slate-600;
+  }
+
+  .tdash-reminder b {
+    @apply text-base font-black text-blue-700;
+  }
+
+  .tdash-reminder span {
+    @apply flex items-center gap-2;
+  }
+
+  .tdash-reminder svg {
+    @apply h-4 w-4 text-slate-400;
+  }
+
+  .tdash-outline-btn {
+    @apply mt-auto flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 text-sm font-black text-blue-700 hover:bg-blue-50;
+  }
+
+  .tdash-reminder + .tdash-outline-btn,
+  .tdash-pending-list + .tdash-outline-btn,
+  .tdash-empty + .tdash-outline-btn {
+    @apply mt-4;
+  }
+
+  .tdash-activity {
+    @apply grid gap-4;
+  }
+
+  .tdash-activity li {
+    @apply flex items-start gap-3;
+  }
+
+  .tdash-activity i {
+    @apply grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-600 not-italic;
+  }
+
+  .tdash-activity i svg {
+    @apply h-4 w-4;
+  }
+
+  .tdash-activity b {
+    @apply block text-sm font-bold leading-6 text-slate-700;
+  }
+
+  .tdash-activity small {
+    @apply text-xs font-bold text-slate-400;
+  }
+
+  .tdash-chart {
+    @apply mt-4 flex h-48 gap-2;
+    direction: ltr; /* time runs left to right, scale on the left, as in the design */
+  }
+
+  .tdash-bar small,
+  .tdash-bar[data-tip]::after {
+    direction: rtl;
+  }
+
+  .tdash-chart-axis {
+    @apply flex flex-col justify-between pb-6 text-[10px] font-bold text-slate-400;
+  }
+
+  .tdash-chart-plot {
+    @apply flex flex-1 items-end justify-around gap-[2px] border-b border-slate-200;
+    background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), #eef2f8 calc(25% - 1px), #eef2f8 25%);
+    background-size: 100% calc(100% - 1.5rem);
+    background-repeat: no-repeat;
+  }
+
+  .tdash-bar {
+    @apply relative flex h-full flex-1 flex-col items-center justify-end outline-none;
+  }
+
+  .tdash-bar-fill {
+    @apply relative block w-full max-w-[32px] rounded-t bg-[#a5b4fc] transition-colors;
+  }
+
+  .tdash-bar:hover .tdash-bar-fill,
+  .tdash-bar:focus-visible .tdash-bar-fill {
+    @apply bg-[#6366f1];
+  }
+
+  .tdash-bar-fill em {
+    @apply absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-bold not-italic text-slate-500;
+  }
+
+  .tdash-bar small {
+    @apply mt-1 h-5 w-full truncate text-center text-[10px] font-bold leading-5 text-slate-500;
+  }
+
+  .tdash-bar[data-tip]:hover::after,
+  .tdash-bar[data-tip]:focus-visible::after {
+    content: attr(data-tip);
+    @apply absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-bold text-white;
+  }
+
+  .tdash-pending-head {
+    @apply flex items-start justify-between gap-3;
+  }
+
+  .tdash-pending-head strong {
+    @apply block text-4xl font-black leading-none text-rose-600;
+  }
+
+  .tdash-pending-head small {
+    @apply mt-2 block text-xs font-bold text-slate-500;
+  }
+
+  .tdash-pending-head i {
+    @apply grid h-14 w-14 place-items-center rounded-xl bg-rose-50 text-rose-500 not-italic;
+  }
+
+  .tdash-pending-head i svg {
+    @apply h-7 w-7;
+  }
+
+  .tdash-pending-list {
+    @apply mt-4 grid;
+  }
+
+  .tdash-pending-list li {
+    @apply flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-sm font-bold text-slate-700 last:border-b-0;
+  }
+
+  .tdash-pending-list span {
+    @apply truncate;
+  }
+
+  .tdash-pending-list b {
+    @apply shrink-0 text-xs font-bold text-slate-500;
+  }
+
+  .tdash-empty {
+    @apply py-4 text-sm font-bold text-slate-500;
+  }
+
+  .tdash-empty a {
+    @apply font-black text-blue-600;
+  }
+
+  @media (max-width: 1280px) {
+    .tdash-bottom,
+    .tdash-quick-grid {
+      @apply grid-cols-2;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .tdash-kpis,
+    .tdash-bottom,
+    .tdash-quick-grid {
+      @apply grid-cols-1;
+    }
+  }
+
   .teacher-two-col,
   .teacher-review-layout,
   .teacher-import-grid {

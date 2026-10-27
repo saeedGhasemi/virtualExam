@@ -2262,6 +2262,9 @@ class TeacherDashboardTests(_ScopedOrgFixture):
         page = response.content.decode()
         self.assertIn('آزمون آینده من', page)
         self.assertNotIn('آزمون آینده دیگری', page)
+        for section in ('دسترسی سریع', 'آزمون‌های پیش رو', 'یادآور آزمون آینده', 'فعالیت‌های اخیر', 'عملکرد دانشجویان', 'پاسخ‌های نیازمند تصحیح'):
+            self.assertIn(section, page)
+        self.assertNotIn('۷۸٪', page)  # the old hard-coded participation figure is gone
 
     def test_dashboard_pending_and_performance_are_scoped(self):
         self._pending_answer(self.exam_in_id, self.question_in_id)

@@ -13600,6 +13600,7 @@ def _teacher_dashboard_data(teacher_id) -> dict:
             row['ago'] = f'{timesince(created_at, now, depth=1)} پیش' if created_at else ''
 
     return {
+        'today_label': _jalali_long_date(timezone.localdate()),
         'active_exams': active_exams,
         'upcoming_count': upcoming_count,
         'upcoming_exams': upcoming,
