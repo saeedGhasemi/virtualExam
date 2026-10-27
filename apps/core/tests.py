@@ -2210,3 +2210,29 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
             cursor.execute('SELECT answer_files FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id])
             files = json.loads(cursor.fetchone()[0])
         self.assertEqual([(item['kind'], item['name']) for item in files], [('audio', 'recording.mp3')])
+
+
+class TeacherDashboardTests(_ScopedOrgFixture):
+    """داشبورد استاد فقط داده‌ی آزمون‌ها و سؤال‌های همان استاد را نشان می‌دهد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def _pending_answer(self, exam_id, question_id):
+        attempt_id = str(uuid.uuid4())
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [attempt_id, exam_id, self.student_in_id, timezone.now(), 'submitted'])
+        _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'needs_manual_grading'],
+                [str(uuid.uuid4()), attempt_id, question_id, json.dumps({'value': 'x'}), True])
+
+    def test_pending_review_count_excludes_other_teachers_answers(self):
+        self._pending_answer(self.exam_out_id, self.question_out_id)
+        self._pending_answer(self.exam_out_id, self.question_out_id)
+        self._pending_answer(self.exam_in_id, self.question_in_id)
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_panel'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['teacher_stats']['reviews'], 1)

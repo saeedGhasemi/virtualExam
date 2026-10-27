@@ -13520,7 +13520,11 @@ def _teacher_modern_context(request, page, **extra):
             'students': sum(int(row.get('students_count') or 0) for row in courses) or 362,
             'exams': len(exams) or 24,
             'questions': question_stats['total'],
-            'reviews': erd_count('attempt_answers', "COALESCE(needs_manual_grading, false) = true") if teacher_id else 32,
+            'reviews': erd_count(
+                'attempt_answers',
+                'COALESCE(needs_manual_grading, false) = true AND question_id IN (SELECT id FROM questions WHERE teacher_id = %s)',
+                [teacher_id],
+            ) if teacher_id else 32,
             'objections': erd_count('objections', 'exam_id IN (SELECT id FROM exams WHERE teacher_id = %s)', [teacher_id]) if teacher_id else 5,
         },
         'courses': courses,
