@@ -724,17 +724,119 @@
         </section>
         {% endwith %}
     {% elif page == 'monitoring' %}
-        <section class="teacher-monitor-hero"><h2>اصول حسابداری ۱ - میان‌ترم</h2><span>زمان باقی‌مانده: ۰۰:۴۷:۲۸</span></section>
-        <div class="teacher-stat-grid"><article><span>کل شرکت‌کنندگان</span><strong>۱۲۳</strong></article><article><span>آنلاین</span><strong>۱۰۸</strong></article><article><span>قطع اتصال</span><strong>۷</strong></article><article><span>تحویل داده‌اند</span><strong>۸</strong></article></div>
-        <div class="teacher-three-col"><section class="teacher-panel"><h2>هشدارها و رخدادها</h2><div class="teacher-alert-list"><span>قطع اتصال مکرر دانشجو</span><span>خروج از تمام صفحه</span><span>تغییر تب مرورگر</span></div></section><section class="teacher-panel"><h2>رویدادها</h2><div class="teacher-timeline"><span>آزمون توسط مدرس شروع شد</span><span>۸ نفر وارد آزمون شدند</span><span>سارا محمدی قطع اتصال داشت</span></div></section><aside class="teacher-panel teacher-actions-grid"><h2>کنترل‌های مدرس</h2><button>ارسال پیام برای همه</button><button>تمدید زمان آزمون</button><button>قفل کردن آزمون</button><button class="is-danger">پایان آزمون</button></aside></div>
+        {% if not report_exam %}
+            <section class="teacher-panel"><p class="texams-empty">هنوز آزمونی ندارید که پایش شود. <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون</a></p></section>
+        {% else %}
+            <form class="teacher-toolbar texams-toolbar" method="get">
+                <label><span class="sr-only">آزمون</span><select name="exam" onchange="this.form.submit()">
+                    {% for option in report_exam_options %}<option value="{{ option.id }}"{% if option.id|stringformat:"s" == report_exam.id|stringformat:"s" %} selected{% endif %}>{{ option.title }}{% if option.date_label %} — {{ option.date_label }}{% endif %}</option>{% endfor %}
+                </select></label>
+                <noscript><button type="submit">نمایش</button></noscript>
+            </form>
+            <section class="teacher-monitor-hero">
+                <div><h2>{{ report_exam.title }}</h2><small class="texams-muted">{{ report_exam.course }}{% if report.start_label %} · {{ report.start_label }} {{ report.time_label|fa_digits }}{% endif %}</small></div>
+                {% if report.is_running and report.remaining_seconds is not None %}
+                    <span>زمان باقی‌مانده: <b data-remaining="{{ report.remaining_seconds }}">{{ report.remaining_seconds }}</b></span>
+                {% elif report.is_running %}<span>در حال برگزاری</span>
+                {% elif report.has_ended %}<span>آزمون به پایان رسیده است</span>
+                {% else %}<span>آزمون هنوز شروع نشده است</span>{% endif %}
+            </section>
+            <div class="teacher-stat-grid">
+                <article><span>دانشجویان تخصیص‌یافته</span><strong>{% if report.assigned %}{{ report.assigned|fa_digits }}{% else %}-{% endif %}</strong></article>
+                <article><span>در حال پاسخ‌گویی</span><strong>{{ report.in_progress|fa_digits }}</strong></article>
+                <article><span>تحویل داده‌اند</span><strong>{{ report.submitted|fa_digits }}</strong></article>
+                <article><span>هنوز وارد نشده‌اند</span><strong>{% if report.not_started is not None %}{{ report.not_started|fa_digits }}{% else %}-{% endif %}</strong></article>
+            </div>
+            <section class="teacher-panel texams-panel">
+                <h2>دانشجویان در حال پاسخ‌گویی</h2>
+                {% if report.rows %}
+                    <div class="texams-table-wrap">
+                        <table class="teacher-table">
+                            <thead><tr><th>دانشجو</th><th>شماره دانشجویی</th><th>ساعت ورود</th><th>زمان سپری‌شده</th><th>پاسخ ثبت‌شده</th></tr></thead>
+                            <tbody>{% for row in report.rows %}<tr><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td>{{ row.started_label|fa_digits }}</td><td>{% if row.elapsed_minutes is not None %}{{ row.elapsed_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td><td>{{ row.answered|fa_digits }} از {{ report.question_count|fa_digits }}</td></tr>{% endfor %}</tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="texams-empty">در این لحظه دانشجویی در حال پاسخ‌گویی نیست.</p>
+                {% endif %}
+                <footer class="texams-footer"><span>اطلاعات هنگام باز کردن صفحه دریافت شده است.</span><a href="">به‌روزرسانی</a></footer>
+            </section>
+            <script>
+                (function () {
+                    var el = document.querySelector('[data-remaining]');
+                    if (!el) return;
+                    var left = parseInt(el.getAttribute('data-remaining'), 10);
+                    var digits = '۰۱۲۳۴۵۶۷۸۹';
+                    var fa = function (s) { return String(s).replace(/\d/g, function (d) { return digits[d]; }); };
+                    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+                    var tick = function () {
+                        if (left < 0) left = 0;
+                        el.textContent = fa(pad(Math.floor(left / 3600)) + ':' + pad(Math.floor(left % 3600 / 60)) + ':' + pad(left % 60));
+                        left -= 1;
+                    };
+                    tick();
+                    setInterval(tick, 1000);
+                })();
+            </script>
+        {% endif %}
     {% elif page == 'reviews' %}
         {% include 'teacher/grading/_list.html' %}
     {% elif page == 'grading_detail' %}
         {% include 'teacher/grading/_detail.html' %}
     {% elif page == 'results' %}
-        <div class="teacher-stat-grid"><article><span>تعداد شرکت‌کنندگان</span><strong>۱۲۴</strong></article><article><span>میانگین نمره</span><strong>۶۴.۲</strong></article><article><span>بالاترین نمره</span><strong>۹۸.۵</strong></article><article><span>نرخ قبولی</span><strong>۷۲.۶٪</strong></article></div>
-        <div class="teacher-two-col"><section class="teacher-panel teacher-bar-chart"><h2>نمودار توزیع نمرات</h2><div><i style="height:18%"></i><i style="height:28%"></i><i style="height:42%"></i><i style="height:58%"></i><i style="height:76%"></i><i style="height:88%"></i><i style="height:64%"></i></div></section><section class="teacher-panel"><h2>توزیع نمرات</h2><div class="teacher-donut"></div></section></div>
-        <section class="teacher-panel"><table class="teacher-table"><thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>نمره</th><th>تراز</th><th>وضعیت</th></tr></thead><tbody>{% for student in students|slice:":3" %}<tr><td>{{ forloop.counter|fa_digits }}</td><td>{{ student.name }}</td><td>{{ student.code|fa_digits }}</td><td>۹۴.۵</td><td>۹۸.۷</td><td><span class="teacher-badge is-ok">قبول</span></td></tr>{% endfor %}</tbody></table><button class="teacher-primary">انتشار نتایج برای دانشجویان</button></section>
+        {% if not report_exam %}
+            <section class="teacher-panel"><p class="texams-empty">هنوز آزمونی ندارید. <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون</a></p></section>
+        {% else %}
+            <form class="teacher-toolbar texams-toolbar" method="get">
+                <label><span class="sr-only">آزمون</span><select name="exam" onchange="this.form.submit()">
+                    {% for option in report_exam_options %}<option value="{{ option.id }}"{% if option.id|stringformat:"s" == report_exam.id|stringformat:"s" %} selected{% endif %}>{{ option.title }}{% if option.date_label %} — {{ option.date_label }}{% endif %}</option>{% endfor %}
+                </select></label>
+                <noscript><button type="submit">نمایش</button></noscript>
+            </form>
+            <div class="teacher-stat-grid">
+                <article><span>تعداد شرکت‌کنندگان</span><strong>{{ report.participants|fa_digits }}</strong></article>
+                <article><span>میانگین نمره (از ۲۰)</span><strong>{% if report.average is not None %}{{ report.average|fa_digits }}{% else %}-{% endif %}</strong></article>
+                <article><span>بالاترین / پایین‌ترین</span><strong>{% if report.highest is not None %}{{ report.highest|fa_digits }} / {{ report.lowest|fa_digits }}{% else %}-{% endif %}</strong></article>
+                <article><span>نرخ قبولی</span><strong>{% if report.pass_rate is not None %}{{ report.pass_rate|fa_digits }}٪{% else %}-{% endif %}</strong></article>
+            </div>
+            {% if report.ungraded %}<p class="texams-notice">{{ report.ungraded|fa_digits }} پاسخ‌نامه هنوز تصحیح نشده و در آمار بالا حساب نشده است. <a href="{% url 'core:teacher_reviews' %}">تصحیح پاسخ‌ها</a></p>{% endif %}
+            {% if report.buckets %}
+                <section class="teacher-panel">
+                    <h2>توزیع نمرات (از ۲۰)</h2>
+                    <div class="tdash-chart" role="img" aria-label="توزیع نمرات آزمون">
+                        <div class="tdash-chart-plot">
+                            {% for bucket in report.buckets %}
+                                <div class="tdash-bar" tabindex="0" data-tip="{{ bucket.label|fa_digits }}: {{ bucket.count|fa_digits }} نفر">
+                                    <span class="tdash-bar-fill" style="height: {{ bucket.height }}%"><em>{{ bucket.count|fa_digits }}</em></span>
+                                    <small>{{ bucket.label|fa_digits }}</small>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <table class="sr-only"><caption>توزیع نمرات</caption><thead><tr><th>بازه</th><th>تعداد</th></tr></thead><tbody>{% for bucket in report.buckets %}<tr><td>{{ bucket.label|fa_digits }}</td><td>{{ bucket.count|fa_digits }}</td></tr>{% endfor %}</tbody></table>
+                </section>
+            {% endif %}
+            <section class="teacher-panel texams-panel">
+                <h2>پاسخ‌نامه‌های تحویل‌شده</h2>
+                {% if report.rows %}
+                    <div class="texams-table-wrap">
+                        <table class="teacher-table">
+                            <thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>نمره (از ۲۰)</th><th>درصد</th><th>تاریخ تحویل</th><th>وضعیت</th></tr></thead>
+                            <tbody>{% for row in report.rows %}<tr><td>{{ report.page.start_index|add:forloop.counter0|fa_digits }}</td><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{% if row.score is not None %}{{ row.percent|fa_digits }}٪{% else %}-{% endif %}</td><td>{{ row.submitted_label|default:"-" }}</td><td><span class="teacher-badge {{ row.status_tone }}">{{ row.status_label }}</span></td></tr>{% endfor %}</tbody>
+                        </table>
+                    </div>
+                    {% if report.page.paginator.num_pages > 1 %}
+                        <footer class="texams-footer"><span></span><nav class="texams-pages" aria-label="صفحه‌بندی">
+                            {% if report.page.has_previous %}<a href="{% query_url page=report.page.previous_page_number %}">قبلی</a>{% endif %}
+                            <span>صفحه {{ report.page.number|fa_digits }} از {{ report.page.paginator.num_pages|fa_digits }}</span>
+                            {% if report.page.has_next %}<a href="{% query_url page=report.page.next_page_number %}">بعدی</a>{% endif %}
+                        </nav></footer>
+                    {% endif %}
+                {% else %}
+                    <p class="texams-empty">هنوز پاسخ‌نامه‌ای برای این آزمون تحویل نشده است.</p>
+                {% endif %}
+            </section>
+        {% endif %}
     {% elif page == 'objections' %}
         <div class="teacher-review-layout">
             <aside class="teacher-panel"><h2>فهرست درخواست‌ها</h2><div class="teacher-feed"><article><b>سارا محمدی</b><span>جدید</span></article><article><b>علی اکبری</b><span>در حال بررسی</span></article><article><b>زهرا حسینی</b><span>پاسخ داده‌شده</span></article></div></aside>

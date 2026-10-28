@@ -2532,3 +2532,57 @@ class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute('SELECT COUNT(*) FROM exam_assignments WHERE exam_id = %s', [self.exam_in_id])
             self.assertEqual(cursor.fetchone()[0], 2)
+
+class TeacherExamReportTests(_ScopedOrgFixture):
+    """صفحه‌های «نتایج» و «پایش زنده» استاد: داده‌ی واقعی آزمون خود او، و ۴۰۴ برای آزمون استاد دیگر."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def _attempt(self, exam_id, status, score=None, max_score=20):
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status', 'score', 'max_score', 'is_graded'],
+                [str(uuid.uuid4()), exam_id, self.student_in_id, timezone.now(), status, score, max_score, score is not None])
+
+    def test_results_use_real_scores(self):
+        self._attempt(self.exam_in_id, 'graded', 18)
+        self._attempt(self.exam_in_id, 'graded', 6)
+        self._attempt(self.exam_in_id, 'submitted')
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_results'), {'exam': self.exam_in_id})
+        report = response.context['report']
+        self.assertEqual((report['average'], report['highest'], report['lowest'], report['ungraded']), (12.0, 18.0, 6.0, 1))
+        self.assertEqual(report['pass_rate'], 50)
+        self.assertEqual([bucket['count'] for bucket in report['buckets']], [0, 1, 0, 0, 1])
+        page = response.content.decode()
+        for leftover in ('۶۴.۲', '۹۸.۵', '۷۲.۶٪', 'انتشار نتایج برای دانشجویان'):
+            self.assertNotIn(leftover, page)
+
+    def test_results_default_to_exam_with_submissions(self):
+        self._attempt(self.exam_in_id, 'graded', 15)
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_results'))
+        self.assertEqual(str(response.context['report_exam']['id']), self.exam_in_id)
+
+    def test_monitoring_counts_live_attempts(self):
+        from datetime import timedelta
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET start_at = %s, end_at = %s WHERE id = %s',
+                           [timezone.now() - timedelta(minutes=10), timezone.now() + timedelta(minutes=50), self.exam_in_id])
+        self._attempt(self.exam_in_id, 'in_progress')
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_monitoring'))
+        report = response.context['report']
+        self.assertTrue(report['is_running'])
+        self.assertEqual((report['in_progress'], report['submitted'], len(report['rows'])), (1, 0, 1))
+        self.assertGreater(report['remaining_seconds'], 0)
+        page = response.content.decode()
+        for leftover in ('اصول حسابداری', 'قفل کردن آزمون', 'سارا محمدی قطع اتصال داشت'):
+            self.assertNotIn(leftover, page)
+
+    def test_other_teachers_exam_is_404(self):
+        self.client.force_login(self.teacher_user)
+        for name in ('core:teacher_results', 'core:teacher_monitoring'):
+            self.assertEqual(self.client.get(reverse(name), {'exam': self.exam_out_id}).status_code, 404)

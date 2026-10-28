@@ -13884,6 +13884,162 @@ def _teacher_exam_list(teacher_id, query: str, status: str, page_number) -> dict
     return {'rows': rows, 'page': page, 'total': total, 'query': query, 'status': status, 'filters': TEACHER_EXAM_LIST_FILTERS}
 
 
+TEACHER_RESULTS_PAGE_SIZE = 50
+TEACHER_RESULT_BUCKETS = ((0, 4), (4, 8), (8, 12), (12, 16), (16, 20))
+
+
+def _teacher_owned_exam(teacher_id, exam_id):
+    """The exam row when it belongs to this teacher, else None (callers turn None into a 404)."""
+    return erd_row(
+        """
+        SELECT e.id, e.title, e.start_at, e.end_at, e.duration_minutes, e.passing_score,
+               COALESCE(c.title, '-') AS course
+        FROM exams e LEFT JOIN courses c ON c.id = e.course_id
+        WHERE e.id = %s AND e.teacher_id = %s
+        """,
+        [exam_id, teacher_id],
+    )
+
+
+def _teacher_exam_options(teacher_id) -> list:
+    """The teacher's exams for the results/monitoring selector, newest first."""
+    rows = erd_rows(
+        """
+        SELECT e.id, e.title, e.start_at, e.end_at,
+               (SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = e.id AND ea.status IN ('submitted', 'graded')) AS submitted,
+               (SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = e.id AND ea.status = 'in_progress') AS in_progress
+        FROM exams e
+        WHERE e.teacher_id = %s AND COALESCE(e.is_cancelled, false) = false
+        ORDER BY CASE WHEN e.start_at IS NULL THEN 1 ELSE 0 END, e.start_at DESC, e.title
+        LIMIT 200
+        """,
+        [teacher_id],
+    )
+    for row in rows:
+        row['start_at'], row['end_at'] = erd_datetime(row['start_at']), erd_datetime(row['end_at'])
+        row['date_label'] = _jalali_long_date(row['start_at'])
+    return rows
+
+
+def _teacher_exam_results(exam, page_number) -> dict:
+    """Score summary, 0-20 distribution and one page of submitted attempts for an exam the teacher owns."""
+    from django.core.paginator import Paginator
+
+    graded = erd_rows(
+        "SELECT score, max_score FROM exam_attempts WHERE exam_id = %s AND status IN ('submitted', 'graded') "
+        'AND COALESCE(is_graded, false) = true AND score IS NOT NULL AND max_score > 0',
+        [exam['id']],
+    )
+    summary = erd_row(
+        """
+        SELECT COUNT(DISTINCT student_id) AS participants, COUNT(*) AS attempts,
+               SUM(CASE WHEN COALESCE(is_graded, false) = false OR score IS NULL THEN 1 ELSE 0 END) AS ungraded
+        FROM exam_attempts WHERE exam_id = %s AND status IN ('submitted', 'graded')
+        """,
+        [exam['id']],
+    )
+    scores = [float(row['score']) * 20 / float(row['max_score']) for row in graded]
+    passed = sum(
+        1 for row in graded
+        if _sx_result_status({'is_graded': True, 'score': row['score'], 'max_score': row['max_score'],
+                              'passing_score': exam.get('passing_score'),
+                              'percent': _sx_percent(row['score'], row['max_score'])})[0] == 'قبول'
+    )
+    buckets = []
+    for low, high in TEACHER_RESULT_BUCKETS:
+        count = sum(1 for score in scores if low <= score < high or (high == 20 and score == 20))
+        buckets.append({'label': f'{low}–{high}', 'count': count})
+    peak = max((bucket['count'] for bucket in buckets), default=0) or 1
+    for bucket in buckets:
+        bucket['height'] = round(bucket['count'] * 100 / peak)
+
+    total = summary['attempts'] if summary else 0
+    page = Paginator(range(total), TEACHER_RESULTS_PAGE_SIZE).get_page(page_number)
+    rows = erd_rows(
+        """
+        SELECT ea.id, ea.score, ea.max_score, ea.is_graded, ea.submitted_at,
+               COALESCE(NULLIF(p.full_name, ''), p.username, 'دانشجو') AS name,
+               COALESCE(NULLIF(sp.student_number, ''), p.identifier, '') AS code
+        FROM exam_attempts ea
+        JOIN profiles p ON p.id = ea.student_id
+        LEFT JOIN student_profiles sp ON sp.user_id = ea.student_id
+        WHERE ea.exam_id = %s AND ea.status IN ('submitted', 'graded')
+        ORDER BY CASE WHEN ea.score IS NULL THEN 1 ELSE 0 END, ea.score DESC, name
+        LIMIT %s OFFSET %s
+        """,
+        [exam['id'], TEACHER_RESULTS_PAGE_SIZE, page.start_index() - 1 if total else 0],
+    )
+    for row in rows:
+        row['percent'] = _sx_percent(row['score'], row['max_score'])
+        row['score_20'] = round(float(row['score']) * 20 / float(row['max_score']), 2) if row['score'] is not None and row['max_score'] else None
+        row['status_label'], tone, _pending = _sx_result_status({**row, 'passing_score': exam.get('passing_score')})
+        row['status_tone'] = {'green': 'is-ok', 'red': 'is-danger'}.get(tone, 'is-warn')
+        row['submitted_label'] = _jalali_long_date(row['submitted_at'])
+    return {
+        'participants': summary['participants'] if summary else 0,
+        'ungraded': (summary or {}).get('ungraded') or 0,
+        'average': round(sum(scores) / len(scores), 2) if scores else None,
+        'highest': round(max(scores), 2) if scores else None,
+        'lowest': round(min(scores), 2) if scores else None,
+        'pass_rate': round(passed * 100 / len(scores)) if scores else None,
+        'buckets': buckets if scores else [],
+        'rows': rows,
+        'page': page,
+    }
+
+
+def _teacher_exam_monitoring(exam) -> dict:
+    """Live counts and in-progress attempts of an exam the teacher owns."""
+    now = timezone.now()
+    start_at, end_at = erd_datetime(exam.get('start_at')), erd_datetime(exam.get('end_at'))
+    counts = erd_row(
+        """
+        SELECT COUNT(DISTINCT student_id) AS started,
+               COUNT(DISTINCT CASE WHEN status = 'in_progress' THEN student_id END) AS in_progress,
+               COUNT(DISTINCT CASE WHEN status IN ('submitted', 'graded') THEN student_id END) AS submitted
+        FROM exam_attempts WHERE exam_id = %s
+        """,
+        [exam['id']],
+    ) or {}
+    assigned = _teacher_dashboard_participant_counts([str(exam['id'])]).get(str(exam['id']))
+    rows = erd_rows(
+        """
+        SELECT ea.id, ea.started_at,
+               COALESCE(NULLIF(p.full_name, ''), p.username, 'دانشجو') AS name,
+               COALESCE(NULLIF(sp.student_number, ''), p.identifier, '') AS code,
+               (SELECT COUNT(*) FROM attempt_answers aa WHERE aa.attempt_id = ea.id AND aa.answer IS NOT NULL) AS answered
+        FROM exam_attempts ea
+        JOIN profiles p ON p.id = ea.student_id
+        LEFT JOIN student_profiles sp ON sp.user_id = ea.student_id
+        WHERE ea.exam_id = %s AND ea.status = 'in_progress'
+        ORDER BY ea.started_at
+        LIMIT 300
+        """,
+        [exam['id']],
+    )
+    question_count = erd_count('exam_questions', 'exam_id = %s', [exam['id']])
+    for row in rows:
+        started = erd_datetime(row['started_at'])
+        row['started_label'] = timezone.localtime(started).strftime('%H:%M') if started else '-'
+        row['elapsed_minutes'] = int((now - started).total_seconds() // 60) if started else None
+    is_running = bool(start_at and start_at <= now and (end_at is None or end_at >= now))
+    return {
+        'assigned': assigned,
+        'started': counts.get('started') or 0,
+        'in_progress': counts.get('in_progress') or 0,
+        'submitted': counts.get('submitted') or 0,
+        'not_started': max(0, assigned - (counts.get('started') or 0)) if assigned else None,
+        'question_count': question_count,
+        'rows': rows,
+        'is_running': is_running,
+        'has_ended': bool(end_at and end_at < now),
+        'remaining_seconds': int((end_at - now).total_seconds()) if is_running and end_at else None,
+        'start_label': _jalali_long_date(start_at),
+        'time_label': f"{timezone.localtime(start_at).strftime('%H:%M') if start_at else ''}"
+                      f"{' تا ' + timezone.localtime(end_at).strftime('%H:%M') if end_at else ''}",
+    }
+
+
 def _teacher_modern_context(request, page, **extra):
     teacher_id = getattr(request, 'erd_profile_id', None)
     courses = _teacher_courses_rows(teacher_id) if teacher_id else []
@@ -15032,12 +15188,36 @@ def teacher_exam_create(request):
 
 @erd_role_required('teacher')
 def teacher_monitoring(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'monitoring'))
+    return _teacher_exam_report_page(request, 'monitoring')
+
+
+def _teacher_exam_report_page(request, page):
+    """Monitoring/results page for one of the teacher's exams (?exam=<id>; another teacher's id is a 404)."""
+    teacher_id = request.erd_profile_id
+    options = _teacher_exam_options(teacher_id)
+    exam_id = request.GET.get('exam')
+    if not exam_id:
+        now = timezone.now()
+        preferred = (
+            (row for row in options if row['in_progress'] or (row['start_at'] and row['start_at'] <= now and (not row['end_at'] or row['end_at'] >= now)))
+            if page == 'monitoring' else (row for row in options if row['submitted'])
+        )
+        chosen = next(preferred, None) or (options[0] if options else None)
+        exam_id = chosen['id'] if chosen else None
+    exam = _teacher_owned_exam(teacher_id, exam_id) if exam_id else None
+    if exam_id and not exam:
+        raise Http404('آزمون پیدا نشد.')
+    report = None
+    if exam:
+        report = _teacher_exam_monitoring(exam) if page == 'monitoring' else _teacher_exam_results(exam, request.GET.get('page'))
+    return render(request, 'teacher/modern.html', _teacher_modern_context(
+        request, page, report_exam=exam, report_exam_options=options, report=report,
+    ))
 
 
 @erd_role_required('teacher')
 def teacher_results(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'results'))
+    return _teacher_exam_report_page(request, 'results')
 
 
 def _em_truthy(value):
