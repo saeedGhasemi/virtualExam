@@ -17131,6 +17131,8 @@ def _sx_exam_row(exam_id, student_id):
         [exam_id, student_id, student_id, student_id],
     )
     if not rows:
+        # Outside the access rule a student still reaches an exam they already have an attempt on
+        # (e.g. it was unpublished mid-attempt); any other exam id is not theirs.
         rows = erd_rows(
             """
             SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
@@ -17146,11 +17148,12 @@ def _sx_exam_row(exam_id, student_id):
             LEFT JOIN profiles p ON p.id = e.teacher_id
             LEFT JOIN exam_questions eq ON eq.exam_id = e.id
             WHERE e.id = %s
+              AND EXISTS (SELECT 1 FROM exam_attempts own WHERE own.exam_id = e.id AND own.student_id = %s)
             GROUP BY e.id, e.title, e.description, e.start_at, e.end_at, e.duration_minutes,
                      e.passing_score, e.lifecycle_status, e.exam_type, c.title, p.full_name
             LIMIT 1
             """,
-            [exam_id],
+            [exam_id, student_id],
         )
     if not rows:
         return None
@@ -17180,23 +17183,6 @@ def _sx_accessible_exams(student_id):
         """,
         [student_id, student_id, student_id],
     )
-    if not rows:
-        rows = erd_rows(
-            """
-            SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
-                   e.start_at, e.end_at, COALESCE(e.duration_minutes, 90) AS duration_minutes,
-                   COALESCE(e.passing_score, 60) AS passing_score,
-                   COALESCE(c.title, 'درس') AS course_title,
-                   COUNT(eq.id) AS question_count
-            FROM exams e
-            LEFT JOIN courses c ON c.id = e.course_id
-            LEFT JOIN exam_questions eq ON eq.exam_id = e.id
-            WHERE COALESCE(e.is_cancelled, false) = false
-            GROUP BY e.id, e.title, e.description, e.start_at, e.end_at, e.duration_minutes, e.passing_score, c.title
-            ORDER BY e.start_at ASC NULLS LAST, e.title
-            LIMIT 80
-            """
-        )
     for row in rows:
         row['starts_at'] = _sx_dt(row.get('start_at')) or timezone.now()
         row['duration_minutes'] = _em_int(row.get('duration_minutes'), 90)

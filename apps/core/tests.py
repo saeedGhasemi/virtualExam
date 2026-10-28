@@ -2586,3 +2586,32 @@ class TeacherExamReportTests(_ScopedOrgFixture):
         self.client.force_login(self.teacher_user)
         for name in ('core:teacher_results', 'core:teacher_monitoring'):
             self.assertEqual(self.client.get(reverse(name), {'exam': self.exam_out_id}).status_code, 404)
+
+class StudentExamAccessFallbackTests(_ScopedOrgFixture):
+    """دانشجو با دانستن شناسه نباید به آزمون دیگران برسد؛ قبلاً هر دو تابع دسترسی بدون شرط به همه‌ی آزمون‌ها برمی‌گشتند."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET is_published = %s, lifecycle_status = %s WHERE id = %s', [True, 'published', cls.exam_out_id])
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), cls.exam_out_id, cls.group_out_id])
+
+    def test_other_groups_exam_is_not_listed_or_reachable(self):
+        from apps.core.views import _sx_accessible_exams
+        self.assertEqual(_sx_accessible_exams(self.student_in_id), [])
+        self.client.force_login(self.student_user)
+        for name in ('core:student_exam_detail', 'core:student_exam_entry', 'core:student_exam_start'):
+            self.assertEqual(self.client.get(reverse(name, args=[self.exam_out_id])).status_code, 404, name)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM exam_attempts WHERE exam_id = %s', [self.exam_out_id])
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_student_keeps_access_to_an_exam_they_already_attempted(self):
+        from apps.core.views import _sx_exam_row
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [str(uuid.uuid4()), self.exam_out_id, self.student_in_id, timezone.now(), 'submitted'])
+        self.assertIsNotNone(_sx_exam_row(self.exam_out_id, self.student_in_id))
+        self.assertIsNone(_sx_exam_row(self.exam_out_id, self.student_out_id))
