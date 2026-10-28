@@ -22,6 +22,7 @@ from django.views.decorators.http import require_POST
 from .templatetags.core_extras import _gregorian_to_jalali, fa_digits
 from .views import (
     JALALI_MONTH_NAMES,
+    STUDENT_AVATAR_SQL,
     _jalali_long_date,
     _sx_percent,
     _teacher_modern_context,
@@ -147,7 +148,7 @@ def scoped_student_or_404(teacher_id, student_id) -> dict:
         SELECT p.id, COALESCE(NULLIF(p.full_name, ''), p.username, 'دانشجو') AS name,
                COALESCE(NULLIF(sp.student_number, ''), p.identifier, '') AS code,
                COALESCE(p.email, '') AS email, COALESCE(p.phone, '') AS phone,
-               COALESCE(p.avatar_url, '') AS avatar_url, COALESCE(p.birth_date, '') AS birth_date,
+               {STUDENT_AVATAR_SQL} AS avatar_url, COALESCE(p.birth_date, '') AS birth_date,
                COALESCE(sp.field_of_study, '') AS field_of_study, COALESCE(sp.degree, '') AS degree,
                COALESCE(sp.entry_year, '') AS entry_year, COALESCE(sp.academic_status, '') AS academic_status
         FROM profiles p
@@ -266,7 +267,7 @@ def student_list_rows(teacher_id, group_id=None) -> list:
         {_audience_cte()}
         SELECT p.id, COALESCE(NULLIF(p.full_name, ''), p.username, 'دانشجو') AS name,
                COALESCE(NULLIF(sp.student_number, ''), p.identifier, '') AS code,
-               COALESCE(p.email, '') AS email, COALESCE(p.avatar_url, '') AS avatar_url,
+               COALESCE(p.email, '') AS email, {STUDENT_AVATAR_SQL} AS avatar_url,
                (SELECT COUNT(*) FROM audience au JOIN teacher_exams te ON te.id = au.exam_id
                  WHERE au.student_id = m.student_id) AS assigned_count,
                (SELECT COUNT(*) FROM audience au JOIN teacher_exams te ON te.id = au.exam_id

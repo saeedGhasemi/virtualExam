@@ -1,0 +1,114 @@
+{% load core_extras %}
+{% if not errors %}
+  {% if security_done == 'password_change' %}<div class="sst-ok" role="status">رمز عبور تغییر کرد. نشست‌های دیگر شما بسته شدند.</div>
+  {% elif security_done == 'end_session' or security_done == 'end_other_sessions' %}<div class="sst-ok" role="status">نشست‌های انتخاب‌شده بسته شدند.</div>
+  {% elif security_done == 'totp_confirm' %}<div class="sst-ok" role="status">ورود دومرحله‌ای فعال شد.</div>
+  {% elif security_done == 'totp_disable' %}<div class="sst-ok" role="status">ورود دومرحله‌ای غیرفعال شد.</div>
+  {% elif request.GET.saved %}<div class="sst-ok" role="status">تنظیمات حریم خصوصی ذخیره شد.</div>{% endif %}
+{% endif %}
+<div class="sst-split">
+  <section class="sst-card sx-card">
+    <header class="sst-card-head">{% include 'teacher/_qb_icon.html' with name='monitor' %}<div><h2>نشست‌های فعال</h2><p>دستگاه‌هایی که در حال حاضر به حساب شما متصل هستند.</p></div></header>
+    <ul class="sst-sessions">
+      {% for item in sessions %}
+        <li class="{% if item.is_current %}is-current{% endif %}">
+          {% if 'اندروید' in item.device or 'iOS' in item.device %}{% include 'teacher/_qb_icon.html' with name='phone' %}{% else %}{% include 'teacher/_qb_icon.html' with name='monitor' %}{% endif %}
+          <div><b>{{ item.device }}{% if item.is_current %} <small class="sst-chip">نشست جاری</small>{% endif %}</b><small><bdi dir="ltr">{{ item.ip }}</bdi> · ورود {{ item.created_label }}</small></div>
+          {% if not item.is_current %}<button class="sst-btn is-danger is-small" type="submit" form="sst-security-form" name="security_action" value="end_session:{{ item.key }}">خروج</button>{% endif %}
+        </li>
+      {% empty %}
+        <li class="sst-sessions-empty">نشست ثبت‌شده‌ای پیدا نشد؛ ورودهای پیش از این نسخه در فهرست نمی‌آیند.</li>
+      {% endfor %}
+    </ul>
+    <button class="sst-btn is-block" type="submit" form="sst-security-form" name="security_action" value="end_other_sessions">{% include 'teacher/_qb_icon.html' with name='logout' %}خروج از سایر نشست‌ها</button>
+  </section>
+
+  <section class="sst-card sx-card">
+    <header class="sst-card-head">{% include 'teacher/_qb_icon.html' with name='shield' %}<div><h2>امنیت حساب</h2><p>از حساب خود محافظت کنید و روش‌های ورود امن را مدیریت نمایید.</p></div></header>
+    <div class="sst-rows is-boxed">
+      <div class="sst-row is-wrap">
+        <span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='lock' %}<span><b>رمز عبور</b><small>رمز عبور خود را به صورت دوره‌ای تغییر دهید.</small></span></span>
+        <button type="button" class="sst-btn" data-sst-panel="sst-password-panel" aria-controls="sst-password-panel" aria-expanded="{% if security_failed_action == 'password_change' %}true{% else %}false{% endif %}">{% include 'teacher/_qb_icon.html' with name='edit' %}تغییر رمز عبور</button>
+        <div class="sst-panel" id="sst-password-panel"{% if security_failed_action != 'password_change' %} hidden{% endif %}>
+          <div class="sst-fields">
+            <label class="sst-field is-wide"><span class="sst-label">رمز عبور فعلی</span><span class="sst-box">{% include 'teacher/_qb_icon.html' with name='key' %}<input class="sst-ltr" type="password" name="old_password" autocomplete="current-password" form="sst-security-form" required></span></label>
+            <label class="sst-field"><span class="sst-label">رمز عبور جدید</span><span class="sst-box">{% include 'teacher/_qb_icon.html' with name='lock' %}<input class="sst-ltr" type="password" name="new_password1" autocomplete="new-password" form="sst-security-form" required></span></label>
+            <label class="sst-field"><span class="sst-label">تکرار رمز عبور جدید</span><span class="sst-box">{% include 'teacher/_qb_icon.html' with name='lock' %}<input class="sst-ltr" type="password" name="new_password2" autocomplete="new-password" form="sst-security-form" required></span></label>
+          </div>
+          <p class="sst-note">{% include 'teacher/_qb_icon.html' with name='info' %}پس از تغییر رمز، از همه‌ی دستگاه‌های دیگر خارج می‌شوید.</p>
+          <button class="sst-btn is-primary" type="submit" form="sst-security-form" name="security_action" value="password_change">ثبت رمز جدید</button>
+        </div>
+      </div>
+
+      <div class="sst-row is-wrap">
+        <span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='phone' %}<span><b>احراز هویت دو مرحله‌ای</b><small>{% if two_factor.enabled %}هنگام ورود، کد برنامه‌ی Authenticator هم پرسیده می‌شود.{% else %}برای امنیت بیشتر، ورود با کد برنامه‌ی Authenticator را فعال کنید.{% endif %}</small></span></span>
+        <span class="sst-row-actions">
+          {% if two_factor.enabled %}
+            <span class="sst-chip is-ok">{% include 'teacher/_qb_icon.html' with name='check' %}فعال است</span>
+            <button type="button" class="sst-btn" data-sst-panel="sst-methods-panel" aria-controls="sst-methods-panel" aria-expanded="{% if security_failed_action == 'totp_disable' or security_failed_action == 'recovery_regenerate' %}true{% else %}false{% endif %}">{% include 'teacher/_qb_icon.html' with name='settings' %}مدیریت روش‌ها</button>
+          {% elif not two_factor.available %}
+            <span class="sst-chip is-wait" title="pyotp و qrcode باید روی سرور نصب شوند">نیازمند نصب روی سرور</span>
+          {% elif not two_factor.setup_secret %}
+            <span class="sst-chip is-muted">غیرفعال</span>
+            <button class="sst-btn" type="submit" form="sst-security-form" name="security_action" value="totp_start">فعال‌سازی</button>
+          {% endif %}
+        </span>
+        {% if two_factor.setup_secret %}
+          <div class="sst-panel sst-totp">
+            <div class="sst-totp-qr" aria-label="کد QR برای برنامه‌ی Authenticator">{{ two_factor.setup_qr }}</div>
+            <div>
+              <ol>
+                <li>برنامه‌ی Authenticator را روی گوشی باز کنید و این کد QR را اسکن کنید.</li>
+                <li>اگر اسکن ممکن نیست، این کلید را دستی وارد کنید: <bdi dir="ltr" class="sst-key">{{ two_factor.setup_secret }}</bdi></li>
+                <li>کد ۶ رقمی برنامه و رمز عبور خود را وارد کنید.</li>
+              </ol>
+              <div class="sst-fields">
+                <label class="sst-field"><span class="sst-label">کد ۶ رقمی</span><span class="sst-box"><input class="sst-ltr" name="totp_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" form="sst-security-form"></span></label>
+                <label class="sst-field"><span class="sst-label">رمز عبور فعلی</span><span class="sst-box"><input class="sst-ltr" type="password" name="security_password" autocomplete="current-password" form="sst-security-form"></span></label>
+              </div>
+              <button class="sst-btn is-primary" type="submit" form="sst-security-form" name="security_action" value="totp_confirm">تأیید و فعال‌سازی</button>
+            </div>
+          </div>
+        {% endif %}
+        {% if two_factor.enabled %}
+          <div class="sst-panel" id="sst-methods-panel"{% if security_failed_action != 'totp_disable' and security_failed_action != 'recovery_regenerate' %} hidden{% endif %}>
+            <p class="sst-note">{% include 'teacher/_qb_icon.html' with name='key' %}برنامه‌ی Authenticator · {{ two_factor.recovery_left|fa_digits }} کد بازیابی استفاده‌نشده</p>
+            <div class="sst-fields">
+              <label class="sst-field"><span class="sst-label">رمز عبور فعلی</span><span class="sst-box"><input class="sst-ltr" type="password" name="security_password" autocomplete="current-password" form="sst-security-form"></span></label>
+              <label class="sst-field"><span class="sst-label">کد Authenticator (فقط برای غیرفعال‌سازی)</span><span class="sst-box"><input class="sst-ltr" name="totp_code" autocomplete="one-time-code" maxlength="12" form="sst-security-form"></span></label>
+            </div>
+            <div class="sst-row-actions">
+              <button class="sst-btn" type="submit" form="sst-security-form" name="security_action" value="recovery_regenerate">ساخت کدهای بازیابی جدید</button>
+              <button class="sst-btn is-danger" type="submit" form="sst-security-form" name="security_action" value="totp_disable">غیرفعال‌سازی</button>
+            </div>
+          </div>
+        {% endif %}
+        {% if two_factor.new_codes %}
+          <div class="sst-panel sst-recovery" role="status">
+            <b>کدهای بازیابی شما — فقط همین یک بار نمایش داده می‌شوند:</b>
+            <p>آن‌ها را جای امنی نگه دارید. اگر گوشی در دسترس نباشد، با هر کد یک بار می‌توانید وارد شوید.</p>
+            <ul dir="ltr">{% for code in two_factor.new_codes %}<li>{{ code }}</li>{% endfor %}</ul>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="sst-card sx-card">
+  <header class="sst-card-head">{% include 'teacher/_qb_icon.html' with name='eye' %}<div><h2>حریم خصوصی</h2><p>مشخص کنید چه اطلاعاتی برای دیگران قابل مشاهده باشد.</p></div></header>
+  <div class="sst-rows is-boxed">
+    <label class="sst-row">
+      <span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='user' %}<span><b>نمایش تصویر پروفایل برای استاد</b><small>استاد می‌تواند تصویر پروفایل شما را در کلاس و فهرست دانشجویان ببیند.</small></span></span>
+      <span class="sst-switch"><input type="checkbox" name="show_avatar_to_teacher"{% if show_avatar_to_teacher %} checked{% endif %}><i aria-hidden="true"></i></span>
+    </label>
+    <div class="sst-row">
+      <span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='mail' %}<span><b>نمایش ایمیل برای همکلاسی‌ها</b><small>آدرس ایمیل شما در هیچ صفحه‌ای به سایر دانشجویان نمایش داده نمی‌شود.</small></span></span>
+      <span class="sst-chip is-muted">همیشه پنهان</span>
+    </div>
+    <div class="sst-row is-info">
+      <span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='info' %}<span><b>دسترسی به نتایج خود</b><small>شما همیشه می‌توانید نتایج آزمون‌ها، پیشرفت و آمار مربوط به خود را مشاهده کنید.</small></span></span>
+      <span class="sst-chip is-ok">همیشه فعال</span>
+    </div>
+  </div>
+</section>

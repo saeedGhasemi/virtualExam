@@ -7,9 +7,19 @@ import json
 import logging
 import re
 
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
 from django.db import transaction
 
-from .views import _clean_phone, _org_unit_path, _save_avatar_upload, erd_execute, erd_row, log_activity
+from .views import (
+    _clean_phone,
+    _handle_teacher_security_action,  # shared with the teacher's settings page
+    _org_unit_path,
+    _save_avatar_upload,
+    erd_execute,
+    erd_row,
+    log_activity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,3 +166,41 @@ def notification_muted(user_id, notification_type) -> bool:
     """True when the user switched this kind of in-app notification off on the settings page."""
     key = next((key for key, types in MUTABLE_NOTIFICATIONS.items() if notification_type in types), None)
     return bool(key) and not preferences(user_id).get(f'inapp_{key}', True)
+
+
+# Security actions a student may post; account deletion stays off this page (the mockup has none).
+SECURITY_ACTIONS = ('password_change', 'end_session', 'end_other_sessions', 'totp_start', 'totp_confirm', 'totp_disable', 'recovery_regenerate')
+
+
+def _change_password(request) -> list:
+    form = PasswordChangeForm(user=request.user, data=request.POST)
+    if not form.is_valid():
+        if 'old_password' in form.errors:
+            log_activity(request.user, 'password_change_failed', 'رمز فعلی نادرست هنگام تغییر رمز', request)
+        return [error for errors in form.errors.values() for error in errors]
+    form.save()
+    update_session_auth_hash(request, form.user)  # keeps this session; every other one is signed out by the new hash
+    log_activity(request.user, 'password_changed', 'تغییر رمز عبور حساب', request)
+    return []
+
+
+def handle_security_action(request, student_id) -> list:
+    """Runs one action posted from the security tab; returns error messages, or [] when it went through."""
+    action = (request.POST.get('security_action') or '').partition(':')[0]
+    if action not in SECURITY_ACTIONS:
+        return ['درخواست نامعتبر است.']
+    if action == 'password_change':
+        return _change_password(request)
+    return _handle_teacher_security_action(request, student_id)
+
+
+def show_avatar_to_teacher(student_id) -> bool:
+    row = erd_row('SELECT show_avatar_to_teacher FROM student_profiles WHERE user_id = %s', [student_id]) if student_id else None
+    return row is None or row['show_avatar_to_teacher'] is None or bool(row['show_avatar_to_teacher'])
+
+
+def save_privacy(request, student_id) -> list:
+    """Stores the privacy switch of the security tab; teacher pages read it through STUDENT_AVATAR_SQL."""
+    erd_execute('UPDATE student_profiles SET show_avatar_to_teacher = %s WHERE user_id = %s',
+                [request.POST.get('show_avatar_to_teacher') == 'on', student_id])
+    return []

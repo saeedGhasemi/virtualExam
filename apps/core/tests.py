@@ -3725,3 +3725,50 @@ class StudentSettingsTests(_ScopedOrgFixture):
         self.assertContains(response, 'name="inapp_class_message"')
         for fake in ('name="theme"', 'name="language"', 'name="compact_tables"', 'name="email_'):
             self.assertNotContains(response, fake)
+
+    def _security(self, action, **data):
+        return self._post({'security_action': action, **data}, tab='security')
+
+    def test_password_change_needs_the_current_password_and_keeps_this_session(self):
+        response = self._security('password_change', old_password='wrong', new_password1='N3w-pass-Strong!', new_password2='N3w-pass-Strong!')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['errors'])
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.check_password('old-pass-123'))
+        response = self._security('password_change', old_password='old-pass-123', new_password1='N3w-pass-Strong!', new_password2='N3w-pass-Strong!')
+        self.assertRedirects(response, f'{reverse("core:student_settings")}?tab=security&done=password_change', fetch_redirect_response=False)
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.check_password('N3w-pass-Strong!'))
+        self.assertEqual(self.client.get(reverse('core:student_settings'), {'tab': 'security'}).status_code, 200)  # still signed in
+
+    def test_sessions_are_own_and_unknown_actions_are_refused(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(reverse('core:student_settings'), {'tab': 'security'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('two_factor', response.context)
+        for action in ('deletion_request', 'end_session:not-a-key', 'bogus'):
+            response = self._security(action, deletion_password='old-pass-123', deletion_confirm='on')
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.context['errors'])
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM account_deletion_requests WHERE profile_id = %s', [self.student_in_id])
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_hidden_photo_is_not_sent_to_teacher_pages(self):
+        TeacherStudentScopeTests._member(self.group_in_id, self.student_in_id)
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE profiles SET avatar_url = %s WHERE id = %s', ['/media/avatars/me.png', self.student_in_id])
+
+        def teacher_sees():
+            self.client.force_login(self.teacher_user)
+            listed = {row['id']: row['avatar_url'] for row in self.client.get(reverse('core:teacher_students')).context['sl']['rows']}
+            profile = self.client.get(reverse('core:teacher_student_profile', args=[self.student_in_id])).context['profile']['student']
+            faces = [face['avatar_url'] for row in self.client.get(reverse('core:teacher_courses')).context['class_list']['rows'] for face in row['faces']]
+            return listed[self.student_in_id], profile['avatar_url'], faces
+
+        self.assertEqual(teacher_sees(), ('/media/avatars/me.png', '/media/avatars/me.png', ['/media/avatars/me.png']))
+        response = self._post({}, tab='security')  # privacy switch off
+        self.assertRedirects(response, f'{reverse("core:student_settings")}?tab=security&saved=1', fetch_redirect_response=False)
+        self.assertEqual(teacher_sees(), ('', '', ['']))
+        self._post({'show_avatar_to_teacher': 'on'}, tab='security')
+        self.assertEqual(teacher_sees()[0], '/media/avatars/me.png')

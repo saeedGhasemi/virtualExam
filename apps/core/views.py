@@ -13835,6 +13835,9 @@ def _teacher_exam_list(teacher_id, query: str, status: str, page_number) -> dict
 TEACHER_CLASS_LIST_FILTERS = {'all': 'همه وضعیت‌ها', 'active': 'فعال', 'inactive': 'غیرفعال / پیش‌نویس'}
 TEACHER_CLASS_LIST_PAGE_SIZE = 12
 TEACHER_CLASS_AVATARS = 4  # member faces stacked on each class card
+# A student's photo as teachers see it: empty when the student switched «نمایش تصویر پروفایل برای استاد» off
+# on their settings page. Needs `p` (profiles) and `sp` (student_profiles) in the query.
+STUDENT_AVATAR_SQL = "CASE WHEN COALESCE(sp.show_avatar_to_teacher, true) THEN COALESCE(p.avatar_url, '') ELSE '' END"
 
 
 def _teacher_semester_label(semester, year) -> str:
@@ -13914,9 +13917,10 @@ def _teacher_class_list(teacher_id, query: str, term: str, status: str, page_num
         for face in erd_rows(
             f"""
             SELECT group_id, full_name, avatar_url FROM (
-                SELECT m.group_id, m.full_name, p.avatar_url,
+                SELECT m.group_id, m.full_name, {STUDENT_AVATAR_SQL} AS avatar_url,
                        ROW_NUMBER() OVER (PARTITION BY m.group_id ORDER BY m.full_name) AS position
                 FROM student_group_members m LEFT JOIN profiles p ON p.id = m.student_user_id
+                LEFT JOIN student_profiles sp ON sp.user_id = m.student_user_id
                 WHERE m.group_id IN ({marks})
             ) ranked
             WHERE position <= %s
@@ -18047,7 +18051,17 @@ def student_settings(request):
     elif request.method == 'POST' and tab == 'workspace':
         page.save_workspace(request, student_id)
         return redirect(f'{reverse("core:student_settings")}?tab=workspace&saved=1')
+    elif request.method == 'POST' and tab == 'security':
+        action = request.POST.get('security_action', '').partition(':')[0]
+        errors = page.handle_security_action(request, student_id) if action else page.save_privacy(request, student_id)
+        if not errors:
+            return redirect(f'{reverse("core:student_settings")}?tab=security&' + (f'done={action}' if action else 'saved=1'))
     context = {'student': _sx_student_context(request), 'tab': tab, 'errors': errors}
+    if tab == 'security':
+        context.update(_teacher_security_context(request, student_id))
+        context['show_avatar_to_teacher'] = page.show_avatar_to_teacher(student_id)
+        context['security_failed_action'] = request.POST.get('security_action', '').partition(':')[0] if errors else ''
+        context['security_done'] = request.GET.get('done', '')
     if tab == 'workspace':
         context['notification_rows'] = page.notification_rows(page.preferences(student_id))
         context['workspace_fixed'] = page.WORKSPACE_FIXED

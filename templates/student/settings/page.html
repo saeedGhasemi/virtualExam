@@ -60,6 +60,24 @@
   .sst-table thead th{border-top:0;background:rgba(244,248,253,.9);color:#53627e;font-size:.86rem;white-space:nowrap}.sst-table thead th svg{display:inline;vertical-align:-.2rem;margin-inline-end:4px}
   .sst-table td{width:150px;text-align:center}
   .sst-notify-extra{margin-top:16px}
+  .sst-rows.is-boxed{margin-top:0;border-top:0;gap:10px}
+  .sst-rows.is-boxed .sst-row{padding:12px 16px;border:1px solid #e3eaf4;border-radius:12px;background:rgba(255,255,255,.6)}
+  .sst-row.is-wrap{flex-wrap:wrap}.sst-row.is-info{background:rgba(238,242,255,.8)!important}
+  label.sst-row{cursor:pointer}
+  .sst-row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .sst-panel{flex-basis:100%;display:grid;gap:12px;padding-top:12px;border-top:1px dashed #dbe6f4}
+  .sst-panel .sst-note{margin-top:0}.sst-panel>.sst-btn{justify-self:start}
+  .sst-totp{grid-template-columns:180px minmax(0,1fr);align-items:start}.sst-totp-qr svg{width:180px;height:180px}.sst-totp ol{margin:0 0 12px;padding-inline-start:1.2rem;color:#40506e;font-weight:800;line-height:1.9}
+  .sst-key{font-family:Consolas,monospace;font-weight:900;letter-spacing:.06em}
+  .sst-recovery{color:#40506e;font-weight:800}.sst-recovery ul{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:0;padding:0;list-style:none;font-family:Consolas,monospace}.sst-recovery li{padding:6px 10px;border-radius:8px;background:#f4f7fb}
+  .sst-sessions{display:grid;gap:10px;margin:0 0 14px;padding:0;list-style:none}
+  .sst-sessions li{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #e3eaf4;border-radius:12px;background:rgba(255,255,255,.6)}
+  .sst-sessions li.is-current{background:#f3f7ff;border-color:#d6e3ff}
+  .sst-sessions li>svg{width:1.6rem;height:1.6rem;color:#40506e}.sst-sessions li>div{flex:1;min-width:0}
+  .sst-sessions b{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-weight:950}.sst-sessions small:not(.sst-chip){display:block;color:#7a88a3;font-weight:800}
+  .sst-sessions .sst-chip{min-height:22px;padding:0 8px;font-size:.72rem}
+  .sst-sessions-empty{color:#7a88a3;font-weight:850}
+  @media(max-width:760px){.sst-totp{grid-template-columns:1fr}}
   .sst-errors{padding:14px 18px;border:1px solid #fecaca;border-radius:12px;background:#fff5f5;color:#b91c1c;font-weight:850}.sst-errors ul{margin:.4rem 0 0;padding-inline-start:1.2rem}
   .sst-ok{padding:12px 18px;border:1px solid #bbf7d0;border-radius:12px;background:#f0fdf4;color:#15803d;font-weight:900}
   .sst-footer{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:12px;padding:14px 18px}
@@ -81,14 +99,17 @@
   <nav class="sst-tabs" aria-label="بخش‌های تنظیمات">
     <a class="{% if tab == 'personal' %}is-active{% endif %}" href="?tab=personal"{% if tab == 'personal' %} aria-current="page"{% endif %}>{% include 'teacher/_qb_icon.html' with name='user' %}اطلاعات فردی</a>
     <a class="{% if tab == 'workspace' %}is-active{% endif %}" href="?tab=workspace"{% if tab == 'workspace' %} aria-current="page"{% endif %}>{% include 'teacher/_qb_icon.html' with name='bell' %}محیط کار و اعلان‌ها</a>
+    <a class="{% if tab == 'security' %}is-active{% endif %}" href="?tab=security"{% if tab == 'security' %} aria-current="page"{% endif %}>{% include 'teacher/_qb_icon.html' with name='shield' %}امنیت و حریم خصوصی</a>
   </nav>
 
   {% if errors %}
-    <div class="sst-errors" role="alert"><b>ذخیره نشد:</b><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+    <div class="sst-errors" role="alert"><b>{% if tab == 'security' %}انجام نشد{% else %}ذخیره نشد{% endif %}:</b><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
   {% endif %}
 
   {% if tab == 'workspace' %}
     {% include 'student/settings/_workspace.html' %}
+  {% elif tab == 'security' %}
+    {% include 'student/settings/_security.html' %}
   {% else %}
     {% include 'student/settings/_personal.html' %}
   {% endif %}
@@ -99,6 +120,27 @@
     <span class="sst-status" data-sst-status{% if request.GET.saved %} data-saved{% endif %}>{% include 'teacher/_qb_icon.html' with name='info' %}<span data-sst-status-text>{% if request.GET.saved %}تغییرات ذخیره شد.{% else %}تغییری ایجاد نشده است.{% endif %}</span></span>
   </footer>
 </form>
+{% if tab == 'security' %}
+  {# password, session and two-step actions post here (form="…"), apart from the privacy switch saved by the footer #}
+  <form id="sst-security-form" method="post" action="{% url 'core:student_settings' %}?tab=security" hidden>{% csrf_token %}<input type="hidden" name="settings_tab" value="security"></form>
+  <script>
+  (function () {
+    document.querySelectorAll('[data-sst-panel]').forEach(function (toggle) {
+      var panel = document.getElementById(toggle.getAttribute('data-sst-panel'));
+      if (!panel) return;
+      // inputs of a closed panel are disabled: they are not posted and their «required» doesn't block other actions
+      function sync() { panel.querySelectorAll('input').forEach(function (input) { input.disabled = panel.hidden; }); }
+      toggle.addEventListener('click', function () {
+        panel.hidden = !panel.hidden;
+        toggle.setAttribute('aria-expanded', String(!panel.hidden));
+        sync();
+        if (!panel.hidden) panel.querySelector('input').focus();
+      });
+      sync();
+    });
+  })();
+  </script>
+{% endif %}
 <script>
 (function () {
   var form = document.querySelector('[data-sst-form]');
