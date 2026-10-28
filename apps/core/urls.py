@@ -1,5 +1,15 @@
 from django.urls import path
 from .grading_views import attempt_answer_file, teacher_grading_detail, teacher_reviews
+from .teacher_students import (
+    teacher_group_students,
+    teacher_student_note_create,
+    teacher_student_note_delete,
+    teacher_student_profile,
+    teacher_student_report,
+    teacher_students,
+    teacher_students_export,
+    teacher_students_message,
+)
 from .osce_views import (
     teacher_osce_builder,
     teacher_osce_create,
@@ -148,8 +158,6 @@ from .views import (
     teacher_exam_participants_match,
     teacher_exam_preview,
     teacher_exams,
-    teacher_group_activity,
-    teacher_group_students,
     teacher_extend_exam,
     teacher_monitoring,
     teacher_objection_detail,
@@ -167,7 +175,6 @@ from .views import (
     teacher_results,
     teacher_security,
     teacher_settings,
-    teacher_student_profile,
 )
 
 app_name = 'core'
@@ -274,8 +281,14 @@ urlpatterns = [
     path('teacher/courses/', teacher_courses, name='teacher_courses'),
     path('teacher/courses/<str:group_id>/', teacher_course_detail, name='teacher_course_detail'),
     path('teacher/courses/<str:group_id>/students/', teacher_group_students, name='teacher_group_students'),
-    path('teacher/courses/<str:group_id>/activity/', teacher_group_activity, name='teacher_group_activity'),
+    path('teacher/courses/<str:group_id>/activity/', teacher_group_students, name='teacher_group_activity'),
+    path('teacher/students/', teacher_students, name='teacher_students'),
+    path('teacher/students/export/', teacher_students_export, name='teacher_students_export'),
+    path('teacher/students/message/', teacher_students_message, name='teacher_students_message'),
     path('teacher/students/<str:student_id>/', teacher_student_profile, name='teacher_student_profile'),
+    path('teacher/students/<str:student_id>/report/', teacher_student_report, name='teacher_student_report'),
+    path('teacher/students/<str:student_id>/notes/', teacher_student_note_create, name='teacher_student_note_create'),
+    path('teacher/students/<str:student_id>/notes/<str:note_id>/delete/', teacher_student_note_delete, name='teacher_student_note_delete'),
     path('teacher/calendar/', teacher_calendar, name='teacher_calendar'),
     path('teacher/profile/', teacher_profile_page, name='teacher_profile_page'),
     path('teacher/settings/', teacher_settings, name='teacher_settings'),

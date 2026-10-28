@@ -2,6 +2,7 @@ import io
 import json
 import tempfile
 import uuid
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import connection
@@ -2562,47 +2563,199 @@ class TeacherClassListTests(_ScopedOrgFixture):
 
 
 class TeacherStudentScopeTests(_ScopedOrgFixture):
-    """استاد فقط دانشجویان گروه‌های خودش (مالک یا هم‌تدریس) را می‌بیند؛ شناسه‌ی دیگر در URL پاسخ ۴۰۴ می‌گیرد، نه داده‌ی ساختگی."""
+    """بخش «دانشجویان» استاد: فقط دانشجویان گروه‌های خودش (مالک یا هم‌تدریس) و فقط آزمون‌های منتشرشده‌ی خودش.
+
+    هر شناسه‌ی دیگر در URL یا فرم ارسالی پاسخ ۴۰۴ می‌گیرد، نه داده‌ی ساختگی یا دانشجوی دیگری.
+    """
 
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
         User = get_user_model()
         cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
-        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.group_in_id, cls.student_in_id, 'عضو', '', ''])
-        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.group_out_id, cls.student_out_id, 'عضو', '', ''])
+        cls.student2_id = cls._make_profile('student_second', 'دانشجوی دوم')
+        _insert('student_profiles', ['user_id', 'student_number'], [cls.student2_id, '40112033'])
+        for group_id, student_id in ((cls.group_in_id, cls.student_in_id), (cls.group_in_id, cls.student2_id), (cls.group_out_id, cls.student_out_id)):
+            cls._member(group_id, student_id)
         cls.shared_group_id = str(uuid.uuid4())
         _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year'],
                 [cls.shared_group_id, cls.teacher_out_id, cls.course_out_id, 'کلاس هم‌تدریس', '1404'])
         _insert('group_teachers', ['group_id', 'teacher_id'], [cls.shared_group_id, cls.teacher_in_id])
         cls.shared_student_id = cls._make_profile('student_shared', 'دانشجوی کلاس هم‌تدریس')
         _insert('student_profiles', ['user_id'], [cls.shared_student_id])
-        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.shared_group_id, cls.shared_student_id, 'عضو', '', ''])
+        cls._member(cls.shared_group_id, cls.shared_student_id)
 
-    def _get(self, url):
+        now = timezone.now()
+        day = timedelta(days=1)
+        cls.past_exam = cls._exam('آزمون گذشته', cls.teacher_in_id, now - 10 * day, now - 9 * day, cls.group_in_id)
+        cls.unfinished_exam = cls._exam('آزمون نیمه‌کاره', cls.teacher_in_id, now - 5 * day, now - 4 * day, cls.group_in_id)
+        cls.upcoming_exam = cls._exam('آزمون آینده', cls.teacher_in_id, now + 5 * day, now + 6 * day, cls.group_in_id)
+        cls.draft_exam = cls._exam('آزمون پیش‌نویس', cls.teacher_in_id, now - 3 * day, now - 2 * day, cls.group_in_id, published=False)
+        cls.other_exam = cls._exam('آزمون استاد دیگر', cls.teacher_out_id, now - 10 * day, now - 9 * day, cls.group_out_id)
+        cls._attempt(cls.past_exam, cls.student_in_id, now - 10 * day, 'graded', 15, 20)
+        cls._attempt(cls.unfinished_exam, cls.student_in_id, now - 5 * day, 'graded', 12, 20)
+        cls._attempt(cls.unfinished_exam, cls.student2_id, now - 5 * day, 'in_progress')
+        cls._attempt(cls.other_exam, cls.student_out_id, now - 10 * day, 'graded', 20, 20)
+
+    @staticmethod
+    def _member(group_id, student_id):
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), group_id, student_id, 'عضو', '', ''])
+
+    @staticmethod
+    def _exam(title, teacher_id, start_at, end_at, group_id, published=True):
+        exam_id = str(uuid.uuid4())
+        _insert('exams', ['id', 'title', 'teacher_id', 'start_at', 'end_at', 'is_published', 'is_cancelled'],
+                [exam_id, title, teacher_id, start_at, end_at, published, False])
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), exam_id, group_id])
+        return exam_id
+
+    @staticmethod
+    def _attempt(exam_id, student_id, started_at, status, score=None, max_score=None):
+        submitted = started_at + timedelta(minutes=30) if status == 'graded' else None
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'score', 'max_score', 'is_graded', 'status'],
+                [str(uuid.uuid4()), exam_id, student_id, started_at, submitted, score, max_score, status == 'graded', status])
+
+    def _get(self, url, data=None):
         self.client.force_login(self.teacher_user)
-        return self.client.get(url)
+        return self.client.get(url, data or {})
 
-    def test_profile_of_own_and_co_taught_students(self):
+    def _post(self, url, data):
+        self.client.force_login(self.teacher_user)
+        return self.client.post(url, data)
+
+    def _notifications(self):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT user_id FROM notifications')
+            return [str(row[0]) for row in cursor.fetchall()]
+
+    def _notes(self):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id, teacher_id, student_id, body, is_shared FROM teacher_student_notes ORDER BY body')
+            return cursor.fetchall()
+
+    def _list_ids(self, **params):
+        response = self._get(reverse('core:teacher_students'), params)
+        self.assertEqual(response.status_code, 200)
+        return {row['id'] for row in response.context['sl']['rows']}
+
+    # -- list
+    def test_list_has_own_and_co_taught_students_only(self):
+        self.assertEqual(self._list_ids(), {self.student_in_id, self.student2_id, self.shared_student_id})
+        self.assertNotContains(self._get(reverse('core:teacher_students')), 'سارا احمدی')
+
+    def test_list_figures_count_only_own_published_exams(self):
+        rows = {row['id']: row for row in self._get(reverse('core:teacher_students')).context['sl']['rows']}
+        first, second = rows[self.student_in_id], rows[self.student2_id]
+        self.assertEqual((first['assigned_count'], first['attended_count'], first['absent_count']), (3, 2, 0))
+        self.assertEqual(first['average'], 13.5)
+        self.assertEqual(first['last_exam']['title'], 'آزمون نیمه‌کاره')
+        self.assertEqual((second['absent_count'], second['unfinished_count']), (1, 1))
+        self.assertEqual(second['last_exam']['state'], 'unfinished')
+
+    def test_tabs_and_filters(self):
+        self.assertEqual(self._list_ids(tab='absent'), {self.student2_id})
+        self.assertEqual(self._list_ids(tab='unfinished'), {self.student2_id})
+        self.assertEqual(self._list_ids(tab='review'), {self.student_in_id})  # average 13.5 < 14
+        self.assertEqual(self._list_ids(q='40112033'), {self.student2_id})
+        self.assertEqual(self._list_ids(group=self.shared_group_id), {self.shared_student_id})
+        self.assertEqual(len(self._list_ids(group=self.group_out_id)), 3)  # another teacher's group is ignored
+
+    # -- profile
+    def test_profile_tabs_render_for_own_and_co_taught_students(self):
         for student_id in (self.student_in_id, self.shared_student_id):
-            response = self._get(reverse('core:teacher_student_profile', args=[student_id]))
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(str(response.context['selected_student']['id']), student_id)
+            for tab in ('overview', 'courses', 'exams', 'analytics', 'notes'):
+                response = self._get(reverse('core:teacher_student_profile', args=[student_id]), {'tab': tab})
+                self.assertEqual(response.status_code, 200, (student_id, tab))
+                self.assertEqual(response.context['profile']['student']['id'], student_id)
+
+    def test_exams_tab_states_and_scope(self):
+        url = reverse('core:teacher_student_profile', args=[self.student2_id])
+        states = {row['title']: row['state'] for row in self._get(url, {'tab': 'exams'}).context['profile']['exam_rows']}
+        self.assertEqual(states, {'آزمون گذشته': 'absent', 'آزمون نیمه‌کاره': 'unfinished', 'آزمون آینده': 'upcoming'})
+        filtered = self._get(url, {'tab': 'exams', 'state': 'absent'}).context['profile']['exam_rows']
+        self.assertEqual([row['title'] for row in filtered], ['آزمون گذشته'])
+
+    def test_courses_tab_lists_only_own_groups(self):
+        response = self._get(reverse('core:teacher_student_profile', args=[self.student_in_id]), {'tab': 'courses'})
+        self.assertEqual([group['id'] for group in response.context['profile']['groups']], [self.group_in_id])
+
+    def test_analytics_compares_with_class(self):
+        response = self._get(reverse('core:teacher_student_profile', args=[self.student_in_id]), {'tab': 'analytics'})
+        analytics = response.context['profile']['analytics']
+        self.assertTrue(analytics['has_data'])
+        self.assertEqual([point['student'] for point in analytics['points']], [15.0, 12.0])
+        self.assertEqual(analytics['points'][0]['minutes'], 30.0)
 
     def test_other_or_unknown_student_is_404_not_a_stand_in(self):
         for student_id in (self.student_out_id, str(uuid.uuid4()), '14021057', 'sara'):
-            self.assertEqual(self._get(reverse('core:teacher_student_profile', args=[student_id])).status_code, 404, student_id)
+            for name in ('core:teacher_student_profile', 'core:teacher_student_report'):
+                self.assertEqual(self._get(reverse(name, args=[student_id])).status_code, 404, (name, student_id))
 
-    def test_other_teachers_group_is_404(self):
+    def test_group_pages_redirect_to_filtered_list_or_404(self):
         for name in ('core:teacher_group_students', 'core:teacher_group_activity'):
+            response = self._get(reverse(name, args=[self.shared_group_id]))
+            self.assertRedirects(response, f"{reverse('core:teacher_students')}?group={self.shared_group_id}")
             self.assertEqual(self._get(reverse(name, args=[self.group_out_id])).status_code, 404)
             self.assertEqual(self._get(reverse(name, args=['nursing-01'])).status_code, 404)
-            self.assertEqual(self._get(reverse(name, args=[self.shared_group_id])).status_code, 200)
 
-    def test_group_list_has_only_real_members(self):
-        response = self._get(reverse('core:teacher_group_students', args=[self.group_in_id]))
-        self.assertEqual({str(s['id']) for s in response.context['students']}, {self.student_in_id})
-        self.assertNotIn('سارا احمدی', response.content.decode())
+    def test_report_card(self):
+        response = self._get(reverse('core:teacher_student_report', args=[self.student_in_id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'آزمون گذشته')
+        self.assertNotContains(response, 'آزمون استاد دیگر')
+        self.assertNotContains(response, 'آزمون پیش‌نویس')
+
+    # -- messages
+    def test_message_reaches_only_own_students(self):
+        url = reverse('core:teacher_students_message')
+        response = self._post(url, {'student_ids': [self.student_in_id, self.shared_student_id], 'title': 'یادآوری', 'body': 'سلام'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(sorted(self._notifications()), sorted([self.student_in_id, self.shared_student_id]))
+        tampered = self._post(url, {'student_ids': [self.student_in_id, self.student_out_id], 'title': 'x', 'body': 'y'})
+        self.assertEqual(tampered.status_code, 404)
+        self._post(url, {'student_ids': [self.student_in_id], 'title': '', 'body': 'y'})
+        self.assertEqual(len(self._notifications()), 2)
+
+    # -- notes
+    def test_notes_are_private_and_scoped(self):
+        url = reverse('core:teacher_student_note_create', args=[self.student_in_id])
+        self._post(url, {'body': 'الف: نیاز به تمرین بیشتر', 'action': 'save'})
+        self._post(url, {'body': 'ب: آفرین', 'action': 'share'})
+        self._post(url, {'body': 'x' * 1001, 'action': 'save'})
+        notes = self._notes()
+        self.assertEqual(len(notes), 2)
+        self.assertEqual(self._notifications(), [self.student_in_id])  # only the shared note reaches the student
+        self.assertEqual(self._post(reverse('core:teacher_student_note_create', args=[self.student_out_id]), {'body': 'x'}).status_code, 404)
+
+        foreign_note = str(uuid.uuid4())
+        _insert('teacher_student_notes', ['id', 'teacher_id', 'student_id', 'body'], [foreign_note, self.teacher_out_id, self.student_in_id, 'ج: خصوصی استاد دیگر'])
+        page = self._get(reverse('core:teacher_student_profile', args=[self.student_in_id]), {'tab': 'notes'})
+        self.assertNotContains(page, 'خصوصی استاد دیگر')
+        self.assertEqual(self._post(reverse('core:teacher_student_note_delete', args=[self.student_in_id, foreign_note]), {}).status_code, 404)
+        self._post(reverse('core:teacher_student_note_delete', args=[self.student_in_id, str(notes[0][0])]), {})
+        self.assertEqual([row[3] for row in self._notes()], ['ب: آفرین', 'ج: خصوصی استاد دیگر'])
+
+    # -- export
+    def test_export_contains_only_filtered_own_students(self):
+        response = self._get(reverse('core:teacher_students_export'), {'tab': 'absent'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('attachment;', response['Content-Disposition'])
+        if response['Content-Disposition'].endswith('.csv"'):
+            text = response.content.decode('utf-8-sig')
+        else:
+            from openpyxl import load_workbook
+            sheet = load_workbook(io.BytesIO(response.content)).active
+            text = ' '.join(str(cell.value) for row in sheet.iter_rows() for cell in row)
+        self.assertIn('دانشجوی دوم', text)
+        self.assertNotIn('دانشجوی داخل محدوده', text)
+        self.assertNotIn('دانشجوی خارج محدوده', text)
+
+    def test_formula_like_cells_are_neutralised(self):
+        from .teacher_students import _cell
+
+        self.assertEqual(_cell('=HYPERLINK("x")'), "'=HYPERLINK(\"x\")")
+        self.assertEqual(_cell('علی'), 'علی')
 
 
 class SuperAdminExamEditScopeTests(_ScopedOrgFixture):

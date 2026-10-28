@@ -1,0 +1,73 @@
+{% load static core_extras %}<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>کارنامه {{ student.name }} | متاکوییز</title>
+    <style>
+        @font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-display:swap}
+        *{box-sizing:border-box}
+        body{margin:0;background:#f1f5f9;color:#0f172a;font-family:Vazirmatn,Tahoma,Arial,sans-serif;font-size:13px}
+        .rc{max-width:900px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e2e8f0;border-radius:16px}
+        .rc-bar{display:flex;justify-content:space-between;align-items:center;max-width:900px;margin:24px auto 0;gap:12px}
+        .rc-bar p{margin:0;color:#475569;font-weight:700}
+        .rc-bar button{height:40px;padding:0 18px;border:0;border-radius:10px;background:#2563eb;color:#fff;font:inherit;font-weight:900;cursor:pointer}
+        .rc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:16px;border-bottom:2px solid #e2e8f0}
+        .rc-head h1{margin:0 0 6px;font-size:20px}
+        .rc-head p{margin:2px 0;color:#475569;font-weight:600}
+        .rc-brand{text-align:left;color:#2563eb;font-weight:900;font-size:16px}
+        .rc-brand small{display:block;color:#64748b;font-size:11px;font-weight:600}
+        .rc-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}
+        .rc-kpis div{padding:12px;border:1px solid #e2e8f0;border-radius:10px;text-align:center}
+        .rc-kpis b{display:block;font-size:18px}
+        .rc-kpis span{color:#64748b;font-size:11px;font-weight:700}
+        h2{margin:20px 0 8px;font-size:14px}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:8px;border:1px solid #e2e8f0;text-align:right}
+        th{background:#f8fafc;font-size:11px;color:#475569}
+        .rc-foot{margin-top:24px;color:#94a3b8;font-size:11px;text-align:center}
+        @media print{
+            body{background:#fff}
+            .rc-bar{display:none}
+            .rc{margin:0;max-width:none;border:0;border-radius:0;padding:0}
+            @page{size:A4;margin:14mm}
+        }
+    </style>
+</head>
+<body>
+    <div class="rc-bar">
+        <p>برای ذخیره به‌صورت PDF، در پنجره‌ی چاپ گزینه‌ی «Save as PDF» را انتخاب کنید.</p>
+        <button type="button" onclick="window.print()">چاپ / ذخیره PDF</button>
+    </div>
+    <main class="rc">
+        <header class="rc-head">
+            <div>
+                <h1>کارنامه‌ی {{ student.name }}</h1>
+                <p>شماره دانشجویی: {{ student.code|default:"-"|fa_digits }}</p>
+                {% if student.field_of_study or student.degree %}<p>{{ student.degree }} {{ student.field_of_study }}</p>{% endif %}
+                <p>کلاس‌ها: {% for group in groups %}{{ group.label }}{% if not forloop.last %}، {% endif %}{% empty %}-{% endfor %}</p>
+            </div>
+            <div class="rc-brand">متاکوییز<small>تاریخ صدور: {{ today_label }}</small></div>
+        </header>
+        <section class="rc-kpis">
+            <div><b>{% if summary.average is not None %}{{ summary.average|fa_digits }}{% else %}-{% endif %}</b><span>میانگین از ۲۰</span></div>
+            <div><b>{{ summary.completed|fa_digits }} / {{ summary.exams_total|fa_digits }}</b><span>آزمون تکمیل‌شده</span></div>
+            <div><b>{% if summary.participation is not None %}{{ summary.participation|fa_digits }}٪{% else %}-{% endif %}</b><span>نرخ مشارکت</span></div>
+            <div><b>{{ summary.absent|fa_digits }}</b><span>غیبت در آزمون</span></div>
+        </section>
+        <h2>آزمون‌ها و نتایج</h2>
+        <table>
+            <thead><tr><th>آزمون</th><th>درس</th><th>تاریخ</th><th>تلاش</th><th>نمره خام</th><th>نمره از ۲۰</th><th>وضعیت</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr><td>{{ row.title }}</td><td>{{ row.course|default:"-" }}</td><td>{{ row.date_label }}</td><td>{% if row.attempt_no %}{{ row.attempt_no|fa_digits }}{% else %}-{% endif %}</td><td>{{ row.raw_label|fa_digits }}</td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{{ row.state_label }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="7">آزمونی ثبت نشده است.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="rc-foot">این کارنامه فقط آزمون‌های منتشرشده‌ی استاد صادرکننده را در بر می‌گیرد.</p>
+    </main>
+    {% if auto_print %}<script>window.addEventListener('load', () => window.print());</script>{% endif %}
+</body>
+</html>

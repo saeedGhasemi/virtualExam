@@ -10302,6 +10302,927 @@
     }
   }
 
+  /* Teacher «دانشجویان» list and student profile (templates/teacher/students/) */
+  .tstu {
+    @apply grid gap-5 text-right;
+  }
+
+  .tstu svg {
+    @apply h-5 w-5 shrink-0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tstu-head,
+  .tstu-title {
+    @apply flex flex-wrap items-center gap-4;
+  }
+
+  .tstu-title > i,
+  .tstu-hero-title > i {
+    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-blue-50 not-italic text-blue-600;
+  }
+
+  .tstu-title > i svg {
+    @apply h-7 w-7;
+  }
+
+  .tstu-title h1,
+  .tstu-hero-title h1 {
+    @apply text-2xl font-black tracking-normal text-slate-950;
+  }
+
+  .tstu-title p {
+    @apply mt-1 text-sm font-bold text-slate-500;
+  }
+
+  .tstu-card,
+  .tstu-filters {
+    @apply min-w-0 rounded-xl border border-[#e1e8f3] bg-white shadow-[0_10px_30px_rgba(33,55,104,.05)];
+  }
+
+  /* pill tabs — project standard (see .sap-tabs on the admin profile page) */
+  .tstu-tabs {
+    @apply flex w-full gap-1.5 overflow-x-auto rounded-2xl border border-[#e1e8f3] p-1.5;
+    background: rgba(244, 248, 253, .9);
+  }
+
+  .tstu-tabs a {
+    @apply flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-transparent px-4 text-sm font-black text-[#54617a] transition hover:text-blue-600;
+  }
+
+  .tstu-tabs a.is-active {
+    @apply border-blue-200 bg-white text-blue-600 shadow-[0_6px_16px_rgba(37,99,235,.14)];
+  }
+
+  .tstu-tabs a b {
+    @apply rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-600;
+  }
+
+  .tstu-tabs a.is-active b {
+    @apply bg-blue-50 text-blue-700;
+  }
+
+  .tstu-filters {
+    @apply flex flex-wrap items-center gap-3 p-3;
+  }
+
+  .tstu-filters.is-flat {
+    @apply rounded-none border-0 border-b border-slate-100 shadow-none;
+  }
+
+  .tstu-search,
+  .tstu-select,
+  .tstu-date {
+    @apply flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-400;
+  }
+
+  .tstu-search {
+    @apply min-w-[240px] flex-1;
+  }
+
+  .tstu-search input,
+  .tstu-select select,
+  .tstu-date [data-jalali-display] {
+    @apply h-full w-full min-w-0 border-0 bg-transparent p-0 text-sm font-bold text-slate-800 outline-none focus:ring-0;
+  }
+
+  .tstu-select {
+    @apply min-w-[190px];
+  }
+
+  .tstu-date {
+    @apply relative w-40 cursor-pointer;
+  }
+
+  .tstu-dash {
+    @apply font-black text-slate-400;
+  }
+
+  .tstu-btn {
+    @apply inline-flex h-11 cursor-pointer list-none items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:border-blue-400 hover:text-blue-700;
+  }
+
+  .tstu-btn::-webkit-details-marker {
+    display: none;
+  }
+
+  .tstu-btn.is-primary {
+    @apply border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:text-white;
+  }
+
+  .tstu-btn.is-outline {
+    @apply border-blue-300 text-blue-700;
+  }
+
+  .tstu-btn.is-ghost {
+    @apply border-transparent bg-transparent text-slate-500;
+  }
+
+  .tstu-btn:disabled,
+  .tstu-menu button:disabled {
+    @apply cursor-not-allowed opacity-60 hover:border-slate-200 hover:text-inherit;
+  }
+
+  .tstu-btn.is-primary:disabled {
+    @apply hover:bg-blue-600 hover:text-white;
+  }
+
+  .tstu-btn small,
+  .tstu-menu button small {
+    @apply rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700;
+  }
+
+  .tstu-btn svg.is-chevron {
+    @apply h-4 w-4;
+  }
+
+  .tstu-toolbar {
+    @apply flex flex-wrap items-center justify-end gap-3;
+  }
+
+  .tstu-selected {
+    @apply ml-auto text-sm font-bold text-slate-500;
+  }
+
+  .tstu-menu {
+    @apply relative;
+  }
+
+  .tstu-menu > summary:not(.tstu-btn) {
+    @apply grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800;
+  }
+
+  .tstu-menu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .tstu-menu > div {
+    @apply absolute left-0 top-11 z-20 grid w-52 rounded-xl border border-slate-100 bg-white p-1.5 shadow-lg;
+  }
+
+  .tstu-menu > div a,
+  .tstu-menu > div button {
+    @apply flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700;
+  }
+
+  .tstu-menu > div svg {
+    @apply h-4 w-4 text-slate-400;
+  }
+
+  /* visible on desktop so row menus and date pickers are not clipped; scrolls on narrow screens */
+  .tstu-table-wrap {
+    @apply overflow-visible;
+  }
+
+  .tstu-table {
+    @apply w-full min-w-[960px] border-collapse text-right text-sm;
+  }
+
+  .tstu-table th {
+    @apply h-12 border-b border-slate-100 bg-slate-50/80 px-4 text-xs font-black text-slate-500;
+  }
+
+  .tstu-table td {
+    @apply border-b border-slate-100 px-4 py-3 align-middle font-bold text-slate-600;
+  }
+
+  .tstu-table td.is-title {
+    @apply font-black text-slate-900;
+  }
+
+  .tstu-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .tstu-table .is-check {
+    @apply w-12;
+  }
+
+  .tstu-table input[type='checkbox'] {
+    @apply h-4 w-4 rounded border-slate-300 text-blue-600;
+  }
+
+  .tstu-person {
+    @apply flex items-center gap-3;
+  }
+
+  .tstu-person > img,
+  .tstu-person > span:first-child {
+    @apply grid h-10 w-10 shrink-0 place-items-center rounded-full bg-violet-50 object-cover text-sm font-black text-violet-600;
+  }
+
+  .tstu-person b {
+    @apply block font-black text-slate-900;
+  }
+
+  .tstu-person:hover b {
+    @apply text-blue-600;
+  }
+
+  .tstu-person small,
+  .tstu-sub {
+    @apply mt-0.5 block text-xs font-bold text-slate-400;
+  }
+
+  .tstu-strong {
+    @apply block font-black text-slate-800;
+  }
+
+  .tstu-muted {
+    @apply text-slate-400;
+  }
+
+  .tstu-score {
+    @apply inline-block rounded-lg px-2.5 py-1 text-sm font-black;
+  }
+
+  .tstu-score.is-ok { @apply bg-emerald-50 text-emerald-700; }
+  .tstu-score.is-warn { @apply bg-orange-50 text-orange-600; }
+  .tstu-score.is-danger { @apply bg-rose-50 text-rose-600; }
+  .tstu-score.is-muted { @apply bg-slate-100 text-slate-500; }
+
+  .tstu-attend {
+    @apply inline-flex items-center gap-1.5 font-black;
+  }
+
+  .tstu-attend svg {
+    @apply h-4 w-4;
+  }
+
+  .tstu-attend.is-ok { @apply text-emerald-600; }
+  .tstu-attend.is-danger { @apply text-rose-600; }
+  .tstu-attend.is-warn { @apply text-orange-500; }
+  .tstu-attend.is-blue { @apply text-blue-600; }
+
+  .tstu-badge {
+    @apply inline-flex items-center whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-black;
+  }
+
+  .tstu-badge.is-ok { @apply border-emerald-100 bg-emerald-50 text-emerald-700; }
+  .tstu-badge.is-warn { @apply border-amber-100 bg-amber-50 text-amber-700; }
+  .tstu-badge.is-danger { @apply border-rose-100 bg-rose-50 text-rose-600; }
+  .tstu-badge.is-muted { @apply border-slate-200 bg-slate-50 text-slate-500; }
+  .tstu-badge.is-blue { @apply border-blue-100 bg-blue-50 text-blue-700; }
+
+  .tstu-chip {
+    @apply inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 hover:border-blue-300 hover:text-blue-700;
+  }
+
+  .tstu-chip.is-green { @apply border-emerald-100 bg-emerald-50 text-emerald-700; }
+  .tstu-chip.is-blue { @apply border-blue-100 bg-blue-50 text-blue-700; }
+
+  .tstu-actions {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .tstu-footer {
+    @apply flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm font-bold text-slate-500;
+  }
+
+  .tstu-per-page select {
+    @apply mr-2 h-9 rounded-lg border border-slate-200 bg-white py-0 pl-8 pr-3 text-sm font-bold text-slate-700;
+  }
+
+  .tstu-pages {
+    @apply flex items-center gap-1.5;
+  }
+
+  .tstu-pages a,
+  .tstu-pages span {
+    @apply grid h-9 min-w-[2.25rem] place-items-center rounded-lg border border-slate-200 bg-white px-2 text-sm font-black text-slate-600;
+  }
+
+  .tstu-pages a:hover {
+    @apply border-blue-400 text-blue-700;
+  }
+
+  .tstu-pages .is-active {
+    @apply border-blue-200 bg-blue-50 text-blue-700;
+  }
+
+  .tstu-pages .is-gap {
+    @apply border-transparent bg-transparent;
+  }
+
+  .tstu-footer-actions {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .tstu-empty {
+    @apply rounded-xl border border-dashed border-slate-200 bg-white py-10 text-center text-sm font-bold text-slate-500;
+  }
+
+  .tstu-empty.is-flat {
+    @apply rounded-none border-0 bg-transparent py-6;
+  }
+
+  .tstu-empty a,
+  .tstu-link {
+    @apply font-black text-blue-600;
+  }
+
+  .tstu-link {
+    @apply inline-flex items-center gap-1 text-sm;
+  }
+
+  .tstu-link.is-danger {
+    @apply cursor-pointer border-0 bg-transparent p-0 text-xs text-rose-600;
+  }
+
+  .tstu-hint {
+    @apply text-xs font-bold text-slate-400;
+  }
+
+  .tstu-note-strip {
+    @apply mt-3 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500;
+  }
+
+  .tstu-note-strip svg {
+    @apply h-4 w-4 text-blue-500;
+  }
+
+  /* message dialog */
+  .tstu-dialog {
+    @apply w-[min(560px,calc(100vw-2rem))] rounded-2xl border border-slate-200 p-0 text-right shadow-2xl;
+    direction: rtl;
+  }
+
+  .tstu-dialog::backdrop {
+    background: rgba(15, 23, 42, .45);
+  }
+
+  .tstu-dialog form {
+    @apply grid gap-4 p-6;
+  }
+
+  .tstu-dialog header,
+  .tstu-dialog footer {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .tstu-dialog footer {
+    @apply justify-end;
+  }
+
+  .tstu-dialog h2 {
+    @apply text-lg font-black text-slate-900;
+  }
+
+  .tstu-dialog svg {
+    @apply h-5 w-5 shrink-0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tstu-dialog-close {
+    @apply grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700;
+  }
+
+  .tstu-field {
+    @apply grid gap-1.5 text-sm font-black text-slate-700;
+  }
+
+  .tstu-field input,
+  .tstu-field textarea,
+  .tstu-note-form textarea {
+    @apply w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-800 focus:border-blue-400 focus:ring-blue-100;
+  }
+
+  .tstu-chips {
+    @apply flex max-h-28 flex-wrap gap-1.5 overflow-y-auto;
+  }
+
+  .tstu-chips span {
+    @apply rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700;
+  }
+
+  /* profile */
+  .tstu-breadcrumb {
+    @apply flex items-center gap-1 text-sm font-bold text-slate-500;
+  }
+
+  .tstu-breadcrumb a {
+    @apply text-blue-600;
+  }
+
+  .tstu-breadcrumb svg {
+    @apply h-4 w-4;
+  }
+
+  .tstu-hero {
+    @apply grid gap-5 p-6;
+  }
+
+  .tstu-hero-top {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4;
+  }
+
+  .tstu-hero-title {
+    @apply flex items-center gap-3;
+  }
+
+  .tstu-hero-title > i {
+    @apply h-12 w-12;
+  }
+
+  .tstu-hero-title h1 {
+    @apply text-xl;
+  }
+
+  .tstu-readonly {
+    @apply flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-600;
+  }
+
+  .tstu-hero-body {
+    @apply flex flex-wrap items-center gap-8;
+  }
+
+  .tstu-portrait {
+    @apply grid h-40 w-40 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white bg-gradient-to-b from-violet-50 to-blue-100 shadow-[0_10px_30px_rgba(33,55,104,.12)];
+  }
+
+  .tstu-portrait img {
+    @apply h-full w-full object-cover;
+  }
+
+  .tstu-portrait span {
+    @apply text-5xl font-black text-violet-500;
+  }
+
+  .tstu-facts {
+    @apply grid min-w-0 flex-1 grid-cols-5 gap-x-6 gap-y-5;
+  }
+
+  .tstu-facts > div {
+    @apply min-w-0 border-r border-slate-100 pr-4;
+  }
+
+  .tstu-facts > div.is-code {
+    @apply row-span-2 border-r-0 pr-0;
+  }
+
+  .tstu-facts dt {
+    @apply text-xs font-bold text-slate-400;
+  }
+
+  .tstu-facts dd {
+    @apply mt-1.5 truncate font-black text-slate-800;
+  }
+
+  .tstu-facts dd.is-ltr {
+    direction: ltr;
+    text-align: right;
+  }
+
+  .tstu-facts .is-code dd {
+    @apply text-3xl text-blue-600;
+  }
+
+  .tstu-facts .is-code p {
+    @apply mt-3 flex flex-wrap gap-2;
+  }
+
+  .tstu-hero-actions {
+    @apply flex flex-wrap justify-end gap-3;
+  }
+
+  .tstu-kpis {
+    @apply grid grid-cols-4 gap-4;
+  }
+
+  .tstu-kpis article {
+    @apply flex items-center justify-between gap-4 px-5 py-5;
+  }
+
+  .tstu-kpis span {
+    @apply block text-sm font-black text-slate-700;
+  }
+
+  .tstu-kpis strong {
+    @apply mt-2 block text-3xl font-black leading-none text-slate-950;
+  }
+
+  .tstu-kpis small {
+    @apply mt-2 block text-xs font-bold text-slate-400;
+  }
+
+  .tstu-kpis i {
+    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl not-italic;
+  }
+
+  .tstu-kpis i svg {
+    @apply h-7 w-7;
+  }
+
+  .tstu-kpis i.is-green { @apply bg-emerald-50 text-emerald-600; }
+  .tstu-kpis i.is-blue { @apply bg-blue-50 text-blue-600; }
+  .tstu-kpis i.is-orange { @apply bg-orange-50 text-orange-500; }
+
+  .tstu-ring {
+    @apply grid h-20 w-20 shrink-0 place-items-center content-center rounded-full;
+    background:
+      radial-gradient(closest-side, #fff 78%, transparent 80%),
+      conic-gradient(#4f46e5 calc(var(--pct, 0) * 1%), #e2e8f0 0);
+  }
+
+  .tstu-ring b {
+    @apply text-lg font-black leading-none text-indigo-700;
+  }
+
+  .tstu-ring small {
+    @apply mt-1 text-[10px];
+  }
+
+  .tstu-overview-grid {
+    @apply grid grid-cols-3 gap-4;
+  }
+
+  .tstu-chart {
+    @apply flex flex-col gap-3 p-5;
+  }
+
+  .tstu-chart > header {
+    @apply flex flex-wrap items-center justify-between gap-2;
+  }
+
+  .tstu-chart h2 {
+    @apply flex items-center gap-2 text-base font-black text-slate-900;
+  }
+
+  .tstu-chart h2 small {
+    @apply text-xs font-bold text-slate-400;
+  }
+
+  .tstu-chart h2 svg {
+    @apply text-blue-500;
+  }
+
+  .tstu-chart > .tstu-link {
+    @apply mt-auto border-t border-slate-100 pt-3;
+  }
+
+  .tstu-upcoming {
+    @apply flex items-center gap-3 rounded-xl border border-slate-100 p-3;
+  }
+
+  .tstu-upcoming > div {
+    @apply min-w-0 flex-1;
+  }
+
+  .tstu-upcoming > div b {
+    @apply block truncate text-sm font-black text-slate-800;
+  }
+
+  .tstu-upcoming > div small {
+    @apply text-xs font-bold text-slate-400;
+  }
+
+  .tstu-day {
+    @apply grid w-14 shrink-0 place-items-center rounded-lg border border-slate-200 py-1 text-xs font-bold text-slate-500;
+  }
+
+  .tstu-upcoming .tstu-day b {
+    @apply text-lg font-black text-slate-900;
+  }
+
+  .tstu-timeline {
+    @apply grid gap-2;
+  }
+
+  .tstu-timeline li {
+    @apply relative flex items-start justify-between gap-3 border-r-2 border-slate-100 pr-4 text-sm;
+  }
+
+  .tstu-timeline li::before {
+    @apply absolute -right-[7px] top-1.5 h-3 w-3 rounded-full border-2 border-white bg-blue-500;
+    content: '';
+  }
+
+  .tstu-timeline li.is-ok::before { @apply bg-emerald-500; }
+  .tstu-timeline li.is-danger::before { @apply bg-rose-500; }
+  .tstu-timeline li.is-empty { @apply border-0 pr-0 font-bold text-slate-400; }
+  .tstu-timeline li.is-empty::before { display: none; }
+
+  .tstu-timeline b {
+    @apply block font-black text-slate-800;
+  }
+
+  .tstu-timeline small {
+    @apply block text-xs font-bold text-slate-400;
+  }
+
+  .tstu-timeline small.is-ok { @apply text-emerald-600; }
+  .tstu-timeline small.is-danger { @apply text-rose-600; }
+  .tstu-timeline small.is-blue { @apply text-blue-600; }
+
+  .tstu-timeline li > span {
+    @apply shrink-0 text-left text-xs font-bold text-slate-500;
+  }
+
+  .tstu-note {
+    @apply grid gap-2 rounded-xl border border-slate-100 p-3;
+  }
+
+  .tstu-note p {
+    @apply text-sm font-bold leading-7 text-slate-700;
+  }
+
+  .tstu-note footer {
+    @apply flex flex-wrap items-center gap-2 text-xs font-bold text-slate-400;
+  }
+
+  .tstu-note footer form {
+    @apply mr-auto;
+  }
+
+  .tstu-note-form {
+    @apply grid gap-2;
+  }
+
+  .tstu-counter {
+    @apply text-left text-xs font-bold text-slate-400;
+  }
+
+  .tstu-note-actions {
+    @apply flex flex-wrap justify-end gap-2;
+  }
+
+  .tstu-notes-layout {
+    @apply grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] items-start gap-4;
+  }
+
+  .tstu-section {
+    @apply grid gap-4;
+  }
+
+  .tstu-section-title {
+    @apply text-base font-black text-slate-900;
+  }
+
+  .tstu-section-card {
+    @apply relative;
+  }
+
+  .tstu-course-grid {
+    @apply grid grid-cols-4 gap-4;
+  }
+
+  .tstu-course {
+    @apply flex items-start gap-4 p-4;
+  }
+
+  .tstu-course > i {
+    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-blue-50 not-italic text-blue-600;
+  }
+
+  .tstu-course > i svg {
+    @apply h-7 w-7;
+  }
+
+  .tstu-course h3 {
+    @apply font-black text-slate-900;
+  }
+
+  .tstu-course h3 em {
+    @apply mr-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-black not-italic text-blue-700;
+  }
+
+  .tstu-course p {
+    @apply mt-1 text-xs font-bold text-slate-500;
+  }
+
+  /* analytics */
+  .tstu-analytics {
+    @apply grid gap-4;
+  }
+
+  .tstu-toggle {
+    @apply inline-flex cursor-pointer items-center gap-2 text-sm font-black text-slate-700;
+  }
+
+  .tstu-toggle input {
+    @apply sr-only;
+  }
+
+  .tstu-toggle span {
+    @apply relative h-6 w-11 rounded-full bg-slate-200 transition;
+  }
+
+  .tstu-toggle span::after {
+    @apply absolute right-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition;
+    content: '';
+  }
+
+  .tstu-toggle input:checked + span {
+    @apply bg-indigo-500;
+  }
+
+  .tstu-toggle input:checked + span::after {
+    transform: translateX(-1.25rem);
+  }
+
+  .tstu-analytics-grid {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  .tstu-chart.is-wide {
+    @apply col-span-2;
+  }
+
+  .tstu-analytics.is-hide-class [data-class-only] {
+    display: none;
+  }
+
+  .tstu-legend {
+    @apply flex gap-4 text-xs font-bold text-slate-500;
+  }
+
+  .tstu-legend span {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .tstu-legend span::before {
+    @apply inline-block h-2.5 w-4 rounded-sm;
+    content: '';
+  }
+
+  .tstu-legend .is-student::before { background: #6366f1; }
+  .tstu-legend .is-class::before { background: #60a5fa; }
+
+  .tstu-line-chart {
+    @apply h-auto w-full;
+  }
+
+  .tstu-line-chart .is-grid { stroke: #eef2f7; stroke-width: 1; }
+  .tstu-line-chart .is-axis { fill: #94a3b8; font-size: 10px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+  .tstu-line-chart polyline { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .tstu-line-chart polyline.is-student { stroke: #6366f1; }
+  .tstu-line-chart polyline.is-class { stroke: #60a5fa; stroke-dasharray: 5 4; stroke-width: 2; }
+  .tstu-line-chart circle.is-student { fill: #6366f1; stroke: #fff; stroke-width: 2; }
+  .tstu-line-chart circle.is-class { fill: #60a5fa; stroke: #fff; stroke-width: 2; }
+  .tstu-line-chart .is-student-label { fill: #4338ca; font-size: 11px; font-weight: 900; text-anchor: middle; }
+  .tstu-line-chart .is-class-label { fill: #2563eb; font-size: 10px; font-weight: 800; text-anchor: middle; }
+
+  .tstu-chart-keys {
+    @apply grid gap-1 text-xs font-bold text-slate-500;
+  }
+
+  .tstu-chart-keys b {
+    @apply ml-2 text-slate-700;
+  }
+
+  .tstu-chart-keys small {
+    @apply mr-1 text-slate-400;
+  }
+
+  .tstu-bars {
+    @apply flex h-56 items-end justify-around gap-3 border-b border-slate-100 pt-6;
+  }
+
+  .tstu-bar-group {
+    @apply flex h-full flex-1 flex-col items-center justify-end gap-2;
+  }
+
+  .tstu-bar-pair {
+    @apply flex h-full w-full items-end justify-center gap-1.5;
+  }
+
+  .tstu-bar-pair span {
+    @apply relative w-6 min-h-[2px] rounded-t-md;
+  }
+
+  .tstu-bar-pair span.is-student { background: #818cf8; }
+  .tstu-bar-pair span.is-class { background: #93c5fd; }
+
+  .tstu-bar-pair b {
+    @apply absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-black text-slate-600;
+  }
+
+  .tstu-bar-group small {
+    @apply text-xs font-bold text-slate-500;
+  }
+
+  .tstu-donut-row {
+    @apply flex flex-wrap items-center gap-6;
+  }
+
+  .tstu-donut {
+    @apply grid h-36 w-36 shrink-0 place-items-center rounded-full;
+  }
+
+  .tstu-donut span {
+    @apply grid h-24 w-24 place-items-center content-center rounded-full bg-white text-xs font-bold text-slate-500;
+  }
+
+  .tstu-donut b {
+    @apply text-2xl font-black text-slate-900;
+  }
+
+  .tstu-donut-keys {
+    @apply grid gap-2 text-sm font-bold text-slate-600;
+  }
+
+  .tstu-donut-keys li {
+    @apply flex items-center gap-2;
+  }
+
+  .tstu-donut-keys li::before {
+    @apply h-2.5 w-2.5 rounded-full;
+    content: '';
+  }
+
+  .tstu-donut-keys b {
+    @apply mr-auto pr-3 text-slate-800;
+  }
+
+  .tstu-donut-keys .is-correct::before { background: #10b981; }
+  .tstu-donut-keys .is-wrong::before { background: #f43f5e; }
+  .tstu-donut-keys .is-missing::before { background: #cbd5e1; }
+
+  .tstu-hard-list {
+    @apply grid gap-1.5;
+  }
+
+  .tstu-hard-list li {
+    @apply flex items-center justify-between gap-3 rounded-lg border-r-4 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600;
+  }
+
+  .tstu-hard-list li.is-correct { @apply border-emerald-400; }
+  .tstu-hard-list li.is-wrong { @apply border-rose-400; }
+  .tstu-hard-list li.is-missing { @apply border-slate-300; }
+
+  .tstu-hard-list small {
+    @apply shrink-0 text-slate-400;
+  }
+
+  .tstu-insight {
+    @apply flex items-start gap-3 rounded-xl border px-3 py-3 text-sm font-bold leading-7 text-slate-700;
+  }
+
+  .tstu-insight.is-ok { @apply border-emerald-100 bg-emerald-50/50; }
+  .tstu-insight.is-ok svg { @apply text-emerald-600; }
+  .tstu-insight.is-warn { @apply border-amber-100 bg-amber-50/50; }
+  .tstu-insight.is-warn svg { @apply text-amber-500; }
+  .tstu-insight.is-info { @apply border-blue-100 bg-blue-50/50; }
+  .tstu-insight.is-info svg { @apply text-blue-600; }
+
+  .jalali-time-row[hidden] {
+    display: none;
+  }
+
+  @media (max-width: 1280px) {
+    .tstu-table-wrap {
+      @apply overflow-x-auto;
+    }
+
+    .tstu-kpis,
+    .tstu-course-grid {
+      @apply grid-cols-2;
+    }
+
+    .tstu-overview-grid {
+      @apply grid-cols-1;
+    }
+
+    .tstu-facts {
+      @apply grid-cols-3;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .tstu-kpis,
+    .tstu-course-grid,
+    .tstu-analytics-grid,
+    .tstu-notes-layout,
+    .tstu-facts {
+      @apply grid-cols-1;
+    }
+
+    .tstu-chart.is-wide {
+      @apply col-span-1;
+    }
+
+    .tstu-facts > div {
+      @apply border-r-0 pr-0;
+    }
+
+    .tstu-select,
+    .tstu-date {
+      @apply min-w-0 flex-1;
+    }
+
+    .tstu-portrait {
+      @apply mx-auto h-28 w-28;
+    }
+  }
+
   .teacher-two-col,
   .teacher-review-layout,
   .teacher-import-grid {

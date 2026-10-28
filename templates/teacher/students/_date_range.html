@@ -1,0 +1,13 @@
+{% load static %}
+<div class="jalali-field tstu-date" data-jalali-field data-jalali-date-only>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+    <input type="text" data-jalali-display readonly autocomplete="off" placeholder="از تاریخ" aria-label="از تاریخ">
+    <input type="hidden" name="from" value="{{ profile.filters.from }}" data-jalali-value>
+</div>
+<span class="tstu-dash" aria-hidden="true">–</span>
+<div class="jalali-field tstu-date" data-jalali-field data-jalali-date-only>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+    <input type="text" data-jalali-display readonly autocomplete="off" placeholder="تا تاریخ" aria-label="تا تاریخ">
+    <input type="hidden" name="to" value="{{ profile.filters.to }}" data-jalali-value>
+</div>
+<script type="module" src="{% static 'js/jalali-datepicker.js' %}"></script>

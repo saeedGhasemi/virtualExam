@@ -13354,80 +13354,6 @@ def _teacher_exam_rows_simple(teacher_id):
     return rows
 
 
-def _teacher_student_rows(teacher_id, group_id=None):
-    where = ['(sg.teacher_id = %s OR sg.id IN (SELECT group_id FROM group_teachers WHERE teacher_id = %s))']
-    params = [teacher_id, teacher_id]
-    if group_id:
-        where.append('sg.id = %s')
-        params.append(group_id)
-    rows = erd_rows(
-        f"""
-        SELECT
-            p.id,
-            COALESCE(NULLIF(p.full_name, ''), NULLIF(sgm.full_name, ''), p.username, 'دانشجو') AS name,
-            COALESCE(NULLIF(sp.student_number, ''), NULLIF(sgm.student_number, ''), p.identifier, p.username, CAST(p.id AS TEXT)) AS code,
-            COALESCE(NULLIF(p.email, ''), '-') AS email,
-            COALESCE(NULLIF(p.phone, ''), '-') AS phone,
-            COALESCE(NULLIF(sp.field_of_study, ''), 'علوم کامپیوتر') AS field_of_study,
-            COALESCE(NULLIF(sp.degree, ''), 'کارشناسی') AS degree,
-            COALESCE(NULLIF(sp.entry_year, ''), '۱۴۰۲') AS entry_year,
-            COALESCE(NULLIF(sp.academic_status, ''), p.status, 'active') AS academic_status,
-            COALESCE(NULLIF(sg.course_name, ''), 'ساختمان داده‌ها') AS course,
-            COALESCE(NULLIF(sg.group_code, ''), '۱') AS group_code,
-            COUNT(DISTINCT sg.id) AS groups_count,
-            COUNT(DISTINCT e.id) AS exams_total,
-            COUNT(DISTINCT ea.id) AS attempts_count,
-            AVG(ea.score) AS avg_score,
-            MAX(COALESCE(ea.submitted_at, ea.started_at, p.last_login_at)) AS last_seen,
-            COALESCE(NULLIF(p.avatar_url, ''), '') AS avatar_url
-        FROM student_group_members sgm
-        JOIN student_groups sg ON sg.id = sgm.group_id
-        LEFT JOIN profiles p ON p.id = sgm.student_user_id
-        LEFT JOIN student_profiles sp ON sp.user_id = sgm.student_user_id
-        LEFT JOIN exams e ON e.teacher_id = sg.teacher_id
-        LEFT JOIN exam_attempts ea ON ea.exam_id = e.id AND ea.student_id = sgm.student_user_id
-        WHERE {' AND '.join(where)}
-        GROUP BY p.id, p.full_name, sgm.full_name, p.username, sp.student_number, sgm.student_number,
-                 p.identifier, p.email, p.phone, sp.field_of_study, sp.degree, sp.entry_year,
-                 sp.academic_status, p.status, sg.course_name, sg.group_code, p.avatar_url
-        ORDER BY name
-        LIMIT 120
-        """,
-        params,
-    ) if teacher_id else []
-
-    enriched = []
-    for index, row in enumerate(rows, start=1):
-        attempts = int(row.get('attempts_count') or 0)
-        exams_total = int(row.get('exams_total') or 0) or 20
-        avg_score = row.get('avg_score')
-        avg = float(avg_score) if avg_score not in (None, '') else None
-        participation = round((attempts / exams_total) * 100) if exams_total else 0
-        if (row.get('academic_status') or '').lower() in {'inactive', 'غیرفعال'}:
-            status_label, status_tone = 'غایب', 'danger'
-        elif avg is not None and avg < 10:
-            status_label, status_tone = 'هشدار', 'danger'
-        elif avg is not None and avg < 14:
-            status_label, status_tone = 'نیازمند بررسی', 'warn'
-        else:
-            status_label, status_tone = 'فعال', 'ok'
-        enriched.append({
-            **row,
-            'initial': (row.get('name') or 'د')[:1],
-            'status_label': status_label,
-            'status_tone': status_tone,
-            'attendance_label': 'غایب' if status_tone == 'danger' and attempts < exams_total / 2 else 'حاضر',
-            'attendance_sessions': f'{attempts or max(4, 16 - index)} از {exams_total or 16}',
-            'participation': participation,
-            'avg_score_display': '-' if avg is None else f'{avg:.1f}'.rstrip('0').rstrip('.'),
-            'score_percent': '-' if avg is None else f'{round((avg / 20) * 100)}%',
-            'last_exam': 'آزمون میان‌ترم' if index != 4 else 'کوئیز شماره ۴',
-            'last_exam_date': '1403/02/15' if index != 4 else '1403/02/10',
-            'avatar_url': row.get('avatar_url') or '',
-        })
-    return enriched
-
-
 QUESTION_TYPE_LABELS = {
     **question_kinds.TYPE_LABELS,
     'single': 'چهارگزینه‌ای',
@@ -14209,44 +14135,11 @@ def _teacher_modern_context(request, page, **extra):
         question_view = 'all'
     question_sets = _teacher_question_sets(teacher_id, all_questions)
     question_tags = _teacher_question_tags(all_questions)
-    students = _teacher_student_rows(teacher_id, selected_group_id) if page in {'course_detail', 'group_students', 'group_activity'} else _teacher_student_rows(teacher_id)
-    student_rows_all = list(students)
-    student_query = (request.GET.get('student_q') or '').strip()
-    student_status_filter = request.GET.get('student_status') or 'all'
-    if page == 'group_students':
-        if student_query:
-            query = student_query.lower()
-            students = [
-                student for student in students
-                if query in str(student.get('name', '')).lower()
-                or query in str(student.get('code', '')).lower()
-                or query in str(student.get('email', '')).lower()
-                or query in str(student.get('course', '')).lower()
-            ]
-        if student_status_filter == 'review':
-            students = [student for student in students if student.get('status_tone') == 'warn']
-        elif student_status_filter == 'absent':
-            students = [student for student in students if student.get('attendance_label') == 'غایب']
-        elif student_status_filter == 'unfinished':
-            students = [student for student in students if (student.get('participation') or 0) < 70]
-    selected_student = None
-    student_id = extra.get('student_id')
-    if student_id:
-        selected_student = next(
-            (
-                student for student in students
-                if str(student.get('code')) == str(student_id) or str(student.get('id')) == str(student_id)
-            ),
-            None,
-        )
-        if not selected_student:
-            selected_student = next(
-                (
-                    student for student in _teacher_student_rows(teacher_id, extra.get('group_id'))
-                    if str(student.get('code')) == str(student_id) or str(student.get('id')) == str(student_id)
-                ),
-                None,
-            )
+    recent_exam_students = []
+    if page == 'course_detail' and teacher_id:
+        from .teacher_students import student_list_rows
+
+        recent_exam_students = student_list_rows(teacher_id, selected_group_id)[:5]
     return {
         'page': page,
         'teacher_profile': _teacher_modern_profile(request),
@@ -14266,7 +14159,7 @@ def _teacher_modern_context(request, page, **extra):
         'selected_course': selected_course,
         'course_exams': _teacher_group_exam_rows(teacher_id, selected_group_id, selected_course.get('course_name')),
         'course_activity': _teacher_group_activity_rows(selected_course.get('course_name')),
-        'recent_exam_students': students[:5],
+        'recent_exam_students': recent_exam_students,
         'exams': exams[:8] or [
             {'title': 'آزمون میان‌ترم مبانی مدیریت', 'course': 'مبانی مدیریت', 'start_at': '۱۴۰۳/۰۲/۳۱', 'status': 'فعال'},
             {'title': 'مهلت ارسال پروژه گروهی', 'course': 'بازاریابی دیجیتال', 'start_at': '۱۴۰۳/۰۳/۲۲', 'status': 'مهلت'},
@@ -14286,19 +14179,7 @@ def _teacher_modern_context(request, page, **extra):
         'question_drafts': [q for q in all_questions if q['status_key'] == 'draft'][:10],
         'shared_questions': [q for q in all_questions if q['status_key'] == 'active'][:10],
         'archived_questions': [q for q in all_questions[-8:]],
-        'students': students,
-        'selected_student': selected_student,
-        'student_profile_tab': extra.get('tab', request.GET.get('tab', 'overview')),
         'course_detail_tab': request.GET.get('tab', 'overview'),
-        'student_status_filter': student_status_filter,
-        'student_query': student_query,
-        'student_summary': {
-            'total': max(len(student_rows_all), sum(int(row.get('students_count') or 0) for row in courses), 62 if page == 'group_students' else 0),
-            'active': sum(1 for student in student_rows_all if student.get('status_tone') == 'ok'),
-            'review': sum(1 for student in student_rows_all if student.get('status_tone') == 'warn'),
-            'absent': sum(1 for student in students if student.get('attendance_label') == 'غایب'),
-            'unfinished': sum(1 for student in student_rows_all if (student.get('participation') or 0) < 70),
-        },
         'selected_group_id': selected_group_id,
         'dashboard': _teacher_dashboard_data(teacher_id) if page == 'dashboard' and teacher_id else None,
         **extra,
@@ -14434,42 +14315,6 @@ def teacher_courses(request):
 @erd_role_required('teacher')
 def teacher_course_detail(request, group_id):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'course_detail', group_id=group_id))
-
-
-def _teacher_owns_group(teacher_id, group_id) -> bool:
-    """True when the teacher teaches this group, as its owner or a co-teacher."""
-    try:
-        uuid.UUID(str(group_id))
-    except ValueError:
-        return False
-    return erd_row(
-        'SELECT 1 AS ok FROM student_groups sg '
-        'WHERE sg.id = %s AND (sg.teacher_id = %s OR sg.id IN (SELECT group_id FROM group_teachers WHERE teacher_id = %s))',
-        [group_id, teacher_id, teacher_id],
-    ) is not None
-
-
-@erd_role_required('teacher')
-def teacher_group_students(request, group_id):
-    if not _teacher_owns_group(request.erd_profile_id, group_id):
-        raise Http404('گروه پیدا نشد.')
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'group_students', group_id=group_id))
-
-
-@erd_role_required('teacher')
-def teacher_group_activity(request, group_id):
-    if not _teacher_owns_group(request.erd_profile_id, group_id):
-        raise Http404('گروه پیدا نشد.')
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'group_activity', group_id=group_id))
-
-
-@erd_role_required('teacher')
-def teacher_student_profile(request, student_id):
-    context = _teacher_modern_context(request, 'student_profile', student_id=student_id, tab=request.GET.get('tab', 'overview'))
-    if not context['selected_student']:  # not a member of any group this teacher teaches
-        raise Http404('دانشجو پیدا نشد.')
-    context['student_id'] = student_id
-    return render(request, 'teacher/modern.html', context)
 
 
 @erd_role_required('teacher')

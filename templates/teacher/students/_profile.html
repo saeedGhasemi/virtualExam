@@ -1,0 +1,319 @@
+{% load core_extras static %}
+{% with p=profile s=profile.student sm=profile.summary %}
+<div class="tstu tstu-profile">
+    <nav class="tstu-breadcrumb" aria-label="مسیر"><a href="{% url 'core:teacher_students' %}">دانشجویان</a><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>پروفایل دانشجو</span></nav>
+
+    <section class="tstu-card tstu-hero">
+        <div class="tstu-hero-top">
+            <div class="tstu-hero-title">
+                <i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></i>
+                <h1>پروفایل دانشجو: {{ s.name }}</h1>
+            </div>
+            <p class="tstu-readonly"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>اطلاعات هویتی فقط خواندنی است</p>
+        </div>
+        <div class="tstu-hero-body">
+            <div class="tstu-portrait">
+                {% if s.avatar_url %}<img src="{{ s.avatar_url }}" alt="تصویر {{ s.name }}">{% else %}<span>{{ s.initial }}</span>{% endif %}
+            </div>
+            <dl class="tstu-facts">
+                <div class="is-code"><dt>شماره دانشجویی</dt><dd>{{ s.code|default:"-"|fa_digits }}</dd>
+                    <p><span class="tstu-badge {{ s.status_tone }}">{{ s.status_label|default:"فعال" }}</span>{% if s.degree %}<span class="tstu-badge is-blue">{{ s.degree }}</span>{% endif %}</p>
+                </div>
+                <div><dt>نام و نام خانوادگی</dt><dd>{{ s.name }}</dd></div>
+                <div><dt>رشته تحصیلی</dt><dd>{{ s.field_of_study|default:"-" }}</dd></div>
+                <div><dt>مقطع تحصیلی</dt><dd>{{ s.degree|default:"-" }}</dd></div>
+                <div><dt>ایمیل</dt><dd class="is-ltr">{{ s.email|default:"-" }}</dd></div>
+                <div><dt>سال ورود</dt><dd>{{ s.entry_year|default:"-"|fa_digits }}</dd></div>
+                <div><dt>تاریخ تولد</dt><dd>{{ s.birth_date|default:"-"|fa_digits }}</dd></div>
+                <div><dt>شماره موبایل</dt><dd class="is-ltr">{{ s.phone|default:"-"|fa_digits }}</dd></div>
+            </dl>
+        </div>
+        <div class="tstu-hero-actions">
+            <a class="tstu-btn" href="{% url 'core:teacher_student_report' s.id %}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>دانلود کارنامه</a>
+            <button type="button" class="tstu-btn" disabled title="در حال توسعه"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></svg>ثبت استثنا<small>در حال توسعه</small></button>
+            <button type="button" class="tstu-btn is-primary" data-message-student="{{ s.id }}" data-message-name="{{ s.name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>ارسال پیام</button>
+        </div>
+    </section>
+
+    <nav class="tstu-tabs" aria-label="بخش‌های پروفایل">
+        {% for key, label in p.tabs.items %}
+            <a href="?tab={{ key }}" class="{% if key == p.tab %}is-active{% endif %}" {% if key == p.tab %}aria-current="page"{% endif %}>
+                {% if key == 'overview' %}<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                {% elif key == 'courses' %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg>
+                {% elif key == 'exams' %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0Z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+                {% elif key == 'analytics' %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+                {% else %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{% endif %}
+                <span>{{ label }}</span>
+            </a>
+        {% endfor %}
+    </nav>
+
+    {% if p.tab == 'courses' %}
+        <section class="tstu-section">
+            <h2 class="tstu-section-title">درس‌ها و کلاس‌های شما که این دانشجو در آن‌ها عضو است</h2>
+            <div class="tstu-course-grid">
+                {% for group in p.groups %}
+                    <article class="tstu-card tstu-course">
+                        <i aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></i>
+                        <div>
+                            <h3>{{ group.course_name }}{% if group.course_code %} <em>{{ group.course_code }}</em>{% endif %}</h3>
+                            <p>{{ group.term_label|default:"-" }}</p>
+                            <p>گروه: {{ group.group_code|default:"-"|fa_digits }}</p>
+                            <p>استاد: {{ group.owner_name|default:"-" }}</p>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+            <div class="tstu-card">
+                <div class="tstu-table-wrap">
+                    <table class="tstu-table">
+                        <thead><tr><th>درس</th><th>نیمسال</th><th>گروه</th><th>استاد</th><th>وضعیت عضویت</th><th>آزمون‌های فعال</th><th>اقدامات</th></tr></thead>
+                        <tbody>
+                            {% for group in p.groups %}
+                                <tr>
+                                    <td class="is-title">{{ group.course_name }}{% if group.course_code %} ({{ group.course_code }}){% endif %}</td>
+                                    <td>{{ group.term_label|default:"-" }}</td>
+                                    <td>{{ group.group_code|default:"-"|fa_digits }}</td>
+                                    <td>{{ group.owner_name|default:"-" }}</td>
+                                    <td>{% if group.is_active %}<span class="tstu-badge is-ok">عضو فعال</span>{% else %}<span class="tstu-badge is-muted">کلاس غیرفعال</span>{% endif %}</td>
+                                    <td>{{ group.active_exams|fa_digits }}</td>
+                                    <td class="tstu-actions">
+                                        <a class="tstu-chip is-green" href="{% url 'core:teacher_student_report' s.id %}?group={{ group.id }}" target="_blank" rel="noopener">دانلود کارنامه</a>
+                                        <button type="button" class="tstu-chip is-blue" data-message-student="{{ s.id }}" data-message-name="{{ s.name }}">ارسال پیام به دانشجو</button>
+                                        <a class="tstu-chip" href="?tab=exams&group={{ group.id }}">مشاهده آزمون‌های درس</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="tstu-note-strip"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>عضویت دانشجو در کلاس‌ها توسط مدیر آموزشی مدیریت می‌شود و در این بخش فقط قابل مشاهده است.</p>
+            </div>
+        </section>
+
+    {% elif p.tab == 'exams' %}
+        <section class="tstu-card tstu-section-card">
+            <form class="tstu-filters is-flat" method="get">
+                <input type="hidden" name="tab" value="exams">
+                <label class="tstu-select"><span class="sr-only">کلاس</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg><select name="group" onchange="this.form.submit()"><option value="">همه درس‌ها</option>{% for group in p.groups %}<option value="{{ group.id }}"{% if group.id == p.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}</select></label>
+                <label class="tstu-select"><span class="sr-only">وضعیت</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4Z"/></svg><select name="state" onchange="this.form.submit()"><option value="">همه وضعیت‌ها</option>{% for key, state in p.states.items %}<option value="{{ key }}"{% if key == p.filters.state %} selected{% endif %}>{{ state.0 }}</option>{% endfor %}</select></label>
+                {% include 'teacher/students/_date_range.html' %}
+                <button type="submit" class="tstu-btn">اعمال</button>
+                {% if p.is_filtered %}<a class="tstu-btn is-ghost" href="?tab=exams"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>پاک‌سازی فیلترها</a>{% endif %}
+            </form>
+            {% if p.exam_rows %}
+                <div class="tstu-table-wrap">
+                    <table class="tstu-table">
+                        <thead><tr><th>آزمون</th><th>درس</th><th>وضعیت تلاش</th><th>تاریخ و زمان</th><th>نمره خام</th><th>نمره نهایی (از ۲۰)</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                        <tbody>
+                            {% for row in p.exam_rows %}
+                                <tr>
+                                    <td class="is-title">{{ row.title }}</td>
+                                    <td>{{ row.course|default:"-" }}</td>
+                                    <td>{% if row.attempt_no == 1 %}<span class="tstu-chip">اولین تلاش</span>{% elif row.attempt_no %}<span class="tstu-chip">تلاش {{ row.attempt_no|fa_digits }}</span>{% else %}<span class="tstu-muted">-</span>{% endif %}</td>
+                                    <td>{{ row.date_label }}<small class="tstu-sub">{{ row.time_label|fa_digits }}</small></td>
+                                    <td>{{ row.raw_label|fa_digits }}</td>
+                                    <td>{% if row.score_20 is not None %}<b class="tstu-score {% if row.score_20 >= 14 %}is-ok{% elif row.score_20 >= 10 %}is-warn{% else %}is-danger{% endif %}">{{ row.score_20|fa_digits }}</b>{% else %}<span class="tstu-muted">-</span>{% endif %}</td>
+                                    <td><span class="tstu-badge {{ row.state_tone }}">{{ row.state_label }}</span></td>
+                                    <td>
+                                        <details class="tstu-menu">
+                                            <summary aria-label="عملیات {{ row.title }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></summary>
+                                            <div>
+                                                <a href="{% url 'core:teacher_results' %}?exam={{ row.exam_id }}">نتایج آزمون</a>
+                                                {% if row.first_pending_id %}<a href="{% url 'core:teacher_grading_detail' row.first_pending_id %}">تصحیح دستی</a>{% endif %}
+                                                <button type="button" disabled title="در حال توسعه">مشاهده پاسخنامه<small>در حال توسعه</small></button>
+                                            </div>
+                                        </details>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% elif p.is_filtered %}
+                <p class="tstu-empty is-flat">آزمونی با این فیلترها پیدا نشد. <a href="?tab=exams">نمایش همه آزمون‌ها</a></p>
+            {% else %}
+                <p class="tstu-empty is-flat">هنوز آزمونی از شما برای این دانشجو منتشر نشده است.</p>
+            {% endif %}
+            <footer class="tstu-footer">
+                <span>{% if p.exam_total %}نتایج {{ p.exam_page.start_index|fa_digits }} تا {{ p.exam_page.end_index|fa_digits }} از {{ p.exam_total|fa_digits }} مورد{% endif %}</span>
+                {% if p.exam_page.paginator.num_pages > 1 %}
+                    <nav class="tstu-pages" aria-label="صفحه‌بندی">
+                        {% if p.exam_page.has_previous %}<a href="{% query_url page=p.exam_page.previous_page_number %}">‹</a>{% endif %}
+                        <span class="is-active">صفحه {{ p.exam_page.number|fa_digits }} از {{ p.exam_page.paginator.num_pages|fa_digits }}</span>
+                        {% if p.exam_page.has_next %}<a href="{% query_url page=p.exam_page.next_page_number %}">›</a>{% endif %}
+                    </nav>
+                {% endif %}
+                <div class="tstu-footer-actions">
+                    <button type="button" class="tstu-btn" disabled title="در حال توسعه">مشاهده پاسخنامه<small>در حال توسعه</small></button>
+                    {% if p.first_pending %}<a class="tstu-btn" href="{% url 'core:teacher_grading_detail' p.first_pending %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>تصحیح دستی</a>
+                    {% else %}<button type="button" class="tstu-btn" disabled title="پاسخی در انتظار تصحیح نیست">تصحیح دستی</button>{% endif %}
+                    <a class="tstu-btn" href="{% url 'core:teacher_student_report' s.id %}{% if p.filters.group %}?group={{ p.filters.group }}{% endif %}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>خروجی PDF</a>
+                    <button type="button" class="tstu-btn is-primary" disabled title="در حال توسعه">ثبت فرصت مجدد<small>در حال توسعه</small></button>
+                </div>
+            </footer>
+        </section>
+
+    {% elif p.tab == 'analytics' %}
+        {% with a=p.analytics %}
+        <section class="tstu-analytics" data-analytics>
+            <form class="tstu-card tstu-filters" method="get">
+                <input type="hidden" name="tab" value="analytics">
+                <label class="tstu-select"><span class="sr-only">درس</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg><select name="group" onchange="this.form.submit()"><option value="">همه درس‌ها</option>{% for group in p.groups %}<option value="{{ group.id }}"{% if group.id == p.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}</select></label>
+                {% include 'teacher/students/_date_range.html' %}
+                <button type="submit" class="tstu-btn">اعمال</button>
+                <label class="tstu-toggle"><input type="checkbox" checked data-compare-toggle><span aria-hidden="true"></span>مقایسه با میانگین کلاس</label>
+                <a class="tstu-btn is-outline" href="{% url 'core:teacher_student_report' s.id %}{% if p.filters.group %}?group={{ p.filters.group }}{% endif %}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>دانلود گزارش</a>
+            </form>
+            {% if a.has_data %}
+                <div class="tstu-analytics-grid">
+                    <article class="tstu-card tstu-chart">
+                        <header><h2>روند نمره در آزمون‌ها <small>(از ۲۰)</small></h2><p class="tstu-legend"><span class="is-student">نمره دانشجو</span><span class="is-class" data-class-only>میانگین کلاس</span></p></header>
+                        <svg class="tstu-line-chart" viewBox="0 0 400 230" role="img" aria-label="روند نمره دانشجو و میانگین کلاس">
+                            {% for line in a.trend.grid %}<line x1="24" x2="376" y1="{{ line.y }}" y2="{{ line.y }}" class="is-grid"/><text x="390" y="{{ line.y }}" class="is-axis">{{ line.label }}</text>{% endfor %}
+                            <g data-class-only>
+                                <polyline points="{{ a.trend.class_points }}" class="is-class"/>
+                                {% for point in a.trend.class %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="3.5" class="is-class"/><text x="{{ point.x }}" y="{{ point.below }}" class="is-class-label">{{ point.value|fa_digits }}</text>{% endfor %}
+                            </g>
+                            <polyline points="{{ a.trend.student_points }}" class="is-student"/>
+                            {% for point in a.trend.student %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="4.5" class="is-student"/><text x="{{ point.x }}" y="{{ point.y }}" dy="-10" class="is-student-label">{{ point.value|fa_digits }}</text>{% endfor %}
+                            {% for label in a.trend.labels %}<text x="{{ label.x }}" y="222" class="is-axis is-x">{{ label.text }}</text>{% endfor %}
+                        </svg>
+                        <ul class="tstu-chart-keys">{% for point in a.points %}<li><b>{{ point.short }}</b>{{ point.title }} <small>{{ point.date_label }}</small></li>{% endfor %}</ul>
+                    </article>
+
+                    <article class="tstu-card tstu-chart">
+                        <header><h2>زمان پاسخ‌دهی <small>(دقیقه)</small></h2><p class="tstu-legend"><span class="is-student">دانشجو</span><span class="is-class" data-class-only>میانگین کلاس</span></p></header>
+                        {% if a.time_chart.has_data %}
+                            <div class="tstu-bars">
+                                {% for bar in a.time_chart.bars %}
+                                    <div class="tstu-bar-group">
+                                        <div class="tstu-bar-pair">
+                                            <span class="is-student" style="height:{{ bar.student_height }}%" title="دانشجو: {{ bar.student }} دقیقه"><b>{{ bar.student|fa_digits }}</b></span>
+                                            <span class="is-class" data-class-only style="height:{{ bar.class_height }}%" title="میانگین کلاس: {{ bar.class_avg }} دقیقه"><b>{{ bar.class_avg|fa_digits }}</b></span>
+                                        </div>
+                                        <small>{{ bar.short }}</small>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <p class="tstu-hint">زمان کمتر لزوماً به معنی عملکرد بهتر نیست؛ در کنار نمره بررسی شود.</p>
+                        {% else %}<p class="tstu-empty is-flat">زمان شروع و ارسال آزمون‌ها ثبت نشده است.</p>{% endif %}
+                    </article>
+
+                    <article class="tstu-card tstu-chart">
+                        <header><h2>تحلیل سؤالات دشوار</h2></header>
+                        {% if a.hard.total %}
+                            <div class="tstu-donut-row">
+                                <div class="tstu-donut" style="background:{{ a.hard.donut }}"><span><b>{{ a.hard.total|fa_digits }}</b>سؤال دشوار</span></div>
+                                <ul class="tstu-donut-keys">
+                                    <li class="is-correct">پاسخ درست <b>{{ a.hard.counts.correct|fa_digits }} ({{ a.hard.percents.correct|fa_digits }}٪)</b></li>
+                                    <li class="is-wrong">پاسخ نادرست <b>{{ a.hard.counts.wrong|fa_digits }} ({{ a.hard.percents.wrong|fa_digits }}٪)</b></li>
+                                    <li class="is-missing">بی‌پاسخ / تصحیح‌نشده <b>{{ a.hard.counts.missing|fa_digits }} ({{ a.hard.percents.missing|fa_digits }}٪)</b></li>
+                                </ul>
+                            </div>
+                            <ol class="tstu-hard-list">{% for item in a.hard.items %}<li class="is-{{ item.outcome }}"><span>{{ item.text }}</span><small>پاسخ درست کلاس: {{ item.rate|fa_digits }}٪</small></li>{% endfor %}</ol>
+                        {% else %}<p class="tstu-empty is-flat">در این آزمون‌ها سؤالی با پاسخ درست کمتر از ۴۰٪ کلاس نبود.</p>{% endif %}
+                        <p class="tstu-note-strip">سؤال دشوار: سؤالی که کمتر از ۴۰٪ شرکت‌کنندگان به آن پاسخ درست داده‌اند.</p>
+                    </article>
+
+                    <article class="tstu-card tstu-chart">
+                        <header><h2>بینش‌های عملکردی</h2></header>
+                        {% for item in a.insights %}
+                            <p class="tstu-insight {{ item.tone }}">{% if item.tone == 'is-ok' %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>{% elif item.tone == 'is-warn' %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>{% else %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>{% endif %}{{ item.text }}</p>
+                        {% empty %}<p class="tstu-empty is-flat">برای ارائه‌ی بینش، داده‌ی کافی وجود ندارد.</p>{% endfor %}
+                    </article>
+
+                    <article class="tstu-card tstu-chart is-wide">
+                        <header><h2>یادداشت و بازخورد استاد</h2><a class="tstu-link" href="?tab=notes">همه یادداشت‌ها</a></header>
+                        {% include 'teacher/students/_note_form.html' %}
+                    </article>
+                </div>
+            {% else %}
+                <p class="tstu-empty">هنوز آزمون ارسال‌شده‌ای از این دانشجو در آزمون‌های شما{% if p.filters.group or p.filters.from or p.filters.to %} با این فیلترها{% endif %} وجود ندارد.</p>
+            {% endif %}
+        </section>
+        <script>
+        (() => {
+          const root = document.querySelector('[data-analytics]');
+          root?.querySelector('[data-compare-toggle]')?.addEventListener('change', (event) => {
+            root.classList.toggle('is-hide-class', !event.target.checked);
+          });
+        })();
+        </script>
+        {% endwith %}
+
+    {% elif p.tab == 'notes' %}
+        <section class="tstu-notes-layout">
+            <article class="tstu-card tstu-chart">
+                <header><h2>یادداشت جدید</h2></header>
+                {% include 'teacher/students/_note_form.html' %}
+            </article>
+            <article class="tstu-card tstu-chart">
+                <header><h2>یادداشت‌های شما درباره این دانشجو</h2></header>
+                {% for note in p.notes %}
+                    <div class="tstu-note">
+                        <p>{{ note.body|linebreaksbr }}</p>
+                        <footer>
+                            <small>{{ note.date_label }} - {{ note.time_label|fa_digits }}</small>
+                            {% if note.is_shared %}<span class="tstu-badge is-blue">ارسال‌شده برای دانشجو</span>{% else %}<span class="tstu-badge is-muted">خصوصی</span>{% endif %}
+                            <form method="post" action="{% url 'core:teacher_student_note_delete' s.id note.id %}" onsubmit="return confirm('این یادداشت حذف شود؟');">{% csrf_token %}<button type="submit" class="tstu-link is-danger">حذف</button></form>
+                        </footer>
+                    </div>
+                {% empty %}
+                    <p class="tstu-empty is-flat">هنوز یادداشتی ثبت نکرده‌اید.</p>
+                {% endfor %}
+            </article>
+        </section>
+
+    {% else %}
+        <div class="tstu-kpis">
+            <article class="tstu-card">
+                <div><span>میانگین نمرات</span><small>در آزمون‌های شما</small></div>
+                <div class="tstu-ring" style="--pct: {{ sm.average_percent|default:0 }}"><b>{% if sm.average is not None %}{{ sm.average|fa_digits }}{% else %}-{% endif %}</b><small>از ۲۰</small></div>
+            </article>
+            <article class="tstu-card">
+                <div><span>آزمون‌های تکمیل‌شده</span><strong>{{ sm.completed|fa_digits }}</strong><small>از {{ sm.exams_total|fa_digits }} آزمون</small></div>
+                <i class="is-green" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg></i>
+            </article>
+            <article class="tstu-card">
+                <div><span>نرخ مشارکت</span><strong>{% if sm.participation is not None %}{{ sm.participation|fa_digits }}٪{% else %}-{% endif %}</strong><small>در آزمون‌های برگزارشده{% if sm.absent %} · {{ sm.absent|fa_digits }} غیبت{% endif %}</small></div>
+                <i class="is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg></i>
+            </article>
+            <article class="tstu-card">
+                <div><span>تلاش‌های ناقص</span><strong>{{ sm.unfinished|fa_digits }}</strong><small>{% if sm.grading %}{{ sm.grading|fa_digits }} پاسخ‌برگ در انتظار تصحیح{% else %}آزمون ارسال‌نشده{% endif %}</small></div>
+                <i class="is-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h12M6 22h12M7 2v4l5 6-5 6v4M17 2v4l-5 6 5 6v4"/></svg></i>
+            </article>
+        </div>
+        <div class="tstu-overview-grid">
+            <article class="tstu-card tstu-chart">
+                <header><h2><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>آزمون‌های پیش رو</h2></header>
+                {% for row in p.upcoming %}
+                    <div class="tstu-upcoming">
+                        <span class="tstu-day"><b>{{ row.day_label }}</b>{{ row.month_label }}</span>
+                        <div><b>{{ row.title }}</b><small>ساعت {{ row.time_label|fa_digits }}</small></div>
+                        <span class="tstu-badge {{ row.state_tone }}">{{ row.state_label }}</span>
+                    </div>
+                {% empty %}<p class="tstu-empty is-flat">آزمون پیش رویی ندارد.</p>{% endfor %}
+                <a class="tstu-link" href="?tab=exams">مشاهده همه آزمون‌ها</a>
+            </article>
+            <article class="tstu-card tstu-chart">
+                <header><h2><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>خط زمان</h2></header>
+                <ol class="tstu-timeline">
+                    {% for event in p.timeline %}
+                        <li class="{{ event.tone }}"><div><b>{{ event.title }}</b><small class="{{ event.tone }}">{{ event.label }}</small></div><span>{{ event.date_label }}<small>{{ event.time_label|fa_digits }}</small></span></li>
+                    {% empty %}<li class="is-empty">هنوز فعالیتی در آزمون‌های شما ثبت نشده است.</li>{% endfor %}
+                </ol>
+                <a class="tstu-link" href="?tab=exams">مشاهده همه آزمون‌ها و نتایج</a>
+            </article>
+            <article class="tstu-card tstu-chart">
+                <header><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>یادداشت‌های اخیر</h2></header>
+                {% for note in p.notes %}
+                    <div class="tstu-note is-compact"><p>{{ note.body|truncatechars:140 }}</p><footer><small>{{ note.date_label }}</small>{% if note.is_shared %}<span class="tstu-badge is-blue">ارسال‌شده</span>{% endif %}</footer></div>
+                {% empty %}<p class="tstu-empty is-flat">یادداشتی ثبت نشده است.</p>{% endfor %}
+                <a class="tstu-link" href="?tab=notes">افزودن یا مشاهده یادداشت‌ها</a>
+            </article>
+        </div>
+    {% endif %}
+</div>
+{% include 'teacher/students/_message_dialog.html' %}
+{% endwith %}

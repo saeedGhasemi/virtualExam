@@ -1,0 +1,166 @@
+{% load core_extras %}
+<div class="tstu" data-students-page>
+    <header class="tstu-head">
+        <div class="tstu-title">
+            <i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg></i>
+            <div>
+                <h1>دانشجویان</h1>
+                <p>دانشجویان کلاس‌هایی که تدریس می‌کنید و وضعیت آن‌ها در آزمون‌های شما</p>
+            </div>
+        </div>
+    </header>
+
+    <nav class="tstu-tabs" aria-label="دسته‌بندی دانشجویان">
+        {% for key, label in sl.tabs.items %}
+            <a href="{% query_url tab=key page='' %}" class="{% if key == sl.filters.tab %}is-active{% endif %}" {% if key == sl.filters.tab %}aria-current="page"{% endif %}>
+                {% if key == 'all' %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8"/></svg>
+                {% elif key == 'review' %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+                {% elif key == 'absent' %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                {% else %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{% endif %}
+                <span>{{ label }}</span><b>{{ sl.tab_counts|get_item:key|fa_digits }}</b>
+            </a>
+        {% endfor %}
+    </nav>
+
+    <form class="tstu-filters" method="get" action="{% url 'core:teacher_students' %}">
+        <input type="hidden" name="tab" value="{{ sl.filters.tab }}">
+        <input type="hidden" name="per_page" value="{{ sl.filters.per_page }}">
+        <label class="tstu-search"><span class="sr-only">جستجو</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ sl.filters.q }}" maxlength="100" placeholder="جستجوی نام، شماره دانشجویی یا ایمیل..."></label>
+        <label class="tstu-select"><span class="sr-only">کلاس</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg><select name="group" onchange="this.form.submit()"><option value="">همه کلاس‌ها</option>{% for group in sl.groups %}<option value="{{ group.id }}"{% if group.id == sl.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}</select></label>
+        <label class="tstu-select"><span class="sr-only">وضعیت</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4Z"/></svg><select name="status" onchange="this.form.submit()"><option value="">همه وضعیت‌ها</option>{% for key, status in sl.statuses.items %}<option value="{{ key }}"{% if key == sl.filters.status %} selected{% endif %}>{{ status.0 }}</option>{% endfor %}</select></label>
+        <button type="submit" class="tstu-btn">جستجو</button>
+        {% if sl.is_filtered %}<a class="tstu-btn is-ghost" href="{% url 'core:teacher_students' %}?tab={{ sl.filters.tab }}">پاک‌سازی فیلترها</a>{% endif %}
+    </form>
+
+    <div class="tstu-toolbar">
+        <span class="tstu-selected" data-selected-label>هیچ دانشجویی انتخاب نشده است</span>
+        <details class="tstu-menu tstu-bulk">
+            <summary class="tstu-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8"/></svg>عملیات گروهی<svg class="is-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <div>
+                <button type="button" data-message-selected disabled>ارسال پیام به انتخاب‌شده‌ها</button>
+                <button type="button" data-export-selected data-export-url="{% url 'core:teacher_students_export' %}{% query_url page='' %}" disabled>خروجی اکسل انتخاب‌شده‌ها</button>
+            </div>
+        </details>
+        <a class="tstu-btn" href="{% url 'core:teacher_students_export' %}{% query_url page='' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 12l6 6M15 12l-6 6"/></svg>خروجی اکسل</a>
+        <button type="button" class="tstu-btn is-primary" disabled title="در حال توسعه"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>افزودن تسهیلات<small>در حال توسعه</small></button>
+    </div>
+
+    {% if sl.rows %}
+        <section class="tstu-card">
+            <div class="tstu-table-wrap">
+                <table class="tstu-table">
+                    <thead><tr>
+                        <th class="is-check"><input type="checkbox" data-select-all aria-label="انتخاب همه دانشجویان این صفحه"></th>
+                        <th>دانشجو</th><th>درس / کلاس</th><th>آخرین آزمون</th><th>نمره</th><th>حضور در آزمون</th><th>وضعیت</th><th>عملیات</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for row in sl.rows %}
+                            <tr>
+                                <td class="is-check"><input type="checkbox" value="{{ row.id }}" data-student-check data-name="{{ row.name }}" aria-label="انتخاب {{ row.name }}"></td>
+                                <td>
+                                    <a class="tstu-person" href="{% url 'core:teacher_student_profile' row.id %}">
+                                        {% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="">{% else %}<span>{{ row.initial }}</span>{% endif %}
+                                        <span><b>{{ row.name }}</b><small>{{ row.code|default:"-"|fa_digits }}</small></span>
+                                    </a>
+                                </td>
+                                <td>
+                                    {% with first=row.groups.0 %}<b class="tstu-strong">{{ first.label|default:"-" }}</b>{% endwith %}
+                                    {% if row.groups|length > 1 %}<small class="tstu-sub">و {{ row.groups|length|add:"-1"|fa_digits }} کلاس دیگر</small>{% endif %}
+                                </td>
+                                <td>
+                                    {% if row.last_exam %}<b class="tstu-strong">{{ row.last_exam.title }}</b><small class="tstu-sub">{{ row.last_exam.date_label }}</small>
+                                    {% else %}<span class="tstu-muted">هنوز آزمونی برگزار نشده</span>{% endif %}
+                                </td>
+                                <td>
+                                    {% if row.last_exam.score_20 is not None %}
+                                        <span class="tstu-score {% if row.last_exam.score_20 >= 14 %}is-ok{% elif row.last_exam.score_20 >= 10 %}is-warn{% else %}is-danger{% endif %}">{{ row.last_exam.score_20|fa_digits }} / ۲۰</span>
+                                        <small class="tstu-sub">{{ row.last_exam.percent|fa_digits }}٪</small>
+                                    {% elif row.last_exam.state == 'grading' %}<span class="tstu-score is-muted">در انتظار تصحیح</span>
+                                    {% else %}<span class="tstu-score is-muted">-</span>{% endif %}
+                                </td>
+                                <td>
+                                    {% if row.last_exam %}
+                                        <span class="tstu-attend {% if row.last_exam.state == 'absent' %}is-danger{% elif row.last_exam.state == 'unfinished' %}is-warn{% elif row.last_exam.state == 'done' or row.last_exam.state == 'grading' %}is-ok{% else %}is-blue{% endif %}">
+                                            {% if row.last_exam.state == 'absent' %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>{% elif row.last_exam.state == 'done' or row.last_exam.state == 'grading' %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>{% else %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{% endif %}
+                                            {{ row.last_exam.state_label }}
+                                        </span>
+                                    {% endif %}
+                                    <small class="tstu-sub">{{ row.attended_count|fa_digits }} از {{ row.held_count|fa_digits }} آزمون</small>
+                                </td>
+                                <td><span class="tstu-badge {{ row.status_tone }}">{{ row.status_label }}</span></td>
+                                <td>
+                                    <details class="tstu-menu">
+                                        <summary aria-label="عملیات {{ row.name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></summary>
+                                        <div>
+                                            <a href="{% url 'core:teacher_student_profile' row.id %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>مشاهده پروفایل</a>
+                                            <a href="{% url 'core:teacher_student_profile' row.id %}?tab=exams"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-7M20 20v-4"/></svg>نتایج</a>
+                                            <button type="button" data-message-student="{{ row.id }}" data-message-name="{{ row.name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>پیام</button>
+                                            <a href="{% url 'core:teacher_student_report' row.id %}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>کارنامه</a>
+                                            <button type="button" disabled title="در حال توسعه"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>ثبت استثنا<small>در حال توسعه</small></button>
+                                        </div>
+                                    </details>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <footer class="tstu-footer">
+                <span>نمایش {{ sl.page.start_index|fa_digits }} تا {{ sl.page.end_index|fa_digits }} از {{ sl.total|fa_digits }} دانشجو</span>
+                <form method="get" action="{% url 'core:teacher_students' %}" class="tstu-per-page">
+                    {% for key, value in request.GET.items %}{% if key != 'per_page' and key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+                    <label>تعداد در صفحه:<select name="per_page" onchange="this.form.submit()">{% for size in sl.page_sizes %}<option value="{{ size }}"{% if size == sl.filters.per_page %} selected{% endif %}>{{ size|fa_digits }}</option>{% endfor %}</select></label>
+                </form>
+                {% if sl.page.paginator.num_pages > 1 %}
+                    <nav class="tstu-pages" aria-label="صفحه‌بندی">
+                        {% if sl.page.has_previous %}<a href="{% query_url page=sl.page.previous_page_number %}" aria-label="صفحه قبل">‹</a>{% endif %}
+                        {% for number in sl.page_range %}
+                            {% if number == sl.page.number %}<span class="is-active" aria-current="page">{{ number|fa_digits }}</span>
+                            {% elif number == sl.ellipsis %}<span class="is-gap">…</span>
+                            {% else %}<a href="{% query_url page=number %}">{{ number|fa_digits }}</a>{% endif %}
+                        {% endfor %}
+                        {% if sl.page.has_next %}<a href="{% query_url page=sl.page.next_page_number %}" aria-label="صفحه بعد">›</a>{% endif %}
+                    </nav>
+                {% endif %}
+            </footer>
+        </section>
+    {% elif sl.is_filtered or sl.filters.tab != 'all' %}
+        <p class="tstu-empty">دانشجویی با این جستجو یا فیلتر پیدا نشد. <a href="{% url 'core:teacher_students' %}">نمایش همه دانشجویان</a></p>
+    {% else %}
+        <p class="tstu-empty">هنوز دانشجویی در کلاس‌های شما ثبت نشده است. عضویت دانشجویان در کلاس‌ها توسط مدیر آموزشی انجام می‌شود.</p>
+    {% endif %}
+</div>
+{% include 'teacher/students/_message_dialog.html' %}
+<script>
+(() => {
+  const page = document.querySelector('[data-students-page]');
+  if (!page) return;
+  const checks = [...page.querySelectorAll('[data-student-check]')];
+  const all = page.querySelector('[data-select-all]');
+  const label = page.querySelector('[data-selected-label]');
+  const messageButton = page.querySelector('[data-message-selected]');
+  const exportButton = page.querySelector('[data-export-selected]');
+  const faDigits = (value) => String(value).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const selected = () => checks.filter((check) => check.checked);
+  const sync = () => {
+    const count = selected().length;
+    label.textContent = count ? `${faDigits(count)} دانشجو انتخاب شده است` : 'هیچ دانشجویی انتخاب نشده است';
+    messageButton.disabled = exportButton.disabled = !count;
+    if (all) {
+      all.checked = count > 0 && count === checks.length;
+      all.indeterminate = count > 0 && count < checks.length;
+    }
+  };
+  checks.forEach((check) => check.addEventListener('change', sync));
+  all?.addEventListener('change', () => { checks.forEach((check) => { check.checked = all.checked; }); sync(); });
+  messageButton.addEventListener('click', () => {
+    window.tstuOpenMessage(selected().map((check) => ({ id: check.value, name: check.dataset.name })));
+  });
+  exportButton.addEventListener('click', () => {
+    const url = new URL(exportButton.dataset.exportUrl, window.location.href);
+    selected().forEach((check) => url.searchParams.append('ids', check.value));
+    window.location.href = url.toString();
+  });
+  sync();
+})();
+</script>

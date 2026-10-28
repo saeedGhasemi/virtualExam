@@ -1,0 +1,40 @@
+<dialog class="tstu-dialog" data-message-dialog aria-labelledby="tstu-message-title">
+    <form method="post" action="{% url 'core:teacher_students_message' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div data-message-ids></div>
+        <header>
+            <h2 id="tstu-message-title">ارسال پیام</h2>
+            <button type="button" class="tstu-dialog-close" data-message-close aria-label="بستن"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="tstu-field"><span>گیرندگان</span><div class="tstu-chips" data-message-chips></div></div>
+        <label class="tstu-field"><span>موضوع</span><input name="title" required maxlength="120" placeholder="مثلاً: یادآوری آزمون میان‌ترم"></label>
+        <label class="tstu-field"><span>متن پیام</span><textarea name="body" required maxlength="1000" rows="6" placeholder="متن پیام خود را بنویسید..."></textarea></label>
+        <p class="tstu-hint">پیام به‌صورت اعلان داخل سامانه برای دانشجو ارسال می‌شود.</p>
+        <footer>
+            <button type="button" class="tstu-btn is-ghost" data-message-close>انصراف</button>
+            <button type="submit" class="tstu-btn is-primary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>ارسال پیام</button>
+        </footer>
+    </form>
+</dialog>
+<script>
+(() => {
+  const dialog = document.querySelector('[data-message-dialog]');
+  if (!dialog || window.tstuOpenMessage) return;
+  const ids = dialog.querySelector('[data-message-ids]');
+  const chips = dialog.querySelector('[data-message-chips]');
+  window.tstuOpenMessage = (recipients) => {
+    if (!recipients.length) return;
+    ids.replaceChildren(...recipients.map((recipient) => Object.assign(document.createElement('input'), { type: 'hidden', name: 'student_ids', value: recipient.id })));
+    chips.replaceChildren(...recipients.map((recipient) => Object.assign(document.createElement('span'), { textContent: recipient.name })));
+    dialog.showModal();
+  };
+  dialog.querySelectorAll('[data-message-close]').forEach((button) => button.addEventListener('click', () => dialog.close()));
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-message-student]');
+    if (!button) return;
+    button.closest('details')?.removeAttribute('open');
+    window.tstuOpenMessage([{ id: button.dataset.messageStudent, name: button.dataset.messageName }]);
+  });
+})();
+</script>

@@ -1,0 +1,24 @@
+{% load core_extras %}
+<form class="tstu-note-form" method="post" action="{% url 'core:teacher_student_note_create' profile.student.id %}" data-note-form>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <label><span class="sr-only">یادداشت</span><textarea name="body" required maxlength="{{ profile.note_max_length }}" rows="5" placeholder="یادداشت خود را بنویسید..." data-note-body></textarea></label>
+    <small class="tstu-counter" data-note-counter>۰/{{ profile.note_max_length|fa_digits }}</small>
+    <p class="tstu-hint">«ثبت یادداشت» فقط برای شما قابل مشاهده است؛ «ارسال بازخورد» متن را به‌صورت اعلان برای دانشجو هم می‌فرستد.</p>
+    <div class="tstu-note-actions">
+        <button type="submit" name="action" value="share" class="tstu-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>ارسال بازخورد</button>
+        <button type="submit" name="action" value="save" class="tstu-btn is-primary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>ثبت یادداشت استاد</button>
+    </div>
+</form>
+<script>
+(() => {
+  document.querySelectorAll('[data-note-form]').forEach((form) => {
+    const body = form.querySelector('[data-note-body]');
+    const counter = form.querySelector('[data-note-counter]');
+    const faDigits = (value) => String(value).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const sync = () => { counter.textContent = `${faDigits(body.value.length)}/${faDigits(body.maxLength)}`; };
+    body.addEventListener('input', sync);
+    sync();
+  });
+})();
+</script>

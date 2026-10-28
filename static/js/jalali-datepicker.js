@@ -26,6 +26,7 @@ class JalaliDateTimeField {
         this.root = root;
         this.display = root.querySelector('[data-jalali-display]');
         this.hidden = root.querySelector('[data-jalali-value]');
+        this.dateOnly = root.hasAttribute('data-jalali-date-only'); // filters: day only, hidden value YYYY-MM-DD
         this.popup = null;
         this.viewJy = null;
         this.viewJm = null;
@@ -40,7 +41,7 @@ class JalaliDateTimeField {
     }
 
     setFromIso(iso) {
-        const d = new Date(iso);
+        const d = this.dateOnly ? new Date(`${iso.slice(0, 10)}T00:00`) : new Date(iso);
         if (Number.isNaN(d.getTime())) return;
         const j = toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
         this.selected = { jy: j.jy, jm: j.jm, jd: j.jd, hh: d.getHours(), mm: d.getMinutes() };
@@ -52,6 +53,12 @@ class JalaliDateTimeField {
         const { jy, jm, jd, hh, mm } = this.selected;
         this.display.value = toFaDigits(`${jy}/${pad2(jm)}/${pad2(jd)} - ${pad2(hh)}:${pad2(mm)}`);
         const g = toGregorian(jy, jm, jd);
+        if (this.dateOnly) {
+            this.display.value = toFaDigits(`${jy}/${pad2(jm)}/${pad2(jd)}`);
+            this.hidden.value = `${g.gy}-${pad2(g.gm)}-${pad2(g.gd)}`;
+            this.hidden.dispatchEvent(new Event('change', { bubbles: true }));
+            return;
+        }
         this.hidden.value = `${g.gy}-${pad2(g.gm)}-${pad2(g.gd)}T${pad2(hh)}:${pad2(mm)}`;
         this.hidden.dispatchEvent(new Event('change', { bubbles: true }));
     }
@@ -119,7 +126,7 @@ class JalaliDateTimeField {
             </div>
             <div class="jalali-weekdays">${WEEKDAYS.map((w) => `<span>${w}</span>`).join('')}</div>
             <div class="jalali-grid">${cells}</div>
-            <div class="jalali-time-row">
+            <div class="jalali-time-row"${this.dateOnly ? ' hidden' : ''}>
                 <label>ساعت<input type="number" min="0" max="23" value="${pad2(hh)}" data-hour></label>
                 <label>دقیقه<input type="number" min="0" max="59" value="${pad2(mm)}" data-minute></label>
             </div>
