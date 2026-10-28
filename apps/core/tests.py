@@ -3065,3 +3065,51 @@ class TeacherExamEditTests(_ScopedOrgFixture):
         response = self.client.get(self.url)
         self.assertRedirects(response, reverse('core:teacher_exams'), fetch_redirect_response=False)
         self.assertEqual(len(self._rows('SELECT question_id FROM exam_questions WHERE exam_id = %s')), 3)  # nothing dropped
+
+
+class StudentDashboardTests(_ScopedOrgFixture):
+    """داشبورد دانشجو فقط آزمون‌های منتشرشده‌ی اختصاص‌یافته به خود او را نشان می‌دهد و داده‌ی ساختگی ندارد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        cls.empty_user = User.objects.create_user(username='student_out_scope', email='s_out@example.com', password='x')
+        TeacherStudentScopeTests._member(cls.group_in_id, cls.student_in_id)
+        now = timezone.now()
+        day = timedelta(days=1)
+        exam = TeacherStudentScopeTests._exam
+        cls.live_exam = exam('آزمون در حال برگزاری', cls.teacher_in_id, now - day, now + day, cls.group_in_id)
+        cls.next_exam = exam('آزمون هفته بعد', cls.teacher_in_id, now + 7 * day, now + 8 * day, cls.group_in_id)
+        cls.graded_exam = exam('آزمون تصحیح‌شده', cls.teacher_in_id, now - 9 * day, now - 8 * day, cls.group_in_id)
+        TeacherStudentScopeTests._attempt(cls.graded_exam, cls.student_in_id, now - 9 * day, 'graded', 17, 20)
+        exam('آزمون پیش‌نویس داشبورد', cls.teacher_in_id, now + day, now + 2 * day, cls.group_in_id, published=False)
+        exam('آزمون گروه دیگر', cls.teacher_out_id, now - day, now + day, cls.group_out_id)
+        excluded = exam('آزمون مستثنا', cls.teacher_in_id, now + day, now + 2 * day, cls.group_in_id)
+        _insert('exam_assignment_exclusions', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), excluded, cls.student_in_id])
+
+    def _dashboard(self, user):
+        self.client.force_login(user)
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def test_only_own_published_assigned_exams(self):
+        response = self._dashboard(self.student_user)
+        data = response.context['student_dashboard']
+        self.assertEqual(data['active_exam']['title'], 'آزمون در حال برگزاری')
+        self.assertEqual([row['title'] for row in data['upcoming_exams']], ['آزمون در حال برگزاری', 'آزمون هفته بعد'])
+        self.assertEqual(data['stats']['completed'], 1)
+        self.assertEqual([card['score'] for card in data['result_cards']], [85])
+        for hidden in ('آزمون پیش‌نویس داشبورد', 'آزمون گروه دیگر', 'آزمون مستثنا', 'آزمون خارج محدوده'):
+            self.assertNotContains(response, hidden)
+
+    def test_no_stand_in_data_without_exams(self):
+        response = self._dashboard(self.empty_user)
+        data = response.context['student_dashboard']
+        self.assertIsNone(data['active_exam'])
+        self.assertEqual(data['stats'], {'upcoming': 0, 'active': 0, 'new_results': 0, 'completed': 0})
+        self.assertEqual((data['result_cards'], data['notifications']), ([], []))
+        for fake in ('روانشناسی سلامت', 'مهارت‌های ارتباطی', '۰۲:۱۵:۳۲', 'آزمون گروه دیگر'):
+            self.assertNotContains(response, fake)

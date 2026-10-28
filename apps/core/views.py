@@ -12434,6 +12434,7 @@ def _legacy_profile_view(request):
 
 
 def _student_dashboard_context(request, profile):
+    """Student dashboard: only exams the student may see (same rule as the exams page), no stand-in data."""
     student_id = profile['id'] if profile else None
     student_profile = erd_row(
         """
@@ -12443,84 +12444,63 @@ def _student_dashboard_context(request, profile):
         """,
         [student_id],
     ) or {}
-    exam_rows = erd_rows(
+    exams = _sx_accessible_exams(student_id) if student_id else []
+    attempts = {}
+    for attempt in erd_rows(
         """
-        SELECT e.id, e.title, e.start_at, e.end_at, e.duration_minutes, e.lifecycle_status,
-               COALESCE(e.is_published, false) AS is_published,
-               COALESCE(c.title, 'درس') AS course_title,
-               COALESCE(sg.group_code, '۱') AS group_code,
-               ea.id AS attempt_id, ea.status AS attempt_status, ea.score, ea.max_score, ea.submitted_at
-        FROM exams e
-        LEFT JOIN courses c ON c.id = e.course_id
-        LEFT JOIN student_groups sg ON sg.course_id = e.course_id
-        LEFT JOIN exam_attempts ea ON ea.exam_id = e.id AND ea.student_id = %s
-        WHERE COALESCE(e.is_cancelled, false) = false
-        ORDER BY e.start_at NULLS LAST, e.title
-        LIMIT 18
+        SELECT id, exam_id, status, score, max_score, submitted_at
+        FROM exam_attempts
+        WHERE student_id = %s
+        ORDER BY submitted_at ASC NULLS FIRST, started_at ASC NULLS FIRST
         """,
         [student_id],
-    )
+    ) if student_id else []:
+        attempts[str(attempt['exam_id'])] = attempt  # the latest attempt per exam wins
     now = timezone.now()
     upcoming = []
     completed = []
     active_exam = None
-    for row in exam_rows:
-        start_at = row.get('start_at')
-        end_at = row.get('end_at')
-        status = (row.get('attempt_status') or row.get('lifecycle_status') or '').lower()
-        is_completed = status in {'submitted', 'completed', 'graded', 'finished'} or bool(row.get('submitted_at'))
-        row['date_text'] = start_at.strftime('%Y/%m/%d') if hasattr(start_at, 'strftime') else '۱۴۰۵/۰۵/۲۳'
-        row['time_text'] = start_at.strftime('%H:%M') if hasattr(start_at, 'strftime') else '۱۰:۰۰'
-        row['end_text'] = end_at.strftime('%H:%M') if hasattr(end_at, 'strftime') else '۱۱:۳۰'
-        row['duration_label'] = row.get('duration_minutes') or 90
-        row['register_label'] = 'ثبت‌نام باز' if not is_completed else 'ثبت‌نام بسته'
-        row['register_tone'] = 'orange' if not is_completed else 'blue'
+    for row in exams:
+        attempt = attempts.get(str(row['id'])) or {}
+        row['attempt_id'] = attempt.get('id')
+        is_completed = bool(attempt.get('submitted_at')) or row['ends_at'] < now
+        row['date_text'] = _sx_jalali(row['starts_at'])
+        row['time_text'] = timezone.localtime(row['starts_at']).strftime('%H:%M')
+        row['end_text'] = timezone.localtime(row['ends_at']).strftime('%H:%M')
+        row['duration_label'] = row['duration_minutes']
+        row['register_label'] = 'در حال برگزاری' if row['starts_at'] <= now <= row['ends_at'] else 'آتی'
+        row['register_tone'] = 'green' if row['starts_at'] <= now <= row['ends_at'] else 'blue'
         if is_completed:
             completed.append(row)
         else:
             upcoming.append(row)
-        if not active_exam and not is_completed and row.get('is_published'):
-            active_exam = row
-    if not active_exam and upcoming:
-        active_exam = upcoming[0]
+            if not active_exam and row['starts_at'] <= now:
+                active_exam = row
     result_cards = []
-    for row in completed[:2]:
-        max_score = float(row.get('max_score') or 20)
-        score = float(row.get('score') or 0)
-        percent = int((score / max_score) * 100) if max_score else 0
+    for result in [item for item in _sx_result_rows(student_id) if not item['is_pending']][:2] if student_id else []:
         result_cards.append({
-            'title': row.get('title'),
-            'date': row.get('date_text'),
-            'score': round(score, 1),
-            'percent': max(0, min(100, percent)),
-            'tone': 'green' if percent >= 80 else 'blue',
-            'url': reverse('core:student_result_detail', args=[row['attempt_id']]) if row.get('attempt_id') else reverse('core:student_results'),
+            'title': result['title'],
+            'date': result['exam_date'],
+            'score': result['percent'],
+            'percent': result['percent'],
+            'tone': 'green' if result['percent'] >= 80 else 'blue',
+            'url': reverse('core:student_result_detail', args=[result['id']]),
         })
-    if not result_cards:
-        result_cards = [
-            {'title': 'آزمون روانشناسی سلامت', 'date': '۱۴۰۵/۰۵/۰۸', 'score': 87, 'percent': 87, 'tone': 'green', 'url': reverse('core:student_results')},
-            {'title': 'آزمون آناتومی ۲', 'date': '۱۴۰۵/۰۵/۱۵', 'score': 74, 'percent': 74, 'tone': 'blue', 'url': reverse('core:student_results')},
-        ]
     notifications = erd_rows(
         """
         SELECT title, message, type, link, is_read
         FROM notifications
         WHERE user_id = %s
-        LIMIT 5
+        ORDER BY is_read ASC
+        LIMIT 4
         """,
         [student_id],
-    )
-    if not notifications:
-        notifications = [
-            {'title': 'برنامه‌ریزی آزمون مهارت‌های ارتباطی', 'message': 'آزمون در تاریخ ۱۴۰۵/۰۵/۲۶ ساعت ۱۴:۰۰ برگزار خواهد شد.', 'type': 'calendar', 'is_read': False},
-            {'title': 'نکات مهم شرکت در آزمون', 'message': 'لطفا ۱۵ دقیقه قبل از شروع آزمون در سامانه حضور داشته باشید.', 'type': 'users', 'is_read': False},
-            {'title': 'اعلام نتایج آزمون روانشناسی سلامت', 'message': 'نتایج این آزمون منتشر شد.', 'type': 'result', 'is_read': True},
-        ]
+    ) if student_id else []
     stats = {
-        'upcoming': len(upcoming) or 3,
+        'upcoming': len(upcoming),
         'active': 1 if active_exam else 0,
         'new_results': len(result_cards),
-        'completed': len(completed) or 8,
+        'completed': len(completed),
     }
     return {
         'profile': profile,
@@ -12528,11 +12508,8 @@ def _student_dashboard_context(request, profile):
         'active_exam': active_exam,
         'upcoming_exams': upcoming[:3],
         'result_cards': result_cards,
-        'notifications': notifications[:4],
+        'notifications': notifications,
         'stats': stats,
-        'calendar_days': list(range(1, 32)),
-        'today_day': 23,
-        'exam_days': {26, 30},
         'student_name': profile.get('full_name') if profile else request.user.get_full_name() or request.user.username,
         'student_number': student_profile.get('student_number') or profile.get('identifier') if profile else '',
         'field': student_profile.get('field_of_study') or student_profile.get('department') or 'دانشجو',
