@@ -17269,13 +17269,14 @@ def _sx_accessible_exams(student_id):
         SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
                e.start_at, e.end_at, COALESCE(e.duration_minutes, 90) AS duration_minutes,
                COALESCE(e.passing_score, 60) AS passing_score,
-               COALESCE(c.title, 'درس') AS course_title,
+               COALESCE(c.title, 'درس') AS course_title, e.course_id, e.academic_year, e.semester,
                COUNT(eq.id) AS question_count
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         LEFT JOIN exam_questions eq ON eq.exam_id = e.id
         WHERE {_erd_student_exam_access_condition()}
-        GROUP BY e.id, e.title, e.description, e.start_at, e.end_at, e.duration_minutes, e.passing_score, c.title
+        GROUP BY e.id, e.title, e.description, e.start_at, e.end_at, e.duration_minutes, e.passing_score, c.title,
+                 e.course_id, e.academic_year, e.semester
         ORDER BY e.start_at ASC NULLS LAST, e.title
         LIMIT 80
         """,
@@ -17503,119 +17504,21 @@ def _sx_save_answer_files(request, attempt_id, rows):
 
 @erd_role_required('student')
 def student_exam_schedule(request):
-    student_id = request.erd_profile_id
-    exams = _sx_accessible_exams(student_id)
-    attempts = {
-        row['exam_id']: row
-        for row in erd_rows(
-            'SELECT id AS pk, id, exam_id, submitted_at, status FROM exam_attempts WHERE student_id = %s',
-            [student_id],
-        )
-    }
-    now = timezone.now()
-    items = []
-    display_days = [7, 10, 16, 23, 27, 30, 3, 14]
-    for index, exam in enumerate(exams):
-        attempt = attempts.get(exam['id'])
-        if attempt and attempt.get('submitted_at'):
-            state = 'done'
-        elif exam['starts_at'] <= now <= exam['ends_at']:
-            state = 'active'
-        elif exam['starts_at'] > now:
-            state = 'upcoming'
-        else:
-            state = 'done'
-        jalali_parts = (_sx_jalali(exam['starts_at']) or '').split('/')
-        jalali_day = _em_int(jalali_parts[2], 1) if len(jalali_parts) == 3 else 1
-        status_label = {
-            'active': 'در حال برگزاری',
-            'upcoming': 'آتی',
-            'done': 'تکمیل شده',
-        }[state]
-        tone = {
-            'active': 'live',
-            'upcoming': 'upcoming',
-            'done': 'done',
-        }[state]
-        action_label = {
-            'active': 'ورود به آزمون',
-            'upcoming': 'مشاهده جزئیات',
-            'done': 'مشاهده نتیجه',
-        }[state]
-        if state == 'done' and attempt:
-            action_url = reverse('core:student_attempt_receipt', args=[attempt['id']])
-        else:
-            action_url = reverse('core:student_exam_detail', args=[exam['id']])
-        items.append({
-            'exam': exam,
-            'attempt': attempt,
-            'state': state,
-            'tone': tone,
-            'status_label': status_label,
-            'action_label': action_label,
-            'action_url': action_url,
-            'day': display_days[index % len(display_days)] if exams else jalali_day,
-            'time': exam['starts_at'].strftime('%H:%M'),
-            'date_text': _sx_jalali(exam['starts_at']),
-        })
-    active_item = next((item for item in items if item['state'] == 'active'), items[0] if items else None)
-    stats = {
-        'total': len(items),
-        'active': sum(1 for item in items if item['state'] == 'active'),
-        'upcoming': sum(1 for item in items if item['state'] == 'upcoming'),
-        'done': sum(1 for item in items if item['state'] == 'done'),
-    }
-    featured = items[:]
-    if not featured:
-        sample_start = now.replace(hour=10, minute=0, second=0, microsecond=0)
-        sample_titles = [
-            ('ارزیابی اولیه وضعیت سالمند', 'پرستاری سالمندی', 'active', 7),
-            ('شناسایی عوامل خطر و مشکلات بالقوه', 'اصول مراقبت', 'upcoming', 10),
-            ('اجرای مداخله برنامه‌ریزی‌شده', 'پرستاری سالمندی', 'done', 16),
-            ('ارزیابی مجدد و پایش نتایج', 'پرستاری سالمندی', 'upcoming', 27),
-        ]
-        for index, (title, course, state, day) in enumerate(sample_titles, start=1):
-            starts_at = sample_start + timedelta(days=index)
-            tone = {'active': 'live', 'upcoming': 'upcoming', 'done': 'done'}[state]
-            featured.append({
-                'exam': {'id': f'sample-{index}', 'pk': f'sample-{index}', 'title': title, 'course_title': course, 'starts_at': starts_at, 'duration_minutes': 90},
-                'attempt': None,
-                'state': state,
-                'tone': tone,
-                'status_label': {'active': 'در حال برگزاری', 'upcoming': 'آتی', 'done': 'تکمیل شده'}[state],
-                'action_label': 'مشاهده جزئیات',
-                'action_url': '#',
-                'day': day,
-                'time': starts_at.strftime('%H:%M'),
-                'date_text': _sx_jalali(starts_at),
-            })
-    month_events = featured[:5]
-    selected_events = featured[:3]
-    events_by_day = {}
-    for item in featured:
-        events_by_day.setdefault(item['day'], []).append(item)
-    calendar_days = [27, 28, 29, 30, 31] + list(range(1, 31)) + [1, 2, 3, 4, 5, 6]
-    calendar_cells = []
-    for index, day in enumerate(calendar_days[:42]):
-        muted = index < 5 or index > 34
-        events = [] if muted else events_by_day.get(day, [])[:1]
-        calendar_cells.append({
-            'day': day,
-            'muted': muted,
-            'is_selected': not muted and day == 14,
-            'events': events,
-        })
+    from .student_dashboard import student_exams_page_context
+
     return render(request, 'student/exam_schedule.html', {
         'student': _sx_student_context(request),
-        'exam_items': items,
-        'active_item': active_item,
-        'stats': stats,
-        'now': now,
-        'calendar_cells': calendar_cells,
-        'selected_events': selected_events,
-        'month_events': month_events,
-        'calendar_title': 'مرداد ۱۴۰۵',
-        'selected_date': 'چهارشنبه ۱۴ مرداد ۱۴۰۵',
+        **student_exams_page_context(request, request.erd_profile_id),
+    })
+
+
+@erd_role_required('student')
+def student_classes_page(request):
+    from .student_dashboard import student_classes_page_context
+
+    return render(request, 'student/classes.html', {
+        'student': _sx_student_context(request),
+        **student_classes_page_context(request, request.erd_profile_id),
     })
 
 

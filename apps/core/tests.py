@@ -3139,3 +3139,108 @@ class StudentDashboardTests(_ScopedOrgFixture):
         self.assertNotContains(response, 'javascript:alert')
         self.assertNotContains(response, 'اعلان دیگری')
 
+class StudentExamsAndClassesPagesTests(_ScopedOrgFixture):
+    """صفحه‌های «آزمون‌های من» و «کلاس‌های من» فقط داده‌ی خود دانشجو را نشان می‌دهند و دکمه‌ی هر آزمون با وضعیتش جور است."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        TeacherStudentScopeTests._member(cls.group_in_id, cls.student_in_id)
+        TeacherStudentScopeTests._member(cls.group_out_id, cls.student_out_id)
+        now = timezone.now()
+        day = timedelta(days=1)
+        exam = TeacherStudentScopeTests._exam
+        attempt = TeacherStudentScopeTests._attempt
+        cls.ready_exam = exam('آزمون آماده', cls.teacher_in_id, now - day, now + day, cls.group_in_id)
+        cls.running_exam = exam('آزمون نیمه‌کاره', cls.teacher_in_id, now - day, now + 2 * day, cls.group_in_id)
+        attempt(cls.running_exam, cls.student_in_id, now - timedelta(minutes=10), 'in_progress')
+        cls.upcoming_exam = exam('آزمون آینده', cls.teacher_in_id, now + 3 * day, now + 4 * day, cls.group_in_id)
+        cls.graded_exam = exam('آزمون نمره‌دار', cls.teacher_in_id, now - 9 * day, now - 8 * day, cls.group_in_id)
+        attempt(cls.graded_exam, cls.student_in_id, now - 9 * day, 'graded', 17, 20)
+        cls.pending_exam = exam('آزمون در صف تصحیح', cls.teacher_in_id, now - 6 * day, now - 5 * day, cls.group_in_id)
+        cls.pending_attempt = str(uuid.uuid4())
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'is_graded', 'status'],
+                [cls.pending_attempt, cls.pending_exam, cls.student_in_id, now - 6 * day, now - 6 * day + timedelta(minutes=20), False, 'submitted'])
+        cls.absent_exam = exam('آزمون غیبت', cls.teacher_in_id, now - 4 * day, now - 3 * day, cls.group_in_id)
+        exam('آزمون پیش‌نویس صفحه', cls.teacher_in_id, now + day, now + 2 * day, cls.group_in_id, published=False)
+        exam('آزمون کلاس دیگر', cls.teacher_out_id, now - day, now + day, cls.group_out_id)
+
+    def _get(self, name, user=None, **params):
+        self.client.force_login(user or self.student_user)
+        response = self.client.get(reverse(name), params)
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def test_exam_states_and_actions_follow_the_attempt(self):
+        response = self._get('core:student_exam_schedule')
+        rows = {row['title']: (row['page_label'], row['page_action']['label']) for row in response.context['page_obj']}
+        self.assertEqual(rows, {
+            'آزمون نیمه‌کاره': ('در حال انجام', 'ادامه آزمون'),
+            'آزمون آماده': ('آماده ورود', 'جزئیات و ورود'),
+            'آزمون آینده': ('برگزار نشده', 'مشاهده جزئیات'),
+            'آزمون غیبت': ('غایب', 'مشاهده جزئیات'),
+            'آزمون در صف تصحیح': ('در انتظار تصحیح', 'رسید تحویل'),
+            'آزمون نمره‌دار': ('نتیجه منتشر شده', 'مشاهده کارنامه'),
+        })
+        self.assertEqual({tab['key']: tab['count'] for tab in response.context['tabs']},
+                         {'all': 6, 'upcoming': 2, 'in_progress': 1, 'finished': 3})
+        self.assertEqual(response.context['featured']['title'], 'آزمون نیمه‌کاره')
+        self.assertContains(response, reverse('core:student_attempt_receipt', args=[self.pending_attempt]))
+        for hidden in ('آزمون پیش‌نویس صفحه', 'آزمون کلاس دیگر', 'ارزیابی اولیه وضعیت سالمند', 'مرداد ۱۴۰۵'):
+            self.assertNotContains(response, hidden)
+
+    def test_tab_filter_and_pagination(self):
+        finished = self._get('core:student_exam_schedule', tab='finished').context
+        self.assertEqual({row['page_state'] for row in finished['page_obj']}, {'absent', 'pending', 'graded'})
+        searched = self._get('core:student_exam_schedule', q='غیبت').context
+        self.assertEqual([row['title'] for row in searched['page_obj']], ['آزمون غیبت'])
+        from unittest import mock as page_mock
+
+        from . import student_dashboard
+        with page_mock.patch.object(student_dashboard, 'EXAM_PAGE_SIZE', 4):
+            second = self._get('core:student_exam_schedule', page=2).context['page_obj']
+        self.assertEqual((second.number, len(second.object_list), second.paginator.count), (2, 2, 6))
+
+    def test_other_students_class_filter_is_ignored(self):
+        context = self._get('core:student_exam_schedule', **{'class': self.group_out_id}).context
+        self.assertIsNone(context['selected_class'])
+        self.assertNotIn('آزمون کلاس دیگر', [row['title'] for row in context['page_obj']])
+        own = self._get('core:student_exam_schedule', **{'class': self.group_in_id}).context
+        self.assertEqual(own['selected_class']['id'], self.group_in_id)
+        self.assertEqual(own['total'], 6)
+
+    def test_classes_are_own_with_exam_count_and_next_exam(self):
+        archived = str(uuid.uuid4())
+        _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year', 'is_archived'],
+                [archived, self.teacher_in_id, self.course_in_id, 'کلاس قدیمی', '1402', True])
+        TeacherStudentScopeTests._member(archived, self.student_in_id)
+        response = self._get('core:student_classes')
+        cards = list(response.context['page_obj'])
+        self.assertEqual([(card['course_title'], card['teacher_name'], card['exam_count']) for card in cards],
+                         [('درس داخل محدوده', 'استاد داخل محدوده', 6)])
+        # both open exams start at the same moment, so either one is the next exam
+        self.assertIn(cards[0]['next_exam']['title'], {'آزمون آماده', 'آزمون نیمه‌کاره'})
+        self.assertEqual(response.context['counts'], {'current': 1, 'past': 1})
+        self.assertNotContains(response, 'درس خارج محدوده')
+        past = self._get('core:student_classes', tab='past', view='list').context
+        self.assertEqual([card['id'] for card in past['page_obj']], [archived])
+
+    def test_student_without_exams_or_classes_sees_empty_states(self):
+        loner_id = self._make_profile('student_loner', 'دانشجوی بی‌کلاس')
+        _insert('student_profiles', ['user_id', 'org_unit_id'], [loner_id, self.ou_scoped])
+        _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), loner_id, 'student'])
+        loner = get_user_model().objects.create_user(username='student_loner', email='student_loner@example.com', password='x')
+        exams = self._get('core:student_exam_schedule', user=loner)
+        self.assertIsNone(exams.context['featured'])
+        self.assertEqual(exams.context['total'], 0)
+        self.assertContains(exams, 'هنوز آزمونی به شما اختصاص داده نشده است.')
+        classes = self._get('core:student_classes', user=loner)
+        self.assertEqual(classes.context['counts'], {'current': 0, 'past': 0})
+        self.assertContains(classes, 'هنوز در کلاسی عضو نشده‌اید.')
+
+    def test_top_menu_links_both_pages(self):
+        response = self._get('core:student_classes')
+        self.assertContains(response, 'آزمون‌های من')
+        self.assertContains(response, f'href="{reverse("core:student_classes")}"')
