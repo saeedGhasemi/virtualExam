@@ -2561,6 +2561,50 @@ class TeacherClassListTests(_ScopedOrgFixture):
         self.assertIn('class="tclass-table"', self._get(view='list').content.decode())
 
 
+class TeacherStudentScopeTests(_ScopedOrgFixture):
+    """استاد فقط دانشجویان گروه‌های خودش (مالک یا هم‌تدریس) را می‌بیند؛ شناسه‌ی دیگر در URL پاسخ ۴۰۴ می‌گیرد، نه داده‌ی ساختگی."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.group_in_id, cls.student_in_id, 'عضو', '', ''])
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.group_out_id, cls.student_out_id, 'عضو', '', ''])
+        cls.shared_group_id = str(uuid.uuid4())
+        _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year'],
+                [cls.shared_group_id, cls.teacher_out_id, cls.course_out_id, 'کلاس هم‌تدریس', '1404'])
+        _insert('group_teachers', ['group_id', 'teacher_id'], [cls.shared_group_id, cls.teacher_in_id])
+        cls.shared_student_id = cls._make_profile('student_shared', 'دانشجوی کلاس هم‌تدریس')
+        _insert('student_profiles', ['user_id'], [cls.shared_student_id])
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.shared_group_id, cls.shared_student_id, 'عضو', '', ''])
+
+    def _get(self, url):
+        self.client.force_login(self.teacher_user)
+        return self.client.get(url)
+
+    def test_profile_of_own_and_co_taught_students(self):
+        for student_id in (self.student_in_id, self.shared_student_id):
+            response = self._get(reverse('core:teacher_student_profile', args=[student_id]))
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(str(response.context['selected_student']['id']), student_id)
+
+    def test_other_or_unknown_student_is_404_not_a_stand_in(self):
+        for student_id in (self.student_out_id, str(uuid.uuid4()), '14021057', 'sara'):
+            self.assertEqual(self._get(reverse('core:teacher_student_profile', args=[student_id])).status_code, 404, student_id)
+
+    def test_other_teachers_group_is_404(self):
+        for name in ('core:teacher_group_students', 'core:teacher_group_activity'):
+            self.assertEqual(self._get(reverse(name, args=[self.group_out_id])).status_code, 404)
+            self.assertEqual(self._get(reverse(name, args=['nursing-01'])).status_code, 404)
+            self.assertEqual(self._get(reverse(name, args=[self.shared_group_id])).status_code, 200)
+
+    def test_group_list_has_only_real_members(self):
+        response = self._get(reverse('core:teacher_group_students', args=[self.group_in_id]))
+        self.assertEqual({str(s['id']) for s in response.context['students']}, {self.student_in_id})
+        self.assertNotIn('سارا احمدی', response.content.decode())
+
+
 class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
     """صفحه‌ی ویرایش آزمون مدیر آموزشی: فهرست‌ها و هر شناسه‌ی ارسالی باید داخل محدوده‌ی او باشد."""
 

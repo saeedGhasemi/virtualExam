@@ -13355,8 +13355,8 @@ def _teacher_exam_rows_simple(teacher_id):
 
 
 def _teacher_student_rows(teacher_id, group_id=None):
-    where = ['sg.teacher_id = %s']
-    params = [teacher_id]
+    where = ['(sg.teacher_id = %s OR sg.id IN (SELECT group_id FROM group_teachers WHERE teacher_id = %s))']
+    params = [teacher_id, teacher_id]
     if group_id:
         where.append('sg.id = %s')
         params.append(group_id)
@@ -13395,16 +13395,6 @@ def _teacher_student_rows(teacher_id, group_id=None):
         """,
         params,
     ) if teacher_id else []
-
-    if not rows:
-        rows = [
-            {'id': 'sara', 'name': 'سارا احمدی', 'code': '14021057', 'email': 's.ahmadi@university.ac.ir', 'phone': '09123456789', 'field_of_study': 'مهندسی کامپیوتر', 'degree': 'کارشناسی', 'entry_year': '1402', 'academic_status': 'active', 'course': 'ساختمان داده‌ها', 'group_code': '1', 'groups_count': 2, 'exams_total': 24, 'attempts_count': 18, 'avg_score': 17.0, 'last_seen': 'امروز، 10:32'},
-            {'id': 'ali', 'name': 'علی رضایی', 'code': '40112033', 'email': 'ali.rezaei@university.ac.ir', 'phone': '09120001122', 'field_of_study': 'مهندسی کامپیوتر', 'degree': 'کارشناسی', 'entry_year': '1401', 'academic_status': 'active', 'course': 'ساختمان داده‌ها', 'group_code': '1', 'groups_count': 1, 'exams_total': 20, 'attempts_count': 16, 'avg_score': 18.5, 'last_seen': 'امروز، 15:15'},
-            {'id': 'hosein', 'name': 'حسین آزادی', 'code': '40112081', 'email': 'h.azadi@university.ac.ir', 'phone': '09120001123', 'field_of_study': 'مهندسی کامپیوتر', 'degree': 'کارشناسی', 'entry_year': '1401', 'academic_status': 'review', 'course': 'ساختمان داده‌ها', 'group_code': '1', 'groups_count': 1, 'exams_total': 20, 'attempts_count': 14, 'avg_score': 12.0, 'last_seen': 'دیروز، 16:40'},
-            {'id': 'fateme', 'name': 'فاطمه کریمی', 'code': '40112102', 'email': 'f.karimi@university.ac.ir', 'phone': '09120001124', 'field_of_study': 'مهندسی کامپیوتر', 'degree': 'کارشناسی', 'entry_year': '1400', 'academic_status': 'warning', 'course': 'ساختمان داده‌ها', 'group_code': '1', 'groups_count': 1, 'exams_total': 20, 'attempts_count': 10, 'avg_score': 8.0, 'last_seen': '۴ روز پیش'},
-            {'id': 'amir', 'name': 'امیرحسین محمدی', 'code': '40112125', 'email': 'amir.mohammadi@university.ac.ir', 'phone': '09120001125', 'field_of_study': 'مهندسی کامپیوتر', 'degree': 'کارشناسی', 'entry_year': '1400', 'academic_status': 'inactive', 'course': 'ساختمان داده‌ها', 'group_code': '1', 'groups_count': 1, 'exams_total': 20, 'attempts_count': 4, 'avg_score': None, 'last_seen': '۱۰ روز پیش'},
-            {'id': 'narges', 'name': 'نرگس صادقی', 'code': '40112147', 'email': 'n.sadeghi@university.ac.ir', 'phone': '09120001126', 'field_of_study': 'مهندسی کامپیوتر', 'degree': 'کارشناسی', 'entry_year': '1402', 'academic_status': 'active', 'course': 'ساختمان داده‌ها', 'group_code': '1', 'groups_count': 1, 'exams_total': 20, 'attempts_count': 16, 'avg_score': 19.0, 'last_seen': 'امروز، 08:55'},
-        ]
 
     enriched = []
     for index, row in enumerate(rows, start=1):
@@ -14257,16 +14247,6 @@ def _teacher_modern_context(request, page, **extra):
                 ),
                 None,
             )
-        if not selected_student:
-            selected_student = next(
-                (
-                    student for student in _teacher_student_rows(None)
-                    if str(student.get('code')) == str(student_id) or str(student.get('id')) == str(student_id)
-                ),
-                None,
-            )
-    if selected_student is None and students:
-        selected_student = students[0]
     return {
         'page': page,
         'teacher_profile': _teacher_modern_profile(request),
@@ -14456,19 +14436,38 @@ def teacher_course_detail(request, group_id):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'course_detail', group_id=group_id))
 
 
+def _teacher_owns_group(teacher_id, group_id) -> bool:
+    """True when the teacher teaches this group, as its owner or a co-teacher."""
+    try:
+        uuid.UUID(str(group_id))
+    except ValueError:
+        return False
+    return erd_row(
+        'SELECT 1 AS ok FROM student_groups sg '
+        'WHERE sg.id = %s AND (sg.teacher_id = %s OR sg.id IN (SELECT group_id FROM group_teachers WHERE teacher_id = %s))',
+        [group_id, teacher_id, teacher_id],
+    ) is not None
+
+
 @erd_role_required('teacher')
 def teacher_group_students(request, group_id):
+    if not _teacher_owns_group(request.erd_profile_id, group_id):
+        raise Http404('گروه پیدا نشد.')
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'group_students', group_id=group_id))
 
 
 @erd_role_required('teacher')
 def teacher_group_activity(request, group_id):
+    if not _teacher_owns_group(request.erd_profile_id, group_id):
+        raise Http404('گروه پیدا نشد.')
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'group_activity', group_id=group_id))
 
 
 @erd_role_required('teacher')
 def teacher_student_profile(request, student_id):
     context = _teacher_modern_context(request, 'student_profile', student_id=student_id, tab=request.GET.get('tab', 'overview'))
+    if not context['selected_student']:  # not a member of any group this teacher teaches
+        raise Http404('دانشجو پیدا نشد.')
     context['student_id'] = student_id
     return render(request, 'teacher/modern.html', context)
 
