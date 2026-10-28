@@ -2758,6 +2758,64 @@ class TeacherStudentScopeTests(_ScopedOrgFixture):
         self.assertEqual(_cell('علی'), 'علی')
 
 
+class TeacherSettingsTests(_ScopedOrgFixture):
+    """تنظیمات پنل استاد: سه تب، ذخیره فقط فیلدهای همان تب، و ردکردن مقدارهای خارج از گزینه‌ها سمت سرور."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def setUp(self):
+        self.client.force_login(self.teacher_user)
+
+    def _stored(self):
+        from apps.core.views import _teacher_settings_payload
+        return _teacher_settings_payload(self.teacher_in_id)
+
+    def _post(self, tab, **data):
+        return self.client.post(reverse('core:teacher_settings'), {'settings_tab': tab, **data})
+
+    def test_tabs_render_and_old_tab_names_map_to_new_ones(self):
+        for tab, marker in (('account', 'محیط کار'), ('exam', 'پیش‌فرض آزمون'), ('security', 'حریم خصوصی و نمایش اطلاعات')):
+            response = self.client.get(reverse('core:teacher_settings'), {'tab': tab})
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(marker, response.content.decode())
+        self.assertEqual(self.client.get(reverse('core:teacher_settings'), {'tab': 'bank'}).context['teacher_settings_tab'], 'exam')
+        self.assertEqual(self.client.get(reverse('core:teacher_settings'), {'tab': 'notifications'}).context['teacher_settings_tab'], 'account')
+        self.assertEqual(self.client.get(reverse('core:teacher_settings'), {'tab': 'bogus'}).context['teacher_settings_tab'], 'account')
+
+    def test_saves_only_the_posted_tab_and_validates_choices(self):
+        self._post('exam', default_exam_duration='90', negative_marking='on', sharing_mode='group', auto_archive='on')
+        stored = self._stored()
+        self.assertEqual((stored['default_exam_duration'], stored['negative_marking'], stored['sharing_mode'], stored['auto_archive']), ('90', True, 'group', True))
+        self.assertFalse(stored['text_feedback'])  # an unchecked switch on the posted tab turns off
+        self.assertTrue(stored['quick_help'])  # switches on other tabs keep their value
+
+        self._post('exam', default_exam_duration='9999', sharing_mode='<script>')
+        stored = self._stored()
+        self.assertEqual((stored['default_exam_duration'], stored['sharing_mode']), ('90', 'group'))
+
+    def test_account_tab_validates_email_and_quiet_hours(self):
+        self._post('account', theme='dark', delivery_mode='daily', notification_email='me@uni.ac.ir', quiet_start='23:30', quiet_end='06:15')
+        stored = self._stored()
+        self.assertEqual(
+            (stored['theme'], stored['delivery_mode'], stored['notification_email'], stored['quiet_start'], stored['quiet_end']),
+            ('dark', 'daily', 'me@uni.ac.ir', '23:30', '06:15'),
+        )
+        response = self._post('account', notification_email='not-an-email', quiet_start='25:99')
+        stored = self._stored()
+        self.assertEqual((stored['notification_email'], stored['quiet_start']), ('me@uni.ac.ir', '23:30'))
+        self.assertIn('ایمیل اعلان‌ها معتبر نیست', self.client.get(response['Location']).content.decode())
+
+    def test_security_tab_shows_no_fake_sessions(self):
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode()
+        for fake in ('Windows 11', 'Android · Chrome', 'حساب شما ایمن است'):
+            self.assertNotIn(fake, page)
+        self.assertIn('در حال توسعه', page)
+
+
 class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
     """صفحه‌ی ویرایش آزمون مدیر آموزشی: فهرست‌ها و هر شناسه‌ی ارسالی باید داخل محدوده‌ی او باشد."""
 

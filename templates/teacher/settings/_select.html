@@ -1,0 +1,4 @@
+{% load core_extras %}<label class="tset-field">
+    <span class="tset-label">{% include "teacher/_qb_icon.html" with name=icon %}{{ label }}</span>
+    <span class="tset-select"><select name="{{ name }}">{% with current=teacher_settings_selected|get_item:name %}{% for value, text in teacher_settings_choices|get_item:name %}<option value="{{ value }}"{% if value == current %} selected{% endif %}>{{ text }}</option>{% endfor %}{% endwith %}</select></span>
+</label>

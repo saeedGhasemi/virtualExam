@@ -1,0 +1,181 @@
+{% load core_extras %}
+<form class="tset" method="post" enctype="multipart/form-data" action="{% url 'core:teacher_settings' %}?tab={{ teacher_settings_tab }}" data-tset-form>
+    {% csrf_token %}
+    <input type="hidden" name="settings_tab" value="{{ teacher_settings_tab }}">
+    <h1 class="sr-only">تنظیمات پنل استاد</h1>
+
+    <nav class="tset-tabs" aria-label="بخش‌های تنظیمات">
+        <a class="{% if teacher_settings_tab == 'personal' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}?tab=personal"{% if teacher_settings_tab == 'personal' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="user" %}اطلاعات فردی</a>
+        <a class="{% if teacher_settings_tab == 'account' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}?tab=account"{% if teacher_settings_tab == 'account' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="settings" %}حساب و محیط کار</a>
+        <a class="{% if teacher_settings_tab == 'exam' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}?tab=exam"{% if teacher_settings_tab == 'exam' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="list" %}آزمون و ارزیابی</a>
+        <a class="{% if teacher_settings_tab == 'security' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}?tab=security"{% if teacher_settings_tab == 'security' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="shield" %}امنیت و حریم خصوصی</a>
+    </nav>
+
+    {% if teacher_settings_tab == 'personal' %}
+        {% include "teacher/settings/_personal.html" %}
+    {% elif teacher_settings_tab == 'exam' %}
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="essay" %}<div><h2>پیش‌فرض آزمون</h2><p>این تنظیمات به‌عنوان مقدار پیش‌فرض در آزمون‌های جدید اعمال می‌شود و در هر آزمون قابل تغییر است.</p></div></header>
+            <div class="tset-row is-4">
+                {% include "teacher/settings/_select.html" with name="default_exam_duration" label="مدت زمان آزمون" icon="clock" %}
+                {% include "teacher/settings/_select.html" with name="default_attempts" label="تعداد تلاش مجاز" icon="refresh" %}
+                {% include "teacher/settings/_select.html" with name="question_order" label="ترتیب نمایش سؤال‌ها" icon="shuffle" %}
+                {% include "teacher/settings/_select.html" with name="negative_marking" label="نمره منفی" icon="minus_circle" %}
+            </div>
+            <div class="tset-row is-3">
+                {% include "teacher/settings/_select.html" with name="result_release" label="زمان انتشار نتیجه" icon="calendar" %}
+                {% include "teacher/settings/_switch.html" with name="show_correct_answer" label="نمایش پاسخ صحیح به دانشجو" icon="eye" on_text="نمایش داده شود" off_text="نمایش داده نشود" stacked=True %}
+                {% include "teacher/settings/_switch.html" with name="show_result_after_publish" label="نمایش نمرات به دانشجو" icon="chart" on_text="نمایش داده شود" off_text="نمایش داده نشود" stacked=True %}
+            </div>
+        </section>
+
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="database" %}<div><h2>بانک سؤال</h2><p>تنظیمات مدیریت بانک سؤال و نحوه استفاده از سؤالات در آزمون‌ها.</p></div></header>
+            <div class="tset-row is-5">
+                {% include "teacher/settings/_select.html" with name="bank_default_structure" label="ساختار بانک سؤال" icon="folder" %}
+                {% include "teacher/settings/_select.html" with name="bank_default_difficulty" label="سطح دشواری پیش‌فرض" icon="chart" %}
+                {% include "teacher/settings/_select.html" with name="sharing_mode" label="اشتراک‌گذاری سؤالات" icon="users" %}
+                {% include "teacher/settings/_switch.html" with name="question_autosave" label="ذخیره خودکار پیش‌نویس" icon="essay" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
+                {% include "teacher/settings/_switch.html" with name="auto_archive" label="بایگانی خودکار" icon="archive" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
+            </div>
+        </section>
+
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="edit" %}<div><h2>تصحیح و بازخورد</h2><p>تنظیمات نحوه تصحیح، نمره‌دهی و ارائه بازخورد به دانشجویان.</p></div></header>
+            <div class="tset-row is-5">
+                {% include "teacher/settings/_switch.html" with name="auto_grade_objective" label="تصحیح خودکار سؤالات عینی" icon="settings" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
+                {% include "teacher/settings/_select.html" with name="essay_grading_default" label="نحوه تصحیح سؤالات تشریحی" icon="essay" %}
+                {% include "teacher/settings/_select.html" with name="rounding" label="دقت نمره‌دهی" icon="calculator" %}
+                {% include "teacher/settings/_switch.html" with name="text_feedback" label="ارائه بازخورد کتبی به دانشجو" icon="message" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
+                {% include "teacher/settings/_switch.html" with name="lock_score_after_publish" label="قفل کردن نمرات پس از انتشار" icon="lock" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
+            </div>
+        </section>
+
+    {% elif teacher_settings_tab == 'security' %}
+        <div class="tset-split">
+            <section class="tset-card">
+                <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="shield" %}<div><h2>امنیت حساب</h2><p>رمز عبور و روش‌های امنیتی حساب خود را مدیریت کنید.</p></div></header>
+                <div class="tset-list">
+                    <div class="tset-list-row">
+                        <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="lock" %}رمز عبور</b><small>رمز عبور خود را به‌طور منظم تغییر دهید.</small></span>
+                        <a class="tset-btn" href="{% url 'core:profile' %}?section=security">تغییر رمز عبور</a>
+                    </div>
+                    <div class="tset-list-row">
+                        <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="phone" %}ورود دو مرحله‌ای</b><small>برای امنیت بیشتر، ورود دو مرحله‌ای را فعال کنید.</small></span>
+                        <span class="tset-dev">در حال توسعه</span>
+                    </div>
+                    <div class="tset-list-row">
+                        <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="key" %}مدیریت روش‌های تأیید</b><small>روش‌های دریافت کد تأیید را مدیریت کنید.</small></span>
+                        <span class="tset-dev">در حال توسعه</span>
+                    </div>
+                </div>
+            </section>
+            <section class="tset-card">
+                <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="monitor" %}<div><h2>نشست‌های فعال</h2><p>دستگاه‌هایی که به حساب شما وارد شده‌اند.</p></div></header>
+                <p class="tset-placeholder"><span class="tset-dev">در حال توسعه</span>فهرست نشست‌ها و خروج از سایر نشست‌ها به‌زودی اینجا فعال می‌شود.</p>
+            </section>
+        </div>
+
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="users" %}<div><h2>حریم خصوصی و نمایش اطلاعات</h2><p>مشخص کنید چه اطلاعاتی برای دیگران قابل مشاهده باشد.</p></div></header>
+            <div class="tset-row is-3 is-boxed">
+                {% include "teacher/settings/_switch.html" with name="show_name_to_students" label="نمایش پروفایل به دانشجویان" icon="users" desc="پروفایل شما برای دانشجویان قابل مشاهده باشد." %}
+                {% include "teacher/settings/_switch.html" with name="show_email_in_class" label="نمایش ایمیل" icon="mail" desc="نمایش ایمیل شما در پروفایل عمومی." %}
+                {% include "teacher/settings/_switch.html" with name="share_stats_with_admin" label="اشتراک آمار تجمیعی" icon="chart" desc="مشارکت در بهبود سرویس با اشتراک‌گذاری آمار ناشناس." %}
+            </div>
+        </section>
+
+        <section class="tset-card tset-danger">
+            <span class="tset-danger-icon">{% include "teacher/_qb_icon.html" with name="trash" %}</span>
+            <div><h2>درخواست حذف حساب</h2><p>با حذف حساب، تمامی اطلاعات و داده‌های شما به‌طور دائمی حذف خواهد شد.</p></div>
+            <span class="tset-dev">در حال توسعه</span>
+        </section>
+
+    {% else %}
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="user" %}<div><h2>محیط کار</h2><p>زبان، منطقه زمانی، تاریخ و نحوه نمایش را تنظیم کنید.</p></div></header>
+            <div class="tset-row is-3">
+                {% include "teacher/settings/_select.html" with name="language" label="زبان سامانه" icon="globe" %}
+                {% include "teacher/settings/_select.html" with name="timezone" label="منطقه زمانی" icon="clock" %}
+                {% include "teacher/settings/_select.html" with name="date_format" label="تقویم تاریخ" icon="calendar" %}
+            </div>
+            <div class="tset-row is-2">
+                <fieldset class="tset-field">
+                    <legend class="tset-label">{% include "teacher/_qb_icon.html" with name="palette" %}نمایش پوسته (تم)</legend>
+                    <div class="tset-segment">
+                        {% for value, text in teacher_settings_choices.theme %}
+                            <label><input type="radio" name="theme" value="{{ value }}"{% if value == teacher_settings_selected.theme %} checked{% endif %}><span>{% if value == 'light' %}{% include "teacher/_qb_icon.html" with name="sun" %}{% elif value == 'dark' %}{% include "teacher/_qb_icon.html" with name="moon" %}{% else %}{% include "teacher/_qb_icon.html" with name="monitor" %}{% endif %}{{ text }}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <div class="tset-field">
+                    <span class="tset-label">{% include "teacher/_qb_icon.html" with name="building" %}واحد سازمانی</span>
+                    <span class="tset-readonly" title="اطلاعات سازمانی توسط مدیر آموزشی مدیریت می‌شود.">{{ teacher_profile.faculty|default:"-" }}{% include "teacher/_qb_icon.html" with name="lock" %}</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="monitor" %}<div><h2>نمایش و دسترسی</h2><p>نحوه نمایش و دسترسی به امکانات را تنظیم کنید.</p></div></header>
+            <div class="tset-row is-3">
+                {% include "teacher/settings/_switch.html" with name="quick_help" label="راهنمای سریع" icon="book" desc="راهنمای سریع در گوشه پایین سمت چپ نمایش داده شود." %}
+                {% include "teacher/settings/_switch.html" with name="show_page_meta" label="میانبرهای صفحه‌کلید" icon="keyboard" desc="میانبرها در صفحات مختلف نمایش داده شوند." %}
+                {% include "teacher/settings/_switch.html" with name="compact_tables" label="نمایش جدول فشرده" icon="list" desc="ردیف‌ها و ستون‌ها با فاصله کمتر نمایش داده شوند." %}
+            </div>
+        </section>
+
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="bell" %}<div><h2>اعلان‌ها</h2><p>کانال‌های دریافت اعلان و زمان‌بندی آن‌ها را تنظیم کنید.</p></div></header>
+            <div class="tset-row is-channels">
+                {% include "teacher/settings/_switch.html" with name="system_channel" label="درون سامانه" icon="bell" %}
+                {% include "teacher/settings/_switch.html" with name="email_channel" label="ایمیل" icon="mail" %}
+                {% include "teacher/settings/_switch.html" with name="browser_channel" label="مرورگر" icon="browser" %}
+                <label class="tset-field">
+                    <span class="tset-label">{% include "teacher/_qb_icon.html" with name="mail" %}ایمیل اعلان‌ها</span>
+                    <input class="tset-input" type="email" name="notification_email" value="{{ teacher_settings.notification_email }}" maxlength="254" dir="ltr" placeholder="{{ request.user.email|default:'name@university.ac.ir' }}">
+                </label>
+            </div>
+            <div class="tset-row is-delivery">
+                <fieldset class="tset-inline">
+                    <legend class="tset-label">{% include "teacher/_qb_icon.html" with name="sliders" %}نحوه دریافت اعلان‌ها</legend>
+                    <div class="tset-segment">
+                        {% for value, text in teacher_settings_choices.delivery_mode %}
+                            <label><input type="radio" name="delivery_mode" value="{{ value }}"{% if value == teacher_settings_selected.delivery_mode %} checked{% endif %}><span>{{ text }}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <div class="tset-inline">
+                    <span class="tset-label">{% include "teacher/_qb_icon.html" with name="moon" %}بازه عدم مزاحمت</span>
+                    <label class="tset-time"><span class="sr-only">از ساعت</span>{% include "teacher/_qb_icon.html" with name="clock" %}<input type="time" name="quiet_start" value="{{ teacher_settings.quiet_start }}"></label>
+                    <span class="tset-to">تا</span>
+                    <label class="tset-time"><span class="sr-only">تا ساعت</span>{% include "teacher/_qb_icon.html" with name="clock" %}<input type="time" name="quiet_end" value="{{ teacher_settings.quiet_end }}"></label>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+
+    <footer class="tset-footer">
+        <button class="tset-save" type="submit">{% include "teacher/_qb_icon.html" with name="save" %}ذخیره تغییرات</button>
+        <button class="tset-cancel" type="reset">انصراف</button>
+        <span class="tset-status" data-tset-status{% if request.GET.saved %} data-saved{% endif %}><i aria-hidden="true"></i><span data-tset-status-text>{% if request.GET.saved %}تغییرات ذخیره شد.{% else %}تغییری ایجاد نشده است.{% endif %}</span></span>
+    </footer>
+</form>
+<script>
+(function () {
+    var form = document.querySelector('[data-tset-form]');
+    if (!form) return;
+    var status = form.querySelector('[data-tset-status]');
+    var text = form.querySelector('[data-tset-status-text]');
+    function markDirty() {
+        status.setAttribute('data-dirty', '');
+        status.removeAttribute('data-saved');
+        text.textContent = 'تغییرات ذخیره نشده است.';
+    }
+    form.addEventListener('input', markDirty);
+    form.addEventListener('change', markDirty);
+    form.addEventListener('reset', function () {
+        status.removeAttribute('data-dirty');
+        text.textContent = 'تغییری ایجاد نشده است.';
+    });
+})();
+</script>

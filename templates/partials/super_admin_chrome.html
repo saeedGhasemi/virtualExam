@@ -57,6 +57,13 @@
     .super-admin-menu-toggle{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     .super-admin-menu-btn{display:none;position:absolute;top:50%;right:1.3rem;transform:translateY(-50%);width:2.65rem;height:2.65rem;border:1px solid rgba(255,255,255,.66);border-radius:999px;background:rgba(255,255,255,.34);backdrop-filter:blur(22px) saturate(170%);-webkit-backdrop-filter:blur(22px) saturate(170%);color:#1b2b4c;box-shadow:0 12px 26px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.72);cursor:pointer;place-items:center}
     .super-admin-menu-btn svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    /* mid-width screens: keep the nav on one line (it used to wrap into the page) by letting the side columns shrink to their content */
+    @media (min-width:1321px) and (max-width:1680px){
+        .super-admin-topbar{grid-template-columns:auto minmax(0,1fr) auto}
+        .super-admin-nav{flex-wrap:nowrap;gap:.25rem;overflow-x:auto;scrollbar-width:none;padding:.5rem .25rem}
+        .super-admin-nav::-webkit-scrollbar{display:none}
+        .super-admin-nav a{padding:0 .65rem}
+    }
     @media (max-width:1320px){
         .super-admin-menu-btn{display:grid}
         .super-admin-nav{display:none;position:absolute;top:100%;right:0;left:0;flex-direction:column;align-items:stretch;gap:.3rem;max-height:calc(100dvh - 90px);overflow-y:auto;padding:.75rem 1rem 1.25rem;background:#fdfeff;border-top:1px solid var(--line);box-shadow:0 30px 60px rgba(30,55,95,.16)}

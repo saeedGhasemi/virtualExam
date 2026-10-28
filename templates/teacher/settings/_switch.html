@@ -1,0 +1,11 @@
+{% load core_extras %}<label class="tset-switch-row{% if stacked %} is-stacked{% endif %}">
+    <span class="tset-switch-text">
+        <b>{% include "teacher/_qb_icon.html" with name=icon %}{{ label }}</b>
+        {% if desc %}<small>{{ desc }}</small>{% endif %}
+    </span>
+    <span class="tset-switch-control">
+        <input type="checkbox" name="{{ name }}"{% if teacher_settings|get_item:name %} checked{% endif %}>
+        <i aria-hidden="true"></i>
+        {% if on_text %}<em class="is-on">{{ on_text }}</em><em class="is-off">{{ off_text }}</em>{% endif %}
+    </span>
+</label>

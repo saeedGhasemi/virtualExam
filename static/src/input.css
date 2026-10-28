@@ -10302,6 +10302,353 @@
     }
   }
 
+  /* Teacher panel settings (templates/teacher/settings/) */
+  .tset {
+    @apply grid gap-4 text-right;
+  }
+
+  .tset svg {
+    @apply h-5 w-5 shrink-0;
+  }
+
+  /* pill tabs: the app-wide tab standard (see .sap-tabs on the super-admin profile) */
+  .tset-tabs {
+    @apply flex w-full gap-[.4rem] rounded-2xl border border-[#e1e8f3] bg-[rgba(244,248,253,.9)] p-[.35rem];
+  }
+
+  .tset-tabs a {
+    @apply flex flex-1 items-center justify-center gap-2 rounded-[.8rem] border border-transparent px-4 py-3 text-base font-black text-[#54617a] transition hover:text-blue-600;
+  }
+
+  .tset-tabs a svg {
+    @apply h-6 w-6;
+  }
+
+  .tset-tabs a.is-active {
+    @apply border-[#bfdbfe] bg-white text-blue-600 shadow-[0_6px_16px_rgba(37,99,235,.14)];
+  }
+
+  .tset-card {
+    @apply min-w-0 rounded-xl border border-[#e1e8f3] bg-white p-5 shadow-[0_10px_30px_rgba(33,55,104,.05)];
+  }
+
+  .tset-card-head {
+    @apply mb-4 flex items-start gap-3 border-b border-slate-100 pb-4;
+  }
+
+  .tset-card-head > svg {
+    @apply mt-0.5 h-7 w-7 text-blue-600;
+  }
+
+  .tset-card-head h2 {
+    @apply text-lg font-black text-slate-950;
+  }
+
+  .tset-card-head p {
+    @apply mt-1 text-xs font-bold text-slate-500;
+  }
+
+  .tset-row {
+    @apply grid items-end gap-x-6 gap-y-4;
+  }
+
+  .tset-row + .tset-row {
+    @apply mt-4 border-t border-slate-100 pt-4;
+  }
+
+  .tset-row.is-2 { @apply grid-cols-2; }
+  .tset-row.is-3 { @apply grid-cols-3; }
+  .tset-row.is-4 { @apply grid-cols-4; }
+  .tset-row.is-5 { @apply grid-cols-5; }
+  .tset-row.is-channels { @apply grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.6fr)] items-center; }
+  .tset-row.is-delivery { @apply flex flex-wrap items-center justify-between; }
+
+  .tset-row.is-boxed {
+    @apply rounded-xl border border-slate-100 p-4;
+  }
+
+  .tset-field {
+    @apply grid min-w-0 gap-2;
+  }
+
+  .tset-label {
+    @apply flex items-center gap-2 text-sm font-black text-slate-700;
+  }
+
+  .tset-label svg {
+    @apply text-slate-500;
+  }
+
+  fieldset.tset-field > legend {
+    @apply mb-2;
+  }
+
+  .tset-select,
+  .tset-input,
+  .tset-readonly,
+  .tset-time {
+    @apply flex h-12 w-full items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800;
+  }
+
+  .tset-select {
+    @apply px-0;
+  }
+
+  .tset-select select {
+    @apply h-full w-full rounded-xl border-0 bg-transparent px-4 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-200;
+  }
+
+  .tset-input {
+    @apply text-left focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100;
+  }
+
+  .tset-readonly {
+    @apply justify-between bg-slate-50 text-slate-600;
+  }
+
+  .tset-readonly svg {
+    @apply text-slate-400;
+  }
+
+  .tset-segment {
+    @apply flex h-12 w-fit overflow-hidden rounded-xl border border-slate-200 bg-white;
+  }
+
+  .tset-segment label {
+    @apply flex cursor-pointer;
+  }
+
+  .tset-segment input {
+    @apply sr-only;
+  }
+
+  .tset-segment span {
+    @apply flex min-w-[120px] items-center justify-center gap-2 border-l border-slate-200 px-5 text-sm font-black text-slate-600 transition hover:bg-slate-50;
+  }
+
+  .tset-segment label:last-child span {
+    @apply border-l-0;
+  }
+
+  .tset-segment input:checked + span {
+    @apply bg-blue-600 text-white;
+  }
+
+  .tset-segment input:focus-visible + span {
+    @apply ring-2 ring-inset ring-blue-300;
+  }
+
+  .tset-inline {
+    @apply flex flex-wrap items-center gap-4;
+  }
+
+  .tset-inline legend {
+    @apply float-right me-4 mt-3.5;
+  }
+
+  .tset-time {
+    @apply w-36 gap-2 text-slate-500;
+  }
+
+  .tset-time input {
+    @apply h-full w-full border-0 bg-transparent p-0 text-sm font-bold text-slate-800 focus:ring-0;
+  }
+
+  .tset-to {
+    @apply text-sm font-bold text-slate-500;
+  }
+
+  .tset-switch-row {
+    @apply flex min-w-0 cursor-pointer items-center justify-between gap-4;
+  }
+
+  .tset-switch-row.is-stacked {
+    @apply grid justify-stretch gap-2;
+  }
+
+  .tset-switch-text {
+    @apply grid min-w-0 gap-1;
+  }
+
+  .tset-switch-text b {
+    @apply flex items-center gap-2 text-sm font-black text-slate-800;
+  }
+
+  .tset-switch-text b svg {
+    @apply text-blue-600;
+  }
+
+  .tset-switch-row.is-stacked .tset-switch-text b,
+  .tset-switch-row.is-stacked .tset-switch-text b svg {
+    @apply text-slate-700;
+  }
+
+  .tset-switch-row.is-stacked .tset-switch-text b svg {
+    @apply text-slate-500;
+  }
+
+  .tset-switch-text small {
+    @apply text-xs font-bold text-slate-500;
+  }
+
+  .tset-switch-control {
+    @apply flex h-12 shrink-0 items-center gap-3;
+  }
+
+  .tset-switch-control input {
+    @apply sr-only;
+  }
+
+  .tset-switch-control i {
+    @apply relative block h-[30px] w-[54px] shrink-0 rounded-full bg-slate-300 transition;
+  }
+
+  .tset-switch-control i::after {
+    @apply absolute left-[3px] top-[3px] h-6 w-6 rounded-full bg-white shadow transition;
+    content: "";
+  }
+
+  .tset-switch-control input:checked + i {
+    @apply bg-blue-600;
+  }
+
+  .tset-switch-control input:checked + i::after {
+    @apply translate-x-6;
+  }
+
+  .tset-switch-control input:focus-visible + i {
+    @apply ring-2 ring-blue-300 ring-offset-2;
+  }
+
+  .tset-switch-control em {
+    @apply text-sm font-bold not-italic text-slate-500;
+  }
+
+  .tset-switch-control input:checked ~ .is-off,
+  .tset-switch-control input:not(:checked) ~ .is-on {
+    @apply hidden;
+  }
+
+  .tset-row.is-boxed .tset-switch-row + .tset-switch-row,
+  .tset-row.is-3 > .tset-switch-row:not(.is-stacked) + .tset-switch-row,
+  .tset-row.is-channels > .tset-switch-row + .tset-switch-row {
+    @apply border-r border-slate-100 pr-6;
+  }
+
+  .tset-split {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  .tset-list {
+    @apply grid rounded-xl border border-slate-100;
+  }
+
+  .tset-list-row {
+    @apply flex items-center justify-between gap-4 px-4 py-4;
+  }
+
+  .tset-list-row + .tset-list-row {
+    @apply border-t border-slate-100;
+  }
+
+  .tset-btn {
+    @apply inline-flex h-11 shrink-0 items-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-800 transition hover:border-blue-400 hover:text-blue-700;
+  }
+
+  .tset-dev {
+    @apply inline-flex shrink-0 items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700;
+  }
+
+  .tset-placeholder {
+    @apply grid justify-items-start gap-3 rounded-xl border border-dashed border-slate-200 p-5 text-sm font-bold text-slate-500;
+  }
+
+  .tset-danger {
+    @apply flex items-center gap-4 border-red-200 bg-red-50/60;
+  }
+
+  .tset-danger > div {
+    @apply flex-1;
+  }
+
+  .tset-danger h2 {
+    @apply text-base font-black text-red-600;
+  }
+
+  .tset-danger p {
+    @apply mt-1 text-sm font-bold text-slate-600;
+  }
+
+  .tset-danger-icon svg {
+    @apply h-8 w-8 text-red-500;
+  }
+
+  .tset-footer {
+    @apply sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-[#e1e8f3] bg-white p-3 shadow-[0_10px_30px_rgba(33,55,104,.08)];
+  }
+
+  .tset-save {
+    @apply inline-flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-8 text-sm font-black text-white transition hover:bg-blue-700;
+  }
+
+  .tset-cancel {
+    @apply h-12 rounded-xl border border-slate-200 bg-white px-10 text-sm font-black text-slate-700 transition hover:bg-slate-50;
+  }
+
+  .tset-status {
+    @apply ms-auto inline-flex items-center gap-2 text-sm font-bold text-slate-500;
+  }
+
+  .tset-status i {
+    @apply h-2.5 w-2.5 rounded-full bg-slate-300;
+  }
+
+  .tset-status[data-dirty] i { @apply bg-orange-500; }
+  .tset-status[data-saved] i { @apply bg-emerald-500; }
+
+  @media (max-width: 1180px) {
+    .tset-row.is-4,
+    .tset-row.is-5,
+    .tset-row.is-channels {
+      @apply grid-cols-2;
+    }
+
+    .tset-split {
+      @apply grid-cols-1;
+    }
+
+    .tset-row.is-channels > .tset-switch-row + .tset-switch-row,
+    .tset-row.is-3 > .tset-switch-row:not(.is-stacked) + .tset-switch-row {
+      @apply border-r-0 pr-0;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .tset-row.is-2,
+    .tset-row.is-3,
+    .tset-row.is-4,
+    .tset-row.is-5,
+    .tset-row.is-channels {
+      @apply grid-cols-1;
+    }
+
+    .tset-tabs a {
+      @apply px-2 text-sm;
+    }
+
+    .tset-tabs a svg {
+      @apply hidden;
+    }
+
+    .tset-row.is-boxed .tset-switch-row + .tset-switch-row {
+      @apply border-r-0 pr-0;
+    }
+
+    .tset-segment span {
+      @apply min-w-0 px-3;
+    }
+  }
+
   /* Teacher «دانشجویان» list and student profile (templates/teacher/students/) */
   .tstu {
     @apply grid gap-5 text-right;
@@ -18226,310 +18573,6 @@
 
   .teacher-activity-side section b {
     @apply mt-2 block h-2 rounded-full bg-gradient-to-l from-[#3154f4] to-[#8b5cf6];
-  }
-
-  .teacher-content:has(.teacher-settings-shell) {
-    @apply p-0;
-  }
-
-  .teacher-settings-shell {
-    @apply relative min-h-[calc(100vh-5rem)] bg-[radial-gradient(circle_at_20%_10%,rgba(100,92,255,.16),transparent_30%),linear-gradient(135deg,#eef6ff_0%,#f8fbff_48%,#f2f3ff_100%)] px-10 pb-28 pt-8 text-right;
-  }
-
-  .teacher-settings-head {
-    @apply -mx-10 -mt-8 mb-8 grid grid-cols-[auto_minmax(0,1fr)_56px] items-center gap-6 bg-[#061c49] px-10 py-7 text-white shadow-[0_18px_44px_rgba(6,28,73,.24)];
-  }
-
-  .teacher-settings-head h1 {
-    @apply text-4xl font-black tracking-normal;
-  }
-
-  .teacher-settings-head p {
-    @apply mt-2 text-base font-bold text-blue-100;
-  }
-
-  .teacher-settings-head > span {
-    @apply grid h-14 w-14 place-items-center rounded-xl border border-white/20 bg-white/10;
-  }
-
-  .teacher-settings-head svg {
-    @apply h-7 w-7 fill-none stroke-current stroke-2;
-  }
-
-  .teacher-settings-save {
-    @apply inline-flex h-14 min-w-52 items-center justify-center gap-3 rounded-xl bg-gradient-to-l from-[#1f73ff] to-[#654ff2] px-6 text-base font-black text-white shadow-[0_18px_34px_rgba(38,90,244,.35)];
-  }
-
-  .teacher-settings-tabs {
-    @apply mx-auto mb-6 grid max-w-6xl grid-cols-5 overflow-hidden rounded-xl border border-[#cfdcf0] bg-white/80 shadow-[0_14px_34px_rgba(33,55,104,.07)];
-  }
-
-  .teacher-settings-tabs a {
-    @apply relative grid h-16 place-items-center border-l border-[#dde6f4] text-lg font-black text-[#1f2c52] last:border-l-0;
-  }
-
-  .teacher-settings-tabs a.is-active {
-    @apply bg-white text-[#2354f4] shadow-[0_18px_32px_rgba(33,55,104,.08)];
-  }
-
-  .teacher-settings-tabs a.is-active::after {
-    content: "";
-    @apply absolute bottom-0 right-0 h-1 w-full rounded-full bg-[#2354f4];
-  }
-
-  .teacher-settings-grid {
-    @apply grid grid-cols-2 gap-6;
-  }
-
-  .teacher-settings-card {
-    @apply rounded-2xl border border-[#d5e1f2] bg-white/80 p-7 shadow-[0_20px_50px_rgba(34,54,106,.09)] backdrop-blur;
-  }
-
-  .teacher-settings-card.is-wide {
-    @apply mb-5;
-  }
-
-  .teacher-settings-card header {
-    @apply mb-6 flex flex-row-reverse items-center justify-between gap-4;
-  }
-
-  .teacher-settings-card h2 {
-    @apply text-2xl font-black tracking-normal text-[#0d1d44];
-  }
-
-  .teacher-settings-card header i {
-    @apply grid h-14 w-14 place-items-center rounded-2xl bg-blue-100 text-2xl font-black not-italic text-[#2354f4];
-  }
-
-  .teacher-settings-card label {
-    @apply mb-4 block text-base font-black text-[#1d2a4d];
-  }
-
-  .teacher-settings-card label > input:not([type="checkbox"]):not([type="radio"]),
-  .teacher-settings-card select {
-    @apply mt-2 h-[52px] w-full rounded-lg border border-[#cfdcf0] bg-white px-4 text-base font-bold text-[#1f2c52] outline-none focus:border-[#3154f4] focus:ring-4 focus:ring-blue-100;
-  }
-
-  .teacher-settings-card small {
-    @apply block text-sm font-bold leading-7 text-slate-500;
-  }
-
-  .teacher-settings-fields {
-    @apply grid gap-5;
-  }
-
-  .teacher-settings-fields.is-4,
-  .teacher-settings-switch-grid {
-    @apply grid-cols-4;
-  }
-
-  .teacher-settings-switch-grid {
-    @apply grid items-end gap-7;
-  }
-
-  .teacher-settings-switch-grid label:has(> input[type="checkbox"]),
-  .settings-toggle-row,
-  .teacher-settings-list label {
-    @apply flex flex-row-reverse items-center justify-between gap-4 border-b border-[#dce5f2] pb-4;
-  }
-
-  .teacher-settings-switch-grid label > input[type="checkbox"],
-  .settings-toggle-row input,
-  .teacher-settings-channel-row label input,
-  .teacher-settings-list label input {
-    @apply sr-only;
-  }
-
-  .teacher-settings-switch-grid label:has(> input[type="checkbox"]) > span,
-  .settings-toggle-row span,
-  .teacher-settings-channel-row label span,
-  .teacher-settings-list label span {
-    @apply relative h-8 w-14 shrink-0 rounded-full bg-slate-300 shadow-inner;
-  }
-
-  .teacher-settings-switch-grid label:has(> input[type="checkbox"]) > span::after,
-  .settings-toggle-row span::after,
-  .teacher-settings-channel-row label span::after,
-  .teacher-settings-list label span::after {
-    content: "";
-    @apply absolute right-1 top-1 h-6 w-6 rounded-full bg-white shadow transition;
-  }
-
-  .teacher-settings-switch-grid input[type="checkbox"]:checked + span,
-  .settings-toggle-row input:checked + span,
-  .teacher-settings-channel-row label input:checked + span,
-  .teacher-settings-list label input:checked + span {
-    @apply bg-[#1f5df4];
-  }
-
-  .teacher-settings-switch-grid input[type="checkbox"]:checked + span::after,
-  .settings-toggle-row input:checked + span::after,
-  .teacher-settings-channel-row label input:checked + span::after,
-  .teacher-settings-list label input:checked + span::after {
-    @apply right-7;
-  }
-
-  .teacher-settings-warning {
-    @apply rounded-2xl border border-orange-200 bg-orange-50 px-8 py-5 text-center text-base font-black text-[#5f431f] shadow-[0_12px_28px_rgba(245,158,11,.12)];
-  }
-
-  .settings-segment {
-    @apply grid grid-cols-3 overflow-hidden rounded-xl border border-[#cfdcf0] bg-white;
-  }
-
-  .settings-segment label {
-    @apply m-0 grid h-14 place-items-center border-l border-[#dce5f2] pb-0 text-center last:border-l-0;
-    flex-direction: initial;
-    justify-content: center;
-    gap: 0;
-  }
-
-  .settings-segment input,
-  .teacher-settings-structures input {
-    @apply sr-only;
-  }
-
-  .settings-segment label:has(input:checked) {
-    @apply bg-gradient-to-l from-[#2354f4] to-[#604fea] text-white;
-  }
-
-  .teacher-settings-note {
-    @apply mt-8 rounded-xl border border-blue-200 bg-blue-50 p-5 text-center text-base font-bold leading-8 text-blue-800;
-  }
-
-  .teacher-settings-structures {
-    @apply grid grid-cols-4 gap-5;
-  }
-
-  .teacher-settings-structures label {
-    @apply m-0 grid h-[72px] place-items-center rounded-xl border border-[#cfdcf0] bg-white text-center;
-    flex-direction: initial;
-    justify-content: center;
-    gap: 0;
-  }
-
-  .settings-segment label > span,
-  .teacher-settings-structures label > span {
-    @apply static h-auto w-auto shrink text-transparent shadow-none;
-    background: transparent;
-  }
-
-  .settings-segment label > span::after,
-  .teacher-settings-structures label > span::after {
-    content: none;
-  }
-
-  .teacher-settings-structures label:has(input:checked) {
-    @apply border-[#2354f4] bg-blue-50 text-[#2354f4] shadow-[0_14px_28px_rgba(35,84,244,.13)];
-  }
-
-  .teacher-settings-channel-row {
-    @apply grid grid-cols-[1fr_1fr_1fr_2fr] items-center gap-8;
-  }
-
-  .teacher-settings-channel-row label {
-    @apply m-0 flex flex-row-reverse items-center justify-between border-l border-[#dce5f2] pb-0 pl-8 text-lg last:border-l-0;
-  }
-
-  .teacher-settings-channel-row div {
-    @apply grid h-14 grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg border border-[#cfdcf0] bg-white px-4;
-  }
-
-  .teacher-settings-channel-row em {
-    @apply rounded-full bg-emerald-100 px-4 py-2 text-sm font-black not-italic text-emerald-700;
-  }
-
-  .teacher-settings-delivery {
-    @apply grid grid-cols-[1fr_1fr_2fr] items-center gap-7;
-  }
-
-  .teacher-settings-delivery > label:not(.settings-toggle-row) {
-    @apply m-0 grid h-14 place-items-center rounded-xl border border-[#cfdcf0] bg-white text-lg;
-  }
-
-  .teacher-settings-delivery input:not([type="checkbox"]):not([type="radio"]) {
-    @apply mx-2 h-10 w-24 rounded-lg border border-[#cfdcf0] bg-white px-3 text-center;
-  }
-
-  .teacher-settings-safe {
-    @apply mb-5 inline-flex rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-3 text-lg font-black text-emerald-700;
-  }
-
-  .teacher-settings-row-action {
-    @apply mb-5 flex items-center justify-between border-y border-[#dce5f2] py-4;
-  }
-
-  .teacher-settings-card button {
-    @apply h-11 rounded-lg border border-[#3154f4] px-5 text-sm font-black text-[#2354f4];
-  }
-
-  .teacher-settings-card button.is-danger,
-  .teacher-settings-danger button {
-    @apply border-red-300 text-red-600;
-  }
-
-  .teacher-session-line {
-    @apply mb-3 rounded-xl border border-[#dce5f2] bg-white px-5 py-4;
-  }
-
-  .teacher-session-line b,
-  .teacher-session-line small,
-  .teacher-session-line em {
-    @apply block font-black not-italic;
-  }
-
-  .teacher-session-line em {
-    @apply mt-2 inline-flex rounded-lg bg-emerald-100 px-4 py-2 text-emerald-700;
-  }
-
-  .teacher-settings-list {
-    @apply grid gap-0 overflow-hidden rounded-xl border border-[#dce5f2] bg-white;
-  }
-
-  .teacher-settings-list label {
-    @apply m-0 px-5 py-4;
-  }
-
-  .teacher-settings-list b,
-  .teacher-settings-list small {
-    @apply block;
-  }
-
-  .teacher-settings-danger {
-    @apply mt-5 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700;
-  }
-
-  .teacher-settings-danger b {
-    @apply text-2xl font-black;
-  }
-
-  .teacher-settings-danger p {
-    @apply text-base font-bold leading-8 text-slate-600;
-  }
-
-  .teacher-settings-summary {
-    @apply grid grid-cols-[repeat(4,1fr)_auto] items-center gap-4;
-  }
-
-  .teacher-settings-summary span,
-  .teacher-settings-summary a {
-    @apply rounded-xl border border-[#cfdcf0] bg-white px-5 py-4 text-center text-base font-black text-[#2354f4];
-  }
-
-  .teacher-settings-summary b {
-    @apply mt-1 block text-[#10204a];
-  }
-
-  .teacher-settings-footer {
-    @apply fixed bottom-0 left-0 right-20 z-30 grid grid-cols-[minmax(0,1fr)_200px_240px] items-center gap-5 border-t border-[#d8e3f2] bg-white/90 px-10 py-4 shadow-[0_-18px_44px_rgba(33,55,104,.1)] backdrop-blur;
-  }
-
-  .teacher-settings-footer strong {
-    @apply text-lg font-black text-orange-600;
-  }
-
-  .teacher-settings-footer > button:not(.teacher-settings-save) {
-    @apply h-[52px] rounded-xl border border-[#cfdcf0] bg-white text-base font-black text-[#1f2c52];
   }
 
   @media (max-width: 1100px) {

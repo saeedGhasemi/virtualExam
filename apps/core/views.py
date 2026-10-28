@@ -14186,6 +14186,41 @@ def _teacher_modern_context(request, page, **extra):
     }
 
 
+TEACHER_SETTINGS_TABS = ('personal', 'account', 'exam', 'security')
+TEACHER_SETTINGS_OLD_TABS = {'general': 'account', 'notifications': 'account', 'bank': 'exam'}  # links from the old five-tab page
+
+# Every select on the settings page: posted values outside these lists are ignored.
+TEACHER_SETTINGS_CHOICES = {
+    'language': [('فارسی', 'فارسی')],
+    'timezone': [('Asia/Tehran', 'Asia/Tehran')],
+    'date_format': [('هجری شمسی', 'هجری شمسی'), ('میلادی', 'میلادی')],
+    'theme': [('light', 'روشن'), ('dark', 'تیره'), ('system', 'سیستم')],
+    'delivery_mode': [('instant', 'فوری'), ('daily', 'خلاصه روزانه')],
+    'default_exam_duration': [('30', '۳۰ دقیقه'), ('45', '۴۵ دقیقه'), ('60', '۶۰ دقیقه'), ('90', '۹۰ دقیقه'), ('120', '۱۲۰ دقیقه')],
+    'default_attempts': [('1', '۱'), ('2', '۲'), ('3', '۳')],
+    'question_order': [('random', 'تصادفی'), ('fixed', 'ثابت')],
+    'negative_marking': [('off', 'غیرفعال'), ('on', 'فعال')],
+    'result_release': [('after_teacher', 'پس از تأیید استاد'), ('instant', 'بلافاصله پس از پایان آزمون')],
+    'bank_default_structure': [('independent', 'مستقل'), ('case', 'سناریوی بیمار'), ('kfp', 'KFP'), ('osce', 'ایستگاه OSCE')],
+    'bank_default_difficulty': [('easy', 'آسان'), ('medium', 'متوسط'), ('hard', 'دشوار')],
+    'sharing_mode': [('private', 'خصوصی (فقط خودم)'), ('department', 'اساتید هم‌درس'), ('group', 'گروه آموزشی')],
+    'essay_grading_default': [('rubric', 'با استفاده از روبریک (معیارها)'), ('manual', 'دستی')],
+    'rounding': [('two_decimal', '۲ رقم اعشار'), ('integer', 'عدد صحیح')],
+}
+TEACHER_SETTINGS_SWITCHES = {
+    'account': ['quick_help', 'show_page_meta', 'compact_tables', 'system_channel', 'email_channel', 'browser_channel'],
+    'exam': ['show_correct_answer', 'show_result_after_publish', 'question_autosave', 'auto_archive',
+             'auto_grade_objective', 'text_feedback', 'lock_score_after_publish'],
+    'security': ['show_name_to_students', 'show_email_in_class', 'share_stats_with_admin'],
+}
+TEACHER_SETTINGS_SELECTS = {
+    'account': ['language', 'timezone', 'date_format', 'theme', 'delivery_mode'],
+    'exam': ['default_exam_duration', 'default_attempts', 'question_order', 'negative_marking', 'result_release',
+             'bank_default_structure', 'bank_default_difficulty', 'sharing_mode', 'essay_grading_default', 'rounding'],
+    'security': [],
+}
+
+
 def _teacher_settings_defaults():
     return {
         'language': 'فارسی',
@@ -14193,53 +14228,35 @@ def _teacher_settings_defaults():
         'date_format': 'هجری شمسی',
         'theme': 'light',
         'quick_help': True,
-        'show_page_meta': True,
-        'show_dashboard_stats': True,
+        'show_page_meta': True,  # «میانبرهای صفحه‌کلید»
         'compact_tables': False,
+        'system_channel': True,
+        'email_channel': True,
+        'browser_channel': False,
+        'notification_email': '',
+        'delivery_mode': 'instant',
+        'quiet_start': '22:00',
+        'quiet_end': '07:00',
         'default_exam_duration': '60',
         'default_attempts': '1',
         'question_order': 'random',
         'negative_marking': False,
-        'show_result_after_publish': True,
-        'show_correct_answer': False,
-        'show_question_score': True,
         'result_release': 'after_teacher',
-        'autosave_seconds': '30',
-        'track_suspicious_events': True,
-        'restrict_page_exit': True,
-        'exam_password': False,
+        'show_correct_answer': False,
+        'show_result_after_publish': True,
         'bank_default_structure': 'independent',
         'bank_default_difficulty': 'medium',
-        'bank_default_tag': 'optional',
-        'question_autosave': True,
-        'show_archive_search': False,
         'sharing_mode': 'private',
+        'question_autosave': True,
+        'auto_archive': False,
         'auto_grade_objective': True,
+        'essay_grading_default': 'rubric',
+        'rounding': 'two_decimal',
         'text_feedback': True,
         'lock_score_after_publish': False,
-        'rounding': 'two_decimal',
-        'essay_grading_default': 'rubric',
-        'allowed_structures': ['independent', 'case', 'kfp', 'osce'],
-        'system_channel': True,
-        'email_channel': True,
-        'sms_channel': False,
-        'browser_channel': False,
-        'notify_exam_registration': True,
-        'notify_exam_start': False,
-        'notify_disconnected_attempt': True,
-        'notify_exam_end': True,
-        'notify_retry_request': True,
-        'notify_shared_question': True,
-        'notify_ready_to_grade': True,
-        'notify_score_change': True,
-        'quiet_hours': True,
-        'quiet_start': '22:00',
-        'quiet_end': '07:00',
-        'two_factor': True,
         'show_name_to_students': True,
-        'share_stats_with_admin': True,
         'show_email_in_class': False,
-        'save_activity_history': True,
+        'share_stats_with_admin': False,
     }
 
 
@@ -14266,30 +14283,33 @@ def _checkbox_value(post, name):
     return post.get(name) == 'on'
 
 
-def _teacher_settings_from_post(post, base=None, tab='general'):
-    values = dict(base or _teacher_settings_defaults())
-    for name in [
-        'language', 'timezone', 'date_format', 'theme', 'default_exam_duration', 'default_attempts',
-        'question_order', 'result_release', 'autosave_seconds', 'bank_default_structure',
-        'bank_default_difficulty', 'bank_default_tag', 'sharing_mode', 'rounding',
-        'essay_grading_default', 'quiet_start', 'quiet_end',
-    ]:
-        if post.get(name) not in (None, ''):
-            values[name] = post.get(name)
-    tab_booleans = {
-        'general': ['quick_help', 'show_page_meta', 'show_dashboard_stats', 'compact_tables'],
-        'exam': ['negative_marking', 'show_result_after_publish', 'show_correct_answer', 'show_question_score', 'track_suspicious_events', 'restrict_page_exit', 'exam_password', 'show_page_meta'],
-        'bank': ['question_autosave', 'show_archive_search', 'auto_grade_objective', 'text_feedback', 'lock_score_after_publish'],
-        'notifications': ['system_channel', 'email_channel', 'sms_channel', 'browser_channel', 'notify_exam_registration', 'notify_exam_start', 'notify_disconnected_attempt', 'notify_exam_end', 'notify_retry_request', 'notify_shared_question', 'notify_ready_to_grade', 'notify_score_change', 'quiet_hours'],
-        'security': ['two_factor', 'show_name_to_students', 'share_stats_with_admin', 'show_email_in_class', 'save_activity_history'],
-    }
-    for name in tab_booleans.get(tab, tab_booleans['general']):
+def _teacher_settings_from_post(post, base=None, tab='account') -> tuple:
+    """(saved values, error messages) for one settings tab; anything not on that tab keeps its stored value."""
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    values, errors = dict(base or _teacher_settings_defaults()), []
+    for name in TEACHER_SETTINGS_SELECTS.get(tab, []):
+        posted = post.get(name)
+        if posted in {value for value, _label in TEACHER_SETTINGS_CHOICES[name]}:
+            values[name] = posted == 'on' if name == 'negative_marking' else posted
+    for name in TEACHER_SETTINGS_SWITCHES.get(tab, []):
         values[name] = _checkbox_value(post, name)
-    if post.get('negative_marking_select'):
-        values['negative_marking'] = post.get('negative_marking_select') == 'active'
-    if tab == 'bank':
-        values['allowed_structures'] = post.getlist('allowed_structures') or []
-    return values
+    if tab == 'account':
+        email = (post.get('notification_email') or '').strip()
+        try:
+            if email:
+                validate_email(email)
+            values['notification_email'] = email
+        except ValidationError:
+            errors.append('ایمیل اعلان‌ها معتبر نیست و ذخیره نشد.')
+        for name in ('quiet_start', 'quiet_end'):
+            posted = (post.get(name) or '').strip()
+            if re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', posted):
+                values[name] = posted
+            elif posted:
+                errors.append('ساعت بازه‌ی عدم مزاحمت معتبر نیست و ذخیره نشد.')
+    return values, errors
 
 
 @erd_role_required('teacher')
@@ -14324,51 +14344,127 @@ def teacher_calendar(request):
 
 @erd_role_required('teacher')
 def teacher_profile_page(request):
-    if request.method == 'POST':
-        profile_id = getattr(request, 'erd_profile_id', None)
-        if profile_id:
-            first_name = (request.POST.get('first_name') or '').strip()
-            last_name = (request.POST.get('last_name') or '').strip()
-            full_name = ' '.join(part for part in [first_name, last_name] if part).strip()
-            erd_execute(
-                """
-                UPDATE profiles
-                SET first_name = %s,
-                    last_name = %s,
-                    full_name = %s,
-                    email = %s,
-                    phone = %s,
-                    national_id = %s,
-                    gender = %s,
-                    birth_date = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-                """,
-                [
-                    first_name,
-                    last_name,
-                    full_name or (request.POST.get('display_name') or '').strip(),
-                    (request.POST.get('email') or '').strip(),
-                    (request.POST.get('phone') or '').strip(),
-                    (request.POST.get('national_id') or '').strip(),
-                    (request.POST.get('gender') or '').strip(),
-                    (request.POST.get('birth_date') or '').strip(),
-                    profile_id,
-                ],
-            )
-        return redirect(f'{reverse("core:teacher_profile_page")}?tab=personal&saved=1')
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'profile'))
+    """The old profile page: personal details now live on the settings page's first tab."""
+    return redirect(f'{reverse("core:teacher_settings")}?tab=personal')
+
+
+AVATAR_MAX_BYTES = 1024 * 1024
+AVATAR_SIGNATURES = {  # extension -> leading bytes; checked so a renamed non-image is rejected without Pillow
+    'jpg': (b'\xff\xd8\xff',), 'jpeg': (b'\xff\xd8\xff',), 'png': (b'\x89PNG\r\n\x1a\n',),
+    'gif': (b'GIF87a', b'GIF89a'), 'webp': (b'RIFF',),
+}
+
+
+def _save_avatar_upload(upload, owner_id) -> tuple:
+    """(url, error) for an uploaded profile photo: size, extension, content type and file signature are checked."""
+    extension = upload.name.rsplit('.', 1)[-1].lower() if '.' in upload.name else ''
+    if upload.size > AVATAR_MAX_BYTES:
+        return None, 'حجم تصویر پروفایل باید کمتر از ۱ مگابایت باشد.'
+    head = upload.read(12)
+    upload.seek(0)
+    signatures = AVATAR_SIGNATURES.get(extension)
+    if (not signatures or not upload.content_type.startswith('image/') or not head.startswith(signatures)
+            or (extension == 'webp' and head[8:12] != b'WEBP')):
+        return None, 'فرمت تصویر باید JPG، PNG، WebP یا GIF باشد.'
+    storage = FileSystemStorage(location=settings.MEDIA_ROOT / 'avatars', base_url=settings.MEDIA_URL + 'avatars/')
+    return storage.url(storage.save(f'{owner_id}-{uuid.uuid4().hex[:8]}.{extension}', upload)), None
+
+
+def _org_unit_path(unit_id) -> dict:
+    """{'university', 'faculty', 'department'} names along an org unit's parent chain."""
+    path, seen = {}, set()
+    while unit_id and str(unit_id) not in seen and len(seen) < 8:
+        seen.add(str(unit_id))
+        unit = erd_row('SELECT id, parent_id, type, name FROM org_units WHERE id = %s', [unit_id])
+        if not unit:
+            break
+        path.setdefault('department' if unit['type'] == 'group' else unit['type'], unit['name'])
+        unit_id = unit['parent_id']
+    return path
+
+
+def _teacher_personal_info(teacher_id) -> dict:
+    """Personal, university and contact details shown on the settings page's «اطلاعات فردی» tab."""
+    row = erd_row(
+        """
+        SELECT p.first_name, p.last_name, p.full_name, p.email, p.phone, p.avatar_url,
+               tp.display_name, tp.degree, tp.landline, tp.bio, COALESCE(tp.show_bio, true) AS show_bio,
+               tp.personnel_code, tp.academic_rank, tp.org_unit_id
+        FROM profiles p LEFT JOIN teacher_profiles tp ON tp.user_id = p.id
+        WHERE p.id = %s
+        """,
+        [teacher_id],
+    ) if teacher_id else None
+    info = dict(row or {})
+    info['show_bio'] = bool(info.get('show_bio', True))
+    info.update({f'unit_{key}': value for key, value in _org_unit_path(info.get('org_unit_id')).items()})
+    return info
+
+
+def _clean_phone(value) -> str:
+    return re.sub(r'[\s\-()]', '', str(value or '').translate(str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')))
+
+
+def _save_teacher_personal_info(request, teacher_id) -> list:
+    """Validates and saves the «اطلاعات فردی» form; returns error messages (nothing is saved when there are any)."""
+    post, errors = request.POST, []
+    first_name = (post.get('first_name') or '').strip()[:60]
+    last_name = (post.get('last_name') or '').strip()[:60]
+    display_name = (post.get('display_name') or '').strip()[:80]
+    phone, landline = _clean_phone(post.get('phone')), _clean_phone(post.get('landline'))
+    bio = (post.get('bio') or '').strip()
+    if not first_name or not last_name:
+        errors.append('نام و نام خانوادگی الزامی است.')
+    if not re.fullmatch(r'09\d{9}', phone):
+        errors.append('تلفن همراه باید ۱۱ رقم و با ۰۹ شروع شود.')
+    if landline and not re.fullmatch(r'0\d{9,10}', landline):
+        errors.append('تلفن ثابت باید با کد شهر و فقط شامل رقم باشد.')
+    if len(bio) > 500:
+        errors.append('معرفی کوتاه حداکثر ۵۰۰ نویسه است.')
+    avatar_url = None
+    if request.FILES.get('avatar'):
+        avatar_url, avatar_error = _save_avatar_upload(request.FILES['avatar'], teacher_id)
+        if avatar_error:
+            errors.append(avatar_error)
+    if errors:
+        return errors
+
+    full_name = f'{first_name} {last_name}'
+    with transaction.atomic():
+        erd_execute(
+            f"""
+            UPDATE profiles SET first_name = %s, last_name = %s, full_name = %s, phone = %s,
+                   {'avatar_url = %s, ' if avatar_url else ''}updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """,
+            [first_name, last_name, full_name, phone, *([avatar_url] if avatar_url else []), teacher_id],
+        )
+        erd_execute(
+            'UPDATE teacher_profiles SET display_name = %s, landline = %s, bio = %s, show_bio = %s WHERE user_id = %s',
+            [display_name or None, landline or None, bio or None, post.get('show_bio') == 'on', teacher_id],
+        )
+        request.user.first_name, request.user.last_name = first_name, last_name
+        request.user.save(update_fields=['first_name', 'last_name'])
+    log_activity(request.user, 'profile_updated', 'ویرایش اطلاعات فردی استاد', request)
+    return []
 
 
 @erd_role_required('teacher')
 def teacher_settings(request):
     teacher_id = getattr(request, 'erd_profile_id', None)
-    active_tab = request.GET.get('tab', 'general')
-    if active_tab not in {'general', 'exam', 'bank', 'notifications', 'security'}:
-        active_tab = 'general'
-    if request.method == 'POST':
-        active_tab = request.POST.get('settings_tab') or active_tab
-        payload = _teacher_settings_from_post(request.POST, _teacher_settings_payload(teacher_id), active_tab)
+    active_tab = request.POST.get('settings_tab') if request.method == 'POST' else request.GET.get('tab')
+    active_tab = TEACHER_SETTINGS_OLD_TABS.get(active_tab, active_tab)
+    if active_tab not in TEACHER_SETTINGS_TABS:
+        active_tab = 'personal'
+    personal_errors = []
+    if request.method == 'POST' and active_tab == 'personal':
+        personal_errors = _save_teacher_personal_info(request, teacher_id)
+        if not personal_errors:
+            return redirect(f'{reverse("core:teacher_settings")}?tab=personal&saved=1')
+    elif request.method == 'POST':
+        payload, errors = _teacher_settings_from_post(request.POST, _teacher_settings_payload(teacher_id), active_tab)
+        for error in errors:
+            messages.error(request, error)
         erd_execute(
             """
             INSERT INTO system_settings (key, value, description, updated_by)
@@ -14387,8 +14483,21 @@ def teacher_settings(request):
         )
         return redirect(f'{reverse("core:teacher_settings")}?tab={active_tab}&saved=1')
     context = _teacher_modern_context(request, 'teacher_settings')
-    context['teacher_settings'] = _teacher_settings_payload(teacher_id)
+    settings_values = _teacher_settings_payload(teacher_id)
+    context['teacher_settings'] = settings_values
     context['teacher_settings_tab'] = active_tab
+    context['teacher_settings_choices'] = TEACHER_SETTINGS_CHOICES
+    if active_tab == 'personal':
+        personal = _teacher_personal_info(teacher_id)
+        if personal_errors:  # show what the teacher typed, not the stored values
+            personal.update({name: request.POST.get(name, '') for name in ('first_name', 'last_name', 'display_name', 'phone', 'landline', 'bio')})
+            personal['show_bio'] = request.POST.get('show_bio') == 'on'
+        context['personal'] = personal
+        context['personal_errors'] = personal_errors
+    context['teacher_settings_selected'] = {
+        name: ('on' if settings_values.get(name) else 'off') if name == 'negative_marking' else str(settings_values.get(name, ''))
+        for name in TEACHER_SETTINGS_CHOICES
+    }
     return render(request, 'teacher/modern.html', context)
 
 
