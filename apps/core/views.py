@@ -15766,6 +15766,8 @@ def exam_manager_teacher_create(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_teacher_profile(request, teacher_id):
+    if not _erd_profile_in_manager_scope(request, teacher_id, 'teacher'):  # a manager only sees teachers of their units
+        raise Http404('استاد پیدا نشد.')
     profile = erd_row(
         """
         SELECT p.id, p.full_name, COALESCE(p.email, '') AS email, COALESCE(p.phone, '') AS phone,
@@ -15830,10 +15832,14 @@ def exam_manager_teacher_profile(request, teacher_id):
             'questions': int(question_count.get('count') or 0),
         },
         'activities': [
-            {'title': 'آزمون جدید ایجاد شد', 'detail': 'آزمون نوبت دوم', 'time': '۱۴۰۳/۰۱/۱۵ ۱۰:۳۰'},
-            {'title': 'سوال به بانک سوال اضافه شد', 'detail': 'درس کودکان', 'time': '۱۴۰۳/۰۱/۱۲ ۱۶:۲۰'},
-            {'title': 'انتساب به درس انجام شد', 'detail': 'رشد و تکامل', 'time': '۱۴۰۳/۰۱/۱۲ ۱۲:۴۵'},
+            {'title': log.get('reason') or log.get('action'), 'detail': log.get('entity_type') or '-', 'time': _jalali_long_date(log.get('created_at'), with_weekday=False)}
+            for log in erd_rows(
+                'SELECT action, entity_type, reason, created_at FROM activity_audit_log WHERE actor_id = %s ORDER BY created_at DESC LIMIT 5',
+                [teacher_id],
+            )
         ],
+        'joined_label': _jalali_long_date(profile.get('created_at'), with_weekday=False),
+        'last_seen_label': _jalali_long_date(profile.get('updated_at'), with_weekday=False),
     })
     return render(request, 'exam_manager/users.html', context)
 

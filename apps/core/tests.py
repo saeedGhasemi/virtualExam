@@ -2816,6 +2816,21 @@ class TeacherSettingsTests(_ScopedOrgFixture):
         self.assertIn('در حال توسعه', page)
 
 
+class ManagerTeacherProfileScopeTests(_ScopedOrgFixture):
+    """پروفایل استاد در پنل مدیر آموزشی: فقط استادهای واحد خود مدیر، بدون فعالیت ساختگی."""
+
+    def test_manager_sees_only_teachers_of_own_units(self):
+        self.client.force_login(self.manager_user)
+        inside = self.client.get(reverse('core:exam_manager_teacher_profile', args=[self.teacher_in_id]))
+        self.assertEqual(inside.status_code, 200)
+        page = inside.content.decode()
+        for fake in ('آزمون نوبت دوم', 'رشد و تکامل', '۱۴۰۳/۰۱/۱۵'):
+            self.assertNotIn(fake, page)
+        self.assertEqual(self.client.get(reverse('core:exam_manager_teacher_profile', args=[self.teacher_out_id])).status_code, 404)
+        self.client.force_login(self.admin_user)
+        self.assertEqual(self.client.get(reverse('core:exam_manager_teacher_profile', args=[self.teacher_out_id])).status_code, 200)
+
+
 class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
     """صفحه‌ی ویرایش آزمون مدیر آموزشی: فهرست‌ها و هر شناسه‌ی ارسالی باید داخل محدوده‌ی او باشد."""
 
