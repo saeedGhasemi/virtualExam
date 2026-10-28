@@ -2491,3 +2491,44 @@ class TeacherExamListTests(_ScopedOrgFixture):
         self.assertEqual(_teacher_exam_status({'lifecycle': 'pending_approval'}, now)[0], 'در انتظار تأیید')
         self.assertEqual(_teacher_exam_status({'lifecycle': 'published', 'is_cancelled': True}, now)[0], 'لغو شده')
         self.assertEqual(_teacher_exam_status({'lifecycle': ''}, now)[0], 'پیش‌نویس')
+
+
+class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
+    """صفحه‌ی ویرایش آزمون مدیر آموزشی: فهرست‌ها و هر شناسه‌ی ارسالی باید داخل محدوده‌ی او باشد."""
+
+    def _post(self, step, **data):
+        self.client.force_login(self.manager_user)
+        return self.client.post(reverse('core:super_admin_exam_edit', args=[self.exam_in_id]), {'edit_step': step, **data})
+
+    def test_pickers_are_scoped(self):
+        self.client.force_login(self.manager_user)
+        ctx = self.client.get(reverse('core:super_admin_exam_edit', args=[self.exam_in_id])).context
+        self.assertNotIn(self.course_out_id, {c['id'] for c in ctx['courses']})
+        self.assertNotIn(self.teacher_out_id, {t['id'] for t in ctx['teachers']})
+        self.assertNotIn(self.group_out_id, {g['id'] for g in ctx['groups']})
+        self.assertNotIn(self.student_out_id, {s['id'] for s in ctx['students']})
+        self.assertNotIn(self.question_out_id, {q['id'] for q in ctx['questions']})
+        self.assertIn(self.group_in_id, {g['id'] for g in ctx['groups']})
+
+    def test_out_of_scope_ids_are_rejected_per_step(self):
+        cases = (
+            ('1', {'title': 'x', 'course_id': self.course_out_id}),
+            ('1', {'title': 'x', 'teacher_id': self.teacher_out_id}),
+            ('2', {'group_ids': [self.group_out_id]}),
+            ('2', {'student_ids': [self.student_out_id]}),
+            ('3', {'question_ids': [self.question_out_id]}),
+        )
+        for step, data in cases:
+            self.assertEqual(self._post(step, **data).status_code, 403, data)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT course_id, teacher_id FROM exams WHERE id = %s', [self.exam_in_id])
+            self.assertEqual(cursor.fetchone(), (self.course_in_id, self.teacher_in_id))
+            cursor.execute('SELECT COUNT(*) FROM exam_assignments WHERE exam_id = %s', [self.exam_in_id])
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_in_scope_assignment_is_saved(self):
+        response = self._post('2', group_ids=[self.group_in_id], student_ids=[self.student_in_id])
+        self.assertEqual(response.status_code, 302)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM exam_assignments WHERE exam_id = %s', [self.exam_in_id])
+            self.assertEqual(cursor.fetchone()[0], 2)

@@ -9064,8 +9064,16 @@ def super_admin_exam_edit(request, exam_id):
     is_running = bool(start_at and end_at and start_at <= now <= end_at)
     is_published = bool(exam.get('is_published'))
 
+    scope = _exam_wizard_scope(request)
     if request.method == 'POST':
         step = (request.POST.get('edit_step') or '1').strip()
+        posted_ids = {
+            '1': (('courses', [request.POST.get('course_id')]), ('teachers', [request.POST.get('teacher_id')])),
+            '2': (('groups', request.POST.getlist('group_ids')), ('students', request.POST.getlist('student_ids'))),
+            '3': (('questions', request.POST.getlist('question_ids')),),
+        }.get(step, ())
+        if not all(_exam_wizard_ids_in_scope(scope, kind, ids) for kind, ids in posted_ids):
+            return HttpResponseForbidden('برخی موارد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         if step == '1':
             erd_execute(
                 """
@@ -9249,18 +9257,29 @@ def super_admin_exam_edit(request, exam_id):
         exam['end_time_value'] = ''
         exam['end_label'] = '-'
 
-    courses = erd_rows('SELECT id, title, code FROM courses ORDER BY title LIMIT 300')
+    cte, cte_params = scope['cte'], scope['cte_params']
+    course_condition, course_params = scope['courses']
+    courses = erd_rows(
+        f'{cte} SELECT c.id, c.title, c.code FROM courses c WHERE {course_condition} ORDER BY c.title LIMIT 300',
+        [*cte_params, *course_params],
+    )
+    teacher_condition, teacher_params = scope['teachers']
     teachers = erd_rows(
-        """
+        f"""
+        {cte}
         SELECT p.id, p.full_name, COALESCE(tp.personnel_code, p.identifier, '') AS code
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
+        WHERE {teacher_condition}
         ORDER BY p.full_name
         LIMIT 300
-        """
+        """,
+        [*cte_params, *teacher_params],
     )
+    group_condition, group_params = scope['groups']
     groups = erd_rows(
-        """
+        f"""
+        {cte}
         SELECT sg.id, sg.course_id, sg.teacher_id, sg.course_name, sg.academic_year, sg.semester, sg.group_code,
                COALESCE(sg.capacity, 30) AS capacity,
                COALESCE(c.title, sg.course_name) AS course_title,
@@ -9275,10 +9294,11 @@ def super_admin_exam_edit(request, exam_id):
             FROM student_group_members
             GROUP BY group_id
         ) members ON members.group_id = sg.id
-        WHERE COALESCE(sg.is_active, true) = true
+        WHERE COALESCE(sg.is_active, true) = true AND {group_condition}
         ORDER BY sg.academic_year DESC, sg.course_name, sg.group_code
         LIMIT 300
-        """
+        """,
+        [*cte_params, *group_params],
     )
     assigned_groups = {
         str(row['group_id']) for row in erd_rows(
@@ -9286,16 +9306,20 @@ def super_admin_exam_edit(request, exam_id):
             [exam_id],
         )
     }
+    student_condition, student_params = scope['students']
     students = erd_rows(
-        """
+        f"""
+        {cte}
         SELECT p.id, p.full_name, COALESCE(sp.student_number, p.identifier, '') AS student_number,
                COALESCE(sp.field_of_study, '-') AS field_of_study,
                COALESCE(p.avatar_url, '') AS avatar_url
         FROM student_profiles sp
         JOIN profiles p ON p.id = sp.user_id
+        WHERE {student_condition}
         ORDER BY p.full_name
         LIMIT 250
-        """
+        """,
+        [*cte_params, *student_params],
     )
     assigned_students = {
         str(row['student_profile_id']) for row in erd_rows(
@@ -9303,8 +9327,10 @@ def super_admin_exam_edit(request, exam_id):
             [exam_id],
         )
     }
+    question_condition, question_params = scope['questions']
     questions = erd_rows(
-        """
+        f"""
+        {cte}
         SELECT q.id, q.type, q.difficulty, q.text,
                COALESCE(q.default_points, 1) AS points,
                COALESCE(c.title, '-') AS course_title,
@@ -9312,11 +9338,11 @@ def super_admin_exam_edit(request, exam_id):
         FROM questions q
         LEFT JOIN courses c ON c.id = q.course_id
         LEFT JOIN profiles p ON p.id = q.teacher_id
-        WHERE q.course_id = %s OR %s IS NULL
+        WHERE (q.course_id = %s OR %s IS NULL) AND {question_condition}
         ORDER BY q.type, q.text
         LIMIT 600
         """,
-        [exam.get('course_id'), exam.get('course_id')],
+        [*cte_params, exam.get('course_id'), exam.get('course_id'), *question_params],
     )
     selected_questions = {
         str(row['question_id']) for row in erd_rows(
