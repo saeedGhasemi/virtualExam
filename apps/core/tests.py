@@ -2615,3 +2615,43 @@ class StudentExamAccessFallbackTests(_ScopedOrgFixture):
                 [str(uuid.uuid4()), self.exam_out_id, self.student_in_id, timezone.now(), 'submitted'])
         self.assertIsNotNone(_sx_exam_row(self.exam_out_id, self.student_in_id))
         self.assertIsNone(_sx_exam_row(self.exam_out_id, self.student_out_id))
+
+class UnassignedExamAccessTests(_ScopedOrgFixture):
+    """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET is_published = %s, lifecycle_status = %s WHERE id = %s', [True, 'published', cls.exam_in_id])
+
+    def _accessible(self):
+        from apps.core.views import _sx_accessible_exams
+        return {str(row['id']) for row in _sx_accessible_exams(self.student_in_id)}
+
+    def test_published_exam_without_assignment_is_hidden(self):
+        self.assertNotIn(self.exam_in_id, self._accessible())
+        self.client.force_login(self.student_user)
+        self.assertEqual(self.client.get(reverse('core:student_exam_detail', args=[self.exam_in_id])).status_code, 404)
+
+    def test_group_assignment_opens_it_for_members_only(self):
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), self.group_in_id, self.student_in_id, 'دانشجو', '1', '1'])
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), self.exam_in_id, self.group_in_id])
+        self.assertIn(self.exam_in_id, self._accessible())
+        from apps.core.views import _sx_accessible_exams
+        self.assertNotIn(self.exam_in_id, {str(row['id']) for row in _sx_accessible_exams(self.student_out_id)})
+
+    def test_quick_create_saves_the_group_as_audience(self):
+        self.client.force_login(self.manager_user)
+        response = self.client.post(reverse('core:super_admin_exams'), {
+            'exam_action': 'create', 'group_id': self.group_in_id, 'title': 'آزمون سریع',
+            'question_ids': [self.question_in_id], 'duration_minutes': '30',
+        })
+        exam_id = response.json().get('exam_id')
+        self.assertTrue(response.json()['ok'], response.json())
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT group_id FROM exam_assignments WHERE exam_id = %s', [exam_id])
+            self.assertEqual([row[0] for row in cursor.fetchall()], [self.group_in_id])

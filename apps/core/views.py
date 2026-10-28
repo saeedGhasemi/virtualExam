@@ -8521,6 +8521,11 @@ def super_admin_exams(request):
                     """,
                     [str(uuid.uuid4()), exam_id, question['id'], question['points'] or 1, index],
                 )
+            # the chosen group is the exam's audience; without an assignment nobody may take it
+            cursor.execute(
+                'INSERT INTO exam_assignments (id, exam_id, group_id) VALUES (%s, %s, %s)',
+                [str(uuid.uuid4()), exam_id, group['id']],
+            )
         return JsonResponse({'ok': True, 'message': 'آزمون جدید ذخیره شد.', 'exam_id': exam_id})
 
     query = request.GET.get('q', '').strip()
@@ -8964,6 +8969,11 @@ def super_admin_exam_bulk_import(request):
                             'standard', '', '', 'published' if publish_record else 'draft',
                         ],
                     )
+                    if record.get('group_id'):
+                        cursor.execute(
+                            'INSERT INTO exam_assignments (id, exam_id, group_id) VALUES (%s, %s, %s)',
+                            [str(uuid.uuid4()), exam_id, record['group_id']],
+                        )
                     imported += 1
             request.session.pop(session_key, None)
             messages.success(request, f'{imported} آزمون با موفقیت ثبت شد.')
@@ -12906,13 +12916,8 @@ def _erd_student_exam_access_condition():
                       AND ax.student_profile_id = %s
                 )
             )
-            OR NOT EXISTS (
-                SELECT 1
-                FROM exam_assignments ea
-                WHERE ea.exam_id = e.id
-            )
         )
-    """
+    """  # an exam with no assignment has no audience: no student may see or take it
 
 
 def _erd_teacher_assigned_course_count(teacher_id):
@@ -16561,6 +16566,8 @@ def exam_manager_exam_create(request):
         title = (request.POST.get('title') or '').strip()
         if not title:
             messages.error(request, 'عنوان آزمون الزامی است.')
+        elif not group:
+            messages.error(request, 'گروه درسی آزمون را انتخاب کنید.')
         elif not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
             return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         else:
@@ -16598,6 +16605,10 @@ def exam_manager_exam_create(request):
                     (group or {}).get('semester') or request.POST.get('semester') or 'اول',
                     'draft',
                 ],
+            )
+            erd_execute(
+                'INSERT INTO exam_assignments (id, exam_id, group_id) VALUES (%s, %s, %s)',
+                [str(uuid.uuid4()), exam_id, group['id']],
             )
             messages.success(request, 'آزمون جدید ثبت شد. سوالات آزمون را انتخاب کنید.')
             return redirect('core:exam_manager_exam_questions', exam_id=exam_id)
