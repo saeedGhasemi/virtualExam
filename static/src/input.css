@@ -9400,14 +9400,12 @@
   }
 
   .teacher-head-actions,
-  .teacher-toolbar,
-  .teacher-form-actions {
+  .teacher-toolbar {
     @apply flex flex-row-reverse flex-wrap items-center gap-3;
   }
 
   .teacher-head-actions a,
   .teacher-toolbar a,
-  .teacher-form-actions a,
   .teacher-primary,
   .teacher-panel button,
   .teacher-upload button {
@@ -9415,8 +9413,7 @@
   }
 
   .teacher-head-actions .is-primary,
-  .teacher-primary,
-  .teacher-form-actions button.teacher-primary {
+  .teacher-primary {
     @apply border-blue-600 bg-blue-600 text-white shadow-[0_16px_30px_rgba(49,92,255,.22)] hover:bg-blue-700;
   }
 
@@ -10000,7 +9997,6 @@
   .teacher-toolbar label,
   .teacher-toolbar select,
   .teacher-question-form label,
-  .teacher-exam-builder label,
   .teacher-panel label {
     @apply grid gap-2 text-sm font-black text-slate-700;
   }
@@ -10010,9 +10006,6 @@
   .teacher-question-form input,
   .teacher-question-form select,
   .teacher-question-form textarea,
-  .teacher-exam-builder input,
-  .teacher-exam-builder select,
-  .teacher-exam-builder textarea,
   .teacher-panel input,
   .teacher-panel textarea {
     @apply h-11 rounded-lg border border-[#d4dfef] bg-white/90 px-4 text-sm font-bold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
@@ -11941,8 +11934,7 @@
     @apply min-h-72 py-4;
   }
 
-  .teacher-question-form .teacher-preview,
-  .teacher-question-form .teacher-form-actions {
+  .teacher-question-form .teacher-preview {
     @apply col-span-2;
   }
 
@@ -11970,30 +11962,6 @@
 
   .teacher-stat-grid.is-compact {
     @apply mt-5 grid-cols-3;
-  }
-
-  .teacher-exam-builder {
-    @apply grid gap-4;
-  }
-
-  .teacher-steps {
-    @apply mx-auto grid w-full max-w-5xl grid-cols-5 gap-2;
-  }
-
-  .teacher-steps li {
-    @apply rounded-full border border-blue-100 bg-white px-4 py-3 text-center text-sm font-black text-slate-500;
-  }
-
-  .teacher-steps li.is-active {
-    @apply border-blue-600 bg-blue-600 text-white;
-  }
-
-  .teacher-form-grid {
-    @apply grid grid-cols-2 gap-4;
-  }
-
-  .teacher-exam-builder textarea {
-    @apply min-h-24 py-3;
   }
 
   .teacher-monitor-hero {
@@ -12108,8 +12076,7 @@
     }
 
     .teacher-card-grid .teacher-panel:nth-child(4),
-    .teacher-question-form .teacher-preview,
-    .teacher-question-form .teacher-form-actions {
+    .teacher-question-form .teacher-preview {
       @apply col-span-1;
     }
 
@@ -12213,10 +12180,8 @@
 
     .teacher-stat-grid,
     .teacher-type-grid,
-    .teacher-form-grid,
     .teacher-actions-grid,
     .teacher-upload,
-    .teacher-steps,
     .question-wizard-steps,
     .question-type-note,
     .question-mini-grid,
