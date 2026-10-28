@@ -3098,18 +3098,44 @@ class StudentDashboardTests(_ScopedOrgFixture):
     def test_only_own_published_assigned_exams(self):
         response = self._dashboard(self.student_user)
         data = response.context['student_dashboard']
-        self.assertEqual(data['active_exam']['title'], 'آزمون در حال برگزاری')
-        self.assertEqual([row['title'] for row in data['upcoming_exams']], ['آزمون در حال برگزاری', 'آزمون هفته بعد'])
-        self.assertEqual(data['stats']['completed'], 1)
-        self.assertEqual([card['score'] for card in data['result_cards']], [85])
+        self.assertEqual(data['next_exam']['title'], 'آزمون در حال برگزاری')
+        self.assertEqual(data['next_exam']['state'], 'ready')
+        rows = [(row['title'], row['state'], row['action']['label']) for row in data['exam_rows']]
+        self.assertEqual(rows, [
+            ('آزمون در حال برگزاری', 'ready', 'مشاهده جزئیات و ورود'),
+            ('آزمون هفته بعد', 'upcoming', 'مشاهده جزئیات'),
+            ('آزمون تصحیح‌شده', 'done', 'مشاهده کارنامه'),
+        ])
+        self.assertEqual(data['stats'], {'upcoming': 2, 'classes': 1, 'new_results': 1})
+        self.assertEqual([(item['title'], item['score_20']) for item in data['results']], [('آزمون تصحیح‌شده', 17.0)])
+        self.assertContains(response, 'سلام')
         for hidden in ('آزمون پیش‌نویس داشبورد', 'آزمون گروه دیگر', 'آزمون مستثنا', 'آزمون خارج محدوده'):
             self.assertNotContains(response, hidden)
 
     def test_no_stand_in_data_without_exams(self):
         response = self._dashboard(self.empty_user)
         data = response.context['student_dashboard']
-        self.assertIsNone(data['active_exam'])
-        self.assertEqual(data['stats'], {'upcoming': 0, 'active': 0, 'new_results': 0, 'completed': 0})
-        self.assertEqual((data['result_cards'], data['notifications']), ([], []))
+        self.assertIsNone(data['next_exam'])
+        self.assertEqual(data['stats'], {'upcoming': 0, 'classes': 0, 'new_results': 0})
+        self.assertEqual((data['exam_rows'], data['classes'], data['results'], data['notifications']), ([], [], [], []))
+        self.assertContains(response, 'هنوز آزمونی به شما اختصاص داده نشده است.')
         for fake in ('روانشناسی سلامت', 'مهارت‌های ارتباطی', '۰۲:۱۵:۳۲', 'آزمون گروه دیگر'):
             self.assertNotContains(response, fake)
+    def test_classes_are_own_unarchived_groups(self):
+        archived = str(uuid.uuid4())
+        _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year', 'is_archived'],
+                [archived, self.teacher_in_id, self.course_in_id, 'کلاس بایگانی‌شده', '1402', True])
+        TeacherStudentScopeTests._member(archived, self.student_in_id)
+        classes = self._dashboard(self.student_user).context['student_dashboard']['classes']
+        self.assertEqual([(group['course_title'], group['teacher_name']) for group in classes], [('درس داخل محدوده', 'استاد داخل محدوده')])
+
+    def test_notifications_are_own_and_links_stay_internal(self):
+        from .views import create_notification as create
+
+        create(self.student_in_id, 'اعلان من', 'متن', link='javascript:alert(1)')
+        create(self.student_out_id, 'اعلان دیگری', 'متن', link='/x/')
+        response = self._dashboard(self.student_user)
+        self.assertEqual([note['title'] for note in response.context['student_dashboard']['notifications']], ['اعلان من'])
+        self.assertNotContains(response, 'javascript:alert')
+        self.assertNotContains(response, 'اعلان دیگری')
+

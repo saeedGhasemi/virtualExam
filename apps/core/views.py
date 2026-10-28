@@ -12433,89 +12433,6 @@ def _legacy_profile_view(request):
     )
 
 
-def _student_dashboard_context(request, profile):
-    """Student dashboard: only exams the student may see (same rule as the exams page), no stand-in data."""
-    student_id = profile['id'] if profile else None
-    student_profile = erd_row(
-        """
-        SELECT student_number, field_of_study, degree, academic_status, entry_year, department
-        FROM student_profiles
-        WHERE user_id = %s
-        """,
-        [student_id],
-    ) or {}
-    exams = _sx_accessible_exams(student_id) if student_id else []
-    attempts = {}
-    for attempt in erd_rows(
-        """
-        SELECT id, exam_id, status, score, max_score, submitted_at
-        FROM exam_attempts
-        WHERE student_id = %s
-        ORDER BY submitted_at ASC NULLS FIRST, started_at ASC NULLS FIRST
-        """,
-        [student_id],
-    ) if student_id else []:
-        attempts[str(attempt['exam_id'])] = attempt  # the latest attempt per exam wins
-    now = timezone.now()
-    upcoming = []
-    completed = []
-    active_exam = None
-    for row in exams:
-        attempt = attempts.get(str(row['id'])) or {}
-        row['attempt_id'] = attempt.get('id')
-        is_completed = bool(attempt.get('submitted_at')) or row['ends_at'] < now
-        row['date_text'] = _sx_jalali(row['starts_at'])
-        row['time_text'] = timezone.localtime(row['starts_at']).strftime('%H:%M')
-        row['end_text'] = timezone.localtime(row['ends_at']).strftime('%H:%M')
-        row['duration_label'] = row['duration_minutes']
-        row['register_label'] = 'در حال برگزاری' if row['starts_at'] <= now <= row['ends_at'] else 'آتی'
-        row['register_tone'] = 'green' if row['starts_at'] <= now <= row['ends_at'] else 'blue'
-        if is_completed:
-            completed.append(row)
-        else:
-            upcoming.append(row)
-            if not active_exam and row['starts_at'] <= now:
-                active_exam = row
-    result_cards = []
-    for result in [item for item in _sx_result_rows(student_id) if not item['is_pending']][:2] if student_id else []:
-        result_cards.append({
-            'title': result['title'],
-            'date': result['exam_date'],
-            'score': result['percent'],
-            'percent': result['percent'],
-            'tone': 'green' if result['percent'] >= 80 else 'blue',
-            'url': reverse('core:student_result_detail', args=[result['id']]),
-        })
-    notifications = erd_rows(
-        """
-        SELECT title, message, type, link, is_read
-        FROM notifications
-        WHERE user_id = %s
-        ORDER BY is_read ASC
-        LIMIT 4
-        """,
-        [student_id],
-    ) if student_id else []
-    stats = {
-        'upcoming': len(upcoming),
-        'active': 1 if active_exam else 0,
-        'new_results': len(result_cards),
-        'completed': len(completed),
-    }
-    return {
-        'profile': profile,
-        'student_profile': student_profile,
-        'active_exam': active_exam,
-        'upcoming_exams': upcoming[:3],
-        'result_cards': result_cards,
-        'notifications': notifications,
-        'stats': stats,
-        'student_name': profile.get('full_name') if profile else request.user.get_full_name() or request.user.username,
-        'student_number': student_profile.get('student_number') or profile.get('identifier') if profile else '',
-        'field': student_profile.get('field_of_study') or student_profile.get('department') or 'دانشجو',
-    }
-
-
 @login_required
 def dashboard(request):
     erd_profile = erd_profile_for_user(request.user)
@@ -12572,7 +12489,9 @@ def dashboard(request):
         'standalone_page': True,
     }
     if role_code == 'student':
-        context['student_dashboard'] = _student_dashboard_context(request, erd_profile)
+        from .student_dashboard import student_dashboard_context
+
+        context['student_dashboard'] = student_dashboard_context(request, erd_profile)
     return render(request, 'dashboard.html', context)
 
 

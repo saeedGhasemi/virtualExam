@@ -1,0 +1,176 @@
+{% load core_extras %}
+<style>
+  .sdb{--blue:#1450f5;--ink:#0b1a3a;--muted:#6b7a94;--line:#e3eaf4;direction:rtl;display:grid;gap:20px;color:var(--ink);font-size:15px;line-height:1.55}
+  .sdb *{box-sizing:border-box;letter-spacing:0}.sdb a{text-decoration:none;color:inherit}
+  .sdb svg{width:1.2rem;height:1.2rem;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .sdb-card{border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 14px 36px rgba(20,45,90,.06)}
+  .sdb-hero{padding:26px;background:linear-gradient(120deg,#fff 55%,#f1f5ff)}
+  .sdb-hero h1{margin:0;font-size:1.75rem;font-weight:950}.sdb-hero>p{margin:6px 0 22px;color:var(--muted);font-weight:700}
+  .sdb-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+  .sdb-kpi{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;border:1px solid var(--line);border-radius:16px;background:#fff}
+  .sdb-kpi h3{margin:0;font-size:1.02rem;font-weight:900}.sdb-kpi strong{display:block;margin:2px 0;font-size:1.9rem;font-weight:950;line-height:1.2}.sdb-kpi small{color:var(--muted);font-weight:700}
+  .sdb-tile{display:grid;width:64px;height:64px;flex:none;place-items:center;border-radius:18px;background:#eaf1ff;color:var(--blue)}.sdb-tile svg{width:30px;height:30px}
+  .sdb-tile.pink{background:#fdeaf4;color:#db2777}.sdb-tile.purple{background:#f1eaff;color:#7c3aed}
+  .sdb-grid{display:grid;grid-template-columns:minmax(0,37fr) minmax(0,63fr);gap:20px;align-items:start}
+  .sdb-col{display:grid;gap:20px;min-width:0}
+  .sdb-panel{padding:20px}
+  .sdb-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .sdb-head h2{display:flex;align-items:center;gap:10px;margin:0;font-size:1.15rem;font-weight:950}.sdb-head h2 svg{color:var(--blue);width:1.45rem;height:1.45rem}
+  .sdb-more{color:var(--blue);font-size:.9rem;font-weight:900}
+  .sdb-empty{margin:0;padding:18px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-weight:700;text-align:center}
+  .sdb-list{display:grid;gap:10px}
+  .sdb-item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 12px;border:1px solid var(--line);border-radius:14px}
+  .sdb-item>div{min-width:0;flex:1}.sdb-item strong{display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sdb-item small{display:block;color:var(--muted);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sdb-item .sdb-tile{width:44px;height:44px;border-radius:12px}.sdb-item .sdb-tile svg{width:22px;height:22px}
+  .sdb-item .sdb-tile.green{background:#e3f8ee;color:#0f9f5c}
+  .sdb-item>a.sdb-go{display:grid;width:30px;height:30px;place-items:center;border-radius:8px;color:#334155}.sdb-item>a.sdb-go:hover{background:#f1f5fb}
+  .sdb-doc{color:#475569}
+  .sdb-chip{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 13px;border-radius:999px;background:#eaf1ff;color:var(--blue);font-size:.86rem;font-weight:900;white-space:nowrap}
+  .sdb-chip:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+  .sdb-chip.green{background:#e3f8ee;color:#0f8a51}.sdb-chip.muted{background:#f1f4f8;color:#5b6678}.sdb-chip.red{background:#fdecec;color:#c02626}
+  .sdb-score{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:999px;background:#e3f8ee;color:#0f8a51;font-size:.86rem;font-weight:900;white-space:nowrap}.sdb-score.low{background:#fff3e0;color:#c2410c}
+  .sdb-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:40px;padding:0 16px;border:1px solid #9db8ff;border-radius:10px;background:#fff;color:var(--blue);font-size:.9rem;font-weight:900;white-space:nowrap}
+  .sdb-btn:hover{background:#f3f7ff}.sdb-btn.primary{border-color:var(--blue);background:var(--blue);color:#fff;box-shadow:0 10px 22px rgba(20,80,245,.22)}.sdb-btn.primary:hover{background:#0f43d6}
+  .sdb-btn.big{min-height:54px;width:100%;font-size:1.05rem}
+  .sdb-next{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:22px;padding:20px;border:1px solid var(--line);border-radius:16px}
+  .sdb-next-title{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+  .sdb-next-title h3{margin:0;font-size:1.35rem;font-weight:950}
+  .sdb-course{display:flex;align-items:center;gap:8px;margin:6px 0 16px;color:var(--muted);font-weight:700}
+  .sdb-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .sdb-fact{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px}.sdb-fact b{display:block;font-weight:900}.sdb-fact small{color:var(--muted);font-weight:700}
+  .sdb-side{display:grid;align-content:start;gap:14px}
+  .sdb-tip{padding:14px;border-radius:12px;background:#f3f6fc}.sdb-tip strong{display:flex;align-items:center;gap:8px;font-weight:900}.sdb-tip strong svg{color:var(--blue)}.sdb-tip p{margin:6px 0 0;color:var(--muted);font-size:.9rem;font-weight:700}
+  .sdb-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+  .sdb-table{width:100%;min-width:720px;border-collapse:collapse}
+  .sdb-table th{padding:12px 14px;background:#f6f8fc;color:#334155;font-size:.88rem;font-weight:900;text-align:right}
+  .sdb-table td{padding:12px 14px;border-top:1px solid var(--line);font-weight:700;vertical-align:middle}
+  .sdb-table td:first-child{font-weight:900}.sdb-table th:last-child,.sdb-table td:last-child{text-align:center}
+  .sdb-when{display:flex;align-items:center;gap:10px}.sdb-when small{display:block;color:var(--muted)}.sdb-when svg{color:#64748b}
+  .sdb-table .sdb-btn{min-width:170px}
+  @media(max-width:1180px){.sdb-grid{grid-template-columns:minmax(0,1fr)}.sdb-grid>.sdb-col:first-child{order:2}}
+  @media(max-width:860px){.sdb-kpis,.sdb-next,.sdb-facts{grid-template-columns:minmax(0,1fr)}.sdb-item{flex-wrap:wrap}}
+</style>
+
+<div class="sdb">
+  <section class="sdb-card sdb-hero">
+    <h1>سلام {{ data.first_name }}، خوش آمدی 👋</h1>
+    <p>برنامه آزمون‌ها و وضعیت آموزشی شما در یک نگاه.</p>
+    <div class="sdb-kpis">
+      <a class="sdb-kpi" href="{% url 'core:student_exam_schedule' %}">
+        <div><h3>آزمون پیش‌رو</h3><strong>{{ data.stats.upcoming|fa_digits }}</strong><small>آزمون در انتظار برگزاری</small></div>
+        <span class="sdb-tile pink"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="m9 13 2 2 4-4"/></svg></span>
+      </a>
+      <div class="sdb-kpi">
+        <div><h3>کلاس‌های من</h3><strong>{{ data.stats.classes|fa_digits }}</strong><small>کلاس فعال</small></div>
+        <span class="sdb-tile"><svg viewBox="0 0 24 24"><path d="M2 5a2 2 0 0 1 2-1h5a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2Z"/><path d="M22 5a2 2 0 0 0-2-1h-5a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8Z"/></svg></span>
+      </div>
+      <a class="sdb-kpi" href="{% url 'core:student_results' %}">
+        <div><h3>نتایج جدید</h3><strong>{{ data.stats.new_results|fa_digits }}</strong><small>کارنامه منتشر شده در ۱۴ روز اخیر</small></div>
+        <span class="sdb-tile purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h5"/><path d="M14 2v6h6v3"/><path d="M8 13h4M8 17h2"/><circle cx="17" cy="16" r="3"/><path d="m15.5 18.5-1 3.5 2.5-1 2.5 1-1-3.5"/></svg></span>
+      </a>
+    </div>
+  </section>
+
+  <div class="sdb-grid">
+    <div class="sdb-col">
+      <section class="sdb-card sdb-panel">
+        <div class="sdb-head"><h2><svg viewBox="0 0 24 24"><path d="M2 5a2 2 0 0 1 2-1h5a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2Z"/><path d="M22 5a2 2 0 0 0-2-1h-5a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8Z"/></svg>کلاس‌های من</h2></div>
+        <div class="sdb-list">
+          {% for group in data.classes %}
+            <div class="sdb-item">
+              <span class="sdb-tile {% cycle 'purple' '' 'pink' %}"><svg viewBox="0 0 24 24"><path d="M2 5a2 2 0 0 1 2-1h5a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2Z"/><path d="M22 5a2 2 0 0 0-2-1h-5a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8Z"/></svg></span>
+              <div><strong>{{ group.course_title }}</strong><small>{{ group.teacher_name|default:"استاد تعیین نشده" }}</small></div>
+            </div>
+          {% empty %}
+            <p class="sdb-empty">هنوز در کلاسی عضو نیستید.</p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="sdb-card sdb-panel">
+        <div class="sdb-head"><h2><svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>نتایج اخیر</h2><a class="sdb-more" href="{% url 'core:student_results' %}">مشاهده همه</a></div>
+        <div class="sdb-list">
+          {% for result in data.results %}
+            <div class="sdb-item">
+              <svg class="sdb-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+              <div><strong>{{ result.title }}</strong><small>{{ result.date_label }}</small></div>
+              <span class="sdb-score {% if result.score_20 < 10 %}low{% endif %}">{{ result.score_20|floatformat:"-1"|fa_digits }} از ۲۰</span>
+              <a class="sdb-btn" href="{{ result.url }}">مشاهده کارنامه</a>
+            </div>
+          {% empty %}
+            <p class="sdb-empty">هنوز کارنامه‌ای منتشر نشده است.</p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="sdb-card sdb-panel">
+        <div class="sdb-head"><h2><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>اعلان‌ها</h2></div>
+        <div class="sdb-list">
+          {% for note in data.notifications %}
+            <div class="sdb-item">
+              <span class="sdb-tile {% if note.type == 'result' %}green{% elif note.type == 'calendar' or note.type == 'schedule' %}pink{% else %}purple{% endif %}"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span>
+              <div><strong>{{ note.title }}</strong><small>{{ note.message }}</small></div>
+              {% if note.link|slice:":1" == "/" and note.link|slice:":2" != "//" %}<a class="sdb-go" href="{{ note.link }}" aria-label="مشاهده"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></a>{% endif %}
+            </div>
+          {% empty %}
+            <p class="sdb-empty">اعلان تازه‌ای ندارید.</p>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <div class="sdb-col">
+      <section class="sdb-card sdb-panel">
+        <div class="sdb-head"><h2><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>آزمون بعدی</h2></div>
+        {% with exam=data.next_exam %}
+          {% if exam %}
+            <div class="sdb-next">
+              <div>
+                <div class="sdb-next-title"><h3>{{ exam.title }}</h3><span class="sdb-chip {{ exam.state_tone }}">{{ exam.state_label }}</span></div>
+                <p class="sdb-course"><svg viewBox="0 0 24 24"><path d="M2 5a2 2 0 0 1 2-1h5a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2Z"/><path d="M22 5a2 2 0 0 0-2-1h-5a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8Z"/></svg>درس: {{ exam.course }}</p>
+                <div class="sdb-facts">
+                  <div class="sdb-fact"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><div><b>{{ exam.date_label }}</b><small>ساعت {{ exam.time_label|fa_digits }}</small></div></div>
+                  <div class="sdb-fact"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg><div><b>{{ exam.question_count|fa_digits }} سؤال</b></div></div>
+                  <div class="sdb-fact"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><div><b>{{ exam.duration|fa_digits }} دقیقه</b></div></div>
+                </div>
+              </div>
+              <div class="sdb-side">
+                <a class="sdb-btn primary big" href="{{ exam.action.url }}">{{ exam.action.label }}<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></a>
+                <div class="sdb-tip">
+                  <strong><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>نکات مهم قبل از آزمون</strong>
+                  <p>لطفاً با اتصال پایدار اینترنت، مرورگر به‌روز و کارت دانشجویی در زمان آزمون حاضر باشید.</p>
+                </div>
+              </div>
+            </div>
+          {% else %}
+            <p class="sdb-empty">آزمون پیش‌رویی برای شما برنامه‌ریزی نشده است.</p>
+          {% endif %}
+        {% endwith %}
+      </section>
+
+      <section class="sdb-card sdb-panel">
+        <div class="sdb-head"><h2><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>آزمون‌های من</h2><a class="sdb-more" href="{% url 'core:student_exam_schedule' %}">مشاهده همه</a></div>
+        {% if data.exam_rows %}
+          <div class="sdb-table-wrap">
+            <table class="sdb-table">
+              <thead><tr><th>عنوان آزمون</th><th>درس</th><th>زمان برگزاری</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+              <tbody>
+                {% for row in data.exam_rows %}
+                  <tr>
+                    <td>{{ row.title }}</td>
+                    <td>{{ row.course }}</td>
+                    <td><span class="sdb-when"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>{{ row.date_label }}<small>ساعت {{ row.time_label|fa_digits }}</small></span></span></td>
+                    <td><span class="sdb-chip {{ row.state_tone }}">{{ row.state_label }}</span></td>
+                    <td><a class="sdb-btn {% if row.action.primary %}primary{% endif %}" href="{{ row.action.url }}">{% if row.action.icon == 'chart' %}<svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>{% endif %}{{ row.action.label }}</a></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="sdb-empty">هنوز آزمونی به شما اختصاص داده نشده است.</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+</div>
