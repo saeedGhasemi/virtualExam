@@ -3497,8 +3497,10 @@ class StudentDashboardTests(_ScopedOrgFixture):
         _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year', 'is_archived'],
                 [archived, self.teacher_in_id, self.course_in_id, 'کلاس بایگانی‌شده', '1402', True])
         TeacherStudentScopeTests._member(archived, self.student_in_id)
-        classes = self._dashboard(self.student_user).context['student_dashboard']['classes']
+        response = self._dashboard(self.student_user)
+        classes = response.context['student_dashboard']['classes']
         self.assertEqual([(group['course_title'], group['teacher_name']) for group in classes], [('درس داخل محدوده', 'استاد داخل محدوده')])
+        self.assertContains(response, f'class="sdb-more" href="{reverse("core:student_classes")}"')
 
     def test_notifications_are_own_and_links_stay_internal(self):
         from .views import create_notification as create
