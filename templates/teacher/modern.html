@@ -676,8 +676,53 @@
             {% endif %}
         </section>
     {% elif page == 'exams' %}
-        <div class="teacher-toolbar"><a class="teacher-primary" href="{% url 'core:teacher_exam_create' %}">+ ایجاد آزمون جدید</a><a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a><label><input placeholder="جستجو بر عنوان آزمون..."></label><select><option>همه وضعیت‌ها</option></select></div>
-        <section class="teacher-panel"><table class="teacher-table"><thead><tr><th>عنوان آزمون</th><th>کلاس</th><th>گروه</th><th>تاریخ برگزاری</th><th>تعداد سوالات</th><th>شرکت‌کنندگان</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{% for exam in exams %}<tr><td>{{ exam.title }}</td><td>{{ exam.course|default:"ریاضی دهم" }}</td><td>گروه الف</td><td>{{ exam.start_at|default:"۱۴۰۳/۰۳/۲۵"|fa_digits }}</td><td>۳۰</td><td>۲۸/۳۰</td><td><span class="teacher-badge is-ok">{{ exam.status|default:"در حال برگزاری" }}</span></td><td><a href="{% url 'core:teacher_monitoring' %}">پایش</a></td></tr>{% endfor %}</tbody></table></section>
+        {% with el=exam_list %}
+        <form class="teacher-toolbar texams-toolbar" method="get" action="{% url 'core:teacher_exams' %}">
+            <a class="teacher-primary" href="{% url 'core:teacher_exam_create' %}">+ ایجاد آزمون جدید</a>
+            <a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a>
+            <label><span class="sr-only">جستجو</span><input type="search" name="q" value="{{ el.query }}" maxlength="100" placeholder="جستجو بر عنوان آزمون..."></label>
+            <label><span class="sr-only">وضعیت</span><select name="status" onchange="this.form.submit()">{% for key, label in el.filters.items %}<option value="{{ key }}"{% if key == el.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <button type="submit">جستجو</button>
+        </form>
+        <section class="teacher-panel texams-panel">
+            {% if el.rows %}
+                <div class="texams-table-wrap">
+                    <table class="teacher-table">
+                        <thead><tr><th>عنوان آزمون</th><th>درس</th><th>گروه</th><th>تاریخ برگزاری</th><th>مدت</th><th>تعداد سؤالات</th><th>شرکت‌کنندگان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                        <tbody>
+                            {% for exam in el.rows %}
+                                <tr>
+                                    <td class="texams-title">{{ exam.title }}</td>
+                                    <td>{{ exam.course }}</td>
+                                    <td>{% if exam.groups_label %}{{ exam.groups_label|fa_digits }}{% elif exam.assigned %}دانشجویان منتخب{% else %}<span class="texams-muted">بدون تخصیص</span>{% endif %}</td>
+                                    <td>{% if exam.date_label %}{{ exam.date_label }}<small class="texams-time">{{ exam.time_label|fa_digits }}</small>{% else %}<span class="texams-muted">تعیین نشده</span>{% endif %}</td>
+                                    <td>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td>
+                                    <td>{{ exam.question_count|fa_digits }}</td>
+                                    <td>{{ exam.submitted|fa_digits }}{% if exam.assigned %} / {{ exam.assigned|fa_digits }}{% endif %}</td>
+                                    <td><span class="teacher-badge {{ exam.status_tone }}">{{ exam.status_label }}</span></td>
+                                    <td>{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% else %}<span class="texams-muted">-</span>{% endif %}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <footer class="texams-footer">
+                    <span>{{ el.total|fa_digits }} آزمون</span>
+                    {% if el.page.paginator.num_pages > 1 %}
+                        <nav class="texams-pages" aria-label="صفحه‌بندی">
+                            {% if el.page.has_previous %}<a href="{% query_url page=el.page.previous_page_number %}">قبلی</a>{% endif %}
+                            <span>صفحه {{ el.page.number|fa_digits }} از {{ el.page.paginator.num_pages|fa_digits }}</span>
+                            {% if el.page.has_next %}<a href="{% query_url page=el.page.next_page_number %}">بعدی</a>{% endif %}
+                        </nav>
+                    {% endif %}
+                </footer>
+            {% elif el.query or el.status != 'all' %}
+                <p class="texams-empty">آزمونی با این جستجو یا وضعیت پیدا نشد. <a href="{% url 'core:teacher_exams' %}">نمایش همه آزمون‌ها</a></p>
+            {% else %}
+                <p class="texams-empty">هنوز آزمونی نساخته‌اید. <a href="{% url 'core:teacher_exam_create' %}">ایجاد اولین آزمون</a></p>
+            {% endif %}
+        </section>
+        {% endwith %}
     {% elif page == 'monitoring' %}
         <section class="teacher-monitor-hero"><h2>اصول حسابداری ۱ - میان‌ترم</h2><span>زمان باقی‌مانده: ۰۰:۴۷:۲۸</span></section>
         <div class="teacher-stat-grid"><article><span>کل شرکت‌کنندگان</span><strong>۱۲۳</strong></article><article><span>آنلاین</span><strong>۱۰۸</strong></article><article><span>قطع اتصال</span><strong>۷</strong></article><article><span>تحویل داده‌اند</span><strong>۸</strong></article></div>

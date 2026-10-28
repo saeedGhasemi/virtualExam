@@ -2417,3 +2417,77 @@ class TeacherExamWizardTests(_ScopedOrgFixture):
         self.client.force_login(self.manager_user)
         self.assertEqual(self.client.get(reverse('core:teacher_exam_create')).status_code, 403)
         self.assertEqual(self.client.post(reverse('core:teacher_exam_participants_match')).status_code, 403)
+
+
+class TeacherExamListTests(_ScopedOrgFixture):
+    """صفحه‌ی «آزمون‌های من» فقط آزمون‌های خود استاد را با شمارش‌های واقعی، جستجو، فیلتر و صفحه‌بندی نشان می‌دهد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def _get(self, **params):
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_exams'), params)
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def _exam(self, title, **columns):
+        exam_id = str(uuid.uuid4())
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id'] + list(columns),
+                [exam_id, title, self.teacher_in_id, self.course_in_id] + list(columns.values()))
+        return exam_id
+
+    def test_lists_only_own_exams_with_real_counts(self):
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, self.question_in_id, 1, 1])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, self.question_in2_id, 1, 2])
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), self.group_in_id, self.student_in_id, 'دانشجو', '1', '1'])
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), self.exam_in_id, self.group_in_id])
+        attempt_id = str(uuid.uuid4())
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'], [attempt_id, self.exam_in_id, self.student_in_id, timezone.now(), 'submitted'])
+        _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'needs_manual_grading'], [str(uuid.uuid4()), attempt_id, self.question_in_id, '{}', True])
+        response = self._get()
+        rows = response.context['exam_list']['rows']
+        self.assertEqual([row['title'] for row in rows], ['آزمون داخل محدوده'])
+        row = rows[0]
+        self.assertEqual((row['question_count'], row['assigned'], row['submitted'], row['pending_reviews']), (2, 1, 1, 1))
+        page = response.content.decode()
+        self.assertNotIn('آزمون خارج محدوده', page)
+        for leftover in ('ریاضی دهم', 'گروه الف', '۲۸/۳۰'):
+            self.assertNotIn(leftover, page)
+        self.assertIn('تصحیح (۱)', page)
+
+    def test_status_filter_and_search(self):
+        self._exam('پیش‌نویس فیزیولوژی', lifecycle_status='draft')
+        self._exam('ارسالی فیزیولوژی', lifecycle_status='pending_approval')
+        self._exam('لغوشده قلب', lifecycle_status='published', is_cancelled=True)
+        titles = lambda response: {row['title'] for row in response.context['exam_list']['rows']}
+        self.assertEqual(titles(self._get(status='pending_approval')), {'ارسالی فیزیولوژی'})
+        self.assertEqual(titles(self._get(status='cancelled')), {'لغوشده قلب'})
+        self.assertEqual(titles(self._get(q='فیزیولوژی')), {'پیش‌نویس فیزیولوژی', 'ارسالی فیزیولوژی'})
+        self.assertEqual(titles(self._get(status='bogus', q='قلب')), {'لغوشده قلب'})  # unknown filter falls back to all
+        self.assertIn('آزمونی با این جستجو یا وضعیت پیدا نشد', self._get(q='ناموجود').content.decode())
+
+    def test_pagination(self):
+        for index in range(24):
+            self._exam(f'آزمون شماره {index}')
+        first, second = self._get(), self._get(page='2')
+        self.assertEqual(first.context['exam_list']['total'], 25)
+        self.assertEqual(len(first.context['exam_list']['rows']), 20)
+        self.assertEqual(len(second.context['exam_list']['rows']), 5)
+        self.assertIn('صفحه ۱ از ۲', first.content.decode())
+
+    def test_status_labels_follow_time_window(self):
+        from datetime import timedelta
+        from apps.core.views import _teacher_exam_status
+        now = timezone.now()
+        hour = timedelta(hours=1)
+        self.assertEqual(_teacher_exam_status({'lifecycle': 'published', 'start_at': now - hour, 'end_at': now + hour}, now)[0], 'در حال برگزاری')
+        self.assertEqual(_teacher_exam_status({'lifecycle': 'published', 'start_at': now + hour}, now)[0], 'برنامه‌ریزی شده')
+        self.assertEqual(_teacher_exam_status({'lifecycle': 'published', 'start_at': now - 2 * hour, 'end_at': now - hour}, now)[0], 'پایان‌یافته')
+        self.assertEqual(_teacher_exam_status({'lifecycle': 'pending_approval'}, now)[0], 'در انتظار تأیید')
+        self.assertEqual(_teacher_exam_status({'lifecycle': 'published', 'is_cancelled': True}, now)[0], 'لغو شده')
+        self.assertEqual(_teacher_exam_status({'lifecycle': ''}, now)[0], 'پیش‌نویس')

@@ -10023,6 +10023,67 @@
   .teacher-badge.is-muted { @apply bg-slate-100 text-slate-500; }
   .teacher-badge.is-warn { @apply bg-amber-100 text-amber-700; }
   .teacher-badge.is-danger { @apply bg-red-100 text-red-700; }
+  .teacher-badge.is-blue { @apply bg-blue-100 text-blue-700; }
+  .teacher-badge.is-violet { @apply bg-violet-100 text-violet-700; }
+
+  /* Teacher exam list (page == 'exams' in templates/teacher/modern.html) */
+  .texams-toolbar {
+    @apply mb-4;
+  }
+
+  .texams-toolbar button {
+    @apply inline-flex h-11 items-center justify-center rounded-lg border border-blue-200 bg-white px-5 text-sm font-black text-blue-700 transition hover:border-blue-500 hover:bg-blue-50;
+  }
+
+  .texams-table-wrap {
+    @apply overflow-x-auto;
+  }
+
+  .texams-panel .teacher-table {
+    @apply min-w-[960px];
+  }
+
+  .texams-panel .teacher-table td {
+    @apply whitespace-nowrap;
+  }
+
+  .texams-panel .teacher-table td.texams-title {
+    @apply whitespace-normal font-black text-slate-900;
+  }
+
+  .texams-time {
+    @apply ms-3 inline-block text-xs text-slate-500;
+    unicode-bidi: isolate; /* keeps the time's digits from merging with the year's */
+  }
+
+  .texams-muted {
+    @apply text-slate-400;
+  }
+
+  .texams-footer {
+    @apply mt-4 flex flex-wrap items-center justify-between gap-3 text-sm font-bold text-slate-500;
+  }
+
+  .texams-pages {
+    @apply flex items-center gap-2;
+  }
+
+  .texams-pages a,
+  .texams-pages span {
+    @apply rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600;
+  }
+
+  .texams-pages a {
+    @apply text-blue-700 hover:border-blue-400;
+  }
+
+  .texams-empty {
+    @apply py-6 text-center text-sm font-bold text-slate-500;
+  }
+
+  .texams-empty a {
+    @apply font-black text-blue-600;
+  }
 
   .teacher-detail-title {
     @apply mt-3 flex flex-row-reverse flex-wrap items-center justify-center gap-4 text-center;

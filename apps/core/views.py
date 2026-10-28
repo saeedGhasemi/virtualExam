@@ -13748,6 +13748,116 @@ def _teacher_dashboard_data(teacher_id) -> dict:
     }
 
 
+TEACHER_EXAM_LIST_FILTERS = {
+    'all': 'همه وضعیت‌ها',
+    'draft': 'پیش‌نویس',
+    'pending_approval': 'در انتظار تأیید',
+    'active': 'منتشرشده / در حال برگزاری',
+    'finished': 'پایان‌یافته',
+    'cancelled': 'لغو شده',
+}
+TEACHER_EXAM_LIST_PAGE_SIZE = 20
+
+
+def _teacher_exam_status(row, now) -> tuple:
+    """(label, badge tone) of one exam from its lifecycle, cancellation and time window."""
+    if row.get('is_cancelled'):
+        return 'لغو شده', 'is-muted'
+    lifecycle = row.get('lifecycle') or 'draft'
+    start_at, end_at = erd_datetime(row.get('start_at')), erd_datetime(row.get('end_at'))
+    if lifecycle in ('closed', 'archived') or (lifecycle in ('published', 'in_progress') and end_at and end_at < now):
+        return 'پایان‌یافته', 'is-muted'
+    if lifecycle in ('published', 'in_progress'):
+        return ('در حال برگزاری', 'is-ok') if start_at and start_at <= now else ('برنامه‌ریزی شده', 'is-blue')
+    return {
+        'approved': ('تأیید شده', 'is-blue'),
+        'scheduled': ('زمان‌بندی انتشار', 'is-blue'),
+        'pending_approval': ('در انتظار تأیید', 'is-warn'),
+    }.get(lifecycle, ('پیش‌نویس', 'is-violet'))
+
+
+def _teacher_exam_list(teacher_id, query: str, status: str, page_number) -> dict:
+    """One page of the teacher's own exams with real course, groups, question and participant counts."""
+    from django.core.paginator import Paginator
+
+    now = timezone.now()
+    lifecycle = "COALESCE(e.lifecycle_status, '')"
+    cancelled = 'COALESCE(e.is_cancelled, false) = true'
+    running = f"{lifecycle} IN ('published', 'in_progress')"
+    status_conditions = {
+        'draft': (f"{lifecycle} IN ('draft', '') AND NOT {cancelled}", []),
+        'pending_approval': (f"{lifecycle} = 'pending_approval' AND NOT {cancelled}", []),
+        'active': (f"NOT {cancelled} AND ({lifecycle} IN ('approved', 'scheduled') OR ({running} AND (e.end_at IS NULL OR e.end_at >= %s)))", [now]),
+        'finished': (f"NOT {cancelled} AND ({lifecycle} IN ('closed', 'archived') OR ({running} AND e.end_at < %s))", [now]),
+        'cancelled': (cancelled, []),
+    }
+    where, params = ['e.teacher_id = %s'], [teacher_id]
+    if query:
+        where.append('e.title LIKE %s')
+        params.append(f'%{query}%')
+    if status in status_conditions:
+        condition, condition_params = status_conditions[status]
+        where.append(f'({condition})')
+        params.extend(condition_params)
+    where_sql = ' AND '.join(where)
+
+    total = erd_row(f'SELECT COUNT(*) AS count FROM exams e WHERE {where_sql}', params)['count']
+    page = Paginator(range(total), TEACHER_EXAM_LIST_PAGE_SIZE).get_page(page_number)
+    rows = erd_rows(
+        f"""
+        SELECT e.id, e.title, COALESCE(c.title, '-') AS course, e.start_at, e.end_at, e.duration_minutes,
+               {lifecycle} AS lifecycle, COALESCE(e.is_cancelled, false) AS is_cancelled
+        FROM exams e
+        LEFT JOIN courses c ON c.id = e.course_id
+        WHERE {where_sql}
+        ORDER BY CASE WHEN e.start_at IS NULL THEN 0 ELSE 1 END, e.start_at DESC, e.title
+        LIMIT %s OFFSET %s
+        """,
+        [*params, TEACHER_EXAM_LIST_PAGE_SIZE, page.start_index() - 1 if total else 0],
+    )
+
+    exam_ids = [str(row['id']) for row in rows]
+    question_counts, submitted_counts, pending_counts, group_labels = {}, {}, {}, {}
+    if exam_ids:
+        marks = ', '.join(['%s'] * len(exam_ids))
+        question_counts = {str(r['exam_id']): r['count'] for r in erd_rows(
+            f'SELECT exam_id, COUNT(*) AS count FROM exam_questions WHERE exam_id IN ({marks}) GROUP BY exam_id', exam_ids)}
+        submitted_counts = {str(r['exam_id']): r['count'] for r in erd_rows(
+            f"""
+            SELECT exam_id, COUNT(DISTINCT student_id) AS count FROM exam_attempts
+            WHERE exam_id IN ({marks}) AND status IN ('submitted', 'graded') GROUP BY exam_id
+            """, exam_ids)}
+        pending_counts = {str(r['exam_id']): r['count'] for r in erd_rows(
+            f"""
+            SELECT ea.exam_id, COUNT(aa.id) AS count
+            FROM attempt_answers aa JOIN exam_attempts ea ON ea.id = aa.attempt_id
+            WHERE ea.exam_id IN ({marks}) AND COALESCE(aa.needs_manual_grading, false) = true
+            GROUP BY ea.exam_id
+            """, exam_ids)}
+        for r in erd_rows(
+            f"""
+            SELECT ea.exam_id, sg.group_code, sg.course_name
+            FROM exam_assignments ea JOIN student_groups sg ON sg.id = ea.group_id
+            WHERE ea.exam_id IN ({marks})
+            ORDER BY sg.course_name, sg.group_code
+            """, exam_ids):
+            group_labels.setdefault(str(r['exam_id']), []).append(f"گروه {r['group_code']}" if r['group_code'] else r['course_name'])
+    assigned_counts = _teacher_dashboard_participant_counts(exam_ids)
+
+    for row in rows:
+        exam_id = str(row['id'])
+        start_at = erd_datetime(row['start_at'])
+        row['status_label'], row['status_tone'] = _teacher_exam_status(row, now)
+        row['date_label'] = _jalali_long_date(start_at)
+        row['time_label'] = timezone.localtime(start_at).strftime('%H:%M') if start_at else ''
+        row['groups_label'] = '، '.join(group_labels.get(exam_id, []))
+        row['question_count'] = question_counts.get(exam_id, 0)
+        row['assigned'] = assigned_counts.get(exam_id)
+        row['submitted'] = submitted_counts.get(exam_id, 0)
+        row['pending_reviews'] = pending_counts.get(exam_id, 0)
+    return {'rows': rows, 'page': page, 'total': total, 'query': query, 'status': status, 'filters': TEACHER_EXAM_LIST_FILTERS}
+
+
 def _teacher_modern_context(request, page, **extra):
     teacher_id = getattr(request, 'erd_profile_id', None)
     courses = _teacher_courses_rows(teacher_id) if teacher_id else []
@@ -14833,7 +14943,11 @@ def teacher_question_edit(request, question_id):
 
 @erd_role_required('teacher')
 def teacher_exams(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'exams'))
+    status = request.GET.get('status') if request.GET.get('status') in TEACHER_EXAM_LIST_FILTERS else 'all'
+    exam_list = _teacher_exam_list(
+        request.erd_profile_id, (request.GET.get('q') or '').strip()[:100], status, request.GET.get('page'),
+    )
+    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'exams', exam_list=exam_list))
 
 
 @erd_role_required('teacher')
