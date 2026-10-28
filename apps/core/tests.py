@@ -3575,6 +3575,16 @@ class StudentExamsAndClassesPagesTests(_ScopedOrgFixture):
         for hidden in ('آزمون پیش‌نویس صفحه', 'آزمون کلاس دیگر', 'ارزیابی اولیه وضعیت سالمند', 'مرداد ۱۴۰۵'):
             self.assertNotContains(response, hidden)
 
+    def test_results_icon_only_links_submitted_attempts(self):
+        response = self._get('core:student_exam_schedule')
+        linked = {row['title'] for row in response.context['page_obj'] if row['result_url']}
+        self.assertEqual(linked, {'آزمون در صف تصحیح', 'آزمون نمره‌دار'})
+        pending_url = reverse('core:student_result_detail', args=[self.pending_attempt])
+        self.assertContains(response, f'href="{pending_url}"')
+        self.assertEqual(self.client.get(pending_url).status_code, 200)
+        for removed in ('/student/results/', '/student/objections/', '/student/educational-questions/'):
+            self.assertEqual(self.client.get(removed).status_code, 404)
+
     def test_tab_filter_and_pagination(self):
         finished = self._get('core:student_exam_schedule', tab='finished').context
         self.assertEqual({row['page_state'] for row in finished['page_obj']}, {'absent', 'pending', 'graded'})

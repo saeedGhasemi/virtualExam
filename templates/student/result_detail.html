@@ -29,7 +29,7 @@
           <div><strong>مدت آزمون</strong><p>{{ result.duration_minutes|fa_digits }} دقیقه</p></div>
           <div><strong>وضعیت</strong><p><span class="srd-chip orange">{{ result.status_label }}</span></p></div>
         </div>
-        <a class="srd-btn primary" href="{% url 'core:student_results' %}">بازگشت به نتایج</a>
+        <a class="srd-btn primary" href="{% url 'core:student_exam_schedule' %}?tab=finished">بازگشت به آزمون‌های من</a>
       </article>
       <aside class="sx-card srd-card">
         <h2>مراحل اعلام نتیجه</h2>
@@ -46,7 +46,7 @@
       <div><h1>جزئیات نتیجه</h1><p>نتایج آزمون‌ها / جزئیات نتیجه</p></div>
     </div>
     <div class="srd-top-actions">
-      <a class="srd-btn primary" href="{% url 'core:student_results' %}">بازگشت به نتایج</a>
+      <a class="srd-btn primary" href="{% url 'core:student_exam_schedule' %}?tab=finished">بازگشت به آزمون‌های من</a>
       <a class="srd-btn" href="#">دانلود کارنامه</a>
     </div>
     <article class="sx-card srd-summary">

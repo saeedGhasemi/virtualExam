@@ -65,9 +65,6 @@ ROLE_NAV = {
             ('داشبورد', 'core:dashboard', 'layout'),
             ('آزمون ها', 'core:student_exam_schedule', 'clipboard'),
             ('آزمون آزمایشی', 'core:student_practice_exam', 'spark'),
-            ('نتایج', 'core:student_results', 'chart'),
-            ('اعتراض ها', 'core:student_objections', 'alert'),
-            ('پرسش آموزشی', 'core:student_educational_questions', 'help'),
         ]),
     ],
 }

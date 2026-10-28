@@ -29,6 +29,7 @@
   .sme-when{display:inline-block;unicode-bidi:isolate;white-space:nowrap}.sme-when small{display:block;color:#6b7a94}
   .sx-chip.blue{background:#e8f0ff;color:#075fff}.sx-chip.violet{background:#f0e9ff;color:#7c3aed}.sx-chip.red{background:#ffe7e7;color:#e11d48}
   .sme-action{min-height:40px;padding:0 16px;white-space:nowrap}
+  .sme-actions{display:flex;align-items:center;gap:8px}.sme-result{display:grid;width:40px;height:40px;flex:none;place-items:center;border-radius:12px;border:1px solid #d6e2f5;background:#fff;color:#075fff}.sme-result svg{width:1.2rem;height:1.2rem}a.sme-result:hover{background:#e8f0ff}.sme-result.is-disabled{color:#b3bfd3;background:#f4f7fb;cursor:not-allowed}
   .sme-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid #e6edf6;color:#61708d;font-weight:900}
   .sme-pages{display:flex;gap:6px}.sme-pages a,.sme-pages span{display:grid;min-width:38px;height:38px;place-items:center;padding:0 10px;border:1px solid #dbe6f4;border-radius:10px;background:#fff;color:#30415f;font-weight:950}.sme-pages .is-current{background:#075fff;border-color:#075fff;color:#fff}.sme-pages .is-disabled{color:#b3bdcd}
   .sme-empty{padding:40px 20px;text-align:center;color:#64748b;font-weight:900}
@@ -93,7 +94,7 @@
                 <td>{{ row.question_count|fa_digits }} سؤال</td>
                 <td>{{ row.duration|fa_digits }} دقیقه</td>
                 <td><span class="sx-chip {{ row.page_tone }}">{{ row.page_label }}</span></td>
-                <td><a class="sx-btn sme-action{% if row.page_action.primary %} primary{% endif %}" href="{{ row.page_action.url }}">{{ row.page_action.label }}</a></td>
+                <td><div class="sme-actions"><a class="sx-btn sme-action{% if row.page_action.primary %} primary{% endif %}" href="{{ row.page_action.url }}">{{ row.page_action.label }}</a>{% if row.result_url %}<a class="sme-result" href="{{ row.result_url }}" title="نتایج" aria-label="نتایج {{ row.title }}">{% include 'teacher/_qb_icon.html' with name='chart' %}</a>{% else %}<span class="sme-result is-disabled" title="هنوز نتیجه‌ای برای این آزمون ثبت نشده" aria-disabled="true">{% include 'teacher/_qb_icon.html' with name='chart' %}</span>{% endif %}</div></td>
               </tr>
             {% endfor %}
           </tbody>

@@ -47,7 +47,6 @@ from .forms import (
     AssistantQuestionSuggestionReviewForm,
     AssistantReviewAssignmentForm,
     AssistantReviewDecisionForm,
-    EducationalQuestionForm,
     StudentExamEntryForm,
     StudentObjectionCreateForm,
     StudentPracticeCheckForm,
@@ -1433,9 +1432,6 @@ def erd_profile_page_context(user):
                 ('داشبورد', reverse('core:dashboard'), '▦'),
                 ('آزمون‌ها', reverse('core:student_exam_schedule'), '▤'),
                 ('آزمون آزمایشی', reverse('core:student_practice_exam'), '✦'),
-                ('نتایج', reverse('core:student_results'), '↗'),
-                ('اعتراض‌ها', reverse('core:student_objections'), '!'),
-                ('پرسش آموزشی', reverse('core:student_educational_questions'), '؟'),
                 ('پروفایل', reverse('core:profile'), '♙'),
             ]),
         ],
@@ -12038,37 +12034,6 @@ def assistant_educational_question_answer(request, question_id):
 
 
 @student_required
-def student_educational_questions(request):
-    student = request.student_profile
-    if request.method == 'POST':
-        form = EducationalQuestionForm(request.POST, student=student)
-        if form.is_valid():
-            item = form.save(commit=False)
-            item.student = student
-            course = item.course or (item.exam.course if item.exam else None)
-            teacher = None
-            if item.exam and item.exam.designer:
-                teacher = item.exam.designer
-            elif course:
-                teacher = course.teachers.first() or TeacherProfile.objects.filter(institution=student.institution).first()
-            else:
-                teacher = TeacherProfile.objects.filter(institution=student.institution).first() or TeacherProfile.objects.first()
-            if not teacher:
-                form.add_error('course', 'برای این درس استاد مسئول پیدا نشد.')
-            else:
-                item.course = course
-                item.teacher = teacher
-                item.save()
-                log_activity(request.user, 'student_educational_question_created', 'پرسش آموزشی دانشجو ثبت شد.', request, {'question_id': item.pk})
-                messages.success(request, 'پرسش شما ثبت شد.')
-                return redirect('core:student_educational_questions')
-    else:
-        form = EducationalQuestionForm(student=student)
-    questions = EducationalQuestion.objects.select_related('exam', 'course', 'teacher__profile').filter(student=student)[:100]
-    return render(request, 'student/educational_questions.html', {'student': student, 'form': form, 'questions': questions})
-
-
-@student_required
 def student_practice_exam(request):
     student = request.student_profile
     latest_check = student.practice_checks.first()
@@ -16495,9 +16460,6 @@ def exam_manager_user_import(request, kind='students'):
         student_links = [
             {'title': 'برنامه آزمون‌ها', 'url': reverse('core:student_exam_schedule')},
             {'title': 'آزمون آزمایشی', 'url': reverse('core:student_practice_exam')},
-            {'title': 'نتایج آزمون', 'url': reverse('core:student_results')},
-            {'title': 'ثبت اعتراض', 'url': reverse('core:student_objections')},
-            {'title': 'پرسش آموزشی', 'url': reverse('core:student_educational_questions')},
         ]
         if student:
             exams = student_available_exams(student)
@@ -17307,56 +17269,6 @@ def exam_manager_exam_results(request, exam_id):
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_approvals(request):
     return exam_manager_exams(request)
-
-
-@erd_role_required('student')
-def student_objections(request):
-    student_id = request.erd_profile_id
-    if request.method == 'POST':
-        exam_id = request.POST.get('exam_id')
-        attempt_id = request.POST.get('attempt_id') or None
-        question_id = request.POST.get('question_id') or None
-        subject = request.POST.get('subject', '').strip()
-        message = request.POST.get('message', '').strip()
-        if exam_id and subject and message:
-            objection_id = str(uuid.uuid4())
-            erd_execute(
-                """
-                INSERT INTO objections (id, student_id, exam_id, attempt_id, question_id, subject, message, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'open')
-                """,
-                [objection_id, student_id, exam_id, attempt_id, question_id, subject, message],
-            )
-            erd_execute("UPDATE exam_attempts SET status = 'disputed' WHERE id = %s", [attempt_id])
-            teacher = erd_row('SELECT teacher_id FROM exams WHERE id = %s', [exam_id])
-            create_notification(teacher['teacher_id'] if teacher else None, 'اعتراض جدید', subject, reverse('core:teacher_objections'), 'objection')
-            log_activity(request.user, 'objection_created', 'اعتراض دانشجو ثبت شد.', request, {'objection_id': objection_id})
-            messages.success(request, 'اعتراض ثبت شد.')
-            return redirect('core:student_objections')
-    return _super_admin_collection(
-        request,
-        title='اعتراض‌های من',
-        kicker='دانشجو / اعتراض',
-        description='وضعیت اعتراض طبق state machine: open, under_review, resolved_accepted, resolved_rejected, escalated, resolved_final.',
-        queryset=lambda: erd_rows(
-            """
-            SELECT o.subject, o.message, o.status, e.title AS exam_title
-            FROM objections o
-            JOIN exams e ON e.id = o.exam_id
-            WHERE o.student_id = %s
-            ORDER BY o.resolved_at NULLS FIRST
-            LIMIT 200
-            """,
-            [student_id],
-        ),
-        row_builder=lambda item, q: {
-            'title': item['subject'],
-            'meta': item['exam_title'],
-            'cells': [('وضعیت', item['status']), ('متن', item['message'])],
-        } if _matches_query(q, item['subject'], item['exam_title'], item['status'], item['message']) else None,
-    )
-
-
 
 
 # Final modern teacher overrides. These sit at the end of the module because older
@@ -18572,40 +18484,6 @@ def _sx_result_question_rows(attempt_id, student_id):
                 'explanation': 'این سوال برای مرور نتیجه آزمون آماده شده است.',
             })
     return items
-
-
-@erd_role_required('student')
-def student_results(request):
-    student_id = request.erd_profile_id
-    results = _sx_result_rows(student_id)
-    q = (request.GET.get('q') or '').strip()
-    status = request.GET.get('status') or ''
-    filtered = results
-    if q:
-        filtered = [item for item in filtered if q in item['title'] or q in item['course_title']]
-    if status == 'passed':
-        filtered = [item for item in filtered if item['status_tone'] == 'green']
-    elif status == 'failed':
-        filtered = [item for item in filtered if item['status_tone'] == 'red']
-    elif status == 'pending':
-        filtered = [item for item in filtered if item['is_pending']]
-    featured = next((item for item in filtered if not item['is_pending']), filtered[0] if filtered else None)
-    graded = [item for item in filtered if not item['is_pending']]
-    stats_source = featured or (filtered[0] if filtered else {})
-    stats = {
-        'best_percent': max([item['percent'] for item in graded] or [0]),
-        'correct': stats_source.get('correct_count', 0),
-        'wrong': stats_source.get('wrong_count', 0),
-        'unanswered': stats_source.get('unanswered_count', 0),
-    }
-    return render(request, 'student/results.html', {
-        'student': _sx_student_context(request),
-        'results': filtered,
-        'featured_result': featured,
-        'stats': stats,
-        'chart_items': graded[:4] or filtered[:4],
-        'filters': {'q': q, 'status': status, 'date': request.GET.get('date', '')},
-    })
 
 
 @erd_role_required('student')

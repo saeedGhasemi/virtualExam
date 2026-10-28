@@ -64,7 +64,7 @@
         <div><h3>کلاس‌های من</h3><strong>{{ data.stats.classes|fa_digits }}</strong><small>کلاس فعال</small></div>
         <span class="sdb-tile"><svg viewBox="0 0 24 24"><path d="M2 5a2 2 0 0 1 2-1h5a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2Z"/><path d="M22 5a2 2 0 0 0-2-1h-5a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8Z"/></svg></span>
       </div>
-      <a class="sdb-kpi" href="{% url 'core:student_results' %}">
+      <a class="sdb-kpi" href="{% url 'core:student_exam_schedule' %}?tab=finished">
         <div><h3>نتایج جدید</h3><strong>{{ data.stats.new_results|fa_digits }}</strong><small>کارنامه منتشر شده در ۱۴ روز اخیر</small></div>
         <span class="sdb-tile purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h5"/><path d="M14 2v6h6v3"/><path d="M8 13h4M8 17h2"/><circle cx="17" cy="16" r="3"/><path d="m15.5 18.5-1 3.5 2.5-1 2.5 1-1-3.5"/></svg></span>
       </a>
@@ -88,7 +88,7 @@
       </section>
 
       <section class="sdb-card sdb-panel">
-        <div class="sdb-head"><h2><svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>نتایج اخیر</h2><a class="sdb-more" href="{% url 'core:student_results' %}">مشاهده همه</a></div>
+        <div class="sdb-head"><h2><svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>نتایج اخیر</h2><a class="sdb-more" href="{% url 'core:student_exam_schedule' %}?tab=finished">مشاهده همه</a></div>
         <div class="sdb-list">
           {% for result in data.results %}
             <div class="sdb-item">
