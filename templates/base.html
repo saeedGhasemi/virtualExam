@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}?v=20260826b">
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
-    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=teacher-settings-20261028">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=teacher-security-20261028">
     <style>
         @font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
         @font-face{font-family:'B Yekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
@@ -232,7 +232,8 @@
                 const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
                     acceptNode(node) {
                         const parent = node.parentElement;
-                        if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT'].includes(parent.tagName)) {
+                        // data-latin-digits: text typed back by the user exactly (keys, recovery codes) keeps 0-9
+                        if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT'].includes(parent.tagName) || parent.closest('[data-latin-digits]')) {
                             return NodeFilter.FILTER_REJECT;
                         }
                         return /[0-9]/.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;

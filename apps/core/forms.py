@@ -159,13 +159,15 @@ class PublicRegistrationForm(forms.Form):
 
 
 class TwoFactorCodeForm(forms.Form):
-    code = forms.CharField(label='کد تأیید', max_length=6, min_length=6)
+    # 6 digits from the authenticator app, or a recovery code such as ABCDE-FGHJK
+    code = forms.CharField(label='کد تأیید', max_length=12, min_length=6)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['code'].widget.attrs.update({
-            'placeholder': 'کد و رقمی',
+            'placeholder': 'کد ۶ رقمی یا کد بازیابی',
             'autocomplete': 'one-time-code',
+            'dir': 'ltr',
         })
 
 

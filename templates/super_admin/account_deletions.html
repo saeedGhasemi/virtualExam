@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}درخواست‌های حذف حساب | متاکوییز{% endblock %}
+
+{% block content %}
+<section class="super-admin-page tset tchg" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">کاربران / حذف منطقی</span><h1>درخواست‌های حذف حساب</h1></div>
+    <p class="tset-request-hint">تأیید، حساب را غیرفعال می‌کند و همه‌ی نشست‌هایش را می‌بندد؛ هیچ داده‌ای پاک نمی‌شود و پروفایل کاربر برای شما قابل مشاهده می‌ماند.</p>
+
+    <nav class="tset-tabs" aria-label="وضعیت درخواست‌ها">
+        <a class="{% if status == 'pending' %}is-active{% endif %}" href="{% url 'core:super_admin_account_deletions' %}"{% if status == 'pending' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="clock" %}در انتظار بررسی ({{ pending_count|fa_digits }})</a>
+        <a class="{% if status == 'reviewed' %}is-active{% endif %}" href="{% url 'core:super_admin_account_deletions' %}?status=reviewed"{% if status == 'reviewed' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="archive" %}بررسی‌شده</a>
+    </nav>
+
+    {% for item in items %}
+        <article class="tset-card tchg-item">
+            <header class="tchg-head">
+                <span class="tchg-face">{{ item.full_name|slice:":1" }}</span>
+                <div><b>{% if item.profile_kind %}<a href="{% url 'core:super_admin_user_profile' item.profile_kind item.profile_id %}">{{ item.full_name }}</a>{% else %}{{ item.full_name }}{% endif %}</b><small>{{ item.username }} · {{ item.email|default:"-" }} · ثبت {{ item.created_label }}</small></div>
+                {% if item.status == 'approved' %}<span class="tchg-status is-bad">غیرفعال شد</span>{% elif item.status == 'rejected' %}<span class="tchg-status is-ok">رد شد</span>{% else %}<span class="tchg-status">در انتظار</span>{% endif %}
+            </header>
+            <p class="tchg-note"><b>دلیل کاربر:</b> {{ item.reason|default:"-" }}</p>
+            {% if item.status == 'pending' %}
+                <form class="tchg-review" method="post" action="{% url 'core:super_admin_account_deletion_review' item.id %}">
+                    {% csrf_token %}
+                    <input class="tset-input is-text" name="review_note" maxlength="300" placeholder="توضیح (برای رد درخواست الزامی است)">
+                    <button class="tset-save is-danger" type="submit" name="decision" value="approve">تأیید و غیرفعال‌سازی</button>
+                    <button class="tset-outline-btn" type="submit" name="decision" value="reject">رد درخواست</button>
+                </form>
+            {% else %}
+                <p class="tchg-note"><b>بررسی:</b> {{ item.reviewer_name|default:"-" }} · {{ item.reviewed_label }}{% if item.review_note %} — {{ item.review_note }}{% endif %}</p>
+            {% endif %}
+        </article>
+    {% empty %}
+        <div class="tset-card tchg-empty">{% if status == 'pending' %}درخواستی در انتظار بررسی نیست.{% else %}هنوز درخواستی بررسی نشده است.{% endif %}</div>
+    {% endfor %}
+
+    {% if page.paginator.num_pages > 1 %}
+        <nav class="tchg-pages" aria-label="صفحه‌بندی">
+            {% if page.has_previous %}<a href="?{% if status == 'reviewed' %}status=reviewed&{% endif %}page={{ page.previous_page_number }}">قبلی</a>{% endif %}
+            <span>صفحه {{ page.number|fa_digits }} از {{ page.paginator.num_pages|fa_digits }}</span>
+            {% if page.has_next %}<a href="?{% if status == 'reviewed' %}status=reviewed&{% endif %}page={{ page.next_page_number }}">بعدی</a>{% endif %}
+        </nav>
+    {% endif %}
+</section>
+{% endblock %}

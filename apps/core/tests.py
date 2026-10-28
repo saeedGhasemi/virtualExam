@@ -2784,7 +2784,7 @@ class TeacherSettingsTests(_ScopedOrgFixture):
             self.assertIn(marker, response.content.decode())
         self.assertEqual(self.client.get(reverse('core:teacher_settings'), {'tab': 'bank'}).context['teacher_settings_tab'], 'exam')
         self.assertEqual(self.client.get(reverse('core:teacher_settings'), {'tab': 'notifications'}).context['teacher_settings_tab'], 'account')
-        self.assertEqual(self.client.get(reverse('core:teacher_settings'), {'tab': 'bogus'}).context['teacher_settings_tab'], 'account')
+        self.assertEqual(self.client.get(reverse('core:teacher_settings'), {'tab': 'bogus'}).context['teacher_settings_tab'], 'personal')
 
     def test_saves_only_the_posted_tab_and_validates_choices(self):
         self._post('exam', default_exam_duration='90', negative_marking='on', sharing_mode='group', auto_archive='on')
@@ -2809,11 +2809,82 @@ class TeacherSettingsTests(_ScopedOrgFixture):
         self.assertEqual((stored['notification_email'], stored['quiet_start']), ('me@uni.ac.ir', '23:30'))
         self.assertIn('ایمیل اعلان‌ها معتبر نیست', self.client.get(response['Location']).content.decode())
 
+    def test_personal_tab_saves_validated_details_only_for_this_teacher(self):
+        response = self._post('personal', first_name='سارا', last_name='احمدی', display_name='دکتر سارا احمدی',
+                              phone='۰۹۱۷ ۱۲۳ ۴۵۶۷', landline='071-3222-1111', bio='پرستاری سالمندی', show_bio='on',
+                              academic_rank='استاد', personnel_code='999')  # not editable here: ignored
+        self.assertEqual(response.status_code, 302)
+        from apps.core.views import erd_row
+        row = erd_row(
+            """SELECT p.full_name, p.phone, tp.display_name, tp.landline, tp.bio, tp.show_bio, tp.academic_rank, tp.personnel_code
+               FROM profiles p JOIN teacher_profiles tp ON tp.user_id = p.id WHERE p.id = %s""", [self.teacher_in_id])
+        self.assertEqual((row['full_name'], row['phone'], row['display_name'], row['landline'], row['bio']),
+                         ('سارا احمدی', '09171234567', 'دکتر سارا احمدی', '07132221111', 'پرستاری سالمندی'))
+        self.assertTrue(row['show_bio'])
+        self.assertIsNone(row['academic_rank'])
+        self.assertIsNone(row['personnel_code'])
+        self.assertEqual(erd_row('SELECT full_name FROM profiles WHERE id = %s', [self.teacher_out_id])['full_name'], 'استاد خارج محدوده')
+
+    def test_personal_tab_rejects_invalid_input_and_keeps_typed_values(self):
+        response = self._post('personal', first_name='', last_name='احمدی', phone='12345', landline='abc')
+        self.assertEqual(response.status_code, 200)
+        page = response.content.decode()
+        for error in ('نام و نام خانوادگی الزامی است', 'تلفن همراه باید', 'تلفن ثابت باید'):
+            self.assertIn(error, page)
+        self.assertIn('value="12345"', page)
+        from apps.core.views import erd_row
+        self.assertEqual(erd_row('SELECT full_name FROM profiles WHERE id = %s', [self.teacher_in_id])['full_name'], 'استاد داخل محدوده')
+
+    def test_avatar_upload_checks_the_file_itself(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        fake = SimpleUploadedFile('photo.png', b'<?php echo 1; ?>', content_type='image/png')
+        response = self._post('personal', first_name='سارا', last_name='احمدی', phone='09171234567', avatar=fake)
+        self.assertIn('فرمت تصویر باید', response.content.decode())
+        big = SimpleUploadedFile('photo.png', b'\x89PNG\r\n\x1a\n' + b'0' * (1024 * 1024), content_type='image/png')
+        self.assertIn('حجم تصویر', self._post('personal', first_name='سارا', last_name='احمدی', phone='09171234567', avatar=big).content.decode())
+        header_only = SimpleUploadedFile('photo.png', b'\x89PNG\r\n\x1a\n' + b'0' * 64, content_type='image/png')
+        self.assertIn('فرمت تصویر باید', self._post('personal', first_name='سارا', last_name='احمدی', avatar=header_only).content.decode())
+
+    def test_real_image_is_accepted_as_avatar(self):
+        import io as _io
+        import shutil
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+        buffer = _io.BytesIO()
+        Image.new('RGB', (8, 8), 'blue').save(buffer, 'PNG')
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, ignore_errors=True)
+        from pathlib import Path
+        with self.settings(MEDIA_ROOT=Path(media)):
+            photo = SimpleUploadedFile('photo.png', buffer.getvalue(), content_type='image/png')
+            response = self._post('personal', first_name='سارا', last_name='احمدی', avatar=photo)
+        self.assertEqual(response.status_code, 302)
+        from apps.core.views import _teacher_personal_info
+        self.assertIn('/avatars/', _teacher_personal_info(self.teacher_in_id)['avatar_url'])
+
+    def test_phone_is_kept_unless_changed_and_shown_masked(self):
+        self._post('personal', first_name='سارا', last_name='احمدی', phone='09171234567')
+        self._post('personal', first_name='سارا', last_name='رضایی')  # «تغییر شماره» not pressed: no phone field
+        from apps.core.views import _teacher_personal_info
+        info = _teacher_personal_info(self.teacher_in_id)
+        self.assertEqual((info['last_name'], info['phone'], info['phone_masked']), ('رضایی', '09171234567', '0917***4567'))
+        self.assertTrue(0 < info['completeness'] < 100)
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'personal'}).content.decode()
+        self.assertIn('۰۹۱۷***۴۵۶۷', page)
+        self.assertNotIn('09171234567" ', page.split('data-tset-phone-view')[1].split('</span>')[0])
+
+    def test_old_profile_page_redirects_to_personal_tab(self):
+        response = self.client.get(reverse('core:teacher_profile_page'))
+        self.assertRedirects(response, f"{reverse('core:teacher_settings')}?tab=personal", fetch_redirect_response=False)
+
     def test_security_tab_shows_no_fake_sessions(self):
         page = self.client.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode()
-        for fake in ('Windows 11', 'Android · Chrome', 'حساب شما ایمن است'):
+        for fake in ('Windows 11', 'Android · Chrome', 'حساب شما ایمن است', 'در حال توسعه'):
             self.assertNotIn(fake, page)
-        self.assertIn('در حال توسعه', page)
+
+
+from apps.core.views import erd_execute, erd_row, erd_rows  # noqa: E402
 
 
 class ManagerTeacherProfileScopeTests(_ScopedOrgFixture):
@@ -2829,6 +2900,300 @@ class ManagerTeacherProfileScopeTests(_ScopedOrgFixture):
         self.assertEqual(self.client.get(reverse('core:exam_manager_teacher_profile', args=[self.teacher_out_id])).status_code, 404)
         self.client.force_login(self.admin_user)
         self.assertEqual(self.client.get(reverse('core:exam_manager_teacher_profile', args=[self.teacher_out_id])).status_code, 200)
+
+
+class TeacherProfileChangeRequestTests(_ScopedOrgFixture):
+    """درخواست تغییر اطلاعات دانشگاهی استاد: فقط با تأیید مدیر آموزشیِ همان واحد اعمال می‌شود."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.teacher_out_user = User.objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+
+    def _request(self, user, **data):
+        self.client.force_login(user)
+        return self.client.post(reverse('core:teacher_settings'), {'settings_tab': 'personal', 'personal_action': 'academic_request', **data})
+
+    def _profile(self, teacher_id):
+        return erd_row('SELECT org_unit_id, academic_rank, degree FROM teacher_profiles WHERE user_id = %s', [teacher_id])
+
+    def _requests(self, teacher_id):
+        return erd_rows('SELECT id, status, org_unit_id, academic_rank, degree FROM teacher_profile_change_requests WHERE teacher_id = %s', [teacher_id])
+
+    def _review(self, user, request_id, **data):
+        self.client.force_login(user)
+        return self.client.post(reverse('core:exam_manager_teacher_request_review', args=[request_id]), data)
+
+    def test_request_is_stored_pending_and_profile_is_untouched(self):
+        response = self._request(self.teacher_user, request_academic_rank='دانشیار', request_org_unit_id=self.ou_other, request_note='حکم جدید')
+        self.assertRedirects(response, f"{reverse('core:teacher_settings')}?tab=personal&request=sent", fetch_redirect_response=False)
+        [stored] = self._requests(self.teacher_in_id)
+        self.assertEqual((stored['status'], stored['academic_rank'], str(stored['org_unit_id'])), ('pending', 'دانشیار', self.ou_other))
+        self.assertIsNone(stored['degree'])  # not changed, so not requested
+        self.assertEqual(str(self._profile(self.teacher_in_id)['org_unit_id']), self.ou_scoped)
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'personal'}).content.decode()
+        self.assertIn('در انتظار تأیید', page)
+
+    def test_invalid_or_empty_or_duplicate_requests_are_refused(self):
+        page = self._request(self.teacher_user, request_academic_rank='رئیس کل').content.decode()
+        self.assertIn('مرتبه علمی انتخاب‌شده معتبر نیست', page)
+        page = self._request(self.teacher_user, request_org_unit_id=self.ou_scoped).content.decode()
+        self.assertIn('هیچ تغییری', page)
+        self.assertEqual(self._requests(self.teacher_in_id), [])
+        self._request(self.teacher_user, request_degree='دکتری حرفه‌ای')
+        page = self._request(self.teacher_user, request_degree='فوق تخصص').content.decode()
+        self.assertIn('در انتظار بررسی', page)
+        self.assertEqual(len(self._requests(self.teacher_in_id)), 1)
+
+    def test_manager_in_scope_approves_and_only_requested_fields_change(self):
+        erd_execute("UPDATE teacher_profiles SET degree = 'دکتری حرفه‌ای' WHERE user_id = %s", [self.teacher_in_id])
+        self._request(self.teacher_user, request_academic_rank='استاد')
+        [stored] = self._requests(self.teacher_in_id)
+        response = self._review(self.manager_user, stored['id'], decision='approve')
+        self.assertEqual(response.status_code, 302)
+        profile = self._profile(self.teacher_in_id)
+        self.assertEqual((profile['academic_rank'], profile['degree'], str(profile['org_unit_id'])), ('استاد', 'دکتری حرفه‌ای', self.ou_scoped))
+        self.assertEqual(self._requests(self.teacher_in_id)[0]['status'], 'approved')
+        self.assertTrue(erd_row("SELECT 1 AS ok FROM notifications WHERE user_id = %s", [self.teacher_in_id]))
+        # a second decision on the same request does nothing
+        self._review(self.manager_user, stored['id'], decision='reject', review_note='دیر')
+        self.assertEqual(self._requests(self.teacher_in_id)[0]['status'], 'approved')
+
+    def test_manager_cannot_see_or_review_requests_outside_scope(self):
+        self._request(self.teacher_out_user, request_academic_rank='استاد')
+        [stored] = self._requests(self.teacher_out_id)
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:exam_manager_teacher_requests')).content.decode()
+        self.assertNotIn('استاد خارج محدوده', page)
+        self.assertEqual(self._review(self.manager_user, stored['id'], decision='approve').status_code, 404)
+        self.assertEqual(self._requests(self.teacher_out_id)[0]['status'], 'pending')
+        self.assertNotEqual(self._profile(self.teacher_out_id)['academic_rank'], 'استاد')
+        # the system admin sees every unit
+        self._review(self.admin_user, stored['id'], decision='approve')
+        self.assertEqual(self._profile(self.teacher_out_id)['academic_rank'], 'استاد')
+
+    def test_reject_needs_a_reason_and_keeps_the_profile(self):
+        self._request(self.teacher_user, request_academic_rank='استاد')
+        [stored] = self._requests(self.teacher_in_id)
+        self._review(self.manager_user, stored['id'], decision='reject')
+        self.assertEqual(self._requests(self.teacher_in_id)[0]['status'], 'pending')
+        self._review(self.manager_user, stored['id'], decision='reject', review_note='حکم ارائه نشده است')
+        self.assertEqual(self._requests(self.teacher_in_id)[0]['status'], 'rejected')
+        self.assertNotEqual(self._profile(self.teacher_in_id)['academic_rank'], 'استاد')
+        self.client.force_login(self.teacher_user)
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'personal'}).content.decode()
+        self.assertIn('حکم ارائه نشده است', page)
+
+    def test_teacher_can_cancel_but_not_review(self):
+        self._request(self.teacher_user, request_academic_rank='استاد')
+        [stored] = self._requests(self.teacher_in_id)
+        self.assertEqual(self._review(self.teacher_user, stored['id'], decision='approve').status_code, 403)
+        self.assertEqual(self._requests(self.teacher_in_id)[0]['status'], 'pending')
+        self.client.post(reverse('core:teacher_settings'), {'settings_tab': 'personal', 'personal_action': 'academic_cancel'})
+        self.assertEqual(self._requests(self.teacher_in_id)[0]['status'], 'cancelled')
+
+
+class TeacherSecurityTabTests(_ScopedOrgFixture):
+    """تب امنیت استاد: نشست‌های واقعی خود کاربر و درخواست حذف منطقی حساب با تأیید مدیر سیستم."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='pass-1234')
+        cls.teacher_out_user = User.objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='pass-1234')
+
+    def _login(self, user, client=None):
+        client = client or self.client
+        self.assertTrue(client.login(username=user.username, password='pass-1234'))
+        return client
+
+    def _security(self, client, **data):
+        return client.post(reverse('core:teacher_settings'), {'settings_tab': 'security', **data})
+
+    def test_sessions_are_listed_and_only_own_sessions_can_be_ended(self):
+        from django.test import Client
+        main = self._login(self.teacher_user)
+        other = self._login(self.teacher_user, Client())
+        stranger = self._login(self.teacher_out_user, Client())
+        page = main.get(reverse('core:teacher_settings'), {'tab': 'security'})
+        sessions = page.context['sessions']
+        self.assertEqual(len(sessions), 2)
+        self.assertEqual(sum(item['is_current'] for item in sessions), 1)
+        stranger_key = stranger.session.session_key
+        response = self._security(main, security_action=f'end_session:{stranger_key}')
+        self.assertIn('پیدا نشد', response.content.decode())
+        self.assertEqual(stranger.get(reverse('core:teacher_settings')).status_code, 200)  # still signed in
+        other_key = next(item['key'] for item in sessions if not item['is_current'])
+        self._security(main, security_action=f'end_session:{other_key}')
+        self.assertEqual(other.get(reverse('core:teacher_settings')).status_code, 302)  # sent to login
+        self.assertEqual(main.get(reverse('core:teacher_settings')).status_code, 200)
+
+    def test_end_other_sessions_keeps_the_current_one(self):
+        from django.test import Client
+        main = self._login(self.teacher_user)
+        other = self._login(self.teacher_user, Client())
+        self._security(main, security_action='end_other_sessions')
+        self.assertEqual(other.get(reverse('core:teacher_settings')).status_code, 302)
+        self.assertEqual(main.get(reverse('core:teacher_settings')).status_code, 200)
+
+    def test_deletion_request_needs_password_and_confirmation(self):
+        client = self._login(self.teacher_user)
+        page = self._security(client, security_action='deletion_request', deletion_password='wrong', deletion_confirm='on').content.decode()
+        self.assertIn('رمز عبور درست نیست', page)
+        page = self._security(client, security_action='deletion_request', deletion_password='pass-1234').content.decode()
+        self.assertIn('تیک تأیید', page)
+        self.assertFalse(erd_rows('SELECT id FROM account_deletion_requests', []))
+        self._security(client, security_action='deletion_request', deletion_password='pass-1234', deletion_confirm='on', deletion_reason='بازنشستگی')
+        [stored] = erd_rows('SELECT id, status FROM account_deletion_requests WHERE profile_id = %s', [self.teacher_in_id])
+        self.assertEqual(stored['status'], 'pending')
+        self.assertTrue(get_user_model().objects.get(pk=self.teacher_user.pk).is_active)  # nothing happens before review
+        self.assertIn('در انتظار بررسی', client.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode())
+        self._security(client, security_action='deletion_cancel')
+        self.assertEqual(erd_row('SELECT status FROM account_deletion_requests WHERE id = %s', [stored['id']])['status'], 'cancelled')
+
+    def test_admin_approval_deactivates_but_keeps_data(self):
+        teacher = self._login(self.teacher_user)
+        self._security(teacher, security_action='deletion_request', deletion_password='pass-1234', deletion_confirm='on')
+        [stored] = erd_rows('SELECT id FROM account_deletion_requests WHERE profile_id = %s', [self.teacher_in_id])
+        from django.test import Client
+        manager = Client()
+        manager.force_login(self.manager_user)
+        self.assertEqual(manager.post(reverse('core:super_admin_account_deletion_review', args=[stored['id']]), {'decision': 'approve'}).status_code, 403)
+        admin = Client()
+        admin.force_login(self.admin_user)
+        self.assertIn('در انتظار', admin.get(reverse('core:super_admin_account_deletions')).content.decode())
+        admin.post(reverse('core:super_admin_account_deletion_review', args=[stored['id']]), {'decision': 'approve'})
+        self.assertFalse(get_user_model().objects.get(pk=self.teacher_user.pk).is_active)
+        self.assertEqual(teacher.get(reverse('core:teacher_settings')).status_code, 302)  # session ended
+        fresh = Client()
+        fresh.post(reverse('core:login'), {'username': 'teacher_in_scope', 'password': 'pass-1234'})  # the real login form
+        self.assertNotIn('_auth_user_id', fresh.session)
+        profile = erd_row('SELECT status, deleted_at FROM profiles WHERE id = %s', [self.teacher_in_id])
+        self.assertEqual(profile['status'], 'inactive')
+        self.assertIsNotNone(profile['deleted_at'])
+        self.assertTrue(erd_row('SELECT 1 AS ok FROM teacher_profiles WHERE user_id = %s', [self.teacher_in_id]))  # data kept
+
+    def test_admin_reject_needs_a_reason(self):
+        teacher = self._login(self.teacher_user)
+        self._security(teacher, security_action='deletion_request', deletion_password='pass-1234', deletion_confirm='on')
+        [stored] = erd_rows('SELECT id FROM account_deletion_requests WHERE profile_id = %s', [self.teacher_in_id])
+        from django.test import Client
+        admin = Client()
+        admin.force_login(self.admin_user)
+        url = reverse('core:super_admin_account_deletion_review', args=[stored['id']])
+        admin.post(url, {'decision': 'reject'})
+        self.assertEqual(erd_row('SELECT status FROM account_deletion_requests WHERE id = %s', [stored['id']])['status'], 'pending')
+        admin.post(url, {'decision': 'reject', 'review_note': 'کلاس فعال دارید'})
+        self.assertEqual(erd_row('SELECT status FROM account_deletion_requests WHERE id = %s', [stored['id']])['status'], 'rejected')
+        self.assertTrue(get_user_model().objects.get(pk=self.teacher_user.pk).is_active)
+        self.assertIn('کلاس فعال دارید', teacher.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode())
+
+
+from unittest import mock, skipUnless  # noqa: E402
+
+from apps.core import account_security  # noqa: E402
+
+
+class TwoFactorTests(_ScopedOrgFixture):
+    """ورود دومرحله‌ای با برنامه‌ی Authenticator: فعال‌سازی با کد واقعی، ورود، کد بازیابی و محدودیت تلاش."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='pass-1234')
+
+    def _security(self, **data):
+        return self.client.post(reverse('core:teacher_settings'), {'settings_tab': 'security', **data})
+
+    def _enable(self):
+        import pyotp
+        self.client.force_login(self.teacher_user)
+        self._security(security_action='totp_start')
+        secret = account_security.pending_secret(self.teacher_user)
+        self._security(security_action='totp_confirm', totp_code=pyotp.TOTP(secret).now(), security_password='pass-1234')
+        self.client.logout()
+        return secret
+
+    def _password_step(self, client=None):
+        client = client or self.client
+        return client.post(reverse('core:login'), {'username': 'teacher_in_scope', 'password': 'pass-1234'})
+
+    def test_without_the_libraries_the_tab_says_so_instead_of_failing(self):
+        self.client.force_login(self.teacher_user)
+        with mock.patch.object(account_security, 'TWO_FACTOR_AVAILABLE', False):
+            page = self.client.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode()
+            self.assertIn('نیازمند نصب کتابخانه', page)
+            self.assertIn('pyotp', self._security(security_action='totp_start').content.decode())
+        self.assertFalse(account_security.two_factor_enabled(self.teacher_user))
+
+    @skipUnless(account_security.TWO_FACTOR_AVAILABLE, 'pyotp/qrcode not installed')
+    def test_enrollment_needs_a_real_code_and_the_password(self):
+        import pyotp
+        self.client.force_login(self.teacher_user)
+        self._security(security_action='totp_start')
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode()
+        self.assertIn('<svg', page)
+        secret = account_security.pending_secret(self.teacher_user)
+        self.assertIn('رمز عبور درست نیست', self._security(security_action='totp_confirm', totp_code=pyotp.TOTP(secret).now(), security_password='bad').content.decode())
+        self.assertIn('همخوانی ندارد', self._security(security_action='totp_confirm', totp_code='000000', security_password='pass-1234').content.decode())
+        self.assertFalse(account_security.two_factor_enabled(self.teacher_user))
+        self._security(security_action='totp_confirm', totp_code=pyotp.TOTP(secret).now(), security_password='pass-1234')
+        self.assertTrue(account_security.two_factor_enabled(self.teacher_user))
+        first = self.client.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode()
+        self.assertIn('فقط همین یک بار', first)
+        self.assertNotIn('فقط همین یک بار', self.client.get(reverse('core:teacher_settings'), {'tab': 'security'}).content.decode())
+
+    @skipUnless(account_security.TWO_FACTOR_AVAILABLE, 'pyotp/qrcode not installed')
+    def test_login_needs_the_app_code_and_a_code_cannot_be_replayed(self):
+        import pyotp
+        from django.test import Client
+        secret = self._enable()
+        response = self._password_step()
+        self.assertRedirects(response, reverse('core:login_2fa'), fetch_redirect_response=False)
+        self.assertNotIn('_auth_user_id', self.client.session)  # the password alone does not sign in
+        code = pyotp.TOTP(secret).at(timezone.now() + timedelta(seconds=30))  # next step: enrollment used this one
+        self.client.post(reverse('core:login_2fa'), {'code': code})
+        self.assertIn('_auth_user_id', self.client.session)
+        other = Client()
+        self._password_step(other)
+        other.post(reverse('core:login_2fa'), {'code': code})  # same code again
+        self.assertNotIn('_auth_user_id', other.session)
+
+    @skipUnless(account_security.TWO_FACTOR_AVAILABLE, 'pyotp/qrcode not installed')
+    def test_recovery_code_works_once_and_attempts_are_limited(self):
+        from django.test import Client
+        self._enable()
+        self.client.force_login(self.teacher_user)
+        self._security(security_action='recovery_regenerate', security_password='pass-1234')
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'security'})
+        codes = page.context['two_factor']['new_codes']
+        self.client.logout()
+        fresh = Client()
+        self._password_step(fresh)
+        fresh.post(reverse('core:login_2fa'), {'code': codes[0].lower()})
+        self.assertIn('_auth_user_id', fresh.session)
+        again = Client()
+        self._password_step(again)
+        again.post(reverse('core:login_2fa'), {'code': codes[0]})
+        self.assertNotIn('_auth_user_id', again.session)
+        for _ in range(4):
+            again.post(reverse('core:login_2fa'), {'code': '123456'})
+        self.assertNotIn('pending_2fa_user_id', again.session)  # five wrong codes: back to the password step
+
+    @skipUnless(account_security.TWO_FACTOR_AVAILABLE, 'pyotp/qrcode not installed')
+    def test_disabling_needs_password_and_code(self):
+        import pyotp
+        secret = self._enable()
+        self.client.force_login(self.teacher_user)
+        self._security(security_action='totp_disable', security_password='pass-1234', totp_code='000000')
+        self.assertTrue(account_security.two_factor_enabled(self.teacher_user))
+        later = timezone.now() + timedelta(seconds=60)  # a fresh step; the enrollment code cannot be replayed
+        with mock.patch('django.utils.timezone.now', return_value=later):
+            self._security(security_action='totp_disable', security_password='pass-1234', totp_code=pyotp.TOTP(secret).at(later))
+        self.assertFalse(account_security.two_factor_enabled(self.teacher_user))
 
 
 class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
@@ -3127,15 +3492,6 @@ class StudentDashboardTests(_ScopedOrgFixture):
         for hidden in ('آزمون پیش‌نویس داشبورد', 'آزمون گروه دیگر', 'آزمون مستثنا', 'آزمون خارج محدوده'):
             self.assertNotContains(response, hidden)
 
-    def test_no_stand_in_data_without_exams(self):
-        response = self._dashboard(self.empty_user)
-        data = response.context['student_dashboard']
-        self.assertIsNone(data['next_exam'])
-        self.assertEqual(data['stats'], {'upcoming': 0, 'classes': 0, 'new_results': 0})
-        self.assertEqual((data['exam_rows'], data['classes'], data['results'], data['notifications']), ([], [], [], []))
-        self.assertContains(response, 'هنوز آزمونی به شما اختصاص داده نشده است.')
-        for fake in ('روانشناسی سلامت', 'مهارت‌های ارتباطی', '۰۲:۱۵:۳۲', 'آزمون گروه دیگر'):
-            self.assertNotContains(response, fake)
     def test_classes_are_own_unarchived_groups(self):
         archived = str(uuid.uuid4())
         _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year', 'is_archived'],
@@ -3153,6 +3509,17 @@ class StudentDashboardTests(_ScopedOrgFixture):
         self.assertEqual([note['title'] for note in response.context['student_dashboard']['notifications']], ['اعلان من'])
         self.assertNotContains(response, 'javascript:alert')
         self.assertNotContains(response, 'اعلان دیگری')
+
+    def test_no_stand_in_data_without_exams(self):
+        response = self._dashboard(self.empty_user)
+        data = response.context['student_dashboard']
+        self.assertIsNone(data['next_exam'])
+        self.assertEqual(data['stats'], {'upcoming': 0, 'classes': 0, 'new_results': 0})
+        self.assertEqual((data['exam_rows'], data['classes'], data['results'], data['notifications']), ([], [], [], []))
+        self.assertContains(response, 'هنوز آزمونی به شما اختصاص داده نشده است.')
+        for fake in ('روانشناسی سلامت', 'مهارت‌های ارتباطی', '۰۲:۱۵:۳۲', 'آزمون گروه دیگر'):
+            self.assertNotContains(response, fake)
+
 
 class StudentExamsAndClassesPagesTests(_ScopedOrgFixture):
     """صفحه‌های «آزمون‌های من» و «کلاس‌های من» فقط داده‌ی خود دانشجو را نشان می‌دهند و دکمه‌ی هر آزمون با وضعیتش جور است."""

@@ -22,7 +22,7 @@ from django.contrib.auth.views import LoginView
 from django.contrib.sessions.models import Session
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from django.db import DatabaseError, connection, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,10 +31,11 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.utils.dateparse import parse_datetime
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
-from . import question_kinds
+from . import account_security, question_kinds
 from .rich_text import clean_delta, delta_length, delta_text, delta_to_html
-from .uploads import delete_private, file_extension, signature_ok, store_private
+from .uploads import delete_private, file_extension, image_ok, signature_ok, store_private
 from .forms import (
     AssistantDescriptiveReviewForm,
     AssistantEducationalAnswerForm,
@@ -1741,16 +1742,17 @@ class SecureLoginView(LoginView):
     def form_valid(self, form):
         user = form.get_user()
         StyledAuthenticationForm.clear_failed_attempts(user.get_username())
-        if bool(erd_setting('require_2fa', False)):
-            code = f'{random.randint(100000, 999999)}'
+        if account_security.two_factor_enabled(user):
+            # password was right; the session only signs in after the authenticator code (login_2fa)
             self.request.session['pending_2fa_user_id'] = user.pk
-            self.request.session['pending_2fa_code'] = code
+            self.request.session['pending_2fa_started'] = timezone.now().timestamp()
+            self.request.session['pending_2fa_attempts'] = 0
             self.request.session['pending_2fa_next'] = self.get_success_url()
-            messages.info(self.request, f'کد تأیید دومرحله‌ای برای محیط آزمایشی: {code}')
-            log_activity(user, 'two_factor_code_sent', 'کد تأیید دومرحله‌ای ایجاد شد.', self.request)
             return redirect('core:login_2fa')
         auth_login(self.request, user)
         log_activity(user, 'login_success', 'ورود موفق به سامانه', self.request)
+        if bool(erd_setting('require_2fa', False)):
+            messages.warning(self.request, 'ورود دومرحله‌ای در این سامانه الزامی است؛ آن را از تنظیمات امنیت حساب فعال کنید.')
         return redirect(self.get_success_url())
 
 
@@ -1811,25 +1813,47 @@ def register(request):
     return render(request, 'register.html', {'form': form})
 
 
+LOGIN_2FA_TIMEOUT_SECONDS = 5 * 60
+LOGIN_2FA_MAX_ATTEMPTS = 5
+
+
+def _clear_pending_2fa(session) -> None:
+    for key in ('pending_2fa_user_id', 'pending_2fa_started', 'pending_2fa_attempts', 'pending_2fa_next'):
+        session.pop(key, None)
+
+
 def login_2fa(request):
+    """Second sign-in step: a 6-digit code from the authenticator app, or one of the user's recovery codes."""
     user_id = request.session.get('pending_2fa_user_id')
-    expected_code = request.session.get('pending_2fa_code')
-    if not user_id or not expected_code:
+    started = request.session.get('pending_2fa_started') or 0
+    if not user_id:
+        return redirect('core:login')
+    if timezone.now().timestamp() - started > LOGIN_2FA_TIMEOUT_SECONDS:
+        _clear_pending_2fa(request.session)
+        messages.error(request, 'زمان واردکردن کد تمام شد؛ دوباره وارد شوید.')
         return redirect('core:login')
 
     user = get_object_or_404(User, pk=user_id)
     if request.method == 'POST':
         form = TwoFactorCodeForm(request.POST)
         if form.is_valid():
-            if form.cleaned_data['code'] == expected_code:
+            method = account_security.verify_code(user, form.cleaned_data['code'])
+            if method:
+                next_url = request.session.get('pending_2fa_next') or reverse('core:dashboard')
+                _clear_pending_2fa(request.session)
                 auth_login(request, user)
-                next_url = request.session.pop('pending_2fa_next', reverse('core:dashboard'))
-                request.session.pop('pending_2fa_user_id', None)
-                request.session.pop('pending_2fa_code', None)
-                log_activity(user, 'two_factor_success', 'ورود دومرحله‌ای موفق بود.', request)
+                log_activity(user, 'two_factor_success', 'ورود دومرحله‌ای موفق بود.', request, {'method': method})
+                if method == 'recovery':
+                    messages.warning(request, 'با یک کد بازیابی وارد شدید؛ آن کد دیگر قابل استفاده نیست.')
                 return redirect(next_url)
-            messages.error(request, 'کد تأیید نادرست است.')
-            log_activity(user, 'two_factor_failed', 'کد تأیید نادرست وارد شد.', request)
+        attempts = request.session.get('pending_2fa_attempts', 0) + 1
+        request.session['pending_2fa_attempts'] = attempts
+        log_activity(user, 'two_factor_failed', 'کد تأیید نادرست وارد شد.', request)
+        if attempts >= LOGIN_2FA_MAX_ATTEMPTS:
+            _clear_pending_2fa(request.session)
+            messages.error(request, 'تعداد تلاش نادرست زیاد بود؛ دوباره با رمز عبور وارد شوید.')
+            return redirect('core:login')
+        messages.error(request, 'کد تأیید نادرست است.')
     else:
         form = TwoFactorCodeForm()
     return render(request, 'login_2fa.html', {'form': form})
@@ -10709,6 +10733,98 @@ def super_admin_academic_terms(request):
     })
 
 
+def _deactivate_account(profile_id, reviewer_id) -> None:
+    """Logical deletion: the account can no longer sign in and its sessions end; every row stays for the admin."""
+    profile = erd_row('SELECT username FROM profiles WHERE id = %s', [profile_id])
+    erd_execute(
+        "UPDATE profiles SET status = 'inactive', deleted_at = CURRENT_TIMESTAMP, deleted_by = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+        [reviewer_id, profile_id],
+    )
+    user = User.objects.filter(username=profile['username']).first() if profile and profile.get('username') else None
+    if user:
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        account_security.end_all_sessions(user)
+
+
+@super_admin_required
+def super_admin_account_deletions(request):
+    from django.core.paginator import Paginator
+
+    reviewed = request.GET.get('status') == 'reviewed'
+    where = "r.status IN ('approved', 'rejected')" if reviewed else "r.status = 'pending'"
+    total = erd_count('account_deletion_requests r', where)
+    page = Paginator(range(total), ACCOUNT_DELETION_PAGE_SIZE).get_page(request.GET.get('page'))
+    rows = erd_rows(
+        f"""
+        SELECT r.id, r.profile_id, r.reason, r.status, r.review_note, r.created_at, r.reviewed_at,
+               p.full_name, p.username, p.email, rv.full_name AS reviewer_name,
+               (SELECT ur.role FROM user_roles ur WHERE ur.user_id = r.profile_id ORDER BY ur.role LIMIT 1) AS role
+        FROM account_deletion_requests r
+        JOIN profiles p ON p.id = r.profile_id
+        LEFT JOIN profiles rv ON rv.id = r.reviewer_id
+        WHERE {where}
+        ORDER BY r.created_at DESC
+        LIMIT %s OFFSET %s
+        """,
+        [ACCOUNT_DELETION_PAGE_SIZE, page.start_index() - 1 if total else 0],
+    )
+    items = []
+    for row in rows:
+        item = dict(row)
+        item['created_label'] = _jalali_long_date(item['created_at'], with_weekday=False)
+        item['reviewed_label'] = _jalali_long_date(item['reviewed_at'], with_weekday=False)
+        item['profile_kind'] = item['role'] if item['role'] in ('teacher', 'student') else ''
+        items.append(item)
+    return render(request, 'super_admin/account_deletions.html', {
+        'items': items,
+        'page': page,
+        'status': 'reviewed' if reviewed else 'pending',
+        'pending_count': erd_count('account_deletion_requests', "status = 'pending'"),
+    })
+
+
+@super_admin_required
+def super_admin_account_deletion_review(request, request_id):
+    if request.method != 'POST':
+        return redirect('core:super_admin_account_deletions')
+    reviewer_id = erd_user_profile_id(request.user)
+    deletion = erd_row("SELECT id, profile_id FROM account_deletion_requests WHERE id = %s AND status = 'pending'", [request_id])
+    if not deletion:
+        raise Http404('درخواست پیدا نشد.')
+    if str(deletion['profile_id']) == str(reviewer_id):
+        return HttpResponseForbidden('بررسی درخواست حذف حساب خودتان مجاز نیست.')
+    decision = request.POST.get('decision')
+    note = (request.POST.get('review_note') or '').strip()
+    if decision not in {'approve', 'reject'} or len(note) > 300 or (decision == 'reject' and not note):
+        messages.error(request, 'برای رد درخواست، دلیل را بنویسید (حداکثر ۳۰۰ نویسه).')
+        return redirect('core:super_admin_account_deletions')
+    status = 'approved' if decision == 'approve' else 'rejected'
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                erd_adapt_sql(
+                    """
+                    UPDATE account_deletion_requests
+                    SET status = %s, reviewer_id = %s, review_note = %s, reviewed_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND status = 'pending'
+                    """
+                ),
+                [status, reviewer_id, note or None, request_id],
+            )
+            claimed = cursor.rowcount == 1
+        if claimed and status == 'approved':
+            _deactivate_account(deletion['profile_id'], reviewer_id)
+    if not claimed:
+        messages.error(request, 'این درخواست پیش‌تر بررسی یا لغو شده است.')
+        return redirect('core:super_admin_account_deletions')
+    log_activity(request.user, f'account_deletion_{status}', 'بررسی درخواست حذف حساب', request, {'request_id': str(request_id), 'profile_id': str(deletion['profile_id'])})
+    if status == 'rejected':
+        create_notification(deletion['profile_id'], 'درخواست حذف حساب رد شد', note, f'{reverse("core:teacher_settings")}?tab=security', 'account')
+    messages.success(request, 'حساب غیرفعال شد؛ اطلاعات آن برای مدیر سیستم باقی است.' if status == 'approved' else 'درخواست رد شد.')
+    return redirect('core:super_admin_account_deletions')
+
+
 @super_admin_required
 def super_admin_settings(request):
     settings_schema = [
@@ -12089,16 +12205,7 @@ def _super_admin_profile_view(request, page_context):
             return redirect(f"{reverse('core:profile')}?section=security")
 
         if form_name == 'logout_others':
-            current_key = request.session.session_key
-            session_store_module = import_module(settings.SESSION_ENGINE)
-            terminated = 0
-            for stored_session in Session.objects.all():
-                if stored_session.session_key == current_key:
-                    continue
-                data = stored_session.get_decoded()
-                if str(data.get('_auth_user_id')) == str(request.user.pk):
-                    session_store_module.SessionStore(session_key=stored_session.session_key).delete()
-                    terminated += 1
+            terminated = account_security.end_other_sessions(request.user, request.session.session_key)
             log_activity(request.user, 'sessions_terminated', f'خروج اجباری از {terminated} نشست دیگر', request)
             messages.success(request, f'از {terminated} نشست دیگر خارج شدید.' if terminated else 'نشست فعال دیگری یافت نشد.')
             return redirect(f"{reverse('core:profile')}?section=security")
@@ -14245,22 +14352,16 @@ def teacher_profile_page(request):
 
 
 AVATAR_MAX_BYTES = 1024 * 1024
-AVATAR_SIGNATURES = {  # extension -> leading bytes; checked so a renamed non-image is rejected without Pillow
-    'jpg': (b'\xff\xd8\xff',), 'jpeg': (b'\xff\xd8\xff',), 'png': (b'\x89PNG\r\n\x1a\n',),
-    'gif': (b'GIF87a', b'GIF89a'), 'webp': (b'RIFF',),
-}
+AVATAR_EXTENSIONS = ('jpg', 'jpeg', 'png', 'webp', 'gif')
 
 
 def _save_avatar_upload(upload, owner_id) -> tuple:
-    """(url, error) for an uploaded profile photo: size, extension, content type and file signature are checked."""
-    extension = upload.name.rsplit('.', 1)[-1].lower() if '.' in upload.name else ''
+    """(url, error) for an uploaded profile photo: size, extension, content type, signature and a Pillow decode are checked."""
+    extension = file_extension(upload.name)
     if upload.size > AVATAR_MAX_BYTES:
         return None, 'حجم تصویر پروفایل باید کمتر از ۱ مگابایت باشد.'
-    head = upload.read(12)
-    upload.seek(0)
-    signatures = AVATAR_SIGNATURES.get(extension)
-    if (not signatures or not upload.content_type.startswith('image/') or not head.startswith(signatures)
-            or (extension == 'webp' and head[8:12] != b'WEBP')):
+    if (extension not in AVATAR_EXTENSIONS or not (upload.content_type or '').startswith('image/')
+            or not signature_ok(upload, extension) or not image_ok(upload, extension)):
         return None, 'فرمت تصویر باید JPG، PNG، WebP یا GIF باشد.'
     storage = FileSystemStorage(location=settings.MEDIA_ROOT / 'avatars', base_url=settings.MEDIA_URL + 'avatars/')
     return storage.url(storage.save(f'{owner_id}-{uuid.uuid4().hex[:8]}.{extension}', upload)), None
@@ -14279,6 +14380,13 @@ def _org_unit_path(unit_id) -> dict:
     return path
 
 
+# Fields counted by the «تکمیل اطلاعات پروفایل» ring on the personal tab.
+TEACHER_PROFILE_COMPLETENESS_FIELDS = (
+    'first_name', 'last_name', 'display_name', 'avatar_url', 'email', 'phone', 'landline', 'bio',
+    'academic_rank', 'degree', 'org_unit_id', 'personnel_code',
+)
+
+
 def _teacher_personal_info(teacher_id) -> dict:
     """Personal, university and contact details shown on the settings page's «اطلاعات فردی» tab."""
     row = erd_row(
@@ -14294,6 +14402,10 @@ def _teacher_personal_info(teacher_id) -> dict:
     info = dict(row or {})
     info['show_bio'] = bool(info.get('show_bio', True))
     info.update({f'unit_{key}': value for key, value in _org_unit_path(info.get('org_unit_id')).items()})
+    phone = str(info.get('phone') or '')
+    info['phone_masked'] = f'{phone[:4]}***{phone[-4:]}' if len(phone) >= 10 else phone
+    filled = [bool(info.get(name)) for name in TEACHER_PROFILE_COMPLETENESS_FIELDS]
+    info['completeness'] = round(100 * sum(filled) / len(filled))
     return info
 
 
@@ -14307,11 +14419,12 @@ def _save_teacher_personal_info(request, teacher_id) -> list:
     first_name = (post.get('first_name') or '').strip()[:60]
     last_name = (post.get('last_name') or '').strip()[:60]
     display_name = (post.get('display_name') or '').strip()[:80]
+    phone_posted = 'phone' in post  # the mobile input is only sent after «تغییر شماره» is pressed
     phone, landline = _clean_phone(post.get('phone')), _clean_phone(post.get('landline'))
     bio = (post.get('bio') or '').strip()
     if not first_name or not last_name:
         errors.append('نام و نام خانوادگی الزامی است.')
-    if not re.fullmatch(r'09\d{9}', phone):
+    if phone_posted and not re.fullmatch(r'09\d{9}', phone):
         errors.append('تلفن همراه باید ۱۱ رقم و با ۰۹ شروع شود.')
     if landline and not re.fullmatch(r'0\d{9,10}', landline):
         errors.append('تلفن ثابت باید با کد شهر و فقط شامل رقم باشد.')
@@ -14329,11 +14442,11 @@ def _save_teacher_personal_info(request, teacher_id) -> list:
     with transaction.atomic():
         erd_execute(
             f"""
-            UPDATE profiles SET first_name = %s, last_name = %s, full_name = %s, phone = %s,
-                   {'avatar_url = %s, ' if avatar_url else ''}updated_at = CURRENT_TIMESTAMP
+            UPDATE profiles SET first_name = %s, last_name = %s, full_name = %s,
+                   {'phone = %s, ' if phone_posted else ''}{'avatar_url = %s, ' if avatar_url else ''}updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
             """,
-            [first_name, last_name, full_name, phone, *([avatar_url] if avatar_url else []), teacher_id],
+            [first_name, last_name, full_name, *([phone] if phone_posted else []), *([avatar_url] if avatar_url else []), teacher_id],
         )
         erd_execute(
             'UPDATE teacher_profiles SET display_name = %s, landline = %s, bio = %s, show_bio = %s WHERE user_id = %s',
@@ -14345,6 +14458,234 @@ def _save_teacher_personal_info(request, teacher_id) -> list:
     return []
 
 
+# University details a teacher can only change through an academic manager's approval.
+TEACHER_ACADEMIC_RANKS = ('مربی', 'استادیار', 'دانشیار', 'استاد')
+TEACHER_DEGREES = ('کارشناسی ارشد', 'دکتری حرفه‌ای', 'دکتری تخصصی (PhD)', 'فوق تخصص')
+TEACHER_REQUEST_UNIT_TYPES = ('faculty', 'department', 'group')
+TEACHER_CHANGE_REQUEST_PAGE_SIZE = 20
+
+
+def _teacher_unit_options() -> list:
+    """Active org units for the university → faculty → department selects of a change request."""
+    return [
+        {'id': str(row['id']), 'parent': str(row['parent_id'] or ''), 'type': row['type'], 'name': row['name']}
+        for row in erd_rows('SELECT id, parent_id, type, name FROM org_units WHERE COALESCE(is_active, true) ORDER BY name')
+    ]
+
+
+def _teacher_latest_change_request(teacher_id) -> dict | None:
+    """The teacher's most recent request that was not withdrawn, with the requested unit's names for display."""
+    row = erd_row(
+        """
+        SELECT r.id, r.org_unit_id, r.academic_rank, r.degree, r.teacher_note, r.status, r.review_note,
+               r.created_at, r.reviewed_at
+        FROM teacher_profile_change_requests r
+        WHERE r.teacher_id = %s AND r.status <> 'cancelled'
+        ORDER BY r.created_at DESC
+        LIMIT 1
+        """,
+        [teacher_id],
+    ) if teacher_id else None
+    if not row:
+        return None
+    latest = dict(row)
+    unit_path = _org_unit_path(latest['org_unit_id']) if latest.get('org_unit_id') else {}
+    latest['unit_label'] = unit_path.get('department') or unit_path.get('faculty') or ''
+    latest['created_label'] = _jalali_long_date(latest['created_at'], with_weekday=False)
+    latest['reviewed_label'] = _jalali_long_date(latest['reviewed_at'], with_weekday=False)
+    return latest
+
+
+def _submit_teacher_change_request(request, teacher_id) -> list:
+    """Validates and stores a request to change unit, rank or degree; returns error messages (nothing stored on error)."""
+    post, errors = request.POST, []
+    unit_id = (post.get('request_org_unit_id') or '').strip()
+    rank = (post.get('request_academic_rank') or '').strip()
+    degree = (post.get('request_degree') or '').strip()
+    note = (post.get('request_note') or '').strip()
+    current = erd_row('SELECT org_unit_id, academic_rank, degree FROM teacher_profiles WHERE user_id = %s', [teacher_id])
+    if not current:
+        return ['پروفایل استادی شما پیدا نشد.']
+    if unit_id:
+        unit = erd_row('SELECT type FROM org_units WHERE id = %s AND COALESCE(is_active, true)', [unit_id])
+        if not unit or unit['type'] not in TEACHER_REQUEST_UNIT_TYPES:
+            errors.append('دانشکده یا گروه آموزشی انتخاب‌شده معتبر نیست.')
+    if rank and rank not in TEACHER_ACADEMIC_RANKS:
+        errors.append('مرتبه علمی انتخاب‌شده معتبر نیست.')
+    if degree and degree not in TEACHER_DEGREES:
+        errors.append('مدرک تحصیلی انتخاب‌شده معتبر نیست.')
+    if len(note) > 300:
+        errors.append('توضیح درخواست حداکثر ۳۰۰ نویسه است.')
+    requested = {'org_unit_id': unit_id, 'academic_rank': rank, 'degree': degree}
+    changes = {key: value for key, value in requested.items() if value and value != str(current.get(key) or '')}
+    if not errors and not changes:
+        errors.append('هیچ تغییری نسبت به اطلاعات فعلی انتخاب نشده است.')
+    pending_error = 'درخواست قبلی شما هنوز در انتظار بررسی است.'
+    if not errors and erd_row("SELECT 1 AS ok FROM teacher_profile_change_requests WHERE teacher_id = %s AND status = 'pending'", [teacher_id]):
+        errors.append(pending_error)
+    if errors:
+        return errors
+    request_id = str(uuid.uuid4())
+    try:
+        with transaction.atomic():
+            erd_execute(
+                """
+                INSERT INTO teacher_profile_change_requests (
+                    id, teacher_id, org_unit_id, academic_rank, degree,
+                    previous_org_unit_id, previous_academic_rank, previous_degree, teacher_note, status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+                """,
+                [
+                    request_id, teacher_id, changes.get('org_unit_id'), changes.get('academic_rank'), changes.get('degree'),
+                    current.get('org_unit_id'), current.get('academic_rank'), current.get('degree'), note or None,
+                ],
+            )
+    except IntegrityError:  # a second tab submitted at the same moment; the one-pending index refused it
+        return [pending_error]
+    log_activity(request.user, 'profile_change_requested', 'درخواست تغییر اطلاعات دانشگاهی استاد', request, {'request_id': request_id})
+    return []
+
+
+def _cancel_teacher_change_request(request, teacher_id) -> None:
+    erd_execute(
+        "UPDATE teacher_profile_change_requests SET status = 'cancelled' WHERE teacher_id = %s AND status = 'pending'",
+        [teacher_id],
+    )
+    log_activity(request.user, 'profile_change_cancelled', 'لغو درخواست تغییر اطلاعات دانشگاهی استاد', request)
+
+
+ACCOUNT_DELETION_PAGE_SIZE = 20
+
+
+def _latest_account_deletion_request(profile_id) -> dict | None:
+    row = erd_row(
+        """
+        SELECT id, reason, status, review_note, created_at, reviewed_at
+        FROM account_deletion_requests
+        WHERE profile_id = %s AND status <> 'cancelled'
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        [profile_id],
+    ) if profile_id else None
+    if not row:
+        return None
+    latest = dict(row)
+    latest['created_label'] = _jalali_long_date(latest['created_at'], with_weekday=False)
+    latest['reviewed_label'] = _jalali_long_date(latest['reviewed_at'], with_weekday=False)
+    return latest
+
+
+def _teacher_security_context(request, teacher_id) -> dict:
+    sessions = account_security.active_sessions(request.user, request.session.session_key)
+    for item in sessions:
+        item['created_label'] = _jalali_long_date(item['created_at'], with_weekday=False)
+    two_factor = account_security.two_factor_status(request.user)
+    secret = None if two_factor['enabled'] or not two_factor['available'] else account_security.pending_secret(request.user)
+    if secret:
+        two_factor['setup_secret'] = ' '.join(secret[i:i + 4] for i in range(0, len(secret), 4))
+        two_factor['setup_qr'] = mark_safe(account_security.provisioning_qr_svg(request.user, secret))  # SVG built by qrcode, no user input
+    two_factor['new_codes'] = request.session.pop('tset_recovery_codes', None)
+    return {
+        'sessions': sessions,
+        'deletion_request': _latest_account_deletion_request(teacher_id),
+        'two_factor': two_factor,
+    }
+
+
+def _request_account_deletion(request, profile_id) -> list:
+    """Stores a deletion request after the password check; the system admin decides on it."""
+    post = request.POST
+    reason = (post.get('deletion_reason') or '').strip()
+    errors = []
+    if not request.user.check_password(post.get('deletion_password') or ''):
+        log_activity(request.user, 'account_deletion_password_failed', 'رمز نادرست هنگام درخواست حذف حساب', request)
+        errors.append('رمز عبور درست نیست.')
+    if post.get('deletion_confirm') != 'on':
+        errors.append('برای ثبت درخواست، تیک تأیید را بزنید.')
+    if len(reason) > 500:
+        errors.append('دلیل درخواست حداکثر ۵۰۰ نویسه است.')
+    pending_error = 'درخواست حذف حساب شما پیش‌تر ثبت شده و در انتظار بررسی است.'
+    if not errors and erd_row("SELECT 1 AS ok FROM account_deletion_requests WHERE profile_id = %s AND status = 'pending'", [profile_id]):
+        errors.append(pending_error)
+    if errors:
+        return errors
+    request_id = str(uuid.uuid4())
+    try:
+        with transaction.atomic():
+            erd_execute(
+                "INSERT INTO account_deletion_requests (id, profile_id, reason, status) VALUES (%s, %s, %s, 'pending')",
+                [request_id, profile_id, reason or None],
+            )
+    except IntegrityError:  # submitted twice at once; the one-pending index refused the second
+        return [pending_error]
+    log_activity(request.user, 'account_deletion_requested', 'درخواست حذف حساب کاربری', request, {'request_id': request_id})
+    link = reverse('core:super_admin_account_deletions')
+    for admin in erd_rows("SELECT user_id FROM user_roles WHERE role = 'admin' LIMIT 20"):
+        create_notification(admin['user_id'], 'درخواست حذف حساب', 'یک کاربر درخواست حذف حساب ثبت کرده است.', link, 'account')
+    return []
+
+
+TWO_FACTOR_ACTIONS = ('totp_start', 'totp_confirm', 'totp_disable', 'recovery_regenerate')
+
+
+def _handle_two_factor_action(request, action) -> list:
+    """Authenticator setup and management; turning it off or renewing codes needs the password (and a code)."""
+    user, post = request.user, request.POST
+    if not account_security.TWO_FACTOR_AVAILABLE:
+        return ['کتابخانه‌های ورود دومرحله‌ای (pyotp و qrcode) روی سرور نصب نیست.']
+    if action == 'totp_start':
+        if account_security.two_factor_enabled(user):
+            return ['ورود دومرحله‌ای از قبل فعال است.']
+        account_security.start_enrollment(user)
+        return []
+    if not user.check_password(post.get('security_password') or ''):
+        log_activity(user, 'two_factor_password_failed', 'رمز نادرست در تنظیمات ورود دومرحله‌ای', request)
+        return ['رمز عبور درست نیست.']
+    if action == 'totp_confirm':
+        codes = account_security.confirm_enrollment(user, post.get('totp_code') or '')
+        if codes is None:
+            return ['کد واردشده با برنامه‌ی Authenticator همخوانی ندارد؛ کد تازه را وارد کنید.']
+        request.session['tset_recovery_codes'] = codes  # shown once on the next page, then dropped
+        log_activity(user, 'two_factor_enabled', 'ورود دومرحله‌ای فعال شد.', request)
+        return []
+    if not account_security.two_factor_enabled(user):
+        return ['ورود دومرحله‌ای فعال نیست.']
+    if action == 'totp_disable':
+        if not account_security.verify_code(user, post.get('totp_code') or ''):
+            return ['کد تأیید یا کد بازیابی درست نیست.']
+        account_security.disable_two_factor(user)
+        log_activity(user, 'two_factor_disabled', 'ورود دومرحله‌ای غیرفعال شد.', request)
+        return []
+    request.session['tset_recovery_codes'] = account_security.new_recovery_codes(user)
+    log_activity(user, 'recovery_codes_regenerated', 'کدهای بازیابی جدید ساخته شد.', request)
+    return []
+
+
+def _handle_teacher_security_action(request, teacher_id) -> list:
+    """Runs one action posted from the security tab; returns error messages, or [] when it went through."""
+    action, _, session_key = (request.POST.get('security_action') or '').partition(':')  # «end_session:<key>»
+    current_key = request.session.session_key
+    if action == 'end_session':
+        if not account_security.end_session(request.user, session_key, current_key):
+            return ['این نشست پیدا نشد یا قبلاً بسته شده است.']
+        log_activity(request.user, 'session_terminated', 'خروج از یک نشست دیگر', request)
+        return []
+    if action == 'end_other_sessions':
+        ended = account_security.end_other_sessions(request.user, current_key)
+        log_activity(request.user, 'sessions_terminated', f'خروج اجباری از {ended} نشست دیگر', request)
+        return []
+    if action in TWO_FACTOR_ACTIONS:
+        return _handle_two_factor_action(request, action)
+    if action == 'deletion_request':
+        return _request_account_deletion(request, teacher_id)
+    if action == 'deletion_cancel':
+        erd_execute("UPDATE account_deletion_requests SET status = 'cancelled' WHERE profile_id = %s AND status = 'pending'", [teacher_id])
+        log_activity(request.user, 'account_deletion_cancelled', 'لغو درخواست حذف حساب', request)
+        return []
+    return ['درخواست نامعتبر است.']
+
+
 @erd_role_required('teacher')
 def teacher_settings(request):
     teacher_id = getattr(request, 'erd_profile_id', None)
@@ -14352,12 +14693,25 @@ def teacher_settings(request):
     active_tab = TEACHER_SETTINGS_OLD_TABS.get(active_tab, active_tab)
     if active_tab not in TEACHER_SETTINGS_TABS:
         active_tab = 'personal'
-    personal_errors = []
-    if request.method == 'POST' and active_tab == 'personal':
+    personal_errors, request_errors, security_errors = [], [], []
+    personal_action = request.POST.get('personal_action') if request.method == 'POST' else None
+    if request.method == 'POST' and active_tab == 'security' and request.POST.get('security_action'):
+        security_errors = _handle_teacher_security_action(request, teacher_id)
+        if not security_errors:
+            done = request.POST['security_action'].partition(':')[0]
+            return redirect(f'{reverse("core:teacher_settings")}?tab=security&done={done}')
+    if personal_action == 'academic_cancel' and active_tab == 'personal':
+        _cancel_teacher_change_request(request, teacher_id)
+        return redirect(f'{reverse("core:teacher_settings")}?tab=personal&request=cancelled')
+    if personal_action == 'academic_request' and active_tab == 'personal':
+        request_errors = _submit_teacher_change_request(request, teacher_id)
+        if not request_errors:
+            return redirect(f'{reverse("core:teacher_settings")}?tab=personal&request=sent')
+    elif request.method == 'POST' and active_tab == 'personal':
         personal_errors = _save_teacher_personal_info(request, teacher_id)
         if not personal_errors:
             return redirect(f'{reverse("core:teacher_settings")}?tab=personal&saved=1')
-    elif request.method == 'POST':
+    elif request.method == 'POST' and not security_errors:
         payload, errors = _teacher_settings_from_post(request.POST, _teacher_settings_payload(teacher_id), active_tab)
         for error in errors:
             messages.error(request, error)
@@ -14386,10 +14740,24 @@ def teacher_settings(request):
     if active_tab == 'personal':
         personal = _teacher_personal_info(teacher_id)
         if personal_errors:  # show what the teacher typed, not the stored values
-            personal.update({name: request.POST.get(name, '') for name in ('first_name', 'last_name', 'display_name', 'phone', 'landline', 'bio')})
+            personal.update({name: request.POST.get(name, '') for name in ('first_name', 'last_name', 'display_name', 'landline', 'bio')})
+            if 'phone' in request.POST:
+                personal['phone'], personal['phone_editing'] = request.POST['phone'], True
             personal['show_bio'] = request.POST.get('show_bio') == 'on'
         context['personal'] = personal
         context['personal_errors'] = personal_errors
+        context['academic_request'] = _teacher_latest_change_request(teacher_id)
+        context['academic_request_errors'] = request_errors
+        context['academic_request_posted'] = {
+            name: request.POST.get(f'request_{name}', '') for name in ('org_unit_id', 'academic_rank', 'degree', 'note')
+        } if request_errors else {}
+        context['academic_choices'] = {'ranks': TEACHER_ACADEMIC_RANKS, 'degrees': TEACHER_DEGREES}
+        context['academic_units'] = _teacher_unit_options()
+    if active_tab == 'security':
+        context.update(_teacher_security_context(request, teacher_id))
+        context['security_errors'] = security_errors
+        context['security_failed_action'] = request.POST.get('security_action', '').partition(':')[0] if security_errors else ''
+        context['security_done'] = request.GET.get('done', '')
     context['teacher_settings_selected'] = {
         name: ('on' if settings_values.get(name) else 'off') if name == 'negative_marking' else str(settings_values.get(name, ''))
         for name in TEACHER_SETTINGS_CHOICES
@@ -15844,6 +16212,138 @@ def exam_manager_teacher_profile(request, teacher_id):
     return render(request, 'exam_manager/users.html', context)
 
 
+def _manager_teacher_change_requests(request, reviewed: bool, page_number) -> dict:
+    """One page of teachers' change requests that this manager may review (admin: all)."""
+    from django.core.paginator import Paginator
+
+    is_admin = _erd_is_admin_request(request)
+    cte, scope, params = ('', '1 = 1', []) if is_admin else (_erd_manager_scope_cte(), _erd_teacher_scope_condition(), [request.erd_profile_id])
+    status = "r.status IN ('approved', 'rejected')" if reviewed else "r.status = 'pending'"
+    base = f"""
+        FROM teacher_profile_change_requests r
+        JOIN teacher_profiles tp ON tp.user_id = r.teacher_id
+        JOIN profiles p ON p.id = r.teacher_id
+        LEFT JOIN org_units nu ON nu.id = r.org_unit_id
+        LEFT JOIN org_units pu ON pu.id = r.previous_org_unit_id
+        LEFT JOIN profiles rv ON rv.id = r.reviewer_id
+        WHERE {status} AND {scope}
+    """
+    total = (erd_row(cte + 'SELECT COUNT(*) AS count' + base, params) or {}).get('count') or 0
+    page = Paginator(range(total), TEACHER_CHANGE_REQUEST_PAGE_SIZE).get_page(page_number)
+    rows = erd_rows(
+        cte + f"""
+        SELECT r.id, r.org_unit_id, r.academic_rank, r.degree, r.previous_org_unit_id, r.previous_academic_rank,
+               r.previous_degree, r.teacher_note, r.status, r.review_note, r.created_at, r.reviewed_at,
+               p.full_name, p.avatar_url, tp.personnel_code,
+               nu.name AS unit_name, pu.name AS previous_unit_name, rv.full_name AS reviewer_name
+        {base}
+        ORDER BY r.created_at DESC
+        LIMIT %s OFFSET %s
+        """,
+        [*params, TEACHER_CHANGE_REQUEST_PAGE_SIZE, page.start_index() - 1 if total else 0],
+    )
+    items = []
+    for row in rows:
+        item = dict(row)
+        item['changes'] = [
+            (label, item.get(f'previous_{field}') or '-', item.get(field))
+            for label, field in (('گروه آموزشی', 'unit_name'), ('مرتبه علمی', 'academic_rank'), ('مدرک تحصیلی', 'degree'))
+            if item.get('org_unit_id' if field == 'unit_name' else field)
+        ]
+        item['created_label'] = _jalali_long_date(item['created_at'], with_weekday=False)
+        item['reviewed_label'] = _jalali_long_date(item['reviewed_at'], with_weekday=False)
+        items.append(item)
+    return {'items': items, 'page': page, 'total': total}
+
+
+def _manager_pending_teacher_request_count(request) -> int:
+    if _erd_is_admin_request(request):
+        return erd_count('teacher_profile_change_requests', "status = 'pending'")
+    row = erd_row(
+        _erd_manager_scope_cte() + f"""
+        SELECT COUNT(*) AS count
+        FROM teacher_profile_change_requests r
+        JOIN teacher_profiles tp ON tp.user_id = r.teacher_id
+        WHERE r.status = 'pending' AND {_erd_teacher_scope_condition()}
+        """,
+        [request.erd_profile_id],
+    )
+    return int((row or {}).get('count') or 0)
+
+
+@erd_role_required('academic_manager', 'admin')
+def exam_manager_teacher_requests(request):
+    reviewed = request.GET.get('status') == 'reviewed'
+    context = _em_base_context(request, 'teacher_requests', 'درخواست‌های تغییر اطلاعات اساتید', 'users')
+    context.update({
+        'requests_page': _manager_teacher_change_requests(request, reviewed, request.GET.get('page')),
+        'requests_status': 'reviewed' if reviewed else 'pending',
+        'pending_count': _manager_pending_teacher_request_count(request),
+    })
+    return render(request, 'exam_manager/teacher_requests.html', context)
+
+
+@erd_role_required('academic_manager', 'admin')
+def exam_manager_teacher_request_review(request, request_id):
+    """Approve or reject one pending request; the teacher must be inside the manager's units (checked here, not in the UI)."""
+    if request.method != 'POST':
+        return redirect('core:exam_manager_teacher_requests')
+    change = erd_row(
+        "SELECT id, teacher_id, org_unit_id, academic_rank, degree FROM teacher_profile_change_requests WHERE id = %s AND status = 'pending'",
+        [request_id],
+    )
+    if not change or not _erd_profile_in_manager_scope(request, change['teacher_id'], 'teacher'):
+        raise Http404('درخواست پیدا نشد.')
+    if str(change['teacher_id']) == str(request.erd_profile_id):
+        return HttpResponseForbidden('بررسی درخواست خودتان مجاز نیست.')
+    decision = request.POST.get('decision')
+    note = (request.POST.get('review_note') or '').strip()
+    if decision not in {'approve', 'reject'} or len(note) > 300:
+        messages.error(request, 'تصمیم یا توضیح بررسی معتبر نیست (توضیح حداکثر ۳۰۰ نویسه).')
+        return redirect('core:exam_manager_teacher_requests')
+    if decision == 'reject' and not note:
+        messages.error(request, 'برای رد درخواست، دلیل آن را بنویسید تا استاد ببیند.')
+        return redirect('core:exam_manager_teacher_requests')
+    status = 'approved' if decision == 'approve' else 'rejected'
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                erd_adapt_sql(
+                    """
+                    UPDATE teacher_profile_change_requests
+                    SET status = %s, reviewer_id = %s, review_note = %s, reviewed_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND status = 'pending'
+                    """
+                ),
+                [status, request.erd_profile_id, note or None, request_id],
+            )
+            claimed = cursor.rowcount == 1
+        if claimed and status == 'approved':  # only the requested fields change; the rest stay as they are
+            unit = erd_row('SELECT name FROM org_units WHERE id = %s', [change['org_unit_id']]) if change['org_unit_id'] else None
+            erd_execute(
+                """
+                UPDATE teacher_profiles
+                SET org_unit_id = COALESCE(%s, org_unit_id), department = COALESCE(%s, department),
+                    academic_rank = COALESCE(%s, academic_rank), degree = COALESCE(%s, degree)
+                WHERE user_id = %s
+                """,
+                [change['org_unit_id'], unit['name'] if unit else None, change['academic_rank'], change['degree'], change['teacher_id']],
+            )
+    if not claimed:
+        messages.error(request, 'این درخواست پیش‌تر بررسی یا لغو شده است.')
+        return redirect('core:exam_manager_teacher_requests')
+    log_activity(request.user, f'profile_change_{status}', 'بررسی درخواست تغییر اطلاعات دانشگاهی استاد', request, {'request_id': str(request_id)})
+    create_notification(
+        change['teacher_id'],
+        'درخواست تغییر اطلاعات دانشگاهی ' + ('تأیید شد' if status == 'approved' else 'رد شد'),
+        note or 'اطلاعات دانشگاهی شما به‌روز شد.',
+        f'{reverse("core:teacher_settings")}?tab=personal',
+        'profile',
+    )
+    messages.success(request, 'درخواست تأیید و اعمال شد.' if status == 'approved' else 'درخواست رد شد.')
+    return redirect('core:exam_manager_teacher_requests')
+
+
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_user_import(request, kind='students'):
     if request.method == 'POST':
@@ -16952,6 +17452,7 @@ def exam_manager_dashboard(request):
             {'label': 'انتشار آزمون', 'url': reverse('core:exam_manager_active_exams'), 'icon': 'send'},
             {'label': 'مدیریت سوالات', 'url': reverse('core:exam_manager_exams'), 'icon': 'help'},
             {'label': 'زمان‌بندی آزمون', 'url': reverse('core:exam_manager_calendar'), 'icon': 'calendar'},
+            {'label': f'درخواست‌های اساتید ({_manager_pending_teacher_request_count(request)})', 'url': reverse('core:exam_manager_teacher_requests'), 'icon': 'users'},
         ],
         'attention_items': [
             {'label': 'تایید بانک سوال', 'color': '#ef4444', 'icon': 'database'},

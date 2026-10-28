@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}تأیید دومرحله‌ای | متاکوییز{% endblock %}
 
@@ -7,7 +7,7 @@
     <div class="super-admin-card super-admin-narrow">
         <span class="super-admin-kicker">ورود امن</span>
         <h1>کد تأیید دومرحله‌ای را وارد کنید</h1>
-        <p>برای محیط آزمایشی، کد در پیام بالای صفحه نمایش داده می‌شود.</p>
+        <p>کد ۶ رقمی برنامه‌ی Authenticator گوشی خود را وارد کنید. اگر به گوشی دسترسی ندارید، یکی از کدهای بازیابی را وارد کنید.</p>
         <form method="post" class="super-admin-form">
             {% csrf_token %}
             {{ form.as_p }}

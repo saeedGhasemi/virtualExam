@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load core_extras %}
+
+{% block title %}{{ page_title }} | مدیر آموزشی{% endblock %}
+
+{% block content %}
+<section class="super-admin-page tset tchg" dir="rtl">
+    <div class="super-admin-heading"><span class="super-admin-kicker">اساتید / اطلاعات دانشگاهی</span><h1>{{ page_title }}</h1></div>
+
+    <nav class="tset-tabs" aria-label="وضعیت درخواست‌ها">
+        <a class="{% if requests_status == 'pending' %}is-active{% endif %}" href="{% url 'core:exam_manager_teacher_requests' %}"{% if requests_status == 'pending' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="clock" %}در انتظار بررسی ({{ pending_count|fa_digits }})</a>
+        <a class="{% if requests_status == 'reviewed' %}is-active{% endif %}" href="{% url 'core:exam_manager_teacher_requests' %}?status=reviewed"{% if requests_status == 'reviewed' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="archive" %}بررسی‌شده</a>
+    </nav>
+
+    {% for item in requests_page.items %}
+        <article class="tset-card tchg-item">
+            <header class="tchg-head">
+                <span class="tchg-face">{% if item.avatar_url %}<img src="{{ item.avatar_url }}" alt="">{% else %}{{ item.full_name|slice:":1" }}{% endif %}</span>
+                <div><b>{{ item.full_name }}</b><small>کد پرسنلی {{ item.personnel_code|default:"-"|fa_digits }} · ثبت {{ item.created_label }}</small></div>
+                {% if item.status == 'approved' %}<span class="tchg-status is-ok">تأیید شد</span>{% elif item.status == 'rejected' %}<span class="tchg-status is-bad">رد شد</span>{% else %}<span class="tchg-status">در انتظار</span>{% endif %}
+            </header>
+            <ul class="tchg-changes">
+                {% for label, before, after in item.changes %}
+                    <li><span>{{ label }}</span><s>{{ before }}</s><b>{{ after }}</b></li>
+                {% endfor %}
+            </ul>
+            {% if item.teacher_note %}<p class="tchg-note"><b>توضیح استاد:</b> {{ item.teacher_note }}</p>{% endif %}
+            {% if item.status == 'pending' %}
+                <form class="tchg-review" method="post" action="{% url 'core:exam_manager_teacher_request_review' item.id %}">
+                    {% csrf_token %}
+                    <input class="tset-input is-text" name="review_note" maxlength="300" placeholder="توضیح برای استاد (برای رد درخواست الزامی است)">
+                    <button class="tset-save" type="submit" name="decision" value="approve">{% include "teacher/_qb_icon.html" with name="save" %}تأیید و اعمال</button>
+                    <button class="tset-outline-btn is-danger" type="submit" name="decision" value="reject">رد درخواست</button>
+                </form>
+            {% else %}
+                <p class="tchg-note"><b>بررسی:</b> {{ item.reviewer_name|default:"-" }} · {{ item.reviewed_label }}{% if item.review_note %} — {{ item.review_note }}{% endif %}</p>
+            {% endif %}
+        </article>
+    {% empty %}
+        <div class="tset-card tchg-empty">{% if requests_status == 'pending' %}درخواستی در انتظار بررسی نیست.{% else %}هنوز درخواستی بررسی نشده است.{% endif %}</div>
+    {% endfor %}
+
+    {% if requests_page.page.paginator.num_pages > 1 %}
+        <nav class="tchg-pages" aria-label="صفحه‌بندی">
+            {% if requests_page.page.has_previous %}<a href="?{% if requests_status == 'reviewed' %}status=reviewed&{% endif %}page={{ requests_page.page.previous_page_number }}">قبلی</a>{% endif %}
+            <span>صفحه {{ requests_page.page.number|fa_digits }} از {{ requests_page.page.paginator.num_pages|fa_digits }}</span>
+            {% if requests_page.page.has_next %}<a href="?{% if requests_status == 'reviewed' %}status=reviewed&{% endif %}page={{ requests_page.page.next_page_number }}">بعدی</a>{% endif %}
+        </nav>
+    {% endif %}
+</section>
+{% endblock %}

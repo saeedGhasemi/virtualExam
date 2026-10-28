@@ -52,6 +52,11 @@
         </section>
 
     {% elif teacher_settings_tab == 'security' %}
+        {% if security_errors %}
+            <div class="tset-errors" role="alert"><b>انجام نشد:</b><ul>{% for error in security_errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+        {% elif security_done == 'end_session' or security_done == 'end_other_sessions' %}
+            <div class="tset-request-state is-ok" role="status"><div><b>نشست‌های انتخاب‌شده بسته شدند.</b></div></div>
+        {% endif %}
         <div class="tset-split">
             <section class="tset-card">
                 <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="shield" %}<div><h2>امنیت حساب</h2><p>رمز عبور و روش‌های امنیتی حساب خود را مدیریت کنید.</p></div></header>
@@ -61,18 +66,65 @@
                         <a class="tset-btn" href="{% url 'core:profile' %}?section=security">تغییر رمز عبور</a>
                     </div>
                     <div class="tset-list-row">
-                        <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="phone" %}ورود دو مرحله‌ای</b><small>برای امنیت بیشتر، ورود دو مرحله‌ای را فعال کنید.</small></span>
-                        <span class="tset-dev">در حال توسعه</span>
+                        <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="phone" %}ورود دو مرحله‌ای</b><small>{% if two_factor.enabled %}هنگام ورود، کد برنامه‌ی Authenticator هم پرسیده می‌شود.{% else %}با برنامه‌ی Google یا Microsoft Authenticator، ورود را امن‌تر کنید.{% endif %}</small></span>
+                        {% if two_factor.enabled %}<span class="tset-chip is-ok">فعال</span>{% elif not two_factor.available %}<span class="tset-chip is-wait" title="pyotp و qrcode باید روی سرور نصب شوند">نیازمند نصب کتابخانه روی سرور</span>{% elif not two_factor.setup_secret %}<button class="tset-btn" type="submit" form="tset-security-form" name="security_action" value="totp_start">فعال‌سازی</button>{% endif %}
                     </div>
-                    <div class="tset-list-row">
-                        <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="key" %}مدیریت روش‌های تأیید</b><small>روش‌های دریافت کد تأیید را مدیریت کنید.</small></span>
-                        <span class="tset-dev">در حال توسعه</span>
+                    {% if two_factor.setup_secret %}
+                        <div class="tset-totp-setup">
+                            <div class="tset-totp-qr" aria-label="کد QR برای برنامه‌ی Authenticator">{{ two_factor.setup_qr }}</div>
+                            <div class="tset-totp-steps">
+                                <ol>
+                                    <li>برنامه‌ی Authenticator را روی گوشی باز کنید و این کد QR را اسکن کنید.</li>
+                                    <li>اگر اسکن ممکن نیست، این کلید را دستی وارد کنید: <bdi dir="ltr" class="tset-totp-key" data-latin-digits>{{ two_factor.setup_secret }}</bdi></li>
+                                    <li>کد ۶ رقمی برنامه و رمز عبور خود را وارد کنید.</li>
+                                </ol>
+                                <div class="tset-row is-2">
+                                    <label class="tset-field"><span class="tset-label">کد ۶ رقمی</span><input class="tset-input" name="totp_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" form="tset-security-form"></label>
+                                    <label class="tset-field"><span class="tset-label">رمز عبور فعلی</span><input class="tset-input" type="password" name="security_password" autocomplete="current-password" form="tset-security-form"></label>
+                                </div>
+                                <button class="tset-save" type="submit" form="tset-security-form" name="security_action" value="totp_confirm">تأیید و فعال‌سازی</button>
+                            </div>
+                        </div>
+                    {% endif %}
+                    <div class="tset-list-row is-wrap">
+                        <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="key" %}مدیریت روش‌های تأیید</b><small>{% if two_factor.enabled %}برنامه‌ی Authenticator · {{ two_factor.recovery_left|fa_digits }} کد بازیابی استفاده‌نشده{% else %}پس از فعال‌سازی ورود دو مرحله‌ای، روش‌ها اینجا مدیریت می‌شوند.{% endif %}</small></span>
+                        {% if two_factor.enabled %}<button type="button" class="tset-outline-btn" data-tset-methods-toggle aria-controls="tset-methods-panel" aria-expanded="false">مدیریت</button>{% endif %}
+                        {% if two_factor.enabled %}
+                            <div class="tset-request-panel tset-methods-panel" id="tset-methods-panel" data-tset-methods-panel hidden>
+                                <div class="tset-row is-2">
+                                    <label class="tset-field"><span class="tset-label">رمز عبور فعلی</span><input class="tset-input" type="password" name="security_password" autocomplete="current-password" form="tset-security-form"></label>
+                                    <label class="tset-field"><span class="tset-label">کد Authenticator (فقط برای غیرفعال‌سازی)</span><input class="tset-input" name="totp_code" autocomplete="one-time-code" maxlength="12" dir="ltr" form="tset-security-form"></label>
+                                </div>
+                                <div class="tset-request-actions is-split">
+                                    <button class="tset-outline-btn" type="submit" form="tset-security-form" name="security_action" value="recovery_regenerate">ساخت کدهای بازیابی جدید</button>
+                                    <button class="tset-outline-btn is-danger" type="submit" form="tset-security-form" name="security_action" value="totp_disable">غیرفعال‌سازی ورود دو مرحله‌ای</button>
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
+                    {% if two_factor.new_codes %}
+                        <div class="tset-recovery" role="status">
+                            <b>کدهای بازیابی شما — فقط همین یک بار نمایش داده می‌شوند:</b>
+                            <p>آن‌ها را جای امنی نگه دارید. اگر گوشی در دسترس نباشد، با هر کد یک بار می‌توانید وارد شوید.</p>
+                            <ul dir="ltr" data-latin-digits>{% for code in two_factor.new_codes %}<li>{{ code }}</li>{% endfor %}</ul>
+                        </div>
+                    {% endif %}
                 </div>
             </section>
             <section class="tset-card">
                 <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="monitor" %}<div><h2>نشست‌های فعال</h2><p>دستگاه‌هایی که به حساب شما وارد شده‌اند.</p></div></header>
-                <p class="tset-placeholder"><span class="tset-dev">در حال توسعه</span>فهرست نشست‌ها و خروج از سایر نشست‌ها به‌زودی اینجا فعال می‌شود.</p>
+                <ul class="tset-sessions">
+                    {% for item in sessions %}
+                        <li>
+                            {% include "teacher/_qb_icon.html" with name="monitor" %}
+                            <div><b>{{ item.device }}</b><small><bdi dir="ltr">{{ item.ip }}</bdi> · ورود {{ item.created_label }}</small></div>
+                            {% if item.is_current %}<span class="tset-chip is-ok">همین دستگاه</span>{% else %}<button class="tset-outline-btn is-danger is-small" type="submit" form="tset-security-form" name="security_action" value="end_session:{{ item.key }}">خروج</button>{% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="tset-sessions-empty">نشست ثبت‌شده‌ای پیدا نشد؛ نشست‌های پیش از این نسخه در فهرست نمی‌آیند.</li>
+                    {% endfor %}
+                </ul>
+                <button class="tset-outline-btn is-danger tset-sessions-all" type="submit" form="tset-security-form" name="security_action" value="end_other_sessions">{% include "teacher/_qb_icon.html" with name="logout" %}خروج از همه‌ی نشست‌های دیگر</button>
             </section>
         </div>
 
@@ -87,8 +139,26 @@
 
         <section class="tset-card tset-danger">
             <span class="tset-danger-icon">{% include "teacher/_qb_icon.html" with name="trash" %}</span>
-            <div><h2>درخواست حذف حساب</h2><p>با حذف حساب، تمامی اطلاعات و داده‌های شما به‌طور دائمی حذف خواهد شد.</p></div>
-            <span class="tset-dev">در حال توسعه</span>
+            <div><h2>درخواست حذف حساب</h2><p>پس از تأیید مدیر سیستم، حساب شما غیرفعال می‌شود و دیگر نمی‌توانید وارد شوید. سوابق آموزشی برای مدیر سیستم نگهداری می‌شود.</p></div>
+            {% if deletion_request.status == 'pending' %}
+                <span class="tset-chip is-wait">در انتظار بررسی ({{ deletion_request.created_label }})</span>
+                <button class="tset-outline-btn" type="submit" form="tset-security-form" name="security_action" value="deletion_cancel">لغو درخواست</button>
+            {% else %}
+                <button type="button" class="tset-outline-btn is-danger" data-tset-request-toggle aria-controls="tset-deletion-panel" aria-expanded="{% if security_failed_action == 'deletion_request' %}true{% else %}false{% endif %}">درخواست حذف حساب</button>
+            {% endif %}
+            {% if deletion_request.status == 'rejected' %}
+                <p class="tset-danger-note">درخواست قبلی شما ({{ deletion_request.reviewed_label }}) رد شد{% if deletion_request.review_note %}: {{ deletion_request.review_note }}{% endif %}</p>
+            {% endif %}
+            {% if deletion_request.status != 'pending' %}
+                <div class="tset-request-panel tset-danger-panel" id="tset-deletion-panel" data-tset-request-panel{% if security_failed_action != 'deletion_request' %} hidden{% endif %}>
+                    <div class="tset-row is-2">
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="key" %}رمز عبور فعلی <b class="tset-req">*</b></span><input class="tset-input" type="password" name="deletion_password" autocomplete="current-password" form="tset-security-form"></label>
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="message" %}دلیل (اختیاری)</span><input class="tset-input is-text" name="deletion_reason" maxlength="500" form="tset-security-form"></label>
+                    </div>
+                    <label class="tset-check"><input type="checkbox" name="deletion_confirm" form="tset-security-form"> می‌دانم که پس از تأیید، دیگر به حساب خود دسترسی نخواهم داشت.</label>
+                    <div class="tset-request-actions"><button class="tset-save is-danger" type="submit" form="tset-security-form" name="security_action" value="deletion_request">ثبت درخواست حذف حساب</button></div>
+                </div>
+            {% endif %}
         </section>
 
     {% else %}
@@ -160,6 +230,30 @@
         <span class="tset-status" data-tset-status{% if request.GET.saved %} data-saved{% endif %}><i aria-hidden="true"></i><span data-tset-status-text>{% if request.GET.saved %}تغییرات ذخیره شد.{% else %}تغییری ایجاد نشده است.{% endif %}</span></span>
     </footer>
 </form>
+{% if teacher_settings_tab == 'security' %}
+    {# session and account actions on the security tab post here (form="…"), apart from the privacy switches #}
+    <form id="tset-security-form" method="post" action="{% url 'core:teacher_settings' %}?tab=security" hidden>{% csrf_token %}<input type="hidden" name="settings_tab" value="security"></form>
+    <script>
+    (function () {
+        [['[data-tset-request-toggle]', '#tset-deletion-panel'], ['[data-tset-methods-toggle]', '#tset-methods-panel']].forEach(function (pair) {
+            var toggle = document.querySelector(pair[0]);
+            var panel = document.querySelector(pair[1]);
+            if (!toggle || !panel) return;
+            toggle.addEventListener('click', function () {
+                panel.hidden = !panel.hidden;
+                toggle.setAttribute('aria-expanded', String(!panel.hidden));
+                // the two panels share field names; only the open one may post them
+                panel.querySelectorAll('input').forEach(function (input) { input.disabled = panel.hidden; });
+            });
+            panel.querySelectorAll('input').forEach(function (input) { input.disabled = panel.hidden; });
+        });
+    })();
+    </script>
+{% endif %}
+{% if teacher_settings_tab == 'personal' %}
+    {# the change-request controls inside the personal tab post here (form="…"), apart from the personal-info save #}
+    <form id="tset-academic-form" method="post" action="{% url 'core:teacher_settings' %}?tab=personal" hidden>{% csrf_token %}<input type="hidden" name="settings_tab" value="personal"></form>
+{% endif %}
 <script>
 (function () {
     var form = document.querySelector('[data-tset-form]');
@@ -171,8 +265,9 @@
         status.removeAttribute('data-saved');
         text.textContent = 'تغییرات ذخیره نشده است.';
     }
-    form.addEventListener('input', markDirty);
-    form.addEventListener('change', markDirty);
+    var markIfOwn = function (event) { if (event.target.form === form) markDirty(); };  // the change-request controls post elsewhere
+    form.addEventListener('input', markIfOwn);
+    form.addEventListener('change', markIfOwn);
     form.addEventListener('reset', function () {
         status.removeAttribute('data-dirty');
         text.textContent = 'تغییری ایجاد نشده است.';

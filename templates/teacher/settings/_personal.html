@@ -1,0 +1,212 @@
+{% load core_extras %}
+{% if personal_errors %}
+    <div class="tset-errors" role="alert">
+        <b>تغییرات ذخیره نشد:</b>
+        <ul>{% for error in personal_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+{% endif %}
+
+<div class="tset-personal">
+    <div class="tset-personal-main">
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="user" %}<div><h2>مشخصات فردی</h2><p>اطلاعات شما در پروفایل و مکاتبات نمایش داده می‌شود.</p></div></header>
+            <div class="tset-row is-3">
+                <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="user" %}نام <b class="tset-req">*</b></span><input class="tset-input is-text" name="first_name" value="{{ personal.first_name|default:'' }}" maxlength="60" required></label>
+                <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="user" %}نام خانوادگی <b class="tset-req">*</b></span><input class="tset-input is-text" name="last_name" value="{{ personal.last_name|default:'' }}" maxlength="60" required></label>
+                <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="user" %}نام نمایشی</span><input class="tset-input is-text" name="display_name" value="{{ personal.display_name|default:'' }}" maxlength="80" placeholder="مثلاً دکتر {{ personal.full_name|default:'' }}"></label>
+            </div>
+        </section>
+
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="building" %}<div><h2>اطلاعات دانشگاهی</h2><p>تغییر این اطلاعات پس از تأیید مدیر آموزشی اعمال می‌شود.</p></div>{% if academic_request.status == 'pending' %}<span class="tset-chip is-wait">در انتظار تأیید</span>{% else %}<button type="button" class="tset-outline-btn" data-tset-request-toggle aria-expanded="{% if academic_request_errors %}true{% else %}false{% endif %}" aria-controls="tset-request-panel">درخواست تغییر</button>{% endif %}</header>
+            {% if academic_request.status == 'pending' %}
+                <div class="tset-request-state is-wait">
+                    <div><b>درخواست شما ({{ academic_request.created_label }}) در انتظار تأیید مدیر آموزشی است:</b>
+                        <span>{% if academic_request.org_unit_id %}واحد: {{ academic_request.unit_label|default:"-" }}{% endif %}{% if academic_request.academic_rank %} · مرتبه علمی: {{ academic_request.academic_rank }}{% endif %}{% if academic_request.degree %} · مدرک: {{ academic_request.degree }}{% endif %}</span></div>
+                    <button class="tset-outline-btn is-danger" type="submit" form="tset-academic-form" name="personal_action" value="academic_cancel">لغو درخواست</button>
+                </div>
+            {% elif academic_request %}
+                <div class="tset-request-state {% if academic_request.status == 'approved' %}is-ok{% else %}is-bad{% endif %}">
+                    <div><b>آخرین درخواست شما ({{ academic_request.reviewed_label }}) {% if academic_request.status == 'approved' %}تأیید و اعمال شد.{% else %}رد شد.{% endif %}</b>{% if academic_request.review_note %}<span>توضیح مدیر: {{ academic_request.review_note }}</span>{% endif %}</div>
+                </div>
+            {% endif %}
+            {% if academic_request_errors %}
+                <div class="tset-errors" role="alert"><b>درخواست ثبت نشد:</b><ul>{% for error in academic_request_errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+            {% endif %}
+            <div class="tset-row is-3">
+                <div class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="building" %}دانشگاه</span><span class="tset-readonly">{{ personal.unit_university|default:"-" }}{% include "teacher/_qb_icon.html" with name="lock" %}</span></div>
+                <div class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="building" %}دانشکده</span><span class="tset-readonly">{{ personal.unit_faculty|default:"-" }}{% include "teacher/_qb_icon.html" with name="lock" %}</span></div>
+                <div class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="users" %}گروه آموزشی</span><span class="tset-readonly">{{ personal.unit_department|default:"-" }}{% include "teacher/_qb_icon.html" with name="lock" %}</span></div>
+            </div>
+            <div class="tset-row is-3">
+                <div class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="chart" %}مرتبه علمی</span><span class="tset-readonly">{{ personal.academic_rank|default:"-" }}{% include "teacher/_qb_icon.html" with name="lock" %}</span></div>
+                <div class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="cap" %}مدرک تحصیلی</span><span class="tset-readonly">{{ personal.degree|default:"-" }}{% include "teacher/_qb_icon.html" with name="lock" %}</span></div>
+                <div class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="idcard" %}کد پرسنلی</span><span class="tset-readonly">{{ personal.personnel_code|default:"-"|fa_digits }}{% include "teacher/_qb_icon.html" with name="lock" %}</span></div>
+            </div>
+            {% if academic_request.status != 'pending' %}
+                <div class="tset-request-panel" id="tset-request-panel" data-tset-request-panel{% if not academic_request_errors %} hidden{% endif %}>
+                    <p class="tset-request-hint">فقط مواردی را که باید تغییر کند انتخاب کنید؛ بقیه همان مقدار فعلی می‌ماند.</p>
+                    <div class="tset-row is-3" data-tset-units data-current="{{ academic_request_posted.org_unit_id|default:personal.org_unit_id|default:'' }}">
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="building" %}دانشگاه</span><select class="tset-input" data-unit-level="university" form="tset-academic-form"><option value="">انتخاب کنید</option></select></label>
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="building" %}دانشکده</span><select class="tset-input" data-unit-level="faculty" form="tset-academic-form"><option value="">انتخاب کنید</option></select></label>
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="users" %}گروه آموزشی</span><select class="tset-input" data-unit-level="department" form="tset-academic-form"><option value="">انتخاب کنید</option></select></label>
+                        <input type="hidden" name="request_org_unit_id" form="tset-academic-form" data-unit-value>
+                    </div>
+                    <div class="tset-row is-3">
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="chart" %}مرتبه علمی</span>
+                            <select class="tset-input" name="request_academic_rank" form="tset-academic-form">
+                                {% with selected=academic_request_posted.academic_rank|default:personal.academic_rank %}
+                                <option value="">بدون تغییر</option>
+                                {% for rank in academic_choices.ranks %}<option value="{{ rank }}"{% if rank == selected %} selected{% endif %}>{{ rank }}</option>{% endfor %}
+                                {% endwith %}
+                            </select>
+                        </label>
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="cap" %}مدرک تحصیلی</span>
+                            <select class="tset-input" name="request_degree" form="tset-academic-form">
+                                {% with selected=academic_request_posted.degree|default:personal.degree %}
+                                <option value="">بدون تغییر</option>
+                                {% for degree in academic_choices.degrees %}<option value="{{ degree }}"{% if degree == selected %} selected{% endif %}>{{ degree }}</option>{% endfor %}
+                                {% endwith %}
+                            </select>
+                        </label>
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="message" %}توضیح برای مدیر (اختیاری)</span><input class="tset-input is-text" name="request_note" maxlength="300" form="tset-academic-form" value="{{ academic_request_posted.note|default:'' }}"></label>
+                    </div>
+                    <div class="tset-request-actions">
+                        <button class="tset-save" type="submit" form="tset-academic-form" name="personal_action" value="academic_request">{% include "teacher/_qb_icon.html" with name="refresh" %}ارسال درخواست برای مدیر آموزشی</button>
+                    </div>
+                </div>
+                {{ academic_units|json_script:"tset-units-data" }}
+            {% endif %}
+        </section>
+
+        <section class="tset-card">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="phone_call" %}<div><h2>اطلاعات تماس</h2><p>راه‌های ارتباطی برای اطلاع‌رسانی و تماس با شما استفاده می‌شود.</p></div></header>
+            <div class="tset-row is-contact">
+                <div class="tset-field">
+                    <span class="tset-label is-spacer" aria-hidden="true">&nbsp;</span>
+                    <span class="tset-readonly is-email"><span class="tset-inline-label">{% include "teacher/_qb_icon.html" with name="mail" %}ایمیل دانشگاهی</span><bdi dir="ltr">{{ personal.email|default:"-" }}</bdi></span>
+                </div>
+                <div class="tset-field" data-tset-phone>
+                    <span class="tset-label">{% include "teacher/_qb_icon.html" with name="phone_call" %}تلفن همراه</span>
+                    <div class="tset-phone">
+                        <span class="tset-input tset-phone-value"{% if personal.phone_editing %} hidden{% endif %} data-tset-phone-view><bdi dir="ltr">{{ personal.phone_masked|default:"-"|fa_digits }}</bdi></span>
+                        <span class="tset-phone-edit"{% if not personal.phone_editing %} hidden{% endif %} data-tset-phone-edit>
+                            <input class="tset-input" type="tel" name="phone" value="{{ personal.phone|default:'' }}" maxlength="20" inputmode="tel" dir="ltr" placeholder="09xxxxxxxxx" aria-label="شماره تلفن همراه جدید"{% if not personal.phone_editing %} disabled{% endif %}>
+                            <button type="button" class="tset-clear" aria-label="پاک کردن شماره" data-tset-phone-clear>{% include "teacher/_qb_icon.html" with name="x_circle" %}</button>
+                        </span>
+                        <button type="button" class="tset-outline-btn" data-tset-phone-change{% if personal.phone_editing %} hidden{% endif %}>تغییر شماره</button>
+                    </div>
+                </div>
+                <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="phone_call" %}تلفن ثابت (اختیاری)</span><input class="tset-input" type="tel" name="landline" value="{{ personal.landline|default:'' }}" maxlength="20" inputmode="tel" dir="ltr" placeholder="وارد کنید"></label>
+            </div>
+            <div class="tset-row is-bio">
+                <label class="tset-bio">
+                    <span class="tset-label">{% include "teacher/_qb_icon.html" with name="essay" %}معرفی کوتاه</span>
+                    <textarea class="tset-textarea" name="bio" rows="2" maxlength="500" placeholder="درباره زمینه تدریس و پژوهش خود بنویسید.">{{ personal.bio|default:'' }}</textarea>
+                </label>
+                <label class="tset-switch-row">
+                    <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="users" %}نمایش معرفی در پروفایل دانشجویان (اختیاری)</b><small>این متن در پروفایل شما برای دانشجویان قابل مشاهده خواهد بود.</small></span>
+                    <span class="tset-switch-control"><input type="checkbox" name="show_bio"{% if personal.show_bio %} checked{% endif %}><i aria-hidden="true"></i></span>
+                </label>
+            </div>
+        </section>
+    </div>
+
+    <aside class="tset-card tset-profile">
+        <div class="tset-avatar" id="tset-avatar-preview">
+            <img src="{{ personal.avatar_url|default:'' }}" alt="" {% if not personal.avatar_url %}hidden{% endif %}>
+            <svg class="tset-avatar-fallback" viewBox="0 0 24 24" {% if personal.avatar_url %}hidden{% endif %}><circle cx="12" cy="8.2" r="4.2"/><path d="M3.8 23a8.2 8.2 0 0 1 16.4 0Z"/></svg>
+            <input type="file" id="tset-avatar-input" class="teacher-wizard-photo-input" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif">
+            <label for="tset-avatar-input" class="tset-avatar-btn" title="تغییر تصویر (JPG، PNG، WebP یا GIF — حداکثر ۱ مگابایت)">{% include "teacher/_qb_icon.html" with name="camera" %}<span class="sr-only">تغییر تصویر پروفایل</span></label>
+        </div>
+        <h2>{{ personal.display_name|default:personal.full_name|default:"-" }}</h2>
+        {% if personal.academic_rank %}<span class="tset-rank">{% include "teacher/_qb_icon.html" with name="cap" %}{{ personal.academic_rank }}</span>{% endif %}
+        <small class="tset-profile-sub">{{ personal.unit_department|default:"عضو هیئت علمی" }}</small>
+        <div class="tset-profile-row">
+            <div><b>{{ personal.unit_faculty|default:"دانشکده ثبت نشده" }}</b><small>{{ personal.unit_university|default:"" }}</small></div>
+            {% include "teacher/_qb_icon.html" with name="building" %}
+        </div>
+        <div class="tset-profile-row is-progress">
+            <div><b>تکمیل اطلاعات پروفایل</b><small>با تکمیل اطلاعات، از همه امکانات MetaQuiz بهره‌مند شوید.</small></div>
+            <span class="tset-ring" style="--value: {{ personal.completeness }}" role="img" aria-label="{{ personal.completeness }} درصد تکمیل"><b>{{ personal.completeness|fa_digits }}٪</b></span>
+        </div>
+    </aside>
+</div>
+
+<script>
+(function () {
+    var input = document.getElementById('tset-avatar-input');
+    var preview = document.getElementById('tset-avatar-preview');
+    if (input && preview) {
+        var img = preview.querySelector('img');
+        var icon = preview.querySelector('.tset-avatar-fallback');
+        input.addEventListener('change', function () {
+            var file = input.files && input.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+            img.src = URL.createObjectURL(file);
+            img.hidden = false;
+            icon.hidden = true;
+        });
+    }
+    var toggle = document.querySelector('[data-tset-request-toggle]');
+    var panel = document.querySelector('[data-tset-request-panel]');
+    if (toggle && panel) {
+        toggle.addEventListener('click', function () {
+            panel.hidden = !panel.hidden;
+            toggle.setAttribute('aria-expanded', String(!panel.hidden));
+        });
+    }
+    var unitsBox = document.querySelector('[data-tset-units]');
+    var unitsData = document.getElementById('tset-units-data');
+    if (unitsBox && unitsData) {
+        var units = JSON.parse(unitsData.textContent);
+        var byId = {};
+        units.forEach(function (unit) { byId[unit.id] = unit; });
+        var levels = ['university', 'faculty', 'department'];
+        var selects = levels.map(function (level) { return unitsBox.querySelector('[data-unit-level="' + level + '"]'); });
+        var output = unitsBox.querySelector('[data-unit-value]');
+        var levelOf = function (unit) { return unit.type === 'group' ? 'department' : unit.type; };
+        var fill = function (index, parentId, selectedId) {
+            var select = selects[index];
+            select.length = 1;
+            units.forEach(function (unit) {
+                if (levelOf(unit) === levels[index] && (index === 0 || unit.parent === parentId)) {
+                    select.add(new Option(unit.name, unit.id, false, unit.id === selectedId));
+                }
+            });
+            select.disabled = index > 0 && !parentId;
+        };
+        var sync = function () { output.value = selects[2].value || selects[1].value || ''; };
+        var chain = {};
+        for (var unit = byId[unitsBox.dataset.current]; unit; unit = byId[unit.parent]) { chain[levelOf(unit)] = unit.id; }
+        fill(0, '', chain.university);
+        fill(1, selects[0].value, chain.faculty);
+        fill(2, selects[1].value, chain.department);
+        selects.forEach(function (select, index) {
+            select.addEventListener('change', function () {
+                for (var next = index + 1; next < selects.length; next++) { fill(next, selects[next - 1].value, ''); }
+                sync();
+            });
+        });
+        sync();
+    }
+    var phone = document.querySelector('[data-tset-phone]');
+    if (phone) {
+        var view = phone.querySelector('[data-tset-phone-view]');
+        var edit = phone.querySelector('[data-tset-phone-edit]');
+        var field = edit.querySelector('input');
+        var change = phone.querySelector('[data-tset-phone-change]');
+        change.addEventListener('click', function () {
+            view.hidden = true;
+            change.hidden = true;
+            edit.hidden = false;
+            field.disabled = false;
+            field.focus();
+        });
+        phone.querySelector('[data-tset-phone-clear]').addEventListener('click', function () {
+            field.value = '';
+            field.focus();
+        });
+    }
+})();
+</script>

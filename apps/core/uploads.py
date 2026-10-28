@@ -33,6 +33,8 @@ def signature_ok(uploaded, extension: str) -> bool:
         return head.startswith(b'\xff\xd8\xff')
     if extension == 'webp':
         return head[:4] == b'RIFF' and head[8:12] == b'WEBP'
+    if extension == 'gif':
+        return head.startswith((b'GIF87a', b'GIF89a'))
     if extension == 'wav':
         return head[:4] == b'RIFF' and head[8:12] == b'WAVE'
     if extension in {'mp4', 'm4a'}:
@@ -48,6 +50,25 @@ def signature_ok(uploaded, extension: str) -> bool:
     if extension == 'vtt':
         return head.removeprefix(b'\xef\xbb\xbf').startswith(b'WEBVTT')
     return False
+
+
+IMAGE_FORMATS = {'jpg': 'JPEG', 'jpeg': 'JPEG', 'png': 'PNG', 'webp': 'WEBP', 'gif': 'GIF'}
+IMAGE_MAX_PIXELS = 4096 * 4096
+
+
+def image_ok(uploaded, extension: str) -> bool:
+    """Decode the upload with Pillow: it must be a real image in the format its extension claims, and not oversized."""
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(uploaded) as image:
+            width, height = image.size
+            ok = image.format == IMAGE_FORMATS.get(extension) and width * height <= IMAGE_MAX_PIXELS
+            image.verify()
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError, Image.DecompressionBombError):
+        ok = False
+    uploaded.seek(0)
+    return ok
 
 
 def private_root() -> Path:
