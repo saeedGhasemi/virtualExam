@@ -16558,12 +16558,15 @@ def error_500(request):
 def create_notification(user_id, title, message, link='', notification_type='system'):
     if not user_id:
         return
+    from .student_settings import notification_muted
+
+    # a kind the user switched off is still kept, but arrives already read so it raises no alert
     erd_execute(
         """
         INSERT INTO notifications (id, user_id, type, title, message, link, is_read)
-        VALUES (%s, %s, %s, %s, %s, %s, false)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
-        [str(uuid.uuid4()), user_id, notification_type, title, message, link],
+        [str(uuid.uuid4()), user_id, notification_type, title, message, link, notification_muted(user_id, notification_type)],
     )
 
 
@@ -18041,7 +18044,13 @@ def student_settings(request):
         errors = page.save_personal_info(request, student_id)
         if not errors:
             return redirect(f'{reverse("core:student_settings")}?tab=personal&saved=1')
+    elif request.method == 'POST' and tab == 'workspace':
+        page.save_workspace(request, student_id)
+        return redirect(f'{reverse("core:student_settings")}?tab=workspace&saved=1')
     context = {'student': _sx_student_context(request), 'tab': tab, 'errors': errors}
+    if tab == 'workspace':
+        context['notification_rows'] = page.notification_rows(page.preferences(student_id))
+        context['workspace_fixed'] = page.WORKSPACE_FIXED
     if tab == 'personal':
         personal = page.personal_info(student_id)
         if errors:  # show what the student typed, not the stored values

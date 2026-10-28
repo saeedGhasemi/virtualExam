@@ -3,11 +3,15 @@
 Academic details (student number, field, degree, university, faculty) are recorded by the academic office and are
 shown read-only. Preferences live in system_settings under ``student_settings.<profile id>``.
 """
+import json
+import logging
 import re
 
 from django.db import transaction
 
 from .views import _clean_phone, _org_unit_path, _save_avatar_upload, erd_execute, erd_row, log_activity
+
+logger = logging.getLogger(__name__)
 
 SETTINGS_TABS = ('personal', 'workspace', 'security')
 NAME_MAX = 60
@@ -83,3 +87,72 @@ def save_personal_info(request, student_id) -> list:
         request.user.save(update_fields=['first_name', 'last_name'])
     log_activity(request.user, 'profile_updated', 'ویرایش اطلاعات فردی دانشجو', request)
     return []
+
+
+# Rows of the notification matrix. Only rows with notification types are sent today; the others are shown
+# disabled («به‌زودی») until the system sends them. Turning a row off keeps the notification in the list but
+# delivers it already read, so nothing a teacher sends is lost.
+NOTIFICATION_ROWS = [
+    {'key': 'new_exam', 'label': 'آزمون جدید', 'icon': 'list', 'types': ()},
+    {'key': 'exam_reminder', 'label': 'یادآوری آزمون', 'icon': 'clock', 'types': ()},
+    {'key': 'exam_change', 'label': 'تغییر زمان آزمون', 'icon': 'calendar', 'types': ()},
+    {'key': 'results', 'label': 'اعلام نتایج', 'icon': 'chart', 'types': ()},
+    {'key': 'objection_reply', 'label': 'پاسخ به درخواست بازبینی نمره', 'icon': 'message', 'types': ()},
+    {'key': 'class_message', 'label': 'اطلاعیه کلاس', 'icon': 'bell', 'types': ('teacher_message', 'teacher_feedback')},
+]
+# The system runs in one language, time zone and calendar today; the tab shows them as fixed facts, not choices.
+WORKSPACE_FIXED = [
+    {'label': 'زبان سامانه', 'icon': 'globe', 'value': 'فارسی', 'note': 'تنها زبان موجود'},
+    {'label': 'منطقه زمانی', 'icon': 'clock', 'value': 'تهران – (GMT+03:30) Asia/Tehran', 'note': 'تنها منطقه‌ی موجود'},
+    {'label': 'نوع تقویم', 'icon': 'calendar', 'value': 'تقویم شمسی (هجری شمسی)', 'note': 'تنها تقویم موجود'},
+]
+MUTABLE_NOTIFICATIONS = {row['key']: row['types'] for row in NOTIFICATION_ROWS if row['types']}
+
+
+def _settings_key(student_id) -> str:
+    return f'student_settings.{student_id}'
+
+
+def preferences(student_id) -> dict:
+    values = {f'inapp_{key}': True for key in MUTABLE_NOTIFICATIONS}
+    row = erd_row('SELECT value FROM system_settings WHERE key = %s', [_settings_key(student_id)]) if student_id else None
+    stored = row['value'] if row else None
+    if isinstance(stored, str):
+        try:
+            stored = json.loads(stored)
+        except json.JSONDecodeError:
+            logger.warning('unreadable settings of student %s', student_id)
+            stored = None
+    if isinstance(stored, dict):
+        values.update(stored)
+    return values
+
+
+def _store_preferences(student_id, values) -> None:
+    erd_execute(
+        """
+        INSERT INTO system_settings (key, value, description, updated_by)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by
+        """,
+        [_settings_key(student_id), json.dumps(values, ensure_ascii=False), 'Student panel preferences', student_id],
+    )
+
+
+def save_workspace(request, student_id) -> list:
+    """Stores the notification switches of the «محیط کار و اعلان‌ها» tab."""
+    values = preferences(student_id)
+    for key in MUTABLE_NOTIFICATIONS:
+        values[f'inapp_{key}'] = request.POST.get(f'inapp_{key}') == 'on'
+    _store_preferences(student_id, values)
+    return []
+
+
+def notification_rows(values) -> list:
+    return [{**row, 'enabled': bool(row['types']), 'on': values.get(f'inapp_{row["key"]}', False)} for row in NOTIFICATION_ROWS]
+
+
+def notification_muted(user_id, notification_type) -> bool:
+    """True when the user switched this kind of in-app notification off on the settings page."""
+    key = next((key for key, types in MUTABLE_NOTIFICATIONS.items() if notification_type in types), None)
+    return bool(key) and not preferences(user_id).get(f'inapp_{key}', True)

@@ -1,0 +1,46 @@
+{% load core_extras %}
+{% if request.GET.saved %}<div class="sst-ok" role="status">تنظیمات اعلان‌ها ذخیره شد.</div>{% endif %}
+<div class="sst-split">
+  <section class="sst-card sx-card">
+    <header class="sst-card-head">{% include 'teacher/_qb_icon.html' with name='monitor' %}<div><h2>محیط کار و نمایش</h2><p>زبان، منطقه زمانی، تقویم و ظاهر سامانه.</p></div></header>
+    <div class="sst-fields">
+      {% for item in workspace_fixed %}
+        <div class="sst-field is-wide"><span class="sst-label">{{ item.label }}</span><span class="sst-box is-readonly" title="{{ item.note }}">{% include 'teacher/_qb_icon.html' with name=item.icon %}<span>{{ item.value }}</span><small class="sst-chip is-muted">{{ item.note }}</small></span></div>
+      {% endfor %}
+      <fieldset class="sst-field is-wide sst-fieldset">
+        <legend class="sst-label">ظاهر سامانه <small>حالت نمایش مورد علاقه خود را انتخاب کنید.</small></legend>
+        <div class="sst-themes">
+          <span class="sst-theme is-active">{% include 'teacher/_qb_icon.html' with name='sun' %}روشن<small class="sst-chip is-ok">فعال</small></span>
+          <span class="sst-theme" aria-disabled="true">{% include 'teacher/_qb_icon.html' with name='moon' %}تاریک<small class="sst-chip is-wait">در حال توسعه</small></span>
+          <span class="sst-theme" aria-disabled="true">{% include 'teacher/_qb_icon.html' with name='monitor' %}سیستم<small class="sst-chip is-wait">در حال توسعه</small></span>
+        </div>
+      </fieldset>
+    </div>
+    <div class="sst-rows">
+      <div class="sst-row is-disabled"><span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='list' %}<span><b>نمایش جدول‌های فشرده <small class="sst-chip is-wait">در حال توسعه</small></b><small>نمایش بیشتر اطلاعات در فضای کمتر.</small></span></span><span class="sst-switch"><input type="checkbox" disabled aria-label="نمایش جدول‌های فشرده"><i aria-hidden="true"></i></span></div>
+      <div class="sst-row is-disabled"><span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='keyboard' %}<span><b>میانبرهای صفحه‌کلید <small class="sst-chip is-wait">در حال توسعه</small></b><small>استفاده از میانبرهای کیبورد برای پیمایش سریع‌تر.</small></span></span><span class="sst-switch"><input type="checkbox" disabled aria-label="میانبرهای صفحه‌کلید"><i aria-hidden="true"></i></span></div>
+    </div>
+  </section>
+
+  <section class="sst-card sx-card">
+    <header class="sst-card-head">{% include 'teacher/_qb_icon.html' with name='bell' %}<div><h2>تنظیمات اعلان‌ها</h2><p>روش دریافت اعلان‌های مهم را انتخاب کنید.</p></div></header>
+    <div class="sst-table-wrap">
+      <table class="sst-table">
+        <thead><tr><th scope="col">نوع اعلان</th><th scope="col">{% include 'teacher/_qb_icon.html' with name='monitor' %}اعلان درون سامانه</th><th scope="col">{% include 'teacher/_qb_icon.html' with name='mail' %}ایمیل <small class="sst-chip is-wait">در حال توسعه</small></th></tr></thead>
+        <tbody>
+          {% for row in notification_rows %}
+            <tr{% if not row.enabled %} class="is-disabled"{% endif %}>
+              <th scope="row"><span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name=row.icon %}<span><b>{{ row.label }}{% if not row.enabled %} <small class="sst-chip is-wait">در حال توسعه</small>{% endif %}</b>{% if row.enabled %}<small>خاموش: اعلان ثبت می‌شود ولی بی‌صدا و خوانده‌شده می‌رسد.</small>{% endif %}</span></span></th>
+              <td><span class="sst-switch">{% if row.enabled %}<input type="checkbox" name="inapp_{{ row.key }}" aria-label="{{ row.label }} — اعلان درون سامانه"{% if row.on %} checked{% endif %}>{% else %}<input type="checkbox" disabled aria-label="{{ row.label }} — اعلان درون سامانه">{% endif %}<i aria-hidden="true"></i></span></td>
+              <td><span class="sst-switch"><input type="checkbox" disabled aria-label="{{ row.label }} — ایمیل"><i aria-hidden="true"></i></span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="sst-fields sst-notify-extra">
+      <div class="sst-field"><span class="sst-label">{% include 'teacher/_qb_icon.html' with name='clock' %}زمان یادآوری پیش از آزمون <small class="sst-chip is-wait">در حال توسعه</small></span><span class="sst-box is-readonly"><span>یادآوری خودکار هنوز ارسال نمی‌شود.</span></span></div>
+      <div class="sst-field"><span class="sst-label">{% include 'teacher/_qb_icon.html' with name='moon' %}ساعت سکوت اعلان‌ها <small class="sst-chip is-wait">در حال توسعه</small></span><span class="sst-box is-readonly"><span>بازه‌ی سکوت هنوز پشتیبانی نمی‌شود.</span></span></div>
+    </div>
+  </section>
+</div>

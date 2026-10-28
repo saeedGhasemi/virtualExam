@@ -3696,3 +3696,32 @@ class StudentSettingsTests(_ScopedOrgFixture):
         self.assertRedirects(response, f'{reverse("core:student_settings")}?tab=security', fetch_redirect_response=False)
         self.client.force_login(self.teacher_user)
         self.assertEqual(self.client.get(reverse('core:student_settings')).status_code, 403)
+
+    def test_class_notifications_switched_off_arrive_already_read(self):
+        from .views import create_notification
+
+        response = self._post({}, tab='workspace')  # every switch off
+        self.assertRedirects(response, f'{reverse("core:student_settings")}?tab=workspace&saved=1', fetch_redirect_response=False)
+        create_notification(self.student_in_id, 'پیام استاد', 'متن', notification_type='teacher_message')
+        create_notification(self.student_in_id, 'حساب', 'متن', notification_type='account')
+        create_notification(self.student_out_id, 'پیام استاد', 'متن', notification_type='teacher_message')
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT user_id, type, is_read FROM notifications WHERE user_id IN (%s, %s)', [self.student_in_id, self.student_out_id])
+            rows = {(str(user_id), kind): bool(is_read) for user_id, kind, is_read in cursor.fetchall()}
+        self.assertEqual(rows, {
+            (self.student_in_id, 'teacher_message'): True,  # kept, but silent
+            (self.student_in_id, 'account'): False,  # kinds without a switch are untouched
+            (self.student_out_id, 'teacher_message'): False,  # another student's choice is their own
+        })
+        self._post({'inapp_class_message': 'on', 'inapp_new_exam': 'on'}, tab='workspace')
+        rows = {row['key']: (row['enabled'], row['on']) for row in self.client.get(reverse('core:student_settings'), {'tab': 'workspace'}).context['notification_rows']}
+        self.assertEqual(rows['class_message'], (True, True))
+        self.assertEqual(rows['new_exam'], (False, False))  # not sent yet, so it cannot be switched on
+
+    def test_workspace_options_without_an_effect_are_marked_in_development(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(reverse('core:student_settings'), {'tab': 'workspace'})
+        self.assertContains(response, 'در حال توسعه')
+        self.assertContains(response, 'name="inapp_class_message"')
+        for fake in ('name="theme"', 'name="language"', 'name="compact_tables"', 'name="email_'):
+            self.assertNotContains(response, fake)
