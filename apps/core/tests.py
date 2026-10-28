@@ -3628,3 +3628,71 @@ class StudentExamsAndClassesPagesTests(_ScopedOrgFixture):
         response = self._get('core:student_classes')
         self.assertContains(response, 'آزمون‌های من')
         self.assertContains(response, f'href="{reverse("core:student_classes")}"')
+
+
+class StudentSettingsTests(_ScopedOrgFixture):
+    """صفحه‌ی «تنظیمات» دانشجو: فقط اطلاعات خود دانشجو را نشان می‌دهد و ذخیره می‌کند؛ اطلاعات تحصیلی از این صفحه تغییر نمی‌کند."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='old-pass-123')
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE student_profiles SET student_number = %s, field_of_study = %s, degree = %s WHERE user_id = %s',
+                ['14051234', 'پرستاری', 'کارشناسی', cls.student_in_id],
+            )
+            cursor.execute('UPDATE profiles SET phone = %s WHERE id = %s', ['09171111234', cls.student_in_id])
+
+    def _profile(self, student_id=None):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT first_name, last_name, full_name, phone FROM profiles WHERE id = %s', [student_id or self.student_in_id])
+            return cursor.fetchone()
+
+    def _post(self, data, tab='personal'):
+        self.client.force_login(self.student_user)
+        return self.client.post(reverse('core:student_settings'), {'settings_tab': tab, **data})
+
+    def test_menu_links_the_settings_page(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(reverse('core:student_classes'))
+        self.assertContains(response, f'href="{reverse("core:student_settings")}"')
+
+    def test_personal_tab_shows_own_details_with_academic_fields_read_only(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(reverse('core:student_settings'))
+        self.assertEqual(response.status_code, 200)
+        personal = response.context['personal']
+        self.assertEqual((personal['student_number'], personal['field_of_study'], personal['phone_masked']),
+                         ('14051234', 'پرستاری', '0917***1234'))
+        self.assertEqual(personal['faculty'], 'واحد تحت مدیریت')
+        for locked in ('student_number', 'field_of_study', 'degree', 'email'):
+            self.assertNotContains(response, f'name="{locked}"')
+        self.assertNotContains(response, 'دانشجوی خارج محدوده')
+
+    def test_saving_names_and_phone_ignores_academic_fields(self):
+        response = self._post({'first_name': 'علی', 'last_name': 'محمدی', 'phone': '۰۹۱۲۳۴۵۶۷۸۹', 'field_of_study': 'پزشکی'})
+        self.assertRedirects(response, f'{reverse("core:student_settings")}?tab=personal&saved=1', fetch_redirect_response=False)
+        self.assertEqual(self._profile(), ('علی', 'محمدی', 'علی محمدی', '09123456789'))
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT field_of_study FROM student_profiles WHERE user_id = %s', [self.student_in_id])
+            self.assertEqual(cursor.fetchone()[0], 'پرستاری')
+        self.assertEqual(self._profile(self.student_out_id)[2], 'دانشجوی خارج محدوده')
+
+    def test_phone_is_kept_when_not_posted_and_invalid_input_saves_nothing(self):
+        self._post({'first_name': 'علی', 'last_name': 'محمدی'})
+        self.assertEqual(self._profile()[3], '09171111234')
+        response = self._post({'first_name': 'رضا', 'last_name': '', 'phone': '12345'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['errors'], ['نام و نام خانوادگی الزامی است.', 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.'])
+        self.assertEqual(self._profile()[:2], ('علی', 'محمدی'))
+        self.assertContains(response, 'value="رضا"')
+
+    def test_old_profile_page_redirects_and_other_roles_are_refused(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(reverse('core:profile'), {'section': 'security'})
+        self.assertRedirects(response, f'{reverse("core:student_settings")}?tab=security', fetch_redirect_response=False)
+        self.client.force_login(self.teacher_user)
+        self.assertEqual(self.client.get(reverse('core:student_settings')).status_code, 403)

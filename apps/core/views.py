@@ -18030,6 +18030,30 @@ def student_classes_page(request):
 
 
 @erd_role_required('student')
+def student_settings(request):
+    from . import student_settings as page
+
+    student_id = request.erd_profile_id
+    tab = request.POST.get('settings_tab') if request.method == 'POST' else request.GET.get('tab')
+    tab = tab if tab in page.SETTINGS_TABS else 'personal'
+    errors = []
+    if request.method == 'POST' and tab == 'personal':
+        errors = page.save_personal_info(request, student_id)
+        if not errors:
+            return redirect(f'{reverse("core:student_settings")}?tab=personal&saved=1')
+    context = {'student': _sx_student_context(request), 'tab': tab, 'errors': errors}
+    if tab == 'personal':
+        personal = page.personal_info(student_id)
+        if errors:  # show what the student typed, not the stored values
+            personal.update({name: request.POST.get(name, '') for name in ('first_name', 'last_name')})
+            if 'phone' in request.POST:
+                personal['phone'], personal['phone_editing'] = request.POST['phone'], True
+        context['personal'] = personal
+        context['personal_readonly'] = page.readonly_fields(personal)
+    return render(request, 'student/settings/page.html', context)
+
+
+@erd_role_required('student')
 def student_exam_detail(request, exam_id):
     exam = _sx_exam_row(exam_id, request.erd_profile_id)
     if not exam:
@@ -18597,99 +18621,6 @@ def student_result_detail(request, attempt_id):
 
 
 
-def _sp_split_name(profile, user):
-    first = (profile.get('first_name') or user.first_name or '').strip()
-    last = (profile.get('last_name') or user.last_name or '').strip()
-    if not (first and last):
-        parts = (profile.get('full_name') or user.get_full_name() or user.username).strip().split()
-        if parts and not first:
-            first = parts[0]
-        if len(parts) > 1 and not last:
-            last = ' '.join(parts[1:])
-    return first or 'سارا', last or 'محمدی'
-
-
-def _sp_student_profile_context(request, page_context):
-    profile = dict(page_context.get('profile') or {})
-    if not hasattr(request, 'erd_profile_id'):
-        request.erd_profile_id = profile.get('id')
-    first_name, last_name = _sp_split_name(profile, request.user)
-    profile['first_name'] = profile.get('first_name') or first_name
-    profile['last_name'] = profile.get('last_name') or last_name
-    profile['full_name'] = profile.get('full_name') or f'{first_name} {last_name}'.strip() or request.user.username
-    profile['email'] = profile.get('email') or request.user.email or 'sara.mohammadi@example.com'
-    profile['phone'] = profile.get('phone') or '09121234567'
-
-    student = _sx_student_context(request)
-    extra = erd_row(
-        """
-        SELECT student_number, field_of_study, degree, class_group, semester, academic_status, department
-        FROM student_profiles
-        WHERE user_id = %s
-        LIMIT 1
-        """,
-        [profile.get('id') or request.erd_profile_id],
-    ) or {}
-    student.update({
-        'student_number': extra.get('student_number') or student.get('student_number') or profile.get('identifier') or '401123456',
-        'field_of_study': extra.get('field_of_study') or student.get('field_of_study') or 'پرستاری',
-        'degree': extra.get('degree') or student.get('degree') or 'کارشناسی',
-        'class_group': extra.get('class_group') or 'گروه علوم انسانی - صبح',
-        'semester': extra.get('semester') or 'ترم ۴ - بهار ۱۴۰۵',
-        'academic_status': extra.get('academic_status') or 'فعال',
-        'department': extra.get('department') or 'دانشکده پزشکی',
-    })
-
-    try:
-        results = _sx_result_rows(request.erd_profile_id)
-    except Exception:
-        results = []
-    try:
-        exams = _sx_accessible_exams(request.erd_profile_id)
-    except Exception:
-        exams = []
-    now = timezone.now()
-    completed = len([item for item in results if not item.get('is_pending')]) or 8
-    upcoming = len([item for item in exams if item.get('starts_at') and item['starts_at'] > now]) or 3
-    new_results = min(completed, 2) or 2
-
-    notifications = erd_rows(
-        """
-        SELECT title, message, type, is_read
-        FROM notifications
-        WHERE user_id = %s
-        ORDER BY is_read ASC, id DESC
-        LIMIT 6
-        """,
-        [profile.get('id') or request.erd_profile_id],
-    )
-    latest = notifications[0] if notifications else {
-        'title': 'آزمون ریاضی ۲',
-        'message': 'نتیجه آزمون منتشر شد.',
-        'type': 'exam_result',
-        'is_read': False,
-    }
-
-    sessions = [
-        {'place': 'تهران، ایران', 'time': 'هم‌اکنون', 'browser': 'Chrome', 'os': 'Windows', 'current': True},
-        {'place': 'اصفهان، ایران', 'time': '۲ ساعت پیش', 'browser': 'Chrome', 'os': 'Android', 'current': False},
-        {'place': 'شیراز، ایران', 'time': 'دیروز، ۲۱:۱۰', 'browser': 'Safari', 'os': 'MacBook', 'current': False},
-        {'place': 'مشهد، ایران', 'time': '۳ روز پیش', 'browser': 'Safari', 'os': 'iPhone', 'current': False},
-    ]
-    return {
-        **page_context,
-        'profile': profile,
-        'student': student,
-        'student_profile': student,
-        'first_name': first_name,
-        'last_name': last_name,
-        'profile_stats': {'completed': completed, 'upcoming': upcoming, 'new_results': new_results},
-        'latest_notification': latest,
-        'notifications': notifications,
-        'sessions': sessions,
-    }
-
-
 @login_required
 def profile_view(request):
     page_context = erd_profile_page_context(request.user)
@@ -18698,51 +18629,6 @@ def profile_view(request):
         return redirect('core:dashboard')
     if 'student' not in (page_context.get('roles') or []):
         return _legacy_profile_view(request)
-
-    profile = page_context['profile']
-    if not hasattr(request, 'erd_profile_id'):
-        request.erd_profile_id = profile.get('id')
-    section = request.GET.get('section') or 'personal'
-    if section == 'overview':
-        section = 'personal'
-    if section not in {'personal', 'edit', 'security', 'announcements'}:
-        section = 'personal'
-
-    if request.method == 'POST':
-        first_name = (request.POST.get('first_name') or '').strip()
-        last_name = (request.POST.get('last_name') or '').strip()
-        email = (request.POST.get('email') or '').strip()
-        phone = (request.POST.get('phone') or '').strip()
-        full_name = f'{first_name} {last_name}'.strip() or profile.get('full_name') or request.user.username
-        avatar_url = profile.get('avatar_url') or ''
-        avatar = request.FILES.get('avatar')
-        if avatar:
-            if avatar.size > 2 * 1024 * 1024:
-                messages.error(request, 'حجم تصویر پروفایل باید کمتر از ۲ مگابایت باشد.')
-                return redirect(f"{reverse('core:profile')}?section=edit")
-            if avatar.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
-                messages.error(request, 'فرمت تصویر باید JPG، PNG یا WebP باشد.')
-                return redirect(f"{reverse('core:profile')}?section=edit")
-            extension = avatar.name.rsplit('.', 1)[-1].lower() if '.' in avatar.name else 'jpg'
-            storage = FileSystemStorage(location=settings.MEDIA_ROOT / 'avatars', base_url=settings.MEDIA_URL + 'avatars/')
-            filename = storage.save(f"{profile['id']}-student.{extension}", avatar)
-            avatar_url = storage.url(filename)
-        erd_execute(
-            """
-            UPDATE profiles
-            SET full_name = %s, first_name = %s, last_name = %s, email = %s, phone = %s,
-                avatar_url = %s, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-            """,
-            [full_name, first_name, last_name, email, phone, avatar_url, profile['id']],
-        )
-        request.user.first_name = first_name
-        request.user.last_name = last_name
-        request.user.email = email
-        request.user.save(update_fields=['first_name', 'last_name', 'email'])
-        messages.success(request, 'اطلاعات پروفایل با موفقیت ذخیره شد.')
-        return redirect(f"{reverse('core:profile')}?section=personal")
-
-    context = _sp_student_profile_context(request, page_context)
-    context['section'] = section
-    return render(request, 'student/profile.html', context)
+    # the student's profile now lives on the settings page
+    old_sections = {'security': 'security', 'announcements': 'workspace'}
+    return redirect(f'{reverse("core:student_settings")}?tab={old_sections.get(request.GET.get("section"), "personal")}')

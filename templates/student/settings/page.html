@@ -1,0 +1,96 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}تنظیمات | متاکوییز{% endblock %}
+{% block content %}
+{% include 'student/_exam_shell_head.html' %}
+<style>
+  .sst{max-width:1530px;margin:0 auto;display:grid;gap:18px}
+  .sst svg{width:1.15rem;height:1.15rem;flex:none}
+  .sst-head{display:flex;align-items:center;gap:14px}.sst-head-icon{display:grid;width:56px;height:56px;place-items:center;border-radius:16px;background:#fff;color:#075fff;border:1px solid #e0e9f6;box-shadow:0 16px 34px rgba(30,55,95,.08)}.sst-head-icon svg{width:1.6rem;height:1.6rem}.sst-head h1{margin:0;font-size:1.9rem;font-weight:950}.sst-head p{margin:.2rem 0 0;color:#61708d;font-weight:850}
+  .sst-tabs{display:flex;width:100%;padding:.35rem;gap:.4rem;background:rgba(244,248,253,.9);border:1px solid var(--line);border-radius:1rem;overflow-x:auto}
+  .sst-tabs a{flex:1;display:flex;align-items:center;justify-content:center;gap:.6rem;height:3.2rem;padding:0 1.1rem;border:1px solid transparent;border-radius:.8rem;color:#54617a;font-weight:900;white-space:nowrap}
+  .sst-tabs a.is-active{background:#fff;color:var(--blue);border-color:#bfdbfe;box-shadow:0 6px 16px rgba(37,99,235,.14)}
+  .sst-card{padding:22px}.sst-card-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}.sst-card-head>svg{width:1.6rem;height:1.6rem;color:#075fff;margin-top:.15rem}.sst-card-head h2{margin:0;font-size:1.2rem;font-weight:950}.sst-card-head p{margin:.2rem 0 0;color:#61708d;font-size:.9rem;font-weight:800}
+  .sst-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}.sst-col{display:grid;gap:18px;min-width:0}
+  .sst-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+  .sst-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px}.sst-fields .is-wide{grid-column:1/-1}
+  .sst-field{display:grid;gap:8px;min-width:0}.sst-label{display:flex;align-items:center;gap:6px;color:#142858;font-weight:950;font-size:.92rem}.sst-label small{color:#8592a8;font-weight:800}
+  .sst-box{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;border:1px solid #d8e4f2;border-radius:11px;background:rgba(255,255,255,.82);color:#7a88a3}
+  .sst-box input,.sst-box select{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#07183b;font-weight:900}
+  .sst-box:focus-within{border-color:#93b4ff;box-shadow:0 0 0 3px rgba(7,95,255,.1)}
+  .sst-box.is-readonly{background:rgba(240,244,250,.9);color:#8592a8}.sst-box.is-readonly span{flex:1;min-width:0;color:#40506e;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sst-box .sst-lock{width:1rem;height:1rem;color:#a3afc2}
+  .sst-ltr{direction:ltr;text-align:left;unicode-bidi:isolate}
+  .sst-inline{display:flex;gap:10px;align-items:stretch}.sst-inline .sst-box{flex:1}
+  .sst-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border:1px solid #b7caff;border-radius:10px;background:#fff;color:#075fff;font-weight:950;cursor:pointer;white-space:nowrap}
+  .sst-btn.is-danger{border-color:#fecaca;color:#dc2626}.sst-btn.is-small{min-height:36px;padding:0 12px;font-size:.86rem}.sst-btn.is-block{width:100%}
+  .sst-btn.is-primary{border-color:transparent;background:linear-gradient(135deg,#075fff,#1267ff);color:#fff;box-shadow:0 14px 28px rgba(7,95,255,.22)}
+  .sst-note{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 14px;border-radius:10px;background:rgba(244,248,253,.95);color:#61708d;font-size:.86rem;font-weight:800}.sst-note svg{color:#075fff}
+  .sst-profile{display:grid;justify-items:center;gap:12px;padding:28px 22px;text-align:center}
+  .sst-avatar{position:relative;display:grid;width:150px;height:150px;place-items:center;border-radius:50%;background:linear-gradient(145deg,#e4edff,#f8fbff);border:1px solid #d4e2f6;color:#7c9cf5;overflow:visible}
+  .sst-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}.sst-avatar>svg{width:5rem;height:5rem;fill:currentColor;stroke:none}
+  .sst-avatar-cam{position:absolute;left:4px;bottom:8px;display:grid;width:42px;height:42px;place-items:center;border-radius:50%;border:1px solid #cddbf0;background:#fff;color:#075fff;cursor:pointer;box-shadow:0 8px 18px rgba(30,55,95,.12)}
+  .sst-photo-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .sst-photo-btn{display:inline-flex;align-items:center;gap:10px;min-height:40px;padding:0 6px 0 16px;border:1px solid #bfd3ff;border-radius:999px;background:#fff;color:#075fff;font-weight:950;cursor:pointer}.sst-photo-btn i{display:grid;width:30px;height:30px;place-items:center;border-radius:9px;background:#e8f0ff}
+  .sst-photo-hint{margin:0;color:#8592a8;font-size:.8rem;font-weight:800}
+  .sst-profile h2{margin:4px 0 0;font-size:1.45rem;font-weight:950}
+  .sst-profile .sx-chip{background:#ece9ff;color:#5b4bd6}
+  .sst-profile-meta{display:flex;align-items:flex-start;gap:10px;width:100%;margin-top:6px;padding-top:16px;border-top:1px solid #e3eaf4;color:#61708d;font-weight:850;text-align:start}.sst-profile-meta svg{color:#7a88a3;margin-top:.2rem}
+  .sst-chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 12px;border-radius:999px;background:#e8f0ff;color:#075fff;font-size:.84rem;font-weight:950;white-space:nowrap}.sst-chip.is-ok{background:#dcf8ea;color:#10a461}.sst-chip.is-muted{background:#eef2f7;color:#64748b}.sst-chip.is-wait{background:#fff1d6;color:#c27803}
+  .sst-errors{padding:14px 18px;border:1px solid #fecaca;border-radius:12px;background:#fff5f5;color:#b91c1c;font-weight:850}.sst-errors ul{margin:.4rem 0 0;padding-inline-start:1.2rem}
+  .sst-ok{padding:12px 18px;border:1px solid #bbf7d0;border-radius:12px;background:#f0fdf4;color:#15803d;font-weight:900}
+  .sst-footer{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:12px;padding:14px 18px}
+  .sst-footer .sst-btn{min-height:48px;padding:0 26px}
+  .sst-status{display:inline-flex;align-items:center;gap:8px;margin-inline-start:auto;min-height:40px;padding:0 14px;border-radius:10px;background:#eef2f7;color:#64748b;font-size:.88rem;font-weight:900}
+  .sst-status[data-dirty]{background:#fff4e0;color:#c27803}.sst-status[data-saved]{background:#dcf8ea;color:#10a461}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @media(max-width:1100px){.sst-grid,.sst-split{grid-template-columns:1fr}}
+  @media(max-width:760px){.sst-fields{grid-template-columns:1fr}.sst-tabs a{flex:none}.sst-head h1{font-size:1.45rem}.sst-footer{flex-wrap:wrap}.sst-status{margin-inline-start:0}}
+</style>
+<form class="sst" method="post" enctype="multipart/form-data" action="{% url 'core:student_settings' %}?tab={{ tab }}" data-sst-form>
+  {% csrf_token %}
+  <input type="hidden" name="settings_tab" value="{{ tab }}">
+  <header class="sst-head">
+    <span class="sst-head-icon">{% include 'teacher/_qb_icon.html' with name='settings' %}</span>
+    <div><h1>تنظیمات</h1><p>حساب و تجربه کاربری خود را مدیریت کنید.</p></div>
+  </header>
+
+  <nav class="sst-tabs" aria-label="بخش‌های تنظیمات">
+    <a class="{% if tab == 'personal' %}is-active{% endif %}" href="?tab=personal"{% if tab == 'personal' %} aria-current="page"{% endif %}>{% include 'teacher/_qb_icon.html' with name='user' %}اطلاعات فردی</a>
+  </nav>
+
+  {% if errors %}
+    <div class="sst-errors" role="alert"><b>ذخیره نشد:</b><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+  {% endif %}
+
+  {% include 'student/settings/_personal.html' %}
+
+  <footer class="sst-footer sx-card">
+    <button class="sst-btn is-primary" type="submit">{% include 'teacher/_qb_icon.html' with name='save' %}ذخیره تغییرات</button>
+    <button class="sst-btn" type="reset">انصراف</button>
+    <span class="sst-status" data-sst-status{% if request.GET.saved %} data-saved{% endif %}>{% include 'teacher/_qb_icon.html' with name='info' %}<span data-sst-status-text>{% if request.GET.saved %}تغییرات ذخیره شد.{% else %}تغییری ایجاد نشده است.{% endif %}</span></span>
+  </footer>
+</form>
+<script>
+(function () {
+  var form = document.querySelector('[data-sst-form]');
+  if (!form) return;
+  var status = form.querySelector('[data-sst-status]');
+  var text = form.querySelector('[data-sst-status-text]');
+  function markDirty(event) {
+    if (event.target.form !== form) return;  // controls that post their own form (security actions) don't count
+    status.setAttribute('data-dirty', '');
+    status.removeAttribute('data-saved');
+    text.textContent = 'تغییرات ذخیره نشده است.';
+  }
+  form.addEventListener('input', markDirty);
+  form.addEventListener('change', markDirty);
+  form.addEventListener('reset', function () {
+    status.removeAttribute('data-dirty');
+    text.textContent = 'تغییری ایجاد نشده است.';
+    form.dispatchEvent(new CustomEvent('sst:reset'));
+  });
+})();
+</script>
+{% include 'student/_exam_shell_foot.html' %}
+{% endblock %}

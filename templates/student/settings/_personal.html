@@ -1,0 +1,86 @@
+{% load core_extras %}
+{% if request.GET.saved and not errors %}<div class="sst-ok" role="status">اطلاعات فردی ذخیره شد.</div>{% endif %}
+<div class="sst-grid">
+  <div class="sst-col">
+    <section class="sst-card sx-card">
+      <header class="sst-card-head">{% include 'teacher/_qb_icon.html' with name='user' %}<div><h2>مشخصات فردی</h2><p>اطلاعات هویتی و تحصیلی شما در سامانه نمایش داده می‌شود.</p></div></header>
+      <div class="sst-fields">
+        <label class="sst-field"><span class="sst-label">نام</span><span class="sst-box">{% include 'teacher/_qb_icon.html' with name='user' %}<input name="first_name" value="{{ personal.first_name|default:'' }}" maxlength="60" required autocomplete="given-name"></span></label>
+        <label class="sst-field"><span class="sst-label">نام خانوادگی</span><span class="sst-box">{% include 'teacher/_qb_icon.html' with name='user' %}<input name="last_name" value="{{ personal.last_name|default:'' }}" maxlength="60" required autocomplete="family-name"></span></label>
+        {% for item in personal_readonly %}
+          <div class="sst-field{% if item.wide %} is-wide{% endif %}"><span class="sst-label">{{ item.label }}</span><span class="sst-box is-readonly" title="این اطلاعات را اداره آموزش ثبت می‌کند.">{% include 'teacher/_qb_icon.html' with name=item.icon %}<span>{{ item.value|default:'—'|fa_digits }}</span><svg class="sst-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></span></div>
+        {% endfor %}
+      </div>
+      <p class="sst-note">{% include 'teacher/_qb_icon.html' with name='info' %}اطلاعات تحصیلی را اداره آموزش ثبت می‌کند و از این صفحه قابل تغییر نیست.</p>
+    </section>
+
+    <section class="sst-card sx-card">
+      <header class="sst-card-head">{% include 'teacher/_qb_icon.html' with name='phone_call' %}<div><h2>اطلاعات تماس</h2><p>راه‌های ارتباطی برای اطلاع‌رسانی‌های مهم دانشگاه و سامانه.</p></div></header>
+      <div class="sst-fields">
+        <div class="sst-field"><span class="sst-label">ایمیل</span><span class="sst-box is-readonly">{% include 'teacher/_qb_icon.html' with name='mail' %}<span class="sst-ltr">{{ personal.email|default:'—' }}</span><svg class="sst-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></span></div>
+        <div class="sst-field">
+          <span class="sst-label" id="sst-phone-label">شماره تلفن همراه</span>
+          <div class="sst-inline" data-sst-phone-view{% if personal.phone_editing %} hidden{% endif %}>
+            <span class="sst-box is-readonly">{% include 'teacher/_qb_icon.html' with name='phone' %}<span class="sst-ltr">{{ personal.phone_masked|default:'ثبت نشده' }}</span></span>
+            <button type="button" class="sst-btn" data-sst-phone-edit>{% include 'teacher/_qb_icon.html' with name='edit' %}تغییر شماره</button>
+          </div>
+          <span class="sst-box" data-sst-phone-input{% if not personal.phone_editing %} hidden{% endif %}>{% include 'teacher/_qb_icon.html' with name='phone' %}<input class="sst-ltr" name="phone" value="{{ personal.phone|default:'' }}" inputmode="tel" maxlength="15" placeholder="09xxxxxxxxx" aria-labelledby="sst-phone-label" autocomplete="tel"{% if not personal.phone_editing %} disabled{% endif %}></span>
+        </div>
+      </div>
+      <p class="sst-note">{% include 'teacher/_qb_icon.html' with name='info' %}ایمیل را اداره آموزش ثبت کرده و از اینجا قابل تغییر نیست. شماره همراه برای اطلاع‌رسانی‌های مهم استفاده می‌شود.</p>
+    </section>
+  </div>
+
+  <aside class="sst-card sx-card sst-profile">
+    <div class="sst-avatar" id="sst-avatar-preview">
+      <img src="{{ personal.avatar_url|default:'' }}" alt=""{% if not personal.avatar_url %} hidden{% endif %}>
+      <svg class="sst-avatar-fallback" viewBox="0 0 24 24"{% if personal.avatar_url %} hidden{% endif %}><circle cx="12" cy="8.2" r="4.2"/><path d="M3.8 23a8.2 8.2 0 0 1 16.4 0Z"/></svg>
+      <label for="sst-avatar-input" class="sst-avatar-cam" title="تغییر تصویر پروفایل">{% include 'teacher/_qb_icon.html' with name='camera' %}<span class="sr-only">تغییر تصویر پروفایل</span></label>
+    </div>
+    <input type="file" id="sst-avatar-input" class="sst-photo-input" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif">
+    <label for="sst-avatar-input" class="sst-photo-btn">انتخاب تصویر<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></i></label>
+    <p class="sst-photo-hint">JPG، PNG، WebP یا GIF — حداکثر ۱ مگابایت</p>
+    <h2>{{ personal.first_name }} {{ personal.last_name }}</h2>
+    {% if personal.field_of_study %}<span class="sx-chip">{% include 'teacher/_qb_icon.html' with name='cap' %}دانشجوی {{ personal.field_of_study }}</span>{% endif %}
+    {% if personal.university or personal.faculty %}
+      <div class="sst-profile-meta">{% include 'teacher/_qb_icon.html' with name='building' %}<div>{% if personal.university %}<div>{{ personal.university }}</div>{% endif %}{% if personal.faculty %}<div>{{ personal.faculty }}</div>{% endif %}</div></div>
+    {% endif %}
+  </aside>
+</div>
+<script>
+(function () {
+  var form = document.querySelector('[data-sst-form]');
+  var input = document.getElementById('sst-avatar-input');
+  var preview = document.getElementById('sst-avatar-preview');
+  var image = preview.querySelector('img');
+  var icon = preview.querySelector('.sst-avatar-fallback');
+  var original = {src: image.getAttribute('src'), hasImage: !image.hidden};
+  input.addEventListener('change', function () {
+    var file = input.files && input.files[0];
+    if (!file || !/^image\//.test(file.type)) return;
+    image.src = URL.createObjectURL(file);
+    image.hidden = false;
+    icon.hidden = true;
+  });
+
+  var view = document.querySelector('[data-sst-phone-view]');
+  var box = document.querySelector('[data-sst-phone-input]');
+  var phone = box.querySelector('input');
+  var editingAtLoad = !box.hidden;
+  function showPhoneInput(editing) {
+    view.hidden = editing;
+    box.hidden = !editing;
+    phone.disabled = !editing;  // a disabled input is not posted, so the stored number stays as it is
+  }
+  document.querySelector('[data-sst-phone-edit]').addEventListener('click', function () {
+    showPhoneInput(true);
+    phone.focus();
+  });
+  form.addEventListener('sst:reset', function () {
+    image.src = original.src;
+    image.hidden = !original.hasImage;
+    icon.hidden = original.hasImage;
+    showPhoneInput(editingAtLoad);
+  });
+})();
+</script>
