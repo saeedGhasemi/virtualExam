@@ -9972,6 +9972,336 @@
     }
   }
 
+  /* Teacher "my classes" list (templates/teacher/_classes.html) */
+  .tclass {
+    @apply grid gap-5 text-right;
+  }
+
+  .tclass svg {
+    @apply h-5 w-5 shrink-0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tclass-head {
+    @apply flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .tclass-title {
+    @apply flex items-center gap-4;
+  }
+
+  .tclass-title > i {
+    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-blue-50 not-italic text-blue-600;
+  }
+
+  .tclass-title > i svg {
+    @apply h-7 w-7;
+  }
+
+  .tclass-title h1 {
+    @apply text-2xl font-black tracking-normal text-slate-950;
+  }
+
+  .tclass-title p {
+    @apply mt-1 text-sm font-bold text-slate-500;
+  }
+
+  .tclass-stats {
+    @apply grid grid-cols-3 gap-4;
+  }
+
+  .tclass-stats article,
+  .tclass-filters,
+  .tclass-card,
+  .tclass-table-card {
+    @apply min-w-0 rounded-xl border border-[#e1e8f3] bg-white shadow-[0_10px_30px_rgba(33,55,104,.05)];
+  }
+
+  .tclass-stats article {
+    @apply flex items-center justify-between gap-4 px-6 py-5;
+  }
+
+  .tclass-stats span {
+    @apply block text-sm font-bold text-slate-500;
+  }
+
+  .tclass-stats span.is-green {
+    @apply text-emerald-600;
+  }
+
+  .tclass-stats strong {
+    @apply mt-2 block text-3xl font-black leading-none text-slate-950;
+  }
+
+  .tclass-stats i {
+    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl not-italic;
+  }
+
+  .tclass-stats i svg {
+    @apply h-7 w-7;
+  }
+
+  .tclass-stats i.is-green { @apply bg-emerald-50 text-emerald-600; }
+  .tclass-stats i.is-blue { @apply bg-blue-50 text-blue-600; }
+  .tclass-stats i.is-orange { @apply bg-orange-50 text-orange-500; }
+  .tclass-filters {
+    @apply flex flex-wrap items-center gap-3 p-3;
+  }
+
+  .tclass-search,
+  .tclass-select {
+    @apply flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-slate-400;
+  }
+
+  .tclass-search {
+    @apply min-w-[220px] flex-1;
+  }
+
+  .tclass-search input,
+  .tclass-select select {
+    @apply h-full w-full min-w-0 border-0 bg-transparent p-0 text-sm font-bold text-slate-800 outline-none focus:ring-0;
+  }
+
+  .tclass-select {
+    @apply min-w-[200px];
+  }
+
+  .tclass-view-toggle {
+    @apply flex h-12 items-center gap-1 rounded-xl border border-slate-200 p-1;
+  }
+
+  .tclass-view-toggle a {
+    @apply grid h-full w-12 place-items-center rounded-lg text-slate-500 transition hover:text-blue-600;
+  }
+
+  .tclass-view-toggle a.is-active {
+    @apply bg-blue-600 text-white hover:text-white;
+  }
+
+  .tclass-grid {
+    @apply grid grid-cols-3 gap-5;
+  }
+
+  .tclass-card {
+    @apply flex flex-col gap-4 p-5;
+  }
+
+  .tclass-card-head {
+    @apply flex items-start gap-4;
+  }
+
+  .tclass-icon {
+    @apply grid h-16 w-16 shrink-0 place-items-center rounded-xl not-italic;
+  }
+
+  .tclass-icon svg {
+    @apply h-8 w-8;
+  }
+
+  .tclass-icon.is-tone-1 { @apply bg-blue-50 text-blue-600; }
+  .tclass-icon.is-tone-2 { @apply bg-rose-50 text-rose-500; }
+  .tclass-icon.is-tone-3 { @apply bg-fuchsia-50 text-fuchsia-500; }
+  .tclass-icon.is-tone-4 { @apply bg-violet-50 text-violet-600; }
+  .tclass-icon.is-tone-5 { @apply bg-emerald-50 text-emerald-600; }
+  .tclass-icon.is-tone-6 { @apply bg-indigo-50 text-indigo-500; }
+
+  .tclass-card-title {
+    @apply min-w-0 flex-1;
+  }
+
+  .tclass-card-title > div {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .tclass-card-title h2 {
+    @apply text-lg font-black text-slate-950;
+  }
+
+  .tclass-card-title h2 a:hover {
+    @apply text-blue-600;
+  }
+
+  .tclass-card-title p {
+    @apply mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-slate-500;
+  }
+
+  .tclass-card-title p span {
+    @apply inline-flex items-center gap-1;
+  }
+
+  .tclass-card-title p span + span {
+    @apply border-r border-slate-200 pr-3;
+  }
+
+  .tclass-card-title p svg {
+    @apply h-4 w-4;
+  }
+
+  .tclass-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-black;
+  }
+
+  .tclass-badge b {
+    @apply h-1.5 w-1.5 rounded-full bg-current;
+  }
+
+  .tclass-badge.is-ok { @apply bg-emerald-50 text-emerald-600; }
+  .tclass-badge.is-muted { @apply bg-slate-100 text-slate-500; }
+
+  .tclass-menu {
+    @apply relative shrink-0;
+  }
+
+  .tclass-menu summary {
+    @apply grid h-8 w-8 cursor-pointer list-none place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700;
+  }
+
+  .tclass-menu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .tclass-menu > div {
+    @apply absolute left-0 top-9 z-10 grid w-40 rounded-xl border border-slate-100 bg-white p-1.5 shadow-lg;
+  }
+
+  .tclass-menu > div a {
+    @apply rounded-lg px-3 py-2 text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700;
+  }
+
+  .tclass-card-stats {
+    @apply flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-slate-500;
+  }
+
+  .tclass-card-stats > span {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .tclass-card-stats > span b {
+    @apply font-black text-slate-800;
+  }
+
+  .tclass-card-stats svg {
+    @apply text-blue-500;
+  }
+
+  .tclass-faces {
+    @apply flex items-center;
+  }
+
+  .tclass-faces img,
+  .tclass-faces b,
+  .tclass-faces em {
+    @apply -ml-2 grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-slate-200 object-cover text-xs font-black not-italic text-slate-600;
+  }
+
+  .tclass-faces em {
+    @apply w-auto min-w-[2rem] bg-blue-50 px-1.5 text-blue-700;
+  }
+
+  .tclass-card-event {
+    @apply flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700;
+  }
+
+  .tclass-card-event span {
+    @apply flex-1;
+  }
+
+  .tclass-card-event svg {
+    @apply text-blue-500;
+  }
+
+  .tclass-card-event svg.is-chevron {
+    @apply h-4 w-4 text-slate-400;
+  }
+
+  .tclass-card-actions {
+    @apply mt-auto flex items-center gap-3;
+  }
+
+  .tclass-card-actions a {
+    @apply grid h-11 w-14 shrink-0 place-items-center rounded-lg border border-slate-200 text-blue-600 transition hover:border-blue-400 hover:bg-blue-50;
+  }
+
+  .tclass-card-actions a.is-primary {
+    @apply flex w-auto flex-1 items-center justify-center gap-2 border-blue-600 bg-blue-600 text-sm font-black text-white hover:bg-blue-700;
+  }
+
+  .tclass-table-wrap {
+    @apply overflow-x-auto;
+  }
+
+  .tclass-table {
+    @apply w-full min-w-[900px] border-collapse text-right text-sm;
+  }
+
+  .tclass-table th {
+    @apply h-11 border-b border-slate-100 bg-slate-50/80 px-4 text-xs font-black text-slate-500;
+  }
+
+  .tclass-table td {
+    @apply h-14 whitespace-nowrap border-b border-slate-100 px-4 font-bold text-slate-600;
+  }
+
+  .tclass-table td.is-title {
+    @apply font-black text-slate-900;
+  }
+
+  .tclass-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .tclass-link,
+  .tclass-empty a {
+    @apply font-black text-blue-600;
+  }
+
+  .tclass-muted {
+    @apply text-slate-400;
+  }
+
+  .tclass-footer {
+    @apply flex flex-wrap items-center justify-between gap-3 text-sm font-bold text-slate-500;
+  }
+
+  .tclass-pages {
+    @apply flex items-center gap-2;
+  }
+
+  .tclass-pages a,
+  .tclass-pages span {
+    @apply rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600;
+  }
+
+  .tclass-pages a {
+    @apply text-blue-700 hover:border-blue-400;
+  }
+
+  .tclass-empty {
+    @apply rounded-xl border border-dashed border-slate-200 bg-white py-10 text-center text-sm font-bold text-slate-500;
+  }
+
+  @media (max-width: 1280px) {
+    .tclass-grid,
+    .tclass-stats {
+      @apply grid-cols-2;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .tclass-grid,
+    .tclass-stats {
+      @apply grid-cols-1;
+    }
+
+    .tclass-select {
+      @apply min-w-0 flex-1;
+    }
+  }
+
   .teacher-two-col,
   .teacher-review-layout,
   .teacher-import-grid {
@@ -10091,6 +10421,10 @@
 
   .texams-notice a {
     @apply font-black text-blue-700;
+  }
+
+  .texams-actions a + a {
+    @apply ms-3;
   }
 
   .teacher-detail-title {
@@ -10664,16 +10998,25 @@
     @apply absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-blue-700;
   }
 
+  /* one row of all question types; scrolls sideways instead of wrapping on narrow screens */
   .question-type-strip {
-    @apply mt-4 grid grid-cols-8 overflow-hidden rounded-xl border border-blue-100 bg-blue-50/30;
+    @apply mt-4 flex overflow-x-auto rounded-xl border border-blue-100 bg-blue-50/30;
   }
 
   .question-type-strip a {
-    @apply grid min-h-[92px] place-items-center gap-2 border-l border-blue-100 bg-white/55 px-3 text-center text-sm font-black text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 last:border-l-0;
+    @apply flex min-w-[88px] flex-1 flex-col items-center justify-center gap-2 border-l border-blue-100 bg-white/55 px-2 py-3 text-center text-xs font-black leading-5 text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 last:border-l-0;
   }
 
   .question-type-strip b {
-    @apply text-2xl font-black text-blue-600;
+    @apply grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600 transition;
+  }
+
+  .question-type-strip b svg {
+    @apply h-5 w-5;
+  }
+
+  .question-type-strip a:hover b {
+    @apply bg-blue-100;
   }
 
   .question-type-strip a.is-active {
@@ -10681,7 +11024,7 @@
   }
 
   .question-type-strip a.is-active b {
-    @apply text-white;
+    @apply bg-white/20 text-white;
   }
 
   .question-bank-table {
@@ -17303,18 +17646,6 @@
 
   .class-action-row {
     @apply flex flex-row-reverse flex-wrap items-center justify-end gap-4;
-  }
-
-  .class-page-title {
-    @apply mb-2 grid justify-items-end gap-2 text-right;
-  }
-
-  .class-page-title small {
-    @apply text-sm font-black text-blue-600;
-  }
-
-  .class-page-title h1 {
-    @apply text-4xl font-black tracking-normal text-slate-950;
   }
 
   .class-btn {

@@ -70,46 +70,7 @@
             </aside>
         </div>
     {% elif page == 'courses' %}
-        <section class="class-reference-page">
-            <div class="class-page-title">
-                <small>سامانه آزمون آنلاین</small>
-                <h1>کلاس‌های من</h1>
-            </div>
-            <div class="class-action-row">
-                <a class="class-btn is-primary" href="{% url 'core:teacher_exam_create' %}">+ آزمون جدید</a>
-                <a class="class-btn" href="{% url 'core:teacher_question_create' %}">+ سوال جدید</a>
-            </div>
-            <form class="class-filter-card" method="get">
-                <label class="class-search"><input name="q" value="{{ request.GET.q }}" placeholder="جستجو در کلاس‌ها..."></label>
-                <select name="term"><option>نیمسال دوم ۱۴۰۴-۱۴۰۳</option></select>
-                <select name="status"><option>همه وضعیت‌ها</option></select>
-            </form>
-            <div class="class-stat-grid">
-                <article><i class="is-blue">●</i><span>گروه فعال</span><strong>{{ teacher_profile.active_courses|fa_digits }}</strong></article>
-                <article><i class="is-violet">▥</i><span>درس</span><strong>{{ teacher_stats.courses|fa_digits }}</strong></article>
-                <article><i class="is-sky">♙</i><span>دانشجو</span><strong>{{ teacher_stats.students|fa_digits }}</strong></article>
-                <article><i class="is-green">▤</i><span>آزمون برگزار شده</span><strong>{{ teacher_stats.exams|fa_digits }}</strong></article>
-            </div>
-            <section class="class-table-card">
-                <table class="class-table">
-                    <thead><tr><th>درس</th><th>شماره گروه</th><th>نیمسال تحصیلی</th><th>تعداد دانشجو</th><th>آزمون‌ها</th><th>وضعیت</th><th>آخرین فعالیت</th><th>عملیات</th></tr></thead>
-                    <tbody>
-                        {% for course in courses %}
-                        <tr>
-                            <td>{{ course.course_name }}</td>
-                            <td>{{ course.group_code|fa_digits }}</td>
-                            <td>{{ course.semester }} {{ course.academic_year|fa_digits }}</td>
-                            <td>{{ course.students_count|fa_digits }}</td>
-                            <td>{{ course.exams_count|fa_digits }}</td>
-                            <td><span class="class-badge {% if course.is_active %}is-ok{% else %}is-muted{% endif %}">{% if course.is_active %}فعال{% else %}غیرفعال{% endif %}</span></td>
-                            <td>{{ course.latest_activity|default:"۱۴۰۴/۰۳/۲۰"|fa_digits }}</td>
-                            <td><a class="class-link" href="{% url 'core:teacher_course_detail' course.id %}">جزئیات</a></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </section>
-        </section>
+        {% include 'teacher/_classes.html' %}
     {% elif page == 'course_detail' %}
         <section class="class-reference-page class-detail-page">
             <div class="class-action-row">
@@ -334,18 +295,18 @@
             </form>
             {% with qf=question_filters qenc=question_filters.q|urlencode %}{% with base="?q="|add:qenc|add:"&difficulty="|add:qf.difficulty|add:"&status="|add:qf.status|add:"&type=" %}
             <nav class="question-type-strip" aria-label="فیلتر بر اساس نوع سؤال">
-                <a href="{{ base }}{% if qf.type == 'single' %}all{% else %}single{% endif %}" class="{% if qf.type == 'single' %}is-active{% endif %}" {% if qf.type == 'single' %}aria-current="true"{% endif %}><b>☷</b><span>چهارگزینه‌ای</span></a>
-                <a href="{{ base }}{% if qf.type == 'multi' %}all{% else %}multi{% endif %}" class="{% if qf.type == 'multi' %}is-active{% endif %}" {% if qf.type == 'multi' %}aria-current="true"{% endif %}><b>☑</b><span>چندگزینه‌ای</span></a>
-                <a href="{{ base }}{% if qf.type == 'true_false' %}all{% else %}true_false{% endif %}" class="{% if qf.type == 'true_false' %}is-active{% endif %}" {% if qf.type == 'true_false' %}aria-current="true"{% endif %}><b>⊗</b><span>درست/نادرست</span></a>
-                <a href="{{ base }}{% if qf.type == 'short_answer' %}all{% else %}short_answer{% endif %}" class="{% if qf.type == 'short_answer' %}is-active{% endif %}" {% if qf.type == 'short_answer' %}aria-current="true"{% endif %}><b>▭</b><span>پاسخ کوتاه</span></a>
-                <a href="{{ base }}{% if qf.type == 'essay' %}all{% else %}essay{% endif %}" class="{% if qf.type == 'essay' %}is-active{% endif %}" {% if qf.type == 'essay' %}aria-current="true"{% endif %}><b>✎</b><span>تشریحی</span></a>
-                <a href="{{ base }}{% if qf.type == 'fill_blank' %}all{% else %}fill_blank{% endif %}" class="{% if qf.type == 'fill_blank' %}is-active{% endif %}" {% if qf.type == 'fill_blank' %}aria-current="true"{% endif %}><b>___</b><span>جای‌خالی</span></a>
-                <a href="{{ base }}{% if qf.type == 'matching' %}all{% else %}matching{% endif %}" class="{% if qf.type == 'matching' %}is-active{% endif %}" {% if qf.type == 'matching' %}aria-current="true"{% endif %}><b>↔</b><span>تطبیقی</span></a>
-                <a href="{{ base }}{% if qf.type == 'ordering' %}all{% else %}ordering{% endif %}" class="{% if qf.type == 'ordering' %}is-active{% endif %}" {% if qf.type == 'ordering' %}aria-current="true"{% endif %}><b>123</b><span>ترتیب‌گذاری</span></a>
-                <a href="{{ base }}{% if qf.type == 'numeric' %}all{% else %}numeric{% endif %}" class="{% if qf.type == 'numeric' %}is-active{% endif %}" {% if qf.type == 'numeric' %}aria-current="true"{% endif %}><b>#</b><span>پاسخ عددی</span></a>
-                <a href="{{ base }}{% if qf.type == 'matrix' %}all{% else %}matrix{% endif %}" class="{% if qf.type == 'matrix' %}is-active{% endif %}" {% if qf.type == 'matrix' %}aria-current="true"{% endif %}><b>▦</b><span>ماتریسی</span></a>
-                <a href="{{ base }}{% if qf.type == 'image_label' %}all{% else %}image_label{% endif %}" class="{% if qf.type == 'image_label' %}is-active{% endif %}" {% if qf.type == 'image_label' %}aria-current="true"{% endif %}><b>◉</b><span>نشانه‌گذاری تصویر</span></a>
-                <a href="{{ base }}{% if qf.type == 'media_response' %}all{% else %}media_response{% endif %}" class="{% if qf.type == 'media_response' %}is-active{% endif %}" {% if qf.type == 'media_response' %}aria-current="true"{% endif %}><b>▶</b><span>صوتی/ویدئویی</span></a>
+                <a href="{{ base }}{% if qf.type == 'single' %}all{% else %}single{% endif %}" class="{% if qf.type == 'single' %}is-active{% endif %}" {% if qf.type == 'single' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="single" %}</b><span>چهارگزینه‌ای</span></a>
+                <a href="{{ base }}{% if qf.type == 'multi' %}all{% else %}multi{% endif %}" class="{% if qf.type == 'multi' %}is-active{% endif %}" {% if qf.type == 'multi' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="multi" %}</b><span>چندگزینه‌ای</span></a>
+                <a href="{{ base }}{% if qf.type == 'true_false' %}all{% else %}true_false{% endif %}" class="{% if qf.type == 'true_false' %}is-active{% endif %}" {% if qf.type == 'true_false' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="true_false" %}</b><span>درست/نادرست</span></a>
+                <a href="{{ base }}{% if qf.type == 'short_answer' %}all{% else %}short_answer{% endif %}" class="{% if qf.type == 'short_answer' %}is-active{% endif %}" {% if qf.type == 'short_answer' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="short_answer" %}</b><span>پاسخ کوتاه</span></a>
+                <a href="{{ base }}{% if qf.type == 'essay' %}all{% else %}essay{% endif %}" class="{% if qf.type == 'essay' %}is-active{% endif %}" {% if qf.type == 'essay' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="essay" %}</b><span>تشریحی</span></a>
+                <a href="{{ base }}{% if qf.type == 'fill_blank' %}all{% else %}fill_blank{% endif %}" class="{% if qf.type == 'fill_blank' %}is-active{% endif %}" {% if qf.type == 'fill_blank' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="fill_blank" %}</b><span>جای‌خالی</span></a>
+                <a href="{{ base }}{% if qf.type == 'matching' %}all{% else %}matching{% endif %}" class="{% if qf.type == 'matching' %}is-active{% endif %}" {% if qf.type == 'matching' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="matching" %}</b><span>تطبیقی</span></a>
+                <a href="{{ base }}{% if qf.type == 'ordering' %}all{% else %}ordering{% endif %}" class="{% if qf.type == 'ordering' %}is-active{% endif %}" {% if qf.type == 'ordering' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="ordering" %}</b><span>ترتیب‌گذاری</span></a>
+                <a href="{{ base }}{% if qf.type == 'numeric' %}all{% else %}numeric{% endif %}" class="{% if qf.type == 'numeric' %}is-active{% endif %}" {% if qf.type == 'numeric' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="numeric" %}</b><span>پاسخ عددی</span></a>
+                <a href="{{ base }}{% if qf.type == 'matrix' %}all{% else %}matrix{% endif %}" class="{% if qf.type == 'matrix' %}is-active{% endif %}" {% if qf.type == 'matrix' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="matrix" %}</b><span>ماتریسی</span></a>
+                <a href="{{ base }}{% if qf.type == 'image_label' %}all{% else %}image_label{% endif %}" class="{% if qf.type == 'image_label' %}is-active{% endif %}" {% if qf.type == 'image_label' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="image_label" %}</b><span>نشانه‌گذاری تصویر</span></a>
+                <a href="{{ base }}{% if qf.type == 'media_response' %}all{% else %}media_response{% endif %}" class="{% if qf.type == 'media_response' %}is-active{% endif %}" {% if qf.type == 'media_response' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="media_response" %}</b><span>صوتی/ویدئویی</span></a>
             </nav>
             {% endwith %}{% endwith %}
             <table class="teacher-table question-bank-table">
@@ -700,7 +661,7 @@
                                     <td>{{ exam.question_count|fa_digits }}</td>
                                     <td>{{ exam.submitted|fa_digits }}{% if exam.assigned %} / {{ exam.assigned|fa_digits }}{% endif %}</td>
                                     <td><span class="teacher-badge {{ exam.status_tone }}">{{ exam.status_label }}</span></td>
-                                    <td>{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% else %}<span class="texams-muted">-</span>{% endif %}</td>
+                                    <td class="texams-actions">{% if exam.editable %}<a href="{% url 'core:teacher_exam_edit' exam.id %}">ویرایش</a>{% endif %}{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% endif %}{% if not exam.editable and not exam.pending_reviews %}<span class="texams-muted">-</span>{% endif %}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>

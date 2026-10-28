@@ -2493,6 +2493,74 @@ class TeacherExamListTests(_ScopedOrgFixture):
         self.assertEqual(_teacher_exam_status({'lifecycle': ''}, now)[0], 'پیش‌نویس')
 
 
+class TeacherClassListTests(_ScopedOrgFixture):
+    """صفحه‌ی «کلاس‌های من» فقط گروه‌های خود استاد (مالک یا هم‌تدریس) را با آمار واقعی، جستجو، فیلتر و صفحه‌بندی نشان می‌دهد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def _get(self, **params):
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:teacher_courses'), params)
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def _group(self, name, teacher_id=None, **columns):
+        group_id = str(uuid.uuid4())
+        columns = {'academic_year': '1404', **columns}
+        _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name'] + list(columns),
+                [group_id, teacher_id or self.teacher_in_id, self.course_in_id, name] + list(columns.values()))
+        return group_id
+
+    def _member(self, group_id, student_id, name):
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), group_id, student_id, name, '1', '1'])
+
+    def test_lists_own_and_co_taught_groups_with_real_figures(self):
+        shared_id = self._group('کلاس هم‌تدریس', teacher_id=self.teacher_out_id)
+        _insert('group_teachers', ['group_id', 'teacher_id'], [shared_id, self.teacher_in_id])
+        self._member(self.group_in_id, self.student_in_id, 'دانشجوی الف')
+        self._member(shared_id, self.student_in_id, 'دانشجوی الف')
+        self._member(shared_id, self.student_out_id, 'دانشجوی ب')
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), self.exam_in_id, self.group_in_id])
+        response = self._get()
+        rows = {row['course_name']: row for row in response.context['class_list']['rows']}
+        self.assertEqual(set(rows), {'درس داخل محدوده', 'کلاس هم‌تدریس'})
+        self.assertEqual((rows['درس داخل محدوده']['students_count'], rows['درس داخل محدوده']['exams_count']), (1, 1))
+        self.assertEqual(rows['کلاس هم‌تدریس']['students_count'], 2)
+        self.assertEqual(response.context['class_list']['summary']['students'], 2)  # distinct across classes
+        page = response.content.decode()
+        self.assertNotIn('درس خارج محدوده', page)
+        for leftover in ('مبانی پرستاری', 'فارماکولوژی', '۱۴۰۴/۰۳/۲۰'):
+            self.assertNotIn(leftover, page)
+
+    def test_search_term_and_status_filters(self):
+        self._group('فیزیولوژی پایه', semester='اول', status='active')
+        self._group('فیزیولوژی پیشرفته', semester='دوم', status='draft')
+        self._group('آناتومی', academic_year='1403', semester='دوم', is_active=False)
+        names = lambda response: {row['course_name'] for row in response.context['class_list']['rows']}
+        self.assertEqual(names(self._get(q='فیزیولوژی')), {'فیزیولوژی پایه', 'فیزیولوژی پیشرفته'})
+        self.assertEqual(names(self._get(term='1404|دوم')), {'فیزیولوژی پیشرفته'})
+        # the fixture group keeps the column default status 'draft', as on the admin groups page
+        self.assertEqual(names(self._get(status='inactive')), {'فیزیولوژی پیشرفته', 'آناتومی', 'درس داخل محدوده'})
+        self.assertNotIn('آناتومی', names(self._get(status='active')))
+        self.assertIn('فیزیولوژی پایه', names(self._get(term='9999|bogus', status='bogus')))  # unknown filters fall back to all
+        self.assertIn('کلاسی با این جستجو یا فیلتر پیدا نشد', self._get(q='ناموجود').content.decode())
+
+    def test_pagination_and_list_view(self):
+        for index in range(13):
+            self._group(f'کلاس شماره {index}')
+        first, second = self._get(), self._get(page='2')
+        self.assertEqual(first.context['class_list']['total'], 14)
+        self.assertEqual(len(first.context['class_list']['rows']), 12)
+        self.assertEqual(len(second.context['class_list']['rows']), 2)
+        self.assertIn('صفحه ۱ از ۲', first.content.decode())
+        self.assertIn('class="tclass-table"', self._get(view='list').content.decode())
+
+
 class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
     """صفحه‌ی ویرایش آزمون مدیر آموزشی: فهرست‌ها و هر شناسه‌ی ارسالی باید داخل محدوده‌ی او باشد."""
 
@@ -2532,6 +2600,7 @@ class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute('SELECT COUNT(*) FROM exam_assignments WHERE exam_id = %s', [self.exam_in_id])
             self.assertEqual(cursor.fetchone()[0], 2)
+
 
 class TeacherExamReportTests(_ScopedOrgFixture):
     """صفحه‌های «نتایج» و «پایش زنده» استاد: داده‌ی واقعی آزمون خود او، و ۴۰۴ برای آزمون استاد دیگر."""
@@ -2587,6 +2656,7 @@ class TeacherExamReportTests(_ScopedOrgFixture):
         for name in ('core:teacher_results', 'core:teacher_monitoring'):
             self.assertEqual(self.client.get(reverse(name), {'exam': self.exam_out_id}).status_code, 404)
 
+
 class StudentExamAccessFallbackTests(_ScopedOrgFixture):
     """دانشجو با دانستن شناسه نباید به آزمون دیگران برسد؛ قبلاً هر دو تابع دسترسی بدون شرط به همه‌ی آزمون‌ها برمی‌گشتند."""
 
@@ -2615,6 +2685,7 @@ class StudentExamAccessFallbackTests(_ScopedOrgFixture):
                 [str(uuid.uuid4()), self.exam_out_id, self.student_in_id, timezone.now(), 'submitted'])
         self.assertIsNotNone(_sx_exam_row(self.exam_out_id, self.student_in_id))
         self.assertIsNone(_sx_exam_row(self.exam_out_id, self.student_out_id))
+
 
 class UnassignedExamAccessTests(_ScopedOrgFixture):
     """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""
@@ -2655,3 +2726,87 @@ class UnassignedExamAccessTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute('SELECT group_id FROM exam_assignments WHERE exam_id = %s', [exam_id])
             self.assertEqual([row[0] for row in cursor.fetchall()], [self.group_in_id])
+
+
+class TeacherExamEditTests(_ScopedOrgFixture):
+    """ویرایش آزمون استاد با همان ویزارد: فقط آزمون خودش، فقط تا پیش از انتشار و شرکت دانشجو."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def setUp(self):
+        self.client.force_login(self.teacher_user)
+        self.client.post(reverse('core:teacher_exam_create'), {
+            'title': 'آزمون قابل ویرایش', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
+            'question_ids': [self.question_in_id, self.question_in2_id], 'duration_minutes': '60',
+            'start_at': '2026-11-10T09:00', 'tags': 'قلب، عروق', 'publish_choice': 'submit',
+        })
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM exams WHERE title = 'آزمون قابل ویرایش'")
+            self.exam_id = cursor.fetchone()[0]
+        self.url = reverse('core:teacher_exam_edit', args=[self.exam_id])
+
+    def _rows(self, sql):
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [self.exam_id])
+            return cursor.fetchall()
+
+    def test_get_prefills_wizard_with_saved_exam(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        initial = response.context['wizard_initial']
+        self.assertEqual(initial['fields']['title'], 'آزمون قابل ویرایش')
+        self.assertEqual(initial['fields']['start_at'], '2026-11-10T09:00')
+        self.assertEqual(initial['question_ids'], [self.question_in_id, self.question_in2_id])
+        self.assertEqual(initial['group_ids'], [self.group_in_id])
+        self.assertEqual(initial['tags'], ['قلب', 'عروق'])
+        self.assertEqual(initial['publish_choice'], 'submit')
+        self.assertIn('id="wizard-initial"', response.content.decode())
+        self.assertIn('ویرایش آزمون', response.content.decode())
+
+    def test_post_updates_in_place_and_replaces_children(self):
+        response = self.client.post(self.url, {
+            'title': 'آزمون ویرایش‌شده', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
+            'question_ids': [self.question_in2_id], 'duration_minutes': '45', 'publish_choice': 'draft',
+        })
+        self.assertRedirects(response, reverse('core:teacher_exams'), fetch_redirect_response=False)
+        self.assertEqual(self._rows('SELECT title, duration_minutes, lifecycle_status, teacher_id FROM exams WHERE id = %s'),
+                         [('آزمون ویرایش‌شده', 45, 'draft', self.teacher_in_id)])
+        self.assertEqual(self._rows('SELECT question_id FROM exam_questions WHERE exam_id = %s'), [(self.question_in2_id,)])
+        self.assertEqual(self._rows('SELECT group_id FROM exam_assignments WHERE exam_id = %s'), [(self.group_in_id,)])
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM exams WHERE title LIKE 'آزمون%%ویرایش%%'")
+            self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_out_of_scope_ids_rejected_on_edit(self):
+        response = self.client.post(self.url, {
+            'title': 'x', 'course_id': self.course_in_id, 'group_ids': [self.group_out_id], 'question_ids': [self.question_in_id],
+        })
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self._rows('SELECT title FROM exams WHERE id = %s'), [('آزمون قابل ویرایش',)])
+
+    def test_published_or_started_exam_is_not_editable(self):
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [str(uuid.uuid4()), self.exam_id, self.student_in_id, timezone.now(), 'in_progress'])
+        self.assertRedirects(self.client.get(self.url), reverse('core:teacher_exams'), fetch_redirect_response=False)
+        self.assertRedirects(self.client.post(self.url, {'title': 'x'}), reverse('core:teacher_exams'), fetch_redirect_response=False)
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET is_published = %s, lifecycle_status = %s WHERE id = %s', [True, 'published', self.exam_out_id])
+        self.assertEqual(self.client.get(reverse('core:teacher_exam_edit', args=[self.exam_out_id])).status_code, 404)
+
+    def test_exam_list_links_to_edit_only_when_editable(self):
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET is_published = %s, lifecycle_status = %s WHERE id = %s', [True, 'published', self.exam_in_id])
+        page = self.client.get(reverse('core:teacher_exams')).content.decode()
+        self.assertIn(self.url, page)
+        self.assertNotIn(reverse('core:teacher_exam_edit', args=[self.exam_in_id]), page)
+
+    def test_exam_with_items_outside_teacher_scope_is_not_editable(self):
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                [str(uuid.uuid4()), self.exam_id, self.question_out_id, 1, 9])
+        response = self.client.get(self.url)
+        self.assertRedirects(response, reverse('core:teacher_exams'), fetch_redirect_response=False)
+        self.assertEqual(len(self._rows('SELECT question_id FROM exam_questions WHERE exam_id = %s')), 3)  # nothing dropped

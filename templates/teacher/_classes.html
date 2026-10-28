@@ -1,0 +1,124 @@
+{% load core_extras %}
+{% with cl=class_list %}
+<div class="tclass">
+    <header class="tclass-head">
+        <div class="tclass-title">
+            <i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg></i>
+            <div>
+                <h1>کلاس‌های من</h1>
+                <p>مدیریت کلاس‌ها، دانشجویان و آزمون‌ها</p>
+            </div>
+        </div>
+    </header>
+
+    <div class="tclass-stats">
+        <article><div><span class="is-green">کلاس فعال</span><strong>{{ cl.summary.active_classes|fa_digits }}</strong></div><i class="is-green" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m2 9 10-5 10 5-10 5Z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5"/></svg></i></article>
+        <article><div><span>دانشجویان</span><strong>{{ cl.summary.students|default:0|fa_digits }}</strong></div><i class="is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg></i></article>
+        <article><div><span>آزمون برگزارشده</span><strong>{{ cl.summary.finished_exams|fa_digits }}</strong></div><i class="is-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></i></article>    </div>
+
+    <form class="tclass-filters" method="get" action="{% url 'core:teacher_courses' %}">
+        <input type="hidden" name="view" value="{{ cl.view }}">
+        <label class="tclass-search"><span class="sr-only">جستجو</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ cl.query }}" maxlength="100" placeholder="جستجوی نام درس یا کد کلاس ..."></label>
+        <label class="tclass-select"><span class="sr-only">نیمسال</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><select name="term" onchange="this.form.submit()"><option value="">همه نیمسال‌ها</option>{% for term in cl.terms %}<option value="{{ term.value }}"{% if term.value == cl.term %} selected{% endif %}>{{ term.label }}</option>{% endfor %}</select></label>
+        <label class="tclass-select"><span class="sr-only">وضعیت</span><select name="status" onchange="this.form.submit()">{% for key, label in cl.filters.items %}<option value="{{ key }}"{% if key == cl.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <nav class="tclass-view-toggle" aria-label="نحوه نمایش">
+            <a href="{% query_url view='list' page='' %}" class="{% if cl.view == 'list' %}is-active{% endif %}" aria-label="نمایش فهرستی" title="نمایش فهرستی"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></a>
+            <a href="{% query_url view='grid' page='' %}" class="{% if cl.view == 'grid' %}is-active{% endif %}" aria-label="نمایش کارتی" title="نمایش کارتی"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></a>
+        </nav>
+    </form>
+
+    {% if cl.rows %}
+        {% if cl.view == 'list' %}
+            <section class="tclass-table-card">
+                <div class="tclass-table-wrap">
+                    <table class="tclass-table">
+                        <thead><tr><th>درس</th><th>کد</th><th>گروه</th><th>نیمسال</th><th>دانشجو</th><th>آزمون</th><th>آزمون بعدی / آخرین آزمون</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                        <tbody>
+                            {% for row in cl.rows %}
+                                <tr>
+                                    <td class="is-title"><a href="{% url 'core:teacher_course_detail' row.id %}">{{ row.course_name }}</a></td>
+                                    <td>{{ row.course_code|default:"-" }}</td>
+                                    <td>{{ row.group_code|default:"-"|fa_digits }}</td>
+                                    <td>{{ row.term_label|default:"-" }}</td>
+                                    <td>{{ row.students_count|fa_digits }}</td>
+                                    <td>{{ row.exams_count|fa_digits }}</td>
+                                    <td>{% if row.next_exam_label %}بعدی: {{ row.next_exam_label }}{% elif row.last_exam_label %}<span class="tclass-muted">آخرین: {{ row.last_exam_label }}</span>{% else %}<span class="tclass-muted">-</span>{% endif %}</td>
+                                    <td><span class="tclass-badge {% if row.is_active %}is-ok{% else %}is-muted{% endif %}">{{ row.status_label }}</span></td>
+                                    <td><a class="tclass-link" href="{% url 'core:teacher_course_detail' row.id %}">ورود به کلاس</a></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        {% else %}
+            <div class="tclass-grid">
+                {% for row in cl.rows %}
+                    <article class="tclass-card">
+                        <header class="tclass-card-head">
+                            <i class="tclass-icon is-tone-{% cycle 1 2 3 4 5 6 %}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2Z"/><path d="M4 20a2 2 0 0 0 2 2h13v-4M9 7h6M9 11h4"/></svg></i>
+                            <div class="tclass-card-title">
+                                <div>
+                                    <h2><a href="{% url 'core:teacher_course_detail' row.id %}">{{ row.course_name }}</a></h2>
+                                    <span class="tclass-badge {% if row.is_active %}is-ok{% else %}is-muted{% endif %}"><b aria-hidden="true"></b>{{ row.status_label }}</span>
+                                </div>
+                                <p>
+                                    <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>گروه {{ row.group_code|default:"-"|fa_digits }}</span>
+                                    {% if row.course_code %}<span>کد: {{ row.course_code }}</span>{% endif %}
+                                    {% if row.term_label %}<span>{{ row.term_label }}</span>{% endif %}
+                                </p>
+                            </div>
+                            <details class="tclass-menu">
+                                <summary aria-label="گزینه‌های بیشتر"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></summary>
+                                <div>
+                                    <a href="{% url 'core:teacher_course_detail' row.id %}">نمای کلی</a>
+                                    <a href="{% url 'core:teacher_group_students' row.id %}">دانشجویان</a>
+                                    <a href="{% url 'core:teacher_course_detail' row.id %}?tab=exams">آزمون‌ها</a>
+                                    <a href="{% url 'core:teacher_course_detail' row.id %}?tab=info">اطلاعات کلاس</a>
+                                </div>
+                            </details>
+                        </header>
+
+                        <div class="tclass-card-stats">
+                            {% if row.faces %}
+                                <span class="tclass-faces">
+                                    {% for face in row.faces %}{% if face.avatar_url %}<img src="{{ face.avatar_url }}" alt="" title="{{ face.name }}">{% else %}<b title="{{ face.name }}">{{ face.initial }}</b>{% endif %}{% endfor %}
+                                    {% if row.more_students %}<em>+{{ row.more_students|fa_digits }}</em>{% endif %}
+                                </span>
+                            {% endif %}
+                            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg><b>{{ row.students_count|fa_digits }}</b> دانشجو</span>
+                            <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h4"/></svg>{{ row.exams_count|fa_digits }} آزمون</span>
+                        </div>
+
+                        <a class="tclass-card-event" href="{% url 'core:teacher_course_detail' row.id %}?tab=exams">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+                            <span>{% if row.next_exam_label %}آزمون بعدی: {{ row.next_exam_label }}{% elif row.last_exam_label %}آخرین آزمون: {{ row.last_exam_label }}{% else %}هنوز آزمونی برای این کلاس ثبت نشده{% endif %}</span>
+                            <svg class="is-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+                        </a>
+
+                        <footer class="tclass-card-actions">
+                            <a class="is-primary" href="{% url 'core:teacher_course_detail' row.id %}">ورود به کلاس<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>
+                            <a href="{% url 'core:teacher_course_detail' row.id %}?tab=exams" aria-label="آزمون‌های کلاس" title="آزمون‌های کلاس"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></a>
+                            <a href="{% url 'core:teacher_group_students' row.id %}" aria-label="دانشجویان کلاس" title="دانشجویان کلاس"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg></a>
+                        </footer>
+                    </article>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <footer class="tclass-footer">
+            <span>{{ cl.total|fa_digits }} کلاس</span>
+            {% if cl.page.paginator.num_pages > 1 %}
+                <nav class="tclass-pages" aria-label="صفحه‌بندی">
+                    {% if cl.page.has_previous %}<a href="{% query_url page=cl.page.previous_page_number %}">قبلی</a>{% endif %}
+                    <span>صفحه {{ cl.page.number|fa_digits }} از {{ cl.page.paginator.num_pages|fa_digits }}</span>
+                    {% if cl.page.has_next %}<a href="{% query_url page=cl.page.next_page_number %}">بعدی</a>{% endif %}
+                </nav>
+            {% endif %}
+        </footer>
+    {% elif cl.query or cl.term or cl.status != 'all' %}
+        <p class="tclass-empty">کلاسی با این جستجو یا فیلتر پیدا نشد. <a href="{% url 'core:teacher_courses' %}">نمایش همه کلاس‌ها</a></p>
+    {% else %}
+        <p class="tclass-empty">هنوز کلاسی به شما اختصاص داده نشده است. کلاس‌ها توسط مدیر آموزشی ایجاد و به استاد اختصاص داده می‌شوند.</p>
+    {% endif %}
+</div>
+{% endwith %}

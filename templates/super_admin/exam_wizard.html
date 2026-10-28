@@ -1,7 +1,7 @@
 {% extends 'base_standalone.html' %}
 {% load core_extras static %}
 
-{% block title %}ایجاد آزمون | متاکوییز{% endblock %}
+{% block title %}{{ title|default:'ایجاد آزمون' }} | متاکوییز{% endblock %}
 
 {% block content %}
 {% include 'partials/super_admin_chrome.html' %}
@@ -270,6 +270,7 @@
 </style>
 
 <section class="super-admin-page super-admin-workspace exam-wizard" dir="rtl" data-fixed-scroll-page>
+    {% if wizard_initial %}{{ wizard_initial|json_script:"wizard-initial" }}{% endif %}
     <form class="wizard-shell" method="post" enctype="multipart/form-data" data-exam-wizard>
         {% csrf_token %}
         <input type="hidden" name="publish_choice" value="draft" data-publish-mode>
@@ -2028,6 +2029,54 @@
                 alert('خطا در ارتباط با سرور.');
             }
         });
+    }
+
+    // Edit mode: re-apply a saved exam through the same functions the UI uses.
+    const initialEl = document.getElementById('wizard-initial');
+    const initial = initialEl ? JSON.parse(initialEl.textContent) : null;
+    if (initial) {
+        const truthy = (value) => value === true || value === 1 || value === '1' || value === 'true' || value === 't';
+        Object.entries(initial.fields || {}).forEach(([name, value]) => {
+            const el = form.elements[name];
+            if (!el) return;
+            if (el instanceof RadioNodeList) {
+                el.value = String(value);
+            } else if (el.type === 'checkbox') {
+                el.checked = truthy(value);
+            } else if (el.type !== 'file') {
+                el.value = String(value);
+            }
+            (el instanceof RadioNodeList ? el[0] : el)?.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        (initial.group_ids || []).forEach((groupId) => {
+            const option = document.querySelector(`[data-chip-source] option[value="${groupId}"]`);
+            if (option) setGroupSelected(groupId, option.dataset.teacherId, true);
+        });
+        (initial.excluded_student_ids || []).forEach((id) => { const record = studentById.get(id); if (record) record.checked = false; });
+        (initial.student_ids || []).forEach((id) => { const record = studentById.get(id); if (record) record.checked = true; });
+        syncStudentHiddenInputs();
+        currentGroupPager.render();
+        otherStudentsPager.render();
+        document.querySelectorAll('[data-staff-checkbox]:checked').forEach((checkbox) => { checkbox.checked = false; checkbox.dispatchEvent(new Event('change')); });
+        (initial.staff || []).forEach(({ teacher_id: teacherId, role }) => {
+            const checkbox = document.querySelector(`[data-staff-checkbox][value="${teacherId}"]`);
+            if (!checkbox) return;
+            const roleSelect = checkbox.closest('tr').querySelector('[data-staff-role]');
+            if (roleSelect && role) roleSelect.value = role;
+            checkbox.checked = true;
+            checkbox.dispatchEvent(new Event('change'));
+        });
+        staffPager.render();
+        (initial.question_ids || []).forEach((id) => {
+            const bankRow = document.querySelector(`[data-question-row][data-id="${id}"]`);
+            if (bankRow) addQuestionToSelection(bankRow);
+        });
+        const tagsInput = document.querySelector('[data-exam-tags-input]');
+        (initial.tags || []).forEach((tag) => { if (tagsInput) { tagsInput.value = tag; tagsInput.dispatchEvent(new Event('blur')); } });
+        const publishRadio = form.querySelector(`[name="publish_choice_ui"][value="${initial.publish_choice}"]`);
+        if (publishRadio) publishRadio.checked = true;
+        updateCounts();
+        updateSummary();
     }
 
     setStep(1);
