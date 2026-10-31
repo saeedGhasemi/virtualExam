@@ -154,7 +154,7 @@
                     <ul class="sys-health">
                         {% for item in role_panel.health_items %}
                             <li>
-                                <span class="sys-dot"></span>
+                                <span class="sys-dot"{% if item.tone == 'bad' %} style="background:#ef4444"{% elif item.tone == 'warn' %} style="background:#f59e0b"{% endif %}></span>
                                 {% if forloop.counter == 1 %}
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="15" width="18" height="5" rx="1"/><path d="M7 9v6M17 9v6"/></svg>
                                 {% elif forloop.counter == 2 %}
@@ -181,7 +181,8 @@
                     </div>
                 </article>
                 <article class="sys-card sys-line">
-                    <h2>روند فعالیت آزمون‌ها</h2>
+                    <h2>روند فعالیت آزمون‌ها (۷ روز اخیر)</h2>
+                    <ul class="sys-legend" style="display:flex;gap:1rem;margin:0 0 .4rem"><li><span>خط اصلی: شروع آزمون ({{ role_panel.trend_started_total|fa_digits }})</span></li><li><span>خط دوم: ارسال پاسخ‌نامه ({{ role_panel.trend_submitted_total|fa_digits }})</span></li></ul>
                     <svg viewBox="0 0 580 178" preserveAspectRatio="none" aria-hidden="true">
                         <path class="grid" d="M20 35H560M20 72H560M20 109H560M20 146H560"/>
                         <polyline class="sub" points="{{ role_panel.activity_secondary_points }}"/>
@@ -192,12 +193,12 @@
                     </ul>
                 </article>
                 <article class="sys-card">
-                    <h2>مشارکت کاربران</h2>
+                    <h2>وضعیت حساب کاربران</h2>
                     <div class="sys-donut-wrap">
                         <div class="sys-donut" style="{{ role_panel.user_participation_style }}"><b><span>{{ role_panel.users_count|fa_digits }}</span><small>کاربر</small></b></div>
                         <ul class="sys-legend">
                             {% for item in role_panel.user_participation_items %}
-                                <li><i style="background:{{ item.color }}"></i><span>{{ item.label }}</span><b>{{ item.value|fa_digits }}٪</b></li>
+                                <li><i style="background:{{ item.color }}"></i><span>{{ item.label }}</span><b>{{ item.value|fa_digits }}</b></li>
                             {% endfor %}
                         </ul>
                     </div>

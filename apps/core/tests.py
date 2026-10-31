@@ -4463,3 +4463,52 @@ class ManagerDashboardCardsTests(_ScopedOrgFixture):
         cards = {card['label']: card for card in page.context['dashboard_stats']}
         self.assertEqual(cards['نیازمند بررسی']['hint'], 'آزمون در انتظار تأیید')
         self.assertIn('در حال برگزاری', cards['آزمون‌های منتشرشده']['hint'])
+
+
+class DashboardChartsRealDataTests(_ScopedOrgFixture):
+    """نمودارها و وضعیت سلامت داشبوردهای مدیر از داده‌ی واقعی؛ قبلاً روند از «تعداد تلاش + ۴، + ۸…» با تاریخ‌های ثابت اردیبهشت،
+    سلامت همیشه «سالم»، مشارکت ۷۲/۱۸/۱۰ ثابت و اقدامات نیازمند توجه چهار برچسب ثابت بود."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET is_published = %s, lifecycle_status = 'published', start_at = %s, end_at = %s WHERE id = %s",
+                           [True, now - timedelta(hours=1), now + timedelta(hours=1), cls.exam_in_id])
+            cursor.execute("UPDATE exams SET lifecycle_status = 'pending_approval' WHERE id = %s", [cls.exam_out_id])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'is_graded', 'status'],
+                [str(uuid.uuid4()), cls.exam_in_id, cls.student_in_id, now, now, True, 'graded'])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [str(uuid.uuid4()), cls.exam_out_id, cls.student_out_id, now, 'in_progress'])
+
+    def test_system_dashboard_uses_measured_values(self):
+        import tempfile
+        from apps.core.views import erd_admin_dashboard_panel
+        panel = erd_admin_dashboard_panel()
+        statuses = {item['label']: item['count'] for item in panel['exam_status_items']}
+        self.assertEqual(sum(statuses.values()), panel['exams_count'])
+        self.assertEqual(statuses['در حال برگزاری'], 1)
+        self.assertEqual((panel['trend_started_total'], panel['trend_submitted_total']), (2, 1))
+        from apps.core.views import _jalali_long_date
+        self.assertEqual(panel['trend_labels'][-1], ' '.join(_jalali_long_date(timezone.localdate(), with_weekday=False).split()[:2]))
+        health = {item['label']: item for item in panel['health_items']}
+        self.assertTrue(health['پایگاه داده']['status'].startswith('سالم'))
+        self.assertEqual(health['پشتیبان‌گیری']['status'], 'پایش نشده')
+        with tempfile.TemporaryDirectory() as folder, self.settings(BACKUP_DIR=folder):
+            self.assertEqual({i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']['status'], 'نسخه‌ای پیدا نشد')
+            open(f'{folder}/db.dump', 'w').close()
+            backup = {i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']
+            self.assertEqual(backup['tone'], 'ok')
+
+    def test_manager_dashboard_charts_stay_in_scope(self):
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:exam_manager_dashboard'))
+        context = page.context
+        self.assertEqual({i['label']: i['value'] for i in context['participation_items']},
+                         {'تصحیح‌شده': 1, 'در انتظار تصحیح': 0, 'ناتمام (ارسال‌نشده)': 0})  # the out-of-scope attempt is not counted
+        self.assertEqual(context['trend_submitted_total'], 1)
+        self.assertEqual([item['label'] for item in context['attention_items']], [])  # the pending exam is outside the scope
+        html = page.content.decode()
+        for invented in ('۷۲٪', 'تداخل زمانی آزمون', 'درخواست مهمان‌پذیری', 'cx="200" cy="62"'):
+            self.assertNotIn(invented, html)

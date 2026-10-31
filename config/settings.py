@@ -168,6 +168,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+# Folder of database backups; the system dashboard reports the newest file's age (empty: not monitored).
+BACKUP_DIR = os.getenv('BACKUP_DIR', '').strip()
 # Never mapped to a URL: student answer files are streamed by views after an access check.
 PRIVATE_MEDIA_ROOT = Path(os.getenv('PRIVATE_MEDIA_ROOT', str(BASE_DIR / 'private_media')))
 

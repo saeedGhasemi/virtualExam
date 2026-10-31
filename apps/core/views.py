@@ -985,390 +985,169 @@ def erd_recent_exams(limit=5):
     )
 
 
-def erd_admin_dashboard_panel():
-    month_labels = {
-        1: 'فروردین',
-        2: 'اردیبهشت',
-        3: 'خرداد',
-        4: 'تیر',
-        5: 'مرداد',
-        6: 'شهریور',
-        7: 'مهر',
-        8: 'آبان',
-        9: 'آذر',
-        10: 'دی',
-        11: 'بهمن',
-        12: 'اسفند',
-    }
-    role_labels = {
-        'admin': 'مدیر سامانه',
-        'academic_manager': 'مدیر آموزشی',
-        'teacher': 'استاد',
-        'student': 'دانشجو',
-    }
-    question_labels = {
-        'single': 'چندگزینه‌ای',
-        'multi': 'چندپاسخه',
-        'true_false': 'صحیح/غلط',
-        'essay': 'تشریحی',
-        'short_answer': 'پاسخ کوتاه',
-        'fill_blank': 'جای خالی',
-        'matching': 'تطبیقی',
-        'ordering': 'مرتب‌سازی',
-        **question_kinds.TYPE_LABELS,
-    }
+EXAM_STATUS_COLORS = {'running': '#10b981', 'upcoming': '#0ea5e9', 'finished': '#f59e0b', 'unpublished': '#8b5cf6', 'cancelled': '#94a3b8'}
 
-    lifecycle_expr = (
-        "COALESCE(lifecycle_status, 'draft')"
-        if erd_has_column('exams', 'lifecycle_status')
-        else (
-            "CASE "
-            "WHEN COALESCE(is_cancelled, false) THEN 'closed' "
-            "WHEN COALESCE(is_published, false) THEN 'published' "
-            "WHEN COALESCE(approval_status, '') = 'pending' THEN 'pending_approval' "
-            "ELSE 'draft' END"
-        )
-    )
-    if connection.vendor == 'sqlite':
-        monthly_rows = erd_rows(
-            f"""
-            SELECT CAST(substr(COALESCE(start_at, approved_at, CURRENT_TIMESTAMP), 6, 2) AS INTEGER) AS month_number,
-                   SUM(CASE
-                       WHEN {lifecycle_expr} IN ('draft', 'pending_approval')
-                         OR COALESCE(is_published, 0) = 0
-                       THEN 1 ELSE 0 END) AS draft_count,
-                   SUM(CASE
-                       WHEN COALESCE(is_published, 0) = 1
-                         AND COALESCE(is_cancelled, 0) = 0
-                       THEN 1 ELSE 0 END) AS published_count,
-                   SUM(CASE
-                       WHEN {lifecycle_expr} IN ('closed', 'archived')
-                         OR (end_at IS NOT NULL AND end_at < CURRENT_TIMESTAMP)
-                       THEN 1 ELSE 0 END) AS held_count
-            FROM exams
-            GROUP BY month_number
-            """,
-        )
-    else:
-        monthly_rows = erd_rows(
-            f"""
-            SELECT EXTRACT(MONTH FROM COALESCE(start_at, approved_at, CURRENT_TIMESTAMP))::int AS month_number,
-                   COUNT(*) FILTER (
-                       WHERE {lifecycle_expr} IN ('draft', 'pending_approval')
-                          OR COALESCE(is_published, false) = false
-                   ) AS draft_count,
-                   COUNT(*) FILTER (
-                       WHERE COALESCE(is_published, false) = true
-                         AND COALESCE(is_cancelled, false) = false
-                   ) AS published_count,
-                   COUNT(*) FILTER (
-                       WHERE {lifecycle_expr} IN ('closed', 'archived')
-                          OR (end_at IS NOT NULL AND end_at < CURRENT_TIMESTAMP)
-                   ) AS held_count
-            FROM exams
-            GROUP BY month_number
-            """,
-        )
-    by_month = {row['month_number']: row for row in monthly_rows}
-    max_month_value = max(
-        [
-            int(row.get('draft_count') or 0)
-            + int(row.get('published_count') or 0)
-            + int(row.get('held_count') or 0)
-            for row in monthly_rows
-        ]
-        or [0]
-    )
 
-    def bar_percent(value):
-        if not value or not max_month_value:
-            return 0
-        return max(8, round((int(value) / max_month_value) * 62))
-
-    monthly_activity = []
-    month_order = list(range(1, 13))
-    for month_number in month_order:
-        row = by_month.get(month_number, {})
-        draft_count = int(row.get('draft_count') or 0)
-        published_count = int(row.get('published_count') or 0)
-        held_count = int(row.get('held_count') or 0)
-        monthly_activity.append(
-            {
-                'label': month_labels[month_number],
-                'draft': draft_count,
-                'published': published_count,
-                'held': held_count,
-                'draft_pct': bar_percent(draft_count),
-                'published_pct': bar_percent(published_count),
-                'held_pct': bar_percent(held_count),
-            }
-        )
-
-    question_rows = erd_rows(
-        """
-        SELECT COALESCE(type, 'unknown') AS type, COUNT(*) AS count
-        FROM questions
-        GROUP BY COALESCE(type, 'unknown')
-        ORDER BY count DESC, type
-        """,
-    )
-    question_total = sum(int(row['count']) for row in question_rows) or 0
-    question_type_stats = []
-    for type_key in ['single', 'multi', 'true_false', 'essay', 'fill_blank', 'matching']:
-        row = next((item for item in question_rows if item['type'] == type_key), None)
-        count = int(row['count']) if row else 0
-        question_type_stats.append(
-            {
-                'type': type_key,
-                'label': question_labels.get(type_key, type_key),
-                'count': count,
-                'percent': round((count / question_total) * 100) if question_total else 0,
-            }
-        )
-
-    center_x, center_y, radius = 160, 130, 92
-    radar_points = []
-    for index, item in enumerate(question_type_stats):
-        angle = -math.pi / 2 + index * (2 * math.pi / len(question_type_stats))
-        value_radius = radius * (item['percent'] / 100)
-        radar_points.append(
-            f"{center_x + math.cos(angle) * value_radius:.1f},{center_y + math.sin(angle) * value_radius:.1f}"
-        )
-    radar_polygon_points = ' '.join(radar_points) if radar_points else f'{center_x},{center_y}'
-
-    role_rows = erd_rows(
-        """
-        SELECT role, COUNT(*) AS count
-        FROM user_roles
-        GROUP BY role
-        ORDER BY count DESC, role
-        """,
-    )
-    role_colors = ['#f59e0b', '#10b981', '#7c3aed', '#2563eb', '#ef4444']
-    role_total = sum(int(row['count']) for row in role_rows) or 0
-    role_distribution = []
-    gradient_parts = []
-    cursor = 0
-    for index, row in enumerate(role_rows):
-        count = int(row['count'])
-        percent = round((count / role_total) * 100) if role_total else 0
-        color = role_colors[index % len(role_colors)]
-        next_cursor = 100 if index == len(role_rows) - 1 else cursor + percent
-        gradient_parts.append(f'{color} {cursor}% {next_cursor}%')
-        cursor = next_cursor
-        role_distribution.append(
-            {
-                'role': row['role'],
-                'label': role_labels.get(row['role'], row['role']),
-                'count': count,
-                'percent': percent,
-                'color': color,
-            }
-        )
-    role_distribution_style = (
-        f"background: conic-gradient({', '.join(gradient_parts)});"
-        if gradient_parts
-        else 'background: #e5e7eb;'
-    )
-
-    recent_exams = erd_rows(
-        """
-        SELECT e.id, e.title, COALESCE(c.title, 'بدون درس') AS course,
-               COALESCE(to_char(COALESCE(e.start_at, e.approved_at), 'YYYY/MM/DD'), '-') AS date,
-               CASE
-                   WHEN COALESCE(e.is_cancelled, false) THEN 'لغوشده'
-                   WHEN COALESCE(e.lifecycle_status, '') IN ('closed', 'archived')
-                        OR (e.end_at IS NOT NULL AND e.end_at < CURRENT_TIMESTAMP) THEN 'برگزار شده'
-                   WHEN COALESCE(e.is_published, false) THEN 'منتشر شده'
-                   WHEN COALESCE(e.approval_status, '') = 'pending' THEN 'در انتظار تایید'
-                   ELSE 'پیش‌نویس'
-               END AS status_label,
-               CASE
-                   WHEN COALESCE(e.is_cancelled, false) THEN 'danger'
-                   WHEN COALESCE(e.is_published, false) THEN 'success'
-                   WHEN COALESCE(e.approval_status, '') = 'pending' THEN 'warning'
-                   ELSE 'muted'
-               END AS status_tone
+def _exam_status_counts(where='1=1', params=None, cte='', cte_params=None) -> list:
+    """Exams by what they are now: running, upcoming, finished, not yet published, cancelled (optionally scoped
+    by a WITH clause and a condition on `e`)."""
+    now = timezone.now()
+    lifecycle = "COALESCE(e.lifecycle_status, '')"
+    published = 'COALESCE(e.is_published, false) = true AND COALESCE(e.is_cancelled, false) = false'
+    row = erd_row(
+        f"""
+        {cte}
+        SELECT SUM(CASE WHEN {published} AND {lifecycle} NOT IN ('closed', 'archived')
+                         AND e.start_at <= %s AND (e.end_at IS NULL OR e.end_at >= %s) THEN 1 ELSE 0 END) AS running,
+               SUM(CASE WHEN {published} AND {lifecycle} NOT IN ('closed', 'archived') AND e.start_at > %s THEN 1 ELSE 0 END) AS upcoming,
+               SUM(CASE WHEN {published} AND ({lifecycle} IN ('closed', 'archived') OR e.end_at < %s) THEN 1 ELSE 0 END) AS finished,
+               SUM(CASE WHEN COALESCE(e.is_published, false) = false AND COALESCE(e.is_cancelled, false) = false THEN 1 ELSE 0 END) AS unpublished,
+               SUM(CASE WHEN COALESCE(e.is_cancelled, false) = true THEN 1 ELSE 0 END) AS cancelled
         FROM exams e
-        LEFT JOIN courses c ON c.id = e.course_id
-        ORDER BY COALESCE(e.start_at, e.approved_at) DESC NULLS LAST, e.title
-        LIMIT 4
+        WHERE {where}
         """,
-    )
+        [*(cte_params or []), now, now, now, now, *(params or [])],
+    ) or {}
+    labels = {
+        'running': 'در حال برگزاری',
+        'upcoming': 'زمان‌بندی‌شده',
+        'finished': 'پایان‌یافته',
+        'unpublished': 'پیش‌نویس / در انتظار تأیید',
+        'cancelled': 'لغوشده',
+    }
+    return [{'label': label, 'count': int(row.get(key) or 0), 'color': EXAM_STATUS_COLORS[key]} for key, label in labels.items()]
 
-    average_row = erd_row(
-        """
-        SELECT ROUND(AVG(score)::numeric, 1) AS average_score
-        FROM exam_attempts
-        WHERE score IS NOT NULL
-        """,
-    )
-    average_score = average_row['average_score'] if average_row and average_row['average_score'] is not None else None
-    active_exams_count = erd_count(
-        'exams',
-        "COALESCE(is_published, false) = true AND COALESCE(is_cancelled, false) = false",
-    )
-    running_exams_count = erd_count(
-        'exams',
-        'COALESCE(is_published, false) = true AND COALESCE(is_cancelled, false) = false '
-        'AND start_at <= %s AND (end_at IS NULL OR end_at >= %s)',
-        [timezone.now(), timezone.now()],
-    )
-    users_count = erd_count('profiles')
-    questions_count = erd_count('questions')
-    exams_count = erd_count('exams')
-    students_count = erd_count('student_profiles')
-    attempts_count = erd_count('exam_attempts')
-    open_objections_count = erd_count(
-        'objections',
-        "COALESCE(status, 'open') IN ('open', 'pending', 'in_review', 'under_review', 'escalated')",
-    )
+
+def _conic_style(items, key='count') -> str:
+    total = sum(int(item[key]) for item in items)
+    if not total:
+        return 'background: conic-gradient(#e8eef7 0 100%);'
+    cursor, parts = 0.0, []
+    for index, item in enumerate(items):
+        end = 100.0 if index == len(items) - 1 else cursor + int(item[key]) * 100 / total
+        parts.append(f"{item['color']} {cursor:.1f}% {end:.1f}%")
+        cursor = end
+    return f"background: conic-gradient({', '.join(parts)});"
+
+
+def _attempt_trend(days=7, exam_where='1=1', exam_params=None, cte='', cte_params=None) -> dict:
+    """Exams started and answer sheets submitted per local day over the last `days` days, as chart points."""
     today = timezone.localdate()
+    first = today - timedelta(days=days - 1)
+    since = timezone.make_aware(datetime.combine(first, datetime.min.time()))
+    rows = erd_rows(
+        f"""
+        {cte}
+        SELECT ea.started_at, ea.submitted_at FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
+        WHERE (ea.started_at >= %s OR ea.submitted_at >= %s) AND {exam_where}
+        """,
+        [*(cte_params or []), since, since, *(exam_params or [])],
+    )
+    started, submitted = [0] * days, [0] * days
+    for row in rows:
+        for column, counts in (('started_at', started), ('submitted_at', submitted)):
+            moment = erd_datetime(row.get(column))
+            if moment:
+                index = (timezone.localtime(moment).date() - first).days
+                if 0 <= index < days:
+                    counts[index] += 1
+    peak = max(started + submitted + [1])
+    xs = [24 + index * (528 // max(days - 1, 1)) for index in range(days)]
+
+    def points(counts):
+        return ' '.join(f'{x},{146 - round(count * 110 / peak)}' for x, count in zip(xs, counts))
+
+    return {
+        'trend_labels': [
+            ' '.join(_jalali_long_date(first + timedelta(days=index), with_weekday=False).split()[:2]) for index in range(days)
+        ],
+        'activity_primary_points': points(started),
+        'activity_secondary_points': points(submitted),
+        'trend_started_total': sum(started),
+        'trend_submitted_total': sum(submitted),
+    }
+
+
+def _system_health_items() -> list:
+    """Measured state of what the dashboard reports on; «پایش نشده» where nothing is configured to check."""
+    import shutil
+    import time
+
+    items = [{'label': 'سرور برنامه', 'status': 'فعال', 'tone': 'ok'}]  # it is answering this request
+    try:
+        began = time.monotonic()
+        erd_row('SELECT 1 AS ok')
+        items.append({'label': 'پایگاه داده', 'status': f'سالم ({round((time.monotonic() - began) * 1000)} میلی‌ثانیه)', 'tone': 'ok'})
+    except DatabaseError:
+        logger.exception('Dashboard database health check failed.')
+        items.append({'label': 'پایگاه داده', 'status': 'خطا در اتصال', 'tone': 'bad'})
+    try:
+        target = Path(settings.MEDIA_ROOT) if Path(settings.MEDIA_ROOT).exists() else Path(settings.BASE_DIR)
+        usage = shutil.disk_usage(target)
+        free = round(usage.free * 100 / usage.total)
+        items.append({'label': 'ذخیره‌سازی', 'status': f'{free}٪ فضای آزاد', 'tone': 'ok' if free >= 10 else 'bad'})
+    except OSError:
+        items.append({'label': 'ذخیره‌سازی', 'status': 'نامشخص', 'tone': 'warn'})
+    backup_dir = Path(settings.BACKUP_DIR) if getattr(settings, 'BACKUP_DIR', '') else None
+    if not backup_dir:
+        items.append({'label': 'پشتیبان‌گیری', 'status': 'پایش نشده', 'tone': 'warn'})
+        return items
+    try:
+        files = [path for path in backup_dir.iterdir() if path.is_file()]
+    except OSError:
+        files = []
+    if not files:
+        items.append({'label': 'پشتیبان‌گیری', 'status': 'نسخه‌ای پیدا نشد', 'tone': 'bad'})
+    else:
+        latest = datetime.fromtimestamp(max(path.stat().st_mtime for path in files), tz=timezone.get_current_timezone())
+        items.append({
+            'label': 'پشتیبان‌گیری',
+            'status': f'آخرین نسخه: {_jalali_long_date(latest, with_weekday=False)}',
+            'tone': 'ok' if (timezone.now() - latest).days <= 2 else 'bad',
+        })
+    return items
+
+
+def erd_admin_dashboard_panel():
+    """The system manager's dashboard: cards, system health, exam status, the last week's activity and accounts."""
+    now = timezone.now()
+    published = 'COALESCE(is_published, false) = true AND COALESCE(is_cancelled, false) = false'
+    active_exams_count = erd_count('exams', published)
+    running_exams_count = erd_count('exams', f'{published} AND start_at <= %s AND (end_at IS NULL OR end_at >= %s)', [now, now])
+    users_count = erd_count('profiles')
+    exams_count = erd_count('exams')
     if connection.vendor == 'sqlite':
         today_exams_count = erd_count('exams', "date(start_at) = date('now') AND COALESCE(is_cancelled, false) = false")
     else:
-        today_exams_count = erd_count('exams', "DATE(start_at) = CURRENT_DATE AND COALESCE(is_cancelled, false) = false")
-    review_needed_count = erd_count(
-        'exams',
-        "COALESCE(approval_status, '') = 'pending' OR COALESCE(lifecycle_status, 'draft') = 'pending_approval'",
-    )
-    violation_reports_count = erd_count(
-        'activity_audit_log',
-        "action ILIKE %s OR reason ILIKE %s",
-        ['%violation%', '%تخلف%'],
-    )
+        today_exams_count = erd_count('exams', 'DATE(start_at) = CURRENT_DATE AND COALESCE(is_cancelled, false) = false')
+    review_needed_count = erd_count('exams', "COALESCE(lifecycle_status, '') = 'pending_approval' AND COALESCE(is_cancelled, false) = false")
     pending_registrations_count = erd_count('profiles', "status = 'pending'")
     active_users_count = erd_count('profiles', "status = 'active'")
-    inactive_users_count = erd_count('profiles', "COALESCE(status, 'active') <> 'active'")
-    present_percent = round((active_users_count / users_count) * 100) if users_count else 0
-    inactive_percent = round((inactive_users_count / users_count) * 100) if users_count else 0
-    abandoned_percent = max(0, 100 - present_percent - inactive_percent) if users_count else 0
-
-    exam_status_rows = erd_rows(
-        """
-        SELECT COALESCE(lifecycle_status, 'draft') AS status, COUNT(*) AS count
-        FROM exams
-        GROUP BY COALESCE(lifecycle_status, 'draft')
-        """,
-    )
-    status_count_map = {row['status']: int(row['count']) for row in exam_status_rows}
-    exam_status_items = [
-        {'label': 'در حال برگزاری', 'count': status_count_map.get('in_progress', 0), 'color': '#10b981'},
-        {'label': 'آینده‌سازی', 'count': status_count_map.get('published', 0) + status_count_map.get('approved', 0), 'color': '#0ea5e9'},
-        {'label': 'پایان یافته', 'count': status_count_map.get('closed', 0) + status_count_map.get('archived', 0), 'color': '#f59e0b'},
-        {'label': 'بسته شده', 'count': status_count_map.get('draft', 0) + status_count_map.get('pending_approval', 0), 'color': '#8b5cf6'},
+    exam_status_items = _exam_status_counts()
+    account_items = [
+        {'label': 'فعال', 'value': active_users_count, 'color': '#2563eb'},
+        {'label': 'در انتظار تأیید', 'value': pending_registrations_count, 'color': '#f59e0b'},
+        {'label': 'غیرفعال یا مسدود', 'value': max(users_count - active_users_count - pending_registrations_count, 0), 'color': '#ef4444'},
     ]
-
-    def conic_style(items):
-        total = sum(int(item['count']) for item in items)
-        if not total:
-            return 'background: conic-gradient(#e8eef7 0 100%);'
-        cursor = 0
-        parts = []
-        for index, item in enumerate(items):
-            percent = round((int(item['count']) / total) * 100)
-            next_cursor = 100 if index == len(items) - 1 else min(100, cursor + percent)
-            parts.append(f"{item['color']} {cursor}% {next_cursor}%")
-            cursor = next_cursor
-        return f"background: conic-gradient({', '.join(parts)});"
-
-    recent_activities = erd_rows(
-        """
-        SELECT l.action, l.entity_type, l.reason, COALESCE(p.full_name, 'سیستم') AS actor_name
-        FROM activity_audit_log l
-        LEFT JOIN profiles p ON p.id = l.actor_id
-        LIMIT 5
-        """,
-    )
-    if not recent_activities:
-        recent_activities = [
-            {'action': 'ایجاد آزمون', 'entity_type': 'exam', 'reason': '۴۵ سوال توسط دکتر رئیسی ایجاد شد', 'actor_name': 'مدیر سیستم'},
-            {'action': 'انتشار آزمون', 'entity_type': 'exam', 'reason': 'انتشار برای ۲۸۰ شرکت‌کننده', 'actor_name': 'مدیر سیستم'},
-            {'action': 'هشدار تخلف', 'entity_type': 'violation', 'reason': 'تشخیص خروج از صفحه', 'actor_name': 'سیستم نظارت'},
-            {'action': 'تغییر زمان‌بندی', 'entity_type': 'calendar', 'reason': 'تغییر تاریخ برگزاری', 'actor_name': 'مدیر سیستم'},
-            {'action': 'اطلاع‌رسانی', 'entity_type': 'system', 'reason': 'نگهداری سرورها', 'actor_name': 'مدیر سیستم'},
-        ]
-
-    trend_labels = ['۸ اردیبهشت', '۹ اردیبهشت', '۱۰ اردیبهشت', '۱۱ اردیبهشت', '۱۲ اردیبهشت', '۱۳ اردیبهشت', '۱۴ اردیبهشت']
-    trend_base = max(exams_count, attempts_count, erd_count('activity_audit_log'), 1)
-    trend_primary = [
-        max(8, round((value / max(trend_base, 1)) * 46))
-        for value in [attempts_count, attempts_count + 4, attempts_count + 1, attempts_count + 8, attempts_count + 5, attempts_count + 13, attempts_count + 7]
-    ]
-    trend_secondary = [max(5, round(value * .62)) for value in trend_primary]
-    chart_x = [24, 112, 200, 288, 376, 464, 552]
-    activity_primary_points = ' '.join(f'{chart_x[index]},{64 - value}' for index, value in enumerate(trend_primary))
-    activity_secondary_points = ' '.join(f'{chart_x[index]},{78 - value}' for index, value in enumerate(trend_secondary))
-
     return {
         'type': 'super_admin',
         'users_count': users_count,
-        'active_users_count': active_users_count,
-        'institutions_count': erd_count('org_units', "type = 'university'"),
-        'roles_count': erd_row('SELECT COUNT(DISTINCT role) AS count FROM user_roles')['count'],
         'exams_count': exams_count,
-        'active_exams_count': active_exams_count,
-        'questions_count': questions_count,
-        'students_count': students_count,
-        'attempts_count': attempts_count,
-        'today_logs_count': erd_count('activity_audit_log', '1 = 1'),
-        'recent_logs': [],
-        'recent_exams': recent_exams,
-        'today_exams_count': today_exams_count,
-        'review_needed_count': review_needed_count,
-        'violation_reports_count': violation_reports_count,
-        'inactive_users_count': inactive_users_count,
         'dashboard_cards': [
             {'label': 'کل آزمون‌ها', 'value': exams_count, 'hint': f'{active_exams_count} منتشرشده', 'tone': 'blue', 'icon': 'doc'},
             {'label': 'آزمون‌های منتشرشده', 'value': active_exams_count, 'hint': f'{running_exams_count} در حال برگزاری', 'tone': 'green', 'icon': 'play'},
             {'label': 'آزمون‌های امروز', 'value': today_exams_count, 'hint': 'با شروع امروز', 'tone': 'orange', 'icon': 'calendar'},
             {'label': 'کاربران فعال', 'value': active_users_count, 'hint': f'از {users_count} کاربر', 'tone': 'emerald', 'icon': 'users'},
             {'label': 'نیازمند بررسی', 'value': review_needed_count, 'hint': 'آزمون در انتظار تأیید', 'tone': 'red', 'icon': 'alert'},
-            {'label': 'درخواست‌های ثبت‌نام', 'value': pending_registrations_count, 'hint': f'{pending_registrations_count} مورد جدید', 'tone': 'indigo', 'icon': 'shield', 'url': f'{reverse("core:super_admin_users")}?tab=students&status=pending'},
+            {'label': 'درخواست‌های ثبت‌نام', 'value': pending_registrations_count, 'hint': 'در انتظار تأیید', 'tone': 'indigo', 'icon': 'shield',
+             'url': f'{reverse("core:super_admin_users")}?tab=students&status=pending'},
         ],
-        'quick_actions': [
-            {'label': 'ایجاد آزمون جدید', 'url': reverse('core:super_admin_exams'), 'tone': 'primary', 'icon': 'plus'},
-            {'label': 'انتشار آزمون', 'url': reverse('core:super_admin_exams'), 'tone': 'blue', 'icon': 'send'},
-            {'label': 'مدیریت سوالات', 'url': reverse('core:teacher_questions'), 'tone': 'blue', 'icon': 'question'},
-            {'label': 'زمان‌بندی آزمون', 'url': reverse('core:super_admin_calendar'), 'tone': 'blue', 'icon': 'calendar'},
-        ],
-        'health_items': [
-            {'label': 'سرورهای وب', 'status': 'سالم'},
-            {'label': 'پایگاه داده', 'status': 'سالم'},
-            {'label': 'ذخیره‌سازی', 'status': 'سالم'},
-            {'label': 'سیستم پشتیبان‌گیری', 'status': 'سالم'},
-        ],
+        'health_items': _system_health_items(),
         'exam_status_items': exam_status_items,
-        'exam_status_style': conic_style(exam_status_items),
-        'user_participation_items': [
-            {'label': 'حاضر', 'value': present_percent, 'color': '#2563eb'},
-            {'label': 'غیرفعال', 'value': inactive_percent, 'color': '#10b981'},
-            {'label': 'انصراف', 'value': abandoned_percent, 'color': '#ef4444'},
-        ],
-        'user_participation_style': conic_style([
-            {'count': present_percent, 'color': '#2563eb'},
-            {'count': inactive_percent, 'color': '#10b981'},
-            {'count': abandoned_percent, 'color': '#ef4444'},
-        ]),
-        'recent_activities': recent_activities,
-        'trend_labels': trend_labels,
-        'activity_primary_points': activity_primary_points,
-        'activity_secondary_points': activity_secondary_points,
-        'dashboard_today_label': today.strftime('%Y/%m/%d'),
-        'monthly_activity': monthly_activity,
-        'question_type_stats': question_type_stats,
-        'question_total': question_total,
-        'radar_polygon_points': radar_polygon_points,
-        'role_distribution': role_distribution,
-        'role_distribution_style': role_distribution_style,
-        'report_cards': [
-            {'label': 'کل کاربران', 'value': users_count, 'tone': 'blue'},
-            {'label': 'تعداد درس‌ها', 'value': erd_count('courses'), 'tone': 'indigo'},
-            {'label': 'آزمون‌های منتشرشده', 'value': active_exams_count, 'tone': 'green'},
-            {'label': 'اعتراض‌های باز', 'value': open_objections_count, 'tone': 'red'},
-            {'label': 'میانگین نمره', 'value': average_score if average_score is not None else '—', 'tone': 'orange'},
-            {'label': 'تلاش‌های ثبت‌شده', 'value': attempts_count, 'tone': 'purple'},
-        ],
+        'exam_status_style': _conic_style(exam_status_items),
+        **_attempt_trend(),
+        'user_participation_items': account_items,
+        'user_participation_style': _conic_style(account_items, 'value'),
     }
 
 
@@ -17150,45 +16929,59 @@ def teacher_objection_detail(request, objection_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_dashboard(request):
+    """The academic manager's dashboard, every number limited to the exams of the manager's units."""
     today = timezone.localdate()
     tomorrow = today + timedelta(days=1)
+    now = timezone.now()
     profile = getattr(request, 'erd_profile', None) or erd_profile_for_user(request.user) or {}
     display_name = profile.get('full_name') or request.user.get_full_name() or request.user.username
-    def scoped_exam_count(where='', params=None):
-        if _erd_is_admin_request(request):
-            sql = 'SELECT COUNT(*) AS count FROM exams e'
-            if where:
-                sql += f' WHERE {where}'
-            row = erd_row(sql, params or [])
-            return row['count'] if row else 0
+    if _erd_is_admin_request(request):
+        cte, cte_params, scope = '', [], '1=1'
+    else:
+        cte, cte_params, scope = _erd_manager_scope_cte(), [request.erd_profile_id], _erd_exam_scope_condition()
+
+    def scoped_exam_count(where, params=None):
         return _erd_scoped_exam_count(request, where, params or [])
 
+    published = 'COALESCE(e.is_published, false) = true AND COALESCE(e.is_cancelled, false) = false'
     total_exams = _erd_scoped_count(request, 'exams')
-    active_exams = scoped_exam_count(
-        'COALESCE(e.is_published, false) = true AND COALESCE(e.is_cancelled, false) = false',
-        [],
-    )
+    active_exams = scoped_exam_count(published)
+    running_exams = scoped_exam_count(f'{published} AND e.start_at <= %s AND (e.end_at IS NULL OR e.end_at >= %s)', [now, now])
     today_exams = scoped_exam_count(
-        'e.start_at >= %s AND e.start_at < %s AND COALESCE(e.is_cancelled, false) = false',
-        [today.isoformat(), tomorrow.isoformat()],
+        'e.start_at >= %s AND e.start_at < %s AND COALESCE(e.is_cancelled, false) = false', [today.isoformat(), tomorrow.isoformat()],
     )
-    pending_exams = scoped_exam_count(
-        "COALESCE(e.approval_status, 'pending') = 'pending'",
-        [],
-    )
-    running_exams = scoped_exam_count(
-        'COALESCE(e.is_published, false) = true AND COALESCE(e.is_cancelled, false) = false '
-        'AND e.start_at <= %s AND (e.end_at IS NULL OR e.end_at >= %s)',
-        [timezone.now(), timezone.now()],
-    )
+    pending_exams = scoped_exam_count("COALESCE(e.lifecycle_status, '') = 'pending_approval' AND COALESCE(e.is_cancelled, false) = false")
     teacher_count = _erd_scoped_count(request, 'teachers')
     student_count = _erd_scoped_count(request, 'students')
-    finished_exams = max(total_exams - active_exams - pending_exams, 0)
-    status_total = max(total_exams, 1)
-    active_pct = round(active_exams * 100 / status_total)
-    today_pct = min(100, round(today_exams * 100 / status_total))
-    pending_pct = min(100, round(pending_exams * 100 / status_total))
-    finished_pct = max(0, 100 - active_pct - today_pct - pending_pct)
+    attempts = erd_row(
+        f"""
+        {cte}
+        SELECT SUM(CASE WHEN ea.submitted_at IS NOT NULL AND COALESCE(ea.is_graded, false) = true THEN 1 ELSE 0 END) AS graded,
+               SUM(CASE WHEN ea.submitted_at IS NOT NULL AND COALESCE(ea.is_graded, false) = false THEN 1 ELSE 0 END) AS awaiting,
+               SUM(CASE WHEN ea.submitted_at IS NULL THEN 1 ELSE 0 END) AS unfinished
+        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
+        WHERE {scope}
+        """,
+        cte_params,
+    ) or {}
+    attempt_items = [
+        {'label': 'تصحیح‌شده', 'value': int(attempts.get('graded') or 0), 'color': '#315cff'},
+        {'label': 'در انتظار تصحیح', 'value': int(attempts.get('awaiting') or 0), 'color': '#f59e0b'},
+        {'label': 'ناتمام (ارسال‌نشده)', 'value': int(attempts.get('unfinished') or 0), 'color': '#ef4444'},
+    ]
+    pending_answers = int((erd_row(
+        f"""
+        {cte}
+        SELECT COUNT(*) AS n
+        FROM attempt_answers aa JOIN exam_attempts ea ON ea.id = aa.attempt_id JOIN exams e ON e.id = ea.exam_id
+        WHERE COALESCE(aa.needs_manual_grading, false) = true AND ea.submitted_at IS NOT NULL AND {scope}
+        """,
+        cte_params,
+    ) or {}).get('n') or 0)
+    teacher_requests = _manager_pending_teacher_request_count(request)
+    exams_url = reverse('core:exam_manager_exams')
+    exam_status_items = _exam_status_counts(scope, [], cte, cte_params)
+    trend = _attempt_trend(exam_where=scope, cte=cte, cte_params=cte_params)
     context = {
         'display_name': display_name,
         'role_label': 'مدیر آموزشی',
@@ -17198,63 +16991,32 @@ def exam_manager_dashboard(request):
             {'label': 'آزمون‌های امروز', 'value': today_exams, 'hint': 'با شروع امروز', 'tone': 'orange', 'icon': 'calendar'},
             {'label': 'اساتید', 'value': teacher_count, 'hint': f'{student_count} دانشجو', 'tone': 'emerald', 'icon': 'users'},
             {'label': 'نیازمند بررسی', 'value': pending_exams, 'hint': 'آزمون در انتظار تأیید', 'tone': 'red', 'icon': 'alert'},
-            {'label': 'درخواست‌های دانشجویان', 'value': erd_count('educational_questions') if erd_has_column('educational_questions', 'id') else 0, 'hint': 'نیازمند پاسخ', 'tone': 'blue', 'icon': 'message'},
+            {'label': 'پاسخ‌های در انتظار تصحیح', 'value': pending_answers, 'hint': 'تصحیح دستی استاد', 'tone': 'blue', 'icon': 'message'},
         ],
         'quick_actions': [
             {'label': 'ایجاد آزمون جدید', 'url': reverse('core:exam_manager_exam_create'), 'tone': 'primary', 'icon': 'plus'},
             {'label': 'انتشار آزمون', 'url': reverse('core:exam_manager_active_exams'), 'icon': 'send'},
-            {'label': 'مدیریت سوالات', 'url': reverse('core:exam_manager_exams'), 'icon': 'help'},
+            {'label': 'مدیریت سوالات', 'url': exams_url, 'icon': 'help'},
             {'label': 'زمان‌بندی آزمون', 'url': reverse('core:exam_manager_calendar'), 'icon': 'calendar'},
+            {'label': f'درخواست‌های اساتید ({teacher_requests})', 'url': reverse('core:exam_manager_teacher_requests'), 'icon': 'users'},
         ],
+        # Only what has something waiting, each with its count and the page that handles it.
         'attention_items': [
-            {'label': 'تأیید بانک سوال', 'color': '#ef4444', 'icon': 'database'},
-            {'label': 'تداخل زمانی آزمون', 'color': '#f59e0b', 'icon': 'clock'},
-            {'label': 'درخواست زمان اضافه', 'color': '#3b82f6', 'icon': 'calendar'},
-            {'label': 'درخواست مهمان‌پذیری', 'color': '#10b981', 'icon': 'user'},
+            item for item in (
+                {'label': f'{pending_exams} آزمون در انتظار تأیید', 'count': pending_exams, 'url': f'{exams_url}?status=draft', 'color': '#ef4444', 'icon': 'database'},
+                {'label': f'{teacher_requests} درخواست تغییر مشخصات استاد', 'count': teacher_requests, 'url': reverse('core:exam_manager_teacher_requests'), 'color': '#3b82f6', 'icon': 'user'},
+                {'label': f'{pending_answers} پاسخ در انتظار تصحیح استاد', 'count': pending_answers, 'url': '', 'color': '#f59e0b', 'icon': 'clock'},
+            ) if item['count']
         ],
-        'exam_status_items': [
-            {'label': 'آماده برگزاری', 'count': active_exams, 'color': '#10b981'},
-            {'label': 'در حال برگزاری', 'count': today_exams, 'color': '#3b82f6'},
-            {'label': 'پایان‌یافته', 'count': finished_exams, 'color': '#f59e0b'},
-            {'label': 'بسته شده', 'count': pending_exams, 'color': '#8b5cf6'},
-        ],
-        'exam_status_style': f'background: conic-gradient(#10b981 0 {active_pct}%, #3b82f6 {active_pct}% {active_pct + today_pct}%, #f59e0b {active_pct + today_pct}% {active_pct + today_pct + finished_pct}%, #8b5cf6 {active_pct + today_pct + finished_pct}% 100%);',
-        'participation_total': student_count,
-        'participation_style': 'background: conic-gradient(#315cff 0 72%, #10b981 72% 90%, #ef4444 90% 100%);',
-        'trend_points': '20,126 110,104 200,62 290,118 380,90 470,60 560,88',
-        'trend_labels': ['۱۲ اردیبهشت', '۱۸ اردیبهشت', '۱۹ اردیبهشت', '۲۰ اردیبهشت', '۲۱ اردیبهشت', '۲۲ اردیبهشت', '۲۳ اردیبهشت'],
+        'exam_status_items': exam_status_items,
+        'exam_status_style': _conic_style(exam_status_items),
+        'participation_items': attempt_items,
+        'participation_total': sum(item['value'] for item in attempt_items),
+        'participation_style': _conic_style(attempt_items, 'value'),
+        'trend_points': trend['activity_secondary_points'],
+        'trend_labels': trend['trend_labels'],
+        'trend_submitted_total': trend['trend_submitted_total'],
     }
-    context.update({
-        'role_label': 'مدیر آموزشی',
-        'dashboard_stats': [
-            {'label': 'کل آزمون‌ها', 'value': total_exams, 'hint': f'{active_exams} منتشرشده', 'tone': 'indigo', 'icon': 'doc'},
-            {'label': 'آزمون‌های منتشرشده', 'value': active_exams, 'hint': f'{running_exams} در حال برگزاری', 'tone': 'green', 'icon': 'play'},
-            {'label': 'آزمون‌های امروز', 'value': today_exams, 'hint': 'با شروع امروز', 'tone': 'orange', 'icon': 'calendar'},
-            {'label': 'اساتید', 'value': teacher_count, 'hint': f'{student_count} دانشجو', 'tone': 'emerald', 'icon': 'users'},
-            {'label': 'نیازمند بررسی', 'value': pending_exams, 'hint': 'آزمون در انتظار تأیید', 'tone': 'red', 'icon': 'alert'},
-            {'label': 'درخواست‌های دانشجویان', 'value': erd_count('educational_questions') if erd_has_column('educational_questions', 'id') else 0, 'hint': 'نیازمند پاسخ', 'tone': 'blue', 'icon': 'message'},
-        ],
-        'quick_actions': [
-            {'label': 'ایجاد آزمون جدید', 'url': reverse('core:exam_manager_exam_create'), 'tone': 'primary', 'icon': 'plus'},
-            {'label': 'انتشار آزمون', 'url': reverse('core:exam_manager_active_exams'), 'icon': 'send'},
-            {'label': 'مدیریت سوالات', 'url': reverse('core:exam_manager_exams'), 'icon': 'help'},
-            {'label': 'زمان‌بندی آزمون', 'url': reverse('core:exam_manager_calendar'), 'icon': 'calendar'},
-            {'label': f'درخواست‌های اساتید ({_manager_pending_teacher_request_count(request)})', 'url': reverse('core:exam_manager_teacher_requests'), 'icon': 'users'},
-        ],
-        'attention_items': [
-            {'label': 'تایید بانک سوال', 'color': '#ef4444', 'icon': 'database'},
-            {'label': 'تداخل زمانی آزمون', 'color': '#f59e0b', 'icon': 'clock'},
-            {'label': 'درخواست زمان اضافه', 'color': '#3b82f6', 'icon': 'calendar'},
-            {'label': 'درخواست مهمان‌پذیری', 'color': '#10b981', 'icon': 'user'},
-        ],
-        'exam_status_items': [
-            {'label': 'آماده برگزاری', 'count': active_exams, 'color': '#10b981'},
-            {'label': 'در حال برگزاری', 'count': today_exams, 'color': '#3b82f6'},
-            {'label': 'پایان‌یافته', 'count': finished_exams, 'color': '#f59e0b'},
-            {'label': 'بسته شده', 'count': pending_exams, 'color': '#8b5cf6'},
-        ],
-        'trend_labels': ['۱۲ اردیبهشت', '۱۸ اردیبهشت', '۱۹ اردیبهشت', '۲۰ اردیبهشت', '۲۱ اردیبهشت', '۲۲ اردیبهشت', '۲۳ اردیبهشت'],
-    })
     return render(request, 'exam_manager/dashboard.html', context)
 
 
