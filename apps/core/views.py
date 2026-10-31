@@ -107,7 +107,6 @@ from .models import (
     Question,
     StudentObjection,
     StudentExamAttempt,
-    StudentExamEvent,
     StudentQuestionAnswer,
     SystemSetting,
     SystemRole,
@@ -11899,17 +11898,23 @@ def student_practice_start(request, exam_id):
     return redirect('core:student_attempt', attempt_id=attempt_id)
 
 
-@student_required
+ATTEMPT_CONNECTION_EVENTS = {
+    'disconnect': ('exam_disconnected', 'قطع اتصال اینترنت دانشجو در حین آزمون ثبت شد.'),
+    'reconnect': ('exam_reconnected', 'اتصال مجدد دانشجو در حین آزمون ثبت شد.'),
+}
+
+
+@erd_role_required('student')
 def student_attempt_event(request, attempt_id):
-    student = request.student_profile
-    attempt = get_object_or_404(StudentExamAttempt, pk=attempt_id, student=student)
-    event = request.POST.get('event')
-    if event == 'disconnect':
-        StudentExamEvent.objects.create(attempt=attempt, event_type=StudentExamEvent.EventType.DISCONNECTED, message='قطع اتصال اینترنت دانشجو ثبت شد.')
-    elif event == 'reconnect':
-        StudentExamEvent.objects.create(attempt=attempt, event_type=StudentExamEvent.EventType.RECONNECTED, message='اتصال مجدد دانشجو ثبت شد.')
-        attempt.last_activity_at = timezone.now()
-        attempt.save(update_fields=['last_activity_at'])
+    """The exam page reports a lost / restored connection; it goes to the activity log with the attempt id."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'روش درخواست مجاز نیست.'}, status=405)
+    if not erd_row('SELECT id FROM exam_attempts WHERE id = %s AND student_id = %s', [attempt_id, request.erd_profile_id]):
+        raise Http404('تلاش آزمون پیدا نشد.')
+    event = ATTEMPT_CONNECTION_EVENTS.get(request.POST.get('event'))
+    if not event:
+        return JsonResponse({'ok': False, 'error': 'رویداد نامعتبر است.'}, status=400)
+    log_activity(request.user, event[0], event[1], request, {'attempt_id': str(attempt_id)})
     return JsonResponse({'ok': True})
 
 

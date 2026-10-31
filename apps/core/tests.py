@@ -3719,6 +3719,19 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
             self.assertEqual(self.client.get(reverse(name, args=[attempt_id])).status_code, 404, name)
         self.assertEqual(self.client.post(reverse('core:student_attempt', args=[attempt_id]), {'action': 'feedback'}).status_code, 404)
 
+    def test_connection_events_reach_the_activity_log_for_own_attempts_only(self):
+        attempt_id = self._start('tutorial')
+        url = reverse('core:student_attempt_event', args=[attempt_id])
+        self.assertEqual(self.client.post(url, {'event': 'disconnect'}).json(), {'ok': True})
+        self.assertEqual(self.client.post(url, {'event': 'reconnect'}).status_code, 200)
+        self.assertEqual(self.client.post(url, {'event': 'bogus'}).status_code, 400)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT action FROM activity_audit_log WHERE action LIKE 'exam_%%connected' ORDER BY action")
+            self.assertEqual([row[0] for row in cursor.fetchall()], ['exam_disconnected', 'exam_reconnected'])
+        User = get_user_model()
+        self.client.force_login(User.objects.create_user(username='student_out_scope', email='s_out@example.com', password='x'))
+        self.assertEqual(self.client.post(url, {'event': 'disconnect'}).status_code, 404)
+
 class UnassignedExamAccessTests(_ScopedOrgFixture):
     """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""
 
