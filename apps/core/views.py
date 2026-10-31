@@ -13452,65 +13452,6 @@ def _teacher_question_rows(teacher_id):
     return enriched
 
 
-def _teacher_question_sets(teacher_id, all_questions):
-    has_sets = bool(erd_table_columns('question_sets') and erd_table_columns('question_set_items'))
-    rows = erd_rows(
-        """
-        SELECT qs.id, qs.title, qs.description, qs.status, qs.status_note,
-               COALESCE(c.title, '-') AS course,
-               COUNT(qsi.id) AS count
-        FROM question_sets qs
-        LEFT JOIN courses c ON c.id = qs.course_id
-        LEFT JOIN question_set_items qsi ON qsi.set_id = qs.id
-        WHERE qs.created_by = %s OR qs.target_teacher_id = %s
-        GROUP BY qs.id, qs.title, qs.description, qs.status, qs.status_note, c.title
-        ORDER BY qs.title
-        LIMIT 80
-        """,
-        [teacher_id, teacher_id],
-    ) if teacher_id and has_sets else []
-    if rows:
-        return [
-            {
-                **row,
-                'count': int(row.get('count') or 0),
-                'status_label': 'اشتراکی' if row.get('status') == 'shared' else 'خصوصی',
-                'status_class': 'is-ok' if row.get('status') == 'shared' else 'is-muted',
-                'updated_display': '۱۴۰۴/۰۳/۲۰ ۰۹:۳۰',
-            }
-            for row in rows
-        ]
-    courses = list({q.get('course') or 'بانک عمومی' for q in all_questions})[:6]
-    return [
-        {
-            'id': f'bank-{index}',
-            'title': course,
-            'description': 'بانک سؤال ساخته‌شده از سؤال‌های موجود استاد',
-            'course': course,
-            'count': sum(1 for q in all_questions if (q.get('course') or 'بانک عمومی') == course),
-            'status': 'private',
-            'status_label': 'خصوصی',
-            'status_class': 'is-muted',
-            'updated_display': '۱۴۰۴/۰۳/۲۰ ۰۹:۳۰',
-        }
-        for index, course in enumerate(courses, start=1)
-    ]
-
-
-def _teacher_question_tags(all_questions):
-    counts = {}
-    for question in all_questions:
-        for tag in question.get('tags_list') or []:
-            counts[tag] = counts.get(tag, 0) + 1
-    if not counts:
-        counts = {'قلب': 18, 'اورژانس': 16, 'تنفسی': 14, 'سالمندی': 12, 'داروشناسی': 9, 'مهارت بالینی': 8}
-    palette = ['is-red', 'is-orange', 'is-blue', 'is-purple', 'is-green', 'is-yellow']
-    return [
-        {'title': tag, 'count': count, 'class': palette[index % len(palette)]}
-        for index, (tag, count) in enumerate(sorted(counts.items(), key=lambda item: item[1], reverse=True)[:8])
-    ]
-
-
 JALALI_MONTH_NAMES = ('فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند')
 JALALI_WEEKDAY_NAMES = ('دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه', 'یکشنبه')  # indexed by date.weekday()
 

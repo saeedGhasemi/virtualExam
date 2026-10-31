@@ -175,20 +175,24 @@
         {% if question_view == 'banks' %}
         <section class="question-bank-cards question-bank-cards--wide">
             {% for bank in question_banks %}
-                <article><b>♡</b><h2>{{ bank.title }}</h2><span>درس: {{ bank.course }}</span><strong>{{ bank.count|fa_digits }} سؤال</strong><em class="{{ bank.status_class }}">{{ bank.status_label }}</em><a href="{% url 'core:teacher_questions' %}?q={{ bank.course }}">مدیریت بانک</a></article>
+                <article><b>♡</b><h2>{{ bank.title }}</h2><span>فعال: {{ bank.active|fa_digits }} · پیش‌نویس: {{ bank.draft|fa_digits }}{% if bank.archived %} · آرشیو: {{ bank.archived|fa_digits }}{% endif %}</span><strong>{{ bank.count|fa_digits }} سؤال</strong>{% if bank.shared %}<em class="is-ok">{{ bank.shared|fa_digits }} اشتراکی</em>{% endif %}<a href="{{ bank.url }}">مدیریت بانک</a></article>
+            {% empty %}
+                <p class="texams-empty">هنوز سؤالی در بانک ندارید.</p>
             {% endfor %}
         </section>
+        {% if question_banks %}
         <section class="question-bank-panel">
-            <header class="question-section-title"><h2>آخرین فعالیت بانک‌ها</h2></header>
+            <header class="question-section-title"><h2>بانک‌های سؤال (هر درس یک بانک)</h2></header>
             <table class="teacher-table">
-                <thead><tr><th>نام بانک</th><th>درس</th><th>تعداد سؤال</th><th>وضعیت</th><th>آخرین فعالیت</th><th>عملیات</th></tr></thead>
-                <tbody>{% for bank in question_banks %}<tr><td>{{ bank.title }}</td><td>{{ bank.course }}</td><td>{{ bank.count|fa_digits }}</td><td><span class="teacher-badge {{ bank.status_class }}">{{ bank.status_label }}</span></td><td>{{ bank.updated_display }}</td><td><a href="{% url 'core:teacher_questions' %}?q={{ bank.course }}">مدیریت بانک</a></td></tr>{% endfor %}</tbody>
+                <thead><tr><th>بانک / درس</th><th>فعال</th><th>پیش‌نویس</th><th>آرشیو</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead>
+                <tbody>{% for bank in question_banks %}<tr><td>{{ bank.title }}</td><td>{{ bank.active|fa_digits }}</td><td>{{ bank.draft|fa_digits }}</td><td>{{ bank.archived|fa_digits }}</td><td>{{ bank.last_update|to_jalali|default:'-' }}</td><td><a href="{{ bank.url }}">مدیریت بانک</a></td></tr>{% endfor %}</tbody>
             </table>
         </section>
+        {% endif %}
         {% elif question_view == 'tags' %}
         <section class="question-tag-layout">
-            <aside class="question-popular-tags"><h2>برچسب‌های پرتکرار</h2>{% for tag in question_tags %}<div><span class="{{ tag.class }}">{{ tag.title }}</span><b>{{ tag.count|fa_digits }}</b></div>{% endfor %}<a href="{% url 'core:teacher_questions' %}?view=tags">مدیریت برچسب‌ها</a></aside>
-            <main class="question-bank-panel"><header class="question-section-title"><h2>دسته‌بندی‌های درس‌ها</h2></header><table class="teacher-table"><thead><tr><th>دسته‌بندی</th><th>تعداد سؤال</th><th>زیرمجموعه</th><th>عملیات</th></tr></thead><tbody>{% for bank in question_banks %}<tr><td>{{ bank.title }}</td><td>{{ bank.count|fa_digits }}</td><td>{{ bank.course }}</td><td><a href="{% url 'core:teacher_questions' %}?q={{ bank.course }}">مشاهده</a></td></tr>{% endfor %}</tbody></table></main>
+            <aside class="question-popular-tags"><h2>برچسب‌ها</h2>{% for tag in question_categories.tags %}<div><a class="{{ tag.class }}" href="{{ tag.url }}">{{ tag.title }}</a><b>{{ tag.count|fa_digits }}</b></div>{% empty %}<p class="texams-empty">برای سؤال‌هایتان برچسبی ثبت نشده است.</p>{% endfor %}</aside>
+            <main class="question-bank-panel"><header class="question-section-title"><h2>مبحث‌ها</h2></header><table class="teacher-table"><thead><tr><th>مبحث</th><th>تعداد سؤال</th><th>عملیات</th></tr></thead><tbody>{% for subject in question_categories.subjects %}<tr><td>{{ subject.title }}</td><td>{{ subject.count|fa_digits }}</td><td><a href="{{ subject.url }}">مشاهده سؤال‌ها</a></td></tr>{% empty %}<tr><td colspan="3">برای سؤال‌هایتان مبحثی ثبت نشده است.</td></tr>{% endfor %}</tbody></table></main>
         </section>
         {% elif question_view == 'drafts' %}
         {% if stale_drafts %}<section class="question-draft-alert"><span>{{ stale_drafts|fa_digits }} پیش‌نویس بیش از ۱۴ روز بدون تغییر</span></section>{% endif %}
@@ -221,9 +225,19 @@
                 <select name="difficulty"><option value="all">همه دشواری‌ها</option><option value="easy" {% if question_filters.difficulty == 'easy' %}selected{% endif %}>آسان</option><option value="medium" {% if question_filters.difficulty == 'medium' %}selected{% endif %}>متوسط</option><option value="hard" {% if question_filters.difficulty == 'hard' %}selected{% endif %}>سخت</option></select>
                 <select name="type"><option value="all">همه انواع سؤال</option><option value="single" {% if question_filters.type == 'single' %}selected{% endif %}>چهارگزینه‌ای</option><option value="multi" {% if question_filters.type == 'multi' %}selected{% endif %}>چندپاسخی</option><option value="true_false" {% if question_filters.type == 'true_false' %}selected{% endif %}>درست/نادرست</option><option value="short_answer" {% if question_filters.type == 'short_answer' %}selected{% endif %}>پاسخ کوتاه</option><option value="essay" {% if question_filters.type == 'essay' %}selected{% endif %}>تشریحی</option><option value="fill_blank" {% if question_filters.type == 'fill_blank' %}selected{% endif %}>جای‌خالی</option><option value="matching" {% if question_filters.type == 'matching' %}selected{% endif %}>تطبیقی</option><option value="ordering" {% if question_filters.type == 'ordering' %}selected{% endif %}>ترتیب‌گذاری</option><option value="numeric" {% if question_filters.type == 'numeric' %}selected{% endif %}>پاسخ عددی</option><option value="matrix" {% if question_filters.type == 'matrix' %}selected{% endif %}>ماتریسی</option><option value="image_label" {% if question_filters.type == 'image_label' %}selected{% endif %}>نشانه‌گذاری تصویر</option><option value="media_response" {% if question_filters.type == 'media_response' %}selected{% endif %}>صوتی/ویدئویی</option></select>
                 <select name="status"><option value="all">همه وضعیت‌ها</option><option value="active" {% if question_filters.status == 'active' %}selected{% endif %}>فعال</option><option value="draft" {% if question_filters.status == 'draft' %}selected{% endif %}>پیش‌نویس</option><option value="needs_review" {% if question_filters.status == 'needs_review' %}selected{% endif %}>نیازمند بازبینی</option></select>
+                {% if question_filters.course %}<input type="hidden" name="course" value="{{ question_filters.course }}">{% endif %}
+                {% if question_filters.subject %}<input type="hidden" name="subject" value="{{ question_filters.subject }}">{% endif %}
+                {% if question_filters.tag %}<input type="hidden" name="tag" value="{{ question_filters.tag }}">{% endif %}
                 <button type="submit">اعمال فیلتر</button>
             </form>
-            {% with qf=question_filters qenc=question_filters.q|urlencode %}{% with base="?q="|add:qenc|add:"&difficulty="|add:qf.difficulty|add:"&status="|add:qf.status|add:"&type=" %}
+            {% if question_filters.course or question_filters.subject or question_filters.tag %}
+            <p class="texams-notice">فیلتر فعال:
+                {% if question_filters.course %}درس «{{ question_filter_course|default:'-' }}»{% endif %}
+                {% if question_filters.subject %}مبحث «{{ question_filters.subject }}»{% endif %}
+                {% if question_filters.tag %}برچسب «{{ question_filters.tag }}»{% endif %}
+                — <a href="{% url 'core:teacher_questions' %}">حذف فیلتر</a></p>
+            {% endif %}
+            {% with qf=question_filters %}{% with base=question_type_base %}
             <nav class="question-type-strip" aria-label="فیلتر بر اساس نوع سؤال">
                 <a href="{{ base }}{% if qf.type == 'single' %}all{% else %}single{% endif %}" class="{% if qf.type == 'single' %}is-active{% endif %}" {% if qf.type == 'single' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="single" %}</b><span>چهارگزینه‌ای</span></a>
                 <a href="{{ base }}{% if qf.type == 'multi' %}all{% else %}multi{% endif %}" class="{% if qf.type == 'multi' %}is-active{% endif %}" {% if qf.type == 'multi' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="multi" %}</b><span>چندگزینه‌ای</span></a>
@@ -260,18 +274,22 @@
             </table>
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
+        {% if question_banks %}
         <section class="question-bank-cards">
-            {% for bank in question_banks %}
-                <article><b>♡</b><h2>{{ bank.title }}</h2><span>درس: {{ bank.course }}</span><strong>{{ bank.count|fa_digits }} سؤال</strong><em class="{{ bank.status_class }}">{{ bank.status_label }}</em><a href="{% url 'core:teacher_questions' %}?q={{ bank.course }}">مدیریت بانک</a></article>
+            {% for bank in question_banks|slice:":6" %}
+                <article><b>♡</b><h2>{{ bank.title }}</h2><span>فعال: {{ bank.active|fa_digits }} · پیش‌نویس: {{ bank.draft|fa_digits }}</span><strong>{{ bank.count|fa_digits }} سؤال</strong><a href="{{ bank.url }}">مدیریت بانک</a></article>
             {% endfor %}
         </section>
+        {% endif %}
         <section class="question-bank-panel">
             <header class="question-section-title"><h2>فعالیت‌های اخیر</h2></header>
             <table class="teacher-table">
-                <thead><tr><th>عنوان سؤال</th><th>بانک / درس</th><th>وضعیت</th><th>آخرین فعالیت</th><th>عملیات</th></tr></thead>
+                <thead><tr><th>عنوان سؤال</th><th>بانک / درس</th><th>وضعیت</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead>
                 <tbody>
-                    {% for q in questions|slice:":5" %}
-                        <tr><td>{{ q.text|truncatechars:70 }}</td><td>{{ q.course }}</td><td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span></td><td>{{ q.updated_display }}</td><td><a href="{% url 'core:teacher_question_edit' q.id %}">مشاهده</a></td></tr>
+                    {% for q in recent_questions %}
+                        <tr><td>{{ q.text|truncatechars:70 }}</td><td>{{ q.course }}</td><td>{% if q.archived_at %}<span class="teacher-badge is-muted">آرشیو</span>{% else %}<span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span>{% endif %}</td><td>{{ q.updated_at|to_jalali|default:'-' }}</td><td><a href="{% url 'core:teacher_question_edit' q.id %}">مشاهده</a></td></tr>
+                    {% empty %}
+                        <tr><td colspan="5">هنوز تغییری از زمان ثبت تاریخ‌ها ذخیره نشده است.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

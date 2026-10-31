@@ -12769,16 +12769,17 @@
     @apply mb-3 grid grid-cols-[minmax(0,1fr)_44px] items-center gap-4;
   }
 
-  .question-popular-tags span {
+  .question-popular-tags span,
+  .question-popular-tags div > a {
     @apply inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-black;
   }
 
-  .question-popular-tags span.is-red { @apply bg-red-100 text-red-700; }
-  .question-popular-tags span.is-orange { @apply bg-orange-100 text-orange-700; }
-  .question-popular-tags span.is-blue { @apply bg-blue-100 text-blue-700; }
-  .question-popular-tags span.is-purple { @apply bg-violet-100 text-violet-700; }
-  .question-popular-tags span.is-green { @apply bg-emerald-100 text-emerald-700; }
-  .question-popular-tags span.is-yellow { @apply bg-yellow-100 text-yellow-700; }
+  .question-popular-tags span.is-red, .question-popular-tags a.is-red { @apply bg-red-100 text-red-700; }
+  .question-popular-tags span.is-orange, .question-popular-tags a.is-orange { @apply bg-orange-100 text-orange-700; }
+  .question-popular-tags span.is-blue, .question-popular-tags a.is-blue { @apply bg-blue-100 text-blue-700; }
+  .question-popular-tags span.is-purple, .question-popular-tags a.is-purple { @apply bg-violet-100 text-violet-700; }
+  .question-popular-tags span.is-green, .question-popular-tags a.is-green { @apply bg-emerald-100 text-emerald-700; }
+  .question-popular-tags span.is-yellow, .question-popular-tags a.is-yellow { @apply bg-yellow-100 text-yellow-700; }
 
   .question-popular-tags b {
     @apply text-center text-sm font-black text-slate-700;

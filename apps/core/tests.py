@@ -4324,3 +4324,39 @@ class TeacherQuestionDraftsTabTests(_ScopedOrgFixture):
         self.assertContains(page, '?type=essay&amp;draft=restore')
         self.assertNotContains(page, 'فرم استاد دیگر')
         self.assertNotContains(page, 'width: 75%')
+
+
+class TeacherQuestionBanksAndCategoriesTests(_ScopedOrgFixture):
+    """بانک = درس، و دسته‌بندی‌ها = مبحث و برچسب واقعی سؤال‌ها؛ قبلاً بانک‌ها و برچسب‌ها و تاریخ‌ها ساختگی بودند."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        with connection.cursor() as cursor:
+            cursor.execute('DELETE FROM questions WHERE teacher_id = %s', [cls.teacher_in_id])
+        rows = [
+            ('سؤال قلب ۱', cls.course_in_id, 'قلب و عروق', 'ECG, قلب', True),
+            ('سؤال قلب ۲', cls.course_in_id, 'قلب و عروق', 'قلب و عروق، ECG', False),
+            ('سؤال بدون درس', None, '', '', True),
+        ]
+        for text, course, subject, tags, published in rows:
+            _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'subject', 'tags', 'is_published'],
+                    [str(uuid.uuid4()), cls.teacher_in_id, course, text, 'single', subject, tags, published])
+
+    def test_banks_categories_and_their_filters(self):
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_questions')
+        banks = self.client.get(url, {'view': 'banks'}).context['question_banks']
+        self.assertEqual([(b['title'], b['active'], b['draft']) for b in banks], [('درس داخل محدوده', 1, 1), ('بدون درس', 1, 0)])
+        self.assertEqual(sorted(q['text'] for q in self.client.get(url, {'course': self.course_in_id}).context['questions']), ['سؤال قلب ۱', 'سؤال قلب ۲'])
+        self.assertEqual([q['text'] for q in self.client.get(url, {'course': 'none'}).context['questions']], ['سؤال بدون درس'])
+
+        categories = self.client.get(url, {'view': 'tags'}).context['question_categories']
+        self.assertEqual([(t['title'], t['count']) for t in categories['tags']], [('ECG', 2), ('قلب', 1), ('قلب و عروق', 1)])
+        self.assertEqual([(s['title'], s['count']) for s in categories['subjects']], [('قلب و عروق', 2)])
+        self.assertEqual([q['text'] for q in self.client.get(url, {'tag': 'قلب'}).context['questions']], ['سؤال قلب ۱'])  # exact tag, not "قلب و عروق"
+        page = self.client.get(url, {'tag': 'ECG', 'subject': 'قلب و عروق'})
+        self.assertEqual(page.context['question_page'].paginator.count, 2)
+        self.assertContains(page, 'برچسب «ECG»')
+        self.assertNotContains(self.client.get(url, {'view': 'tags'}), 'داروشناسی')

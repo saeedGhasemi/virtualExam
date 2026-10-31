@@ -5,6 +5,8 @@ Filtering, counting and paging happen in the database, and nothing here runs for
 import json
 from datetime import timedelta
 
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -19,8 +21,6 @@ from .views import (
     QUESTION_TYPE_LABELS,
     _query_without_page,
     _teacher_question_rows,
-    _teacher_question_sets,
-    _teacher_question_tags,
     erd_execute,
     erd_role_required,
     erd_row,
@@ -36,6 +36,9 @@ STATUS_SQL = (
     "CASE WHEN COALESCE(TRIM(q.text), '') = '' THEN 'needs_review' "
     "WHEN COALESCE(q.is_published, false) = true THEN 'active' ELSE 'draft' END"
 )
+NO_COURSE = 'none'
+# The tags column holds «a, b، c»; this wraps it as ",a,b,c," so one tag matches exactly.
+TAGS_SQL = "(',' || LOWER(REPLACE(REPLACE(REPLACE(COALESCE(q.tags, ''), '،', ','), ', ', ','), ' ,', ',')) || ',')"
 STATUS_LABELS = {
     'active': ('فعال', 'is-ok'),
     'draft': ('پیش‌نویس', 'is-muted'),
@@ -49,6 +52,9 @@ def _filters(request) -> dict:
         'status': request.GET.get('status') if request.GET.get('status') in STATUS_LABELS else 'all',
         'type': (request.GET.get('type') or 'all')[:40],
         'difficulty': request.GET.get('difficulty') if request.GET.get('difficulty') in QUESTION_DIFFICULTY_LABELS else 'all',
+        'course': (request.GET.get('course') or '').strip()[:64],
+        'subject': (request.GET.get('subject') or '').strip()[:160],
+        'tag': (request.GET.get('tag') or '').strip()[:80],
     }
 
 
@@ -61,8 +67,11 @@ def _where(teacher_id, filters, archived=False) -> tuple:
     clauses = ['q.teacher_id = %s', f"q.archived_at IS {'NOT ' if archived else ''}NULL"]
     params = [teacher_id]
     if filters['q']:
-        clauses.append("(LOWER(COALESCE(q.text, '')) LIKE %s ESCAPE '\\' OR LOWER(COALESCE(c.title, '')) LIKE %s ESCAPE '\\')")
-        params += [_like(filters['q'])] * 2
+        clauses.append(
+            "(LOWER(COALESCE(q.text, '')) LIKE %s ESCAPE '\\' OR LOWER(COALESCE(c.title, '')) LIKE %s ESCAPE '\\'"
+            " OR LOWER(CAST(q.id AS TEXT)) LIKE %s ESCAPE '\\')"
+        )
+        params += [_like(filters['q'])] * 2 + [_like(filters['q'])[1:]]  # the code shown in the list is the id's start
     if filters['status'] == 'unpublished':
         clauses.append(f"{STATUS_SQL} != 'active'")
     elif filters['status'] != 'all':
@@ -75,6 +84,17 @@ def _where(teacher_id, filters, archived=False) -> tuple:
     if filters['difficulty'] != 'all':
         clauses.append('q.difficulty = %s')
         params.append(filters['difficulty'])
+    if filters['course'] == NO_COURSE:
+        clauses.append('q.course_id IS NULL')
+    elif filters['course']:
+        clauses.append('q.course_id = %s')
+        params.append(filters['course'])
+    if filters['subject']:
+        clauses.append("TRIM(COALESCE(q.subject, '')) = %s")
+        params.append(filters['subject'])
+    if filters['tag']:
+        clauses.append(f"{TAGS_SQL} LIKE %s ESCAPE '\\'")
+        params.append(f"%,{_like(filters['tag'])[1:-1]},%")
     return ' AND '.join(clauses), params
 
 
@@ -180,21 +200,106 @@ def stale_draft_count(teacher_id, days=14) -> int:
     return int(row.get('n') or 0)
 
 
+def _course_title(course_id) -> str:
+    if not course_id:
+        return ''
+    if course_id == NO_COURSE:
+        return 'بدون درس'
+    return (erd_row('SELECT title FROM courses WHERE id = %s', [course_id]) or {}).get('title') or ''
+
+
+def course_banks(teacher_id) -> list:
+    """One bank per course of the teacher's questions (questions without a course form their own bank)."""
+    rows = erd_rows(
+        f"""
+        SELECT q.course_id, COALESCE(c.title, 'بدون درس') AS title,
+               SUM(CASE WHEN q.archived_at IS NULL AND {STATUS_SQL} = 'active' THEN 1 ELSE 0 END) AS active,
+               SUM(CASE WHEN q.archived_at IS NULL AND {STATUS_SQL} != 'active' THEN 1 ELSE 0 END) AS draft,
+               SUM(CASE WHEN q.archived_at IS NOT NULL THEN 1 ELSE 0 END) AS archived,
+               SUM(CASE WHEN q.shared_at IS NOT NULL AND q.archived_at IS NULL THEN 1 ELSE 0 END) AS shared,
+               MAX(q.updated_at) AS last_update
+        FROM questions q LEFT JOIN courses c ON c.id = q.course_id
+        WHERE q.teacher_id = %s
+        GROUP BY q.course_id, c.title
+        ORDER BY COUNT(*) DESC, c.title
+        """,
+        [teacher_id],
+    )
+    url = reverse('core:teacher_questions')
+    return [
+        {
+            **row,
+            'count': int(row['active'] or 0) + int(row['draft'] or 0),
+            'url': f"{url}?{urlencode({'course': row['course_id'] or NO_COURSE})}",
+        }
+        for row in rows
+    ]
+
+
+def categories(teacher_id) -> dict:
+    """Subjects («مبحث») and tags of the teacher's questions, with how many questions carry each."""
+    url = reverse('core:teacher_questions')
+    subjects = erd_rows(
+        """
+        SELECT TRIM(q.subject) AS title, COUNT(*) AS count
+        FROM questions q
+        WHERE q.teacher_id = %s AND q.archived_at IS NULL AND COALESCE(TRIM(q.subject), '') != ''
+        GROUP BY TRIM(q.subject)
+        ORDER BY COUNT(*) DESC, TRIM(q.subject)
+        """,
+        [teacher_id],
+    )
+    tag_counts = {}
+    for row in erd_rows("SELECT q.tags FROM questions q WHERE q.teacher_id = %s AND q.archived_at IS NULL AND COALESCE(q.tags, '') != ''", [teacher_id]):
+        for tag in {part.strip() for part in str(row['tags']).replace('،', ',').split(',') if part.strip()}:
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    palette = ['is-red', 'is-orange', 'is-blue', 'is-purple', 'is-green', 'is-yellow']
+    tags = sorted(tag_counts.items(), key=lambda item: (-item[1], item[0]))
+    return {
+        'subjects': [{**row, 'url': f"{url}?{urlencode({'subject': row['title']})}"} for row in subjects],
+        'tags': [
+            {'title': tag, 'count': count, 'class': palette[index % len(palette)], 'url': f"{url}?{urlencode({'tag': tag})}"}
+            for index, (tag, count) in enumerate(tags)
+        ],
+    }
+
+
+def recent_questions(teacher_id, limit=5) -> list:
+    """The teacher's most recently saved questions (only rows saved since save times were recorded)."""
+    rows = erd_rows(
+        f"""
+        SELECT q.id, q.text, q.type, q.difficulty, q.structure, COALESCE(c.title, '-') AS course,
+               {STATUS_SQL} AS status_key, q.updated_at, q.archived_at
+        FROM questions q LEFT JOIN courses c ON c.id = q.course_id
+        WHERE q.teacher_id = %s AND q.updated_at IS NOT NULL
+        ORDER BY q.updated_at DESC
+        LIMIT {int(limit)}
+        """,
+        [teacher_id],
+    )
+    return [_row(row) for row in rows]
+
+
 def question_bank_context(request, teacher_id) -> dict:
     view = request.GET.get('view') if request.GET.get('view') in VIEWS else 'all'
     questions, page = question_page(
         request, teacher_id, archived=view == 'archive', status='unpublished' if view == 'drafts' else None,
     )
-    all_questions = _teacher_question_rows(teacher_id)
+    all_questions = _teacher_question_rows(teacher_id) if view == 'shared' else []
+    filters = _filters(request)
+    banks = course_banks(teacher_id) if view in ('all', 'banks') else []
     return {
         'questions': questions,
         'question_page': page,
         'question_page_query': _query_without_page(request),
         'question_stats': question_stats(teacher_id),
         'question_view': view,
-        'question_filters': _filters(request),
-        'question_banks': _teacher_question_sets(teacher_id, all_questions),
-        'question_tags': _teacher_question_tags(all_questions),
+        'question_filters': filters,
+        'question_type_base': '?' + urlencode({key: value for key, value in filters.items() if key != 'type' and value}) + '&type=',
+        'question_filter_course': _course_title(filters['course']),
+        'question_banks': banks,
+        'question_categories': categories(teacher_id) if view == 'tags' else {},
+        'recent_questions': recent_questions(teacher_id) if view == 'all' else [],
         'autosaved_drafts': autosaved_drafts(teacher_id) if view == 'drafts' else [],
         'stale_drafts': stale_draft_count(teacher_id) if view == 'drafts' else 0,
         'shared_questions': [q for q in all_questions if q['status_key'] == 'active'][:10],
