@@ -17999,7 +17999,7 @@ def student_exam_detail(request, exam_id):
         'student': _sx_student_context(request),
         'exam': exam,
         'attempt': attempt,
-        'can_enter': now <= exam['ends_at'],
+        'can_enter': exam['starts_at'] <= now <= exam['ends_at'],
         'entry_expired': now > exam['ends_at'],
         'seconds_until_start': max(0, int((exam['starts_at'] - now).total_seconds())),
         'question_count': exam['question_count'],
@@ -18037,6 +18037,12 @@ def student_exam_start(request, exam_id):
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
     if attempt and attempt.get('submitted_at'):
         return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
+    # A started attempt may be resumed (its own time limit applies); a new start must fall inside the exam window.
+    resuming = bool(attempt and attempt.get('started_at') and attempt.get('status') == 'in_progress')
+    now = timezone.now()
+    if not resuming and not exam['starts_at'] <= now <= exam['ends_at']:
+        messages.error(request, 'آزمون هنوز شروع نشده است.' if now < exam['starts_at'] else 'زمان ورود به این آزمون به پایان رسیده است.')
+        return redirect('core:student_exam_detail', exam_id=exam_id)
     if not attempt:
         attempt_id = str(uuid.uuid4())
         erd_execute(

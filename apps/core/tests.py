@@ -3354,6 +3354,55 @@ class StudentExamAccessFallbackTests(_ScopedOrgFixture):
         self.assertIsNone(_sx_exam_row(self.exam_out_id, self.student_out_id))
 
 
+class StudentExamStartWindowTests(_ScopedOrgFixture):
+    """شروع آزمون فقط در بازه‌ی برگزاری مجاز است؛ قبلاً با فراخوانی مستقیم آدرس شروع، هر زمانی شروع می‌شد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET is_published = %s, lifecycle_status = %s, duration_minutes = 30 WHERE id = %s',
+                           [True, 'published', cls.exam_in_id])
+        _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), cls.exam_in_id, cls.student_in_id])
+
+    def _window(self, start_minutes, end_minutes):
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET start_at = %s, end_at = %s WHERE id = %s',
+                           [now + timedelta(minutes=start_minutes), now + timedelta(minutes=end_minutes), self.exam_in_id])
+
+    def _attempts(self):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM exam_attempts WHERE exam_id = %s', [self.exam_in_id])
+            return cursor.fetchone()[0]
+
+    def test_start_is_refused_outside_the_exam_window(self):
+        url = reverse('core:student_exam_start', args=[self.exam_in_id])
+        detail = reverse('core:student_exam_detail', args=[self.exam_in_id])
+        self.client.force_login(self.student_user)
+        for window, message in (((10, 40), 'آزمون هنوز شروع نشده است.'), ((-60, -30), 'زمان ورود به این آزمون به پایان رسیده است.')):
+            self._window(*window)
+            response = self.client.post(url, follow=True)
+            self.assertRedirects(response, detail)
+            self.assertContains(response, message)
+            self.assertEqual(self._attempts(), 0)
+        self._window(10, 40)
+        self.assertNotContains(self.client.get(detail), 'آماده‌ام؛ ورود به آزمون')
+
+    def test_started_attempt_can_be_resumed_after_the_window_closes(self):
+        url = reverse('core:student_exam_start', args=[self.exam_in_id])
+        self.client.force_login(self.student_user)
+        self._window(-5, 25)
+        self.assertEqual(self.client.post(url).status_code, 302)
+        self.assertEqual(self._attempts(), 1)
+        self._window(-40, -1)
+        response = self.client.post(url)
+        self.assertTrue(response['Location'].startswith('/student/attempts/'))
+        self.assertEqual(self._attempts(), 1)
+
+
 class UnassignedExamAccessTests(_ScopedOrgFixture):
     """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""
 
