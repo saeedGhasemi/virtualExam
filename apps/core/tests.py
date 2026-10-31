@@ -4295,3 +4295,32 @@ class TeacherQuestionArchiveTests(_ScopedOrgFixture):
         self.client.post(url, {'action': 'restore'})
         self.assertIsNone(self._archived_at())
         self.assertIn(self.question_id, ids())
+
+
+class TeacherQuestionDraftsTabTests(_ScopedOrgFixture):
+    """تب پیش‌نویس‌ها از داده‌ی واقعی: سؤال‌های منتشرنشده و فرم‌های ذخیره‌خودکار؛ قبلاً درصد تکمیل چرخشی و تاریخ ثابت بود."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.draft_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'is_published', 'updated_at'],
+                [cls.draft_id, cls.teacher_in_id, 'پیش‌نویس قدیمی', 'single', False, timezone.now() - timedelta(days=20)])
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'is_published'], [str(uuid.uuid4()), cls.teacher_in_id, 'سؤال منتشرشده', 'single', True])
+        _insert('system_settings', ['key', 'value'], [f'question_draft.{cls.teacher_in_id}.new-essay',
+                json.dumps({'fields': {'text': ['شرح فرم ناتمام']}, 'saved_at': '۱۴۰۵/۰۸/۰۹ ۱۰:۲۰'}, ensure_ascii=False)])
+        _insert('system_settings', ['key', 'value'], [f'question_draft.{cls.teacher_out_id}.new-single',
+                json.dumps({'fields': {'text': ['فرم استاد دیگر']}, 'saved_at': 'x'}, ensure_ascii=False)])
+
+    def test_drafts_tab_lists_unpublished_questions_and_own_autosaves(self):
+        self.client.force_login(self.teacher_user)
+        page = self.client.get(reverse('core:teacher_questions'), {'view': 'drafts'})
+        texts = [q['text'] for q in page.context['questions']]
+        self.assertIn('پیش‌نویس قدیمی', texts)
+        self.assertNotIn('سؤال منتشرشده', texts)
+        self.assertEqual([(d['title'], d['kind']) for d in page.context['autosaved_drafts']], [('شرح فرم ناتمام', 'جدید')])
+        self.assertEqual(page.context['stale_drafts'], 1)
+        self.assertContains(page, '?type=essay&amp;draft=restore')
+        self.assertNotContains(page, 'فرم استاد دیگر')
+        self.assertNotContains(page, 'width: 75%')

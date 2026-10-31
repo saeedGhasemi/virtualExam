@@ -2,6 +2,9 @@
 
 Filtering, counting and paging happen in the database, and nothing here runs for the other teacher pages.
 """
+import json
+from datetime import timedelta
+
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -60,7 +63,9 @@ def _where(teacher_id, filters, archived=False) -> tuple:
     if filters['q']:
         clauses.append("(LOWER(COALESCE(q.text, '')) LIKE %s ESCAPE '\\' OR LOWER(COALESCE(c.title, '')) LIKE %s ESCAPE '\\')")
         params += [_like(filters['q'])] * 2
-    if filters['status'] != 'all':
+    if filters['status'] == 'unpublished':
+        clauses.append(f"{STATUS_SQL} != 'active'")
+    elif filters['status'] != 'all':
         clauses.append(f'{STATUS_SQL} = %s')
         params.append(filters['status'])
     if filters['type'] != 'all':
@@ -91,9 +96,12 @@ def _row(row) -> dict:
     }
 
 
-def question_page(request, teacher_id, archived=False):
+def question_page(request, teacher_id, archived=False, status=None):
     """(page of question rows, Paginator page) for the filtered list, fetched with LIMIT/OFFSET."""
-    where, params = _where(teacher_id, _filters(request), archived)
+    filters = _filters(request)
+    if status:
+        filters['status'] = status
+    where, params = _where(teacher_id, filters, archived)
     joins = 'FROM questions q LEFT JOIN courses c ON c.id = q.course_id'
     total = int((erd_row(f'SELECT COUNT(*) AS n {joins} WHERE {where}', params) or {}).get('n') or 0)
     page = Paginator(range(total), PAGE_SIZE).get_page(request.GET.get('page'))
@@ -129,9 +137,54 @@ def question_stats(teacher_id) -> dict:
     return {key: int(row.get(key) or 0) for key in ('total', 'active', 'draft', 'needs_review', 'archived', 'banks')}
 
 
+def autosaved_drafts(teacher_id) -> list:
+    """Builder forms autosaved but never saved as a question (new questions and unsaved edits), newest first."""
+    prefix = f'question_draft.{teacher_id}.'
+    rows = erd_rows('SELECT key, value FROM system_settings WHERE key LIKE %s', [f'{prefix}%'])
+    drafts = []
+    for row in rows:
+        target = row['key'][len(prefix):]
+        try:
+            data = row['value'] if isinstance(row['value'], dict) else json.loads(row['value'] or '{}')
+        except (TypeError, ValueError):
+            continue
+        text = ((data.get('fields') or {}).get('text') or [''])[0].strip()
+        if target.startswith('new-'):
+            kind = target[4:]
+            create = reverse('core:teacher_question_create')
+            drafts.append({
+                'title': text, 'type_label': QUESTION_TYPE_LABELS.get(kind, kind), 'kind': 'جدید', 'saved_at': data.get('saved_at') or '',
+                'resume_url': f'{create}?type={kind}&draft=restore', 'discard_url': f'{create}?type={kind}&draft=discard',
+            })
+            continue
+        question = erd_row('SELECT id, text, type FROM questions WHERE id = %s AND teacher_id = %s', [target, teacher_id])
+        if question:
+            edit = reverse('core:teacher_question_edit', args=[question['id']])
+            drafts.append({
+                'title': text or question['text'], 'type_label': QUESTION_TYPE_LABELS.get(question['type'], question['type']),
+                'kind': 'ویرایش ذخیره‌نشده', 'saved_at': data.get('saved_at') or '',
+                'resume_url': f'{edit}?draft=restore', 'discard_url': f'{edit}?draft=discard',
+            })
+    return sorted(drafts, key=lambda item: item['saved_at'], reverse=True)
+
+
+def stale_draft_count(teacher_id, days=14) -> int:
+    """Unpublished questions not saved for `days` days (only rows saved since times were recorded)."""
+    row = erd_row(
+        f"""
+        SELECT COUNT(*) AS n FROM questions q
+        WHERE q.teacher_id = %s AND q.archived_at IS NULL AND {STATUS_SQL} != 'active' AND q.updated_at < %s
+        """,
+        [teacher_id, timezone.now() - timedelta(days=days)],
+    ) or {}
+    return int(row.get('n') or 0)
+
+
 def question_bank_context(request, teacher_id) -> dict:
     view = request.GET.get('view') if request.GET.get('view') in VIEWS else 'all'
-    questions, page = question_page(request, teacher_id, archived=view == 'archive')
+    questions, page = question_page(
+        request, teacher_id, archived=view == 'archive', status='unpublished' if view == 'drafts' else None,
+    )
     all_questions = _teacher_question_rows(teacher_id)
     return {
         'questions': questions,
@@ -142,7 +195,8 @@ def question_bank_context(request, teacher_id) -> dict:
         'question_filters': _filters(request),
         'question_banks': _teacher_question_sets(teacher_id, all_questions),
         'question_tags': _teacher_question_tags(all_questions),
-        'question_drafts': [q for q in all_questions if q['status_key'] == 'draft'][:10],
+        'autosaved_drafts': autosaved_drafts(teacher_id) if view == 'drafts' else [],
+        'stale_drafts': stale_draft_count(teacher_id) if view == 'drafts' else 0,
         'shared_questions': [q for q in all_questions if q['status_key'] == 'active'][:10],
     }
 

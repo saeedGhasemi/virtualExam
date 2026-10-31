@@ -191,9 +191,17 @@
             <main class="question-bank-panel"><header class="question-section-title"><h2>دسته‌بندی‌های درس‌ها</h2></header><table class="teacher-table"><thead><tr><th>دسته‌بندی</th><th>تعداد سؤال</th><th>زیرمجموعه</th><th>عملیات</th></tr></thead><tbody>{% for bank in question_banks %}<tr><td>{{ bank.title }}</td><td>{{ bank.count|fa_digits }}</td><td>{{ bank.course }}</td><td><a href="{% url 'core:teacher_questions' %}?q={{ bank.course }}">مشاهده</a></td></tr>{% endfor %}</tbody></table></main>
         </section>
         {% elif question_view == 'drafts' %}
-        <section class="question-draft-alert"><span>۳ پیش‌نویس بیش از ۱۴ روز بدون تغییر</span></section>
+        {% if stale_drafts %}<section class="question-draft-alert"><span>{{ stale_drafts|fa_digits }} پیش‌نویس بیش از ۱۴ روز بدون تغییر</span></section>{% endif %}
+        {% if autosaved_drafts %}
         <section class="question-bank-panel">
-            <table class="teacher-table question-bank-table"><thead><tr><th>عنوان موقت</th><th>نوع / ساختار</th><th>مرحله تکمیل</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for q in question_drafts %}<tr><td>{{ q.text|truncatechars:70 }}</td><td>{{ q.type_label }} / {{ q.structure_label }}</td><td><span class="question-progress"><b style="width: {% cycle '75' '40' '25' %}%"></b></span></td><td>{{ q.updated_display }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{% url 'core:teacher_question_edit' q.id %}">ادامه</a><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">پیش‌نمایش</a></span></td></tr>{% empty %}<tr><td colspan="5">پیش‌نویسی وجود ندارد.</td></tr>{% endfor %}</tbody></table>
+            <header class="question-section-title"><h2>فرم‌های ذخیره‌خودکار (هنوز ثبت نشده)</h2></header>
+            <table class="teacher-table question-bank-table"><thead><tr><th>متن</th><th>نوع</th><th>وضعیت</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for draft in autosaved_drafts %}<tr><td>{{ draft.title|default:'بدون متن'|truncatechars:70 }}</td><td>{{ draft.type_label }}</td><td>{{ draft.kind }}</td><td>{{ draft.saved_at|fa_digits }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{{ draft.resume_url }}">ادامه</a><a href="{{ draft.discard_url }}">حذف</a></span></td></tr>{% endfor %}</tbody></table>
+        </section>
+        {% endif %}
+        <section class="question-bank-panel">
+            <header class="question-section-title"><h2>سؤال‌های منتشرنشده</h2></header>
+            <table class="teacher-table question-bank-table"><thead><tr><th>متن سؤال</th><th>نوع / ساختار</th><th>وضعیت</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|default:'بدون متن'|truncatechars:70 }}</td><td>{{ q.type_label }} / {{ q.structure_label }}</td><td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span></td><td>{{ q.updated_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{% url 'core:teacher_question_edit' q.id %}">ادامه</a><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">پیش‌نمایش</a></span></td></tr>{% empty %}<tr><td colspan="5">پیش‌نویسی وجود ندارد.</td></tr>{% endfor %}</tbody></table>
+            {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% elif question_view == 'shared' %}
         <section class="question-info-strip">سؤال‌های اشتراکی پیش از افزودن به بانک شما قابل بازبینی‌اند.</section>
