@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import logging
 import math
 import random
 import re
@@ -122,6 +123,7 @@ from .models import (
 
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 ROLE_DASHBOARDS = {
@@ -18198,7 +18200,9 @@ def student_attempt_submit(request, attempt_id):
             try:
                 result = grade_attempt(attempt_id)
             except Exception:
-                result = {}
+                # The submission must not be lost: keep it as submitted (ungraded) and leave a trace to regrade it.
+                logger.exception('Grading attempt %s failed; saved as submitted without a score.', attempt_id)
+                result = {'grading_failed': True}
                 erd_execute('UPDATE exam_attempts SET submitted_at = %s, status = %s WHERE id = %s', [timezone.now(), 'submitted', attempt_id])
             log_activity(request.user, 'exam_submitted', 'دانشجو آزمون را ارسال کرد.', request, {'attempt_id': attempt_id, **result})
         return redirect('core:student_attempt_receipt', attempt_id=attempt_id)

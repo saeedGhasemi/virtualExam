@@ -1869,6 +1869,20 @@ class EssayAnswerFlowTests(_ScopedOrgFixture):
             row = cursor.fetchone()
         return json.loads(row[0])['value'] if row else None
 
+    def test_grading_failure_is_logged_and_the_submission_kept(self):
+        from unittest import mock
+        self.client.force_login(self.student_user)
+        with mock.patch('apps.core.views.grade_attempt', side_effect=RuntimeError('boom')), \
+                self.assertLogs('apps.core.views', level='ERROR') as logs:
+            self.client.post(reverse('core:student_attempt_submit', args=[self.attempt_id]), {f'answer_{self.question_id}': 'متن پاسخ'})
+        self.assertIn(self.attempt_id, logs.output[0])
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT status, submitted_at FROM exam_attempts WHERE id = %s', [self.attempt_id])
+            status, submitted_at = cursor.fetchone()
+        self.assertEqual(status, 'submitted')
+        self.assertIsNotNone(submitted_at)
+        self.assertEqual(self._answer(self.question_id), 'متن پاسخ')
+
     def test_unmatched_short_answer_reaches_teacher_grading_queue(self):
         short_id = str(uuid.uuid4())
         _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points', 'accepted_answers'], [
