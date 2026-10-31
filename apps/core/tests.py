@@ -3998,3 +3998,43 @@ class SingleChoiceCorrectFlagsMigrationTests(_ScopedOrgFixture):
         self.assertEqual((self._flags(broken), self._flags(fine)), (['4'], ['4']))
         self._run('restore_correct_flags')
         self.assertEqual(self._flags(broken), ['2', '4'])
+
+
+class StudentResultShowsStoredDataTests(_ScopedOrgFixture):
+    """صفحه‌ی نتیجه و صفحه‌ی آزمون فقط داده‌ی ذخیره‌شده را نشان می‌دهند؛ قبلاً متن لاتین با سؤال نمونه، گزینه‌ها با گزینه‌ی
+    ساختگی و سؤال بی‌پاسخ با «پاسخ صحیح» ساختگی جایگزین می‌شد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        options = [{'id': '1', 'text': 'Atropine'}, {'id': '2', 'text': 'Adenosine'}]
+        cls.choice, cls.skipped = str(uuid.uuid4()), str(uuid.uuid4())
+        for order, (question_id, text) in enumerate(((cls.choice, 'CODX first drug for bradycardia?'), (cls.skipped, 'سؤال بی‌پاسخ')), start=1):
+            _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points', 'options', 'correct_answer'],
+                    [question_id, cls.teacher_in_id, text, 'single', 2, json.dumps(options), json.dumps('1')])
+            _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), cls.exam_in_id, question_id, 2, order])
+        cls.attempt_id = str(uuid.uuid4())
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'score', 'max_score', 'is_graded', 'status'],
+                [cls.attempt_id, cls.exam_in_id, cls.student_in_id, timezone.now(), timezone.now(), 0, 4, True, 'graded'])
+        _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'is_correct', 'points_awarded', 'needs_manual_grading'],
+                [str(uuid.uuid4()), cls.attempt_id, cls.choice, json.dumps({'value': '2'}), False, 0, False])
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET score_display_mode = 'immediate' WHERE id = %s", [cls.exam_in_id])
+
+    def test_result_page_shows_the_stored_questions_and_answers(self):
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_result_detail', args=[self.attempt_id])
+        response = self.client.get(url)
+        items = response.context['question_items']
+        self.assertEqual([item['text'] for item in items], ['CODX first drug for bradycardia?', 'سؤال بی‌پاسخ'])
+        self.assertEqual([item['tone'] for item in items], ['bad', 'empty'])
+        self.assertEqual([(o['label'], o['chosen'], o['correct']) for o in items[0]['options']],
+                         [('Atropine', False, True), ('Adenosine', True, False)])
+        self.assertEqual(response.context['summary'], {'total': 2, 'correct': 0, 'partial': 0, 'wrong': 1, 'unanswered': 1})
+        self.assertContains(response, 'href="?q=2"')
+        second = self.client.get(url, {'q': 2})
+        self.assertEqual(second.context['current_question']['text'], 'سؤال بی‌پاسخ')
+        self.assertNotContains(second, 'پاسخ شما</b>')
+        self.assertNotIn('سالمند', response.content.decode())

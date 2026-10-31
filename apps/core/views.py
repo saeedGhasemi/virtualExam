@@ -17589,32 +17589,6 @@ def _sx_type_label(kind):
     }.get(kind or '', kind or 'سوال')
 
 
-def _sx_clean_question_text(text, index):
-    text = str(text or '').strip()
-    if not text or text.count('?') >= max(4, len(text) // 3):
-        samples = [
-            'کدام مورد، بهترین اقدام اولیه در ارزیابی خطر سقوط سالمند است؟',
-            'کدام گزینه درباره پیشگیری از زخم فشاری صحیح‌تر است؟',
-            'دو اقدام اصلی برای پیشگیری از زخم فشاری را در یک عبارت کوتاه بنویسید.',
-            'هر مورد را به پاسخ مرتبط بکشید.',
-            'گزینه‌ها را به ترتیب صحیح بچینید.',
-        ]
-        return samples[(index - 1) % len(samples)]
-    return text
-
-
-def _sx_clean_options(options, index):
-    if options and not any(str(item.get('label', '')).count('?') >= 3 for item in options):
-        return options
-    samples = [
-        'اندازه‌گیری فشار خون در حالت ایستاده',
-        'بررسی سابقه سقوط و ارزیابی عوامل خطر محیطی و فردی',
-        'انجام تصویربرداری از مغز',
-        'تجویز داروی ضدسرگیجه به صورت پیشگیرانه',
-    ]
-    return [{'label': label, 'value': label} for label in samples[: max(len(options), 4)]]
-
-
 def _sx_student_context(request):
     profile = getattr(request, 'erd_profile', None) or erd_profile_for_user(request.user) or {}
     student_profile = erd_row(
@@ -18116,10 +18090,10 @@ def student_attempt(request, attempt_id):
         item = {
             'index': index,
             'question_id': row['question_id'],
-            'text': _sx_clean_question_text(row.get('text'), index),
+            'text': str(row.get('text') or '').strip(),
             'type': kind,
             'type_label': _sx_type_label(kind),
-            'options': _sx_clean_options(_sx_question_options(row.get('options'), kind), index),
+            'options': _sx_question_options(row.get('options'), kind),
             'media': _sx_question_media(row.get('question_media')),
             'answer': answer,
             'answered': any(str(value).strip() for value in answer) if isinstance(answer, list) else bool(answer),
@@ -18344,17 +18318,13 @@ def _sx_result_rows(student_id):
     normalized = []
     for row in rows:
         question_count = _em_int(row.get('question_count'), 0)
-        max_score = row.get('max_score') or question_count or 20
-        percent = _sx_percent(row.get('score'), max_score) if row.get('score') is not None else 0
+        max_score = row.get('max_score')
+        percent = _sx_percent(row.get('score'), max_score) if row.get('score') is not None and max_score else 0
         row['percent'] = percent
         label, tone, pending = _sx_result_status(row)
         correct = _em_int(row.get('correct_count'), 0)
         wrong = _em_int(row.get('wrong_count'), 0)
         answered = _em_int(row.get('answered_count'), correct + wrong)
-        if not pending and question_count and not answered:
-            correct = round(question_count * percent / 100)
-            wrong = max(question_count - correct - 1, 0) if percent < 100 else 0
-            answered = correct + wrong
         normalized.append({
             'pk': row['pk'],
             'id': row['id'],
@@ -18370,26 +18340,66 @@ def _sx_result_rows(student_id):
             'status_label': label,
             'status_tone': tone,
             'is_pending': pending,
-            'question_count': question_count or 40,
+            'question_count': question_count,
             'answered_count': answered,
             'correct_count': correct,
             'wrong_count': wrong,
-            'unanswered_count': max((question_count or 40) - answered, 0),
+            'unanswered_count': max(question_count - answered, 0),
             'short_title': (row.get('title') or 'آزمون')[:18],
         })
     return normalized
 
 
+RESULT_OPTION_LETTERS = ['الف', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح']
+RESULT_CHOICE_KINDS = {'single', 'multi', 'true_false'}
+
+
+def _sx_result_values(value):
+    """A stored answer or key as a list of non-empty strings."""
+    parsed = _sx_json(value, value)
+    if isinstance(parsed, dict):
+        parsed = parsed.get('value')
+    values = parsed if isinstance(parsed, list) else [parsed]
+    return [str(item).strip() for item in values if item is not None and str(item).strip()]
+
+
+def _sx_result_answer_text(kind, values, row):
+    """The student's answer in words for the non-choice question types."""
+    if kind == 'ordering':
+        items = sorted((item for item in (_sx_json(row.get('ordering_items'), []) or []) if isinstance(item, dict)),
+                       key=lambda item: item.get('order', 0))
+        texts = [str(item.get('text') or '') for item in items]
+        steps = [part.strip() for part in (values[0] if values else '').split(',') if part.strip()]
+        return ' ← '.join(texts[int(step) - 1] if step.isdigit() and 0 < int(step) <= len(texts) else step for step in steps)
+    if kind == 'matching':
+        pairs = [pair for pair in (_sx_json(row.get('matching_pairs'), []) or []) if isinstance(pair, dict)]
+        shown = []
+        for part in (values[0] if values else '').split(','):
+            left, _, right = part.partition(':')
+            left, right = left.strip(), right.strip()
+            if left.isdigit() and right.isdigit() and 0 < int(left) <= len(pairs) and 0 < int(right) <= len(pairs):
+                shown.append(f"{pairs[int(left) - 1].get('left', '')}: {pairs[int(right) - 1].get('right', '')}")
+        return '، '.join(shown)
+    return ' | '.join(values)
+
+
 def _sx_result_question_rows(attempt_id, student_id):
+    """The attempt's questions as graded, from stored data only.
+
+    tone: good = full points, partial = some points, bad = answered without points, empty = not answered."""
+    optional = ', '.join(
+        f'q.{column}' if erd_has_column('questions', column) else f'NULL AS {column}'
+        for column in ('ordering_items', 'matching_pairs')
+    )
+    files = 'aa.answer_files' if erd_has_column('attempt_answers', 'answer_files') else 'NULL AS answer_files'
     rows = erd_rows(
-        """
-        SELECT ea.id AS attempt_id, ea.exam_id, e.title AS exam_title,
-               q.id AS question_id, q.text, COALESCE(q.type, 'single') AS type, q.options,
-               q.correct_answer, COALESCE(q.explanation, '') AS explanation,
-               aa.answer, aa.is_correct, aa.points_awarded
+        f"""
+        SELECT q.id AS question_id, q.text, COALESCE(q.type, 'single') AS type, q.options, q.correct_answer,
+               COALESCE(q.explanation, '') AS explanation, {optional},
+               COALESCE(eq.points, q.default_points, 0) AS max_points,
+               aa.answer, aa.is_correct, aa.points_awarded, aa.grader_feedback, {files}
         FROM exam_attempts ea
-        JOIN exams e ON e.id = ea.exam_id
-        JOIN exam_questions eq ON eq.exam_id = e.id
+        JOIN exam_questions eq ON eq.exam_id = ea.exam_id
         JOIN questions q ON q.id = eq.question_id
         LEFT JOIN attempt_answers aa ON aa.attempt_id = ea.id AND aa.question_id = q.id
         WHERE ea.id = %s AND ea.student_id = %s
@@ -18398,107 +18408,41 @@ def _sx_result_question_rows(attempt_id, student_id):
         [attempt_id, student_id],
     )
     items = []
-    def fallback_question_text(index):
-        samples = [
-            'بهترین ابزار برای ارزیابی خطر افتادن سالمندان کدام است؟',
-            'کدام اقدام در پیشگیری از زخم فشاری اولویت بیشتری دارد؟',
-            'در مراقبت از سالمند، کدام نشانه نیازمند گزارش فوری است؟',
-            'کدام مداخله برای کاهش خطر سقوط مناسب‌تر است؟',
-            'در برنامه مراقبت سالمندی، پایش پوست چه هدفی دارد؟',
-        ]
-        return samples[(index - 1) % len(samples)]
-
-    def clean_result_text(text, index):
-        text = _sx_clean_question_text(text, index)
-        ascii_letters = sum(1 for ch in str(text) if 'A' <= ch <= 'z')
-        if 'CODX' in str(text) or ascii_letters > max(12, len(str(text)) // 2):
-            return fallback_question_text(index)
-        return text
-
-    def clean_result_options(options, index):
-        cleaned = _sx_clean_options(options, index)
-        if any(
-            'CODX' in str(option.get('text', '')) or
-            'CODX' in str(option.get('label', '')) or
-            sum(1 for ch in str(option.get('label', '')) if 'A' <= ch <= 'z') > max(10, len(str(option.get('label', ''))) // 2) or
-            sum(1 for ch in str(option.get('text', '')) if 'A' <= ch <= 'z') > max(10, len(str(option.get('text', ''))) // 2)
-            for option in cleaned
-        ):
-            samples = [
-                ['مقیاس تعادل‌سنجی برگ (BBS)', 'معاینه دوره‌ای بینایی', 'آزمون برخاستن و رفتن (TUG)', 'مقیاس افسردگی سالمندان'],
-                ['استفاده از پماد بدون تجویز', 'تغییر وضعیت منظم و بررسی روزانه پوست', 'کاهش وعده‌های غذایی', 'استراحت مطلق طولانی'],
-                ['کاهش اشتها در یک وعده', 'قرمزی پایدار پوست و درد موضعی', 'خواب‌آلودگی کوتاه بعد از غذا', 'نیاز به عینک مطالعه'],
-                ['نورپردازی مناسب و حذف موانع', 'مصرف خودسرانه دارو', 'کاهش مصرف مایعات', 'جابه‌جایی بدون کمک'],
-            ][(index - 1) % 4]
-            labels = ['الف', 'ب', 'ج', 'د']
-            return [{'value': str(i + 1), 'label': labels[i], 'text': text} for i, text in enumerate(samples)]
-        labels = ['الف', 'ب', 'ج', 'د', 'هـ']
-        return [
-            {
-                'value': str(option.get('value') or i + 1),
-                'label': labels[i] if i < len(labels) else str(i + 1),
-                'text': option.get('text') or option.get('label') or f'گزینه {i + 1}',
-            }
-            for i, option in enumerate(cleaned)
-        ]
-
     for index, row in enumerate(rows, start=1):
         kind = row.get('type') or 'single'
-        options = clean_result_options(_sx_question_options(row.get('options'), kind), index)
-        if not options:
-            options = _sx_clean_options([], index)
-        answer = _sx_answer_value(row.get('answer'))
-        correct_answer = _sx_answer_value(row.get('correct_answer'))
-        if isinstance(correct_answer, list):
-            correct_answer = correct_answer[0] if correct_answer else ''
-        if not correct_answer and options:
-            correct_answer = options[min(2, len(options) - 1)]['value']
-        if correct_answer and options and str(correct_answer) not in {str(option['value']) for option in options}:
-            correct_answer = options[min(2, len(options) - 1)]['value']
-        is_correct = row.get('is_correct')
-        if is_correct is None and answer:
-            is_correct = str(answer) == str(correct_answer)
-        if not answer and index % 5 != 0 and options:
-            if index in {4, 11, 18, 22, 29} and len(options) > 1:
-                answer = options[1]['value']
-                is_correct = False
-            elif index % 3 != 0:
-                answer = correct_answer
-                is_correct = True
-        tone = 'empty'
-        if answer:
-            tone = 'good' if bool(is_correct) else 'bad'
+        answers = _sx_result_values(row.get('answer'))
+        answered = bool(answers or _sx_answer_files(row.get('answer_files')))
+        options = []
+        if kind in RESULT_CHOICE_KINDS:
+            key = set(_sx_result_values(row.get('correct_answer')))
+            options = [
+                {**option, 'letter': RESULT_OPTION_LETTERS[number] if number < len(RESULT_OPTION_LETTERS) else str(number + 1),
+                 'chosen': option['value'] in answers, 'correct': option['value'] in key}
+                for number, option in enumerate(_sx_question_options(row.get('options'), kind))
+            ]
+        points, max_points = _sx_float(row.get('points_awarded'), 0), _sx_float(row.get('max_points'), 0)
+        if not answered:
+            tone = 'empty'
+        elif row.get('is_correct') in (True, 1, '1', 'true', 't') or (max_points and points >= max_points):
+            tone = 'good'
+        elif points > 0:
+            tone = 'partial'
+        else:
+            tone = 'bad'
         items.append({
             'index': index,
             'question_id': row.get('question_id'),
-            'text': clean_result_text(row.get('text'), index),
+            'text': str(row.get('text') or '').strip(),
             'type': kind,
             'type_label': _sx_type_label(kind),
             'options': options,
-            'answer': str(answer) if answer is not None else '',
-            'correct_answer': str(correct_answer) if correct_answer is not None else '',
-            'is_correct': bool(is_correct),
+            'answer_text': '' if options else _sx_result_answer_text(kind, answers, row),
+            'points': points,
+            'max_points': max_points,
             'tone': tone,
-            'explanation': row.get('explanation') or 'پاسخ صحیح بر اساس کلید استاد مشخص شده و برای مرور آموزشی نمایش داده می‌شود.',
+            'explanation': str(row.get('explanation') or '').strip(),
+            'feedback': str(row.get('grader_feedback') or '').strip(),
         })
-    if not items:
-        for index in range(1, 41):
-            options = _sx_clean_options([], index)
-            correct = options[2]['value']
-            answer = correct if index not in {4, 11, 18, 22, 29} else options[1]['value']
-            tone = 'empty' if index % 6 == 0 else ('bad' if answer != correct else 'good')
-            items.append({
-                'index': index,
-                'text': _sx_clean_question_text('', index),
-                'type': 'single',
-                'type_label': 'چهارگزینه‌ای',
-                'options': options,
-                'answer': '' if tone == 'empty' else answer,
-                'correct_answer': correct,
-                'is_correct': tone == 'good',
-                'tone': tone,
-                'explanation': 'این سوال برای مرور نتیجه آزمون آماده شده است.',
-            })
     return items
 
 
@@ -18514,23 +18458,26 @@ def student_result_detail(request, attempt_id):
             'is_pending': True,
         })
     question_items = _sx_result_question_rows(attempt_id, request.erd_profile_id)
-    correct = sum(1 for item in question_items if item['tone'] == 'good')
-    wrong = sum(1 for item in question_items if item['tone'] == 'bad')
-    unanswered = sum(1 for item in question_items if item['tone'] == 'empty')
-    total = len(question_items)
-    current_question = question_items[min(11, total - 1)] if total else None
+    tones = [item['tone'] for item in question_items]
     summary = {
-        'total': total or result['question_count'],
-        'correct': correct or result['correct_count'],
-        'wrong': wrong or result['wrong_count'],
-        'unanswered': unanswered or result['unanswered_count'],
+        'total': len(question_items),
+        'correct': tones.count('good'),
+        'partial': tones.count('partial'),
+        'wrong': tones.count('bad'),
+        'unanswered': tones.count('empty'),
     }
+    try:
+        current_index = int(request.GET.get('q') or 1)
+    except ValueError:
+        current_index = 1
+    current_index = min(max(current_index, 1), len(question_items) or 1)
+    current_question = question_items[current_index - 1] if question_items else None
     rank, rank_total = _sx_result_rank(result['exam_id'], result['score'])
     return render(request, 'student/result_detail.html', {
         'student': _sx_student_context(request),
         'result': result,
         'is_pending': False,
-        'question_items': question_items[:40],
+        'question_items': question_items,
         'current_question': current_question,
         'summary': summary,
         'rank': rank,
