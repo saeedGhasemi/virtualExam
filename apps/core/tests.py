@@ -3863,3 +3863,51 @@ class StudentSettingsTests(_ScopedOrgFixture):
         self.assertEqual(teacher_sees(), ('', '', ['']))
         self._post({'show_avatar_to_teacher': 'on'}, tab='security')
         self.assertEqual(teacher_sees()[0], '/media/avatars/me.png')
+
+
+class LegacyQuestionFormatMigrationTests(_ScopedOrgFixture):
+    """تبدیل سؤال‌های ذخیره‌شده با فرم قدیمی به قالبی که نمره‌دهی می‌خواند؛ برگشت‌پذیر و بدون دست‌زدن به سؤال‌های جدید."""
+
+    LEGACY = {'partial_credit': True, 'negative_marking': True, 'shuffle_options': True, 'min_correct': '', 'max_correct': ''}
+
+    def _question(self, kind, text, points, accepted, settings=None, negative='-0.5'):
+        question_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points', 'negative_points', 'accepted_answers',
+                              'correct_answer', 'scoring_settings'], [
+            question_id, self.teacher_in_id, text, kind, points, negative, json.dumps(accepted, ensure_ascii=False),
+            json.dumps(''), json.dumps(settings or self.LEGACY),
+        ])
+        return question_id
+
+    def _row(self, question_id):
+        from apps.core.views import erd_row
+        return erd_row('SELECT * FROM questions WHERE id = %s', [question_id])
+
+    def _run(self, name):
+        import importlib
+        from types import SimpleNamespace
+        module = importlib.import_module('apps.core.migrations.0048_legacy_question_formats')
+        getattr(module, name)(None, SimpleNamespace(connection=connection))
+
+    def test_legacy_rows_are_graded_as_the_editor_shows_them_and_can_be_restored(self):
+        from apps.core.views import _grade_question
+        short = self._question('short_answer', 'نام دارو؟', 2, [{'answer': 'آتروپین', 'points': '۲'}, {'answer': 'atropine', 'points': '۱'}])
+        blank = self._question('fill_blank', 'استخوان [1] است.', 3, [{'answer': 'ران', 'points': '۳'}, {'answer': 'فمور', 'points': '۳'}])
+        multi_blank = self._question('fill_blank', '[1] و [2] و [3]', 3, [{'answer': 'a', 'points': '1'}, {'answer': 'b', 'points': '1'}])
+        modern_settings = {'scoring_mode': 'all_or_nothing', 'negative_marking': False, 'negative_value': 0.25}
+        modern = self._question('short_answer', 'جدید', 2, [{'answer': 'x', 'points': 100, 'match_mode': 'exact'}], modern_settings)
+        before = {question_id: self._row(question_id) for question_id in (short, blank, multi_blank, modern)}
+
+        self._run('convert_legacy_questions')
+        self.assertEqual(_grade_question(self._row(short), 'آتروپین', 2.0), (2.0, False, True))
+        self.assertEqual(_grade_question(self._row(short), 'atropine', 2.0)[:2], (1.0, False))  # raw 1 of 2 -> 50% credit
+        self.assertEqual(_grade_question(self._row(blank), ['فمور'], 3.0), (3.0, False, True))  # rows were alternatives
+        self.assertEqual(_grade_question(self._row(blank), ['درشت‌نی'], 3.0), (0.0, False, False))  # partial mode: no penalty
+        self.assertEqual(json.loads(self._row(multi_blank)['accepted_answers']), [{'answer': 'a', 'points': '1'}, {'answer': 'b', 'points': '1'}])
+        self.assertEqual(self._row(modern), before[modern])
+        self._run('convert_legacy_questions')  # idempotent
+        self.assertEqual(json.loads(self._row(short)['scoring_settings'])['scoring_mode'], 'partial')
+
+        self._run('restore_legacy_questions')
+        for question_id, row in before.items():
+            self.assertEqual(self._row(question_id), row)
