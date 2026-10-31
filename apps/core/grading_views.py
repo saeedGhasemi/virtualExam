@@ -1,4 +1,4 @@
-"""Manual grading of essay answers and access-checked streaming of student answer files.
+"""Manual grading of essay and unmatched short answers, and access-checked streaming of student answer files.
 
 A teacher may grade an answer when they designed the exam or own the question. Every query carries that
 condition, so a changed id in the URL answers 404 instead of exposing another teacher's students.
@@ -34,18 +34,20 @@ logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 20
 FEEDBACK_MAX = 2000
-ESSAY_TYPES = ('essay', 'descriptive', 'media_response')
+# Short answers matching none of the teacher's accepted answers are sent here by grade_attempt too;
+# without them the attempt could never finish grading.
+MANUAL_GRADING_TYPES = ('essay', 'descriptive', 'media_response', 'short_answer')
 GRADING_FILTERS = {'pending': 'در انتظار تصحیح', 'graded': 'تصحیح‌شده', 'all': 'همه'}
 
-# Base of every grading query: essay answers of submitted attempts that this teacher may grade.
-_SCOPED_FROM = """
+# Base of every grading query: manually graded answers of submitted attempts that this teacher may grade.
+_SCOPED_FROM = f"""
     FROM attempt_answers aa
     JOIN exam_attempts ea ON ea.id = aa.attempt_id
     JOIN exams e ON e.id = ea.exam_id
     JOIN questions q ON q.id = aa.question_id
     JOIN profiles p ON p.id = ea.student_id
     LEFT JOIN exam_questions eq ON eq.exam_id = e.id AND eq.question_id = q.id
-    WHERE q.type IN ('essay', 'descriptive', 'media_response')
+    WHERE q.type IN ({', '.join(f"'{kind}'" for kind in MANUAL_GRADING_TYPES)})
       AND ea.submitted_at IS NOT NULL
       AND (e.teacher_id = %s OR q.teacher_id = %s)
 """
@@ -61,7 +63,7 @@ def _filter_sql(status):
 
 @erd_role_required('teacher')
 def teacher_reviews(request):
-    """List of essay answers to grade (replaces the former static sample page)."""
+    """List of essay and short answers to grade (replaces the former static sample page)."""
     teacher_id = request.erd_profile_id
     status = request.GET.get('status') if request.GET.get('status') in GRADING_FILTERS else 'pending'
     params = [teacher_id, teacher_id]
@@ -103,7 +105,7 @@ def _grading_answer(teacher_id, answer_id):
         SELECT aa.id, aa.attempt_id, aa.answer, aa.answer_files, aa.points_awarded, aa.needs_manual_grading,
                aa.rubric_scores, aa.grader_feedback, aa.graded_at, ea.submitted_at, ea.status AS attempt_status,
                e.title AS exam_title, p.full_name AS student_name, q.id AS question_id, q.text AS question_text,
-               q.rubric, q.scoring_settings, COALESCE(eq.points, q.default_points) AS max_points
+               q.type AS question_type, q.accepted_answers, q.rubric, q.scoring_settings, COALESCE(eq.points, q.default_points) AS max_points
         {_SCOPED_FROM} AND aa.id = %s
         """,
         [teacher_id, teacher_id, str(answer_id)],
@@ -213,6 +215,11 @@ def teacher_grading_detail(request, answer_id):
         request, 'grading_detail',
         grading=row, grading_answer_id=answer_id, grading_answer_text=_sx_answer_value(row.get('answer')),
         grading_files=files, grading_essay=essay, grading_max_points=max_points.normalize(),
+        grading_is_short_answer=row.get('question_type') == 'short_answer',
+        grading_accepted_answers=[
+            item.get('answer') for item in (_sx_json(row.get('accepted_answers'), []) or [])
+            if isinstance(item, dict) and item.get('answer')
+        ],
         grading_rubric=[{**item, 'index': index, 'previous': previous.get(item.get('criterion'), '')} for index, item in enumerate(rubric)],
         grading_rubric_total=sum((_decimal(item.get('points')) or Decimal(0) for item in rubric), Decimal(0)).normalize(),
     ))

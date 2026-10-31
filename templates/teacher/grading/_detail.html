@@ -37,7 +37,7 @@
 </style>
 <div class="gd">
     <div class="gd-head">
-        <div><h1>تصحیح پاسخ تشریحی</h1><p>{{ grading.exam_title }} · {{ grading.student_name }} · ارسال: {{ grading.submitted_at|to_jalali|default:'-' }}</p></div>
+        <div><h1>{% if grading_is_short_answer %}تصحیح پاسخ کوتاه{% else %}تصحیح پاسخ تشریحی{% endif %}</h1><p>{{ grading.exam_title }} · {{ grading.student_name }} · ارسال: {{ grading.submitted_at|to_jalali|default:'-' }}</p></div>
         <a class="gd-back" href="{% url 'core:teacher_reviews' %}">بازگشت به فهرست</a>
     </div>
     <div class="gd-grid">
@@ -64,6 +64,12 @@
                 </div>
                 {% endif %}
             </section>
+            {% if grading_is_short_answer %}
+            <section class="gd-card">
+                <h2>پاسخ‌های قابل قبول تعریف‌شده (فقط برای مصحح)</h2>
+                {% if grading_accepted_answers %}<ul class="gd-sample">{% for answer in grading_accepted_answers %}<li>{{ answer }}</li>{% endfor %}</ul>{% else %}<p class="gd-empty">برای این سؤال پاسخ قابل قبولی ثبت نشده است.</p>{% endif %}
+            </section>
+            {% endif %}
             {% if grading_essay.sample_answer_text or grading_essay.sample_answer_file %}
             <section class="gd-card">
                 <h2>پاسخ نمونه (فقط برای مصحح)</h2>

@@ -1869,6 +1869,38 @@ class EssayAnswerFlowTests(_ScopedOrgFixture):
             row = cursor.fetchone()
         return json.loads(row[0])['value'] if row else None
 
+    def test_unmatched_short_answer_reaches_teacher_grading_queue(self):
+        short_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points', 'accepted_answers'], [
+            short_id, self.teacher_in_id, 'داروی انتخابی برادی‌کاردی علامت‌دار؟', 'short_answer', 2,
+            json.dumps([{'answer': 'آتروپین', 'points': '100', 'match_mode': 'exact'}]),
+        ])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, short_id, 2, 2])
+        self.client.force_login(self.student_user)
+        self.client.post(reverse('core:student_attempt_submit', args=[self.attempt_id]), {
+            f'answer_{self.question_id}': 'متن پاسخ', f'answer_{short_id}': 'اپی‌نفرین با دوز بالا',
+        })
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id, needs_manual_grading FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [self.attempt_id, short_id])
+            answer_id, pending = cursor.fetchone()
+        self.assertTrue(pending)
+
+        self.client.force_login(self.teacher_user)
+        self.assertContains(self.client.get(reverse('core:teacher_reviews')), 'داروی انتخابی برادی‌کاردی')
+        detail_url = reverse('core:teacher_grading_detail', args=[str(answer_id)])
+        page = self.client.get(detail_url)
+        self.assertContains(page, 'تصحیح پاسخ کوتاه')
+        self.assertContains(page, 'اپی‌نفرین با دوز بالا')
+        self.assertContains(page, 'آتروپین')  # the teacher's accepted answer as grading reference
+        self.client.post(detail_url, {'score': '0.5'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT points_awarded, needs_manual_grading FROM attempt_answers WHERE id = %s', [answer_id])
+            points, pending = cursor.fetchone()
+        self.assertEqual((float(points), bool(pending)), (0.5, False))
+
+        self.client.force_login(self.other_teacher_user)
+        self.assertEqual(self.client.get(detail_url).status_code, 404)
+
     def test_answers_only_for_own_exam_questions_and_only_before_submission(self):
         url = reverse('core:student_attempt', args=[self.attempt_id])
         self.client.force_login(self.student_user)
