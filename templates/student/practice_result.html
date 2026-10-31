@@ -1,0 +1,152 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}کارنامه آزمون آزمایشی | متاکوییز{% endblock %}
+{% block content %}
+{% include 'student/_exam_shell_head.html' %}
+{% include 'student/_practice_styles.html' %}
+<style>
+  .prs{max-width:1400px;margin:0 auto;display:grid;gap:18px}
+  .prs-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center}
+  .prs-head h1{margin:0;font-size:2rem;font-weight:950}
+  .prs-facts{display:flex;flex-wrap:wrap;align-items:center;gap:14px 26px}
+  .prs-fact{display:flex;align-items:center;gap:12px}.prs-fact .spx-icon{width:46px;height:46px}
+  .prs-fact small{display:block;color:#6b7a94;font-weight:850}.prs-fact strong{display:block;font-weight:950;color:#075fff;unicode-bidi:isolate}
+  .prs-fact.is-box{padding:10px 16px;border:1px solid #e3eaf5;border-radius:14px;background:rgba(255,255,255,.8)}.prs-fact.is-box strong{color:#07183b}
+  .prs-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .prs-stat{padding:18px;display:grid;gap:12px}
+  .prs-stat-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .prs-stat small{display:block;color:#5d6b86;font-weight:900}.prs-stat strong{display:block;margin-top:4px;font-size:1.6rem;font-weight:950}
+  .prs-stat .spx-icon{width:50px;height:50px;border-radius:50%}
+  .prs-bar{display:flex;align-items:center;gap:10px;color:#6b7a94;font-weight:900;font-size:.85rem}
+  .prs-bar span{flex:1;height:10px;border-radius:999px;background:#e5ebf5;overflow:hidden}.prs-bar i{display:block;height:100%;border-radius:inherit}
+  .prs-cols{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:18px;align-items:start}
+  .prs-card{padding:20px}
+  .prs-card h2{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:1.2rem;font-weight:950}.prs-card h2 svg{width:1.4rem;height:1.4rem;color:#075fff}
+  .prs-topic{display:grid;grid-template-columns:minmax(90px,140px) 1fr 52px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid #eef2f8;font-weight:900}
+  .prs-topic:last-child{border-bottom:0}
+  .prs-topic span.prs-track{height:12px;border-radius:999px;background:#e5ebf5;overflow:hidden}.prs-topic span.prs-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#2563eb,#4d83ff)}
+  .prs-review{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+  .prs-review li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #eef2f8}.prs-review li:last-child{border-bottom:0}
+  .prs-review b{display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:50%;background:#e8f0ff;color:#075fff}
+  .prs-review strong{display:block;font-weight:950}.prs-review small{color:#6b7a94;font-weight:850}
+  .prs-empty{margin:0;color:#64748b;font-weight:850}
+  .prs-qhead,.prs-q summary{display:grid;grid-template-columns:56px 70px minmax(0,1fr) 190px;gap:10px;align-items:center}
+  .prs-qhead{padding:10px 14px;border-radius:10px;background:#f4f7fc;color:#53627e;font-size:.85rem;font-weight:950}
+  .prs-q{border-bottom:1px solid #eef2f8}.prs-q summary{padding:8px 14px;list-style:none;cursor:pointer;font-weight:900}.prs-q summary::-webkit-details-marker{display:none}
+  .prs-tone{display:grid;width:26px;height:26px;place-items:center;border-radius:50%;color:#fff}.prs-tone svg{width:.95rem;height:.95rem;stroke-width:3}
+  .prs-tone.good{background:#22b35e}.prs-tone.bad{background:#ef4444}.prs-tone.partial{background:#f59e0b}.prs-tone.empty{background:#cbd5e1}
+  .prs-see{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 12px;border:1px solid #b7caff;border-radius:8px;background:#fff;color:#075fff;font-size:.82rem;font-weight:950}.prs-see svg{width:1rem;height:1rem}
+  .prs-q[open] .prs-see{background:#075fff;color:#fff;border-color:#075fff}
+  .prs-answer{display:grid;gap:8px;padding:6px 14px 16px}
+  .prs-answer h3{margin:0;font-size:1rem;font-weight:950;line-height:1.8}
+  .prs-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid #e1e8f5;border-radius:10px;font-weight:850}
+  .prs-opt.good{border-color:#86e0ad;background:#effcf4}.prs-opt.bad{border-color:#fbb4c0;background:#fff1f3}
+  .prs-opt em{font-style:normal;font-size:.8rem;font-weight:950}.prs-opt.good em{color:#0f8a4f}.prs-opt.bad em{color:#c81e3f}
+  .prs-explain{padding:12px 14px;border-radius:10px;background:#eef2fb;color:#334155;font-weight:850;line-height:1.9}
+  .prs-explain strong{display:block;color:#1d3a8a}
+  .prs-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+  .prs-foot>div{display:flex;flex-wrap:wrap;gap:12px}.prs-foot .sx-btn{min-height:52px;min-width:200px}
+  @media(max-width:1100px){.prs-stats{grid-template-columns:1fr 1fr}.prs-cols,.prs-head{grid-template-columns:1fr}}
+  @media(max-width:640px){.prs-stats{grid-template-columns:1fr}.prs-qhead,.prs-q summary{grid-template-columns:44px 50px minmax(0,1fr)}.prs-qhead span:last-child,.prs-see{display:none}}
+  @media print{.super-admin-chrome,.super-admin-rail,.prs-foot{display:none!important}.prs-q .prs-answer{display:grid}}
+</style>
+<div class="prs">
+  <header class="prs-head">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px"><h1>کارنامه آزمون آزمایشی</h1><span class="spx-badge">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی</span></div>
+    <div class="prs-facts">
+      <div class="prs-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='calendar' %}</span><div><small>تاریخ برگزاری</small><strong>{{ submitted_label|fa_digits }}</strong></div></div>
+      <div class="prs-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='clock' %}</span><div><small>مدت زمان پاسخ‌گویی</small><strong>{{ spent_label|fa_digits }}</strong></div></div>
+      <div class="prs-fact is-box"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='text' %}</span><div><small>عنوان آزمون</small><strong>{{ result.title }}</strong><small>{{ result.course_title }} · {{ result.question_count|fa_digits }} سؤال</small></div></div>
+    </div>
+  </header>
+
+  <section class="prs-stats">
+    <article class="sx-card prs-stat">
+      <div class="prs-stat-top"><div><small>امتیاز شما</small><strong style="color:#075fff">{{ score|floatformat:"-2"|fa_digits }} از {{ max_score|floatformat:"-2"|fa_digits }}</strong></div><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='trophy' %}</span></div>
+      <div class="prs-bar"><span><i style="width:{{ result.percent }}%;background:#2563eb"></i></span>{{ result.percent|fa_digits }}٪</div>
+    </article>
+    <article class="sx-card prs-stat">
+      <div class="prs-stat-top"><div><small>پاسخ صحیح</small><strong>{{ counts.correct|fa_digits }} سؤال</strong></div><span class="spx-icon" style="background:#dcf8ea;color:#10a461">{% include 'teacher/_qb_icon.html' with name='check' %}</span></div>
+      <div class="prs-bar"><span><i style="width:{{ percents.correct }}%;background:#22b35e"></i></span>{{ percents.correct|fa_digits }}٪</div>
+    </article>
+    <article class="sx-card prs-stat">
+      <div class="prs-stat-top"><div><small>پاسخ نادرست</small><strong>{{ counts.wrong|fa_digits }} سؤال</strong>{% if counts.partial %}<small>{{ counts.partial|fa_digits }} سؤال با نمره‌ی بخشی</small>{% endif %}</div><span class="spx-icon" style="background:#ffe7e7;color:#e11d48">{% include 'teacher/_qb_icon.html' with name='x_circle' %}</span></div>
+      <div class="prs-bar"><span><i style="width:{{ percents.wrong }}%;background:#ef4444"></i></span>{{ percents.wrong|fa_digits }}٪</div>
+    </article>
+    <article class="sx-card prs-stat">
+      <div class="prs-stat-top"><div><small>بدون پاسخ</small><strong>{{ counts.unanswered|fa_digits }} سؤال</strong></div><span class="spx-icon" style="background:#eef1f6;color:#64748b">{% include 'teacher/_qb_icon.html' with name='minus_circle' %}</span></div>
+      <div class="prs-bar"><span><i style="width:{{ percents.unanswered }}%;background:#8b5cf6"></i></span>{{ percents.unanswered|fa_digits }}٪</div>
+    </article>
+  </section>
+
+  <section class="prs-cols">
+    <div style="display:grid;gap:18px">
+      <article class="sx-card prs-card">
+        <h2>{% include 'teacher/_qb_icon.html' with name='chart' %}عملکرد شما در موضوعات</h2>
+        {% for topic in topics %}
+          <div class="prs-topic"><span>{{ topic.title }}</span><span class="prs-track"><i style="width:{{ topic.percent }}%"></i></span><b>{{ topic.percent|fa_digits }}٪</b></div>
+        {% empty %}
+          <p class="prs-empty">برای سؤال‌های این آزمون مبحثی ثبت نشده است.</p>
+        {% endfor %}
+      </article>
+      <article class="sx-card prs-card">
+        <h2>{% include 'teacher/_qb_icon.html' with name='book' %}موضوعات پیشنهادی برای مرور بیشتر</h2>
+        {% if review_topics %}
+          <ol class="prs-review">
+            {% for topic in review_topics %}<li><b>{{ forloop.counter|fa_digits }}</b><div><strong>{{ topic.title }}</strong><small>{{ topic.percent|fa_digits }}٪ از نمره‌ی سؤال‌های این مبحث را گرفتید.</small></div></li>{% endfor %}
+          </ol>
+        {% elif topics %}
+          <p class="prs-empty">در همه‌ی مباحث این آزمون دست‌کم ۷۰٪ نمره را گرفتید.</p>
+        {% else %}
+          <p class="prs-empty">بدون مبحث ثبت‌شده، پیشنهادی برای مرور وجود ندارد.</p>
+        {% endif %}
+      </article>
+    </div>
+
+    <article class="sx-card prs-card">
+      <h2>{% include 'teacher/_qb_icon.html' with name='list' %}وضعیت پاسخ‌گویی به سؤالات</h2>
+      <div class="prs-qhead"><span>شماره</span><span>وضعیت</span><span>موضوع</span><span>مشاهده</span></div>
+      {% for item in questions %}
+        <details class="prs-q">
+          <summary>
+            <span>{{ item.index|fa_digits }}</span>
+            <span class="prs-tone {{ item.tone }}" title="{% if item.tone == 'good' %}پاسخ صحیح{% elif item.tone == 'bad' %}پاسخ نادرست{% elif item.tone == 'partial' %}نمره‌ی بخشی{% else %}بدون پاسخ{% endif %}">{% if item.tone == 'good' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="m6 12.5 4 4 8-9"/></svg>{% elif item.tone == 'bad' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="m7 7 10 10M17 7 7 17"/></svg>{% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M7 12h10"/></svg>{% endif %}</span>
+            <span>{{ item.subject|default:'-' }}</span>
+            <span class="prs-see">{% include 'teacher/_qb_icon.html' with name='eye' %}مشاهده پاسخ و توضیح</span>
+          </summary>
+          <div class="prs-answer">
+            <h3>{{ item.text|default:'-' }}</h3>
+            {% for option in item.options %}
+              <div class="prs-opt{% if option.correct %} good{% elif option.chosen %} bad{% endif %}"><span>{{ option.letter }}. {{ option.label }}</span><em>{% if option.chosen and option.correct %}پاسخ شما · صحیح{% elif option.correct %}پاسخ صحیح{% elif option.chosen %}پاسخ شما{% endif %}</em></div>
+            {% empty %}
+              <div class="prs-opt{% if item.tone == 'good' %} good{% elif item.tone == 'bad' %} bad{% endif %}"><span>پاسخ شما: {{ item.answer_text|default:'بدون پاسخ' }}</span></div>
+            {% endfor %}
+            <div class="prs-opt"><span>نمره‌ی این سؤال</span><b>{{ item.points|floatformat:"-2"|fa_digits }} از {{ item.max_points|floatformat:"-2"|fa_digits }}</b></div>
+            {% if item.feedback %}<div class="prs-explain"><strong>بازخورد مصحح</strong>{{ item.feedback }}</div>{% endif %}
+            {% if item.explanation %}<div class="prs-explain"><strong>توضیح پاسخ</strong>{{ item.explanation|linebreaksbr }}</div>{% endif %}
+          </div>
+        </details>
+      {% endfor %}
+    </article>
+  </section>
+
+  <footer class="prs-foot">
+    <div>
+      {% if retry.url %}
+        <a class="sx-btn primary" href="{{ retry.url }}">{% include 'teacher/_qb_icon.html' with name='refresh' %}{% if retry.label == 'ادامه تمرین' %}ادامه تمرین{% else %}شروع تمرین مجدد{% endif %}</a>
+      {% else %}
+        <span class="sx-btn primary spx-disabled" aria-disabled="true">{{ retry.label }}</span>
+      {% endif %}
+      <button class="sx-btn" type="button" data-print-report>{% include 'teacher/_qb_icon.html' with name='download' %}چاپ / ذخیره PDF کارنامه</button>
+    </div>
+    <a class="sx-btn" href="{% url 'core:student_practice_exam' %}">بازگشت به آزمون‌های آزمایشی{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
+  </footer>
+</div>
+<script>
+  document.querySelector('[data-print-report]')?.addEventListener('click', () => {
+    document.querySelectorAll('.prs-q').forEach((item) => { item.open = true; });
+    window.print();
+  });
+</script>
+{% include 'student/_exam_shell_foot.html' %}
+{% endblock %}

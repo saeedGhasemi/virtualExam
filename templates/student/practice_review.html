@@ -1,0 +1,102 @@
+{% extends 'base_standalone.html' %}
+{% load static core_extras %}
+{% block title %}بازبینی آزمون آزمایشی | متاکوییز{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/exam-view.css' %}">
+{% include 'student/_practice_attempt_styles.html' %}
+<style>
+  .prv-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:1.2rem;align-items:start}
+  .prv-main{padding:1.4rem 1.5rem}
+  .prv-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:1rem}
+  .prv-head h1{margin:0;font-size:1.8rem;font-weight:950}.prv-head p{margin:.4rem 0 0;color:#475569;font-weight:850;font-size:.9rem}
+  .prv-table{width:100%;margin-top:1.2rem;border-collapse:separate;border-spacing:0;border:1px solid #e1e8f5;border-radius:.9rem;overflow:hidden}
+  .prv-table th{padding:.8rem 1rem;background:#f4f7fc;color:#334155;font-size:.88rem;font-weight:950;text-align:start}
+  .prv-table td{padding:.75rem 1rem;border-top:1px solid #e8eef7;font-weight:850}
+  .prv-table tr.is-open td{background:#f6f8fd}
+  .prv-num{display:inline-grid;min-width:2.3rem;height:2.1rem;place-items:center;border-radius:.55rem;background:#eef2f8;font-weight:950}
+  .prv-go{display:inline-grid;width:2rem;height:2rem;place-items:center;border-radius:.5rem;color:#2563eb}.prv-go:hover{background:#eef4ff}.prv-go svg{width:1.1rem;height:1.1rem}
+  .prv-state{display:inline-flex;flex-wrap:wrap;align-items:center;gap:.5rem;color:#475569}
+  .prv-state.is-done{color:#0f8a4f}.prv-state svg{width:1.4rem;height:1.4rem}
+  .prv-mark{display:inline-flex;align-items:center;gap:.3rem;color:#334155}.prv-mark svg{width:1.1rem;height:1.1rem;color:#e11d48;fill:#e11d48}
+  .prv-side{padding:1.3rem;display:grid;gap:1rem}
+  .prv-side h2{display:flex;align-items:center;gap:.6rem;margin:0;font-size:1.25rem;font-weight:950}.prv-side h2 svg{width:1.4rem;height:1.4rem;color:#2563eb}
+  .prv-score{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+  .prv-score strong{display:block;font-size:1.7rem;font-weight:950}.prv-score small{color:#475569;font-weight:850}
+  .prv-ring{--p:0;display:grid;width:7.5rem;height:7.5rem;flex:none;place-items:center;border-radius:50%;background:conic-gradient(#2563eb calc(var(--p)*1%),#e5ebf5 0)}
+  .prv-ring span{display:grid;width:5.6rem;height:5.6rem;place-items:center;border-radius:50%;background:#fff;font-size:1.5rem;font-weight:950}
+  .prv-legend{display:grid;gap:.7rem;margin:0;padding:0;list-style:none;font-weight:900}
+  .prv-legend li{display:flex;align-items:center;gap:.6rem}.prv-legend b{margin-inline-start:auto}
+  .prv-legend i{width:1rem;height:1rem;border-radius:50%;background:#cbd5e1}.prv-legend i.is-done{background:#16a34a}
+  .prv-legend svg{width:1.05rem;height:1.05rem;color:#e11d48;fill:#e11d48}
+  .prv-warn{display:grid;gap:.6rem;padding:1rem;border:1px solid #fde3b0;border-radius:.9rem;background:#fff8ea}
+  .prv-warn strong{display:flex;align-items:center;gap:.5rem;color:#b45309;font-weight:950}.prv-warn strong svg{width:1.5rem;height:1.5rem}
+  .prv-warn p{margin:0;color:#475569;font-weight:800;font-size:.88rem;line-height:1.9}
+  .prv-side .qx-btn{justify-content:center;width:100%;min-height:3.2rem;font-size:1rem}
+  @media(max-width:1100px){.prv-grid{grid-template-columns:1fr}}
+  @media(max-width:700px){.prv-table th:nth-child(2),.prv-table td:nth-child(2){display:none}}
+</style>
+<section class="qx qx--exam">
+  <div class="qx-wrap">
+    <header class="qx-card qx-topbar">
+      <img class="qx-logo" src="{% static 'img/metaquiz-logo.png' %}?v=logo-mark-fix-20260829" alt="متاکوییز">
+      <div class="qx-user">
+        <span class="qx-avatar">{% if panel_avatar_url %}<img src="{{ panel_avatar_url }}" alt="">{% else %}{{ panel_display_name|default:"د"|slice:":1" }}{% endif %}</span>
+        <span><strong>{{ panel_display_name|default:"دانشجو" }}</strong><small>دانشجو</small></span>
+      </div>
+    </header>
+
+    <div class="prv-grid">
+      <section class="qx-card prv-main">
+        <div class="prv-head">
+          <div>
+            <h1>بازبینی آزمون آزمایشی</h1>
+            <p>{{ attempt.exam.title }} — سؤالاتی که به آن‌ها پاسخ نداده‌اید یا علامت‌گذاری کرده‌اید را بررسی کنید. تا زمانی که آزمون را تحویل نهایی نکنید، پاسخ‌ها ثبت نهایی نمی‌شوند.</p>
+          </div>
+          <span class="qx-practice-badge">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی</span>
+        </div>
+        <table class="prv-table">
+          <thead><tr><th>شماره سؤال</th><th>عنوان سؤال</th><th>وضعیت</th></tr></thead>
+          <tbody>
+            {% for item in review_items %}
+              <tr{% if not item.answered %} class="is-open"{% endif %}>
+                <td><a class="prv-go" href="{{ item.url }}" aria-label="رفتن به سؤال {{ item.index|fa_digits }}">{% include 'teacher/_qb_icon.html' with name='arrow' %}</a> <span class="prv-num">{{ item.index|fa_digits }}</span></td>
+                <td>{{ item.title|default:'-' }}</td>
+                <td>
+                  <span class="prv-state{% if item.answered %} is-done{% endif %}">
+                    {% if item.answered %}<svg viewBox="0 0 24 24" fill="currentColor" stroke="#fff"><circle cx="12" cy="12" r="10"/><path d="m8 12.2 2.8 2.8L16.5 9" fill="none"/></svg>پاسخ داده شده{% else %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>پاسخ داده نشده{% endif %}
+                    {% if item.marked %}<span class="prv-mark">• {% include 'teacher/_qb_icon.html' with name='bookmark' %}علامت‌گذاری شده</span>{% endif %}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <aside class="qx-card prv-side">
+        <h2>{% include 'teacher/_qb_icon.html' with name='list' %}خلاصه وضعیت پاسخ‌گویی</h2>
+        <div class="prv-score">
+          <div><strong>{{ answered_count|fa_digits }} از {{ total_questions|fa_digits }}</strong><small>سؤال پاسخ داده شده است.</small></div>
+          <div class="prv-ring" style="--p:{{ answered_percent }}"><span>{{ answered_percent|fa_digits }}٪</span></div>
+        </div>
+        <ul class="prv-legend">
+          <li><i class="is-done"></i>پاسخ داده شده<b>{{ answered_count|fa_digits }}</b></li>
+          <li><i></i>پاسخ داده نشده<b>{{ unanswered_count|fa_digits }}</b></li>
+          <li>{% include 'teacher/_qb_icon.html' with name='bookmark' %}علامت‌گذاری شده<b>{{ marked_count|fa_digits }}</b></li>
+        </ul>
+        {% if unanswered_count %}
+          <div class="prv-warn">
+            <strong>{% include 'teacher/_qb_icon.html' with name='warning' %}{{ unanswered_count|fa_digits }} سؤال هنوز پاسخ داده نشده است.</strong>
+            <p>برای تکمیل آزمون، لطفاً به سؤالات باقی‌مانده برگردید یا در صورت اطمینان، آزمون را تحویل نهایی کنید.</p>
+            <a class="qx-btn" href="{{ first_unanswered_url }}">بازگشت به سؤال{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
+          </div>
+        {% endif %}
+        <form method="post">{% csrf_token %}
+          <button class="qx-btn qx-btn--primary" type="submit"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.2 2.8 2.8L16.5 9"/></svg>تحویل نهایی آزمون</button>
+        </form>
+        <a class="qx-btn" href="{% url 'core:student_attempt' attempt.pk %}">ادامه پاسخ‌گویی{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -3682,6 +3682,41 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
         for text in ('qx-practice-badge', 'ثبت پاسخ و مشاهده بازخورد', '<fieldset class="qx-lock" disabled>'):
             self.assertNotContains(page, text)
 
+    def test_review_submit_receipt_and_report_card(self):
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE questions SET subject = %s WHERE id = %s', ['ایمنی دارویی', self.question_id])
+        attempt_id = self._start('simulation')
+        submit_url = reverse('core:student_attempt_submit', args=[attempt_id])
+        receipt_url = reverse('core:student_attempt_receipt', args=[attempt_id])
+        # Opening the receipt early must not close the attempt ungraded.
+        self.assertRedirects(self.client.get(receipt_url), submit_url, fetch_redirect_response=False)
+        review = self.client.get(submit_url)
+        self.assertTemplateUsed(review, 'student/practice_review.html')
+        self.assertEqual((review.context['answered_count'], review.context['unanswered_count']), (0, 1))
+        self.assertContains(review, 'سؤال هنوز پاسخ داده نشده است.')
+        self.client.post(f"{reverse('core:student_attempt', args=[attempt_id])}?q=1", {f'answer_{self.question_id}': 'بررسی هویت بیمار', 'action': 'next'})
+        self.assertEqual(self.client.get(submit_url).context['unanswered_count'], 0)
+        self.assertRedirects(self.client.post(submit_url), receipt_url, fetch_redirect_response=False)
+        receipt = self.client.get(receipt_url)
+        self.assertTemplateUsed(receipt, 'student/practice_receipt.html')
+        self.assertContains(receipt, 'MQ-P-')
+        self.assertContains(receipt, reverse('core:student_result_detail', args=[attempt_id]))
+        report = self.client.get(reverse('core:student_result_detail', args=[attempt_id]))
+        self.assertTemplateUsed(report, 'student/practice_result.html')
+        self.assertEqual((report.context['counts']['correct'], float(report.context['score']), report.context['topics']),
+                         (1, 2.0, [{'title': 'ایمنی دارویی', 'percent': 100}]))
+        self.assertContains(report, 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.')  # the builder's explanation
+        self.assertEqual(report.context['retry'], {'label': 'تمرین دوباره', 'url': reverse('core:student_practice_detail', args=[self.exam_id])})
+        self.assertEqual(report.context['review_topics'], [])
+
+    def test_other_students_cannot_open_the_practice_pages(self):
+        attempt_id = self._start('tutorial')
+        User = get_user_model()
+        self.client.force_login(User.objects.create_user(username='student_out_scope', email='s_out@example.com', password='x'))
+        for name in ('core:student_attempt', 'core:student_attempt_submit', 'core:student_attempt_receipt', 'core:student_result_detail'):
+            self.assertEqual(self.client.get(reverse(name, args=[attempt_id])).status_code, 404, name)
+        self.assertEqual(self.client.post(reverse('core:student_attempt', args=[attempt_id]), {'action': 'feedback'}).status_code, 404)
+
 class UnassignedExamAccessTests(_ScopedOrgFixture):
     """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""
 

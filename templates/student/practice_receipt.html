@@ -1,0 +1,66 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}ثبت پاسخ‌های آزمون آزمایشی | متاکوییز{% endblock %}
+{% block content %}
+{% include 'student/_exam_shell_head.html' %}
+{% include 'student/_practice_styles.html' %}
+<style>
+  .prc{max-width:1200px;margin:0 auto;padding:26px 28px;display:grid;gap:22px}
+  .prc-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,430px);gap:20px;align-items:start}
+  .prc-title{display:flex;flex-wrap:wrap;align-items:center;gap:14px}.prc-title h1{margin:0;font-size:1.8rem;font-weight:950}
+  .prc-facts{display:flex;flex-wrap:wrap;gap:12px 28px;margin-top:18px}
+  .prc-fact{display:flex;align-items:center;gap:12px}.prc-fact .spx-icon{width:46px;height:46px;border-radius:50%}
+  .prc-fact small{display:block;color:#6b7a94;font-weight:850}.prc-fact strong{display:block;color:#075fff;font-weight:950;unicode-bidi:isolate}
+  .prc-body{display:grid;justify-items:center;gap:8px;padding:28px 22px;border:1px solid #e3eaf5;border-radius:18px;background:rgba(255,255,255,.75);text-align:center}
+  .prc-check{display:grid;width:110px;height:110px;place-items:center;border-radius:50%;background:radial-gradient(circle,#22b35e 0 52%,#dff7e9 53%)}
+  .prc-check svg{width:3rem;height:3rem;color:#fff;stroke-width:3}
+  .prc-check.is-pending{background:radial-gradient(circle,#2563eb 0 52%,#e2ebff 53%)}
+  .prc-body h2{margin:6px 0 0;font-size:1.7rem;font-weight:950}.prc-body p{margin:0;color:#5d6b86;font-weight:850}
+  .prc-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:100%;margin-top:14px}
+  .prc-card{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px;border:1px solid #e3eaf5;border-radius:14px;background:#fff;text-align:start}
+  .prc-card small{display:block;color:#6b7a94;font-weight:850}.prc-card strong{display:block;margin-top:4px;font-size:1.2rem;font-weight:950;unicode-bidi:isolate}
+  .prc-card strong.is-green{color:#10a461}.prc-card strong.is-red{color:#e11d48}
+  .prc-card .spx-icon{width:48px;height:48px;border-radius:50%}
+  .prc-hint{display:flex;align-items:center;justify-content:center;gap:10px;padding-top:16px;border-top:1px solid #e6edf6;width:100%;color:#3b4a6b;font-weight:850}.prc-hint svg{width:1.3rem;height:1.3rem;color:#075fff}
+  .prc-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+  .prc-actions .sx-btn{min-width:260px;min-height:54px}
+  @media(max-width:1000px){.prc-top{grid-template-columns:1fr}.prc-cards{grid-template-columns:1fr 1fr}}
+  @media(max-width:620px){.prc-cards{grid-template-columns:1fr}.prc-actions{flex-direction:column-reverse;align-items:stretch}.prc-actions .sx-btn{min-width:0}}
+</style>
+<section class="sx-card prc">
+  <div class="prc-top">
+    <div>
+      <div class="prc-title"><h1>{{ exam_title }}</h1><span class="spx-badge">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی</span></div>
+      <div class="prc-facts">
+        <div class="prc-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='clock' %}</span><div><small>مدت پاسخ‌گویی</small><strong>{{ spent_label|fa_digits }}</strong></div></div>
+        <div class="prc-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='list' %}</span><div><small>تعداد سؤال</small><strong>{{ total_questions|fa_digits }} سؤال</strong></div></div>
+        <div class="prc-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='calendar' %}</span><div><small>زمان شروع آزمون</small><strong>{{ started_label|fa_digits }}</strong></div></div>
+      </div>
+    </div>
+    <div class="spx-note">{% include 'teacher/_qb_icon.html' with name='info' %}<div><strong>آزمون آزمایشی اثری بر نمره‌ی درسی ندارد</strong>این آزمون صرفاً جنبه‌ی تمرینی و آموزشی دارد و در محاسبه‌ی نمرات درسی شما لحاظ نمی‌شود.</div></div>
+  </div>
+
+  <div class="prc-body">
+    <span class="prc-check{% if is_pending %} is-pending{% endif %}">{% if is_pending %}{% include 'teacher/_qb_icon.html' with name='clock' %}{% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m6 12.5 4 4 8-9"/></svg>{% endif %}</span>
+    <h2>پاسخ‌های شما ثبت شد</h2>
+    <p>{% if is_pending %}بخشی از پاسخ‌ها نیاز به تصحیح استاد دارد؛ کارنامه پس از تصحیح در دسترس قرار می‌گیرد.{% else %}آزمون آزمایشی شما با موفقیت ثبت گردید.{% endif %}</p>
+    <div class="prc-cards">
+      <div class="prc-card"><div><small>بدون پاسخ</small><strong class="is-red">{{ unanswered_count|fa_digits }} سؤال</strong></div><span class="spx-icon" style="background:#eef1f6;color:#64748b">{% include 'teacher/_qb_icon.html' with name='true_false' %}</span></div>
+      <div class="prc-card"><div><small>پاسخ داده شده</small><strong class="is-green">{{ answered_count|fa_digits }} سؤال</strong></div><span class="spx-icon" style="background:#dcf8ea;color:#10a461">{% include 'teacher/_qb_icon.html' with name='check' %}</span></div>
+      <div class="prc-card"><div><small>زمان ثبت پاسخ‌ها</small><strong>{{ submitted_label|fa_digits }}</strong></div><span class="spx-icon" style="background:#f1eaff;color:#7c3aed">{% include 'teacher/_qb_icon.html' with name='clock' %}</span></div>
+      <div class="prc-card"><div><small>کد پیگیری</small><strong dir="ltr">{{ tracking_code }}</strong></div><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='text' %}</span></div>
+    </div>
+    <div class="prc-hint">{% include 'teacher/_qb_icon.html' with name='info' %}{% if is_pending %}پس از تصحیح، کارنامه از بخش «آخرین تلاش‌های من» در دسترس است.{% else %}برای مشاهده‌ی جزئیات کامل عملکرد خود، می‌توانید کارنامه‌ی این آزمون را مشاهده کنید.{% endif %}</div>
+  </div>
+
+  <div class="prc-actions">
+    {% if is_pending %}
+      <span class="sx-btn primary spx-disabled" aria-disabled="true">{% include 'teacher/_qb_icon.html' with name='chart' %}کارنامه پس از تصحیح</span>
+    {% else %}
+      <a class="sx-btn primary" href="{% url 'core:student_result_detail' attempt_id %}">{% include 'teacher/_qb_icon.html' with name='chart' %}مشاهده کارنامه</a>
+    {% endif %}
+    <a class="sx-btn" href="{% url 'core:student_practice_exam' %}">بازگشت به آزمون‌های آزمایشی{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
+  </div>
+</section>
+{% include 'student/_exam_shell_foot.html' %}
+{% endblock %}

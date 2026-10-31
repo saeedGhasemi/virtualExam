@@ -17897,6 +17897,14 @@ def student_attempt_submit(request, attempt_id):
                 erd_execute('UPDATE exam_attempts SET submitted_at = %s, status = %s WHERE id = %s', [timezone.now(), 'submitted', attempt_id])
             log_activity(request.user, 'exam_submitted', 'دانشجو آزمون را ارسال کرد.', request, {'attempt_id': attempt_id, **result})
         return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
+    from . import student_practice as practice
+
+    if practice.attempt_practice_mode(attempt_id, request.erd_profile_id):
+        return render(request, 'student/practice_review.html', {
+            'student': _sx_student_context(request),
+            'attempt': {'pk': attempt_id, 'id': attempt_id, 'exam': {'title': rows[0].get('exam_title') or 'آزمون'}},
+            **practice.review_context(attempt_id, rows),
+        })
     items = []
     for index, row in enumerate(rows, start=1):
         answer = _sx_answer_value(row.get('answer'))
@@ -17931,6 +17939,19 @@ def student_attempt_receipt(request, attempt_id):
     )
     if not row:
         raise Http404('رسید آزمون پیدا نشد.')
+    from . import student_practice as practice
+
+    if practice.attempt_practice_mode(attempt_id, request.erd_profile_id):
+        if not row.get('submitted_at'):  # a practice attempt is graded on submission; never close it ungraded here
+            return redirect('core:student_attempt_submit', attempt_id=attempt_id)
+        result = next((item for item in _sx_result_rows(request.erd_profile_id, practice=True) if str(item['id']) == str(attempt_id)), None)
+        return render(request, 'student/practice_receipt.html', {
+            'student': _sx_student_context(request),
+            'practice_nav': True,
+            'attempt_id': attempt_id,
+            'is_pending': not result or result['is_pending'],
+            **practice.receipt_context(attempt_id, request.erd_profile_id, _sx_attempt_rows(attempt_id, request.erd_profile_id)),
+        })
     if not row.get('submitted_at'):
         erd_execute('UPDATE exam_attempts SET submitted_at = %s, status = %s WHERE id = %s', [timezone.now(), 'submitted', attempt_id])
         row['submitted_at'] = timezone.now()
@@ -18164,6 +18185,8 @@ def _sx_result_rows(student_id, practice=None):
             'wrong_count': wrong,
             'unanswered_count': max(question_count - answered, 0),
             'short_title': (row.get('title') or 'آزمون')[:18],
+            'started_at': row.get('started_at'),
+            'is_practice': row.get('exam_mode') == PRACTICE_EXAM_MODE,
         })
     return normalized
 
@@ -18207,7 +18230,7 @@ def _sx_result_question_rows(attempt_id, student_id):
     tone: good = full points, partial = some points, bad = answered without points, empty = not answered."""
     optional = ', '.join(
         f'q.{column}' if erd_has_column('questions', column) else f'NULL AS {column}'
-        for column in ('ordering_items', 'matching_pairs')
+        for column in ('ordering_items', 'matching_pairs', 'subject', 'feedback')
     )
     files = 'aa.answer_files' if erd_has_column('attempt_answers', 'answer_files') else 'NULL AS answer_files'
     rows = erd_rows(
@@ -18239,6 +18262,8 @@ def _sx_result_question_rows(attempt_id, student_id):
                 for number, option in enumerate(_sx_question_options(row.get('options'), kind))
             ]
         points, max_points = _sx_float(row.get('points_awarded'), 0), _sx_float(row.get('max_points'), 0)
+        notes = _sx_json(row.get('feedback'), {}) or {}  # the question builder's «توضیح بازخورد» is notes['text']
+        notes = notes if isinstance(notes, dict) else {}
         if not answered:
             tone = 'empty'
         elif row.get('is_correct') in (True, 1, '1', 'true', 't') or (max_points and points >= max_points):
@@ -18260,6 +18285,8 @@ def _sx_result_question_rows(attempt_id, student_id):
             'tone': tone,
             'explanation': str(row.get('explanation') or '').strip(),
             'feedback': str(row.get('grader_feedback') or '').strip(),
+            'subject': str(row.get('subject') or '').strip(),
+            'builder_note': str(notes.get('text') or '').strip(),
         })
     return items
 
@@ -18269,6 +18296,17 @@ def student_result_detail(request, attempt_id):
     result = next((item for item in _sx_result_rows(request.erd_profile_id) if str(item['id']) == str(attempt_id)), None)
     if not result:
         raise Http404('نتیجه آزمون پیدا نشد.')
+    if result['is_practice']:
+        from . import student_practice as practice
+
+        if result['is_pending']:  # a manually graded question is still waiting for the teacher
+            return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
+        return render(request, 'student/practice_result.html', {
+            'student': _sx_student_context(request),
+            'practice_nav': True,
+            'result': result,
+            **practice.result_context(result, attempt_id, request.erd_profile_id),
+        })
     if result['is_pending']:
         return render(request, 'student/result_detail.html', {
             'student': _sx_student_context(request),

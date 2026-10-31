@@ -16,7 +16,8 @@ from .student_dashboard import _course_icon
 from .views import (
     PRACTICE_EXAM_MODE, RESULT_CHOICE_KINDS, _grade_question, _jalali_long_date, _sx_accessible_exams,
     _sx_attempt_accepts_answers, _sx_dt, _sx_exam_mode_sql, _sx_exam_row, _sx_float, _sx_json, _sx_percent,
-    _sx_media_fields, _sx_question_options, _sx_result_values, erd_execute, erd_has_column, erd_row, erd_rows,
+    _sx_answer_value, _sx_media_fields, _sx_question_options, _sx_result_question_rows, _sx_result_topics,
+    _sx_result_values, erd_execute, erd_has_column, erd_row, erd_rows,
 )
 
 # mode -> (title, description), in the order the preparation page offers them
@@ -428,3 +429,119 @@ def practice_list_context(request, student_id) -> dict:
         'recent_attempts': recent_attempts(student_id),
     }
 
+
+REVIEW_TOPIC_PERCENT = 70  # topics below this share of their points are suggested for review
+REVIEW_TOPICS_SIZE = 3
+
+
+def _short_text(text, size=90) -> str:
+    text = ' '.join(str(text or '').split())
+    return text if len(text) <= size else f'{text[:size].rstrip()}…'
+
+
+def review_context(attempt_id, rows) -> dict:
+    """The «بازبینی» page before the final submission: every question with whether it is answered or marked."""
+    items = []
+    for index, row in enumerate(rows, start=1):
+        items.append({
+            'index': index,
+            'title': _short_text(row.get('text')),
+            'answered': bool(_sx_answer_value(row.get('answer'))),
+            'marked': bool(row.get('marked')),
+            'url': f"{reverse('core:student_attempt', args=[attempt_id])}?q={index}",
+        })
+    total = len(items)
+    answered = sum(1 for item in items if item['answered'])
+    first_open = next((item for item in items if not item['answered']), None)
+    return {
+        'review_items': items,
+        'total_questions': total,
+        'answered_count': answered,
+        'unanswered_count': total - answered,
+        'marked_count': sum(1 for item in items if item['marked']),
+        'answered_percent': round(answered * 100 / total) if total else 0,
+        'first_unanswered_url': first_open['url'] if first_open else '',
+    }
+
+
+def _attempt_times(attempt_id, student_id):
+    return erd_row(
+        """
+        SELECT ea.started_at, ea.submitted_at, ea.exam_id, e.title, COALESCE(c.title, 'درس') AS course_title,
+               COALESCE(e.duration_minutes, 90) AS duration_minutes
+        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id LEFT JOIN courses c ON c.id = e.course_id
+        WHERE ea.id = %s AND ea.student_id = %s
+        """,
+        [attempt_id, student_id],
+    )
+
+
+def _clock(dt) -> str:
+    return f"{_jalali_long_date(dt, with_weekday=False)} - {timezone.localtime(dt).strftime('%H:%M')}" if dt else '-'
+
+
+def _spent_label(started, submitted) -> str:
+    """How long the attempt took, as mm:ss (or h:mm:ss)."""
+    if not started or not submitted:
+        return '-'
+    seconds = max(0, int((submitted - started).total_seconds()))
+    hours, rest = divmod(seconds, 3600)
+    minutes, seconds = divmod(rest, 60)
+    return f'{hours}:{minutes:02d}:{seconds:02d}' if hours else f'{minutes:02d}:{seconds:02d}'
+
+
+def tracking_code(attempt_id) -> str:
+    """A short code the student can quote; derived from the attempt id, so it always finds the same attempt."""
+    return f"MQ-P-{str(attempt_id).replace('-', '')[:8].upper()}"
+
+
+def receipt_context(attempt_id, student_id, rows) -> dict:
+    times = _attempt_times(attempt_id, student_id) or {}
+    started, submitted = _sx_dt(times.get('started_at')), _sx_dt(times.get('submitted_at'))
+    answered = sum(1 for row in rows if _sx_answer_value(row.get('answer')))
+    return {
+        'exam_title': times.get('title') or 'آزمون آزمایشی',
+        'course_title': times.get('course_title') or '',
+        'started_label': _clock(started),
+        'submitted_label': _clock(submitted),
+        'spent_label': _spent_label(started, submitted),
+        'total_questions': len(rows),
+        'answered_count': answered,
+        'unanswered_count': len(rows) - answered,
+        'tracking_code': tracking_code(attempt_id),
+    }
+
+
+def retry_action(exam_id, student_id) -> dict:
+    """«شروع تمرین مجدد»: the same rule as the exam's card on the practice list."""
+    exam = practice_exam(exam_id, student_id)
+    if not exam:
+        return {'label': 'آزمون دیگر در دسترس نیست', 'url': ''}
+    resumed = open_attempt(exam_id, student_id)
+    return _card_action(exam, attempts_used(exam_id, student_id), resumed['id'] if resumed else None, timezone.now())
+
+
+def result_context(result, attempt_id, student_id) -> dict:
+    """The practice report card: score, correct / wrong / unanswered, topics, and every question with its key."""
+    questions = _sx_result_question_rows(attempt_id, student_id)
+    for item in questions:
+        item['explanation'] = item['explanation'] or item['builder_note']
+    tones = [item['tone'] for item in questions]
+    total = len(questions) or 1
+    counts = {'correct': tones.count('good'), 'partial': tones.count('partial'), 'wrong': tones.count('bad'), 'unanswered': tones.count('empty')}
+    topics = _sx_result_topics(attempt_id)
+    times = _attempt_times(attempt_id, student_id) or {}
+    started, submitted = _sx_dt(times.get('started_at')), _sx_dt(times.get('submitted_at'))
+    return {
+        'questions': questions,
+        'counts': counts,
+        'percents': {key: round(value * 100 / total) for key, value in counts.items()},
+        'score': result['score'],
+        'max_score': result['max_score'],
+        'topics': topics,
+        'review_topics': sorted((topic for topic in topics if topic['percent'] < REVIEW_TOPIC_PERCENT),
+                                key=lambda topic: topic['percent'])[:REVIEW_TOPICS_SIZE],
+        'submitted_label': _jalali_long_date(submitted, with_weekday=False) if submitted else '-',
+        'spent_label': _spent_label(started, submitted),
+        'retry': retry_action(result['exam_id'], student_id),
+    }
