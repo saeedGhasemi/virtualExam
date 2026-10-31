@@ -4195,7 +4195,7 @@ class TeacherQuestionBankPaginationTests(_ScopedOrgFixture):
         self.assertEqual(self.client.get(url, {'q': '_'}).context['question_page'].paginator.count, 0)  # "_" is literal
         active = self.client.get(url, {'status': 'active', 'difficulty': 'hard', 'type': 'multi'}).context
         self.assertEqual([q['status_label'] for q in active['questions']], ['فعال'])
-        self.assertEqual(active['question_stats'], {'total': 28, 'active': 1, 'draft': 27, 'needs_review': 0, 'archived': 0, 'banks': 1})
+        self.assertEqual(active['question_stats'], {'total': 28, 'active': 1, 'draft': 27, 'needs_review': 0, 'archived': 0, 'banks': 2})  # a course + «بدون درس»
         self.assertNotIn('question_page', self.client.get(reverse('core:teacher_panel')).context)
 
 

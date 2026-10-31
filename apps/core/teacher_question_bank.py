@@ -148,7 +148,8 @@ def question_stats(teacher_id) -> dict:
                SUM(CASE WHEN q.archived_at IS NULL AND {STATUS_SQL} = 'draft' THEN 1 ELSE 0 END) AS draft,
                SUM(CASE WHEN q.archived_at IS NULL AND {STATUS_SQL} = 'needs_review' THEN 1 ELSE 0 END) AS needs_review,
                SUM(CASE WHEN q.archived_at IS NOT NULL THEN 1 ELSE 0 END) AS archived,
-               COUNT(DISTINCT CASE WHEN q.archived_at IS NULL THEN q.course_id END) AS banks
+               COUNT(DISTINCT CASE WHEN q.archived_at IS NULL THEN q.course_id END)
+                 + MAX(CASE WHEN q.archived_at IS NULL AND q.course_id IS NULL THEN 1 ELSE 0 END) AS banks
         FROM questions q
         WHERE q.teacher_id = %s
         """,
