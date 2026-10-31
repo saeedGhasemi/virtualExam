@@ -1208,6 +1208,12 @@ def erd_admin_dashboard_panel():
         'exams',
         "COALESCE(is_published, false) = true AND COALESCE(is_cancelled, false) = false",
     )
+    running_exams_count = erd_count(
+        'exams',
+        'COALESCE(is_published, false) = true AND COALESCE(is_cancelled, false) = false '
+        'AND start_at <= %s AND (end_at IS NULL OR end_at >= %s)',
+        [timezone.now(), timezone.now()],
+    )
     users_count = erd_count('profiles')
     questions_count = erd_count('questions')
     exams_count = erd_count('exams')
@@ -1219,9 +1225,9 @@ def erd_admin_dashboard_panel():
     )
     today = timezone.localdate()
     if connection.vendor == 'sqlite':
-        today_exams_count = erd_count('exams', "date(start_at) = date('now')")
+        today_exams_count = erd_count('exams', "date(start_at) = date('now') AND COALESCE(is_cancelled, false) = false")
     else:
-        today_exams_count = erd_count('exams', "DATE(start_at) = CURRENT_DATE")
+        today_exams_count = erd_count('exams', "DATE(start_at) = CURRENT_DATE AND COALESCE(is_cancelled, false) = false")
     review_needed_count = erd_count(
         'exams',
         "COALESCE(approval_status, '') = 'pending' OR COALESCE(lifecycle_status, 'draft') = 'pending_approval'",
@@ -1313,11 +1319,11 @@ def erd_admin_dashboard_panel():
         'violation_reports_count': violation_reports_count,
         'inactive_users_count': inactive_users_count,
         'dashboard_cards': [
-            {'label': 'کل آزمون‌ها', 'value': exams_count, 'hint': '۱۳٪ نسبت به ماه قبل', 'tone': 'blue', 'icon': 'doc'},
-            {'label': 'آزمون‌های فعال', 'value': active_exams_count, 'hint': '۲۵٪ نسبت به ماه قبل', 'tone': 'green', 'icon': 'play'},
-            {'label': 'آزمون‌های امروز', 'value': today_exams_count, 'hint': 'در حال برگزاری', 'tone': 'orange', 'icon': 'calendar'},
-            {'label': 'کاربران فعال', 'value': users_count, 'hint': '۲۷٪ نسبت به ماه قبل', 'tone': 'emerald', 'icon': 'users'},
-            {'label': 'نیازمند بررسی', 'value': review_needed_count, 'hint': '۸ مورد جدید', 'tone': 'red', 'icon': 'alert'},
+            {'label': 'کل آزمون‌ها', 'value': exams_count, 'hint': f'{active_exams_count} منتشرشده', 'tone': 'blue', 'icon': 'doc'},
+            {'label': 'آزمون‌های منتشرشده', 'value': active_exams_count, 'hint': f'{running_exams_count} در حال برگزاری', 'tone': 'green', 'icon': 'play'},
+            {'label': 'آزمون‌های امروز', 'value': today_exams_count, 'hint': 'با شروع امروز', 'tone': 'orange', 'icon': 'calendar'},
+            {'label': 'کاربران فعال', 'value': active_users_count, 'hint': f'از {users_count} کاربر', 'tone': 'emerald', 'icon': 'users'},
+            {'label': 'نیازمند بررسی', 'value': review_needed_count, 'hint': 'آزمون در انتظار تأیید', 'tone': 'red', 'icon': 'alert'},
             {'label': 'درخواست‌های ثبت‌نام', 'value': pending_registrations_count, 'hint': f'{pending_registrations_count} مورد جدید', 'tone': 'indigo', 'icon': 'shield', 'url': f'{reverse("core:super_admin_users")}?tab=students&status=pending'},
         ],
         'quick_actions': [
@@ -17163,16 +17169,20 @@ def exam_manager_dashboard(request):
         [],
     )
     today_exams = scoped_exam_count(
-        'e.start_at >= %s AND e.start_at < %s',
+        'e.start_at >= %s AND e.start_at < %s AND COALESCE(e.is_cancelled, false) = false',
         [today.isoformat(), tomorrow.isoformat()],
     )
     pending_exams = scoped_exam_count(
         "COALESCE(e.approval_status, 'pending') = 'pending'",
         [],
     )
+    running_exams = scoped_exam_count(
+        'COALESCE(e.is_published, false) = true AND COALESCE(e.is_cancelled, false) = false '
+        'AND e.start_at <= %s AND (e.end_at IS NULL OR e.end_at >= %s)',
+        [timezone.now(), timezone.now()],
+    )
     teacher_count = _erd_scoped_count(request, 'teachers')
     student_count = _erd_scoped_count(request, 'students')
-    manual_reviews = erd_count('attempt_answers', 'COALESCE(needs_manual_grading, false) = true')
     finished_exams = max(total_exams - active_exams - pending_exams, 0)
     status_total = max(total_exams, 1)
     active_pct = round(active_exams * 100 / status_total)
@@ -17183,11 +17193,11 @@ def exam_manager_dashboard(request):
         'display_name': display_name,
         'role_label': 'مدیر آموزشی',
         'dashboard_stats': [
-            {'label': 'کل آزمون‌ها', 'value': total_exams, 'hint': 'نسبت به ماه قبل ۱۸٪', 'tone': 'indigo', 'icon': 'doc'},
-            {'label': 'آزمون‌های فعال', 'value': active_exams, 'hint': 'نسبت به ماه قبل ۲۵٪', 'tone': 'green', 'icon': 'play'},
-            {'label': 'آزمون‌های امروز', 'value': today_exams, 'hint': 'در حال برگزاری', 'tone': 'orange', 'icon': 'calendar'},
-            {'label': 'اساتید فعال', 'value': teacher_count, 'hint': 'نسبت به ماه قبل ۱۲٪', 'tone': 'emerald', 'icon': 'users'},
-            {'label': 'نیازمند بررسی', 'value': manual_reviews or pending_exams, 'hint': f'{pending_exams} مورد جدید', 'tone': 'red', 'icon': 'alert'},
+            {'label': 'کل آزمون‌ها', 'value': total_exams, 'hint': f'{active_exams} منتشرشده', 'tone': 'indigo', 'icon': 'doc'},
+            {'label': 'آزمون‌های منتشرشده', 'value': active_exams, 'hint': f'{running_exams} در حال برگزاری', 'tone': 'green', 'icon': 'play'},
+            {'label': 'آزمون‌های امروز', 'value': today_exams, 'hint': 'با شروع امروز', 'tone': 'orange', 'icon': 'calendar'},
+            {'label': 'اساتید', 'value': teacher_count, 'hint': f'{student_count} دانشجو', 'tone': 'emerald', 'icon': 'users'},
+            {'label': 'نیازمند بررسی', 'value': pending_exams, 'hint': 'آزمون در انتظار تأیید', 'tone': 'red', 'icon': 'alert'},
             {'label': 'درخواست‌های دانشجویان', 'value': erd_count('educational_questions') if erd_has_column('educational_questions', 'id') else 0, 'hint': 'نیازمند پاسخ', 'tone': 'blue', 'icon': 'message'},
         ],
         'quick_actions': [
@@ -17217,11 +17227,11 @@ def exam_manager_dashboard(request):
     context.update({
         'role_label': 'مدیر آموزشی',
         'dashboard_stats': [
-            {'label': 'کل آزمون‌ها', 'value': total_exams, 'hint': 'نسبت به ماه قبل ۱۸٪', 'tone': 'indigo', 'icon': 'doc'},
-            {'label': 'آزمون‌های فعال', 'value': active_exams, 'hint': 'نسبت به ماه قبل ۲۵٪', 'tone': 'green', 'icon': 'play'},
-            {'label': 'آزمون‌های امروز', 'value': today_exams, 'hint': 'در حال برگزاری', 'tone': 'orange', 'icon': 'calendar'},
-            {'label': 'اساتید فعال', 'value': teacher_count, 'hint': 'نسبت به ماه قبل ۱۲٪', 'tone': 'emerald', 'icon': 'users'},
-            {'label': 'نیازمند بررسی', 'value': manual_reviews or pending_exams, 'hint': f'{pending_exams} مورد جدید', 'tone': 'red', 'icon': 'alert'},
+            {'label': 'کل آزمون‌ها', 'value': total_exams, 'hint': f'{active_exams} منتشرشده', 'tone': 'indigo', 'icon': 'doc'},
+            {'label': 'آزمون‌های منتشرشده', 'value': active_exams, 'hint': f'{running_exams} در حال برگزاری', 'tone': 'green', 'icon': 'play'},
+            {'label': 'آزمون‌های امروز', 'value': today_exams, 'hint': 'با شروع امروز', 'tone': 'orange', 'icon': 'calendar'},
+            {'label': 'اساتید', 'value': teacher_count, 'hint': f'{student_count} دانشجو', 'tone': 'emerald', 'icon': 'users'},
+            {'label': 'نیازمند بررسی', 'value': pending_exams, 'hint': 'آزمون در انتظار تأیید', 'tone': 'red', 'icon': 'alert'},
             {'label': 'درخواست‌های دانشجویان', 'value': erd_count('educational_questions') if erd_has_column('educational_questions', 'id') else 0, 'hint': 'نیازمند پاسخ', 'tone': 'blue', 'icon': 'message'},
         ],
         'quick_actions': [

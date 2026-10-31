@@ -4449,3 +4449,17 @@ class TeacherPanelRealNumbersTests(_ScopedOrgFixture):
         self.assertEqual(profile['phone'], '')
         self.assertNotIn('national_id', profile)
         self.assertEqual(profile['faculty'], '')
+
+
+class ManagerDashboardCardsTests(_ScopedOrgFixture):
+    """کارت‌های داشبورد مدیر فقط عدد محاسبه‌شده دارند؛ قبلاً «۲۵٪ نسبت به ماه قبل» و «۸ مورد جدید» ثابت بود و «نیازمند بررسی»
+    پاسخ‌های تصحیح‌نشده‌ی کل سامانه را می‌شمرد."""
+
+    def test_exam_manager_cards_are_computed_within_scope(self):
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'], [str(uuid.uuid4()), self.exam_out_id, self.student_out_id, timezone.now(), 'submitted'])
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:exam_manager_dashboard'))
+        self.assertNotContains(page, 'نسبت به ماه قبل')
+        cards = {card['label']: card for card in page.context['dashboard_stats']}
+        self.assertEqual(cards['نیازمند بررسی']['hint'], 'آزمون در انتظار تأیید')
+        self.assertIn('در حال برگزاری', cards['آزمون‌های منتشرشده']['hint'])
