@@ -3420,6 +3420,17 @@ class StudentExamStartWindowTests(_ScopedOrgFixture):
         self._window(10, 40)
         self.assertNotContains(self.client.get(detail), 'آماده‌ام؛ ورود به آزمون')
 
+    def test_detail_links_the_uploaded_guide_only_when_there_is_one(self):
+        self._window(-5, 25)
+        detail = reverse('core:student_exam_detail', args=[self.exam_in_id])
+        self.client.force_login(self.student_user)
+        self.assertNotContains(self.client.get(detail), 'دانلود راهنمای آزمون')
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET guidance_file_url = %s WHERE id = %s', ['/media/exam-guidance/guide.pdf', self.exam_in_id])
+        page = self.client.get(detail)
+        self.assertContains(page, 'href="/media/exam-guidance/guide.pdf"')
+        self.assertNotContains(page, 'href="#"')
+
     def test_start_is_refused_after_the_last_entry_time(self):
         self._window(-30, 30)
         with connection.cursor() as cursor:
@@ -4057,6 +4068,8 @@ class StudentResultShowsStoredDataTests(_ScopedOrgFixture):
         self.assertEqual(second.context['current_question']['text'], 'سؤال بی‌پاسخ')
         self.assertNotContains(second, 'پاسخ شما</b>')
         self.assertNotIn('سالمند', response.content.decode())
+        self.assertContains(response, 'data-print-report')
+        self.assertNotContains(response, 'href="#"')
 
 
 class ExamResultReleaseTests(_ScopedOrgFixture):

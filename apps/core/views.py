@@ -17614,6 +17614,9 @@ def _sx_exam_row(exam_id, student_id):
     has_last_entry = erd_has_column('exams', 'last_entry_at')
     last_entry = 'e.last_entry_at' if has_last_entry else 'NULL'
     last_entry_group = ', e.last_entry_at' if has_last_entry else ''
+    has_guide = erd_has_column('exams', 'guidance_file_url')
+    guide = 'e.guidance_file_url' if has_guide else 'NULL'
+    last_entry_group += ', e.guidance_file_url' if has_guide else ''
     rows = erd_rows(
         f"""
         SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
@@ -17623,7 +17626,7 @@ def _sx_exam_row(exam_id, student_id):
                COALESCE(e.exam_type, 'آنلاین') AS exam_type,
                COALESCE(c.title, 'درس') AS course_title,
                COALESCE(p.full_name, 'استاد') AS teacher_name,
-               {last_entry} AS last_entry_at,
+               {last_entry} AS last_entry_at, {guide} AS guidance_file_url,
                COUNT(eq.id) AS question_count
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
@@ -17648,7 +17651,7 @@ def _sx_exam_row(exam_id, student_id):
                    COALESCE(e.exam_type, 'آنلاین') AS exam_type,
                    COALESCE(c.title, 'درس') AS course_title,
                    COALESCE(p.full_name, 'استاد') AS teacher_name,
-                   {last_entry} AS last_entry_at,
+                   {last_entry} AS last_entry_at, {guide} AS guidance_file_url,
                    COUNT(eq.id) AS question_count
             FROM exams e
             LEFT JOIN courses c ON c.id = e.course_id

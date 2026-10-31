@@ -31,14 +31,14 @@
         {% else %}
           <span class="sx-chip orange">تا شروع آزمون {{ seconds_until_start|fa_digits }} ثانیه باقی مانده</span>
         {% endif %}
-        <a class="sx-btn" href="#">دانلود راهنمای آزمون</a>
+        {% if exam.guidance_file_url %}<a class="sx-btn" href="{{ exam.guidance_file_url }}" target="_blank" rel="noopener">دانلود راهنمای آزمون</a>{% endif %}
       </div>
     </div>
   </article>
   <section class="sx-detail-grid">
     <aside class="sx-stack">
       <article class="sx-card sx-panel"><h2>نحوه نمره‌دهی</h2><p>نمره هر سوال بر اساس تنظیمات استاد محاسبه می‌شود.</p><p>پاسخ ندادن به سوال: ۰ نمره</p><hr><strong>حداقل نمره قبولی: {{ exam.passing_score|default:"۶۰"|fa_digits }} از ۱۰۰</strong></article>
-      <article class="sx-card sx-panel"><h2>پشتیبانی آزمون</h2><p>در صورت بروز مشکل در ورود یا هنگام برگزاری آزمون، با پشتیبانی تماس بگیرید.</p><a class="sx-btn" style="width:100%" href="#">پشتیبانی آنلاین</a></article>
+      <article class="sx-card sx-panel"><h2>پشتیبانی آزمون</h2><p>در صورت بروز مشکل در ورود یا هنگام برگزاری آزمون، با پشتیبانی تماس بگیرید.</p><span class="sx-btn" style="width:100%;opacity:.6;cursor:not-allowed" aria-disabled="true">پشتیبانی آنلاین <small class="sx-chip gray">در حال توسعه</small></span></article>
     </aside>
     <article class="sx-card sx-panel">
       <h2>دستورالعمل‌های آزمون</h2>
