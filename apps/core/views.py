@@ -13392,7 +13392,7 @@ def _question_status(row, index=0):
     return 'draft', 'پیش‌نویس', 'is-muted'
 
 
-def _teacher_question_rows(teacher_id, request=None):
+def _teacher_question_rows(teacher_id):
     question_columns = erd_table_columns('questions')
     structure_select = "q.structure" if 'structure' in question_columns else "'independent' AS structure"
     subject_select = "q.subject" if 'subject' in question_columns else "COALESCE(c.title, '-') AS subject"
@@ -13437,23 +13437,6 @@ def _teacher_question_rows(teacher_id, request=None):
             'correct_display': ', '.join(correct) if isinstance(correct, list) else str(correct or '-'),
         })
 
-    if request is None:
-        return enriched
-    query = (request.GET.get('q') or '').strip()
-    status_filter = request.GET.get('status') or 'all'
-    type_filter = request.GET.get('type') or 'all'
-    difficulty_filter = request.GET.get('difficulty') or 'all'
-    if query:
-        q = query.lower()
-        enriched = [item for item in enriched if q in str(item.get('text', '')).lower() or q in str(item.get('course', '')).lower()]
-    if status_filter != 'all':
-        enriched = [item for item in enriched if item['status_key'] == status_filter]
-    if type_filter != 'all':
-        type_aliases = {'single': {'single', 'multiple_choice'}, 'essay': {'essay', 'descriptive'}}
-        accepted_types = type_aliases.get(type_filter, {type_filter})
-        enriched = [item for item in enriched if item.get('type') in accepted_types]
-    if difficulty_filter != 'all':
-        enriched = [item for item in enriched if item.get('difficulty') == difficulty_filter]
     return enriched
 
 
@@ -14098,37 +14081,22 @@ def _teacher_exam_monitoring(exam) -> dict:
     }
 
 
-QUESTION_BANK_PAGE_SIZE = 20
-
-
 def _query_without_page(request) -> list:
     """The current GET parameters except page, so pagination keeps the filters."""
     return [(key, value) for key, values in request.GET.lists() if key != 'page' for value in values]
 
 
 def _teacher_modern_context(request, page, **extra):
-    from django.core.paginator import Paginator
-
     teacher_id = getattr(request, 'erd_profile_id', None)
     courses = _teacher_courses_rows(teacher_id) if teacher_id else []
     selected_course = _teacher_selected_course(courses, extra.get('group_id'))
     selected_group_id = extra.get('group_id') or selected_course.get('id') or 'nursing-01'
     exams = _teacher_exam_rows_simple(teacher_id) if teacher_id else []
-    question_page = Paginator(_teacher_question_rows(teacher_id, request), QUESTION_BANK_PAGE_SIZE).get_page(request.GET.get('page'))
-    questions = list(question_page.object_list)
-    all_questions = _teacher_question_rows(teacher_id)
-    question_stats = {
-        'total': len(all_questions),
-        'active': sum(1 for q in all_questions if q['status_key'] == 'active'),
-        'draft': sum(1 for q in all_questions if q['status_key'] == 'draft'),
-        'needs_review': sum(1 for q in all_questions if q['status_key'] == 'needs_review'),
-        'banks': max(1, len({q.get('course') for q in all_questions})),
-    }
-    question_view = request.GET.get('view') or 'all'
-    if question_view not in {'all', 'banks', 'drafts', 'shared', 'archive', 'tags'}:
-        question_view = 'all'
-    question_sets = _teacher_question_sets(teacher_id, all_questions)
-    question_tags = _teacher_question_tags(all_questions)
+    question_bank = {}
+    if page == 'questions' and teacher_id:
+        from .teacher_question_bank import question_bank_context
+
+        question_bank = question_bank_context(request, teacher_id)
     recent_exam_students = []
     if page == 'course_detail' and teacher_id:
         from .teacher_students import student_list_rows
@@ -14141,7 +14109,7 @@ def _teacher_modern_context(request, page, **extra):
             'courses': len(courses),
             'students': sum(int(row.get('students_count') or 0) for row in courses) or 362,
             'exams': len(exams) or 24,
-            'questions': question_stats['total'],
+            'questions': erd_count('questions', 'teacher_id = %s', [teacher_id]) if teacher_id else 0,
             'reviews': erd_count(
                 'attempt_answers',
                 'COALESCE(needs_manual_grading, false) = true AND question_id IN (SELECT id FROM questions WHERE teacher_id = %s)',
@@ -14159,25 +14127,10 @@ def _teacher_modern_context(request, page, **extra):
             {'title': 'مهلت ارسال پروژه گروهی', 'course': 'بازاریابی دیجیتال', 'start_at': '۱۴۰۳/۰۳/۲۲', 'status': 'مهلت'},
             {'title': 'کلاس آنلاین فصل ۵', 'course': 'رفتار سازمانی', 'start_at': '۱۴۰۳/۰۳/۲۴', 'status': 'کلاس'},
         ],
-        'questions': questions,
-        'question_page': question_page,
-        'question_page_query': _query_without_page(request),
-        'question_stats': question_stats,
-        'question_view': question_view,
-        'question_filters': {
-            'q': request.GET.get('q', ''),
-            'status': request.GET.get('status', 'all'),
-            'type': request.GET.get('type', 'all'),
-            'difficulty': request.GET.get('difficulty', 'all'),
-        },
-        'question_banks': question_sets,
-        'question_tags': question_tags,
-        'question_drafts': [q for q in all_questions if q['status_key'] == 'draft'][:10],
-        'shared_questions': [q for q in all_questions if q['status_key'] == 'active'][:10],
-        'archived_questions': [q for q in all_questions[-8:]],
         'course_detail_tab': request.GET.get('tab', 'overview'),
         'selected_group_id': selected_group_id,
         'dashboard': _teacher_dashboard_data(teacher_id) if page == 'dashboard' and teacher_id else None,
+        **question_bank,
         **extra,
     }
 

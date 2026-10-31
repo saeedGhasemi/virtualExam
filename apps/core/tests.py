@@ -4183,6 +4183,19 @@ class TeacherQuestionBankPaginationTests(_ScopedOrgFixture):
             cursor.execute('DELETE FROM questions WHERE teacher_id = %s', [self.teacher_out_id])
         self.assertEqual(self.client.get(url).context['questions'], [])
 
+    def test_filters_run_in_the_database_and_other_pages_skip_the_bank(self):
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'is_published', 'difficulty'],
+                [str(uuid.uuid4()), self.teacher_in_id, 'دوز ۵۰% آتروپین', 'multi', True, 'hard'])
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_questions')
+        found = self.client.get(url, {'q': '۵۰%'}).context['questions']
+        self.assertEqual([q['text'] for q in found], ['دوز ۵۰% آتروپین'])
+        self.assertEqual(self.client.get(url, {'q': '_'}).context['question_page'].paginator.count, 0)  # "_" is literal
+        active = self.client.get(url, {'status': 'active', 'difficulty': 'hard', 'type': 'multi'}).context
+        self.assertEqual([q['status_label'] for q in active['questions']], ['فعال'])
+        self.assertEqual(active['question_stats'], {'total': 28, 'active': 1, 'draft': 27, 'needs_review': 0, 'banks': 1})
+        self.assertNotIn('question_page', self.client.get(reverse('core:teacher_panel')).context)
+
 
 class ScenarioBuildersInDevelopmentTests(_ScopedOrgFixture):
     """سازنده‌ی KFP و سناریوی بیمار ماکت بودند و هر چه استاد وارد می‌کرد، یک سناریوی ثابت ذخیره می‌کردند؛ تا ساخت واقعی بسته‌اند."""
