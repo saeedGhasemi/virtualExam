@@ -3391,6 +3391,15 @@ class StudentExamStartWindowTests(_ScopedOrgFixture):
         self._window(10, 40)
         self.assertNotContains(self.client.get(detail), 'آماده‌ام؛ ورود به آزمون')
 
+    def test_start_is_refused_after_the_last_entry_time(self):
+        self._window(-30, 30)
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET last_entry_at = %s WHERE id = %s', [timezone.now() - timedelta(minutes=5), self.exam_in_id])
+        self.client.force_login(self.student_user)
+        response = self.client.post(reverse('core:student_exam_start', args=[self.exam_in_id]), follow=True)
+        self.assertContains(response, 'زمان ورود به این آزمون به پایان رسیده است.')
+        self.assertEqual(self._attempts(), 0)
+
     def test_started_attempt_can_be_resumed_after_the_window_closes(self):
         url = reverse('core:student_exam_start', args=[self.exam_in_id])
         self.client.force_login(self.student_user)

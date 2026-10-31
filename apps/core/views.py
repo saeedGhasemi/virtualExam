@@ -17633,6 +17633,9 @@ def _sx_student_context(request):
 
 
 def _sx_exam_row(exam_id, student_id):
+    has_last_entry = erd_has_column('exams', 'last_entry_at')
+    last_entry = 'e.last_entry_at' if has_last_entry else 'NULL'
+    last_entry_group = ', e.last_entry_at' if has_last_entry else ''
     rows = erd_rows(
         f"""
         SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
@@ -17642,6 +17645,7 @@ def _sx_exam_row(exam_id, student_id):
                COALESCE(e.exam_type, 'آنلاین') AS exam_type,
                COALESCE(c.title, 'درس') AS course_title,
                COALESCE(p.full_name, 'استاد') AS teacher_name,
+               {last_entry} AS last_entry_at,
                COUNT(eq.id) AS question_count
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
@@ -17649,7 +17653,7 @@ def _sx_exam_row(exam_id, student_id):
         LEFT JOIN exam_questions eq ON eq.exam_id = e.id
         WHERE e.id = %s AND {_erd_student_exam_access_condition()}
         GROUP BY e.id, e.title, e.description, e.start_at, e.end_at, e.duration_minutes,
-                 e.passing_score, e.lifecycle_status, e.exam_type, c.title, p.full_name
+                 e.passing_score, e.lifecycle_status, e.exam_type, c.title, p.full_name{last_entry_group}
         LIMIT 1
         """,
         [exam_id, student_id, student_id, student_id],
@@ -17658,7 +17662,7 @@ def _sx_exam_row(exam_id, student_id):
         # Outside the access rule a student still reaches an exam they already have an attempt on
         # (e.g. it was unpublished mid-attempt); any other exam id is not theirs.
         rows = erd_rows(
-            """
+            f"""
             SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
                    e.start_at, e.end_at, COALESCE(e.duration_minutes, 90) AS duration_minutes,
                    COALESCE(e.passing_score, 60) AS passing_score,
@@ -17666,6 +17670,7 @@ def _sx_exam_row(exam_id, student_id):
                    COALESCE(e.exam_type, 'آنلاین') AS exam_type,
                    COALESCE(c.title, 'درس') AS course_title,
                    COALESCE(p.full_name, 'استاد') AS teacher_name,
+                   {last_entry} AS last_entry_at,
                    COUNT(eq.id) AS question_count
             FROM exams e
             LEFT JOIN courses c ON c.id = e.course_id
@@ -17674,7 +17679,7 @@ def _sx_exam_row(exam_id, student_id):
             WHERE e.id = %s
               AND EXISTS (SELECT 1 FROM exam_attempts own WHERE own.exam_id = e.id AND own.student_id = %s)
             GROUP BY e.id, e.title, e.description, e.start_at, e.end_at, e.duration_minutes,
-                     e.passing_score, e.lifecycle_status, e.exam_type, c.title, p.full_name
+                     e.passing_score, e.lifecycle_status, e.exam_type, c.title, p.full_name{last_entry_group}
             LIMIT 1
             """,
             [exam_id, student_id],
@@ -17685,6 +17690,9 @@ def _sx_exam_row(exam_id, student_id):
     row['starts_at'] = _sx_dt(row.get('start_at')) or timezone.now()
     row['duration_minutes'] = _em_int(row.get('duration_minutes'), 90)
     row['ends_at'] = _sx_dt(row.get('end_at')) or (row['starts_at'] + timedelta(minutes=row['duration_minutes']))
+    # «آخرین زمان ورود»: new attempts may not start after it, even while the exam is still running.
+    last_entry = _sx_dt(row.get('last_entry_at'))
+    row['entry_ends_at'] = min(row['ends_at'], last_entry) if last_entry else row['ends_at']
     row['question_count'] = _em_int(row.get('question_count'), 0)
     return row
 
@@ -17999,8 +18007,8 @@ def student_exam_detail(request, exam_id):
         'student': _sx_student_context(request),
         'exam': exam,
         'attempt': attempt,
-        'can_enter': exam['starts_at'] <= now <= exam['ends_at'],
-        'entry_expired': now > exam['ends_at'],
+        'can_enter': exam['starts_at'] <= now <= exam['entry_ends_at'],
+        'entry_expired': now > exam['entry_ends_at'],
         'seconds_until_start': max(0, int((exam['starts_at'] - now).total_seconds())),
         'question_count': exam['question_count'],
     })
@@ -18040,7 +18048,7 @@ def student_exam_start(request, exam_id):
     # A started attempt may be resumed (its own time limit applies); a new start must fall inside the exam window.
     resuming = bool(attempt and attempt.get('started_at') and attempt.get('status') == 'in_progress')
     now = timezone.now()
-    if not resuming and not exam['starts_at'] <= now <= exam['ends_at']:
+    if not resuming and not exam['starts_at'] <= now <= exam['entry_ends_at']:
         messages.error(request, 'آزمون هنوز شروع نشده است.' if now < exam['starts_at'] else 'زمان ورود به این آزمون به پایان رسیده است.')
         return redirect('core:student_exam_detail', exam_id=exam_id)
     if not attempt:
