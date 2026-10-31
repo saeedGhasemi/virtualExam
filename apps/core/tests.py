@@ -4494,7 +4494,8 @@ class DashboardChartsRealDataTests(_ScopedOrgFixture):
         self.assertEqual(panel['trend_labels'][-1], ' '.join(_jalali_long_date(timezone.localdate(), with_weekday=False).split()[:2]))
         health = {item['label']: item for item in panel['health_items']}
         self.assertTrue(health['پایگاه داده']['status'].startswith('سالم'))
-        self.assertEqual(health['پشتیبان‌گیری']['status'], 'پایش نشده')
+        with self.settings(BACKUP_DIR=''):
+            self.assertEqual({i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']['status'], 'پایش نشده')
         with tempfile.TemporaryDirectory() as folder, self.settings(BACKUP_DIR=folder):
             self.assertEqual({i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']['status'], 'نسخه‌ای پیدا نشد')
             open(f'{folder}/db.dump', 'w').close()
@@ -4512,3 +4513,24 @@ class DashboardChartsRealDataTests(_ScopedOrgFixture):
         html = page.content.decode()
         for invented in ('۷۲٪', 'تداخل زمانی آزمون', 'درخواست مهمان‌پذیری', 'cx="200" cy="62"'):
             self.assertNotIn(invented, html)
+
+
+class BackupDatabaseCommandTests(TestCase):
+    """دستور backup_database نسخه‌ی واقعی در BACKUP_DIR می‌سازد و داشبورد سلامت همان را پایش می‌کند."""
+
+    def test_backup_is_written_kept_and_seen_by_the_dashboard(self):
+        import tempfile
+        from pathlib import Path
+        from django.core.management import CommandError, call_command
+        from apps.core.views import _system_health_items
+        with self.settings(BACKUP_DIR=''):
+            with self.assertRaises(CommandError):
+                call_command('backup_database', stdout=io.StringIO())
+        with tempfile.TemporaryDirectory() as folder, self.settings(BACKUP_DIR=folder):
+            call_command('backup_database', stdout=io.StringIO())
+            call_command('backup_database', '--keep', '1', stdout=io.StringIO())
+            files = list(Path(folder).glob('db-*.sqlite3'))
+            self.assertEqual(len(files), 1)
+            self.assertGreater(files[0].stat().st_size, 0)
+            backup = {item['label']: item for item in _system_health_items()}['پشتیبان‌گیری']
+            self.assertEqual(backup['tone'], 'ok')
