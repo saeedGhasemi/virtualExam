@@ -137,7 +137,7 @@
                 <h2>محدودیت ویرایش آزمون درحال برگزاری</h2>
                 <div class="mini-stats">
                     <article class="mini-stat glass"><small>در انتظار شروع</small><b>۵۲ نفر</b></article>
-                    <article class="mini-stat glass"><small>شروع کرده‌اند</small><b>{{ stats.started_count|default:76|fa_digits }} نفر</b></article>
+                    <article class="mini-stat glass"><small>شروع کرده‌اند</small><b>{{ stats.started_count|fa_digits }} نفر</b></article>
                     <article class="mini-stat glass"><small>شرکت‌کنندگان</small><b>{{ stats.participant_count|fa_digits }} نفر</b></article>
                 </div>
                 <div class="notice warn" style="margin-top:1rem">به دلیل درحال‌برگزاری بودن آزمون، امکان ویرایش تنظیمات حساس محدود شده است.</div>
@@ -321,7 +321,7 @@
                         <article class="panel glass">
                             <h2>بازبینی و ذخیره</h2>
                             <div class="review-grid">
-                                <article class="review-card glass"><small>اطلاعات آزمون</small><b>تکمیل</b><span>{{ exam.title|fa_digits }}</span></article>
+                                <article class="review-card glass"><small>اطلاعات آزمون</small><b>{% if exam.title and exam.course_id and exam.teacher_id %}تکمیل{% else %}ناقص{% endif %}</b><span>{{ exam.title|fa_digits }}</span></article>
                                 <article class="review-card glass"><small>شرکت‌کنندگان</small><b>{{ stats.participant_count|fa_digits }} نفر</b><span>{{ stats.selected_groups|fa_digits }} گروه</span></article>
                                 <article class="review-card glass"><small>سؤال‌ها</small><b>{{ stats.selected_questions|fa_digits }}</b><span>{{ stats.total_points|floatformat:1|fa_digits }} امتیاز</span></article>
                                 <article class="review-card glass"><small>زمان‌بندی</small><b>{{ exam.duration_minutes|default:90|fa_digits }} دقیقه</b><span>{{ exam.start_label|fa_digits }}</span></article>
@@ -329,15 +329,15 @@
                             <div class="form-grid" style="margin-top:1rem">
                                 <article class="panel glass">
                                     <h2>چک‌لیست بازبینی</h2>
-                                    <div class="checklist"><div>اطلاعات پایه تکمیل شده است <b>✓</b></div><div>سؤال‌ها و نمره‌دهی معتبر است <b>✓</b></div><div>تنظیمات آزمون بررسی شد <b>✓</b></div><div>شرکت‌کنندگان بررسی شدند <b>✓</b></div></div>
+                                    <div class="checklist">{% for label, ok in review_checks %}<div>{{ label }} <b{% if not ok %} style="color:#dc2626"{% endif %}>{% if ok %}✓{% else %}✗{% endif %}</b></div>{% endfor %}</div>
                                 </article>
                                 <article class="panel glass">
                                     <h2>یادداشت تغییرات</h2>
-                                    <textarea class="message-box" name="change_note" placeholder="یادداشت اختیاری برای نسخه جدید...">افزودن سؤال جدید و تغییر زمان پایان به ۱۰:۳۰</textarea>
-                                    <label class="toggle-row">اطلاع‌رسانی به شرکت‌کنندگان <span class="toggle"><input type="checkbox" checked><span></span></span></label>
+                                    <textarea class="message-box" name="change_note" maxlength="1000" placeholder="یادداشت اختیاری؛ در گزارش فعالیت ثبت و در اعلان شرکت‌کنندگان آورده می‌شود."></textarea>
+                                    <label class="toggle-row">اطلاع‌رسانی به شرکت‌کنندگان <span class="toggle"><input name="notify_participants" type="checkbox" checked><span></span></span></label>
                                 </article>
                             </div>
-                            <div class="notice" style="margin:1rem 0 0">پس از انتشار مجدد، نسخه قبلی بایگانی شده و نسخه جدید برای شرکت‌کنندگان قابل مشاهده خواهد بود.</div>
+                            <div class="notice" style="margin:1rem 0 0">انتشار مجدد، تغییرات را بلافاصله برای شرکت‌کنندگان اعمال می‌کند؛ نسخه‌ی قبلی جداگانه نگه‌داری نمی‌شود.</div>
                         </article>
                         <aside class="panel glass">
                             <h2>گزینه‌های انتشار</h2>

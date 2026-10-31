@@ -9040,6 +9040,30 @@ def super_admin_exam_bulk_import(request):
     })
 
 
+def _exam_audience_student_ids(exam_id) -> list:
+    """Students an exam is assigned to: its groups' members and individually assigned students, minus exclusions."""
+    rows = erd_rows(
+        """
+        SELECT student_id FROM (
+            SELECT ea.student_profile_id AS student_id
+            FROM exam_assignments ea
+            WHERE ea.exam_id = %s AND ea.student_profile_id IS NOT NULL
+            UNION
+            SELECT sgm.student_user_id AS student_id
+            FROM exam_assignments ea
+            JOIN student_group_members sgm ON sgm.group_id = ea.group_id
+            WHERE ea.exam_id = %s AND sgm.student_user_id IS NOT NULL
+        ) audience
+        WHERE student_id NOT IN (
+            SELECT ax.student_profile_id FROM exam_assignment_exclusions ax
+            WHERE ax.exam_id = %s AND ax.student_profile_id IS NOT NULL
+        )
+        """,
+        [exam_id, exam_id, exam_id],
+    )
+    return [str(row['student_id']) for row in rows]
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_exam_edit(request, exam_id):
     def parse_local_datetime_pair(date_value, time_value):
@@ -9253,7 +9277,17 @@ def super_admin_exam_edit(request, exam_id):
                     """,
                     [approved_by, timezone.now(), request.POST.get('publish_mode') or 'immediate', exam_id],
                 )
-                messages.success(request, 'نسخه جدید آزمون منتشر شد.')
+                note = (request.POST.get('change_note') or '').strip()[:1000]
+                log_activity(request.user, 'exam_republished', f"آزمون {exam['title']} دوباره منتشر شد.", request,
+                             {'exam_id': str(exam_id), 'change_note': note})
+                notified = 0
+                if request.POST.get('notify_participants'):
+                    message = f"آزمون «{exam['title']}» به‌روزرسانی شد." + (f' {note}' if note else '')
+                    for student_id in _exam_audience_student_ids(exam_id):
+                        create_notification(student_id, 'به‌روزرسانی آزمون', message,
+                                            link=reverse('core:student_exam_detail', args=[exam_id]))
+                        notified += 1
+                messages.success(request, 'آزمون دوباره منتشر شد' + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
             elif publish_action in ('publish_results', 'unpublish_results'):
                 notified = _set_exam_results_published(request, exam_id, publish_action == 'publish_results')
                 messages.success(
@@ -9417,18 +9451,6 @@ def super_admin_exam_edit(request, exam_id):
         question['type_label'] = type_labels.get(question.get('type'), question.get('type') or 'سوال')
 
     total_points = float(exam.get('total_points') or sum(float(q.get('points') or 1) for q in questions if str(q['id']) in selected_questions) or 20)
-    version_rows = [
-        {'number': 4, 'status': 'پیش‌نویس فعلی', 'summary': 'افزودن سوال تشریحی و بروزرسانی ضریب بخش دوم', 'author': exam.get('teacher_name') or 'مدرس', 'date': '۱۴۰۵/۰۲/۲۴ - ۱۰:۴۲'},
-        {'number': 3, 'status': 'منتشرشده', 'summary': 'ویرایش متن سوال ۱۲ و تغییر زمان آزمون از ۹۰ به ۹۵ دقیقه', 'author': exam.get('teacher_name') or 'مدرس', 'date': '۱۴۰۵/۰۲/۲۰ - ۱۶:۱۵'},
-        {'number': 2, 'status': 'منتشرشده', 'summary': 'افزودن نمودار به سوال ۸ و اصلاح گزینه ۴ در سوال ۱۸', 'author': exam.get('teacher_name') or 'مدرس', 'date': '۱۴۰۵/۰۲/۱۸ - ۱۱:۳۰'},
-        {'number': 1, 'status': 'پیش‌نویس', 'summary': 'ایجاد اولیه آزمون و تعریف ساختار بخش‌ها', 'author': exam.get('teacher_name') or 'مدرس', 'date': '۱۴۰۵/۰۲/۱۵ - ۰۹:۲۰'},
-    ]
-    change_rows = [
-        {'section': 'اطلاعات پایه', 'count': 2, 'old': 'آزمون شامل مباحث فصل‌های ۱ تا ۵', 'new': 'آزمون شامل مباحث فصل‌های ۱ تا ۶ و مرور نکات مهم', 'tone': 'warning'},
-        {'section': 'شرکت‌کنندگان', 'count': 1, 'old': '۱۵۰ نفر', 'new': '۲۰۰ نفر', 'tone': 'success'},
-        {'section': 'سوالات', 'count': 2, 'old': '۳۰ سوال، نمره منفی ندارد', 'new': '۳۵ سوال، نمره منفی ۰٫۲۵', 'tone': 'warning'},
-        {'section': 'زمان‌بندی', 'count': 1, 'old': '۰۹:۰۰ تا ۱۰:۳۰', 'new': '۱۰:۳۰ تا ۱۲:۳۰', 'tone': 'success'},
-    ]
     steps = [
         {'id': '1', 'label': 'اطلاعات پایه'},
         {'id': '2', 'label': 'شرکت‌کنندگان'},
@@ -9440,8 +9462,16 @@ def super_admin_exam_edit(request, exam_id):
     view = request.GET.get('view', 'edit')
     if step not in {'1', '2', '3', '4', '5'}:
         step = '1'
+    audience = _exam_audience_student_ids(exam_id)
+    review_checks = [
+        ('عنوان، درس و استاد ثبت شده است', bool(exam.get('title') and exam.get('course_id') and exam.get('teacher_id'))),
+        ('دست‌کم یک سؤال با بارم مثبت دارد', bool(selected_questions) and float(total_points or 0) > 0),
+        ('زمان شروع و پایان معتبر است', bool(start_at and end_at and end_at > start_at)),
+        ('شرکت‌کننده دارد', bool(audience)),
+    ]
     return render(request, 'super_admin/exam_edit.html', {
         'title': 'ویرایش آزمون',
+        'review_checks': review_checks,
         'exam': exam,
         'steps': steps,
         'step': step,
@@ -9455,8 +9485,6 @@ def super_admin_exam_edit(request, exam_id):
         'questions': questions,
         'selected_questions': selected_questions,
         'question_type_cards': [{'key': key, 'label': label} for key, label in type_labels.items()],
-        'version_rows': version_rows,
-        'change_rows': change_rows,
         'is_running': is_running,
         'is_published': is_published,
         'stats': {
@@ -9464,7 +9492,7 @@ def super_admin_exam_edit(request, exam_id):
             'selected_questions': len(selected_questions),
             'selected_groups': len(assigned_groups),
             'selected_students': len(assigned_students),
-            'participant_count': int(exam.get('participant_count') or exam.get('assigned_student_count') or 128),
+            'participant_count': len(audience),
             'started_count': int(exam.get('started_count') or 0),
         },
     })

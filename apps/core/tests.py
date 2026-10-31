@@ -4207,3 +4207,32 @@ class ScenarioBuildersInDevelopmentTests(_ScopedOrgFixture):
             self.assertContains(response, 'در حال توسعه')
         self.assertEqual(self._count(), before)
         self.assertNotContains(self.client.get(reverse('core:teacher_question_type')), '?type=kfp')
+
+
+class ManagerExamReviewStepTests(_ScopedOrgFixture):
+    """مرحله‌ی «بازبینی و انتشار» مدیر: چک‌لیست از داده، یادداشت و اطلاع‌رسانی واقعی؛ قبلاً چک‌لیست همیشه ✓، یادداشت از پیش پر
+    و ذخیره‌نشده، تیک اطلاع‌رسانی بی‌اثر و تعداد شرکت‌کنندگان در نبود داده ۱۲۸ بود."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), cls.exam_in_id, cls.student_in_id])
+
+    def test_review_reflects_the_exam_and_republish_notifies_the_audience(self):
+        self.client.force_login(self.manager_user)
+        url = reverse('core:super_admin_exam_edit', args=[self.exam_in_id])
+        page = self.client.get(url, {'step': '5'})
+        checks = dict(page.context['review_checks'])
+        self.assertTrue(checks['شرکت‌کننده دارد'])
+        self.assertFalse(checks['دست‌کم یک سؤال با بارم مثبت دارد'])
+        self.assertEqual(page.context['stats']['participant_count'], 1)
+        self.assertNotContains(page, 'تغییر زمان پایان به ۱۰:۳۰')
+
+        self.client.post(url, {'edit_step': '5', 'publish_action': 'republish', 'change_note': 'زمان پایان تمدید شد.', 'notify_participants': 'on'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT user_id, message FROM notifications')
+            self.assertEqual(cursor.fetchall(), [(self.student_in_id, 'آزمون «آزمون داخل محدوده» به‌روزرسانی شد. زمان پایان تمدید شد.')])
+        self.client.post(url, {'edit_step': '5', 'publish_action': 'republish'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM notifications')
+            self.assertEqual(cursor.fetchone()[0], 1)  # unticked: nobody is notified
