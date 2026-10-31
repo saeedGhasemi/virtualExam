@@ -13043,16 +13043,8 @@ def _question_builder_payload(post):
         except (TypeError, ValueError):
             return fallback
         return normalized
-    is_independent = config['structure'] == 'independent'
-    # Scenario builders (case/kfp) keep their legacy sample fallback; independent questions must carry real input.
-    default_option_labels = [] if is_independent else ([
-        'فیبریلاسیون دهلیزی',
-        'تاکی‌کاردی فوق‌بطنی پاروکسیسمال (SVT)',
-        'بلوک دهلیزی-بطنی درجه دو نوع ۱',
-        'تاکی‌کاردی بطنی',
-    ] if stored_type in {'single', 'multi', 'true_false'} else [])
-    option_labels = post.getlist('option_text') or default_option_labels
-    correct_values = set(post.getlist('correct_options') or ([] if is_independent else ['2']))
+    option_labels = post.getlist('option_text')
+    correct_values = set(post.getlist('correct_options'))
     options = [
         {
             'id': str(index),
@@ -13165,9 +13157,9 @@ def _question_builder_payload(post):
         'default_points': clean_number(post.get('default_points'), '1'),
         'negative_points': clean_number(post.get('negative_points'), '-0.5'),
         'suggested_time_seconds': clean_number(post.get('suggested_time_seconds'), '180'),
-        'tags': post.get('tags') or ('' if is_independent else 'قلب و عروق, ECG'),
+        'tags': post.get('tags') or '',
         'subject': post.get('subject') or '',
-        'question_media': {'image': post.get('question_image', '' if is_independent else 'ecg-sample.png'), 'audio': post.get('question_audio', ''), 'video': post.get('question_video', '')},
+        'question_media': {'image': post.get('question_image', ''), 'audio': post.get('question_audio', ''), 'video': post.get('question_video', '')},
         'answer_media': {'items': [item for item in post.getlist('answer_media') if item]},
         'scoring_settings': {
             'partial_credit': bool(post.get('partial_credit')),
@@ -15400,12 +15392,20 @@ def teacher_question_autosave(request):
     return JsonResponse({'ok': True, 'saved_at': saved_at})
 
 
+# Question structures whose builders are not real yet; teachers cannot open or save them.
+SCENARIO_BUILDERS_IN_DEVELOPMENT = {'kfp', 'case'}
+
+
 @erd_role_required('teacher')
 def teacher_question_create(request):
     teacher_id = request.erd_profile_id
     if (request.POST.get('type') or request.GET.get('type')) == 'osce':
         # OSCE moved to its own multi-station builder; old links land there.
         return redirect('core:teacher_osce_create')
+    if (request.POST.get('type') or request.GET.get('type')) in SCENARIO_BUILDERS_IN_DEVELOPMENT:
+        # Their pages were mock-ups that saved a fixed sample scenario whatever the teacher entered.
+        messages.info(request, 'سازنده‌ی KFP و گروه سؤال سناریوی بیمار در حال توسعه است و هنوز سؤالی ثبت نمی‌کند.')
+        return redirect('core:teacher_question_type')
     course_options = _teacher_question_course_options(teacher_id)
     if request.method == 'POST':
         payload = _question_builder_payload(request.POST)

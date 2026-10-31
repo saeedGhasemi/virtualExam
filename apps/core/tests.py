@@ -4182,3 +4182,28 @@ class TeacherQuestionBankPaginationTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute('DELETE FROM questions WHERE teacher_id = %s', [self.teacher_out_id])
         self.assertEqual(self.client.get(url).context['questions'], [])
+
+
+class ScenarioBuildersInDevelopmentTests(_ScopedOrgFixture):
+    """سازنده‌ی KFP و سناریوی بیمار ماکت بودند و هر چه استاد وارد می‌کرد، یک سناریوی ثابت ذخیره می‌کردند؛ تا ساخت واقعی بسته‌اند."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def _count(self):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM questions WHERE teacher_id = %s', [self.teacher_in_id])
+            return cursor.fetchone()[0]
+
+    def test_kfp_and_case_cannot_be_opened_or_saved(self):
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_question_create')
+        before = self._count()
+        for kind in ('kfp', 'case'):
+            self.assertRedirects(self.client.get(url, {'type': kind}), reverse('core:teacher_question_type'))
+            response = self.client.post(url, {'type': kind, 'structure': kind, 'text': 'سناریو', 'is_published': '1'}, follow=True)
+            self.assertContains(response, 'در حال توسعه')
+        self.assertEqual(self._count(), before)
+        self.assertNotContains(self.client.get(reverse('core:teacher_question_type')), '?type=kfp')

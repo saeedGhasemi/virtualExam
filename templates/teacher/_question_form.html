@@ -377,8 +377,8 @@
                 <small title="سؤال مستقل یا یکی از ساختارهای سناریو">{% include "teacher/_qb_icon.html" with name="info" %}قالب تخصصی</small>
                 <nav class="qb-pills" aria-label="قالب تخصصی">
                     <a class="is-active" href="?type={{ qf.type }}" aria-current="page">سؤال مستقل</a>
-                    <a href="?type=case">سناریوی بیمار</a>
-                    <a href="?type=kfp">KFP</a>
+                    <span aria-disabled="true" title="در حال توسعه" style="opacity:.55;cursor:not-allowed">سناریوی بیمار (در حال توسعه)</span>
+                    <span aria-disabled="true" title="در حال توسعه" style="opacity:.55;cursor:not-allowed">KFP (در حال توسعه)</span>
                     <a href="{% url 'core:teacher_osce_create' %}">OSCE</a>
                 </nav>
             </div>
@@ -639,8 +639,8 @@
                     <label class="qb-field">قالب تخصصی
                         <select data-template-select>
                             <option value="" selected>سؤال مستقل</option>
-                            <option value="?type=case">سناریوی بیمار</option>
-                            <option value="?type=kfp">KFP</option>
+                            <option value="" disabled>سناریوی بیمار (در حال توسعه)</option>
+                            <option value="" disabled>KFP (در حال توسعه)</option>
                             <option value="{% url 'core:teacher_osce_create' %}">OSCE</option>
                         </select>
                     </label>

@@ -117,8 +117,8 @@
             </div>
             <div class="qs-structs" aria-label="ساختار سؤال">
                 <a class="qs-struct" data-choice="osce" href="{% url 'core:teacher_osce_create' %}"><span class="qs-art">{% include "teacher/_qs_art.html" with name="osce" %}</span><strong>سازنده ایستگاه OSCE</strong><span>ایستگاه بالینی، زمان و چک‌لیست</span></a>
-                <a class="qs-struct" data-choice="kfp" href="{% url 'core:teacher_question_create' %}?type=kfp"><span class="qs-art">{% include "teacher/_qs_art.html" with name="kfp" %}</span><strong>سازنده سناریوی KFP</strong><span>ارزیابی ویژگی‌های کلیدی تصمیم‌گیری</span></a>
-                <a class="qs-struct" data-choice="case" href="{% url 'core:teacher_question_create' %}?type=case"><span class="qs-art">{% include "teacher/_qs_art.html" with name="case" %}</span><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>چند سؤال وابسته به یک سناریوی مشترک و یکپارچه</span></a>
+                <span class="qs-struct" data-choice="kfp" aria-disabled="true" style="opacity:.6;cursor:not-allowed"><span class="qs-art">{% include "teacher/_qs_art.html" with name="kfp" %}</span><strong>سازنده سناریوی KFP</strong><span>ارزیابی ویژگی‌های کلیدی تصمیم‌گیری</span><small class="qb-soon" style="display:inline-block;margin-top:.3rem;padding:.1rem .5rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.72rem;font-weight:800">در حال توسعه</small></span>
+                <span class="qs-struct" data-choice="case" aria-disabled="true" style="opacity:.6;cursor:not-allowed"><span class="qs-art">{% include "teacher/_qs_art.html" with name="case" %}</span><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>چند سؤال وابسته به یک سناریوی مشترک و یکپارچه</span><small class="qb-soon" style="display:inline-block;margin-top:.3rem;padding:.1rem .5rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.72rem;font-weight:800">در حال توسعه</small></span>
             </div>
             <div class="qs-indep">
                 <div class="qs-indep-head">
