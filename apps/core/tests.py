@@ -3972,3 +3972,29 @@ class StudentResultRankAndTopicsTests(_ScopedOrgFixture):
         self.assertIn('۲ از ۲', page)
         for leftover in ('از ۴۵', 'ارزیابی و مراقبت‌های پایه', 'سلامت جسمی و پیشگیری'):
             self.assertNotIn(leftover, page)
+
+
+class SingleChoiceCorrectFlagsMigrationTests(_ScopedOrgFixture):
+    """هم‌راستا کردن گزینه‌ی «صحیح» سؤال تک‌گزینه‌ای با correct_answer که نمره‌دهی همیشه بر اساس آن بوده است."""
+
+    def _run(self, name):
+        import importlib
+        from types import SimpleNamespace
+        module = importlib.import_module('apps.core.migrations.0049_single_choice_correct_flags')
+        getattr(module, name)(None, SimpleNamespace(connection=connection))
+
+    def _flags(self, question_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT options FROM questions WHERE id = %s', [question_id])
+            return [option['id'] for option in json.loads(cursor.fetchone()[0]) if option['is_correct']]
+
+    def test_flags_follow_correct_answer_and_can_be_restored(self):
+        options = [{'id': str(index), 'text': f'گزینه {index}', 'is_correct': index in (2, 4)} for index in range(1, 5)]
+        broken, fine = str(uuid.uuid4()), str(uuid.uuid4())
+        for question_id, flags in ((broken, options), (fine, [dict(option, is_correct=option['id'] == '4') for option in options])):
+            _insert('questions', ['id', 'teacher_id', 'text', 'type', 'options', 'correct_answer', 'scoring_settings'],
+                    [question_id, self.teacher_in_id, 'سؤال', 'single', json.dumps(flags), json.dumps('4'), json.dumps({'scoring_mode': 'partial'})])
+        self._run('align_correct_flags')
+        self.assertEqual((self._flags(broken), self._flags(fine)), (['4'], ['4']))
+        self._run('restore_correct_flags')
+        self.assertEqual(self._flags(broken), ['2', '4'])
