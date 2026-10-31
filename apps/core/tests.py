@@ -656,6 +656,22 @@ class TeacherQuestionBuilderTests(_ScopedOrgFixture):
         pairs = json.loads(row[5])
         self.assertEqual([(p['left'], p['right']) for p in pairs], [('الف۱', 'ب۱'), ('الف۲', 'ب۲')])
 
+    def test_study_resource_is_saved_only_with_a_web_link(self):
+        self.client.force_login(self.teacher_user)
+        base = {'matching_left': ['الف۱', 'الف۲'], 'matching_right': ['ب۱', 'ب۲']}
+        for url in ('javascript:alert(1)', 'ftp://example.com/x'):
+            response = self._create('matching', {**base, 'text': 'سوال با منبع نامعتبر', 'resource_title': 'منبع', 'resource_url': url})
+            self.assertEqual(response.status_code, 200, url)
+            self.assertContains(response, 'لینک منبع مطالعه معتبر نیست')
+            self.assertIsNone(self._row('سوال با منبع نامعتبر'))
+        response = self._create('matching', {**base, 'text': 'سوال با منبع', 'resource_title': 'مرور مبحث ایمنی دارویی',
+                                             'resource_url': 'https://example.com/drug-safety'})
+        self.assertEqual(response.status_code, 302)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT feedback FROM questions WHERE text = %s', ['سوال با منبع'])
+            feedback = json.loads(cursor.fetchone()[0])
+        self.assertEqual((feedback['resource_title'], feedback['resource_url']), ('مرور مبحث ایمنی دارویی', 'https://example.com/drug-safety'))
+
     def test_fill_blank_saves_typed_alternatives_per_blank(self):
         self.client.force_login(self.teacher_user)
         text = 'جمجمه از [۱] و [۲] تشکیل شده است.'
@@ -3622,7 +3638,8 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
         _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'options', 'correct_answer', 'feedback', 'default_points'],
                 [cls.question_id, cls.teacher_in_id, cls.course_in_id, 'کدام اقدام پیش از تجویز دارو ضروری است؟', 'single',
                  json.dumps(['بررسی هویت بیمار', 'ثبت دارو در پرونده'], ensure_ascii=False), json.dumps('بررسی هویت بیمار', ensure_ascii=False),
-                 json.dumps({'text': 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.', 'correct': 'آفرین!', 'incorrect': 'مبحث ایمنی دارویی را مرور کنید.'}, ensure_ascii=False), 2])
+                 json.dumps({'text': 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.', 'correct': 'آفرین!', 'incorrect': 'مبحث ایمنی دارویی را مرور کنید.',
+                             'resource_title': 'مرور مبحث ایمنی دارویی', 'resource_url': 'https://example.com/drug-safety'}, ensure_ascii=False), 2])
         _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), cls.exam_id, cls.question_id, 2, 1])
 
     def setUp(self):
@@ -3652,7 +3669,8 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
         self.assertEqual((json.loads(stored)['value'], bool(is_correct), float(points)), ('ثبت دارو در پرونده', False, 0.0))
         self.assertIsNotNone(shown_at)
         page = self.client.get(url)
-        for text in ('پاسخ شما نادرست است', 'مبحث ایمنی دارویی را مرور کنید.', 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.', 'پاسخ صحیح', '<fieldset class="qx-lock" disabled>'):
+        for text in ('پاسخ شما نادرست است', 'مبحث ایمنی دارویی را مرور کنید.', 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.', 'پاسخ صحیح',
+                     '<fieldset class="qx-lock" disabled>', 'href="https://example.com/drug-safety"'):
             self.assertContains(page, text)
         self.assertEqual([option['feedback'] for option in page.context['current_answer']['options']], ['correct', 'wrong'])
         # A locked answer keeps its value, through the form and the autosave alike; only the review mark still changes.
@@ -3721,8 +3739,12 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
         report = self.client.get(reverse('core:student_result_detail', args=[attempt_id]))
         self.assertTemplateUsed(report, 'student/practice_result.html')
         self.assertEqual((report.context['counts']['correct'], float(report.context['score']), report.context['topics']),
-                         (1, 2.0, [{'title': 'ایمنی دارویی', 'percent': 100}]))
+                         (1, 2.0, [{'title': 'ایمنی دارویی', 'percent': 100,
+                                     'resources': [{'title': 'مرور مبحث ایمنی دارویی', 'url': 'https://example.com/drug-safety'}]}]))
         self.assertContains(report, 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.')  # the builder's explanation
+        self.assertEqual(report.context['topics'][0]['resources'],
+                         [{'title': 'مرور مبحث ایمنی دارویی', 'url': 'https://example.com/drug-safety'}])
+        self.assertContains(report, 'href="https://example.com/drug-safety"')
         self.assertEqual(report.context['retry'], {'label': 'تمرین دوباره', 'url': reverse('core:student_practice_detail', args=[self.exam_id])})
         self.assertEqual(report.context['review_topics'], [])
 

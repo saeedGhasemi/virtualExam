@@ -22,7 +22,9 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import LoginView
 from django.contrib.sessions.models import Session
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
+from django.core.validators import URLValidator
 from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse, QueryDict
@@ -12991,6 +12993,9 @@ def _question_builder_payload(post):
             'text': post.get('feedback_text') or '',
             'correct': post.get('correct_feedback') or '',
             'incorrect': post.get('incorrect_feedback') or '',
+            # «منبع مطالعه»: shown with the tutorial feedback and the practice report card
+            'resource_title': (post.get('resource_title') or '').strip()[:RESOURCE_TITLE_MAX],
+            'resource_url': (post.get('resource_url') or '').strip()[:RESOURCE_URL_MAX],
         },
         'rubric': rubric,
         'accepted_answers': accepted_answers,
@@ -14548,9 +14553,36 @@ def _apply_independent_settings(payload, post):
     return payload
 
 
+RESOURCE_TITLE_MAX = 120
+RESOURCE_URL_MAX = 500
+_resource_url_validator = URLValidator(schemes=['http', 'https'])
+
+
+def _valid_resource_url(url) -> bool:
+    try:
+        _resource_url_validator(url)
+    except ValidationError:
+        return False
+    return True
+
+
+def question_resource(notes):
+    """The question's «منبع مطالعه» from questions.feedback as {'title', 'url'}, or None (also for unsafe links)."""
+    notes = notes if isinstance(notes, dict) else {}
+    url = str(notes.get('resource_url') or '').strip()
+    if not url or not _valid_resource_url(url):
+        return None
+    return {'title': str(notes.get('resource_title') or '').strip() or 'منبع مطالعه', 'url': url}
+
+
 def _question_builder_errors(payload, allowed_course_ids):
     errors = []
     kind = payload['stored_type']
+    resource = payload.get('feedback') or {}
+    if resource.get('resource_url') and not _valid_resource_url(resource['resource_url']):
+        errors.append('لینک منبع مطالعه معتبر نیست؛ باید با http:// یا https:// شروع شود.')
+    if resource.get('resource_title') and not resource.get('resource_url'):
+        errors.append('برای منبع مطالعه، لینک آن را هم وارد کنید.')
     if not payload['text']:
         errors.append('متن سؤال الزامی است.')
     if allowed_course_ids and payload['course_id'] not in allowed_course_ids:
@@ -14760,6 +14792,8 @@ def _question_form_data(source):
         'tags': source.get('tags') or '',
         'subject': source.get('subject') or '',
         'feedback_text': feedback.get('text', ''),
+        'resource_title': feedback.get('resource_title', ''),
+        'resource_url': feedback.get('resource_url', ''),
         'feedback_media': feedback.get('media', ''),
         'feedback_media_kind': _media_kind(feedback.get('media', '')),
         'media': {
@@ -18313,6 +18347,7 @@ def _sx_result_question_rows(attempt_id, student_id):
             'feedback': str(row.get('grader_feedback') or '').strip(),
             'subject': str(row.get('subject') or '').strip(),
             'builder_note': str(notes.get('text') or '').strip(),
+            'resource': question_resource(notes),
         })
     return items
 

@@ -9,9 +9,11 @@
         <h4>{% include 'teacher/_qb_icon.html' with name='bulb' %}توضیح پاسخ</h4>
         {% if feedback.explanation %}<p>{{ feedback.explanation|linebreaksbr }}</p>{% endif %}
         {% include "student/_attempt_item_media.html" with item=feedback %}
+        {% if feedback.resource %}<a class="qx-resource" href="{{ feedback.resource.url }}" target="_blank" rel="noopener noreferrer">{% include 'teacher/_qb_icon.html' with name='book' %}{{ feedback.resource.title }}{% include 'teacher/_qb_icon.html' with name='external' %}</a>{% endif %}
       </div>
-    {% elif feedback.tone != 'manual' %}
-      <p class="qx-feedback-none">استاد برای این سؤال توضیحی ثبت نکرده است.</p>
+    {% else %}
+      {% if feedback.tone != 'manual' %}<p class="qx-feedback-none">استاد برای این سؤال توضیحی ثبت نکرده است.</p>{% endif %}
+      {% if feedback.resource %}<a class="qx-resource" href="{{ feedback.resource.url }}" target="_blank" rel="noopener noreferrer">{% include 'teacher/_qb_icon.html' with name='book' %}{{ feedback.resource.title }}{% include 'teacher/_qb_icon.html' with name='external' %}</a>{% endif %}
     {% endif %}
   </div>
 {% else %}

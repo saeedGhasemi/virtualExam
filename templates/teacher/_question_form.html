@@ -697,6 +697,10 @@
                     {% include "teacher/_qf_media_slot.html" with url=qf.feedback_media kind=qf.feedback_media_kind file_name="feedback_media_file" existing_name="existing_feedback_media" remove_name="remove_feedback_media" label="فایل بازخورد" hint="تصویر ۵، صوت ۲۰، ویدئو ۳۰۰ مگابایت" large=True %}
                     <p class="qb-help">بازخورد فقط یک رسانه دارد؛ فایل جدید جایگزین فایل قبلی می‌شود. متن بازخورد در زبانه‌ی «متن» حفظ می‌شود.</p>
                 </div>
+                <div class="qb-card-head" style="margin-top:1rem"><h3>منبع مطالعه (اختیاری)</h3></div>
+                <label class="qb-field">عنوان منبع<input name="resource_title" maxlength="120" value="{{ qf.resource_title }}" placeholder="مثلاً: مرور مبحث ایمنی دارویی"></label>
+                <label class="qb-field">لینک منبع<input name="resource_url" type="url" dir="ltr" maxlength="500" value="{{ qf.resource_url }}" placeholder="https://..."></label>
+                <p class="qb-help">در آزمون آزمایشی، همراه بازخورد سؤال و در کارنامه به دانشجو نمایش داده می‌شود.</p>
             </section>
 
             {% include "teacher/_qf_v2_side.html" %}

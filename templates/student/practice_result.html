@@ -30,6 +30,11 @@
   .prs-review b{display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:50%;background:#e8f0ff;color:#075fff}
   .prs-review strong{display:block;font-weight:950}.prs-review small{color:#6b7a94;font-weight:850}
   .prs-empty{margin:0;color:#64748b;font-weight:850}
+  .prs-review li>div{flex:1}
+  .prs-resource{display:inline-flex;align-items:center;gap:6px;width:fit-content;min-height:34px;padding:0 12px;border:1px solid #b7caff;border-radius:8px;background:#fff;color:#075fff;font-size:.82rem;font-weight:950;cursor:pointer;list-style:none}.prs-resource svg{width:1rem;height:1rem}
+  .prs-resources{position:relative}.prs-resources summary::-webkit-details-marker{display:none}
+  .prs-resources ul{position:absolute;z-index:5;inset-inline-end:0;top:calc(100% + 6px);min-width:220px;margin:0;padding:8px;list-style:none;border:1px solid #dbe4f3;border-radius:10px;background:#fff;box-shadow:0 14px 30px rgba(15,23,42,.12)}
+  .prs-resources a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;color:#1d3a8a;font-weight:900}.prs-resources a:hover{background:#eef4ff}.prs-resources a svg{width:1rem;height:1rem}
   .prs-qhead,.prs-q summary{display:grid;grid-template-columns:56px 70px minmax(0,1fr) 190px;gap:10px;align-items:center}
   .prs-qhead{padding:10px 14px;border-radius:10px;background:#f4f7fc;color:#53627e;font-size:.85rem;font-weight:950}
   .prs-q{border-bottom:1px solid #eef2f8}.prs-q summary{padding:8px 14px;list-style:none;cursor:pointer;font-weight:900}.prs-q summary::-webkit-details-marker{display:none}
@@ -93,7 +98,17 @@
         <h2>{% include 'teacher/_qb_icon.html' with name='book' %}موضوعات پیشنهادی برای مرور بیشتر</h2>
         {% if review_topics %}
           <ol class="prs-review">
-            {% for topic in review_topics %}<li><b>{{ forloop.counter|fa_digits }}</b><div><strong>{{ topic.title }}</strong><small>{{ topic.percent|fa_digits }}٪ از نمره‌ی سؤال‌های این مبحث را گرفتید.</small></div></li>{% endfor %}
+            {% for topic in review_topics %}
+              <li><b>{{ forloop.counter|fa_digits }}</b><div><strong>{{ topic.title }}</strong><small>{{ topic.percent|fa_digits }}٪ از نمره‌ی سؤال‌های این مبحث را گرفتید.</small></div>
+                {% if topic.resources|length == 1 %}
+                  {% with resource=topic.resources.0 %}<a class="prs-resource" href="{{ resource.url }}" target="_blank" rel="noopener noreferrer" title="{{ resource.title }}">{% include 'teacher/_qb_icon.html' with name='book' %}مشاهده منابع</a>{% endwith %}
+                {% elif topic.resources %}
+                  <details class="prs-resources"><summary class="prs-resource">{% include 'teacher/_qb_icon.html' with name='book' %}مشاهده منابع ({{ topic.resources|length|fa_digits }})</summary>
+                    <ul>{% for resource in topic.resources %}<li><a href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">{{ resource.title }}{% include 'teacher/_qb_icon.html' with name='external' %}</a></li>{% endfor %}</ul>
+                  </details>
+                {% endif %}
+              </li>
+            {% endfor %}
           </ol>
         {% elif topics %}
           <p class="prs-empty">در همه‌ی مباحث این آزمون دست‌کم ۷۰٪ نمره را گرفتید.</p>
@@ -124,6 +139,7 @@
             <div class="prs-opt"><span>نمره‌ی این سؤال</span><b>{{ item.points|floatformat:"-2"|fa_digits }} از {{ item.max_points|floatformat:"-2"|fa_digits }}</b></div>
             {% if item.feedback %}<div class="prs-explain"><strong>بازخورد مصحح</strong>{{ item.feedback }}</div>{% endif %}
             {% if item.explanation %}<div class="prs-explain"><strong>توضیح پاسخ</strong>{{ item.explanation|linebreaksbr }}</div>{% endif %}
+            {% if item.resource %}<a class="prs-resource" href="{{ item.resource.url }}" target="_blank" rel="noopener noreferrer">{% include 'teacher/_qb_icon.html' with name='book' %}{{ item.resource.title }}{% include 'teacher/_qb_icon.html' with name='external' %}</a>{% endif %}
           </div>
         </details>
       {% endfor %}

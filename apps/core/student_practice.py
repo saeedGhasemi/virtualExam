@@ -17,7 +17,7 @@ from .views import (
     PRACTICE_EXAM_MODE, RESULT_CHOICE_KINDS, _grade_question, _jalali_long_date, _sx_accessible_exams,
     _sx_attempt_accepts_answers, _sx_dt, _sx_exam_mode_sql, _sx_exam_row, _sx_float, _sx_json, _sx_percent,
     _sx_answer_value, _sx_media_fields, _sx_question_options, _sx_result_question_rows, _sx_result_topics,
-    _sx_result_values, erd_execute, erd_has_column, erd_row, erd_rows,
+    _sx_result_values, erd_execute, question_resource, erd_has_column, erd_row, erd_rows,
 )
 
 # mode -> (title, description), in the order the preparation page offers them
@@ -229,6 +229,7 @@ def question_feedback(attempt_id, question_id):
         'option_states': {option['value']: option for option in options},
         'note': str(notes.get('correct' if correct else 'incorrect') or '').strip() if not manual else '',
         'explanation': str(notes.get('text') or row.get('explanation') or '').strip(),
+        'resource': question_resource(notes),
         **_sx_media_fields(notes.get('media')),
     }
 
@@ -530,6 +531,12 @@ def result_context(result, attempt_id, student_id) -> dict:
     total = len(questions) or 1
     counts = {'correct': tones.count('good'), 'partial': tones.count('partial'), 'wrong': tones.count('bad'), 'unanswered': tones.count('empty')}
     topics = _sx_result_topics(attempt_id)
+    resources = {}  # topic -> its questions' study links, each link once
+    for item in questions:
+        if item['resource'] and item['subject']:
+            resources.setdefault(item['subject'], {})[item['resource']['url']] = item['resource']
+    for topic in topics:
+        topic['resources'] = list(resources.get(topic['title'], {}).values())
     times = _attempt_times(attempt_id, student_id) or {}
     started, submitted = _sx_dt(times.get('started_at')), _sx_dt(times.get('submitted_at'))
     return {
