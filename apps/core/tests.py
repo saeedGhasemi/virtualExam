@@ -981,11 +981,13 @@ class TeacherQuestionBuilderTests(_ScopedOrgFixture):
         self._create('ordering', {'text': 'فیلتر نوع ترتیبی', 'ordering_item': ['الف', 'ب']})
         page = self.client.get(f"{reverse('core:teacher_questions')}?type=ordering&q=فیلتر نوع")
         html = page.content.decode()
-        self.assertIn('فیلتر نوع ترتیبی', html)
-        self.assertNotIn('فیلتر نوع درست نادرست', html)
+        listed = html.split('question-bank-table')[1].split('</table>')[0]  # «فعالیت‌های اخیر» below is not filtered
+        self.assertIn('فیلتر نوع ترتیبی', listed)
+        self.assertNotIn('فیلتر نوع درست نادرست', listed)
         # کارت فعال اکنون باید فیلتر را بردارد و بقیه‌ی فیلترها حفظ شوند
         self.assertIn('class="is-active" aria-current="true"', html)
-        self.assertIn('?q=%D9%81%DB%8C%D9%84%D8%AA%D8%B1%20%D9%86%D9%88%D8%B9&amp;difficulty=all&amp;status=all&amp;type=all', html)
+        from urllib.parse import urlencode
+        self.assertIn('?' + urlencode({'q': 'فیلتر نوع', 'status': 'all', 'difficulty': 'all'}).replace('&', '&amp;') + '&amp;type=all', html)
         self.assertNotIn('teacher_question_create', html.split('question-type-strip')[1].split('</nav>')[0])
 
 
