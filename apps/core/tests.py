@@ -3841,6 +3841,15 @@ class TeacherExamEditTests(_ScopedOrgFixture):
             cursor.execute("SELECT COUNT(*) FROM exams WHERE title LIKE 'آزمون%%ویرایش%%'")
             self.assertEqual(cursor.fetchone()[0], 1)
 
+    def test_wizard_offers_unlimited_attempts(self):
+        self.assertContains(self.client.get(self.url), '<option value="0">نامحدود</option>')
+        for posted, stored in (('0', 0), ('abc', 1), ('99', 10)):
+            self.client.post(self.url, {
+                'title': 'آزمون قابل ویرایش', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
+                'question_ids': [self.question_in_id], 'exam_mode': 'practice', 'max_attempts': posted, 'publish_choice': 'draft',
+            })
+            self.assertEqual(self._rows('SELECT exam_mode, max_attempts FROM exams WHERE id = %s'), [('practice', stored)], posted)
+
     def test_out_of_scope_ids_rejected_on_edit(self):
         response = self.client.post(self.url, {
             'title': 'x', 'course_id': self.course_in_id, 'group_ids': [self.group_out_id], 'question_ids': [self.question_in_id],

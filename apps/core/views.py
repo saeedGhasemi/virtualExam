@@ -8053,7 +8053,7 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         bool(request.POST.get('shuffle_options')),
         bool(request.POST.get('negative_marking')),
         request.POST.get('negative_factor') or 0,
-        int(request.POST.get('max_attempts') or 1),
+        _posted_max_attempts(request.POST),
         is_published,
         bool(request.POST.get('show_results_immediately')),
         request.POST.get('passing_score') or None,
@@ -8328,7 +8328,7 @@ def super_admin_exams(request):
                 bool(request.POST.get('shuffle_questions')),
                 bool(request.POST.get('shuffle_options')),
                 bool(request.POST.get('negative_marking')),
-                int(request.POST.get('max_attempts') or 1),
+                _posted_max_attempts(request.POST),
                 bool(request.POST.get('is_published')),
                 bool(request.POST.get('show_results_immediately')),
                 bool(request.POST.get('allow_partial')),
@@ -9041,7 +9041,7 @@ def super_admin_exam_edit(request, exam_id):
                     checked('shuffle_options'),
                     checked('negative_marking'),
                     request.POST.get('negative_factor') or 0,
-                    int(request.POST.get('max_attempts') or 1),
+                    _posted_max_attempts(request.POST),
                     checked('allow_partial'),
                     checked('review_answers_enabled'),
                     checked('show_instructions_before_start'),
@@ -15173,6 +15173,18 @@ def _teacher_exam_editable(exam) -> bool:
         and not exam.get('is_cancelled')
         and not erd_count('exam_attempts', 'exam_id = %s', [exam['id']])
     )
+
+
+MAX_ATTEMPTS_LIMIT = 10
+
+
+def _posted_max_attempts(post) -> int:
+    """«تعداد تلاش مجاز»: 0 means unlimited (used by practice exams); anything unreadable keeps the default 1."""
+    try:
+        value = int(post.get('max_attempts') or 1)
+    except (TypeError, ValueError):
+        return 1
+    return min(max(value, 0), MAX_ATTEMPTS_LIMIT)
 
 
 def _exam_wizard_initial(exam) -> dict:
