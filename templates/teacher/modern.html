@@ -73,11 +73,11 @@
         <section class="class-reference-page class-detail-page">
             <div class="class-action-row">
                 <a class="class-btn is-primary" href="{% url 'core:teacher_exam_create' %}">+ آزمون جدید</a>
-                <a class="class-btn" href="#">ویرایش اطلاعات</a>
+                <span class="class-btn" aria-disabled="true" title="اطلاعات گروه را مدیر آموزشی ویرایش می‌کند" style="opacity:.6;cursor:not-allowed">ویرایش اطلاعات (با مدیر آموزشی)</span>
             </div>
             <div class="class-detail-title">
                 <div class="class-breadcrumb"><a href="{% url 'core:teacher_courses' %}">کلاس‌ها</a> / {{ selected_course.course_name }} / گروه {{ selected_course.group_code|fa_digits }}</div>
-                <small>{{ selected_course.semester }} {{ selected_course.academic_year|fa_digits }}</small>
+                <small>{{ selected_course.semester|default:'' }} {{ selected_course.academic_year|default:''|fa_digits }}</small>
                 <h1>{{ selected_course.course_name }} - گروه {{ selected_course.group_code|fa_digits }}</h1>
             </div>
             <nav class="class-tabs">
@@ -91,11 +91,11 @@
                     <h2>مشخصات گروه درسی</h2>
                     <div class="class-info-grid">
                         <span><small>درس:</small><b>{{ selected_course.course_name }}</b></span>
-                        <span><small>کد درس:</small><b>{{ selected_course.course_code }}</b></span>
+                        <span><small>کد درس:</small><b>{{ selected_course.course_code|default:'-' }}</b></span>
                         <span><small>شماره گروه:</small><b>{{ selected_course.group_code|fa_digits }}</b></span>
-                        <span><small>ظرفیت:</small><b>{{ selected_course.capacity|fa_digits }} نفر</b></span>
-                        <span><small>تعداد دانشجویان:</small><b>{{ selected_course.students_count|fa_digits }} نفر</b></span>
-                        <span><small>وضعیت:</small><b class="class-badge is-ok">فعال</b></span>
+                        <span><small>ظرفیت:</small><b>{% if selected_course.capacity %}{{ selected_course.capacity|fa_digits }} نفر{% else %}-{% endif %}</b></span>
+                        <span><small>تعداد دانشجویان:</small><b>{{ course_summary.students_count|fa_digits }} نفر</b></span>
+                        <span><small>وضعیت:</small>{% if selected_course.is_active %}<b class="class-badge is-ok">فعال</b>{% else %}<b class="class-badge is-muted">غیرفعال</b>{% endif %}</span>
                     </div>
                     <p class="class-lock-note">اطلاعات گروه و عضویت دانشجویان توسط مدیر آموزشی مدیریت می‌شود.</p>
                 </section>
@@ -106,9 +106,9 @@
             {% elif course_detail_tab == 'exams' %}
                 <form class="class-filter-card is-compact" method="get">
                     <input type="hidden" name="tab" value="exams">
-                    <label class="class-search"><input name="exam_q" placeholder="جستجو در آزمون‌ها..."></label>
-                    <select><option>همه وضعیت‌ها</option></select>
-                    <select><option>۱۴۰۴/۱۰/۰۱ - ۱۴۰۴/۰۳/۲۰</option></select>
+                    <label class="class-search"><input name="exam_q" value="{{ course_exam_filters.q }}" placeholder="جستجو در آزمون‌ها..."></label>
+                    <select name="exam_status" onchange="this.form.submit()">{% for value, label in course_exam_status_choices %}<option value="{{ value }}"{% if course_exam_filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                    <noscript><button type="submit">اعمال</button></noscript>
                 </form>
                 <section class="class-table-card">
                     <h2>آزمون‌های این کلاس</h2>
@@ -117,31 +117,31 @@
                         <tbody>
                             {% for exam in course_exams %}
                             <tr>
-                                <td>{{ exam.title }}</td><td>{{ exam.start_at|default:"-"|fa_digits }}</td><td>{{ exam.duration_minutes|default:"۶۰"|fa_digits }} دقیقه</td><td>{{ exam.participants_count|default:"-"|fa_digits }}</td>
-                                <td><span class="class-badge {% if exam.status == 'active' %}is-blue{% elif exam.status == 'finished' %}is-ok{% elif exam.status == 'scheduled' %}is-warn{% else %}is-muted{% endif %}">{% if exam.status == 'active' %}در حال برگزاری{% elif exam.status == 'finished' %}برگزار شده{% elif exam.status == 'scheduled' %}زمان‌بندی شده{% else %}پیش‌نویس{% endif %}</span></td>
-                                <td>{{ exam.average_score|default:"-"|fa_digits }}</td><td><a class="class-link" href="{% url 'core:teacher_exams' %}">مدیریت</a></td>
+                                <td>{{ exam.title }}</td><td>{{ exam.start_at|to_jalali|default:"-" }}</td><td>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td><td>{{ exam.participants_count|default:"0"|fa_digits }}</td>
+                                <td><span class="class-badge {{ exam.status_class }}">{{ exam.status_label }}</span></td>
+                                <td>{% if exam.average_score is not None %}{{ exam.average_score|fa_digits }} از ۲۰{% else %}-{% endif %}</td><td><a class="class-link" href="{% url 'core:teacher_results' %}?exam={{ exam.id }}">نتایج</a></td>
                             </tr>
+                            {% empty %}
+                            <tr><td colspan="7">آزمونی برای این کلاس پیدا نشد.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </section>
-                <section class="class-empty-card"><a class="class-btn" href="{% url 'core:teacher_exams' %}">اتصال آزمون</a><div><h2>آزمون‌های بدون کلاس</h2><p>این آزمون‌ها به هیچ کلاسی متصل نیستند.</p></div></section>
             {% else %}
                 <div class="class-stat-grid is-detail">
-                    <article><i class="is-green">♙</i><span>دانشجو</span><strong>{{ selected_course.students_count|fa_digits }}</strong></article>
-                    <article><i class="is-blue">▤</i><span>آزمون</span><strong>{{ selected_course.exams_count|fa_digits }}</strong></article>
-                    <article><i class="is-violet">⌁</i><span>آزمون فعال</span><strong>{{ selected_course.active_exams_count|fa_digits }}</strong></article>
-                    <article><i class="is-green">⌁</i><span>میانگین کلاس</span><strong>{{ selected_course.class_average|fa_digits }}</strong></article>
+                    <article><i class="is-green">♙</i><span>دانشجو</span><strong>{{ course_summary.students_count|fa_digits }}</strong></article>
+                    <article><i class="is-blue">▤</i><span>آزمون</span><strong>{{ course_summary.exams_count|fa_digits }}</strong></article>
+                    <article><i class="is-violet">⌁</i><span>آزمون فعال</span><strong>{{ course_summary.active_exams_count|fa_digits }}</strong></article>
+                    <article><i class="is-green">⌁</i><span>میانگین کلاس</span><strong>{% if course_summary.class_average is not None %}{{ course_summary.class_average|fa_digits }}{% else %}-{% endif %}</strong></article>
                 </div>
                 <div class="class-detail-grid">
                     <section class="class-table-card">
                         <h2>فعالیت‌های اخیر</h2>
-                        <table class="class-table"><thead><tr><th>عنوان</th><th>نوع</th><th>تاریخ و زمان</th></tr></thead><tbody>{% for item in course_activity %}<tr><td>{{ item.title }}</td><td>{{ item.type }}</td><td>{{ item.created_at|fa_digits }}</td></tr>{% endfor %}</tbody></table>
-                        <a class="class-link" href="{% url 'core:teacher_group_activity' selected_group_id %}">مشاهده همه فعالیت‌ها</a>
+                        <table class="class-table"><thead><tr><th>عنوان</th><th>نوع</th><th>تاریخ و زمان</th></tr></thead><tbody>{% for item in course_activity %}<tr><td>{{ item.title }}</td><td>{{ item.type }}</td><td>{{ item.at|to_jalali }}</td></tr>{% empty %}<tr><td colspan="3">هنوز فعالیتی برای آزمون‌های این کلاس ثبت نشده است.</td></tr>{% endfor %}</tbody></table>
                     </section>
                     <section class="class-table-card">
                         <h2>آزمون‌های نزدیک</h2>
-                        <table class="class-table"><thead><tr><th>عنوان آزمون</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{% for exam in course_exams|slice:":3" %}<tr><td>{{ exam.title }}</td><td>{{ exam.start_at|default:"-"|fa_digits }}</td><td><span class="class-badge {% if exam.status == 'active' %}is-blue{% elif exam.status == 'finished' %}is-ok{% else %}is-muted{% endif %}">{% if exam.status == 'active' %}فعال{% elif exam.status == 'finished' %}برگزار شده{% elif exam.status == 'scheduled' %}برنامه‌ریزی شده{% else %}پیش‌نویس{% endif %}</span></td><td><a class="class-link" href="{% url 'core:teacher_exams' %}">مدیریت آزمون</a></td></tr>{% endfor %}</tbody></table>
+                        <table class="class-table"><thead><tr><th>عنوان آزمون</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{% for exam in course_summary.upcoming %}<tr><td>{{ exam.title }}</td><td>{{ exam.start_at|to_jalali|default:"-" }}</td><td><span class="class-badge {{ exam.status_class }}">{{ exam.status_label }}</span></td><td><a class="class-link" href="{% url 'core:teacher_exams' %}">مدیریت آزمون</a></td></tr>{% empty %}<tr><td colspan="4">آزمون زمان‌بندی‌شده‌ای در پیش نیست.</td></tr>{% endfor %}</tbody></table>
                         <a class="class-link" href="{% url 'core:teacher_course_detail' selected_group_id %}?tab=exams">مشاهده همه آزمون‌ها</a>
                     </section>
                 </div>

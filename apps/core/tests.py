@@ -2318,7 +2318,7 @@ class TeacherDashboardTests(_ScopedOrgFixture):
         self.client.force_login(self.teacher_user)
         response = self.client.get(reverse('core:teacher_panel'))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['teacher_stats']['reviews'], 1)
+        self.assertEqual(response.context['dashboard']['pending_total'], 1)  # the number the dashboard shows
 
     def _exam(self, teacher_id, title, start_at, **columns):
         exam_id = str(uuid.uuid4())
@@ -4412,3 +4412,40 @@ class TeacherQuestionSharingTests(_ScopedOrgFixture):
         self.client.force_login(self.teacher_user)
         self.client.post(share, {'action': 'unshare'})
         self.assertEqual(self._shared_texts(self.co_teacher_user), [])
+
+
+class TeacherPanelRealNumbersTests(_ScopedOrgFixture):
+    """جزئیات کلاس و پروفایل پنل استاد از داده‌ی واقعی؛ قبلاً میانگین ۱۶٫۸، آزمون‌ها و فعالیت‌های نمونه و تلفن و کد ملی ساختگی بود."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), cls.group_in_id, cls.student_in_id, 'دانشجوی داخل محدوده', '0000000000', 'S-1'])
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET is_published = %s, lifecycle_status = 'published', start_at = %s, end_at = %s WHERE id = %s",
+                           [True, timezone.now() - timedelta(days=2), timezone.now() - timedelta(days=1), cls.exam_in_id])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'score', 'max_score', 'is_graded', 'status'],
+                [str(uuid.uuid4()), cls.exam_in_id, cls.student_in_id, timezone.now(), timezone.now(), 15, 20, True, 'graded'])
+
+    def test_course_detail_shows_real_numbers_and_only_own_groups(self):
+        self.client.force_login(self.teacher_user)
+        self.assertEqual(self.client.get(reverse('core:teacher_course_detail', args=[self.group_out_id])).status_code, 404)
+        page = self.client.get(reverse('core:teacher_course_detail', args=[self.group_in_id]))
+        summary = page.context['course_summary']
+        self.assertEqual((summary['students_count'], summary['exams_count'], summary['active_exams_count'], summary['class_average']), (1, 1, 0, 15.0))
+        self.assertEqual([(item['title'], item['type']) for item in page.context['course_activity']], [('آزمون داخل محدوده', 'برگزاری آزمون')])
+        exams = self.client.get(reverse('core:teacher_course_detail', args=[self.group_in_id]), {'tab': 'exams', 'exam_status': 'پایان‌یافته'}).context['course_exams']
+        self.assertEqual([(e['status_label'], e['participants_count'], e['average_score']) for e in exams], [('پایان‌یافته', 1, 15.0)])
+        html = page.content.decode()
+        for invented in ('۱۶.۸', 'آزمون میان‌ترم', '۱۴۰۴/۰۳/۱۰'):
+            self.assertNotIn(invented, html)
+
+    def test_profile_has_no_invented_identity(self):
+        self.client.force_login(self.teacher_user)
+        profile = self.client.get(reverse('core:teacher_panel')).context['teacher_profile']
+        self.assertEqual(profile['phone'], '')
+        self.assertNotIn('national_id', profile)
+        self.assertEqual(profile['faculty'], '')

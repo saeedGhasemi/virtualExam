@@ -13007,50 +13007,35 @@ def _erd_exam_rows(where='', params=None, limit=200, manager_id=None):
     return erd_rows(cte + sql, [*sql_params, *(params or []), limit])
 
 
+def _org_unit_ancestor_name(unit_id, unit_type) -> str:
+    """Name of the unit of the given type among a unit and its parents ('' when there is none)."""
+    seen = set()
+    while unit_id and str(unit_id) not in seen:
+        seen.add(str(unit_id))
+        unit = erd_row('SELECT parent_id, type, name FROM org_units WHERE id = %s', [unit_id])
+        if not unit:
+            return ''
+        if unit.get('type') == unit_type:
+            return unit.get('name') or ''
+        unit_id = unit.get('parent_id')
+    return ''
+
+
 def _teacher_modern_profile(request):
+    """The signed-in teacher's name, contact details and faculty for the panel; empty where not recorded."""
     profile = erd_profile_for_user(request.user) or {}
     teacher_id = profile.get('id') or getattr(request, 'erd_profile_id', None)
-    teacher = erd_row('SELECT personnel_code, department, specialty, approval_status, org_unit_id FROM teacher_profiles WHERE user_id = %s', [teacher_id]) if teacher_id else {}
-    groups = _teacher_courses_rows(teacher_id) if teacher_id else []
-    active_groups = [row for row in groups if row.get('is_active')]
-    exams_total = erd_count('exams', 'teacher_id = %s', [teacher_id]) if teacher_id else 0
-    questions_total = erd_count('questions', 'teacher_id = %s', [teacher_id]) if teacher_id else 0
-    pending_reviews = erd_count(
-        'attempt_answers',
-        'needs_manual_grading = true AND question_id IN (SELECT id FROM questions WHERE teacher_id = %s)',
-        [teacher_id],
-    ) if teacher_id else 0
     display_name = profile.get('full_name') or request.user.get_full_name() or request.user.username
-    first_name = profile.get('first_name') or (display_name.split()[0] if display_name else '')
-    last_name = profile.get('last_name') or (' '.join(display_name.split()[1:]) if len(display_name.split()) > 1 else '')
+    teacher = erd_row('SELECT org_unit_id FROM teacher_profiles WHERE user_id = %s', [teacher_id]) if teacher_id else None
     return {
         'id': teacher_id,
         'name': display_name,
         'full_name': display_name,
-        'first_name': first_name or 'امیرحسین',
-        'last_name': last_name or 'رضایی',
-        'role': 'استاد',
-        'email': profile.get('email') or request.user.email or 'm.rezaei@university.ac.ir',
-        'phone': profile.get('phone') or '09123456789',
-        'national_id': profile.get('national_id') or '0123456789',
-        'gender': profile.get('gender') or 'مرد',
-        'birth_date': profile.get('birth_date') or '1363/05/12',
-        'avatar': profile.get('avatar_url') or '',
-        'department': teacher.get('department') or 'گروه داخلی',
-        'faculty': 'دانشکده پزشکی',
-        'university': 'دانشگاه علوم پزشکی شیراز',
-        'personnel_code': teacher.get('personnel_code') or profile.get('identifier') or '123456',
-        'specialty': teacher.get('specialty') or 'بیماری‌های داخلی، مراقبت‌های ویژه، آموزش پزشکی',
-        'approval_status': teacher.get('approval_status') or 'active',
-        'active_courses': len(active_groups) or len(groups) or 6,
-        'exams_total': exams_total or 12,
-        'questions_total': questions_total or 248,
-        'pending_reviews': pending_reviews or 18,
-        'students_total': sum(int(row.get('students_count') or 0) for row in groups) or 193,
-        'member_since': '1396/08/15',
-        'last_activity': profile.get('last_login_at') or '1403/03/21 09:43',
-        'profile_tab': request.GET.get('tab', 'overview'),
+        'email': profile.get('email') or request.user.email or '',
+        'phone': profile.get('phone') or '',
+        'faculty': _org_unit_ancestor_name((teacher or {}).get('org_unit_id'), 'faculty'),
     }
+
 
 QUESTION_BUILDER_TYPES = {
     'single': {'label': 'سؤال چهارگزینه‌ای', 'structure': 'independent'},
@@ -13251,108 +13236,92 @@ def _question_builder_payload(post):
 
 
 def _teacher_courses_rows(teacher_id):
-    rows = erd_rows(
+    """The groups the teacher teaches or co-teaches, with member and exam counts (empty when none)."""
+    if not teacher_id:
+        return []
+    return erd_rows(
         """
-        SELECT sg.id, sg.course_name, sg.group_code, sg.academic_year, sg.semester, sg.is_active,
-               COUNT(DISTINCT sgm.id) AS students_count,
-               COUNT(DISTINCT e.id) AS exams_count,
-               MAX(e.start_at) AS latest_activity
+        SELECT sg.id, sg.course_id, sg.course_name, sg.group_code, sg.academic_year, sg.semester, sg.is_active,
+               sg.capacity, COALESCE(c.code, '') AS course_code,
+               (SELECT COUNT(*) FROM student_group_members sgm WHERE sgm.group_id = sg.id) AS students_count,
+               (SELECT COUNT(*) FROM exams e WHERE e.teacher_id = %s
+                  AND (e.course_id = sg.course_id OR e.id IN (SELECT exam_id FROM exam_assignments WHERE group_id = sg.id))) AS exams_count
         FROM student_groups sg
-        LEFT JOIN group_teachers gt ON gt.group_id = sg.id
-        LEFT JOIN student_group_members sgm ON sgm.group_id = sg.id
-        LEFT JOIN exams e ON e.course_id = sg.course_id AND e.teacher_id = %s
-        WHERE sg.teacher_id = %s OR gt.teacher_id = %s
-        GROUP BY sg.id, sg.course_name, sg.group_code, sg.academic_year, sg.semester, sg.is_active
-        ORDER BY sg.course_name
-        LIMIT 120
+        LEFT JOIN courses c ON c.id = sg.course_id
+        WHERE sg.teacher_id = %s OR sg.id IN (SELECT group_id FROM group_teachers WHERE teacher_id = %s)
+        ORDER BY sg.course_name, sg.group_code
         """,
         [teacher_id, teacher_id, teacher_id],
     )
-    if rows:
-        return rows
-    return [
-        {'id': 'nursing-01', 'course_name': 'مبانی پرستاری', 'course_code': 'NUR-101', 'group_code': '1', 'academic_year': '۱۴۰۴-۱۴۰۳', 'semester': 'نیمسال دوم', 'is_active': True, 'students_count': 32, 'capacity': 35, 'exams_count': 4, 'active_exams_count': 2, 'class_average': '16.8', 'latest_activity': '۱۴۰۴/۰۳/۲۰'},
-        {'id': 'health-02', 'course_name': 'بهداشت و کمک‌های اولیه', 'course_code': 'HEA-114', 'group_code': '2', 'academic_year': '۱۴۰۴-۱۴۰۳', 'semester': 'نیمسال دوم', 'is_active': True, 'students_count': 28, 'capacity': 32, 'exams_count': 3, 'active_exams_count': 1, 'class_average': '15.4', 'latest_activity': '۱۴۰۴/۰۳/۱۸'},
-        {'id': 'psych-01', 'course_name': 'روانشناسی در پرستاری', 'course_code': 'PSY-118', 'group_code': '1', 'academic_year': '۱۴۰۴-۱۴۰۳', 'semester': 'نیمسال دوم', 'is_active': True, 'students_count': 24, 'capacity': 30, 'exams_count': 2, 'active_exams_count': 1, 'class_average': '17.1', 'latest_activity': '۱۴۰۴/۰۳/۱۵'},
-        {'id': 'pharma-03', 'course_name': 'فارماکولوژی', 'course_code': 'PHA-207', 'group_code': '3', 'academic_year': '۱۴۰۴-۱۴۰۳', 'semester': 'نیمسال دوم', 'is_active': True, 'students_count': 22, 'capacity': 30, 'exams_count': 3, 'active_exams_count': 1, 'class_average': '14.9', 'latest_activity': '۱۴۰۴/۰۳/۱۴'},
-        {'id': 'nutrition-02', 'course_name': 'اصول تغذیه در سلامت', 'course_code': 'NUT-102', 'group_code': '2', 'academic_year': '۱۴۰۴-۱۴۰۳', 'semester': 'نیمسال دوم', 'is_active': True, 'students_count': 22, 'capacity': 28, 'exams_count': 2, 'active_exams_count': 0, 'class_average': '16.2', 'latest_activity': '۱۴۰۴/۰۳/۱۲'},
-        {'id': 'communication-01', 'course_name': 'ارتباط موثر در پرستاری', 'course_code': 'COM-120', 'group_code': '1', 'academic_year': '۱۴۰۴-۱۴۰۳', 'semester': 'نیمسال دوم', 'is_active': True, 'students_count': 20, 'capacity': 30, 'exams_count': 2, 'active_exams_count': 0, 'class_average': '15.7', 'latest_activity': '۱۴۰۴/۰۳/۱۰'},
-    ]
 
 
 def _teacher_selected_course(courses, group_id=None):
-    selected = next((row for row in courses if str(row.get('id')) == str(group_id)), None) if group_id else None
-    selected = selected or (courses[0] if courses else {})
-    if not selected:
-        selected = _teacher_courses_rows(None)[0]
-    course_name = selected.get('course_name') or 'مبانی پرستاری'
-    return {
-        **selected,
-        'course_name': course_name,
-        'course_code': selected.get('course_code') or 'NUR-101',
-        'group_code': selected.get('group_code') or '1',
-        'academic_year': selected.get('academic_year') or '۱۴۰۴-۱۴۰۳',
-        'semester': selected.get('semester') or 'نیمسال دوم',
-        'students_count': int(selected.get('students_count') or 32),
-        'capacity': int(selected.get('capacity') or max(int(selected.get('students_count') or 32), 35)),
-        'exams_count': int(selected.get('exams_count') or 4),
-        'active_exams_count': int(selected.get('active_exams_count') or 2),
-        'class_average': selected.get('class_average') or '16.8',
-        'is_active': selected.get('is_active', True),
-    }
+    """The requested group among the teacher's own (None when it is not theirs), or their first group."""
+    if group_id:
+        return next((row for row in courses if str(row.get('id')) == str(group_id)), None)
+    return courses[0] if courses else None
 
 
-def _teacher_group_exam_rows(teacher_id, group_id=None, course_name=None):
+def _teacher_group_exam_rows(teacher_id, group, query=''):
+    """The teacher's exams of a group (assigned to it or of its course), with the group's participants and
+    average out of 20 over graded attempts; newest start first."""
+    if not teacher_id or not group:
+        return []
+    search = f"%{query.strip().lower()}%" if query.strip() else None
     rows = erd_rows(
         """
-        SELECT e.id, e.title, e.duration_minutes, e.start_at, e.end_at,
-               COALESCE(e.lifecycle_status, e.approval_status, '-') AS status,
-               COUNT(DISTINCT ea.student_id) AS participants_count,
-               AVG(ea.score) AS average_score
+        SELECT e.id, e.title, e.duration_minutes, e.start_at, e.end_at, COALESCE(e.lifecycle_status, '') AS lifecycle,
+               COALESCE(e.is_cancelled, false) AS is_cancelled,
+               (SELECT COUNT(DISTINCT ea.student_id) FROM exam_attempts ea
+                 WHERE ea.exam_id = e.id AND ea.student_id IN (SELECT student_user_id FROM student_group_members WHERE group_id = %s)
+               ) AS participants_count,
+               (SELECT AVG(ea.score * 20.0 / ea.max_score) FROM exam_attempts ea
+                 WHERE ea.exam_id = e.id AND COALESCE(ea.is_graded, false) = true AND ea.max_score > 0
+                   AND ea.student_id IN (SELECT student_user_id FROM student_group_members WHERE group_id = %s)
+               ) AS average_score
         FROM exams e
-        LEFT JOIN exam_assignments exa ON exa.exam_id = e.id
-        LEFT JOIN exam_attempts ea ON ea.exam_id = e.id
         WHERE e.teacher_id = %s
-          AND (%s IS NULL OR exa.group_id = %s OR e.course_id = (SELECT course_id FROM student_groups WHERE id = %s LIMIT 1))
-        GROUP BY e.id, e.title, e.duration_minutes, e.start_at, e.end_at, e.approval_status, e.is_published
+          AND (e.course_id = %s OR e.id IN (SELECT exam_id FROM exam_assignments WHERE group_id = %s))
+          AND (%s IS NULL OR LOWER(e.title) LIKE %s)
         ORDER BY e.start_at DESC, e.title
-        LIMIT 8
         """,
-        [teacher_id, group_id, group_id, group_id],
-    ) if teacher_id else []
-    if rows:
-        return rows
-    return [
-        {'id': 'exam-midterm', 'title': 'آزمون میان‌ترم', 'duration_minutes': 90, 'start_at': '۱۴۰۴/۰۲/۱۵ - ۱۰:۰۰', 'status': 'active', 'participants_count': 32, 'average_score': None},
-        {'id': 'exam-chapter-1', 'title': 'آزمون فصل اول', 'duration_minutes': 60, 'start_at': '۱۴۰۴/۰۱/۲۰ - ۱۴:۰۰', 'status': 'finished', 'participants_count': 35, 'average_score': 74.6},
-        {'id': 'exam-chapter-2', 'title': 'آزمون دوم (پیش‌نویس)', 'duration_minutes': 60, 'start_at': None, 'status': 'draft', 'participants_count': None, 'average_score': None},
-        {'id': 'exam-final-quiz', 'title': 'کوئیز پایان فصل', 'duration_minutes': 30, 'start_at': '۱۴۰۴/۰۳/۲۵ - ۱۱:۰۰', 'status': 'scheduled', 'participants_count': None, 'average_score': None},
-    ]
-
-
-def _teacher_group_activity_rows(course_name='مبانی پرستاری'):
-    return [
-        {'title': 'آزمون میان‌ترم', 'type': 'آزمون', 'created_at': '۱۴۰۴/۰۳/۱۰ ۱۴:۳۰'},
-        {'title': 'آزمون فصل ۲', 'type': 'آزمون', 'created_at': '۱۴۰۴/۰۲/۲۸ ۱۶:۱۵'},
-        {'title': 'آزمون فصل ۲', 'type': 'آزمون', 'created_at': '۱۴۰۴/۰۲/۰۵ ۱۱:۲۰'},
-    ]
-
-
-def _teacher_exam_rows_simple(teacher_id):
-    rows = erd_rows(
-        """
-        SELECT e.id AS pk, e.title, COALESCE(c.title, '-') AS course,
-               COALESCE(e.lifecycle_status, e.approval_status, '-') AS status,
-               e.start_at
-        FROM exams e
-        LEFT JOIN courses c ON c.id = e.course_id
-        WHERE e.teacher_id = %s
-        ORDER BY e.start_at DESC, e.title
-        LIMIT 80
-        """,
-        [teacher_id],
+        [group['id'], group['id'], teacher_id, group.get('course_id'), group['id'], search, search],
     )
+    now = timezone.now()
+    for row in rows:
+        row['status_label'], row['status_class'] = _teacher_exam_status(row, now)
+        row['average_score'] = round(float(row['average_score']), 1) if row.get('average_score') is not None else None
     return rows
+
+
+def _teacher_group_activity_rows(group, exams):
+    """Recent events of a group's exams: held (start passed) and results published, newest first."""
+    now = timezone.now()
+    events = []
+    for exam in exams:
+        start = erd_datetime(exam.get('start_at'))
+        if exam['lifecycle'] in ('published', 'in_progress', 'closed', 'archived') and start and start <= now:
+            events.append({'title': exam['title'], 'type': 'برگزاری آزمون', 'at': start})
+    if exams and erd_has_column('exams', 'results_published_at'):
+        ids = [exam['id'] for exam in exams]
+        for row in erd_rows(
+            f"SELECT title, results_published_at FROM exams WHERE results_published_at IS NOT NULL AND id IN ({', '.join(['%s'] * len(ids))})",
+            ids,
+        ):
+            events.append({'title': row['title'], 'type': 'انتشار نتایج', 'at': erd_datetime(row['results_published_at'])})
+    return sorted(events, key=lambda item: item['at'], reverse=True)[:5]
+
+
+def _teacher_group_summary(group, exams):
+    """The overview numbers of a group, all from stored data (average is None without graded attempts)."""
+    averages = [exam['average_score'] for exam in exams if exam.get('average_score') is not None]
+    return {
+        'students_count': int(group.get('students_count') or 0),
+        'exams_count': len(exams),
+        'active_exams_count': sum(1 for exam in exams if exam['status_label'] == 'در حال برگزاری'),
+        'class_average': round(sum(averages) / len(averages), 1) if averages else None,
+        'upcoming': sorted((exam for exam in exams if exam['status_label'] == 'برنامه‌ریزی شده'), key=lambda exam: str(exam.get('start_at')))[:3],
+    }
 
 
 QUESTION_TYPE_LABELS = {
@@ -13983,49 +13952,52 @@ def _query_without_page(request) -> list:
     return [(key, value) for key, values in request.GET.lists() if key != 'page' for value in values]
 
 
+def _teacher_course_detail_context(request, teacher_id, group_id) -> dict:
+    """The course detail page of one of the teacher's groups; raises 404 for any other group id."""
+    from .teacher_students import student_list_rows
+
+    group = _teacher_selected_course(_teacher_courses_rows(teacher_id), group_id)
+    if not group:
+        raise Http404('کلاس پیدا نشد.')
+    tab = request.GET.get('tab') if request.GET.get('tab') in ('overview', 'exams', 'info') else 'overview'
+    exams = _teacher_group_exam_rows(teacher_id, group)
+    listed = exams
+    status = request.GET.get('exam_status') or 'all'
+    if tab == 'exams':
+        listed = _teacher_group_exam_rows(teacher_id, group, (request.GET.get('exam_q') or '')[:100]) if request.GET.get('exam_q') else exams
+        if status != 'all':
+            listed = [exam for exam in listed if exam['status_label'] == status]
+    return {
+        'selected_course': group,
+        'selected_group_id': group['id'],
+        'course_detail_tab': tab,
+        'course_exams': listed,
+        'course_exam_filters': {'q': request.GET.get('exam_q', ''), 'status': status},
+        'course_exam_status_choices': [('all', 'همه وضعیت‌ها')] + [
+            (label, label) for label in ('در حال برگزاری', 'برنامه‌ریزی شده', 'پایان‌یافته', 'در انتظار تأیید', 'پیش‌نویس', 'لغو شده')
+        ],
+        'course_summary': _teacher_group_summary(group, exams),
+        'course_activity': _teacher_group_activity_rows(group, exams),
+        'recent_exam_students': student_list_rows(teacher_id, group['id'])[:5] if tab == 'overview' else [],
+    }
+
+
 def _teacher_modern_context(request, page, **extra):
     teacher_id = getattr(request, 'erd_profile_id', None)
-    courses = _teacher_courses_rows(teacher_id) if teacher_id else []
-    selected_course = _teacher_selected_course(courses, extra.get('group_id'))
-    selected_group_id = extra.get('group_id') or selected_course.get('id') or 'nursing-01'
-    exams = _teacher_exam_rows_simple(teacher_id) if teacher_id else []
+    course_detail = {}
+    if page == 'course_detail' and teacher_id:
+        course_detail = _teacher_course_detail_context(request, teacher_id, extra.get('group_id'))
     question_bank = {}
     if page == 'questions' and teacher_id:
         from .teacher_question_bank import question_bank_context
 
         question_bank = question_bank_context(request, teacher_id)
-    recent_exam_students = []
-    if page == 'course_detail' and teacher_id:
-        from .teacher_students import student_list_rows
-
-        recent_exam_students = student_list_rows(teacher_id, selected_group_id)[:5]
     return {
         'page': page,
         'teacher_profile': _teacher_modern_profile(request),
-        'teacher_stats': {
-            'courses': len(courses),
-            'students': sum(int(row.get('students_count') or 0) for row in courses) or 362,
-            'exams': len(exams) or 24,
-            'questions': erd_count('questions', 'teacher_id = %s', [teacher_id]) if teacher_id else 0,
-            'reviews': erd_count(
-                'attempt_answers',
-                'COALESCE(needs_manual_grading, false) = true AND question_id IN (SELECT id FROM questions WHERE teacher_id = %s)',
-                [teacher_id],
-            ) if teacher_id else 32,
-            'objections': erd_count('objections', 'exam_id IN (SELECT id FROM exams WHERE teacher_id = %s)', [teacher_id]) if teacher_id else 5,
-        },
-        'courses': courses,
-        'selected_course': selected_course,
-        'course_exams': _teacher_group_exam_rows(teacher_id, selected_group_id, selected_course.get('course_name')),
-        'course_activity': _teacher_group_activity_rows(selected_course.get('course_name')),
-        'recent_exam_students': recent_exam_students,
-        'exams': exams[:8] or [
-            {'title': 'آزمون میان‌ترم مبانی مدیریت', 'course': 'مبانی مدیریت', 'start_at': '۱۴۰۳/۰۲/۳۱', 'status': 'فعال'},
-            {'title': 'مهلت ارسال پروژه گروهی', 'course': 'بازاریابی دیجیتال', 'start_at': '۱۴۰۳/۰۳/۲۲', 'status': 'مهلت'},
-            {'title': 'کلاس آنلاین فصل ۵', 'course': 'رفتار سازمانی', 'start_at': '۱۴۰۳/۰۳/۲۴', 'status': 'کلاس'},
-        ],
-        'course_detail_tab': request.GET.get('tab', 'overview'),
-        'selected_group_id': selected_group_id,
+        # Only the dashboard shows it; the other numbers it used to carry (with invented fallbacks) were never shown.
+        'teacher_stats': {'questions': erd_count('questions', 'teacher_id = %s AND archived_at IS NULL', [teacher_id])} if page == 'dashboard' and teacher_id else {},
+        **course_detail,
         'dashboard': _teacher_dashboard_data(teacher_id) if page == 'dashboard' and teacher_id else None,
         **question_bank,
         **extra,
