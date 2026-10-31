@@ -1,0 +1,22 @@
+{% load core_extras %}
+{# Tutorial mode: the button that grades and locks the current answer, or the feedback once it was shown. #}
+{% if feedback %}
+  <div class="qx-feedback is-{{ feedback.tone }}" role="status">
+    <p class="qx-feedback-verdict">{% if feedback.tone == 'good' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.2 2.8 2.8L16.5 9"/></svg>{% elif feedback.tone == 'manual' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{% else %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>{% endif %}{{ feedback.verdict }}{% if feedback.tone != 'manual' and feedback.max_points %}<small>{{ feedback.points|stringformat:"g"|fa_digits }} از {{ feedback.max_points|stringformat:"g"|fa_digits }} نمره</small>{% endif %}</p>
+    {% if feedback.note %}<p class="qx-feedback-note">{{ feedback.note }}</p>{% endif %}
+    {% if feedback.explanation or feedback.media %}
+      <div class="qx-feedback-explain">
+        <h4>{% include 'teacher/_qb_icon.html' with name='bulb' %}توضیح پاسخ</h4>
+        {% if feedback.explanation %}<p>{{ feedback.explanation|linebreaksbr }}</p>{% endif %}
+        {% include "student/_attempt_item_media.html" with item=feedback %}
+      </div>
+    {% elif feedback.tone != 'manual' %}
+      <p class="qx-feedback-none">استاد برای این سؤال توضیحی ثبت نکرده است.</p>
+    {% endif %}
+  </div>
+{% else %}
+  <div class="qx-feedback-ask">
+    <span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>پس از ثبت پاسخ، توضیح آموزشی نمایش داده می‌شود و پاسخ این سؤال دیگر تغییر نمی‌کند.</span>
+    <button class="qx-btn" type="submit" name="action" value="feedback"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="m8 12.2 2.8 2.8L16.5 9"/></svg>ثبت پاسخ و مشاهده بازخورد</button>
+  </div>
+{% endif %}

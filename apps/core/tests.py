@@ -3605,6 +3605,83 @@ class StudentPracticeExamAccessTests(_ScopedOrgFixture):
         self.assertContains(refused, 'تعداد دفعات مجاز شرکت در این آزمون آزمایشی به پایان رسیده است.')
         self.assertNotContains(refused, '<button class="sx-btn primary" type="submit">')
 
+class StudentPracticeTutorialTests(_ScopedOrgFixture):
+    """حالت آموزشی: «ثبت پاسخ و مشاهده بازخورد» پاسخ را با همان قواعد تصحیح ارزیابی و قفل می‌کند؛ حالت شبیه‌ساز و آزمون درسی بازخورد ندارند."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        now = timezone.now()
+        cls.exam_id = TeacherStudentScopeTests._exam('آزمون آزمایشی دارویی', cls.teacher_in_id, now - timedelta(days=1), now + timedelta(days=1), cls.group_in_id)
+        TeacherStudentScopeTests._member(cls.group_in_id, cls.student_in_id)
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET exam_mode = 'practice', max_attempts = 0, duration_minutes = 30 WHERE id = %s", [cls.exam_id])
+        cls.question_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'options', 'correct_answer', 'feedback', 'default_points'],
+                [cls.question_id, cls.teacher_in_id, cls.course_in_id, 'کدام اقدام پیش از تجویز دارو ضروری است؟', 'single',
+                 json.dumps(['بررسی هویت بیمار', 'ثبت دارو در پرونده'], ensure_ascii=False), json.dumps('بررسی هویت بیمار', ensure_ascii=False),
+                 json.dumps({'text': 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.', 'correct': 'آفرین!', 'incorrect': 'مبحث ایمنی دارویی را مرور کنید.'}, ensure_ascii=False), 2])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), cls.exam_id, cls.question_id, 2, 1])
+
+    def setUp(self):
+        self.client.force_login(self.student_user)
+
+    def _start(self, mode):
+        self.client.post(reverse('core:student_practice_start', args=[self.exam_id]), {'mode': mode, 'accept_rules': '1'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id FROM exam_attempts WHERE exam_id = %s AND submitted_at IS NULL', [self.exam_id])
+            return cursor.fetchone()[0]
+
+    def _answer_row(self, attempt_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer, is_correct, points_awarded, feedback_shown_at FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            return cursor.fetchone()
+
+    def test_feedback_grades_and_locks_the_answer(self):
+        attempt_id = self._start('tutorial')
+        url = reverse('core:student_attempt', args=[attempt_id])
+        page = self.client.get(url)
+        self.assertContains(page, 'ثبت پاسخ و مشاهده بازخورد')
+        self.assertContains(page, 'qx-practice-badge')
+        self.assertNotContains(page, 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.')  # nothing of the key before answering
+        answer = f'answer_{self.question_id}'
+        self.client.post(f'{url}?q=1', {answer: 'ثبت دارو در پرونده', 'action': 'feedback'})
+        stored, is_correct, points, shown_at = self._answer_row(attempt_id)
+        self.assertEqual((json.loads(stored)['value'], bool(is_correct), float(points)), ('ثبت دارو در پرونده', False, 0.0))
+        self.assertIsNotNone(shown_at)
+        page = self.client.get(url)
+        for text in ('پاسخ شما نادرست است', 'مبحث ایمنی دارویی را مرور کنید.', 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.', 'پاسخ صحیح', '<fieldset class="qx-lock" disabled>'):
+            self.assertContains(page, text)
+        self.assertEqual([option['feedback'] for option in page.context['current_answer']['options']], ['correct', 'wrong'])
+        # A locked answer keeps its value, through the form and the autosave alike.
+        self.client.post(f'{url}?q=1', {answer: 'بررسی هویت بیمار', f'mark_{self.question_id}': 'on', 'action': 'next'})
+        self.client.post(url, {answer: 'بررسی هویت بیمار'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(json.loads(self._answer_row(attempt_id)[0])['value'], 'ثبت دارو در پرونده')
+
+    def test_feedback_needs_an_answer(self):
+        attempt_id = self._start('tutorial')
+        response = self.client.post(f"{reverse('core:student_attempt', args=[attempt_id])}?q=1", {'action': 'feedback'}, follow=True)
+        self.assertContains(response, 'برای دیدن بازخورد، ابتدا به سؤال پاسخ دهید.')
+        self.assertIsNone(self._answer_row(attempt_id))
+
+    def test_simulation_and_course_exams_give_no_feedback(self):
+        attempt_id = self._start('simulation')
+        url = reverse('core:student_attempt', args=[attempt_id])
+        page = self.client.get(url)
+        self.assertNotContains(page, 'ثبت پاسخ و مشاهده بازخورد')
+        self.assertContains(page, 'پایان آزمون آزمایشی')
+        self.client.post(f'{url}?q=1', {f'answer_{self.question_id}': 'بررسی هویت بیمار', 'action': 'feedback'})
+        stored, is_correct, _points, shown_at = self._answer_row(attempt_id)
+        self.assertEqual((json.loads(stored)['value'], is_correct, shown_at), ('بررسی هویت بیمار', None, None))
+        with connection.cursor() as cursor:  # the same exam as a course exam: no practice parts at all
+            cursor.execute("UPDATE exams SET exam_mode = 'standard' WHERE id = %s", [self.exam_id])
+        page = self.client.get(url)
+        self.assertIsNone(page.context['practice'])
+        for text in ('qx-practice-badge', 'ثبت پاسخ و مشاهده بازخورد', '<fieldset class="qx-lock" disabled>'):
+            self.assertNotContains(page, text)
+
 class UnassignedExamAccessTests(_ScopedOrgFixture):
     """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""
 

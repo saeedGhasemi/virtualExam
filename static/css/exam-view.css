@@ -56,6 +56,7 @@
 .qx-zoom{display:inline-flex;align-items:center;gap:.35rem;padding:0;border:0;background:none;color:#4f46e5;font-weight:900;cursor:pointer}
 /* answer */
 .qx-answer{padding:1rem 1.1rem;border:1px solid #e1e8f5;border-radius:.9rem;background:#fff}
+.qx-lock{min-width:0;margin:0;padding:0;border:0}
 .qx-input{width:100%;height:3.3rem;padding:0 1rem;border:1px solid #d5ddec;border-radius:.7rem;background:#fff;color:#0f1b3d;font:inherit;font-size:1rem;font-weight:800;outline:0}
 .qx-input:focus,.qx-textarea:focus{border-color:#818cf8;box-shadow:0 0 0 3px rgba(99,102,241,.14)}
 .qx-answer-meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.6rem;color:#64748b;font-size:.76rem;font-weight:800}

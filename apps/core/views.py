@@ -17439,14 +17439,26 @@ def _sx_attempt_accepts_answers(attempt_id):
     return timezone.now() <= deadline
 
 
+def _sx_locked_question_ids(attempt_id) -> set:
+    """Questions whose practice-tutorial feedback the student has seen; their answers no longer change."""
+    if not erd_has_column('attempt_answers', 'feedback_shown_at'):
+        return set()
+    return {
+        str(row['question_id'])
+        for row in erd_rows('SELECT question_id FROM attempt_answers WHERE attempt_id = %s AND feedback_shown_at IS NOT NULL', [attempt_id])
+    }
+
+
 def _sx_save_attempt_answers(request, attempt_id):
     """Save posted answers of an attempt the caller already verified belongs to this student.
 
     Answers are accepted only while the attempt accepts answers (in progress, not submitted, within time),
-    and only for questions of the attempt's exam; anything else in the POST is ignored.
+    and only for questions of the attempt's exam; anything else in the POST is ignored. A question whose
+    tutorial feedback was shown keeps its answer; only its «علامت‌گذاری» still changes.
     """
     if not _sx_attempt_accepts_answers(attempt_id):
         return 0
+    locked = _sx_locked_question_ids(attempt_id)
     allowed_questions = {
         str(row['question_id'])
         for row in erd_rows(
@@ -17476,6 +17488,10 @@ def _sx_save_attempt_answers(request, attempt_id):
             'SELECT id FROM attempt_answers WHERE attempt_id = %s AND question_id = %s LIMIT 1',
             [attempt_id, question_id],
         )
+        if question_id in locked:
+            if existing and erd_has_column('attempt_answers', 'marked_for_review'):
+                erd_execute('UPDATE attempt_answers SET marked_for_review = %s WHERE id = %s', [marked, existing['id']])
+            continue
         if existing:
             if erd_has_column('attempt_answers', 'marked_for_review'):
                 erd_execute('UPDATE attempt_answers SET answer = %s, marked_for_review = %s WHERE id = %s', [answer, marked, existing['id']])
@@ -17520,10 +17536,13 @@ def _sx_save_answer_files(request, attempt_id, rows):
     if not rows or not _sx_attempt_accepts_answers(attempt_id):
         return []
     errors = []
+    locked = _sx_locked_question_ids(attempt_id)
     for row in rows:
         if (row.get('type') or '') not in {'essay', 'descriptive', 'media_response'}:
             continue
         question_id = str(row['question_id'])
+        if question_id in locked:
+            continue
         formats = _essay_view(_sx_json(row.get('scoring_settings'), {}) or {})['answer_formats']
         uploads = [(kind, uploaded) for kind in ANSWER_FILE_RULES if kind in formats
                    for uploaded in request.FILES.getlist(f'upload_{question_id}_{kind}')]
@@ -17731,6 +17750,13 @@ def student_attempt(request, attempt_id):
         if is_xhr:
             return JsonResponse({'ok': True})
         action = request.POST.get('action')
+        if action == 'feedback':
+            from . import student_practice as practice
+
+            if practice.attempt_practice_mode(attempt_id, request.erd_profile_id) == 'tutorial':
+                error = practice.show_feedback(attempt_id, rows[current_index - 1]['question_id'])
+                if error:
+                    messages.error(request, error)
         if action == 'finish':
             # «پایان آزمون» submits the answer form, so the answer on screen is saved before the confirmation page.
             return redirect('core:student_attempt_submit', attempt_id=attempt_id)
@@ -17826,7 +17852,32 @@ def student_attempt(request, attempt_id):
         'answered_count': answered_count,
         'attempt_map': _sx_answer_dashboard(items, current_index),
         'remaining_seconds': remaining_seconds,
+        'practice': _sx_practice_attempt_context(attempt_id, request.erd_profile_id, current_answer),
     })
+
+
+def _sx_practice_attempt_context(attempt_id, student_id, current_answer):
+    """What the exam page adds for a practice attempt (badge, mode guide, tutorial feedback); None for course exams.
+
+    Once the current question's feedback is shown, each of its options carries ``feedback``: 'correct' for the
+    key, 'wrong' for a chosen option outside it, and ``feedback_chosen``."""
+    from . import student_practice as practice
+
+    mode = practice.attempt_practice_mode(attempt_id, student_id)
+    if not mode:
+        return None
+    feedback = practice.question_feedback(attempt_id, current_answer['question_id']) if mode == 'tutorial' else None
+    if feedback:
+        for option in current_answer.get('options') or []:
+            state = feedback['option_states'].get(option['value'], {})
+            option['feedback'] = 'correct' if state.get('correct') else 'wrong' if state.get('chosen') else ''
+            option['feedback_chosen'] = bool(state.get('chosen'))
+    return {
+        'mode': mode,
+        'mode_title': practice.PRACTICE_MODES[mode][0],
+        'tutorial': mode == 'tutorial',
+        'feedback': feedback,
+    }
 
 
 @erd_role_required('student')

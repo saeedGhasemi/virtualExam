@@ -3,6 +3,7 @@
 {% block title %}صفحه آزمون | متاکوییز{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/exam-view.css' %}">
+{% if practice %}{% include 'student/_practice_attempt_styles.html' %}{% endif %}
 {# Field names (answer_*, mark_*, upload_*, remove_file_*, action) and data-* hooks are what the view and the script below rely on. #}
 <section class="qx qx--exam" data-attempt-id="{{ attempt.pk }}">
   <div class="qx-wrap">
@@ -10,6 +11,7 @@
     <header class="qx-card qx-topbar">
       <img class="qx-logo" src="{% static 'img/metaquiz-logo.png' %}?v=logo-mark-fix-20260829" alt="متاکوییز">
       <span class="qx-conn" data-connection role="status" aria-live="polite"><i></i><span data-connection-text>اتصال برقرار است</span></span>
+      {% if practice %}<span class="qx-practice-tag"><span class="qx-practice-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>این آزمون در نمره‌ی درسی شما محاسبه نمی‌شود</span><span class="qx-practice-badge">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی</span></span>{% endif %}
       <div class="qx-user">
         <span class="qx-avatar">{% if panel_avatar_url %}<img src="{{ panel_avatar_url }}" alt="">{% else %}{{ panel_display_name|default:"د"|slice:":1" }}{% endif %}</span>
         <span><strong>{{ panel_display_name|default:"دانشجو" }}</strong><small>دانشجو</small></span>
@@ -53,12 +55,16 @@
         {% if current_answer.attachment %}<p class="qx-attachment"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg><a href="{{ current_answer.attachment.url }}" target="_blank" rel="noopener">فایل مکمل: {{ current_answer.attachment.name }}</a></p>{% endif %}
 
         <section class="qx-answer">
+          {# Disabled inputs are not posted; the server ignores this question's answer anyway once feedback was shown. #}
+          {% if practice.feedback %}<input type="hidden" name="answer_{{ current_answer.question_id }}" value="">{% endif %}
+          <fieldset class="qx-lock"{% if practice.feedback %} disabled{% endif %}>
           {% if current_answer.type == 'single' or current_answer.type == 'multiple_choice' or current_answer.type == 'true_false' %}
             <div class="qx-options" role="radiogroup" aria-label="گزینه‌های پاسخ">
               {% for option in current_answer.options %}
-                <label class="qx-option">
+                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
                   <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
                   <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
+                  {% include "student/_practice_option_verdict.html" %}
                   <input type="radio" name="answer_{{ current_answer.question_id }}" value="{{ option.value }}" {% if current_answer.answer == option.value %}checked{% endif %}>
                 </label>
               {% empty %}
@@ -69,9 +75,10 @@
             {% if current_answer.max_select %}<p class="qx-select-hint">حداکثر {{ current_answer.max_select|fa_digits }} گزینه را می‌توانید انتخاب کنید.</p>{% endif %}
             <div class="qx-options" data-max-select="{{ current_answer.max_select|default:0 }}">
               {% for option in current_answer.options %}
-                <label class="qx-option">
+                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
                   <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
                   <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
+                  {% include "student/_practice_option_verdict.html" %}
                   <input type="checkbox" name="answer_{{ current_answer.question_id }}" value="{{ option.value }}" {% if option.value in current_answer.answer %}checked{% endif %}>
                 </label>
               {% endfor %}
@@ -210,6 +217,8 @@
             <h3>پاسخ شما</h3>
             <input class="qx-input" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.answer|default_if_none:'' }}" placeholder="پاسخ خود را وارد کنید">
           {% endif %}
+          </fieldset>
+          {% if practice.tutorial %}{% include 'student/_practice_feedback.html' with feedback=practice.feedback %}{% endif %}
           <div class="qx-answer-meta">
             <span class="qx-autosave" id="autosave-state"><svg viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97M12 12v6m0 0-2.5-2.5M12 18l2.5-2.5"/></svg><span data-autosave-text>پاسخ به‌صورت خودکار ذخیره می‌شود</span></span>
             {% if current_answer.type == 'short_answer' %}<span data-char-count>{{ current_answer.answer|default_if_none:''|length|fa_digits }} نویسه</span>{% endif %}
@@ -240,12 +249,20 @@
           <h3>راهنمای {{ current_answer.type_label }} <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></h3>
           <p class="qx-guide"><svg viewBox="0 0 24 24"><path d="m4 20 4-1L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>{% include "partials/exam_guide_text.html" with kind=current_answer.type max_select=current_answer.max_select can_upload=current_answer.upload_rules %}</p>
         </section>
+        {% if practice %}
+          <section class="qx-card qx-practice-guide">
+            <h3>راهنمای آزمون آزمایشی {% include 'teacher/_qb_icon.html' with name='cap' %}</h3>
+            <p><strong>{{ practice.mode_title }}</strong>
+              {% if practice.tutorial %}این آزمون با هدف یادگیری و آشنایی با سبک سؤالات طراحی شده است. پس از ثبت پاسخ هر سؤال، پاسخ صحیح و توضیح آموزشی نمایش داده می‌شود و پاسخ آن سؤال دیگر تغییر نمی‌کند.{% else %}مانند آزمون اصلی پاسخ دهید؛ پاسخ صحیح و توضیح هر سؤال پس از پایان آزمون در کارنامه نمایش داده می‌شود.{% endif %}
+            </p>
+          </section>
+        {% endif %}
       </aside>
     </div>
 
     <footer class="qx-card qx-foot">
       {# Submits the answer form (saving the current answer) and then opens the end-of-exam confirmation. #}
-      <button class="qx-btn qx-btn--primary" type="submit" form="answer-form" name="action" value="finish"><svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>پایان آزمون</button>
+      <button class="qx-btn qx-btn--primary" type="submit" form="answer-form" name="action" value="finish"><svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>{% if practice %}پایان آزمون آزمایشی{% else %}پایان آزمون{% endif %}</button>
       <button class="qx-btn" type="submit" form="answer-form" name="action" value="next"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>{% if current_index < total_questions %}ذخیره پاسخ و سؤال بعدی{% else %}ذخیره پاسخ{% endif %}</button>
       <button class="qx-btn qx-prev" type="submit" form="answer-form" name="action" value="previous"{% if current_index <= 1 %} disabled{% endif %}>سؤال قبلی<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
     </footer>

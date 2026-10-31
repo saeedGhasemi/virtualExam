@@ -14,8 +14,9 @@ from django.utils import timezone
 
 from .student_dashboard import _course_icon
 from .views import (
-    PRACTICE_EXAM_MODE, _jalali_long_date, _sx_accessible_exams, _sx_dt, _sx_exam_mode_sql, _sx_exam_row,
-    _sx_percent, erd_execute, erd_has_column, erd_row, erd_rows,
+    PRACTICE_EXAM_MODE, RESULT_CHOICE_KINDS, _grade_question, _jalali_long_date, _sx_accessible_exams,
+    _sx_attempt_accepts_answers, _sx_dt, _sx_exam_mode_sql, _sx_exam_row, _sx_float, _sx_json, _sx_percent,
+    _sx_media_fields, _sx_question_options, _sx_result_values, erd_execute, erd_has_column, erd_row, erd_rows,
 )
 
 # mode -> (title, description), in the order the preparation page offers them
@@ -112,6 +113,123 @@ def start_practice_attempt(exam, student_id, mode) -> tuple:
             values,
         )
     return attempt_id, ''
+
+
+
+def attempt_practice_mode(attempt_id, student_id):
+    """The attempt's mode when it is the student's own attempt on a practice exam, else None (a course exam)."""
+    if not erd_has_column('exams', 'exam_mode'):
+        return None
+    mode = 'ea.practice_mode' if erd_has_column('exam_attempts', 'practice_mode') else 'NULL'
+    row = erd_row(
+        f"""
+        SELECT {mode} AS practice_mode
+        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
+        WHERE ea.id = %s AND ea.student_id = %s AND e.exam_mode = %s
+        """,
+        [attempt_id, student_id, PRACTICE_EXAM_MODE],
+    )
+    if not row:
+        return None
+    return row['practice_mode'] if row['practice_mode'] in PRACTICE_MODES else DEFAULT_PRACTICE_MODE
+
+
+def _feedback_question_row(attempt_id, question_id):
+    """The question as the grader needs it, with the attempt's stored answer, or None when it is not on the attempt."""
+    optional = ', '.join(
+        f'q.{column}' if erd_has_column('questions', column) else f'NULL AS {column}'
+        for column in ('matching_pairs', 'ordering_items', 'scoring_settings', 'accepted_answers', 'feedback')
+    )
+    shown = 'aa.feedback_shown_at' if erd_has_column('attempt_answers', 'feedback_shown_at') else 'NULL AS feedback_shown_at'
+    return erd_row(
+        f"""
+        SELECT q.id AS question_id, COALESCE(q.type, 'single') AS type, q.options, q.correct_answer,
+               COALESCE(q.explanation, '') AS explanation, {optional},
+               COALESCE(eq.points, q.default_points, 0) AS points,
+               aa.id AS answer_id, aa.answer, aa.is_correct, aa.points_awarded, aa.needs_manual_grading, {shown}
+        FROM exam_attempts ea
+        JOIN exam_questions eq ON eq.exam_id = ea.exam_id
+        JOIN questions q ON q.id = eq.question_id
+        LEFT JOIN attempt_answers aa ON aa.attempt_id = ea.id AND aa.question_id = q.id
+        WHERE ea.id = %s AND q.id = %s
+        LIMIT 1
+        """,
+        [attempt_id, question_id],
+    )
+
+
+def _stored_answer(row):
+    raw = _sx_json(row.get('answer'), row.get('answer'))
+    answer = raw.get('value') if isinstance(raw, dict) else raw
+    return '' if answer is None else answer
+
+
+def show_feedback(attempt_id, question_id) -> str:
+    """Grade one answered question of a tutorial attempt and lock it. Returns a user-facing error, or ''.
+
+    The caller has checked that the attempt is the student's tutorial practice attempt. Grading uses the same
+    rules as submission (``_grade_question``); submission regrades every answer, so the final score is unchanged."""
+    if not erd_has_column('attempt_answers', 'feedback_shown_at'):
+        return 'نمایش بازخورد فوری هنوز روی این سامانه فعال نشده است.'
+    if not _sx_attempt_accepts_answers(attempt_id):
+        return 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است.'
+    row = _feedback_question_row(attempt_id, question_id)
+    if not row:
+        return 'این سؤال در آزمون شما نیست.'
+    if row.get('feedback_shown_at'):
+        return ''
+    answer = _stored_answer(row)
+    answered = any(str(value).strip() for value in answer) if isinstance(answer, list) else bool(str(answer).strip())
+    if not row.get('answer_id') or not answered:
+        return 'برای دیدن بازخورد، ابتدا به سؤال پاسخ دهید.'
+    points, manual, is_correct = _grade_question(row, answer, _sx_float(row.get('points'), 0))
+    erd_execute(
+        """
+        UPDATE attempt_answers
+        SET is_correct = %s, points_awarded = %s, needs_manual_grading = %s, feedback_shown_at = %s
+        WHERE id = %s AND feedback_shown_at IS NULL
+        """,
+        [is_correct, points, manual, timezone.now(), row['answer_id']],
+    )
+    return ''
+
+
+def question_feedback(attempt_id, question_id):
+    """What the tutorial mode shows under an answered question, or None while its feedback has not been asked for."""
+    row = _feedback_question_row(attempt_id, question_id)
+    if not row or not row.get('feedback_shown_at'):
+        return None
+    kind = row.get('type') or 'single'
+    notes = _sx_json(row.get('feedback'), {}) or {}
+    notes = notes if isinstance(notes, dict) else {}
+    manual = bool(row.get('needs_manual_grading'))
+    correct = row.get('is_correct') in (True, 1, '1', 'true', 't')
+    points, max_points = _sx_float(row.get('points_awarded'), 0), _sx_float(row.get('points'), 0)
+    options = []
+    if kind in RESULT_CHOICE_KINDS:
+        answers = set(_sx_result_values(row.get('answer')))
+        key = set(_sx_result_values(row.get('correct_answer')))
+        options = [{'value': option['value'], 'chosen': option['value'] in answers, 'correct': option['value'] in key}
+                   for option in _sx_question_options(row.get('options'), kind)]
+    if manual:
+        tone, verdict = 'manual', 'این سؤال توسط استاد تصحیح می‌شود؛ نتیجه‌ی آن پس از تصحیح در کارنامه می‌آید.'
+    elif correct:
+        tone, verdict = 'good', 'پاسخ شما صحیح است'
+    elif points > 0:
+        tone, verdict = 'partial', 'پاسخ شما بخشی از نمره را گرفت'
+    else:
+        tone, verdict = 'bad', 'پاسخ شما نادرست است'
+    return {
+        'tone': tone,
+        'verdict': verdict,
+        'points': points,
+        'max_points': max_points,
+        'options': options,
+        'option_states': {option['value']: option for option in options},
+        'note': str(notes.get('correct' if correct else 'incorrect') or '').strip() if not manual else '',
+        'explanation': str(notes.get('text') or row.get('explanation') or '').strip(),
+        **_sx_media_fields(notes.get('media')),
+    }
 
 
 def exam_tags(exam) -> list:
