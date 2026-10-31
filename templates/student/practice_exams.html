@@ -1,0 +1,138 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}آزمون‌های آزمایشی | متاکوییز{% endblock %}
+{% block content %}
+{% include 'student/_exam_shell_head.html' %}
+{% include 'student/_practice_styles.html' %}
+<style>
+  .spl{max-width:1530px;margin:0 auto;display:grid;gap:20px}
+  .spl-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,520px);gap:20px;align-items:center}
+  .spl-top h1{margin:0;font-size:2rem;font-weight:950}.spl-top p{margin:.3rem 0 0;color:#61708d;font-weight:850}
+  .spl-toolbar{display:grid;grid-template-columns:minmax(0,1fr) 230px 230px auto;gap:12px}
+  .spl-search,.spl-select{display:flex;align-items:center;gap:10px;height:52px;border:1px solid #dbe6f4;border-radius:12px;background:rgba(255,255,255,.85);padding:0 14px;color:#445575;font-weight:900}
+  .spl-search input,.spl-select select{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#07183b;font-weight:900}
+  .spl-search svg,.spl-select svg{width:1.2rem;height:1.2rem;flex:none;color:#7a88a3}
+  .spl-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+  .spl-card{display:flex;flex-direction:column;gap:14px;padding:20px}
+  .spl-card-head{display:flex;align-items:center;gap:12px}.spl-card-head .spx-icon{width:46px;height:46px}
+  .spl-card-head span.spl-course{flex:1;min-width:0;color:#30415f;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .spl-card h2{margin:0;font-size:1.25rem;font-weight:950}
+  .spl-card .spl-desc{margin:-6px 0 0;color:#6b7a94;font-weight:850;font-size:.9rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em}
+  .spl-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .spl-fact{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e3eaf5;border-radius:12px;background:rgba(255,255,255,.7)}
+  .spl-fact svg{width:1.4rem;height:1.4rem;color:#075fff;flex:none}.spl-fact strong{display:block;font-weight:950}.spl-fact small{display:block;color:#7a88a3;font-weight:850;font-size:.78rem}
+  .spl-tags{display:flex;flex-wrap:wrap;gap:8px;min-height:30px}
+  .spl-tags span{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;font-weight:900;font-size:.82rem;background:#e8f0ff;color:#075fff}
+  .spl-tags span:nth-child(3n+1){background:#dcf8ea;color:#10a461}.spl-tags span:nth-child(3n+3){background:#fdeaf4;color:#c0267d}
+  .spl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding-top:14px;border-top:1px solid #e6edf6}
+  .spl-foot .sx-btn{min-height:46px;padding:0 20px}
+  .spl-tries{display:flex;align-items:center;gap:8px;color:#30415f;font-weight:950}.spl-tries svg{color:#7a88a3}.spl-tries small{display:block;color:#7a88a3;font-weight:850;font-size:.78rem}
+  .spl-empty{padding:40px 20px;text-align:center;color:#64748b;font-weight:900}
+  .spl-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;color:#61708d;font-weight:900}
+  .spl-pages{display:flex;gap:6px}.spl-pages a,.spl-pages span{display:grid;min-width:38px;height:38px;place-items:center;padding:0 10px;border:1px solid #dbe6f4;border-radius:10px;background:#fff;color:#30415f;font-weight:950}.spl-pages .is-current{background:#075fff;border-color:#075fff;color:#fff}.spl-pages .is-disabled{color:#b3bdcd}
+  .spl-history{padding:22px}
+  .spl-history header{display:flex;align-items:center;gap:12px;margin-bottom:14px}.spl-history header svg{width:1.6rem;height:1.6rem;color:#075fff}
+  .spl-history h2{margin:0;font-size:1.25rem;font-weight:950}.spl-history header p{margin:0;color:#6b7a94;font-weight:850;font-size:.88rem}
+  .spl-table-wrap{overflow-x:auto;border:1px solid #e3eaf5;border-radius:14px}
+  .spl-table{width:100%;min-width:900px;border-collapse:collapse}
+  .spl-table th{padding:12px 16px;background:rgba(244,248,253,.95);color:#53627e;font-size:.85rem;font-weight:950;text-align:start;white-space:nowrap}
+  .spl-table td{padding:12px 16px;border-top:1px solid #e6edf6;font-weight:850;white-space:nowrap}
+  .spl-when{unicode-bidi:isolate}.spl-when small{margin-inline-start:10px;color:#6b7a94}
+  .spl-percent{display:inline-grid;min-width:52px;height:30px;place-items:center;border-radius:8px;font-weight:950}
+  .spl-percent.green{background:#dcf8ea;color:#10a461}.spl-percent.blue{background:#e8f0ff;color:#075fff}.spl-percent.red{background:#ffe7e7;color:#e11d48}
+  .spl-row-action{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 14px;border:1px solid #b7caff;border-radius:9px;background:#fff;color:#075fff;font-weight:950;font-size:.85rem}.spl-row-action svg{width:1.1rem;height:1.1rem}
+  @media(max-width:1180px){.spl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.spl-top{grid-template-columns:1fr}.spl-toolbar{grid-template-columns:1fr 1fr}.spl-search{grid-column:1/-1}}
+  @media(max-width:760px){.spl-grid,.spl-toolbar{grid-template-columns:1fr}.spl-top h1{font-size:1.5rem}}
+</style>
+<div class="spl">
+  <header class="spl-top">
+    <div>
+      <h1>آزمون‌های آزمایشی</h1>
+      <p>با شرکت در آزمون‌های آزمایشی، مهارت خود را بسنجید و برای آزمون‌های اصلی آماده شوید.</p>
+    </div>
+    <div class="spx-note">{% include 'teacher/_qb_icon.html' with name='info' %}<div><strong>نمره‌ی این آزمون‌ها در کارنامه‌ی درسی شما محاسبه نمی‌شود</strong>و صرفاً برای تمرین و آمادگی بیشتر در نظر گرفته شده‌اند.</div></div>
+  </header>
+
+  {% if has_exams %}
+    <form class="spl-toolbar" method="get">
+      <label class="spl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ query }}" placeholder="جستجوی نام درس یا عنوان آزمون..." aria-label="جستجو"></label>
+      <label class="spl-select">{% include 'teacher/_qb_icon.html' with name='book' %}<select name="course" aria-label="درس" onchange="this.form.submit()"><option value="">همه درس‌ها</option>{% for course_id, course_title in courses %}<option value="{{ course_id }}"{% if course_id == course %} selected{% endif %}>{{ course_title }}</option>{% endfor %}</select></label>
+      <label class="spl-select">{% include 'teacher/_qb_icon.html' with name='pin' %}<select name="tag" aria-label="برچسب" onchange="this.form.submit()"><option value="">همه برچسب‌ها</option>{% for item in tags %}<option value="{{ item }}"{% if item == tag %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+      <button class="sx-btn" type="submit">جستجو</button>
+    </form>
+  {% endif %}
+
+  {% if page_obj.object_list %}
+    <section class="spl-grid">
+      {% for card in page_obj %}
+        <article class="sx-card spl-card">
+          <div class="spl-card-head">
+            <span class="spx-icon">{% include 'teacher/_qb_icon.html' with name=card.course_icon %}</span>
+            <span class="spl-course">{{ card.course }}</span>
+            <span class="spx-badge">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمایشی</span>
+          </div>
+          <h2>{{ card.title }}</h2>
+          <p class="spl-desc">{{ card.description|default:'' }}</p>
+          <div class="spl-facts">
+            <div class="spl-fact">{% include 'teacher/_qb_icon.html' with name='list' %}<div><strong>{{ card.question_count|fa_digits }} سؤال</strong><small>تعداد سؤال</small></div></div>
+            <div class="spl-fact">{% include 'teacher/_qb_icon.html' with name='clock' %}<div><strong>{{ card.duration|fa_digits }} دقیقه</strong><small>مدت زمان</small></div></div>
+          </div>
+          <div class="spl-tags">{% for item in card.tags %}<span>{{ item }}</span>{% endfor %}</div>
+          <div class="spl-foot">
+            {% if card.action.url %}
+              <a class="sx-btn primary" href="{{ card.action.url }}">{{ card.action.label }}{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
+            {% else %}
+              <span class="sx-btn spx-disabled" aria-disabled="true">{{ card.action.label }}</span>
+            {% endif %}
+            <div class="spl-tries">{% include 'teacher/_qb_icon.html' with name='chart' %}<div>{% if card.used %}{{ card.used|fa_digits }} بار{% else %}۰ بار{% endif %}<small>{% if card.used %}تلاش شده{% else %}تلاش نشده{% endif %}{% if card.limit %} · از {{ card.limit|fa_digits }} بار مجاز{% endif %}</small></div></div>
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="spl-pager">
+        <span>نمایش {{ page_obj.start_index|fa_digits }} تا {{ page_obj.end_index|fa_digits }} از {{ total|fa_digits }} آزمون</span>
+        <nav class="spl-pages" aria-label="صفحه‌بندی">
+          {% if page_obj.has_previous %}<a href="{% query_url page=page_obj.previous_page_number %}">قبلی</a>{% else %}<span class="is-disabled">قبلی</span>{% endif %}
+          {% for number in page_obj.paginator.page_range %}
+            {% if number == page_obj.number %}<span class="is-current">{{ number|fa_digits }}</span>{% else %}<a href="{% query_url page=number %}">{{ number|fa_digits }}</a>{% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}<a href="{% query_url page=page_obj.next_page_number %}">بعدی</a>{% else %}<span class="is-disabled">بعدی</span>{% endif %}
+        </nav>
+      </div>
+    {% endif %}
+  {% elif has_exams %}
+    <p class="sx-card spl-empty">آزمونی با این فیلترها پیدا نشد.</p>
+  {% else %}
+    <p class="sx-card spl-empty">هنوز آزمون آزمایشی‌ای به شما اختصاص داده نشده است.</p>
+  {% endif %}
+
+  <section class="sx-card spl-history">
+    <header>{% include 'teacher/_qb_icon.html' with name='clock' %}<div><h2>آخرین تلاش‌های من</h2><p>سوابق شرکت شما در آزمون‌های آزمایشی در این بخش نمایش داده می‌شود.</p></div></header>
+    {% if recent_attempts %}
+      <div class="spl-table-wrap">
+        <table class="spl-table">
+          <thead><tr><th>تاریخ و زمان</th><th>نام آزمون</th><th>درس</th><th>تعداد سؤال</th><th>مدت زمان</th><th>درصد پاسخ صحیح</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+          <tbody>
+            {% for row in recent_attempts %}
+              <tr>
+                <td><span class="spl-when">{{ row.date_label }}<small>{{ row.time_label|fa_digits }}</small></span></td>
+                <td>{{ row.title }}</td>
+                <td>{{ row.course }}</td>
+                <td>{{ row.question_count|fa_digits }}</td>
+                <td>{% if row.minutes %}{{ row.minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td>
+                <td>{% if row.percent is not None %}<span class="spl-percent {{ row.percent_tone }}">{{ row.percent|fa_digits }}٪</span>{% else %}-{% endif %}</td>
+                <td><span class="sx-chip {{ row.state_tone }}">{{ row.state_label }}</span></td>
+                <td>{% if row.action %}<a class="spl-row-action" href="{{ row.action.url }}">{% include 'teacher/_qb_icon.html' with name='chart' %}{{ row.action.label }}</a>{% else %}-{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="spl-empty">هنوز در هیچ آزمون آزمایشی‌ای شرکت نکرده‌اید.</p>
+    {% endif %}
+  </section>
+</div>
+{% include 'student/_exam_shell_foot.html' %}
+{% endblock %}

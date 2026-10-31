@@ -32,7 +32,6 @@ from .models import (
     Question,
     StudentObjection,
     StudentExamAttempt,
-    StudentPracticeCheck,
     StudentQuestionAnswer,
     SystemRole,
     TeacherProfile,
@@ -1200,20 +1199,6 @@ class StudentAnswerForm(forms.ModelForm):
         if file.size > 5 * 1024 * 1024:
             raise forms.ValidationError('حجم فایل نباید بیشتر از و مگابایت باشد.')
         return file
-
-
-class StudentPracticeCheckForm(forms.Form):
-    browser_ok = forms.BooleanField(label='مرورگر سازگار است', required=False)
-    internet_ok = forms.BooleanField(label='اتصال اینترنت برقرار است', required=False)
-    camera_ok = forms.BooleanField(label='دوربین در دسترس است', required=False)
-    microphone_ok = forms.BooleanField(label='میکروفن در دسترس است', required=False)
-    sample_answer_1 = forms.ChoiceField(label='پاسخ سؤال آزمایشی ۱', choices=(('a', 'گزینه ۱'), ('b', 'گزینه ۲')))
-    sample_answer_2 = forms.CharField(label='پاسخ کوتاه آزمایشی', max_length=120)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs.setdefault('class', 'super-admin-input')
 
 
 class StudentObjectionCreateForm(forms.ModelForm):

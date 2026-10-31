@@ -50,7 +50,6 @@ from .forms import (
     AssistantReviewDecisionForm,
     StudentExamEntryForm,
     StudentObjectionCreateForm,
-    StudentPracticeCheckForm,
     EmergencyStopExamForm,
     AcademicStructureForm,
     ExamApprovalReviewForm,
@@ -109,7 +108,6 @@ from .models import (
     StudentObjection,
     StudentExamAttempt,
     StudentExamEvent,
-    StudentPracticeCheck,
     StudentQuestionAnswer,
     SystemSetting,
     SystemRole,
@@ -11859,41 +11857,27 @@ def assistant_educational_question_answer(request, question_id):
     return render(request, 'assistant/educational_question_answer.html', {'teacher': teacher, 'item': item, 'form': form})
 
 
-@student_required
+@erd_role_required('student')
 def student_practice_exam(request):
-    student = request.student_profile
-    latest_check = student.practice_checks.first()
-    if request.method == 'POST':
-        form = StudentPracticeCheckForm(request.POST)
-        if form.is_valid():
-            issues = []
-            for key, label in (
-                ('browser_ok', 'مرورگر سازگار نیست.'),
-                ('internet_ok', 'اتصال اینترنت پایدار نیست.'),
-                ('camera_ok', 'دوربین در دسترس نیست.'),
-                ('microphone_ok', 'میکروفن در دسترس نیست.'),
-            ):
-                if not form.cleaned_data.get(key):
-                    issues.append(label)
-            sample_score = 0
-            if form.cleaned_data.get('sample_answer_1') == 'a':
-                sample_score += 1
-            if form.cleaned_data.get('sample_answer_2', '').strip():
-                sample_score += 1
-            latest_check = StudentPracticeCheck.objects.create(
-                student=student,
-                browser_ok=form.cleaned_data.get('browser_ok', False),
-                internet_ok=form.cleaned_data.get('internet_ok', False),
-                camera_ok=form.cleaned_data.get('camera_ok', False),
-                microphone_ok=form.cleaned_data.get('microphone_ok', False),
-                sample_score=sample_score,
-                issues=issues,
-            )
-            messages.success(request, 'نتیجه آزمون آزمایشی ثبت شد.')
-            return redirect('core:student_practice_exam')
-    else:
-        form = StudentPracticeCheckForm()
-    return render(request, 'student/practice_exam.html', {'student': student, 'form': form, 'latest_check': latest_check})
+    from . import student_practice as practice
+
+    return render(request, 'student/practice_exams.html', {
+        'student': _sx_student_context(request),
+        **practice.practice_list_context(request, request.erd_profile_id),
+    })
+
+
+@erd_role_required('student')
+def student_practice_detail(request, exam_id):
+    from . import student_practice as practice
+
+    exam = practice.practice_exam(exam_id, request.erd_profile_id)
+    if not exam:
+        raise Http404('آزمون آزمایشی پیدا نشد.')
+    return render(request, 'student/practice_detail.html', {
+        'student': _sx_student_context(request),
+        **practice.practice_detail_context(exam, request.erd_profile_id),
+    })
 
 
 @erd_role_required('student')
@@ -11904,14 +11888,14 @@ def student_practice_start(request, exam_id):
     if not exam:
         raise Http404('آزمون آزمایشی پیدا نشد.')
     if request.method != 'POST':
-        return redirect('core:student_practice_exam')
+        return redirect('core:student_practice_detail', exam_id=exam_id)
     if not request.POST.get('accept_rules'):
         messages.error(request, 'برای شروع باید قوانین آزمون را بپذیرید.')
-        return redirect('core:student_practice_exam')
+        return redirect('core:student_practice_detail', exam_id=exam_id)
     attempt_id, refusal = practice.start_practice_attempt(exam, request.erd_profile_id, request.POST.get('mode'))
     if refusal:
         messages.error(request, refusal)
-        return redirect('core:student_practice_exam')
+        return redirect('core:student_practice_detail', exam_id=exam_id)
     return redirect('core:student_attempt', attempt_id=attempt_id)
 
 
@@ -17644,7 +17628,7 @@ def student_settings(request):
 def _sx_practice_exam_redirect(exam):
     """Practice exams run through their own section (several attempts, a chosen mode), never the course-exam flow."""
     if exam.get('exam_mode') == PRACTICE_EXAM_MODE:
-        return redirect('core:student_practice_exam')
+        return redirect('core:student_practice_detail', exam_id=exam['id'])
     return None
 
 

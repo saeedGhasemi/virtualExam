@@ -3486,7 +3486,7 @@ class StudentPracticeExamAccessTests(_ScopedOrgFixture):
     def _refusal(self):
         from django.contrib.messages import get_messages
         response = self.client.post(self.start_url, {'accept_rules': '1'})
-        self.assertRedirects(response, reverse('core:student_practice_exam'), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse('core:student_practice_detail', args=[self.practice_id]), fetch_redirect_response=False)
         return ' '.join(str(message) for message in get_messages(response.wsgi_request))
 
     def _submit_all(self):
@@ -3504,7 +3504,8 @@ class StudentPracticeExamAccessTests(_ScopedOrgFixture):
     def test_course_exam_flow_sends_practice_exams_to_their_section(self):
         for name in ('core:student_exam_detail', 'core:student_exam_entry', 'core:student_exam_start'):
             response = self.client.post(reverse(name, args=[self.practice_id]))
-            self.assertRedirects(response, reverse('core:student_practice_exam'), fetch_redirect_response=False, msg_prefix=name)
+            self.assertRedirects(response, reverse('core:student_practice_detail', args=[self.practice_id]),
+                                 fetch_redirect_response=False, msg_prefix=name)
         self.assertEqual(self._attempts(), [])
 
     def test_start_needs_the_rules_and_keeps_the_chosen_mode(self):
@@ -3552,6 +3553,57 @@ class StudentPracticeExamAccessTests(_ScopedOrgFixture):
         dashboard = self.client.get(reverse('core:dashboard')).context['student_dashboard']
         self.assertEqual(dashboard['results'], [])
 
+
+    def test_list_page_shows_own_practice_exams_and_attempts(self):
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET tags = %s, description = %s WHERE id = %s", ['مفهومی، تحلیلی', 'مرور فصل ۱', self.practice_id])
+        TeacherStudentScopeTests._attempt(self.practice_id, self.student_in_id, timezone.now() - timedelta(hours=2), 'graded', 1, 2)
+        response = self.client.get(reverse('core:student_practice_exam'))
+        self.assertEqual(response.status_code, 200)
+        card, = response.context['page_obj'].object_list
+        self.assertEqual((card['title'], card['tags'], card['used'], card['limit']), ('آزمون آزمایشی من', ['مفهومی', 'تحلیلی'], 1, 2))
+        self.assertEqual(card['action'], {'label': 'تمرین دوباره', 'url': reverse('core:student_practice_detail', args=[self.practice_id])})
+        attempt, = response.context['recent_attempts']
+        self.assertEqual((attempt['percent'], attempt['state_label'], attempt['minutes']), (50, 'پایان یافته', 30))
+        self.assertEqual(response.context['tags'], ['تحلیلی', 'مفهومی'])
+        for hidden in ('آزمون آزمایشی دیگران', 'آزمون درسی من', 'پاسخ سؤال آزمایشی'):
+            self.assertNotContains(response, hidden)
+        filtered = self.client.get(reverse('core:student_practice_exam'), {'tag': 'محاسباتی'})
+        self.assertEqual(list(filtered.context['page_obj'].object_list), [])
+
+    def test_list_card_offers_only_what_the_server_would_allow(self):
+        self.client.post(self.start_url, {'accept_rules': '1'})
+        (attempt_id, _mode), = self._attempts()
+        card, = self.client.get(reverse('core:student_practice_exam')).context['page_obj'].object_list
+        self.assertEqual(card['action'], {'label': 'ادامه تمرین', 'url': reverse('core:student_attempt', args=[attempt_id])})
+        self._submit_all()
+        self.client.post(self.start_url, {'accept_rules': '1'})
+        self._submit_all()
+        card, = self.client.get(reverse('core:student_practice_exam')).context['page_obj'].object_list
+        self.assertEqual(card['action'], {'label': 'سقف تلاش تکمیل شد', 'url': ''})
+
+    def test_preparation_page(self):
+        url = reverse('core:student_practice_detail', args=[self.practice_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([mode['key'] for mode in response.context['modes']], ['tutorial', 'simulation'])
+        self.assertContains(response, f'action="{self.start_url}"')
+        self.assertContains(response, 'این آزمون نیازی به میکروفون ندارد.')
+        self.assertContains(response, 'حداکثر ۲ بار می‌توانید در این آزمون شرکت کنید')
+        for exam_id in (self.other_practice_id, self.course_exam_id):
+            self.assertEqual(self.client.get(reverse('core:student_practice_detail', args=[exam_id])).status_code, 404)
+        self.client.post(self.start_url, {'mode': 'simulation', 'accept_rules': '1'})
+        (attempt_id, _mode), = self._attempts()
+        resumed = self.client.get(url)
+        self.assertContains(resumed, reverse('core:student_attempt', args=[attempt_id]))
+        self.assertContains(resumed, 'حالت شبیه‌ساز')
+        self.assertNotContains(resumed, f'action="{self.start_url}"')
+        self._submit_all()
+        self.client.post(self.start_url, {'accept_rules': '1'})
+        self._submit_all()
+        refused = self.client.get(url)
+        self.assertContains(refused, 'تعداد دفعات مجاز شرکت در این آزمون آزمایشی به پایان رسیده است.')
+        self.assertNotContains(refused, '<button class="sx-btn primary" type="submit">')
 
 class UnassignedExamAccessTests(_ScopedOrgFixture):
     """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""

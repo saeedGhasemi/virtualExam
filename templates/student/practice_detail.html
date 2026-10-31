@@ -1,0 +1,164 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}آمادگی آزمون آزمایشی | متاکوییز{% endblock %}
+{% block content %}
+{% include 'student/_exam_shell_head.html' %}
+{% include 'student/_practice_styles.html' %}
+<style>
+  .spd{max-width:1300px;margin:0 auto}
+  .spd-card{padding:26px 28px;display:grid;gap:20px}
+  .spd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+  .spd-head h1{margin:0;font-size:2rem;font-weight:950}.spd-head p{margin:.35rem 0 0;color:#61708d;font-weight:850}
+  .spd-head .spd-exam{display:block;margin-top:.2rem;color:#1d3a8a;font-weight:950}
+  .spd-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #e3eaf5;border-radius:16px;background:rgba(255,255,255,.75);padding:16px 8px}
+  .spd-fact{display:flex;align-items:center;gap:14px;padding:4px 18px}.spd-fact+.spd-fact{border-inline-start:1px solid #e3eaf5}
+  .spd-fact small{display:block;color:#6b7a94;font-weight:850}.spd-fact strong{display:block;font-size:1.15rem;font-weight:950}.spd-fact strong.is-blue{color:#075fff}
+  .spd-modes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .spd-mode{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;padding:20px;border:1px solid #dfe7f3;border-radius:16px;background:rgba(255,255,255,.8);cursor:pointer}
+  .spd-mode input{width:24px;height:24px;margin-top:2px;accent-color:#075fff}
+  .spd-mode strong{display:block;font-size:1.12rem;font-weight:950}.spd-mode span{display:block;margin-top:6px;color:#5d6b86;font-weight:850;font-size:.92rem}
+  .spd-mode:has(input:checked){border:2px solid #075fff;background:linear-gradient(135deg,rgba(232,240,255,.95),rgba(255,255,255,.85));padding:19px}
+  .spd-section h2{display:inline;margin:0;font-size:1.2rem;font-weight:950}.spd-section>p{display:inline;margin-inline-start:12px;color:#6b7a94;font-weight:850;font-size:.88rem}
+  .spd-checks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px}
+  .spd-check{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid #e3eaf5;border-radius:14px;background:rgba(255,255,255,.75)}
+  .spd-check strong{display:block;font-weight:950}.spd-check small{display:block;color:#6b7a94;font-weight:850;font-size:.8rem}
+  .spd-check .spx-icon{width:48px;height:48px;border-radius:50%}
+  .spd-status{display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-weight:950;font-size:.88rem;color:#64748b}
+  .spd-status.is-ok{color:#10a461}.spd-status.is-bad{color:#e11d48}
+  .spd-status svg{width:1.1rem;height:1.1rem}
+  .spd-mini{display:inline-flex;align-items:center;gap:6px;min-height:34px;margin-top:6px;padding:0 14px;border:1px solid #9db8ff;border-radius:8px;background:#fff;color:#075fff;font-weight:950;cursor:pointer}.spd-mini svg{width:1rem;height:1rem}
+  .spd-info{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:12px;background:#eef2fb;color:#3b4a6b;font-weight:850}.spd-info svg{width:1.4rem;height:1.4rem;flex:none;color:#3b4a6b}
+  .spd-accept{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 18px;border:1px solid #e3eaf5;border-radius:12px;background:rgba(255,255,255,.75);font-weight:900}
+  .spd-accept label{display:flex;align-items:center;gap:10px;cursor:pointer}.spd-accept input{width:20px;height:20px;accent-color:#075fff}
+  .spd-rules-toggle{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:#075fff;font-weight:950;cursor:pointer}.spd-rules-toggle svg{width:1.2rem;height:1.2rem}
+  .spd-rules{margin:0;padding:16px 36px 16px 18px;border:1px solid #e3eaf5;border-radius:12px;background:#fbfcff;color:#40506d;font-weight:850;line-height:2}
+  .spd-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .spd-actions .sx-btn.primary{min-width:300px;min-height:54px;font-size:1.05rem}
+  .spd-actions .sx-btn.primary svg{width:1.1rem;height:1.1rem;fill:currentColor}
+  .spd-alert{display:flex;align-items:center;gap:10px;padding:14px 18px;border:1px solid #fcd9a8;border-radius:12px;background:#fff8ec;color:#9a5b00;font-weight:900}.spd-alert svg{width:1.4rem;height:1.4rem;flex:none}
+  .spd-alert.is-blue{border-color:#c7d7ff;background:#eef4ff;color:#1d3a8a}
+  @media(max-width:1100px){.spd-facts,.spd-checks{grid-template-columns:1fr 1fr}.spd-fact:nth-child(3){border-inline-start:0}}
+  @media(max-width:760px){.spd-facts,.spd-checks,.spd-modes{grid-template-columns:1fr}.spd-fact+.spd-fact{border-inline-start:0}.spd-head{flex-direction:column}.spd-actions{flex-direction:column-reverse;align-items:stretch}.spd-actions .sx-btn.primary{min-width:0}}
+</style>
+<section class="sx-card spd spd-card">
+  <header class="spd-head">
+    <div>
+      <h1>آمادگی آزمون آزمایشی</h1>
+      <p>پیش از شروع، اطلاعات آزمون، حالت برگزاری و آماده‌سازی سیستم خود را بررسی کنید.<span class="spd-exam">{{ exam.title }}</span></p>
+    </div>
+    <span class="spx-badge is-large">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی</span>
+  </header>
+
+  <div class="spd-facts">
+    <div class="spd-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='book' %}</span><div><small>عنوان درس</small><strong>{{ exam.course_title }}</strong></div></div>
+    <div class="spd-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='list' %}</span><div><small>تعداد سؤال</small><strong>{{ exam.question_count|fa_digits }} سؤال</strong></div></div>
+    <div class="spd-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='clock' %}</span><div><small>مدت زمان</small><strong>{{ exam.duration_minutes|fa_digits }} دقیقه</strong></div></div>
+    <div class="spd-fact"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='refresh' %}</span><div><small>تعداد دفعات مجاز</small><strong class="is-blue">{% if limit %}{{ limit|fa_digits }} بار{% else %}نامحدود{% endif %}</strong>{% if used %}<small>{{ used|fa_digits }} بار شرکت کرده‌اید</small>{% endif %}</div></div>
+  </div>
+
+  {% if open_attempt %}
+    <div class="spd-alert is-blue">{% include 'teacher/_qb_icon.html' with name='info' %}یک تلاش ناتمام در این آزمون دارید ({{ open_mode_title }}). با ادامه، از همان جایی که بودید پاسخ‌گویی را ادامه می‌دهید.</div>
+    <div class="spd-actions">
+      <a class="sx-btn primary" href="{% url 'core:student_attempt' open_attempt.id %}">ادامه پاسخ‌گویی{% include 'teacher/_qb_icon.html' with name='play' %}</a>
+      <a class="sx-btn" href="{% url 'core:student_practice_exam' %}">{% include 'teacher/_qb_icon.html' with name='arrow' %}بازگشت</a>
+    </div>
+  {% else %}
+    <form method="post" action="{% url 'core:student_practice_start' exam.id %}" class="spd-card" style="padding:0">
+      {% csrf_token %}
+      <fieldset class="spd-modes" style="border:0;margin:0;padding:0">
+        <legend class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">حالت برگزاری</legend>
+        {% for mode in modes %}
+          <label class="spd-mode"><input type="radio" name="mode" value="{{ mode.key }}"{% if mode.key == default_mode %} checked{% endif %}><div><strong>{{ mode.title }}</strong><span>{{ mode.description }}</span></div></label>
+        {% endfor %}
+      </fieldset>
+
+      <section class="spd-section">
+        <h2>آماده‌سازی سیستم</h2><p>برای برگزاری بدون مشکل آزمون، موارد زیر را بررسی کنید.</p>
+        <div class="spd-checks">
+          <div class="spd-check"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='globe' %}</span><div><strong>اتصال به اینترنت</strong><span class="spd-status" data-check="internet">در حال بررسی...</span></div></div>
+          <div class="spd-check"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='monitor' %}</span><div><strong>مرورگر پشتیبانی‌شده</strong><span class="spd-status" data-check="browser">در حال بررسی...</span></div></div>
+          <div class="spd-check"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='volume' %}</span><div><strong>تست صدا</strong><button type="button" class="spd-mini" data-sound-test>پخش صدا{% include 'teacher/_qb_icon.html' with name='play' %}</button><span class="spd-status" data-check="sound" hidden></span></div></div>
+          <div class="spd-check"><span class="spx-icon">{% include 'teacher/_qb_icon.html' with name='mic' %}</span><div><strong>میکروفون</strong>{% if uses_microphone %}<button type="button" class="spd-mini" data-mic-test>بررسی میکروفون</button><span class="spd-status" data-check="mic" hidden></span>{% else %}<small>(در صورت نیاز)</small><small>این آزمون نیازی به میکروفون ندارد.</small>{% endif %}</div></div>
+        </div>
+      </section>
+
+      <div class="spd-info">{% include 'teacher/_qb_icon.html' with name='info' %}نمره‌ی این آزمون آزمایشی در کارنامه و معدل شما تأثیری ندارد و صرفاً جهت یادگیری و سنجش آمادگی شما ارائه شده است.</div>
+
+      {% if refusal %}<div class="spd-alert">{% include 'teacher/_qb_icon.html' with name='warning' %}{{ refusal }}</div>{% endif %}
+
+      <div class="spd-accept">
+        <label><input type="checkbox" name="accept_rules" value="1" required>قوانین آزمون را مطالعه کرده و می‌پذیرم.</label>
+        <span style="display:flex;gap:16px;flex-wrap:wrap">
+          {% if exam.guidance_file_url %}<a class="spd-rules-toggle" href="{{ exam.guidance_file_url }}" target="_blank" rel="noopener">{% include 'teacher/_qb_icon.html' with name='download' %}راهنمای آزمون</a>{% endif %}
+          <button type="button" class="spd-rules-toggle" data-rules-toggle aria-expanded="false" aria-controls="spd-rules">{% include 'teacher/_qb_icon.html' with name='text' %}مشاهده قوانین آزمون</button>
+        </span>
+      </div>
+      <ul class="spd-rules" id="spd-rules" hidden>{% for rule in rules %}<li>{{ rule|fa_digits }}</li>{% endfor %}</ul>
+
+      <div class="spd-actions">
+        {% if refusal %}
+          <span class="sx-btn primary spx-disabled" aria-disabled="true">شروع آزمون</span>
+        {% else %}
+          <button class="sx-btn primary" type="submit">{% include 'teacher/_qb_icon.html' with name='play' %}شروع آزمون</button>
+        {% endif %}
+        <a class="sx-btn" href="{% url 'core:student_practice_exam' %}">بازگشت{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
+      </div>
+    </form>
+  {% endif %}
+</section>
+<script>
+(() => {
+  const ok = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.2 2.8 2.8L16.5 9"/></svg>';
+  const bad = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>';
+  const show = (name, passed, text) => {
+    const el = document.querySelector(`[data-check="${name}"]`);
+    if (!el) return;
+    el.hidden = false;
+    el.className = `spd-status ${passed ? 'is-ok' : 'is-bad'}`;
+    el.innerHTML = (passed ? ok : bad) + text;
+  };
+  const internet = () => show('internet', navigator.onLine, navigator.onLine ? 'آماده است' : 'اتصال برقرار نیست');
+  internet();
+  window.addEventListener('online', internet);
+  window.addEventListener('offline', internet);
+  // What the exam pages rely on: fetch for autosave, local storage for offline answers, modern JS.
+  let storage = false;
+  try { localStorage.setItem('mq-check', '1'); localStorage.removeItem('mq-check'); storage = true; } catch (error) { storage = false; }
+  const browserOk = 'fetch' in window && 'Promise' in window && storage && CSS.supports('display', 'grid');
+  show('browser', browserOk, browserOk ? 'آماده است' : 'مرورگر خود را به‌روزرسانی کنید');
+
+  const soundButton = document.querySelector('[data-sound-test]');
+  soundButton?.addEventListener('click', () => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) { show('sound', false, 'پخش صدا پشتیبانی نمی‌شود'); return; }
+    const context = new AudioContext();
+    const tone = context.createOscillator();
+    const gain = context.createGain();
+    tone.frequency.value = 660;
+    gain.gain.setValueAtTime(0.15, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.8);
+    tone.connect(gain).connect(context.destination);
+    tone.start();
+    tone.stop(context.currentTime + 0.8);
+    tone.onended = () => context.close();
+    show('sound', true, 'صدا پخش شد؛ اگر نشنیدید، بلندگو را بررسی کنید');
+  });
+
+  const micButton = document.querySelector('[data-mic-test]');
+  micButton?.addEventListener('click', () => {
+    if (!navigator.mediaDevices?.getUserMedia) { show('mic', false, 'میکروفون در دسترس نیست'); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => { stream.getTracks().forEach((track) => track.stop()); show('mic', true, 'آماده است'); })
+      .catch(() => show('mic', false, 'اجازه‌ی دسترسی داده نشد'));
+  });
+
+  const rulesToggle = document.querySelector('[data-rules-toggle]');
+  rulesToggle?.addEventListener('click', () => {
+    const rules = document.getElementById('spd-rules');
+    rules.hidden = !rules.hidden;
+    rulesToggle.setAttribute('aria-expanded', String(!rules.hidden));
+  });
+})();
+</script>
+{% include 'student/_exam_shell_foot.html' %}
+{% endblock %}
