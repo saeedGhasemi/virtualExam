@@ -1,0 +1,153 @@
+{% load core_extras %}
+{# Practice attempts: keep a local copy of the answer on screen, and the dialogs for a lost connection and for the end of time. #}
+<style>
+  .qx-modal{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:1rem;background:rgba(30,41,59,.55);backdrop-filter:blur(3px)}
+  .qx-modal[hidden]{display:none}
+  .qx-modal-card{position:relative;display:grid;justify-items:center;gap:.8rem;width:min(30rem,100%);padding:1.8rem 1.6rem 1.4rem;border-radius:1.1rem;background:#fff;text-align:center;box-shadow:0 30px 70px rgba(15,23,42,.3)}
+  .qx-modal-close{position:absolute;top:.8rem;inset-inline-start:.8rem;width:2rem;height:2rem;border:0;border-radius:.5rem;background:none;color:#64748b;font-size:1.4rem;cursor:pointer}
+  .qx-modal-icon{display:grid;width:5rem;height:5rem;place-items:center;border-radius:50%;background:#ffe4e8;color:#e11d48}.qx-modal-icon svg{width:2.4rem;height:2.4rem}
+  .qx-modal-icon.is-blue{background:#e6eeff;color:#2563eb}
+  .qx-modal-card h2{margin:0;font-size:1.35rem;font-weight:950}
+  .qx-modal-card>p{margin:0;color:#475569;font-weight:850;line-height:1.9}
+  .qx-modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;width:100%}.qx-modal-actions .qx-btn{justify-content:center}
+  .qx-modal-box{display:flex;align-items:center;gap:.7rem;width:100%;padding:.75rem .9rem;border-radius:.75rem;background:#f1f4fb;color:#3b4a6b;font-size:.85rem;font-weight:850;text-align:start}.qx-modal-box svg{width:1.5rem;height:1.5rem;flex:none;color:#2563eb}
+  .qx-modal-progress{display:grid;gap:.45rem;width:100%;padding:.8rem .9rem;border:1px solid #e1e8f5;border-radius:.75rem;font-size:.85rem;font-weight:900}
+  .qx-modal-progress div{display:flex;justify-content:space-between;gap:.5rem}
+  .qx-modal-progress span.bar{height:.6rem;border-radius:999px;background:#e5ebf5;overflow:hidden}
+  .qx-modal-progress span.bar i{display:block;width:40%;height:100%;border-radius:inherit;background:#2563eb;animation:qx-sending 1.2s ease-in-out infinite alternate}
+  .qx-modal-progress.is-done span.bar i{width:100%;animation:none;background:#16a34a}.qx-modal-progress.is-failed span.bar i{animation:none;background:#e11d48}
+  @keyframes qx-sending{from{margin-inline-start:0}to{margin-inline-start:60%}}
+  .qx-modal-status{min-height:1.2em;margin:0;color:#b91c1c;font-size:.85rem;font-weight:900}
+  .qx-modal .qx-btn--primary{width:100%;justify-content:center}
+  .qx-modal .qx-btn svg{width:1.15rem;height:1.15rem;flex:none}
+</style>
+<div class="qx-modal" data-offline-dialog hidden role="alertdialog" aria-modal="true" aria-labelledby="offline-title">
+  <div class="qx-modal-card">
+    <button type="button" class="qx-modal-close" data-offline-close aria-label="بستن و ادامه پاسخ‌گویی">×</button>
+    <span class="qx-modal-icon">{% include 'teacher/_qb_icon.html' with name='wifi_off' %}</span>
+    <h2 id="offline-title">اتصال اینترنت قطع شده است</h2>
+    <p>پاسخ‌های شما تا این لحظه فقط در دستگاه شما ذخیره شده است و هنوز به سرور ارسال نشده است. پس از اتصال مجدد به اینترنت، ارسال به صورت خودکار انجام می‌شود.</p>
+    <div class="qx-modal-actions">
+      <button type="button" class="qx-btn qx-btn--primary" data-offline-retry>تلاش دوباره</button>
+      <button type="button" class="qx-btn" data-offline-reload>اتصال مجدد</button>
+    </div>
+    <div class="qx-modal-box">{% include 'teacher/_qb_icon.html' with name='monitor' %}پاسخ‌ها در این دستگاه ذخیره است و پس از اتصال، ارسال خواهند شد؛ تا آن زمان این صفحه را نبندید.</div>
+    <p class="qx-modal-status" data-offline-status role="status"></p>
+  </div>
+</div>
+<div class="qx-modal" data-timeup-dialog hidden role="alertdialog" aria-modal="true" aria-labelledby="timeup-title">
+  <div class="qx-modal-card">
+    <span class="qx-modal-icon is-blue">{% include 'teacher/_qb_icon.html' with name='cloud_upload' %}</span>
+    <h2 id="timeup-title">زمان آزمون پایان یافت</h2>
+    <p>پاسخ‌های شما (<span data-timeup-answered></span> از {{ total_questions|fa_digits }} سؤال) در حال ارسال به سرور است. لطفاً تا دریافت تأیید نهایی، از بستن این صفحه خودداری کنید.</p>
+    <div class="qx-modal-progress" data-timeup-progress>
+      <div><span data-timeup-label>در حال ارسال پاسخ‌ها...</span><span><span data-timeup-answered></span> از {{ total_questions|fa_digits }} سؤال پاسخ داده شده</span></div>
+      <span class="bar"><i></i></span>
+    </div>
+    <div class="qx-modal-box">{% include 'teacher/_qb_icon.html' with name='info' %}ثبت نهایی آزمون پس از دریافت تأیید از سرور انجام می‌شود. تا آن زمان، نتیجه‌ی آزمون ثبت نشده است.</div>
+    <button type="button" class="qx-btn qx-btn--primary" data-timeup-retry>{% include 'teacher/_qb_icon.html' with name='refresh' %}بررسی وضعیت ثبت</button>
+  </div>
+</div>
+<script>
+(() => {
+  const form = document.getElementById('answer-form');
+  if (!form) return;
+  const attemptUrl = "{% url 'core:student_attempt' attempt.pk %}";
+  const storageKey = 'mq-practice-{{ attempt.pk }}';
+  const offline = document.querySelector('[data-offline-dialog]');
+  const offlineStatus = offline.querySelector('[data-offline-status]');
+  const timeup = document.querySelector('[data-timeup-dialog]');
+  const progress = timeup.querySelector('[data-timeup-progress]');
+  const fa = (value) => String(value).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
+
+  // Local copy of the answer on screen, per question; removed once the server has accepted it.
+  const readCopies = () => { try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch (error) { return {}; } };
+  const writeCopies = (copies) => {
+    try {
+      if (Object.keys(copies).length) localStorage.setItem(storageKey, JSON.stringify(copies));
+      else localStorage.removeItem(storageKey);
+    } catch (error) { /* storage blocked: the normal autosave still applies */ }
+  };
+  const remember = () => {
+    const entries = [];
+    new FormData(form).forEach((value, name) => { if (!(value instanceof File)) entries.push([name, value]); });
+    writeCopies({ ...readCopies(), [form.dataset.questionId]: entries });
+  };
+  ['input', 'change'].forEach((type) => document.addEventListener(type, (event) => { if (event.target.form === form) remember(); }));
+
+  // Send every stored copy. A 409 means the time is over or the attempt was submitted: the server keeps what it had.
+  let refused = false;
+  const sendCopies = async () => {
+    const copies = readCopies();
+    const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+    for (const [questionId, entries] of Object.entries(copies)) {
+      const body = new FormData();
+      entries.forEach(([name, value]) => body.append(name, value));
+      body.set('csrfmiddlewaretoken', csrf);
+      const response = await fetch(attemptUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body });
+      if (response.status === 409) refused = true;
+      else if (!response.ok) throw new Error('save failed');
+      delete copies[questionId];
+      writeCopies(copies);
+    }
+  };
+
+  const showOffline = () => { offlineStatus.textContent = ''; offline.hidden = false; };
+  const tryReconnect = async () => {
+    offlineStatus.textContent = 'در حال ارسال پاسخ‌ها...';
+    try {
+      await sendCopies();
+      offline.hidden = true;
+      offlineStatus.textContent = '';
+    } catch (error) {
+      offlineStatus.textContent = 'ارتباط با سرور هنوز برقرار نیست؛ پاسخ‌ها در این دستگاه می‌مانند.';
+    }
+  };
+  window.addEventListener('offline', () => { if (timeup.hidden) showOffline(); });
+  window.addEventListener('online', () => { if (!timeup.hidden) finish(); else if (!offline.hidden) tryReconnect(); });
+  offline.querySelector('[data-offline-retry]').addEventListener('click', tryReconnect);
+  offline.querySelector('[data-offline-reload]').addEventListener('click', () => { if (navigator.onLine) window.location.reload(); else tryReconnect(); });
+  offline.querySelector('[data-offline-close]').addEventListener('click', () => { offline.hidden = true; });
+  // Leaving the question needs the server; while offline, keep the student here with the answer saved locally.
+  form.addEventListener('submit', (event) => {
+    if (navigator.onLine) return;
+    event.preventDefault();
+    remember();
+    showOffline();
+  });
+  document.querySelectorAll('.qx-map a').forEach((link) => link.addEventListener('click', (event) => {
+    if (navigator.onLine) return;
+    event.preventDefault();
+    showOffline();
+  }));
+
+  // End of time: send what is stored here, then submit; on failure, wait for the connection or a retry.
+  let finishing = false;
+  const finish = async () => {
+    if (finishing) return;
+    finishing = true;
+    offline.hidden = true;
+    timeup.hidden = false;
+    const answered = document.querySelector('[data-answered-count]')?.textContent || '';
+    timeup.querySelectorAll('[data-timeup-answered]').forEach((node) => { node.textContent = answered; });
+    progress.classList.remove('is-done', 'is-failed');
+    timeup.querySelector('[data-timeup-label]').textContent = 'در حال ارسال پاسخ‌ها...';
+    try {
+      await sendCopies();
+      progress.classList.add('is-done');
+      timeup.querySelector('[data-timeup-label]').textContent = refused ? 'زمان پاسخ‌دهی گذشته بود؛ پاسخ‌های ذخیره‌شده‌ی قبلی ثبت می‌شوند.' : 'پاسخ‌ها ارسال شد؛ در حال ثبت نهایی...';
+      document.getElementById('auto-submit-form').submit();
+    } catch (error) {
+      progress.classList.add('is-failed');
+      timeup.querySelector('[data-timeup-label]').textContent = 'ارسال انجام نشد؛ اتصال اینترنت را بررسی کنید.';
+      finishing = false;
+    }
+  };
+  document.addEventListener('exam:time-up', (event) => { event.preventDefault(); if (timeup.hidden) finish(); });
+  timeup.querySelector('[data-timeup-retry]').addEventListener('click', finish);
+
+  // Copies left by a page closed while offline go out as soon as the page is back online.
+  if (navigator.onLine && Object.keys(readCopies()).length) sendCopies().catch(() => {});
+  if (!navigator.onLine) showOffline();
+})();
+</script>

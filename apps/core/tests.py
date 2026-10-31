@@ -3672,6 +3672,8 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
         page = self.client.get(url)
         self.assertNotContains(page, 'ثبت پاسخ و مشاهده بازخورد')
         self.assertContains(page, 'پایان آزمون آزمایشی')
+        for dialog in ('data-offline-dialog', 'data-timeup-dialog', "exam:time-up"):
+            self.assertContains(page, dialog)
         self.client.post(f'{url}?q=1', {f'answer_{self.question_id}': 'بررسی هویت بیمار', 'action': 'feedback'})
         stored, is_correct, _points, shown_at = self._answer_row(attempt_id)
         self.assertEqual((json.loads(stored)['value'], is_correct, shown_at), ('بررسی هویت بیمار', None, None))
@@ -3679,7 +3681,7 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
             cursor.execute("UPDATE exams SET exam_mode = 'standard' WHERE id = %s", [self.exam_id])
         page = self.client.get(url)
         self.assertIsNone(page.context['practice'])
-        for text in ('qx-practice-badge', 'ثبت پاسخ و مشاهده بازخورد', '<fieldset class="qx-lock" disabled>'):
+        for text in ('qx-practice-badge', 'ثبت پاسخ و مشاهده بازخورد', '<fieldset class="qx-lock" disabled>', 'data-offline-dialog', 'data-timeup-dialog'):
             self.assertNotContains(page, text)
 
     def test_review_submit_receipt_and_report_card(self):

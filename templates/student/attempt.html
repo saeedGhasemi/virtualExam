@@ -270,6 +270,7 @@
   <div class="qx-lightbox" data-lightbox hidden><img alt=""></div>
 </section>
 <form method="post" action="{% url 'core:student_attempt_submit' attempt.pk %}" id="auto-submit-form" hidden>{% csrf_token %}<input type="hidden" name="auto" value="1"></form>
+{% if practice %}{% include 'student/_practice_connection.html' %}{% endif %}
 <script src="{% static 'js/exam-interactions.js' %}"></script>
 <script src="{% static 'js/waveform-player.js' %}" defer></script>
 <script>
@@ -390,7 +391,8 @@
     setInterval(() => {
       remaining -= 1;
       showTime(remaining);
-      if (remaining <= 0) document.getElementById('auto-submit-form').submit();
+      // A page part may take over the time-up (the practice connection dialog does) by cancelling this event.
+      if (remaining <= 0 && document.dispatchEvent(new CustomEvent('exam:time-up', { cancelable: true }))) document.getElementById('auto-submit-form').submit();
     }, 1000);
   }
 

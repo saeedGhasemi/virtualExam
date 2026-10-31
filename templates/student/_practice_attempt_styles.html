@@ -3,8 +3,9 @@
   .qx-practice-tag{display:inline-flex;flex-wrap:wrap;align-items:center;gap:.6rem;padding:.3rem .35rem .3rem .9rem;border-radius:.85rem;background:#f1f4fb}
   .qx-practice-note{display:inline-flex;align-items:center;gap:.4rem;color:#3b4a6b;font-size:.82rem;font-weight:850}.qx-practice-note svg{width:1.05rem;height:1.05rem;color:#3b4a6b}
   .qx-practice-badge{display:inline-flex;align-items:center;gap:.45rem;min-height:2.3rem;padding:0 1rem;border:1.5px solid #c9b1f7;border-radius:.7rem;background:#f4edff;color:#6d28d9;font-weight:950}.qx-practice-badge svg{width:1.15rem;height:1.15rem}
-  .qx-option.is-correct{border-color:#22c55e;background:#effcf4;box-shadow:inset 0 0 0 1px #22c55e;opacity:1}
-  .qx-option.is-wrong{border-color:#f43f5e;background:#fff1f3;box-shadow:inset 0 0 0 1px #f43f5e}
+  /* :has() repeats exam-view.css's checked/disabled selectors so these win over them */
+  .qx-option.is-correct,.qx-option.is-correct:has(input:checked),.qx-option.is-correct:has(input:disabled:not(:checked)){border-color:#22c55e;background:#effcf4;box-shadow:inset 0 0 0 1px #22c55e;opacity:1}
+  .qx-option.is-wrong,.qx-option.is-wrong:has(input:checked){border-color:#f43f5e;background:#fff1f3;box-shadow:inset 0 0 0 1px #f43f5e}
   .qx-lock:disabled .qx-option{cursor:default}
   .qx-verdict{display:inline-flex;align-items:center;gap:.35rem;min-height:2rem;padding:0 .8rem;border-radius:.55rem;font-size:.82rem;font-weight:950}
   .qx-verdict svg{width:1.05rem;height:1.05rem}
