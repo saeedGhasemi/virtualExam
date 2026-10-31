@@ -17459,7 +17459,8 @@ def _sx_save_attempt_answers(request, attempt_id):
 
     Answers are accepted only while the attempt accepts answers (in progress, not submitted, within time),
     and only for questions of the attempt's exam; anything else in the POST is ignored. A question whose
-    tutorial feedback was shown keeps its answer; only its «علامت‌گذاری» still changes.
+    tutorial feedback was shown keeps its answer; only its «علامت‌گذاری» still changes. The page also posts
+    ``seen_<id>`` for the question on screen, so its mark is saved even while it has no answer.
     """
     if not _sx_attempt_accepts_answers(attempt_id):
         return 0
@@ -17477,14 +17478,13 @@ def _sx_save_attempt_answers(request, attempt_id):
         )
     }
     saved = 0
-    seen_questions = set()
-    for key in request.POST.keys():
-        if not key.startswith('answer_') or key in seen_questions:
-            continue
-        seen_questions.add(key)
-        question_id = key.removeprefix('answer_')
+    posted_questions = dict.fromkeys(
+        key.split('_', 1)[1] for key in request.POST.keys() if key.startswith(('answer_', 'seen_'))
+    )
+    for question_id in posted_questions:
         if question_id not in allowed_questions:
             continue
+        key = f'answer_{question_id}'
         values = request.POST.getlist(key)
         answer_value = values if len(values) > 1 else (values[0] if values else '')
         answer = json.dumps({'value': answer_value}, ensure_ascii=False)
@@ -17493,9 +17493,18 @@ def _sx_save_attempt_answers(request, attempt_id):
             'SELECT id FROM attempt_answers WHERE attempt_id = %s AND question_id = %s LIMIT 1',
             [attempt_id, question_id],
         )
-        if question_id in locked:
-            if existing and erd_has_column('attempt_answers', 'marked_for_review'):
+        if question_id in locked or key not in request.POST:
+            # The answer stays as it is: locked by tutorial feedback, or nothing chosen yet (only the mark changed).
+            if not erd_has_column('attempt_answers', 'marked_for_review'):
+                continue
+            if existing:
                 erd_execute('UPDATE attempt_answers SET marked_for_review = %s WHERE id = %s', [marked, existing['id']])
+            elif marked and question_id not in locked:
+                erd_execute(
+                    'INSERT INTO attempt_answers (id, attempt_id, question_id, answer, needs_manual_grading, marked_for_review) '
+                    'VALUES (%s, %s, %s, %s, false, true)',
+                    [str(uuid.uuid4()), attempt_id, question_id, json.dumps({'value': ''})],
+                )
             continue
         if existing:
             if erd_has_column('attempt_answers', 'marked_for_review'):

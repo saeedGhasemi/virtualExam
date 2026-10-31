@@ -27,6 +27,7 @@
     <div class="qx-grid">
       <form method="post" enctype="multipart/form-data" class="qx-card qx-main" id="answer-form" data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
         {% csrf_token %}
+        <input type="hidden" name="seen_{{ current_answer.question_id }}" value="1">
         <div class="qx-qhead">
           <h3>سؤال {{ current_index|fa_digits }} — {{ current_answer.type_label }}</h3>
           <div>
@@ -56,7 +57,6 @@
 
         <section class="qx-answer">
           {# Disabled inputs are not posted; the server ignores this question's answer anyway once feedback was shown. #}
-          {% if practice.feedback %}<input type="hidden" name="answer_{{ current_answer.question_id }}" value="">{% endif %}
           <fieldset class="qx-lock"{% if practice.feedback %} disabled{% endif %}>
           {% if current_answer.type == 'single' or current_answer.type == 'multiple_choice' or current_answer.type == 'true_false' %}
             <div class="qx-options" role="radiogroup" aria-label="گزینه‌های پاسخ">

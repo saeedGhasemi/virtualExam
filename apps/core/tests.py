@@ -3655,10 +3655,23 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
         for text in ('پاسخ شما نادرست است', 'مبحث ایمنی دارویی را مرور کنید.', 'تطبیق هویت بیمار بخشی از ایمنی دارویی است.', 'پاسخ صحیح', '<fieldset class="qx-lock" disabled>'):
             self.assertContains(page, text)
         self.assertEqual([option['feedback'] for option in page.context['current_answer']['options']], ['correct', 'wrong'])
-        # A locked answer keeps its value, through the form and the autosave alike.
+        # A locked answer keeps its value, through the form and the autosave alike; only the review mark still changes.
         self.client.post(f'{url}?q=1', {answer: 'بررسی هویت بیمار', f'mark_{self.question_id}': 'on', 'action': 'next'})
-        self.client.post(url, {answer: 'بررسی هویت بیمار'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(json.loads(self._answer_row(attempt_id)[0])['value'], 'ثبت دارو در پرونده')
+        self.assertTrue(self.client.get(url).context['current_answer']['marked'])
+        self.client.post(url, {answer: 'بررسی هویت بیمار'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')  # mark box left unticked
+        self.assertEqual(json.loads(self._answer_row(attempt_id)[0])['value'], 'ثبت دارو در پرونده')
+        self.assertFalse(self.client.get(url).context['current_answer']['marked'])
+
+    def test_mark_without_an_answer_is_kept(self):
+        attempt_id = self._start('simulation')
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.client.post(url, {f'seen_{self.question_id}': '1', f'mark_{self.question_id}': 'on'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        page = self.client.get(url)
+        self.assertTrue(page.context['current_answer']['marked'])
+        self.assertFalse(page.context['current_answer']['answered'])
+        self.client.post(url, {f'seen_{self.question_id}': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertFalse(self.client.get(url).context['current_answer']['marked'])
 
     def test_feedback_needs_an_answer(self):
         attempt_id = self._start('tutorial')
@@ -3696,8 +3709,10 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
         self.assertTemplateUsed(review, 'student/practice_review.html')
         self.assertEqual((review.context['answered_count'], review.context['unanswered_count']), (0, 1))
         self.assertContains(review, 'سؤال هنوز پاسخ داده نشده است.')
-        self.client.post(f"{reverse('core:student_attempt', args=[attempt_id])}?q=1", {f'answer_{self.question_id}': 'بررسی هویت بیمار', 'action': 'next'})
-        self.assertEqual(self.client.get(submit_url).context['unanswered_count'], 0)
+        self.client.post(f"{reverse('core:student_attempt', args=[attempt_id])}?q=1",
+                         {f'answer_{self.question_id}': 'بررسی هویت بیمار', f'mark_{self.question_id}': 'on', 'action': 'next'})
+        review = self.client.get(submit_url)
+        self.assertEqual((review.context['unanswered_count'], review.context['marked_count']), (0, 1))
         self.assertRedirects(self.client.post(submit_url), receipt_url, fetch_redirect_response=False)
         receipt = self.client.get(receipt_url)
         self.assertTemplateUsed(receipt, 'student/practice_receipt.html')
