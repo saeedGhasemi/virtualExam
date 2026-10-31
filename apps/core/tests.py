@@ -3454,6 +3454,105 @@ class StudentExamStartWindowTests(_ScopedOrgFixture):
         self.assertEqual(self._attempts(), 1)
 
 
+class StudentPracticeExamAccessTests(_ScopedOrgFixture):
+    """آزمون آزمایشی (exam_mode='practice') بخش جدای خودش را دارد: چند بار قابل تکرار تا سقف تعداد تلاش، با حالت انتخابی،
+    و هرگز قاطی آزمون‌ها و نتایج درسی دانشجو نمی‌شود. دسترسی همان قاعده‌ی تخصیص آزمون‌های درسی است."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        now = timezone.now()
+        day = timedelta(days=1)
+        cls.practice_id = TeacherStudentScopeTests._exam('آزمون آزمایشی من', cls.teacher_in_id, now - day, now + day, cls.group_in_id)
+        cls.course_exam_id = TeacherStudentScopeTests._exam('آزمون درسی من', cls.teacher_in_id, now - day, now + day, cls.group_in_id)
+        cls.other_practice_id = TeacherStudentScopeTests._exam('آزمون آزمایشی دیگران', cls.teacher_out_id, now - day, now + day, cls.group_out_id)
+        TeacherStudentScopeTests._member(cls.group_in_id, cls.student_in_id)
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET exam_mode = 'practice', max_attempts = 2 WHERE id IN (%s, %s)", [cls.practice_id, cls.other_practice_id])
+        for exam_id in (cls.practice_id, cls.other_practice_id):
+            _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), exam_id, cls.question_in_id, 2, 1])
+
+    def setUp(self):
+        self.client.force_login(self.student_user)
+        self.start_url = reverse('core:student_practice_start', args=[self.practice_id])
+
+    def _attempts(self, exam_id=None):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id, practice_mode FROM exam_attempts WHERE exam_id = %s ORDER BY started_at', [exam_id or self.practice_id])
+            return cursor.fetchall()
+
+    def _refusal(self):
+        from django.contrib.messages import get_messages
+        response = self.client.post(self.start_url, {'accept_rules': '1'})
+        self.assertRedirects(response, reverse('core:student_practice_exam'), fetch_redirect_response=False)
+        return ' '.join(str(message) for message in get_messages(response.wsgi_request))
+
+    def _submit_all(self):
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exam_attempts SET submitted_at = %s, status = 'graded' WHERE exam_id = %s",
+                           [timezone.now(), self.practice_id])
+
+    def test_practice_and_course_exams_are_listed_apart(self):
+        from apps.core.views import _sx_accessible_exams
+        self.assertEqual([row['title'] for row in _sx_accessible_exams(self.student_in_id)], ['آزمون درسی من'])
+        self.assertEqual([row['title'] for row in _sx_accessible_exams(self.student_in_id, practice=True)], ['آزمون آزمایشی من'])
+        self.assertEqual(_sx_accessible_exams(self.student_out_id, practice=True), [])  # not a member of group_out
+        self.assertNotContains(self.client.get(reverse('core:student_exam_schedule')), 'آزمون آزمایشی من')
+
+    def test_course_exam_flow_sends_practice_exams_to_their_section(self):
+        for name in ('core:student_exam_detail', 'core:student_exam_entry', 'core:student_exam_start'):
+            response = self.client.post(reverse(name, args=[self.practice_id]))
+            self.assertRedirects(response, reverse('core:student_practice_exam'), fetch_redirect_response=False, msg_prefix=name)
+        self.assertEqual(self._attempts(), [])
+
+    def test_start_needs_the_rules_and_keeps_the_chosen_mode(self):
+        self.client.post(self.start_url, {'mode': 'simulation'})
+        self.assertEqual(self._attempts(), [])
+        response = self.client.post(self.start_url, {'mode': 'simulation', 'accept_rules': '1'})
+        (attempt_id, mode), = self._attempts()
+        self.assertEqual(mode, 'simulation')
+        self.assertRedirects(response, reverse('core:student_attempt', args=[attempt_id]), fetch_redirect_response=False)
+        self.client.post(self.start_url, {'mode': 'tutorial', 'accept_rules': '1'})  # resumes the unfinished one
+        self.assertEqual(self._attempts(), [(attempt_id, 'simulation')])
+        self.client.post(reverse('core:student_practice_start', args=[self.course_exam_id]), {'accept_rules': '1'})
+        self.assertEqual(self._attempts(self.course_exam_id), [])  # the course exam is not a practice exam: 404
+
+    def test_attempts_are_capped_by_the_exams_limit(self):
+        for _ in range(2):
+            self.client.post(self.start_url, {'mode': 'bogus', 'accept_rules': '1'})
+            self._submit_all()
+        self.assertEqual([mode for _id, mode in self._attempts()], ['tutorial', 'tutorial'])
+        self.assertEqual(self._refusal(), 'تعداد دفعات مجاز شرکت در این آزمون آزمایشی به پایان رسیده است.')
+        self.assertEqual(len(self._attempts()), 2)
+        with connection.cursor() as cursor:  # no limit (0) means as many as the student likes
+            cursor.execute('UPDATE exams SET max_attempts = 0 WHERE id = %s', [self.practice_id])
+        self.client.post(self.start_url, {'accept_rules': '1'})
+        self.assertEqual(len(self._attempts()), 3)
+
+    def test_unstarted_or_foreign_practice_exam_cannot_be_started(self):
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET start_at = %s WHERE id = %s', [timezone.now() + timedelta(hours=1), self.practice_id])
+        self.assertEqual(self._refusal(), 'این آزمون آزمایشی هنوز شروع نشده است.')
+        other = reverse('core:student_practice_start', args=[self.other_practice_id])
+        self.assertEqual(self.client.post(other, {'accept_rules': '1'}).status_code, 404)
+        self.assertEqual(self._attempts() + self._attempts(self.other_practice_id), [])
+
+    def test_practice_results_stay_out_of_course_results_and_show_at_once(self):
+        from apps.core.views import _sx_result_rows
+        TeacherStudentScopeTests._attempt(self.practice_id, self.student_in_id, timezone.now() - timedelta(hours=1), 'graded', 2, 2)
+        TeacherStudentScopeTests._attempt(self.course_exam_id, self.student_in_id, timezone.now() - timedelta(hours=1), 'graded', 15, 20)
+        self.assertEqual([row['title'] for row in _sx_result_rows(self.student_in_id, practice=False)], ['آزمون درسی من'])
+        practice, = _sx_result_rows(self.student_in_id, practice=True)
+        self.assertEqual((practice['is_pending'], practice['percent']), (False, 100))  # no publishing step for practice
+        self.assertTrue(practice['visibility']['correct_answers'] and practice['visibility']['explanations'])
+        course, = _sx_result_rows(self.student_in_id, practice=False)
+        self.assertTrue(course['awaiting_publication'])  # course exams still wait for the results to be published
+        dashboard = self.client.get(reverse('core:dashboard')).context['student_dashboard']
+        self.assertEqual(dashboard['results'], [])
+
+
 class UnassignedExamAccessTests(_ScopedOrgFixture):
     """آزمونی که هیچ تخصیصی ندارد برای هیچ دانشجویی باز نیست؛ مسیرهای ایجاد سریع گروه را به‌عنوان مخاطب ذخیره می‌کنند."""
 

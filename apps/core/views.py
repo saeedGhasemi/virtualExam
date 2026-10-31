@@ -11896,6 +11896,25 @@ def student_practice_exam(request):
     return render(request, 'student/practice_exam.html', {'student': student, 'form': form, 'latest_check': latest_check})
 
 
+@erd_role_required('student')
+def student_practice_start(request, exam_id):
+    from . import student_practice as practice
+
+    exam = practice.practice_exam(exam_id, request.erd_profile_id)
+    if not exam:
+        raise Http404('آزمون آزمایشی پیدا نشد.')
+    if request.method != 'POST':
+        return redirect('core:student_practice_exam')
+    if not request.POST.get('accept_rules'):
+        messages.error(request, 'برای شروع باید قوانین آزمون را بپذیرید.')
+        return redirect('core:student_practice_exam')
+    attempt_id, refusal = practice.start_practice_attempt(exam, request.erd_profile_id, request.POST.get('mode'))
+    if refusal:
+        messages.error(request, refusal)
+        return redirect('core:student_practice_exam')
+    return redirect('core:student_attempt', attempt_id=attempt_id)
+
+
 @student_required
 def student_attempt_event(request, attempt_id):
     student = request.student_profile
@@ -17243,6 +17262,8 @@ def _sx_exam_row(exam_id, student_id):
     has_guide = erd_has_column('exams', 'guidance_file_url')
     guide = 'e.guidance_file_url' if has_guide else 'NULL'
     last_entry_group += ', e.guidance_file_url' if has_guide else ''
+    mode = _sx_exam_mode_sql()
+    last_entry_group += ', e.exam_mode, e.max_attempts' if erd_has_column('exams', 'exam_mode') else ', e.max_attempts'
     rows = erd_rows(
         f"""
         SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
@@ -17253,6 +17274,7 @@ def _sx_exam_row(exam_id, student_id):
                COALESCE(c.title, 'درس') AS course_title,
                COALESCE(p.full_name, 'استاد') AS teacher_name,
                {last_entry} AS last_entry_at, {guide} AS guidance_file_url,
+               {mode} AS exam_mode, e.max_attempts,
                COUNT(eq.id) AS question_count
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
@@ -17278,6 +17300,7 @@ def _sx_exam_row(exam_id, student_id):
                    COALESCE(c.title, 'درس') AS course_title,
                    COALESCE(p.full_name, 'استاد') AS teacher_name,
                    {last_entry} AS last_entry_at, {guide} AS guidance_file_url,
+                   {mode} AS exam_mode, e.max_attempts,
                    COUNT(eq.id) AS question_count
             FROM exams e
             LEFT JOIN courses c ON c.id = e.course_id
@@ -17304,20 +17327,35 @@ def _sx_exam_row(exam_id, student_id):
     return row
 
 
-def _sx_accessible_exams(student_id):
+PRACTICE_EXAM_MODE = 'practice'
+
+
+def _sx_exam_mode_sql(alias='e'):
+    """The exam's wizard «نوع آزمون» as SQL; 'standard' where the column does not exist yet."""
+    return f"COALESCE({alias}.exam_mode, 'standard')" if erd_has_column('exams', 'exam_mode') else "'standard'"
+
+
+def _sx_accessible_exams(student_id, practice=False):
+    """The student's exams: course exams by default, or only practice exams («آزمون آزمایشی») with practice=True.
+
+    Practice exams have their own section and never count towards the student's results, so the two lists never mix."""
+    mode = _sx_exam_mode_sql()
+    tags = 'e.tags' if erd_has_column('exams', 'tags') else 'NULL'
     rows = erd_rows(
         f"""
         SELECT e.id AS pk, e.id, e.title, COALESCE(e.description, '') AS description,
                e.start_at, e.end_at, COALESCE(e.duration_minutes, 90) AS duration_minutes,
                COALESCE(e.passing_score, 60) AS passing_score,
                COALESCE(c.title, 'درس') AS course_title, e.course_id, e.academic_year, e.semester,
+               e.max_attempts, {tags} AS tags,
                COUNT(eq.id) AS question_count
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         LEFT JOIN exam_questions eq ON eq.exam_id = e.id
         WHERE {_erd_student_exam_access_condition()}
+          AND {mode} {'=' if practice else '<>'} '{PRACTICE_EXAM_MODE}'
         GROUP BY e.id, e.title, e.description, e.start_at, e.end_at, e.duration_minutes, e.passing_score, c.title,
-                 e.course_id, e.academic_year, e.semester
+                 e.course_id, e.academic_year, e.semester, e.max_attempts{', e.tags' if tags != 'NULL' else ''}
         ORDER BY e.start_at ASC NULLS LAST, e.title
         LIMIT 80
         """,
@@ -17603,11 +17641,20 @@ def student_settings(request):
     return render(request, 'student/settings/page.html', context)
 
 
+def _sx_practice_exam_redirect(exam):
+    """Practice exams run through their own section (several attempts, a chosen mode), never the course-exam flow."""
+    if exam.get('exam_mode') == PRACTICE_EXAM_MODE:
+        return redirect('core:student_practice_exam')
+    return None
+
+
 @erd_role_required('student')
 def student_exam_detail(request, exam_id):
     exam = _sx_exam_row(exam_id, request.erd_profile_id)
     if not exam:
         raise Http404('آزمون پیدا نشد.')
+    if practice_redirect := _sx_practice_exam_redirect(exam):
+        return practice_redirect
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
     now = timezone.now()
     return render(request, 'student/exam_detail.html', {
@@ -17626,6 +17673,8 @@ def student_exam_entry(request, exam_id):
     exam = _sx_exam_row(exam_id, request.erd_profile_id)
     if not exam:
         raise Http404('آزمون پیدا نشد.')
+    if practice_redirect := _sx_practice_exam_redirect(exam):
+        return practice_redirect
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
     if attempt and attempt.get('submitted_at'):
         return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
@@ -17649,6 +17698,8 @@ def student_exam_start(request, exam_id):
     exam = _sx_exam_row(exam_id, request.erd_profile_id)
     if not exam:
         raise Http404('آزمون پیدا نشد.')
+    if practice_redirect := _sx_practice_exam_redirect(exam):
+        return practice_redirect
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
     if attempt and attempt.get('submitted_at'):
         return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
@@ -17905,6 +17956,7 @@ RESULT_DISPLAY_MODES = {'after_publish': 'پس از انتشار نتایج', 'i
 RESULT_RELEASE_COLUMNS = (
     'score_display_mode', 'correct_answer_display_mode', 'explanation_display_mode',
     'show_results_immediately', 'results_published_at',
+    'exam_mode',  # practice exams release everything at once (see _exam_result_visibility)
 )
 
 
@@ -17920,9 +17972,15 @@ def _exam_result_visibility(exam) -> dict:
 
     «بلافاصله» shows it once the attempt is graded; «پس از انتشار نتایج» and «دستی» wait until the teacher or
     the academic manager publishes the results. Exams created where the wizard field is not offered (quick
-    create, bulk import) have no score mode and keep their «نمایش فوری نتیجه» flag."""
+    create, bulk import) have no score mode and keep their «نمایش فوری نتیجه» flag.
+
+    A practice exam («آزمون آزمایشی») is for learning and never reaches the transcript, so its score, key and
+    explanations are shown as soon as the attempt is graded, whatever the display modes say."""
     published = bool(exam.get('results_published_at'))
     score_mode = exam.get('score_display_mode') or ('immediate' if exam.get('show_results_immediately') else 'after_publish')
+    if exam.get('exam_mode') == PRACTICE_EXAM_MODE:
+        score_mode = 'immediate'
+        exam = {**exam, 'correct_answer_display_mode': 'immediate', 'explanation_display_mode': 'immediate'}
 
     def shown(mode):
         return published or mode == 'immediate'
@@ -17999,7 +18057,9 @@ def _sx_result_status(row):
     return 'مردود', 'red', False
 
 
-def _sx_result_rows(student_id):
+def _sx_result_rows(student_id, practice=None):
+    """The student's submitted attempts; practice=False keeps course exams only, True practice exams only."""
+    mode_filter = '' if practice is None else f"AND {_sx_exam_mode_sql()} {'=' if practice else '<>'} '{PRACTICE_EXAM_MODE}'"
     answer_present_expr = (
         "aa.answer IS NOT NULL AND aa.answer != ''"
         if connection.vendor == 'sqlite'
@@ -18023,7 +18083,7 @@ def _sx_result_rows(student_id):
         LEFT JOIN courses c ON c.id = e.course_id
         LEFT JOIN exam_questions eq ON eq.exam_id = e.id
         LEFT JOIN attempt_answers aa ON aa.attempt_id = ea.id AND aa.question_id = eq.question_id
-        WHERE ea.student_id = %s AND ea.submitted_at IS NOT NULL
+        WHERE ea.student_id = %s AND ea.submitted_at IS NOT NULL {mode_filter}
         GROUP BY ea.id, ea.exam_id, ea.student_id, ea.started_at, ea.submitted_at, ea.score, ea.max_score,
                  ea.is_graded, ea.status, e.title, e.start_at, e.duration_minutes, e.passing_score, c.title{release_group}
         ORDER BY ea.submitted_at DESC NULLS LAST, ea.started_at DESC NULLS LAST

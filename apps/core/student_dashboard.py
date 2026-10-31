@@ -309,7 +309,7 @@ def student_classes_page_context(request, student_id) -> dict:
 
 def _recent_results(student_id) -> tuple:
     """(the latest graded results for the list, how many were submitted in the last NEW_RESULT_DAYS days)."""
-    graded = [row for row in _sx_result_rows(student_id) if not row['is_pending']]
+    graded = [row for row in _sx_result_rows(student_id, practice=False) if not row['is_pending']]
     since = timezone.now() - timedelta(days=NEW_RESULT_DAYS)
     new_count = sum(1 for row in graded if row['submitted_at'] and (_sx_dt(row['submitted_at']) or since) >= since)
     items = [{
