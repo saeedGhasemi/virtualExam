@@ -23,7 +23,7 @@
       <article class="sx-card srd-center">
         <div class="srd-illus"><span class="srd-doc"><b class="srd-check">✓</b></span></div>
         <h2>آزمون شما با موفقیت ثبت شد</h2>
-        <p class="srd-muted">نتیجه {{ result.title }} پس از بررسی و انتشار توسط استاد، در این بخش نمایش داده می‌شود.</p>
+        <p class="srd-muted">{% if result.awaiting_publication %}پاسخ‌های شما تصحیح شده است؛ نتیجه {{ result.title }} پس از انتشار توسط استاد در این بخش نمایش داده می‌شود.{% else %}نتیجه {{ result.title }} پس از تصحیح و انتشار توسط استاد، در این بخش نمایش داده می‌شود.{% endif %}</p>
         <div class="srd-info">
           <div><strong>تاریخ برگزاری</strong><p>{{ result.exam_date|fa_digits }}</p></div>
           <div><strong>مدت آزمون</strong><p>{{ result.duration_minutes|fa_digits }} دقیقه</p></div>
@@ -35,8 +35,8 @@
         <h2>مراحل اعلام نتیجه</h2>
         <div class="srd-steps">
           <div class="srd-step done"><span class="srd-num">✓</span><div><h3>۱. ثبت پاسخ‌ها</h3><p class="srd-muted">شما آزمون را با موفقیت تکمیل کردید.</p></div></div>
-          <div class="srd-step"><span class="srd-num">۲</span><div><h3>۲. بررسی استاد</h3><p class="srd-muted">استاد در حال بررسی پاسخ‌های شماست.</p></div></div>
-          <div class="srd-step"><span class="srd-num">۳</span><div><h3>۳. اعلام نتیجه</h3><p class="srd-muted">نتیجه پس از بررسی نهایی نمایش داده خواهد شد.</p></div></div>
+          {% if result.awaiting_publication %}<div class="srd-step done"><span class="srd-num">✓</span><div><h3>۲. تصحیح پاسخ‌ها</h3><p class="srd-muted">پاسخ‌های شما تصحیح شده است.</p></div></div>{% else %}<div class="srd-step"><span class="srd-num">۲</span><div><h3>۲. تصحیح پاسخ‌ها</h3><p class="srd-muted">استاد در حال تصحیح پاسخ‌های شماست.</p></div></div>{% endif %}
+          <div class="srd-step"><span class="srd-num">۳</span><div><h3>۳. انتشار نتیجه</h3><p class="srd-muted">نتیجه پس از انتشار توسط استاد نمایش داده خواهد شد.</p></div></div>
         </div>
       </aside>
     </div>
@@ -70,16 +70,16 @@
           <div class="srd-question">
             <h3>سوال {{ current_question.index|fa_digits }} از {{ summary.total|fa_digits }} ({{ current_question.type_label }}): {{ current_question.text|default:'-' }}</h3>
             {% for option in current_question.options %}
-              <div class="srd-answer {% if option.correct %}good{% elif option.chosen %}bad{% endif %}">
+              <div class="srd-answer {% if option.correct and show_correct %}good{% elif option.chosen and current_question.tone == 'bad' %}bad{% endif %}">
                 <span>{{ option.letter }}. {{ option.label }}</span>
-                <span>{% if option.chosen %}<b>پاسخ شما</b>{% endif %} {% if option.correct %}<b>پاسخ صحیح</b>{% endif %}</span>
+                <span>{% if option.chosen %}<b>پاسخ شما</b>{% endif %} {% if option.correct and show_correct %}<b>پاسخ صحیح</b>{% endif %}</span>
               </div>
             {% empty %}
               <div class="srd-answer {% if current_question.tone == 'good' %}good{% elif current_question.tone == 'bad' %}bad{% endif %}"><span>پاسخ شما: {{ current_question.answer_text|default:'بدون پاسخ' }}</span></div>
             {% endfor %}
             <div class="srd-answer"><span>نمره این سؤال</span><b>{{ current_question.points|floatformat:"-2"|fa_digits }} از {{ current_question.max_points|floatformat:"-2"|fa_digits }}</b></div>
             {% if current_question.feedback %}<div style="padding:16px;background:#f8fafc;color:#334155;font-weight:850">بازخورد مصحح: {{ current_question.feedback }}</div>{% endif %}
-            {% if current_question.explanation %}<div style="padding:16px;background:#f4f8ff;color:#274274;font-weight:850">توضیح استاد: {{ current_question.explanation }}</div>{% endif %}
+            {% if current_question.explanation and show_explanation %}<div style="padding:16px;background:#f4f8ff;color:#274274;font-weight:850">توضیح استاد: {{ current_question.explanation }}</div>{% endif %}
           </div>
           <div class="srd-question-nav">
             {% if current_question.index > 1 %}<a class="srd-btn" href="?q={{ current_question.index|add:'-1' }}">سوال قبلی</a>{% else %}<span></span>{% endif %}

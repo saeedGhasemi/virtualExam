@@ -682,6 +682,25 @@
                 <article><span>نرخ قبولی</span><strong>{% if report.pass_rate is not None %}{{ report.pass_rate|fa_digits }}٪{% else %}-{% endif %}</strong></article>
             </div>
             {% if report.ungraded %}<p class="texams-notice">{{ report.ungraded|fa_digits }} پاسخ‌نامه هنوز تصحیح نشده و در آمار بالا حساب نشده است. <a href="{% url 'core:teacher_reviews' %}">تصحیح پاسخ‌ها</a></p>{% endif %}
+            {% with visibility=report_exam.result_visibility %}
+            <section class="teacher-panel" data-result-release>
+                <h2>اعلام نتیجه به دانشجویان</h2>
+                <p class="texams-empty" style="text-align:start">
+                    نمایش نمره: <b>{{ visibility.score_mode_label }}</b> —
+                    {% if visibility.published %}نتایج در {{ visibility.published_at|to_jalali }} منتشر شده و دانشجویان نمره، پاسخ صحیح و توضیح‌ها را می‌بینند.
+                    {% elif visibility.score %}نمره هر دانشجو بلافاصله پس از تصحیح نمایش داده می‌شود؛ با انتشار، پاسخ صحیح و توضیح‌ها هم نمایش داده می‌شوند.
+                    {% else %}دانشجویان تا انتشار نتایج، نمره را نمی‌بینند.{% endif %}
+                </p>
+                <form method="post" action="{% url 'core:teacher_publish_result' report_exam.id %}">
+                    {% csrf_token %}
+                    {% if visibility.published %}
+                        <button type="submit" name="action" value="unpublish">لغو انتشار نتایج</button>
+                    {% else %}
+                        <button class="teacher-primary" type="submit" name="action" value="publish">انتشار نتایج و ارسال اعلان</button>
+                    {% endif %}
+                </form>
+            </section>
+            {% endwith %}
             {% if report.buckets %}
                 <section class="teacher-panel">
                     <h2>توزیع نمرات (از ۲۰)</h2>

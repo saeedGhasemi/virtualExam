@@ -26,7 +26,6 @@ from .models import (
     ExamRescheduleRequest,
     ExamStartAuthorization,
     ExamQuestion,
-    ExamResultPublication,
     ExamViolationReport,
     InstitutionAdminProfile,
     StudentProfile,
@@ -954,26 +953,6 @@ class DescriptiveReviewForm(forms.ModelForm):
         model = DescriptiveAnswerReview
         fields = ('score', 'feedback', 'is_suspicious', 'finalized')
         labels = {'score': 'نمره', 'feedback': 'توضیح', 'is_suspicious': 'پاسخ مشکوک', 'finalized': 'نهایی شود'}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs.setdefault('class', 'super-admin-input')
-
-
-class ResultPublicationForm(forms.ModelForm):
-    class Meta:
-        model = ExamResultPublication
-        fields = ('show_score', 'show_correct_answers', 'show_rank', 'average_score', 'highest_score', 'lowest_score', 'is_published')
-        labels = {
-            'show_score': 'نمایش نمره',
-            'show_correct_answers': 'نمایش پاسخ صحیح',
-            'show_rank': 'نمایش رتبه',
-            'average_score': 'میانگین',
-            'highest_score': 'بالاترین نمره',
-            'lowest_score': 'پایین‌ترین نمره',
-            'is_published': 'انتشار نتایج',
-        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

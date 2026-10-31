@@ -18,6 +18,7 @@ from django.urls import reverse
 from .uploads import CONTENT_TYPES, private_path
 from .views import (
     _essay_view,
+    _notify_if_result_released,
     _sx_answer_files,
     _sx_answer_value,
     _sx_float,
@@ -164,6 +165,7 @@ def _refresh_attempt_score(attempt_id):
         [attempt_id],
     )
     done = not int(totals.get('pending') or 0)
+    was_graded = bool((erd_row('SELECT is_graded FROM exam_attempts WHERE id = %s', [attempt_id]) or {}).get('is_graded'))
     erd_execute(
         """
         UPDATE exam_attempts
@@ -173,6 +175,8 @@ def _refresh_attempt_score(attempt_id):
         """,
         [max(_sx_float(totals.get('score'), 0), 0), done, done, attempt_id],
     )
+    if done and not was_graded:
+        _notify_if_result_released(attempt_id)
 
 
 @erd_role_required('teacher')

@@ -106,7 +106,7 @@ NOTIFICATION_ROWS = [
     {'key': 'new_exam', 'label': 'آزمون جدید', 'icon': 'list', 'types': ()},
     {'key': 'exam_reminder', 'label': 'یادآوری آزمون', 'icon': 'clock', 'types': ()},
     {'key': 'exam_change', 'label': 'تغییر زمان آزمون', 'icon': 'calendar', 'types': ()},
-    {'key': 'results', 'label': 'اعلام نتایج', 'icon': 'chart', 'types': ()},
+    {'key': 'results', 'label': 'اعلام نتایج', 'icon': 'chart', 'types': ('exam_results',)},
     {'key': 'objection_reply', 'label': 'پاسخ به درخواست بازبینی نمره', 'icon': 'message', 'types': ()},
     {'key': 'class_message', 'label': 'اطلاعیه کلاس', 'icon': 'bell', 'types': ('teacher_message', 'teacher_feedback')},
 ]

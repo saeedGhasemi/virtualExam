@@ -53,7 +53,7 @@
                     <h2>خلاصه تنظیمات</h2>
                     <div class="setting-list">
                         <div><span>محدوده زمانی</span><b>{{ exam.start_date|fa_digits }} - {{ exam.start_time|fa_digits }} تا {{ exam.end_time|fa_digits }}</b></div>
-                        <div><span>نمایش نمره</span><b>{% if exam.show_score %}فعال{% else %}پس از پایان آزمون{% endif %}</b></div>
+                        <div><span>نمایش نمره</span><b>{% if exam.results_published_at %}نتایج منتشر شده{% elif exam.score_display_mode == 'immediate' or not exam.score_display_mode and exam.show_results_immediately %}بلافاصله پس از تصحیح{% else %}پس از انتشار نتایج{% endif %}</b></div>
                         <div><span>مرور پاسخ‌ها</span><b>{% if exam.review_answers_enabled %}مجاز{% else %}غیرفعال{% endif %}</b></div>
                         <div><span>ترتیب سوالات</span><b>{% if exam.shuffle_questions %}تصادفی{% else %}ثابت{% endif %}</b></div>
                         <div><span>ترتیب گزینه‌ها</span><b>{% if exam.shuffle_options %}تصادفی{% else %}ثابت{% endif %}</b></div>

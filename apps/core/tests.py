@@ -1869,6 +1869,21 @@ class EssayAnswerFlowTests(_ScopedOrgFixture):
             row = cursor.fetchone()
         return json.loads(row[0])['value'] if row else None
 
+    def test_finishing_grading_on_a_published_exam_notifies_the_student_once(self):
+        self.client.force_login(self.student_user)
+        self._upload()
+        self._submit()
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET results_published_at = %s WHERE id = %s', [timezone.now(), self.exam_in_id])
+            cursor.execute('SELECT id FROM attempt_answers WHERE attempt_id = %s', [self.attempt_id])
+            detail_url = reverse('core:teacher_grading_detail', args=[str(cursor.fetchone()[0])])
+        self.client.force_login(self.teacher_user)
+        self.client.post(detail_url, {'score_0': '6', 'score_1': '2'})
+        self.client.post(detail_url, {'score_0': '5', 'score_1': '2'})  # a later correction sends nothing new
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM notifications WHERE user_id = %s AND type = 'exam_results'", [self.student_in_id])
+            self.assertEqual(cursor.fetchone()[0], 1)
+
     def test_grading_failure_is_logged_and_the_submission_kept(self):
         from unittest import mock
         self.client.force_login(self.student_user)
@@ -3568,6 +3583,8 @@ class StudentDashboardTests(_ScopedOrgFixture):
         cls.next_exam = exam('آزمون هفته بعد', cls.teacher_in_id, now + 7 * day, now + 8 * day, cls.group_in_id)
         cls.graded_exam = exam('آزمون تصحیح‌شده', cls.teacher_in_id, now - 9 * day, now - 8 * day, cls.group_in_id)
         TeacherStudentScopeTests._attempt(cls.graded_exam, cls.student_in_id, now - 9 * day, 'graded', 17, 20)
+        with connection.cursor() as cursor:  # results are visible to students once published
+            cursor.execute('UPDATE exams SET results_published_at = %s WHERE id = %s', [now - 8 * day, cls.graded_exam])
         exam('آزمون پیش‌نویس داشبورد', cls.teacher_in_id, now + day, now + 2 * day, cls.group_in_id, published=False)
         exam('آزمون گروه دیگر', cls.teacher_out_id, now - day, now + day, cls.group_out_id)
         excluded = exam('آزمون مستثنا', cls.teacher_in_id, now + day, now + 2 * day, cls.group_in_id)
@@ -3952,6 +3969,8 @@ class StudentResultRankAndTopicsTests(_ScopedOrgFixture):
                     [str(uuid.uuid4()), cls.exam_in_id, question_id, points, order])
         cls.attempt_id = cls._graded(cls.student_in_id, 4, {cls.heart: 4, cls.lung: 0})
         cls._graded(cls.student_out_id, 9, {cls.heart: 4, cls.lung: 5})
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET score_display_mode = 'immediate' WHERE id = %s", [cls.exam_in_id])
 
     @classmethod
     def _graded(cls, student_id, score, awarded):
@@ -4038,3 +4057,81 @@ class StudentResultShowsStoredDataTests(_ScopedOrgFixture):
         self.assertEqual(second.context['current_question']['text'], 'سؤال بی‌پاسخ')
         self.assertNotContains(second, 'پاسخ شما</b>')
         self.assertNotIn('سالمند', response.content.decode())
+
+
+class ExamResultReleaseTests(_ScopedOrgFixture):
+    """اعلام نتیجه طبق «نمایش نمره / پاسخ صحیح / توضیح پاسخ» آزمون؛ «پس از انتشار نتایج» تا انتشار استاد یا مدیر پنهان است."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.other_teacher_user = User.objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+        cls.question_id, cls.attempt_id = str(uuid.uuid4()), str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points', 'options', 'correct_answer', 'explanation'],
+                [cls.question_id, cls.teacher_in_id, 'داروی انتخابی؟', 'single', 2,
+                 json.dumps([{'id': '1', 'text': 'آتروپین'}, {'id': '2', 'text': 'آدنوزین'}]), json.dumps('1'), 'توضیح کلید'])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), cls.exam_in_id, cls.question_id, 2, 1])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'score', 'max_score', 'is_graded', 'status'],
+                [cls.attempt_id, cls.exam_in_id, cls.student_in_id, timezone.now(), timezone.now(), 2, 2, True, 'graded'])
+        _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'is_correct', 'points_awarded', 'needs_manual_grading'],
+                [str(uuid.uuid4()), cls.attempt_id, cls.question_id, json.dumps({'value': '1'}), True, 2, False])
+
+    def _modes(self, score, correct='after_publish'):
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET score_display_mode = %s, correct_answer_display_mode = %s, explanation_display_mode = %s WHERE id = %s',
+                           [score, correct, correct, self.exam_in_id])
+
+    def _student_view(self):
+        self.client.force_login(self.student_user)
+        return self.client.get(reverse('core:student_result_detail', args=[self.attempt_id]))
+
+    def test_result_waits_for_publication_and_teacher_publishes_it(self):
+        self._modes('after_publish')
+        waiting = self._student_view()
+        self.assertTrue(waiting.context['is_pending'])
+        self.assertContains(waiting, 'در انتظار انتشار نتیجه')
+        self.assertIsNone(waiting.context['result']['score'])
+
+        url = reverse('core:teacher_publish_result', args=[self.exam_in_id])
+        self.client.force_login(self.other_teacher_user)
+        self.assertEqual(self.client.post(url, {'action': 'publish'}).status_code, 404)
+        self.client.force_login(self.teacher_user)
+        self.assertContains(self.client.get(reverse('core:teacher_results'), {'exam': self.exam_in_id}), 'انتشار نتایج و ارسال اعلان')
+        self.client.post(url, {'action': 'publish'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT type, link FROM notifications WHERE user_id = %s', [self.student_in_id])
+            self.assertEqual(cursor.fetchall(), [('exam_results', reverse('core:student_result_detail', args=[self.attempt_id]))])
+
+        shown = self._student_view()
+        self.assertFalse(shown.context['is_pending'])
+        self.assertTrue(shown.context['show_correct'])
+        self.assertContains(shown, 'توضیح کلید')
+
+        self.client.force_login(self.teacher_user)
+        self.client.post(url, {'action': 'unpublish'})
+        self.assertTrue(self._student_view().context['is_pending'])
+
+    def test_immediate_score_keeps_the_answer_key_for_its_own_setting(self):
+        self._modes('immediate', correct='manual')
+        page = self._student_view()
+        self.assertFalse(page.context['is_pending'])
+        self.assertFalse(page.context['show_correct'])
+        self.assertNotContains(page, 'پاسخ صحیح</b>')
+        self.assertNotContains(page, 'توضیح کلید')
+
+    def test_manager_sets_modes_and_publishes_results(self):
+        self.client.force_login(self.manager_user)
+        url = reverse('core:super_admin_exam_edit', args=[self.exam_in_id])
+        self.client.post(url, {'edit_step': '5', 'score_display_mode': 'manual', 'correct_answer_display_mode': 'immediate',
+                               'explanation_display_mode': 'bogus'})
+        from apps.core.views import erd_row
+        exam = erd_row('SELECT score_display_mode, correct_answer_display_mode, explanation_display_mode, results_published_at FROM exams WHERE id = %s', [self.exam_in_id])
+        self.assertEqual((exam['score_display_mode'], exam['correct_answer_display_mode'], exam['explanation_display_mode']),
+                         ('manual', 'immediate', 'after_publish'))
+        self.assertTrue(self._student_view().context['is_pending'])
+        self.client.force_login(self.manager_user)
+        self.client.post(url, {'edit_step': '5', 'publish_action': 'publish_results'})
+        self.assertFalse(self._student_view().context['is_pending'])

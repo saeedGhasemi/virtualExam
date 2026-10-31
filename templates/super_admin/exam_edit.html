@@ -312,9 +312,6 @@
                             </article>
                             <article class="panel glass">
                                 <h2>سایر تنظیمات</h2>
-                                <input type="hidden" name="result_release_mode" value="{{ exam.result_release_mode|default:'after_exam' }}">
-                                <label class="toggle-row">نمایش پاسخ صحیح <span class="toggle"><input name="show_correct_answers" type="checkbox" {% if exam.show_correct_answers %}checked{% endif %}><span></span></span></label>
-                                <label class="toggle-row">نمایش نمره <span class="toggle"><input name="show_score" type="checkbox" {% if exam.show_score %}checked{% endif %}><span></span></span></label>
                                 <label class="toggle-row">امتیاز جزئی <span class="toggle"><input name="allow_partial" type="checkbox" {% if exam.allow_partial %}checked{% endif %}><span></span></span></label>
                             </article>
                         </div>
@@ -345,9 +342,13 @@
                         <aside class="panel glass">
                             <h2>گزینه‌های انتشار</h2>
                             <label class="field">شیوه ثبت<select name="publish_mode"><option value="draft" {% if exam.publish_mode == 'draft' %}selected{% endif %}>ذخیره پیش‌نویس</option><option value="immediate" {% if exam.publish_mode == 'immediate' %}selected{% endif %}>انتشار فوری</option><option value="scheduled" {% if exam.publish_mode == 'scheduled' %}selected{% endif %}>انتشار زمان‌بندی‌شده</option></select></label>
-                            <label class="field">نمایش نتیجه<select name="result_release_mode"><option value="after_exam">پس از پایان آزمون</option><option value="manual">دستی</option><option value="immediate">بلافاصله</option></select></label>
-                            <label class="toggle-row">نمایش نتیجه به شرکت‌کننده <span class="toggle"><input name="show_results_immediately" type="checkbox" {% if exam.show_results_immediately %}checked{% endif %}><span></span></span></label>
+                            <label class="field">نمایش نمره<select name="score_display_mode"><option value="after_publish"{% if exam.score_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.score_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.score_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>دستی</option></select></label>
+                            <label class="field">نمایش پاسخ صحیح<select name="correct_answer_display_mode"><option value="after_publish"{% if exam.correct_answer_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.correct_answer_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.correct_answer_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>دستی</option></select></label>
+                            <label class="field">نمایش توضیح پاسخ<select name="explanation_display_mode"><option value="after_publish"{% if exam.explanation_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.explanation_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.explanation_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>دستی</option></select></label>
                             <button class="btn primary" name="publish_action" value="republish" type="submit" style="width:100%;margin-top:1rem">ذخیره و انتشار مجدد</button>
+                            <h2 style="margin-top:1.4rem">انتشار نتایج</h2>
+                            <p class="notice" style="margin:.4rem 0">{% if exam.results_published_at %}نتایج منتشر شده است؛ دانشجویان نمره و موارد مجاز را می‌بینند.{% else %}نتایج منتشر نشده است؛ نمره فقط در حالت «بلافاصله پس از تصحیح» نمایش داده می‌شود.{% endif %}</p>
+                            {% if exam.results_published_at %}<button class="btn" name="publish_action" value="unpublish_results" type="submit" style="width:100%">لغو انتشار نتایج</button>{% else %}<button class="btn soft" name="publish_action" value="publish_results" type="submit" style="width:100%">انتشار نتایج و ارسال اعلان</button>{% endif %}
                         </aside>
                     </section>
                 {% endif %}

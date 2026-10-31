@@ -68,7 +68,6 @@ from .forms import (
     ObjectionReviewForm,
     QuestionForm,
     PublicRegistrationForm,
-    ResultPublicationForm,
     StyledAuthenticationForm,
     SuperAdminClassForm,
     SuperAdminCourseForm,
@@ -101,7 +100,6 @@ from .models import (
     ExamExecutionReport,
     ExamProctorAssignment,
     ExamQuestion,
-    ExamResultPublication,
     ExamRescheduleRequest,
     ExamStartAuthorization,
     ExamViolationReport,
@@ -9208,16 +9206,12 @@ def super_admin_exam_edit(request, exam_id):
                     negative_marking = %s,
                     negative_factor = %s,
                     max_attempts = %s,
-                    show_results_immediately = %s,
                     allow_partial = %s,
-                    result_release_mode = %s,
                     review_answers_enabled = %s,
                     show_instructions_before_start = %s,
                     autosave_enabled = %s,
                     fullscreen_required = %s,
                     track_tab_exit = %s,
-                    show_correct_answers = %s,
-                    show_score = %s,
                     show_feedback = %s
                 WHERE id = %s
                 """,
@@ -9230,16 +9224,12 @@ def super_admin_exam_edit(request, exam_id):
                     checked('negative_marking'),
                     request.POST.get('negative_factor') or 0,
                     int(request.POST.get('max_attempts') or 1),
-                    checked('show_results_immediately'),
                     checked('allow_partial'),
-                    request.POST.get('result_release_mode') or 'after_exam',
                     checked('review_answers_enabled'),
                     checked('show_instructions_before_start'),
                     checked('autosave_enabled'),
                     checked('fullscreen_required'),
                     checked('track_tab_exit'),
-                    checked('show_correct_answers'),
-                    checked('show_score'),
                     checked('show_feedback'),
                     exam_id,
                 ],
@@ -9264,19 +9254,32 @@ def super_admin_exam_edit(request, exam_id):
                     [approved_by, timezone.now(), request.POST.get('publish_mode') or 'immediate', exam_id],
                 )
                 messages.success(request, 'نسخه جدید آزمون منتشر شد.')
+            elif publish_action in ('publish_results', 'unpublish_results'):
+                notified = _set_exam_results_published(request, exam_id, publish_action == 'publish_results')
+                messages.success(
+                    request,
+                    f'نتایج منتشر شد و برای {notified} دانشجو اعلان ارسال شد.' if publish_action == 'publish_results'
+                    else 'انتشار نتایج لغو شد.',
+                )
             else:
+                def mode(name):
+                    value = request.POST.get(name)
+                    return value if value in RESULT_DISPLAY_MODES else (exam.get(name) or 'after_publish')
+
                 erd_execute(
                     """
                     UPDATE exams
                     SET publish_mode = %s,
-                        result_release_mode = %s,
-                        show_results_immediately = %s
+                        score_display_mode = %s,
+                        correct_answer_display_mode = %s,
+                        explanation_display_mode = %s
                     WHERE id = %s
                     """,
                     [
                         request.POST.get('publish_mode') or exam.get('publish_mode') or 'draft',
-                        request.POST.get('result_release_mode') or exam.get('result_release_mode') or 'after_exam',
-                        checked('show_results_immediately'),
+                        mode('score_display_mode'),
+                        mode('correct_answer_display_mode'),
+                        mode('explanation_display_mode'),
                         exam_id,
                     ],
                 )
@@ -11862,25 +11865,21 @@ def teacher_review_detail(request, review_id):
     return render(request, 'teacher/review_detail.html', {'teacher': teacher, 'review': review, 'form': form, 'grading_aid': _grading_aid(review.question)})
 
 
-@teacher_required
+@erd_role_required('teacher')
 def teacher_publish_result(request, exam_id):
-    teacher = request.teacher_profile
-    exam = get_object_or_404(Exam, pk=exam_id, designer=teacher)
-    publication, _ = ExamResultPublication.objects.get_or_create(exam=exam)
-    if request.method == 'POST':
-        form = ResultPublicationForm(request.POST, instance=publication)
-        if form.is_valid():
-            item = form.save(commit=False)
-            item.published_by = request.user
-            if item.is_published:
-                item.published_at = timezone.now()
-            item.save()
-            log_activity(request.user, 'teacher_results_published', f'نتایج آزمون {exam.title} منتشر شد.', request, {'exam_id': exam.pk})
-            messages.success(request, 'تنظیمات نتیجه ذخیره شد و در صورت انتشار، اعلان دانشجویان ثبت شد.')
-            return redirect('core:teacher_results')
-    else:
-        form = ResultPublicationForm(instance=publication)
-    return render(request, 'teacher/publish_result.html', {'teacher': teacher, 'exam': exam, 'form': form})
+    """«انتشار نتایج» / «لغو انتشار» for one of the teacher's exams (POST only; another teacher's exam is a 404)."""
+    if request.method != 'POST':
+        return redirect(f"{reverse('core:teacher_results')}?exam={exam_id}")
+    exam = _teacher_owned_exam(request.erd_profile_id, exam_id)
+    if not exam:
+        raise Http404('آزمون پیدا نشد.')
+    publish = request.POST.get('action') == 'publish'
+    notified = _set_exam_results_published(request, exam['id'], publish)
+    messages.success(
+        request,
+        f'نتایج منتشر شد و برای {notified} دانشجو اعلان ارسال شد.' if publish else 'انتشار نتایج لغو شد؛ دانشجویان تا انتشار دوباره نمره را نمی‌بینند.',
+    )
+    return redirect(f"{reverse('core:teacher_results')}?exam={exam['id']}")
 
 
 @assistant_required
@@ -13939,15 +13938,18 @@ TEACHER_RESULT_BUCKETS = ((0, 4), (4, 8), (8, 12), (12, 16), (16, 20))
 
 def _teacher_owned_exam(teacher_id, exam_id):
     """The exam row when it belongs to this teacher, else None (callers turn None into a 404)."""
-    return erd_row(
-        """
+    row = erd_row(
+        f"""
         SELECT e.id, e.title, e.start_at, e.end_at, e.duration_minutes, e.passing_score,
-               COALESCE(c.title, '-') AS course
+               COALESCE(c.title, '-') AS course, {_exam_result_columns()[0]}
         FROM exams e LEFT JOIN courses c ON c.id = e.course_id
         WHERE e.id = %s AND e.teacher_id = %s
         """,
         [exam_id, teacher_id],
     )
+    if row:
+        row['result_visibility'] = _exam_result_visibility(row)
+    return row
 
 
 def _teacher_exam_options(teacher_id) -> list:
@@ -18270,6 +18272,89 @@ def _sx_percent(score, max_score):
     return max(0, min(100, round(score * 100 / max_score)))
 
 
+RESULT_DISPLAY_MODES = {'after_publish': 'پس از انتشار نتایج', 'immediate': 'بلافاصله', 'manual': 'دستی'}
+RESULT_RELEASE_COLUMNS = (
+    'score_display_mode', 'correct_answer_display_mode', 'explanation_display_mode',
+    'show_results_immediately', 'results_published_at',
+)
+
+
+def _exam_result_columns(alias='e') -> tuple:
+    """(SELECT list, GROUP BY suffix) for the exam's result-release columns; a missing column reads as NULL."""
+    present = [column for column in RESULT_RELEASE_COLUMNS if erd_has_column('exams', column)]
+    select = ', '.join(f'{alias}.{column}' if column in present else f'NULL AS {column}' for column in RESULT_RELEASE_COLUMNS)
+    return select, ''.join(f', {alias}.{column}' for column in present)
+
+
+def _exam_result_visibility(exam) -> dict:
+    """What students may see of a graded attempt, from the wizard's «نمایش نمره / پاسخ صحیح / توضیح پاسخ».
+
+    «بلافاصله» shows it once the attempt is graded; «پس از انتشار نتایج» and «دستی» wait until the teacher or
+    the academic manager publishes the results. Exams created where the wizard field is not offered (quick
+    create, bulk import) have no score mode and keep their «نمایش فوری نتیجه» flag."""
+    published = bool(exam.get('results_published_at'))
+    score_mode = exam.get('score_display_mode') or ('immediate' if exam.get('show_results_immediately') else 'after_publish')
+
+    def shown(mode):
+        return published or mode == 'immediate'
+
+    score = shown(score_mode)
+    return {
+        'published': published,
+        'published_at': _sx_dt(exam.get('results_published_at')),
+        'score_mode': score_mode,
+        'score_mode_label': RESULT_DISPLAY_MODES.get(score_mode, RESULT_DISPLAY_MODES['after_publish']),
+        'score': score,
+        'correct_answers': score and shown(exam.get('correct_answer_display_mode') or 'after_publish'),
+        'explanations': score and shown(exam.get('explanation_display_mode') or 'after_publish'),
+    }
+
+
+def _notify_published_result(attempt) -> None:
+    create_notification(
+        attempt['student_id'], 'نتیجه آزمون منتشر شد', f"نتیجه آزمون «{attempt['title']}» منتشر شد.",
+        link=reverse('core:student_result_detail', args=[attempt['id']]), notification_type='exam_results',
+    )
+
+
+def _set_exam_results_published(request, exam_id, publish: bool) -> int:
+    """Publish or withdraw an exam's results; on publishing, notify each student whose attempt is graded.
+
+    Returns how many students were notified. Students graded later are notified when grading finishes."""
+    with transaction.atomic():
+        erd_execute('UPDATE exams SET results_published_at = %s WHERE id = %s', [timezone.now() if publish else None, exam_id])
+        graded = erd_rows(
+            """
+            SELECT ea.id, ea.student_id, e.title
+            FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
+            WHERE ea.exam_id = %s AND ea.submitted_at IS NOT NULL AND COALESCE(ea.is_graded, false) = true
+            """,
+            [exam_id],
+        ) if publish else []
+        for attempt in graded:
+            _notify_published_result(attempt)
+    log_activity(
+        request.user, 'exam_results_published' if publish else 'exam_results_withdrawn',
+        'نتایج آزمون منتشر شد.' if publish else 'انتشار نتایج آزمون لغو شد.', request, {'exam_id': str(exam_id)},
+    )
+    return len(graded)
+
+
+def _notify_if_result_released(attempt_id) -> None:
+    """After manual grading finishes an attempt, tell the student when the exam's results are already visible."""
+    select, _ = _exam_result_columns()
+    attempt = erd_row(
+        f"""
+        SELECT ea.id, ea.student_id, ea.is_graded, e.title, {select}
+        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
+        WHERE ea.id = %s
+        """,
+        [attempt_id],
+    )
+    if attempt and attempt.get('is_graded') and _exam_result_visibility(attempt)['score']:
+        _notify_published_result(attempt)
+
+
 def _sx_result_status(row):
     is_graded = bool(row.get('is_graded')) and row.get('score') is not None
     if not is_graded:
@@ -18293,12 +18378,13 @@ def _sx_result_rows(student_id):
     )
     correct_answer_expr = "aa.is_correct = 1" if connection.vendor == 'sqlite' else "aa.is_correct IS TRUE"
     wrong_answer_expr = "aa.is_correct = 0" if connection.vendor == 'sqlite' else "aa.is_correct IS FALSE"
+    release_select, release_group = _exam_result_columns()
     rows = erd_rows(
         f"""
         SELECT ea.id AS pk, ea.id, ea.exam_id, ea.student_id, ea.started_at, ea.submitted_at,
                ea.score, ea.max_score, ea.is_graded, ea.status,
                e.title, e.start_at, e.duration_minutes, COALESCE(e.passing_score, 60) AS passing_score,
-               COALESCE(c.title, 'درس') AS course_title,
+               COALESCE(c.title, 'درس') AS course_title, {release_select},
                COUNT(DISTINCT eq.question_id) AS question_count,
                SUM(CASE WHEN {answer_present_expr} THEN 1 ELSE 0 END) AS answered_count,
                SUM(CASE WHEN {correct_answer_expr} THEN 1 ELSE 0 END) AS correct_count,
@@ -18310,7 +18396,7 @@ def _sx_result_rows(student_id):
         LEFT JOIN attempt_answers aa ON aa.attempt_id = ea.id AND aa.question_id = eq.question_id
         WHERE ea.student_id = %s AND ea.submitted_at IS NOT NULL
         GROUP BY ea.id, ea.exam_id, ea.student_id, ea.started_at, ea.submitted_at, ea.score, ea.max_score,
-                 ea.is_graded, ea.status, e.title, e.start_at, e.duration_minutes, e.passing_score, c.title
+                 ea.is_graded, ea.status, e.title, e.start_at, e.duration_minutes, e.passing_score, c.title{release_group}
         ORDER BY ea.submitted_at DESC NULLS LAST, ea.started_at DESC NULLS LAST
         """,
         [student_id],
@@ -18322,9 +18408,15 @@ def _sx_result_rows(student_id):
         percent = _sx_percent(row.get('score'), max_score) if row.get('score') is not None and max_score else 0
         row['percent'] = percent
         label, tone, pending = _sx_result_status(row)
+        visibility = _exam_result_visibility(row)
+        awaiting_publication = not pending and not visibility['score']
+        if awaiting_publication:
+            label, tone, pending = 'در انتظار انتشار نتیجه', 'orange', True
         correct = _em_int(row.get('correct_count'), 0)
         wrong = _em_int(row.get('wrong_count'), 0)
         answered = _em_int(row.get('answered_count'), correct + wrong)
+        if pending:  # nothing of the score may reach the page before it is graded and released
+            percent, correct, wrong = 0, 0, 0
         normalized.append({
             'pk': row['pk'],
             'id': row['id'],
@@ -18334,12 +18426,14 @@ def _sx_result_rows(student_id):
             'submitted_at': row.get('submitted_at'),
             'exam_date': _sx_jalali(row.get('start_at') or row.get('submitted_at')),
             'duration_minutes': _em_int(row.get('duration_minutes'), 90),
-            'score': row.get('score'),
+            'score': None if pending else row.get('score'),
             'max_score': max_score,
             'percent': percent,
             'status_label': label,
             'status_tone': tone,
             'is_pending': pending,
+            'awaiting_publication': awaiting_publication,
+            'visibility': visibility,
             'question_count': question_count,
             'answered_count': answered,
             'correct_count': correct,
@@ -18483,6 +18577,8 @@ def student_result_detail(request, attempt_id):
         'rank': rank,
         'rank_total': rank_total,
         'topics': _sx_result_topics(attempt_id),
+        'show_correct': result['visibility']['correct_answers'],
+        'show_explanation': result['visibility']['explanations'],
     })
 
 
