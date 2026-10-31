@@ -3911,3 +3911,41 @@ class LegacyQuestionFormatMigrationTests(_ScopedOrgFixture):
         self._run('restore_legacy_questions')
         for question_id, row in before.items():
             self.assertEqual(self._row(question_id), row)
+
+
+class StudentResultRankAndTopicsTests(_ScopedOrgFixture):
+    """رتبه و عملکرد موضوعی صفحه‌ی نتیجه از داده‌ی واقعی آزمون؛ قبلاً رتبه «۸ از ۴۵» و درصد موضوع‌ها از روی درصد کل ساخته می‌شد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        cls.heart, cls.lung = str(uuid.uuid4()), str(uuid.uuid4())
+        for order, (question_id, subject, points) in enumerate(((cls.heart, 'قلب و عروق', 4), (cls.lung, 'تنفس', 6)), start=1):
+            _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points', 'subject'],
+                    [question_id, cls.teacher_in_id, f'سؤال {subject}', 'single', points, subject])
+            _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                    [str(uuid.uuid4()), cls.exam_in_id, question_id, points, order])
+        cls.attempt_id = cls._graded(cls.student_in_id, 4, {cls.heart: 4, cls.lung: 0})
+        cls._graded(cls.student_out_id, 9, {cls.heart: 4, cls.lung: 5})
+
+    @classmethod
+    def _graded(cls, student_id, score, awarded):
+        attempt_id = str(uuid.uuid4())
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'score', 'max_score', 'is_graded', 'status'],
+                [attempt_id, cls.exam_in_id, student_id, timezone.now(), timezone.now(), score, 10, True, 'graded'])
+        for question_id, points in awarded.items():
+            _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'is_correct', 'points_awarded', 'needs_manual_grading'],
+                    [str(uuid.uuid4()), attempt_id, question_id, json.dumps({'value': '1'}), points > 0, points, False])
+        return attempt_id
+
+    def test_rank_and_topics_come_from_the_exam(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(reverse('core:student_result_detail', args=[self.attempt_id]))
+        self.assertEqual((response.context['rank'], response.context['rank_total']), (2, 2))
+        self.assertEqual(response.context['topics'], [{'title': 'تنفس', 'percent': 0}, {'title': 'قلب و عروق', 'percent': 100}])
+        page = response.content.decode()
+        self.assertIn('۲ از ۲', page)
+        for leftover in ('از ۴۵', 'ارزیابی و مراقبت‌های پایه', 'سلامت جسمی و پیشگیری'):
+            self.assertNotIn(leftover, page)

@@ -53,7 +53,7 @@
       <div class="srd-ring" style="--p:{{ result.percent }}"><span>{{ result.percent|fa_digits }}</span></div>
       <div class="srd-divider"></div>
       <div><h1 style="margin:0;font-size:1.8rem">{{ result.title }}</h1><p class="srd-muted">برگزارشده در {{ result.exam_date|fa_digits }}</p></div>
-      <div><small class="srd-muted">رتبه شما</small><h2>{{ result.rank|fa_digits }} از {{ result.rank_total|fa_digits }}</h2></div>
+      <div><small class="srd-muted">رتبه شما</small><h2>{% if rank %}{{ rank|fa_digits }} از {{ rank_total|fa_digits }}{% else %}-{% endif %}</h2></div>
       <div><small class="srd-muted">وضعیت</small><p><span class="srd-chip {{ result.status_tone }}">{{ result.status_label }}</span></p></div>
     </article>
     <section class="srd-main-grid">
@@ -63,7 +63,7 @@
           <div class="srd-mini"><span>پاسخ صحیح</span><strong>{{ summary.correct|fa_digits }}</strong></div>
           <div class="srd-mini"><span>پاسخ نادرست</span><strong>{{ summary.wrong|fa_digits }}</strong></div>
           <div class="srd-mini"><span>بدون پاسخ</span><strong>{{ summary.unanswered|fa_digits }}</strong></div>
-          <div class="srd-mini"><span>عملکرد شما در موضوعات</span><div class="srd-performance" style="margin-top:14px"><div class="srd-perf"><span>ارزیابی و مراقبت‌های پایه</span><b>{{ summary.topic_one|fa_digits }}٪</b><div class="srd-progress"><b style="width:{{ summary.topic_one }}%"></b></div></div><div class="srd-perf"><span>سلامت جسمی و پیشگیری</span><b>{{ summary.topic_two|fa_digits }}٪</b><div class="srd-progress"><b style="width:{{ summary.topic_two }}%"></b></div></div></div></div>
+          <div class="srd-mini"><span>عملکرد شما در موضوعات</span><div class="srd-performance" style="margin-top:14px">{% for topic in topics %}<div class="srd-perf"><span>{{ topic.title }}</span><b>{{ topic.percent|fa_digits }}٪</b><div class="srd-progress"><b style="width:{{ topic.percent }}%"></b></div></div>{% empty %}<small class="srd-muted">برای سؤال‌های این آزمون مبحثی ثبت نشده است.</small>{% endfor %}</div></div>
         </div>
         {% if current_question %}
           <div class="srd-question">

@@ -18330,7 +18330,7 @@ def _sx_result_rows(student_id):
         [student_id],
     )
     normalized = []
-    for index, row in enumerate(rows, start=1):
+    for row in rows:
         question_count = _em_int(row.get('question_count'), 0)
         max_score = row.get('max_score') or question_count or 20
         percent = _sx_percent(row.get('score'), max_score) if row.get('score') is not None else 0
@@ -18355,8 +18355,6 @@ def _sx_result_rows(student_id):
             'score': row.get('score'),
             'max_score': max_score,
             'percent': percent,
-            'rank': min(8 + index - 1, 45),
-            'rank_total': 45,
             'status_label': label,
             'status_tone': tone,
             'is_pending': pending,
@@ -18514,9 +18512,8 @@ def student_result_detail(request, attempt_id):
         'correct': correct or result['correct_count'],
         'wrong': wrong or result['wrong_count'],
         'unanswered': unanswered or result['unanswered_count'],
-        'topic_one': min(96, max(35, result['percent'] - 11)),
-        'topic_two': min(96, max(35, result['percent'] - 5)),
     }
+    rank, rank_total = _sx_result_rank(result['exam_id'], result['score'])
     return render(request, 'student/result_detail.html', {
         'student': _sx_student_context(request),
         'result': result,
@@ -18524,7 +18521,57 @@ def student_result_detail(request, attempt_id):
         'question_items': question_items[:40],
         'current_question': current_question,
         'summary': summary,
+        'rank': rank,
+        'rank_total': rank_total,
+        'topics': _sx_result_topics(attempt_id),
     })
+
+
+def _sx_result_rank(exam_id, score):
+    """(rank, participants) among students with a graded attempt on the exam, by each student's best score.
+
+    Students with the same score share a rank. (None, 0) while this attempt has no score."""
+    if score is None:
+        return None, 0
+    row = erd_row(
+        """
+        SELECT COUNT(*) AS total, SUM(CASE WHEN best > %s THEN 1 ELSE 0 END) AS ahead
+        FROM (
+            SELECT student_id, MAX(score) AS best
+            FROM exam_attempts
+            WHERE exam_id = %s AND COALESCE(is_graded, false) = true AND score IS NOT NULL
+            GROUP BY student_id
+        ) graded
+        """,
+        [score, exam_id],
+    ) or {}
+    total = _em_int(row.get('total'), 0)
+    return (_em_int(row.get('ahead'), 0) + 1, total) if total else (None, 0)
+
+
+def _sx_result_topics(attempt_id):
+    """Score percentage per question subject («مبحث») of one attempt, most questions first."""
+    rows = erd_rows(
+        """
+        SELECT TRIM(q.subject) AS subject, COUNT(*) AS question_count,
+               SUM(COALESCE(eq.points, 0)) AS max_points, SUM(COALESCE(aa.points_awarded, 0)) AS awarded
+        FROM exam_attempts ea
+        JOIN exam_questions eq ON eq.exam_id = ea.exam_id
+        JOIN questions q ON q.id = eq.question_id
+        LEFT JOIN attempt_answers aa ON aa.attempt_id = ea.id AND aa.question_id = q.id
+        WHERE ea.id = %s AND COALESCE(TRIM(q.subject), '') != ''
+        GROUP BY TRIM(q.subject)
+        ORDER BY COUNT(*) DESC, TRIM(q.subject)
+        """,
+        [attempt_id],
+    )
+    return [
+        {
+            'title': row['subject'],
+            'percent': round(min(max(_sx_float(row['awarded'], 0) / _sx_float(row['max_points'], 0) * 100, 0), 100)),
+        }
+        for row in rows if _sx_float(row['max_points'], 0) > 0
+    ]
 
 
 
