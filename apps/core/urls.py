@@ -1,6 +1,6 @@
 from django.urls import path
 from .grading_views import attempt_answer_file, teacher_grading_detail, teacher_reviews
-from .teacher_question_bank import teacher_question_archive
+from .teacher_question_bank import teacher_question_archive, teacher_question_share, teacher_shared_question_copy
 from .teacher_students import (
     teacher_group_students,
     teacher_student_note_create,
@@ -327,6 +327,8 @@ urlpatterns = [
     path('teacher/questions/import/', teacher_question_bulk_import, name='teacher_question_bulk_import'),
     path('teacher/questions/<str:question_id>/edit/', teacher_question_edit, name='teacher_question_edit'),
     path('teacher/questions/<str:question_id>/archive/', teacher_question_archive, name='teacher_question_archive'),
+    path('teacher/questions/<str:question_id>/share/', teacher_question_share, name='teacher_question_share'),
+    path('teacher/questions/<str:question_id>/copy/', teacher_shared_question_copy, name='teacher_shared_question_copy'),
     path('teacher/exams/', teacher_exams, name='teacher_exams'),
     path('teacher/exams/create/', teacher_exam_create, name='teacher_exam_create'),
     path('teacher/exams/create/participants-match/', teacher_exam_participants_match, name='teacher_exam_participants_match'),

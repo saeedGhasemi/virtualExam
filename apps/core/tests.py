@@ -4362,3 +4362,53 @@ class TeacherQuestionBanksAndCategoriesTests(_ScopedOrgFixture):
         self.assertEqual(page.context['question_page'].paginator.count, 2)
         self.assertContains(page, 'برچسب «ECG»')
         self.assertNotContains(self.client.get(url, {'view': 'tags'}), 'داروشناسی')
+
+
+class TeacherQuestionSharingTests(_ScopedOrgFixture):
+    """اشتراک سؤال فقط با اساتید همان درس (سمت سرور) و افزودن نسخه‌ی پیش‌نویس به بانک خود؛ قبلاً تب اشتراکی سؤال‌های خود استاد را
+    با نام «استاد نمونه» نشان می‌داد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.co_teacher_user = User.objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+        _insert('group_teachers', ['group_id', 'teacher_id'], [cls.group_in_id, cls.teacher_out_id])  # co-teaches course_in
+        cls.question_id, cls.other_course_id = str(uuid.uuid4()), str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'is_published', 'options', 'correct_answer'],
+                [cls.question_id, cls.teacher_in_id, cls.course_in_id, 'سؤال قابل اشتراک', 'single', True,
+                 json.dumps([{'id': '1', 'text': 'الف', 'is_correct': True}]), json.dumps('1')])
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'is_published', 'shared_at'],
+                [cls.other_course_id, cls.teacher_out_id, cls.course_out_id, 'سؤال درس دیگر', 'single', True, timezone.now()])
+
+    def _shared_texts(self, user):
+        self.client.force_login(user)
+        return [q['text'] for q in self.client.get(reverse('core:teacher_questions'), {'view': 'shared'}).context['questions']]
+
+    def test_sharing_reaches_only_teachers_of_the_course_and_copies_as_draft(self):
+        share = reverse('core:teacher_question_share', args=[self.question_id])
+        self.client.force_login(self.co_teacher_user)
+        self.assertEqual(self.client.post(share, {'action': 'share'}).status_code, 404)  # not the owner
+        self.assertEqual(self._shared_texts(self.co_teacher_user), [])
+
+        self.client.force_login(self.teacher_user)
+        self.client.post(share, {'action': 'share'})
+        self.assertEqual(self._shared_texts(self.co_teacher_user), ['سؤال قابل اشتراک'])
+        self.assertContains(self.client.get(reverse('core:teacher_questions'), {'view': 'shared'}), 'استاد خارج محدوده')
+        self.assertEqual(self._shared_texts(self.teacher_user), [])  # not own questions, nor the other course's share
+
+        copy_other = reverse('core:teacher_shared_question_copy', args=[self.other_course_id])
+        self.assertEqual(self.client.post(copy_other).status_code, 404)  # teacher_in does not teach that course
+
+        self.client.force_login(self.co_teacher_user)
+        response = self.client.post(reverse('core:teacher_shared_question_copy', args=[self.question_id]))
+        from apps.core.views import erd_row
+        copy = erd_row("SELECT * FROM questions WHERE teacher_id = %s AND text = 'سؤال قابل اشتراک'", [self.teacher_out_id])
+        self.assertRedirects(response, reverse('core:teacher_question_edit', args=[copy['id']]), fetch_redirect_response=False)
+        self.assertEqual((bool(copy['is_published']), copy['shared_at'], str(copy['course_id'])), (False, None, self.course_in_id))
+        self.assertEqual(json.loads(copy['options'])[0]['text'], 'الف')
+
+        self.client.force_login(self.teacher_user)
+        self.client.post(share, {'action': 'unshare'})
+        self.assertEqual(self._shared_texts(self.co_teacher_user), [])

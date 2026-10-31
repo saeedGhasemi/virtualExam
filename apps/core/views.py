@@ -13396,62 +13396,6 @@ def _question_json(value, fallback):
         return fallback
 
 
-def _question_status(row, index=0):
-    if not row.get('text'):
-        return 'needs_review', 'نیازمند بازبینی', 'is-warn'
-    if row.get('is_published') in (True, 1, '1', 'true', 'True'):
-        return 'active', 'فعال', 'is-ok'
-    return 'draft', 'پیش‌نویس', 'is-muted'
-
-
-def _teacher_question_rows(teacher_id):
-    question_columns = erd_table_columns('questions')
-    structure_select = "q.structure" if 'structure' in question_columns else "'independent' AS structure"
-    subject_select = "q.subject" if 'subject' in question_columns else "COALESCE(c.title, '-') AS subject"
-    scenario_select = "q.scenario_data" if 'scenario_data' in question_columns else "'{}' AS scenario_data"
-    if not teacher_id:
-        rows = []
-    else:
-        rows = erd_rows(
-            f"""
-            SELECT q.id, q.text, q.type, q.difficulty, q.default_points, q.tags,
-                   {structure_select}, {subject_select}, q.options, q.correct_answer,
-                   {scenario_select}, q.is_published, COALESCE(c.title, '-') AS course
-            FROM questions q
-            LEFT JOIN courses c ON c.id = q.course_id
-            WHERE q.teacher_id = %s
-            ORDER BY q.text
-            """,
-            [teacher_id],
-        )
-
-    enriched = []
-    for index, row in enumerate(rows, start=1):
-        status_key, status_label, status_class = _question_status(row, index)
-        qtype = row.get('type') or 'single'
-        difficulty = row.get('difficulty') or 'medium'
-        structure = row.get('structure') or 'independent'
-        tags = [tag.strip() for tag in str(row.get('tags') or '').replace('،', ',').split(',') if tag.strip()]
-        options = _question_json(row.get('options'), [])
-        correct = _question_json(row.get('correct_answer'), '')
-        enriched.append({
-            **row,
-            'code': str(row.get('id') or f'Q-{index:06d}')[:8] if not str(row.get('id') or '').startswith('Q-') else row.get('id'),
-            'type_label': QUESTION_TYPE_LABELS.get(qtype, qtype),
-            'difficulty_label': QUESTION_DIFFICULTY_LABELS.get(difficulty, difficulty),
-            'difficulty_class': 'is-ok' if difficulty == 'easy' else 'is-danger' if difficulty == 'hard' else 'is-muted',
-            'structure_label': QUESTION_STRUCTURE_LABELS.get(structure, structure),
-            'status_key': status_key,
-            'status_label': status_label,
-            'status_class': status_class,
-            'tags_list': tags[:3],
-            'options_list': options if isinstance(options, list) else [],
-            'correct_display': ', '.join(correct) if isinstance(correct, list) else str(correct or '-'),
-        })
-
-    return enriched
-
-
 JALALI_MONTH_NAMES = ('فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند')
 JALALI_WEEKDAY_NAMES = ('دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه', 'یکشنبه')  # indexed by date.weekday()
 

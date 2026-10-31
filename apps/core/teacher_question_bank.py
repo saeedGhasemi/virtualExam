@@ -3,6 +3,7 @@
 Filtering, counting and paging happen in the database, and nothing here runs for the other teacher pages.
 """
 import json
+import uuid
 from datetime import timedelta
 
 from urllib.parse import urlencode
@@ -20,7 +21,6 @@ from .views import (
     QUESTION_STRUCTURE_LABELS,
     QUESTION_TYPE_LABELS,
     _query_without_page,
-    _teacher_question_rows,
     erd_execute,
     erd_role_required,
     erd_row,
@@ -129,7 +129,7 @@ def question_page(request, teacher_id, archived=False, status=None):
     rows = erd_rows(
         f"""
         SELECT q.id, q.text, q.type, q.difficulty, {structure}, COALESCE(c.title, '-') AS course, {STATUS_SQL} AS status_key,
-               q.updated_at, q.archived_at
+               q.updated_at, q.archived_at, q.shared_at
         {joins}
         WHERE {where}
         ORDER BY {'q.archived_at DESC, ' if archived else ''}q.text, q.id
@@ -280,12 +280,47 @@ def recent_questions(teacher_id, limit=5) -> list:
     return [_row(row) for row in rows]
 
 
+# Courses the teacher teaches (own groups or co-taught ones): sharing never reaches beyond them.
+TEACHER_COURSES_SQL = """
+    SELECT sg.course_id FROM student_groups sg
+    LEFT JOIN group_teachers gt ON gt.group_id = sg.id
+    WHERE (sg.teacher_id = %s OR gt.teacher_id = %s) AND sg.course_id IS NOT NULL
+"""
+SHARED_WITH_SQL = f"""
+    q.shared_at IS NOT NULL AND q.archived_at IS NULL AND q.teacher_id != %s
+    AND q.course_id IN ({TEACHER_COURSES_SQL})
+"""
+
+
+def shared_page(request, teacher_id):
+    """Other teachers' shared questions of the courses this teacher teaches, newest share first, paged."""
+    params = [teacher_id, teacher_id, teacher_id]
+    total = int((erd_row(f'SELECT COUNT(*) AS n FROM questions q WHERE {SHARED_WITH_SQL}', params) or {}).get('n') or 0)
+    page = Paginator(range(total), PAGE_SIZE).get_page(request.GET.get('page'))
+    rows = erd_rows(
+        f"""
+        SELECT q.id, q.text, q.type, q.difficulty, q.structure, COALESCE(c.title, '-') AS course,
+               {STATUS_SQL} AS status_key, q.shared_at, COALESCE(p.full_name, '-') AS author
+        FROM questions q
+        LEFT JOIN courses c ON c.id = q.course_id
+        LEFT JOIN profiles p ON p.id = q.teacher_id
+        WHERE {SHARED_WITH_SQL}
+        ORDER BY q.shared_at DESC, q.id
+        LIMIT {PAGE_SIZE} OFFSET {(page.number - 1) * PAGE_SIZE}
+        """,
+        params,
+    ) if total else []
+    return [_row(row) for row in rows], page
+
+
 def question_bank_context(request, teacher_id) -> dict:
     view = request.GET.get('view') if request.GET.get('view') in VIEWS else 'all'
-    questions, page = question_page(
-        request, teacher_id, archived=view == 'archive', status='unpublished' if view == 'drafts' else None,
-    )
-    all_questions = _teacher_question_rows(teacher_id) if view == 'shared' else []
+    if view == 'shared':
+        questions, page = shared_page(request, teacher_id)
+    else:
+        questions, page = question_page(
+            request, teacher_id, archived=view == 'archive', status='unpublished' if view == 'drafts' else None,
+        )
     filters = _filters(request)
     banks = course_banks(teacher_id) if view in ('all', 'banks') else []
     return {
@@ -302,7 +337,6 @@ def question_bank_context(request, teacher_id) -> dict:
         'recent_questions': recent_questions(teacher_id) if view == 'all' else [],
         'autosaved_drafts': autosaved_drafts(teacher_id) if view == 'drafts' else [],
         'stale_drafts': stale_draft_count(teacher_id) if view == 'drafts' else 0,
-        'shared_questions': [q for q in all_questions if q['status_key'] == 'active'][:10],
     }
 
 
@@ -327,3 +361,57 @@ def teacher_question_archive(request, question_id):
                  'سؤال آرشیو شد.' if archive else 'سؤال از آرشیو بازیابی شد.', request, {'question_id': str(row['id'])})
     messages.success(request, 'سؤال آرشیو شد و در آزمون‌های جدید قابل انتخاب نیست.' if archive else 'سؤال از آرشیو بازیابی شد.')
     return redirect(f"{reverse('core:teacher_questions')}{'?view=archive' if not archive else ''}")
+
+
+@erd_role_required('teacher')
+def teacher_question_share(request, question_id):
+    """Share one's published question with the other teachers of its course, or stop sharing it (POST only)."""
+    if request.method != 'POST':
+        return redirect('core:teacher_questions')
+    share = request.POST.get('action') != 'unshare'
+    row = erd_row(
+        f'SELECT q.id, q.course_id, {STATUS_SQL} AS status_key FROM questions q WHERE q.id = %s AND q.teacher_id = %s',
+        [str(question_id), request.erd_profile_id],
+    )
+    if not row:
+        raise Http404('سؤال پیدا نشد.')
+    if share and (not row['course_id'] or row['status_key'] != 'active'):
+        messages.error(request, 'فقط سؤال منتشرشده‌ای که درس دارد قابل اشتراک با اساتید همان درس است.')
+        return redirect('core:teacher_questions')
+    now = timezone.now()
+    erd_execute(
+        'UPDATE questions SET shared_at = %s, updated_at = %s WHERE id = %s AND teacher_id = %s',
+        [now if share else None, now, row['id'], request.erd_profile_id],
+    )
+    log_activity(request.user, 'question_shared' if share else 'question_unshared',
+                 'سؤال با اساتید هم‌درس به اشتراک گذاشته شد.' if share else 'اشتراک سؤال لغو شد.', request, {'question_id': str(row['id'])})
+    messages.success(request, 'سؤال برای اساتید هم‌درس به اشتراک گذاشته شد.' if share else 'اشتراک سؤال لغو شد.')
+    return redirect('core:teacher_questions')
+
+
+# Copied as the new owner's unpublished, unshared draft; everything else is the shared question's content.
+COPY_RESET = {'id', 'teacher_id', 'is_published', 'shared_at', 'archived_at', 'updated_at', 'legacy_erd_id'}
+
+
+@erd_role_required('teacher')
+def teacher_shared_question_copy(request, question_id):
+    """«افزودن به بانک من»: copy a question shared with this teacher's courses into their bank as a draft."""
+    if request.method != 'POST':
+        return redirect(f"{reverse('core:teacher_questions')}?view=shared")
+    teacher_id = request.erd_profile_id
+    source = erd_row(f'SELECT q.id FROM questions q WHERE q.id = %s AND {SHARED_WITH_SQL}', [str(question_id), teacher_id, teacher_id, teacher_id])
+    if not source:
+        raise Http404('سؤال پیدا نشد.')
+    columns = [column for column in erd_table_columns('questions') if column not in COPY_RESET]
+    new_id = str(uuid.uuid4())
+    erd_execute(
+        f"""
+        INSERT INTO questions (id, teacher_id, is_published, updated_at, {', '.join(columns)})
+        SELECT %s, %s, false, %s, {', '.join(columns)} FROM questions WHERE id = %s
+        """,
+        [new_id, teacher_id, timezone.now(), source['id']],
+    )
+    log_activity(request.user, 'shared_question_copied', 'سؤال اشتراکی به بانک استاد افزوده شد.', request,
+                 {'question_id': new_id, 'source_question_id': str(source['id'])})
+    messages.success(request, 'یک نسخه از سؤال به‌صورت پیش‌نویس به بانک شما افزوده شد.')
+    return redirect('core:teacher_question_edit', question_id=new_id)

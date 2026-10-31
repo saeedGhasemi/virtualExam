@@ -208,9 +208,10 @@
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% elif question_view == 'shared' %}
-        <section class="question-info-strip">سؤال‌های اشتراکی پیش از افزودن به بانک شما قابل بازبینی‌اند.</section>
+        <section class="question-info-strip">سؤال‌هایی که اساتید درس‌های شما به اشتراک گذاشته‌اند. «افزودن به بانک من» یک نسخه‌ی پیش‌نویس از سؤال در بانک شما می‌سازد که می‌توانید ویرایش و منتشر کنید.</section>
         <section class="question-bank-panel">
-            <table class="teacher-table question-bank-table"><thead><tr><th>سؤال</th><th>استاد ایجادکننده</th><th>نوع</th><th>ساختار</th><th>مجوز</th><th>تاریخ</th><th>عملیات</th></tr></thead><tbody>{% for q in shared_questions %}<tr><td>{{ q.text|truncatechars:78 }}</td><td>استاد نمونه</td><td>{{ q.type_label }}</td><td>{{ q.structure_label }}</td><td>عمومی</td><td>{{ q.updated_display }}</td><td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">پیش‌نمایش</a><a class="teacher-primary" href="{% url 'core:teacher_questions' %}">افزودن به بانک</a></span></td></tr>{% endfor %}</tbody></table>
+            <table class="teacher-table question-bank-table"><thead><tr><th>سؤال</th><th>استاد</th><th>درس</th><th>نوع</th><th>ساختار</th><th>تاریخ اشتراک</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:78 }}</td><td>{{ q.author }}</td><td>{{ q.course }}</td><td>{{ q.type_label }}</td><td>{{ q.structure_label }}</td><td>{{ q.shared_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><form method="post" action="{% url 'core:teacher_shared_question_copy' q.id %}">{% csrf_token %}<button class="teacher-primary" type="submit">افزودن به بانک من</button></form></span></td></tr>{% empty %}<tr><td colspan="7">هنوز سؤالی از اساتید درس‌های شما به اشتراک گذاشته نشده است.</td></tr>{% endfor %}</tbody></table>
+            {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% elif question_view == 'archive' %}
         <section class="question-info-strip">سؤال‌های آرشیوی در فهرست و در انتخاب سؤال آزمون‌های جدید نمایش داده نمی‌شوند؛ آزمون‌هایی که قبلاً از آن‌ها استفاده کرده‌اند تغییری نمی‌کنند و هر زمان می‌توانید سؤال را بازیابی کنید.</section>
@@ -264,8 +265,8 @@
                             <td>{{ q.type_label }}</td>
                             <td>{{ q.course }}</td>
                             <td><span class="teacher-badge {{ q.difficulty_class }}">{{ q.difficulty_label }}</span></td>
-                            <td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span></td>
-                            <td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">جزئیات</a><form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button type="submit" name="action" value="archive">آرشیو</button></form></span></td>
+                            <td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span>{% if q.shared_at %} <span class="teacher-badge is-ok">اشتراکی</span>{% endif %}</td>
+                            <td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">جزئیات</a><form method="post" action="{% url 'core:teacher_question_share' q.id %}">{% csrf_token %}{% if q.shared_at %}<button type="submit" name="action" value="unshare">لغو اشتراک</button>{% elif q.status_key == 'active' and q.course != '-' %}<button type="submit" name="action" value="share">اشتراک با هم‌درس‌ها</button>{% endif %}</form><form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button type="submit" name="action" value="archive">آرشیو</button></form></span></td>
                         </tr>
                     {% empty %}
                         <tr><td colspan="8">سؤالی با این فیلترها پیدا نشد.</td></tr>
