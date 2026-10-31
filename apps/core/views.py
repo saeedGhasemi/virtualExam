@@ -13369,8 +13369,6 @@ def _question_status(row, index=0):
         return 'needs_review', 'نیازمند بازبینی', 'is-warn'
     if row.get('is_published') in (True, 1, '1', 'true', 'True'):
         return 'active', 'فعال', 'is-ok'
-    if index % 5 == 2:
-        return 'needs_review', 'نیازمند بازبینی', 'is-warn'
     return 'draft', 'پیش‌نویس', 'is-muted'
 
 
@@ -13391,18 +13389,9 @@ def _teacher_question_rows(teacher_id, request=None):
             LEFT JOIN courses c ON c.id = q.course_id
             WHERE q.teacher_id = %s
             ORDER BY q.text
-            LIMIT 240
             """,
             [teacher_id],
         )
-    if not rows:
-        rows = [
-            {'id': 'Q-000125', 'text': 'مهم‌ترین علامت اولیه سکته قلبی در بیمار کدام است؟', 'type': 'single', 'difficulty': 'medium', 'course': 'پرستاری داخلی - قلب', 'default_points': 2, 'tags': 'قلب و عروق, سکته قلبی', 'structure': 'independent', 'is_published': True, 'options': json.dumps(['تنگی نفس', 'تهوع و استفراغ', 'درد فشاری قفسه سینه', 'سردرد شدید'], ensure_ascii=False), 'correct_answer': json.dumps('3', ensure_ascii=False)},
-            {'id': 'Q-000124', 'text': 'علت اصلی ناراحتی در بیماران مبتلا به رفلاکس معده چیست؟', 'type': 'single', 'difficulty': 'medium', 'course': 'پرستاری داخلی - گوارش', 'default_points': 1, 'tags': 'گوارش', 'structure': 'independent', 'is_published': False},
-            {'id': 'Q-000123', 'text': 'بهترین روش پیشگیری از زخم بستر در بیماران بی‌تحرک کدام است؟', 'type': 'multi', 'difficulty': 'hard', 'course': 'پرستاری پزشکی - مراقبت‌ها', 'default_points': 3, 'tags': 'پرستاری, مراقبت', 'structure': 'case', 'is_published': False},
-            {'id': 'Q-000122', 'text': 'کدام دارو برای کنترل فشار خون در بیماران سالمند مناسب‌تر است؟', 'type': 'single', 'difficulty': 'medium', 'course': 'پرستاری داخلی - قلب', 'default_points': 2, 'tags': 'فشار خون, قلب', 'structure': 'independent', 'is_published': True},
-            {'id': 'Q-000121', 'text': 'علائم اولیه هیپوگلیسمی در بیماران دیابتی کدام است؟', 'type': 'single', 'difficulty': 'easy', 'course': 'پرستاری داخلی - غدد', 'default_points': 1, 'tags': 'دیابت, غدد', 'structure': 'independent', 'is_published': True},
-        ]
 
     enriched = []
     for index, row in enumerate(rows, start=1):
@@ -13426,8 +13415,6 @@ def _teacher_question_rows(teacher_id, request=None):
             'tags_list': tags[:3],
             'options_list': options if isinstance(options, list) else [],
             'correct_display': ', '.join(correct) if isinstance(correct, list) else str(correct or '-'),
-            'updated_display': '۱۴۰۴/۰۳/۲۰ ۱۰:۱۵',
-            'usage_count': index + 5,
         })
 
     if request is None:
@@ -14091,13 +14078,24 @@ def _teacher_exam_monitoring(exam) -> dict:
     }
 
 
+QUESTION_BANK_PAGE_SIZE = 20
+
+
+def _query_without_page(request) -> list:
+    """The current GET parameters except page, so pagination keeps the filters."""
+    return [(key, value) for key, values in request.GET.lists() if key != 'page' for value in values]
+
+
 def _teacher_modern_context(request, page, **extra):
+    from django.core.paginator import Paginator
+
     teacher_id = getattr(request, 'erd_profile_id', None)
     courses = _teacher_courses_rows(teacher_id) if teacher_id else []
     selected_course = _teacher_selected_course(courses, extra.get('group_id'))
     selected_group_id = extra.get('group_id') or selected_course.get('id') or 'nursing-01'
     exams = _teacher_exam_rows_simple(teacher_id) if teacher_id else []
-    questions = _teacher_question_rows(teacher_id, request)
+    question_page = Paginator(_teacher_question_rows(teacher_id, request), QUESTION_BANK_PAGE_SIZE).get_page(request.GET.get('page'))
+    questions = list(question_page.object_list)
     all_questions = _teacher_question_rows(teacher_id)
     question_stats = {
         'total': len(all_questions),
@@ -14142,6 +14140,8 @@ def _teacher_modern_context(request, page, **extra):
             {'title': 'کلاس آنلاین فصل ۵', 'course': 'رفتار سازمانی', 'start_at': '۱۴۰۳/۰۳/۲۴', 'status': 'کلاس'},
         ],
         'questions': questions,
+        'question_page': question_page,
+        'question_page_query': _query_without_page(request),
         'question_stats': question_stats,
         'question_view': question_view,
         'question_filters': {

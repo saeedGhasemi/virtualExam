@@ -4148,3 +4148,37 @@ class ExamResultReleaseTests(_ScopedOrgFixture):
         self.client.force_login(self.manager_user)
         self.client.post(url, {'edit_step': '5', 'publish_action': 'publish_results'})
         self.assertFalse(self._student_view().context['is_pending'])
+
+
+class TeacherQuestionBankPaginationTests(_ScopedOrgFixture):
+    """بانک سؤال استاد صفحه‌بندی واقعی دارد و فقط سؤال‌های خود او را نشان می‌دهد؛ قبلاً دکمه‌های صفحه بی‌اثر بودند،
+    فهرست بی‌صدا به ۲۴۰ سؤال بریده می‌شد و بانک خالی پنج سؤال نمونه نشان می‌داد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.other_teacher_user = User.objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+        for number in range(25):
+            _insert('questions', ['id', 'teacher_id', 'text', 'type', 'is_published'],
+                    [str(uuid.uuid4()), cls.teacher_in_id, f'سؤال شماره {number:02d}', 'single', False])
+
+    def test_pages_keep_filters_and_show_only_stored_questions(self):
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_questions')
+        first = self.client.get(url, {'type': 'single'})
+        self.assertEqual(len(first.context['questions']), 20)
+        self.assertContains(first, '<input type="hidden" name="type" value="single">')
+        second = self.client.get(url, {'type': 'single', 'page': 2})
+        self.assertEqual([q['text'] for q in second.context['questions']], [f'سؤال شماره {n}' for n in range(20, 25)])
+        self.assertEqual({q['status_key'] for q in second.context['questions']}, {'draft'})
+        self.assertNotContains(second, '۱۴۰۴/۰۳/۲۰')
+
+        self.client.force_login(self.other_teacher_user)
+        other = self.client.get(url)
+        self.assertFalse(any(q['text'].startswith('سؤال شماره') for q in other.context['questions']))
+        self.assertNotContains(other, 'سکته قلبی')
+        with connection.cursor() as cursor:
+            cursor.execute('DELETE FROM questions WHERE teacher_id = %s', [self.teacher_out_id])
+        self.assertEqual(self.client.get(url).context['questions'], [])
