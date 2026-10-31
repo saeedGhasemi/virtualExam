@@ -2,7 +2,13 @@
 
 Filtering, counting and paging happen in the database, and nothing here runs for the other teacher pages.
 """
+from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db import transaction
+from django.http import Http404
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.utils import timezone
 
 from .views import (
     QUESTION_DIFFICULTY_LABELS,
@@ -12,9 +18,12 @@ from .views import (
     _teacher_question_rows,
     _teacher_question_sets,
     _teacher_question_tags,
+    erd_execute,
+    erd_role_required,
     erd_row,
     erd_rows,
     erd_table_columns,
+    log_activity,
 )
 
 PAGE_SIZE = 20
@@ -45,8 +54,9 @@ def _like(text: str) -> str:
     return f'%{escaped}%'
 
 
-def _where(teacher_id, filters) -> tuple:
-    clauses, params = ['q.teacher_id = %s'], [teacher_id]
+def _where(teacher_id, filters, archived=False) -> tuple:
+    clauses = ['q.teacher_id = %s', f"q.archived_at IS {'NOT ' if archived else ''}NULL"]
+    params = [teacher_id]
     if filters['q']:
         clauses.append("(LOWER(COALESCE(q.text, '')) LIKE %s ESCAPE '\\' OR LOWER(COALESCE(c.title, '')) LIKE %s ESCAPE '\\')")
         params += [_like(filters['q'])] * 2
@@ -81,19 +91,20 @@ def _row(row) -> dict:
     }
 
 
-def question_page(request, teacher_id):
+def question_page(request, teacher_id, archived=False):
     """(page of question rows, Paginator page) for the filtered list, fetched with LIMIT/OFFSET."""
-    where, params = _where(teacher_id, _filters(request))
+    where, params = _where(teacher_id, _filters(request), archived)
     joins = 'FROM questions q LEFT JOIN courses c ON c.id = q.course_id'
     total = int((erd_row(f'SELECT COUNT(*) AS n {joins} WHERE {where}', params) or {}).get('n') or 0)
     page = Paginator(range(total), PAGE_SIZE).get_page(request.GET.get('page'))
     structure = 'q.structure' if 'structure' in erd_table_columns('questions') else "'independent' AS structure"
     rows = erd_rows(
         f"""
-        SELECT q.id, q.text, q.type, q.difficulty, {structure}, COALESCE(c.title, '-') AS course, {STATUS_SQL} AS status_key
+        SELECT q.id, q.text, q.type, q.difficulty, {structure}, COALESCE(c.title, '-') AS course, {STATUS_SQL} AS status_key,
+               q.updated_at, q.archived_at
         {joins}
         WHERE {where}
-        ORDER BY q.text, q.id
+        ORDER BY {'q.archived_at DESC, ' if archived else ''}q.text, q.id
         LIMIT {PAGE_SIZE} OFFSET {(page.number - 1) * PAGE_SIZE}
         """,
         params,
@@ -104,22 +115,23 @@ def question_page(request, teacher_id):
 def question_stats(teacher_id) -> dict:
     row = erd_row(
         f"""
-        SELECT COUNT(*) AS total,
-               SUM(CASE WHEN {STATUS_SQL} = 'active' THEN 1 ELSE 0 END) AS active,
-               SUM(CASE WHEN {STATUS_SQL} = 'draft' THEN 1 ELSE 0 END) AS draft,
-               SUM(CASE WHEN {STATUS_SQL} = 'needs_review' THEN 1 ELSE 0 END) AS needs_review,
-               COUNT(DISTINCT q.course_id) AS banks
+        SELECT SUM(CASE WHEN q.archived_at IS NULL THEN 1 ELSE 0 END) AS total,
+               SUM(CASE WHEN q.archived_at IS NULL AND {STATUS_SQL} = 'active' THEN 1 ELSE 0 END) AS active,
+               SUM(CASE WHEN q.archived_at IS NULL AND {STATUS_SQL} = 'draft' THEN 1 ELSE 0 END) AS draft,
+               SUM(CASE WHEN q.archived_at IS NULL AND {STATUS_SQL} = 'needs_review' THEN 1 ELSE 0 END) AS needs_review,
+               SUM(CASE WHEN q.archived_at IS NOT NULL THEN 1 ELSE 0 END) AS archived,
+               COUNT(DISTINCT CASE WHEN q.archived_at IS NULL THEN q.course_id END) AS banks
         FROM questions q
         WHERE q.teacher_id = %s
         """,
         [teacher_id],
     ) or {}
-    return {key: int(row.get(key) or 0) for key in ('total', 'active', 'draft', 'needs_review', 'banks')}
+    return {key: int(row.get(key) or 0) for key in ('total', 'active', 'draft', 'needs_review', 'archived', 'banks')}
 
 
 def question_bank_context(request, teacher_id) -> dict:
     view = request.GET.get('view') if request.GET.get('view') in VIEWS else 'all'
-    questions, page = question_page(request, teacher_id)
+    questions, page = question_page(request, teacher_id, archived=view == 'archive')
     all_questions = _teacher_question_rows(teacher_id)
     return {
         'questions': questions,
@@ -132,5 +144,27 @@ def question_bank_context(request, teacher_id) -> dict:
         'question_tags': _teacher_question_tags(all_questions),
         'question_drafts': [q for q in all_questions if q['status_key'] == 'draft'][:10],
         'shared_questions': [q for q in all_questions if q['status_key'] == 'active'][:10],
-        'archived_questions': all_questions[-8:],
     }
+
+
+@erd_role_required('teacher')
+def teacher_question_archive(request, question_id):
+    """«آرشیو» / «بازیابی» one of the teacher's questions (POST only; another teacher's question is a 404)."""
+    if request.method != 'POST':
+        return redirect('core:teacher_questions')
+    archive = request.POST.get('action') != 'restore'
+    with transaction.atomic():
+        row = erd_row(
+            'SELECT id, text FROM questions WHERE id = %s AND teacher_id = %s', [str(question_id), request.erd_profile_id]
+        )
+        if not row:
+            raise Http404('سؤال پیدا نشد.')
+        now = timezone.now()
+        erd_execute(
+            'UPDATE questions SET archived_at = %s, updated_at = %s WHERE id = %s AND teacher_id = %s',
+            [now if archive else None, now, row['id'], request.erd_profile_id],
+        )
+    log_activity(request.user, 'question_archived' if archive else 'question_restored',
+                 'سؤال آرشیو شد.' if archive else 'سؤال از آرشیو بازیابی شد.', request, {'question_id': str(row['id'])})
+    messages.success(request, 'سؤال آرشیو شد و در آزمون‌های جدید قابل انتخاب نیست.' if archive else 'سؤال از آرشیو بازیابی شد.')
+    return redirect(f"{reverse('core:teacher_questions')}{'?view=archive' if not archive else ''}")

@@ -4193,7 +4193,7 @@ class TeacherQuestionBankPaginationTests(_ScopedOrgFixture):
         self.assertEqual(self.client.get(url, {'q': '_'}).context['question_page'].paginator.count, 0)  # "_" is literal
         active = self.client.get(url, {'status': 'active', 'difficulty': 'hard', 'type': 'multi'}).context
         self.assertEqual([q['status_label'] for q in active['questions']], ['فعال'])
-        self.assertEqual(active['question_stats'], {'total': 28, 'active': 1, 'draft': 27, 'needs_review': 0, 'banks': 1})
+        self.assertEqual(active['question_stats'], {'total': 28, 'active': 1, 'draft': 27, 'needs_review': 0, 'archived': 0, 'banks': 1})
         self.assertNotIn('question_page', self.client.get(reverse('core:teacher_panel')).context)
 
 
@@ -4249,3 +4249,49 @@ class ManagerExamReviewStepTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute('SELECT COUNT(*) FROM notifications')
             self.assertEqual(cursor.fetchone()[0], 1)  # unticked: nobody is notified
+
+
+class TeacherQuestionArchiveTests(_ScopedOrgFixture):
+    """آرشیو واقعی سؤال: از فهرست و انتخاب آزمون جدید خارج می‌شود، تاریخ واقعی دارد و بازیابی می‌شود."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.other_teacher_user = User.objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+        cls.question_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'is_published', 'default_points'],
+                [cls.question_id, cls.teacher_in_id, cls.course_in_id, 'سؤال قابل آرشیو', 'single', True, 1])
+
+    def _archived_at(self):
+        from apps.core.views import erd_row
+        return erd_row('SELECT archived_at FROM questions WHERE id = %s', [self.question_id])['archived_at']
+
+    def test_archive_hides_the_question_and_restore_brings_it_back(self):
+        from apps.core.views import _exam_wizard_resources, _exam_wizard_scope
+        url = reverse('core:teacher_question_archive', args=[self.question_id])
+        self.client.force_login(self.other_teacher_user)
+        self.assertEqual(self.client.post(url, {'action': 'archive'}).status_code, 404)
+        self.assertIsNone(self._archived_at())
+
+        self.client.force_login(self.teacher_user)
+        self.client.post(url, {'action': 'archive'})
+        self.assertIsNotNone(self._archived_at())
+        bank = reverse('core:teacher_questions')
+        self.assertNotIn(self.question_id, [q['id'] for q in self.client.get(bank).context['questions']])
+        archive = self.client.get(bank, {'view': 'archive'})
+        self.assertEqual([q['id'] for q in archive.context['questions']], [self.question_id])
+        self.assertEqual(archive.context['question_stats']['archived'], 1)
+        self.assertNotContains(archive, 'تکراری')
+
+        request = self.client.get(bank).wsgi_request
+        request.erd_profile_id, request.erd_role = self.teacher_in_id, 'teacher'
+        ids = lambda exam_id=None: {str(q['id']) for q in _exam_wizard_resources(request, _exam_wizard_scope(request), exam_id)['questions']}
+        self.assertNotIn(self.question_id, ids())
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, self.question_id, 1, 1])
+        self.assertIn(self.question_id, ids(self.exam_in_id))  # an exam that already uses it keeps it
+
+        self.client.post(url, {'action': 'restore'})
+        self.assertIsNone(self._archived_at())
+        self.assertIn(self.question_id, ids())

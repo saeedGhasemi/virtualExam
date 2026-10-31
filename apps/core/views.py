@@ -8007,7 +8007,17 @@ def _exam_wizard_ids_in_scope(scope: dict, kind: str, ids) -> bool:
     return bool(row) and row['count'] == len(ids)
 
 
-def _exam_wizard_resources(request, scope=None) -> dict:
+def _question_selectable_sql(exam_id=None) -> tuple:
+    """(SQL condition, params) for questions that may be picked for an exam: not archived, unless already in
+    the given exam (so editing an exam keeps a question archived after it was added)."""
+    if not erd_has_column('questions', 'archived_at'):
+        return '1=1', []
+    if exam_id:
+        return '(q.archived_at IS NULL OR q.id IN (SELECT question_id FROM exam_questions WHERE exam_id = %s))', [exam_id]
+    return 'q.archived_at IS NULL', []
+
+
+def _exam_wizard_resources(request, scope=None, exam_id=None) -> dict:
     """Courses, groups, teachers, students and questions the wizard may offer, filtered by the scope."""
     scope = scope or _exam_wizard_scope(request)
     cte, cte_params = scope['cte'], scope['cte_params']
@@ -8105,6 +8115,7 @@ def _exam_wizard_resources(request, scope=None) -> dict:
         for column in ('matching_pairs', 'ordering_items', 'question_media', 'accepted_answers')
     )
     question_condition, question_params = scope['questions']
+    selectable, selectable_params = _question_selectable_sql(exam_id)
     questions = erd_rows(
         f"""
         {cte}
@@ -8125,11 +8136,11 @@ def _exam_wizard_resources(request, scope=None) -> dict:
             JOIN exams e ON e.id = eq.exam_id
             GROUP BY eq.question_id
         ) usage_stats ON usage_stats.question_id = q.id
-        WHERE {question_condition}
+        WHERE {question_condition} AND {selectable}
         ORDER BY q.teacher_id, q.course_id, q.text
         LIMIT 1000
         """,
-        [*cte_params, *question_params],
+        [*cte_params, *question_params, *selectable_params],
     )
     for question in questions:
         question['options'] = _erd_parse_json_field(question.get('options'))
@@ -8692,7 +8703,7 @@ def super_admin_exams(request):
         """
     )
     questions = erd_rows(
-        """
+        f"""
         SELECT q.id, q.teacher_id, q.course_id, q.type, q.difficulty, q.text,
                COALESCE(q.default_points, 1) AS points,
                COALESCE(c.title, '-') AS course_title,
@@ -8700,6 +8711,7 @@ def super_admin_exams(request):
         FROM questions q
         LEFT JOIN courses c ON c.id = q.course_id
         LEFT JOIN profiles p ON p.id = q.teacher_id
+        WHERE {_question_selectable_sql()[0]}
         ORDER BY q.teacher_id, q.course_id, q.text
         LIMIT 800
         """
@@ -9422,11 +9434,11 @@ def super_admin_exam_edit(request, exam_id):
         FROM questions q
         LEFT JOIN courses c ON c.id = q.course_id
         LEFT JOIN profiles p ON p.id = q.teacher_id
-        WHERE (q.course_id = %s OR %s IS NULL) AND {question_condition}
+        WHERE (q.course_id = %s OR %s IS NULL) AND {question_condition} AND {_question_selectable_sql(exam_id)[0]}
         ORDER BY q.type, q.text
         LIMIT 600
         """,
-        [*cte_params, exam.get('course_id'), exam.get('course_id'), *question_params],
+        [*cte_params, exam.get('course_id'), exam.get('course_id'), *question_params, *_question_selectable_sql(exam_id)[1]],
     )
     selected_questions = {
         str(row['question_id']) for row in erd_rows(
@@ -15237,6 +15249,8 @@ def _save_question_payload(payload, teacher_id, question_id=None):
             )
         if 'course_id' in columns:
             erd_execute('UPDATE questions SET course_id = %s WHERE id = %s AND teacher_id = %s', [payload['course_id'] or None, question_id, teacher_id])
+        if 'updated_at' in columns:
+            erd_execute('UPDATE questions SET updated_at = %s WHERE id = %s AND teacher_id = %s', [timezone.now(), question_id, teacher_id])
         if {'structure', 'question_media', 'scoring_settings', 'feedback'}.issubset(columns):
             erd_execute(
                 """
@@ -15547,7 +15561,7 @@ def _exam_wizard_initial(exam) -> dict:
 
 def _teacher_exam_wizard(request, exam=None):
     scope = _exam_wizard_scope(request)
-    resources = _exam_wizard_resources(request, scope)
+    resources = _exam_wizard_resources(request, scope, exam_id=exam['id'] if exam else None)
     retry_url = reverse('core:teacher_exam_edit', args=[exam['id']]) if exam else reverse('core:teacher_exam_create')
     if request.method == 'POST':
         posted = _exam_wizard_post_selection(request)
@@ -17033,6 +17047,7 @@ def _em_exam_question_rows(exam_id=None):
     if exam_id:
         selected_sql = 'LEFT JOIN exam_questions eq ON eq.question_id = q.id AND eq.exam_id = %s'
         params.append(exam_id)
+    selectable, selectable_params = _question_selectable_sql(exam_id)
     rows = erd_rows(
         f"""
         SELECT q.id, q.text, COALESCE(q.type, 'single') AS type, COALESCE(q.difficulty, 'medium') AS difficulty,
@@ -17042,10 +17057,11 @@ def _em_exam_question_rows(exam_id=None):
         FROM questions q
         LEFT JOIN courses c ON c.id = q.course_id
         {selected_sql}
+        WHERE {selectable}
         ORDER BY selected_id NULLS LAST, {question_order}
         LIMIT 300
         """,
-        params,
+        [*params, *selectable_params],
     )
     for row in rows:
         kind = row.get('type') or 'single'

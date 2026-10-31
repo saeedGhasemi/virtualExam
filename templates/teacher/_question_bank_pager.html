@@ -1,0 +1,14 @@
+{% load core_extras %}
+<footer class="question-pagination">
+                <span>نمایش {{ question_page.start_index|fa_digits }} تا {{ question_page.end_index|fa_digits }} از {{ question_page.paginator.count|fa_digits }} سؤال</span>
+                {% if question_page.paginator.num_pages > 1 %}
+                <form method="get" aria-label="صفحه‌بندی سؤال‌ها"><div>
+                    {% for key, value in question_page_query %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+                    <button type="submit" name="page" value="1"{% if not question_page.has_previous %} disabled{% endif %} aria-label="صفحه اول">«</button>
+                    <button type="submit" name="page" value="{% if question_page.has_previous %}{{ question_page.previous_page_number }}{% else %}1{% endif %}"{% if not question_page.has_previous %} disabled{% endif %} aria-label="صفحه قبل">‹</button>
+                    {% for number in question_page.paginator.page_range %}<button type="submit" name="page" value="{{ number }}"{% if number == question_page.number %} class="is-active" aria-current="page"{% endif %}>{{ number|fa_digits }}</button>{% endfor %}
+                    <button type="submit" name="page" value="{% if question_page.has_next %}{{ question_page.next_page_number }}{% else %}{{ question_page.paginator.num_pages }}{% endif %}"{% if not question_page.has_next %} disabled{% endif %} aria-label="صفحه بعد">›</button>
+                    <button type="submit" name="page" value="{{ question_page.paginator.num_pages }}"{% if not question_page.has_next %} disabled{% endif %} aria-label="صفحه آخر">»</button>
+                </div></form>
+                {% endif %}
+            </footer>
