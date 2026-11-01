@@ -3913,6 +3913,21 @@ class TeacherExamEditTests(_ScopedOrgFixture):
         self.assertEqual(len(self._rows('SELECT question_id FROM exam_questions WHERE exam_id = %s')), 3)  # nothing dropped
 
 
+class MalformedIdNotFoundTests(TestCase):
+    """شناسه‌ی غیر UUID در آدرس روی PostgreSQL خطای DataError می‌دهد؛ پاسخ باید ۴۰۴ باشد نه ۵۰۰، و خطاهای دیگر دست نخورند."""
+
+    def test_only_the_uuid_syntax_error_becomes_404(self):
+        from django.db import DataError
+        from django.test import RequestFactory
+        from apps.core.middleware import MalformedIdNotFoundMiddleware
+        middleware = MalformedIdNotFoundMiddleware(lambda request: None)
+        request = RequestFactory().get('/super-admin/exams/abc/')
+        response = middleware.process_exception(request, DataError('invalid input syntax for type uuid: "abc"'))
+        self.assertEqual(response.status_code, 404)
+        self.assertIsNone(middleware.process_exception(request, DataError('value too long for type character varying(10)')))
+        self.assertIsNone(middleware.process_exception(request, ValueError('invalid input syntax for type uuid')))
+
+
 class AdminExamPagesOpenTests(_ScopedOrgFixture):
     """صفحه‌ی «آزمون‌های در حال برگزاری» با آدرس جزئیات آزمون گرفته می‌شد و داشبورد مدیر آموزشی برای مدیر سیستم خطای SQL می‌داد."""
 
