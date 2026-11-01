@@ -12705,7 +12705,7 @@ def _erd_scoped_teacher_rows(request):
 
 def _erd_scoped_exam_count(request, where='', params=None):
     if _erd_is_admin_request(request):
-        return erd_count('exams', where, params or [])
+        return erd_count('exams e', where, params or [])  # the conditions use the e. alias, as in the manager query
     sql = _erd_manager_scope_cte() + """
         SELECT COUNT(*) AS count
         FROM exams e

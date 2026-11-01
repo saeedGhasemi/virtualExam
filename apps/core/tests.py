@@ -3913,6 +3913,47 @@ class TeacherExamEditTests(_ScopedOrgFixture):
         self.assertEqual(len(self._rows('SELECT question_id FROM exam_questions WHERE exam_id = %s')), 3)  # nothing dropped
 
 
+class AdminExamPagesOpenTests(_ScopedOrgFixture):
+    """صفحه‌ی «آزمون‌های در حال برگزاری» با آدرس جزئیات آزمون گرفته می‌شد و داشبورد مدیر آموزشی برای مدیر سیستم خطای SQL می‌داد."""
+
+    def test_active_exams_page_and_dashboard_open_for_admin(self):
+        from django.urls import resolve
+        self.assertEqual(resolve('/super-admin/exams/active/').url_name, 'super_admin_active_exams')
+        self.client.force_login(self.admin_user)
+        self.assertEqual(self.client.get(reverse('core:super_admin_active_exams')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('core:exam_manager_dashboard')).status_code, 200)
+
+
+class ExamManagerGroupTeacherAssignTests(_ScopedOrgFixture):
+    """انتساب استاد به گروه: فقط گروه‌ها و استادهای محدوده‌ی مدیر، و بدون SQL مخصوص SQLite (INSERT OR IGNORE)."""
+
+    def _teachers(self, group_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT teacher_id FROM group_teachers WHERE group_id = %s', [group_id])
+            return {str(row[0]) for row in cursor.fetchall()}
+
+    def test_manager_assigns_only_inside_own_units(self):
+        self.client.force_login(self.manager_user)
+        url = reverse('core:exam_manager_group_teacher_assign')
+        self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_in_id, 'group_ids': [self.group_out_id]}).status_code, 403)
+        self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_out_id, 'group_ids': [self.group_in_id]}).status_code, 403)
+        self.assertNotIn(self.teacher_in_id, self._teachers(self.group_out_id))
+        for _ in range(2):  # the second time the row exists already
+            self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_in_id, 'group_ids': [self.group_in_id]}).status_code, 302)
+        self.assertIn(self.teacher_in_id, self._teachers(self.group_in_id))
+
+
+class ExamManagerUserImportPageTests(_ScopedOrgFixture):
+    """صفحه‌ی ورود گروهی مدیر آموزشی چیزی ثبت نمی‌کند؛ باید «در حال توسعه» بگوید، نه ردیف‌های نمونه و پیام موفقیت."""
+
+    def test_bulk_user_import_page_says_it_is_in_development(self):
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:exam_manager_user_import'), {'kind': 'teachers'})
+        self.assertContains(page, 'ورود گروهی اساتید (در حال توسعه)')
+        for invented in ('دکتر محمد رضایی', 'ثبت نهایی ۴۵ استاد', 'استادپزشکی.xlsx'):
+            self.assertNotContains(page, invented)
+
+
 class SuperAdminManagerBulkImportTests(_ScopedOrgFixture):
     """ثبت گروهی «مدیر سیستم»: قبلاً برای او هم محدوده‌ی مدیر آموزشی نوشته می‌شد و کل ثبت با خطای کلید خارجی، نیمه‌کاره می‌ماند."""
 
@@ -4047,36 +4088,6 @@ class StudentExamIntegrityTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute('SELECT COUNT(*) FROM exam_attempts WHERE exam_id = %s', [self.exam_id])
             self.assertEqual(cursor.fetchone()[0], 0)
-
-
-class ExamManagerGroupTeacherAssignTests(_ScopedOrgFixture):
-    """انتساب استاد به گروه: فقط گروه‌ها و استادهای محدوده‌ی مدیر، و بدون SQL مخصوص SQLite (INSERT OR IGNORE)."""
-
-    def _teachers(self, group_id):
-        with connection.cursor() as cursor:
-            cursor.execute('SELECT teacher_id FROM group_teachers WHERE group_id = %s', [group_id])
-            return {str(row[0]) for row in cursor.fetchall()}
-
-    def test_manager_assigns_only_inside_own_units(self):
-        self.client.force_login(self.manager_user)
-        url = reverse('core:exam_manager_group_teacher_assign')
-        self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_in_id, 'group_ids': [self.group_out_id]}).status_code, 403)
-        self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_out_id, 'group_ids': [self.group_in_id]}).status_code, 403)
-        self.assertNotIn(self.teacher_in_id, self._teachers(self.group_out_id))
-        for _ in range(2):  # the second time the row exists already
-            self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_in_id, 'group_ids': [self.group_in_id]}).status_code, 302)
-        self.assertIn(self.teacher_in_id, self._teachers(self.group_in_id))
-
-
-class ExamManagerUserImportPageTests(_ScopedOrgFixture):
-    """صفحه‌ی ورود گروهی مدیر آموزشی چیزی ثبت نمی‌کند؛ باید «در حال توسعه» بگوید، نه ردیف‌های نمونه و پیام موفقیت."""
-
-    def test_bulk_user_import_page_says_it_is_in_development(self):
-        self.client.force_login(self.manager_user)
-        page = self.client.get(reverse('core:exam_manager_user_import'), {'kind': 'teachers'})
-        self.assertContains(page, 'ورود گروهی اساتید (در حال توسعه)')
-        for invented in ('دکتر محمد رضایی', 'ثبت نهایی ۴۵ استاد', 'استادپزشکی.xlsx'):
-            self.assertNotContains(page, invented)
 
 
 class StudentDashboardTests(_ScopedOrgFixture):
