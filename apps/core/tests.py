@@ -3903,6 +3903,28 @@ class TeacherExamEditTests(_ScopedOrgFixture):
         self.assertEqual(len(self._rows('SELECT question_id FROM exam_questions WHERE exam_id = %s')), 3)  # nothing dropped
 
 
+class SuperAdminManagerBulkImportTests(_ScopedOrgFixture):
+    """ثبت گروهی «مدیر سیستم»: قبلاً برای او هم محدوده‌ی مدیر آموزشی نوشته می‌شد و کل ثبت با خطای کلید خارجی، نیمه‌کاره می‌ماند."""
+
+    def test_system_admins_are_imported_whole(self):
+        import csv
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(['نام', 'نام خانوادگی', 'کد ملی', 'شماره پرسنلی', 'شماره همراه', 'نوع مدیر', 'واحد سازمانی', 'الگوی دسترسی', 'ایمیل', 'وضعیت حساب'])
+        writer.writerow(['سارا', 'مدیری', '0011223344', 'P-9001', '09120000001', 'مدیر سیستم', 'واحد تحت مدیریت', '', 'p9001@example.com', 'فعال'])
+        writer.writerow(['رضا', 'آموزشی', '0011223355', 'P-9002', '09120000002', 'مدیر آموزشی', 'واحد تحت مدیریت', '', 'p9002@example.com', 'فعال'])
+        self.client.force_login(self.admin_user)
+        url = reverse('core:super_admin_manager_bulk_import')
+        self.client.post(url, {'step': '1', 'excel_file': SimpleUploadedFile('m.csv', buffer.getvalue().encode('utf-8-sig'))})
+        self.client.post(url, {'step': '4', 'confirm_final': '1', 'create_accounts': 'on'})
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT p.username, r.role, (SELECT COUNT(*) FROM academic_manager_scopes s WHERE s.manager_id = p.id)
+                              FROM profiles p JOIN user_roles r ON r.user_id = p.id WHERE p.username IN ('P-9001', 'P-9002') ORDER BY 1""")
+            self.assertEqual(cursor.fetchall(), [('P-9001', 'admin', 0), ('P-9002', 'academic_manager', 1)])
+        self.assertTrue(get_user_model().objects.filter(username__in=['P-9001', 'P-9002']).count() == 2)
+
+
 class StudentDashboardTests(_ScopedOrgFixture):
     """داشبورد دانشجو فقط آزمون‌های منتشرشده‌ی اختصاص‌یافته به خود او را نشان می‌دهد و داده‌ی ساختگی ندارد."""
 

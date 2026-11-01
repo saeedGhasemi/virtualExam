@@ -4725,7 +4725,7 @@ def super_admin_manager_bulk_import(request):
             type_counts = {'admin': 0, 'academic_manager': 0, 'unit': 0}
             created_credentials = []
             try:
-                with connection.cursor() as cursor:
+                with transaction.atomic(), connection.cursor() as cursor:  # all rows or none: no half-made accounts
                     for record in records:
                         if record['level'] in ('error', 'ignored') or (record['level'] == 'warning' and skip_warnings):
                             continue
@@ -4787,7 +4787,7 @@ def super_admin_manager_bulk_import(request):
                         cursor.execute("DELETE FROM user_roles WHERE user_id = %s AND role IN ('admin', 'academic_manager')", [manager_id])
                         cursor.execute("INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)", [str(uuid.uuid4()), manager_id, role])
                         cursor.execute("DELETE FROM academic_manager_scopes WHERE manager_id = %s", [manager_id])
-                        if record.get('org_unit_id'):
+                        if role == 'academic_manager' and record.get('org_unit_id'):  # a system admin is unscoped and has no manager profile
                             cursor.execute("INSERT INTO academic_manager_scopes (id, manager_id, org_unit_id, created_at) VALUES (%s, %s, %s, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING", [str(uuid.uuid4()), manager_id, record['org_unit_id']])
                         settings_key = f'manager_access.{manager_id}'
                         payload = {
