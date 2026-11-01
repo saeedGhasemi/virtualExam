@@ -483,6 +483,14 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
         self.assertIn(self.group_in_id, group_ids)
         self.assertNotIn(self.group_out_id, group_ids)
 
+    def test_scheduled_publish_is_kept_as_a_draft_until_it_exists(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.post(reverse('core:super_admin_exam_create'), self._base_payload(publish_choice='scheduled'), follow=True)
+        self.assertContains(response, 'زمان‌بندی انتشار هنوز فعال نیست؛ آزمون به‌صورت پیش‌نویس ذخیره شد.')
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT lifecycle_status, is_published FROM exams WHERE title = 'آزمون تست'")
+            self.assertEqual(cursor.fetchone(), ('draft', False))
+
     def test_manager_can_create_exam_with_in_scope_resources_and_staff(self):
         self.client.force_login(self.manager_user)
         payload = self._base_payload(staff_teacher_id=[self.teacher_in_id], staff_role=['designer'])

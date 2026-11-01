@@ -727,12 +727,8 @@
                                 <label><input type="radio" name="publish_choice_ui" value="submit"><strong>ارسال برای تأیید</strong><span>آزمون پس از تأیید مدیر آموزشی برای دانشجویان منتشر می‌شود</span></label>
                                 {% else %}
                                 <label><input type="radio" name="publish_choice_ui" value="immediate"><strong>انتشار فوری</strong><span>آزمون بلافاصله برای دانشجویان قابل دسترسی می‌شود</span></label>
-                                <label><input type="radio" name="publish_choice_ui" value="scheduled"><strong>زمان‌بندی انتشار</strong><span>آزمون در زمان مشخص‌شده منتشر شود</span>
-                                    <div class="jalali-field" data-jalali-field style="margin-top:.5rem">
-                                        <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
-                                        <input type="hidden" name="scheduled_publish_at" data-jalali-value>
-                                    </div>
-                                </label>
+                                {# No job publishes at scheduled_publish_at yet, so the option stays visibly off. #}
+                                <label aria-disabled="true" style="opacity:.55;cursor:not-allowed"><input type="radio" name="publish_choice_ui" value="scheduled" disabled><strong>زمان‌بندی انتشار (در حال توسعه)</strong><span>انتشار خودکار در زمان مشخص هنوز فعال نیست؛ از «انتشار فوری» یا «پیش‌نویس» استفاده کنید.</span></label>
                                 {% endif %}
                             </div></section>
                             <section class="wizard-card composition"><h2>پس از انتشار</h2>
