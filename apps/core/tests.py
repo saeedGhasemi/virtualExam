@@ -3468,6 +3468,16 @@ class StudentExamStartWindowTests(_ScopedOrgFixture):
         self.assertContains(response, 'زمان ورود به این آزمون به پایان رسیده است.')
         self.assertEqual(self._attempts(), 0)
 
+    def test_a_future_last_entry_time_still_lets_students_in(self):
+        # last_entry_at is 'timestamp without time zone' (UTC on PostgreSQL); it was read as Tehran time, 3:30 early.
+        self._window(-30, 120)
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET last_entry_at = %s WHERE id = %s', [timezone.now() + timedelta(minutes=30), self.exam_in_id])
+        self.client.force_login(self.student_user)
+        response = self.client.post(reverse('core:student_exam_start', args=[self.exam_in_id]))
+        self.assertTrue(response['Location'].startswith('/student/attempts/'))
+        self.assertEqual(self._attempts(), 1)
+
     def test_started_attempt_can_be_resumed_after_the_window_closes(self):
         url = reverse('core:student_exam_start', args=[self.exam_in_id])
         self.client.force_login(self.student_user)

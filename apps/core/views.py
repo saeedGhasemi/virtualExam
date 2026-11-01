@@ -8,6 +8,7 @@ import re
 import uuid
 import zipfile
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from decimal import Decimal
 from importlib import import_module
 from pathlib import Path
@@ -32,7 +33,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string, salted_hmac
-from django.utils.dateparse import parse_datetime
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
@@ -652,7 +652,17 @@ def erd_has_column(table, column):
     return column in erd_table_columns(table)
 
 
+def _db_naive_datetime(value):
+    """A naive datetime read from the database. PostgreSQL 'timestamp without time zone' columns hold UTC (Django
+    runs its connections in UTC); SQLite text without an offset is local time."""
+    if connection.vendor == 'postgresql':
+        return value.replace(tzinfo=dt_timezone.utc)
+    return timezone.make_aware(value, timezone.get_current_timezone())
+
+
 def erd_datetime(value):
+    if isinstance(value, datetime) and timezone.is_naive(value):
+        return _db_naive_datetime(value)
     if not value or hasattr(value, 'date'):
         return value
     value = str(value).strip()
@@ -9640,13 +9650,9 @@ def super_admin_calendar(request):
     events_by_day = {day: [] for day in range(1, days_in_month + 1)}
     normalized_events = []
     for exam in exams:
-        start_at = exam['start_at']
-        if isinstance(start_at, str):
-            start_at = parse_datetime(start_at)
+        start_at = erd_datetime(exam['start_at'])  # calendar events are naive UTC on PostgreSQL; exams are aware
         if not start_at:
             continue
-        if timezone.is_naive(start_at):
-            start_at = timezone.make_aware(start_at)
         if event_type_filter and event_type_filter != exam.get('event_type', 'exam'):
             continue
         if course_filter and course_filter != exam['course']:
@@ -17152,7 +17158,7 @@ def _sx_dt(value):
     if not value:
         return None
     if isinstance(value, datetime):
-        return value if timezone.is_aware(value) else timezone.make_aware(value, timezone.get_current_timezone())
+        return value if timezone.is_aware(value) else _db_naive_datetime(value)
     text = str(value).replace('Z', '+00:00')
     try:
         dt = datetime.fromisoformat(text)
