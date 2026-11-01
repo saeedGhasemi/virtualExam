@@ -11716,19 +11716,6 @@ def teacher_exam_preview(request, exam_id):
 
 
 @teacher_required
-def teacher_extend_exam(request, exam_id):
-    teacher = request.teacher_profile
-    exam = get_object_or_404(Exam, pk=exam_id, designer=teacher)
-    minutes = int(request.POST.get('minutes', 0) or 0)
-    if minutes > 0:
-        exam.ends_at = exam.ends_at + timedelta(minutes=minutes)
-        exam.save(update_fields=['ends_at'])
-        log_activity(request.user, 'teacher_exam_extended', f'زمان آزمون {exam.title} {minutes} دقیقه تمدید شد.', request, {'exam_id': exam.pk, 'minutes': minutes})
-        messages.success(request, 'زمان آزمون تمدید شد.')
-    return redirect('core:teacher_monitoring')
-
-
-@teacher_required
 def teacher_assign_review(request, review_id):
     teacher = request.teacher_profile
     review = get_object_or_404(DescriptiveAnswerReview.objects.select_related('exam'), pk=review_id, exam__designer=teacher)
