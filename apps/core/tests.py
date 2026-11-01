@@ -4099,6 +4099,29 @@ class StudentExamIntegrityTests(_ScopedOrgFixture):
         self.client.post(url, {f'answer_{self.ordering_id}': 'x'})
         self.assertEqual(self._points(attempt_id), {})
 
+    def test_an_attempt_is_answered_from_one_device(self):
+        from django.test import Client
+        attempt_id = self._start()
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.assertEqual(self.client.get(url).status_code, 200)  # binds the attempt to this session
+        other = Client()
+        other.force_login(self.student_user)
+        self.assertContains(other.get(url), 'این آزمون روی دستگاه دیگری باز است')
+        other.post(url, {f'answer_{self.ordering_id}': 'x', 'action': 'next'})
+        self.assertEqual(other.post(url, {'x': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest').status_code, 423)
+        other.post(reverse('core:student_attempt_submit', args=[attempt_id]))
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            self.assertEqual(cursor.fetchone()[0], 0)
+            cursor.execute('SELECT submitted_at FROM exam_attempts WHERE id = %s', [attempt_id])
+            self.assertIsNone(cursor.fetchone()[0])
+        other.post(url, {'action': 'take_over'})
+        self.assertEqual(other.get(url).status_code, 200)
+        self.assertEqual(self.client.post(url, {'x': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest').status_code, 423)  # the first device is out
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM activity_audit_log WHERE action = 'attempt_device_takeover'")
+            self.assertEqual(cursor.fetchone()[0], 1)
+
     def test_second_start_resumes_the_same_attempt(self):
         first, second = self._start(), self._start()
         self.assertEqual(first, second)

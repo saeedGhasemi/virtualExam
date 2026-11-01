@@ -17552,6 +17552,28 @@ def _sx_attempt_accepts_answers(attempt_id):
     return timezone.now() <= deadline
 
 
+def _sx_attempt_device(request, attempt_id) -> str:
+    """'ok' when this browser session may work the attempt (binding a not-yet-bound attempt to it), else 'other'.
+
+    One attempt is answered from one device: another session must take it over explicitly (_sx_take_over_attempt)."""
+    if not erd_has_column('exam_attempts', 'active_session_key'):
+        return 'ok'
+    if not request.session.session_key:
+        request.session.save()
+    key = request.session.session_key
+    erd_execute('UPDATE exam_attempts SET active_session_key = %s WHERE id = %s AND active_session_key IS NULL', [key, attempt_id])
+    row = erd_row('SELECT active_session_key FROM exam_attempts WHERE id = %s', [attempt_id])
+    return 'ok' if (row or {}).get('active_session_key') == key else 'other'
+
+
+def _sx_take_over_attempt(request, attempt_id):
+    """Move the attempt to this session; the previous device can no longer save. The teacher sees it in the log."""
+    if not request.session.session_key:
+        request.session.save()
+    erd_execute('UPDATE exam_attempts SET active_session_key = %s WHERE id = %s AND submitted_at IS NULL', [request.session.session_key, attempt_id])
+    log_activity(request.user, 'attempt_device_takeover', 'آزمون دانشجو روی دستگاه دیگری ادامه یافت.', request, {'attempt_id': str(attempt_id)})
+
+
 def _sx_locked_question_ids(attempt_id) -> set:
     """Questions whose practice-tutorial feedback the student has seen; their answers no longer change."""
     if not erd_has_column('attempt_answers', 'feedback_shown_at'):
@@ -17873,8 +17895,19 @@ def student_attempt(request, attempt_id):
     if not rows:
         raise Http404('تلاش آزمون پیدا نشد.')
     current_index = min(max(1, _em_int(request.GET.get('q'), 1)), len(rows))
+    is_xhr = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if not rows[0].get('submitted_at'):
+        if request.method == 'POST' and request.POST.get('action') == 'take_over':
+            _sx_take_over_attempt(request, attempt_id)
+            return redirect('core:student_attempt', attempt_id=attempt_id)
+        if _sx_attempt_device(request, attempt_id) == 'other':
+            if is_xhr:  # the page reloads on 423 and shows the take-over screen
+                return JsonResponse({'ok': False, 'error': 'این آزمون روی دستگاه دیگری باز است.'}, status=423)
+            if request.method == 'POST':
+                messages.error(request, 'این آزمون روی دستگاه دیگری باز است؛ پاسخ ذخیره نشد.')
+                return redirect('core:student_attempt', attempt_id=attempt_id)
+            return render(request, 'student/attempt_device.html', {'exam_title': rows[0].get('exam_title') or 'آزمون'})
     if request.method == 'POST':
-        is_xhr = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         if not _sx_attempt_accepts_answers(attempt_id):
             if is_xhr:
                 return JsonResponse({'ok': False, 'error': 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است.'}, status=409)
@@ -18022,6 +18055,8 @@ def student_attempt_submit(request, attempt_id):
     rows = _sx_attempt_rows(attempt_id, request.erd_profile_id)
     if not rows:
         raise Http404('تلاش آزمون پیدا نشد.')
+    if request.method == 'POST' and not rows[0].get('submitted_at') and _sx_attempt_device(request, attempt_id) == 'other':
+        return redirect('core:student_attempt', attempt_id=attempt_id)  # shows the take-over screen; nothing is submitted
     if request.method == 'POST':
         _sx_save_attempt_answers(request, attempt_id)
         if not erd_row('SELECT submitted_at FROM exam_attempts WHERE id = %s AND submitted_at IS NOT NULL', [attempt_id]):

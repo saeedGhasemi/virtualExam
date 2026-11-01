@@ -309,6 +309,7 @@
       [...data.entries()].forEach(([name, value]) => { if (value instanceof File) data.delete(name); });
       fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: data })
         .then(response => {
+          if (response.status === 423) { window.location.reload(); return; }  // taken over on another device
           setSaveState(response.ok ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'ذخیره خودکار ناموفق بود.', !response.ok);
           if (navigator.onLine) setConnection(true);
         })

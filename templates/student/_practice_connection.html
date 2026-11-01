@@ -85,6 +85,7 @@
       entries.forEach(([name, value]) => body.append(name, value));
       body.set('csrfmiddlewaretoken', csrf);
       const response = await fetch(attemptUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body });
+      if (response.status === 423) { window.location.reload(); return; }  // taken over on another device
       if (response.status === 409) refused = true;
       else if (!response.ok) throw new Error('save failed');
       delete copies[questionId];
