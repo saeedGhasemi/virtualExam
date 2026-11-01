@@ -5450,7 +5450,33 @@ def super_admin_teachers(request):
     })
 
 
-@super_admin_required
+def _bulk_import_scope(request, org_units, courses, groups=None):
+    """What an academic manager's bulk import may touch: their units, those units' courses and those courses' groups.
+
+    A system admin keeps everything. Rows naming anything else then fail validation as unknown, server-side."""
+    managed = _erd_managed_unit_ids(request)
+    if managed is None:
+        return org_units, courses, groups
+    courses = [course for course in courses if str(course.get('org_unit_id') or '') in managed]
+    course_ids = {str(course['id']) for course in courses}
+    return ([unit for unit in org_units if str(unit['id']) in managed], courses,
+            None if groups is None else [group for group in groups if str(group.get('course_id') or '') in course_ids])
+
+
+def _bulk_import_foreign_profile(request, kind, identifier, username, email, national_id) -> bool:
+    """For an academic manager: True when the row matches (and would update) a profile outside their units.
+
+    Uses the same match as the import's save step."""
+    if _erd_is_admin_request(request):
+        return False
+    existing = erd_row(
+        'SELECT id FROM profiles WHERE identifier = %s OR username = %s OR email = %s OR national_id = %s LIMIT 1',
+        [identifier or None, username or None, email or None, national_id or None],
+    )
+    return bool(existing) and not _erd_profile_in_manager_scope(request, existing['id'], kind)
+
+
+@erd_role_required('academic_manager', 'admin')
 def super_admin_student_bulk_import(request):
     session_key = 'super_admin_student_bulk_import'
     draft = request.session.get(session_key, {})
@@ -5471,9 +5497,10 @@ def super_admin_student_bulk_import(request):
         return xlsx_response('students-template.xlsx', headers, sample_rows, 'Students')
 
     org_units = erd_rows("SELECT id, parent_id, type, name, code, is_active FROM org_units ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name")
-    courses = erd_rows("SELECT id, title, code, COALESCE(credit_units, 0) AS credit_units FROM courses ORDER BY title LIMIT 500")
+    courses = erd_rows("SELECT id, title, code, COALESCE(credit_units, 0) AS credit_units, org_unit_id FROM courses ORDER BY title LIMIT 500")
     groups = erd_rows("SELECT id, course_id, course_name, group_code, academic_year, semester FROM student_groups ORDER BY academic_year DESC, course_name LIMIT 500")
-    unit_by_id = {str(unit['id']): unit for unit in org_units}
+    unit_by_id = {str(unit['id']): unit for unit in org_units}  # all units, for path labels
+    org_units, courses, groups = _bulk_import_scope(request, org_units, courses, groups)
 
     def normalize_text(value):
         return str(value or '').strip().replace('ي', 'ی').replace('ك', 'ک').replace('\u200c', ' ').lower()
@@ -5597,6 +5624,9 @@ def super_admin_student_bulk_import(request):
             org_unit_id = resolve_unit(record.get('org_unit'))
             if org_unit_id is None:
                 issues.append(('error', 'org_unit', 'واحد سازمانی معتبر نیست.'))
+            if _bulk_import_foreign_profile(request, 'student', record.get('student_number'), record.get('student_number'),
+                                            record.get('email'), record.get('national_id')):
+                issues.append(('error', 'national_id', 'این کاربر در واحدی خارج از محدوده‌ی شما ثبت شده است.'))
             course_ids = resolve_courses(record.get('course_names'))
             group_ids = resolve_groups(record.get('group_names'))
             if record.get('course_names') and not course_ids:
@@ -5761,7 +5791,7 @@ def super_admin_student_bulk_import(request):
             imported_count = 0
             created_credentials = []
             try:
-                with connection.cursor() as cursor:
+                with transaction.atomic(), connection.cursor() as cursor:  # all rows or none
                     for record in records:
                         if record['level'] in ('error', 'ignored'):
                             continue
@@ -5888,7 +5918,7 @@ def super_admin_student_bulk_import(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_teacher_bulk_import(request):
     session_key = 'super_admin_teacher_bulk_import'
     draft = request.session.get(session_key, {})
@@ -5908,8 +5938,9 @@ def super_admin_teacher_bulk_import(request):
         return xlsx_response('teachers-template.xlsx', headers, sample_rows, 'Teachers')
 
     org_units = erd_rows("SELECT id, parent_id, type, name, code, is_active FROM org_units ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name")
-    courses = erd_rows("SELECT id, title, code, COALESCE(credit_units, 0) AS credit_units FROM courses ORDER BY title LIMIT 500")
-    unit_by_id = {str(unit['id']): unit for unit in org_units}
+    courses = erd_rows("SELECT id, title, code, COALESCE(credit_units, 0) AS credit_units, org_unit_id FROM courses ORDER BY title LIMIT 500")
+    unit_by_id = {str(unit['id']): unit for unit in org_units}  # all units, for path labels
+    org_units, courses, _groups = _bulk_import_scope(request, org_units, courses)
 
     def normalize_text(value):
         return str(value or '').strip().replace('ي', 'ی').replace('ك', 'ک').replace('\u200c', ' ').lower()
@@ -6011,6 +6042,10 @@ def super_admin_teacher_bulk_import(request):
             org_unit_id = resolve_unit(record.get('org_unit'))
             if org_unit_id is None:
                 issues.append(('error', 'org_unit', 'واحد سازمانی یافت نشد.'))
+            if _bulk_import_foreign_profile(request, 'teacher', record.get('personnel_code'),
+                                            record.get('email') or record.get('phone') or record.get('personnel_code'),
+                                            record.get('email'), record.get('national_id')):
+                issues.append(('error', 'national_id', 'این کاربر در واحدی خارج از محدوده‌ی شما ثبت شده است.'))
             course_ids = resolve_courses(record.get('course_names'))
             if record.get('course_names') and not course_ids:
                 issues.append(('warning', 'course_names', 'درس‌های فایل با درس‌های سامانه تطبیق نشد.'))
@@ -6168,7 +6203,7 @@ def super_admin_teacher_bulk_import(request):
             imported_count = 0
             created_credentials = []
             try:
-                with connection.cursor() as cursor:
+                with transaction.atomic(), connection.cursor() as cursor:  # all rows or none
                     for record in records:
                         if record['level'] in ('error', 'ignored') or (record['level'] == 'warning' and skip_warnings):
                             continue
@@ -16139,12 +16174,9 @@ def exam_manager_teacher_request_review(request, request_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_user_import(request, kind='students'):
-    # In development: nothing imports here yet, so the page says so instead of claiming a file was received.
+    """The manager's «ورود گروهی» opens the same import as the system admin's, limited there to the manager's units."""
     kind = request.GET.get('kind') or kind
-    kind = kind if kind in ('students', 'teachers') else 'students'
-    context = _em_base_context(request, 'user_import', 'ورود گروهی اساتید' if kind == 'teachers' else 'ورود گروهی دانشجویان', 'users')
-    context['kind'] = kind
-    return render(request, 'exam_manager/users.html', context)
+    return redirect('core:super_admin_teacher_bulk_import' if kind == 'teachers' else 'core:super_admin_student_bulk_import')
 
 
 """

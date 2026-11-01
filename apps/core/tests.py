@@ -4002,15 +4002,42 @@ class ExamManagerGroupTeacherAssignTests(_ScopedOrgFixture):
 
 
 class ExamManagerUserImportPageTests(_ScopedOrgFixture):
-    """صفحه‌ی ورود گروهی مدیر آموزشی چیزی ثبت نمی‌کند؛ باید «در حال توسعه» بگوید، نه ردیف‌های نمونه و پیام موفقیت."""
+    """ورود گروهی مدیر آموزشی همان ورود گروهی مدیر سیستم است، فقط در واحدهای خود او؛ قبلاً صفحه‌ای نمایشی بود که چیزی ثبت نمی‌کرد."""
 
-    def test_bulk_user_import_page_says_it_is_in_development(self):
+    HEADERS = ['نام', 'نام خانوادگی', 'کد ملی', 'کد دانشجویی', 'سال ورود', 'مقطع', 'رشته', 'واحد سازمانی', 'شماره همراه', 'ایمیل', 'گروه آموزشی', 'درس‌ها', 'وضعیت حساب']
+
+    def _import(self, *rows):
+        import csv
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(self.HEADERS)
+        writer.writerows(rows)
+        url = reverse('core:super_admin_student_bulk_import')
+        self.client.post(url, {'step': '1', 'excel_file': SimpleUploadedFile('s.csv', buffer.getvalue().encode('utf-8-sig'))})
+        return self.client.post(url, {'step': '4', 'confirm_final': '1', 'create_accounts': 'on'}, follow=True)
+
+    def _usernames(self, *names):
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT username FROM profiles WHERE username IN ({', '.join(['%s'] * len(names))}) ORDER BY 1", list(names))
+            return [row[0] for row in cursor.fetchall()]
+
+    def test_manager_imports_students_into_own_units_only(self):
         self.client.force_login(self.manager_user)
-        page = self.client.get(reverse('core:exam_manager_user_import'), {'kind': 'teachers'})
-        self.assertContains(page, 'ورود گروهی اساتید (در حال توسعه)')
-        for invented in ('دکتر محمد رضایی', 'ثبت نهایی ۴۵ استاد', 'استادپزشکی.xlsx'):
-            self.assertNotContains(page, invented)
-
+        self.assertRedirects(self.client.get(reverse('core:exam_manager_user_import'), {'kind': 'teachers'}),
+                             reverse('core:super_admin_teacher_bulk_import'), fetch_redirect_response=False)
+        row = lambda code, unit, national: ['سارا', 'نمونه', national, code, '1403', 'کارشناسی', 'پزشکی', unit, '09120000000', '', '', '', 'فعال']
+        self._import(row('S-1001', 'واحد دیگر', '0012345671'))  # another unit: the whole import stops
+        self.assertEqual(self._usernames('S-1001'), [])
+        self._import(row('student_out_scope', 'واحد تحت مدیریت', '0012345672'))  # would overwrite a student of another unit
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT full_name FROM profiles WHERE id = %s', [self.student_out_id])
+            self.assertEqual(cursor.fetchone()[0], 'دانشجوی خارج محدوده')
+        self._import(row('S-1002', 'واحد تحت مدیریت', '0012345673'))
+        self.assertEqual(self._usernames('S-1002'), ['S-1002'])
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT sp.org_unit_id FROM student_profiles sp JOIN profiles p ON p.id = sp.user_id WHERE p.username = 'S-1002'")
+            self.assertEqual(str(cursor.fetchone()[0]), self.ou_scoped)
 
 class SuperAdminManagerBulkImportTests(_ScopedOrgFixture):
     """ثبت گروهی «مدیر سیستم»: قبلاً برای او هم محدوده‌ی مدیر آموزشی نوشته می‌شد و کل ثبت با خطای کلید خارجی، نیمه‌کاره می‌ماند."""
