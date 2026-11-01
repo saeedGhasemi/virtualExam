@@ -1,5 +1,7 @@
 import io
 import json
+import random
+import re
 import tempfile
 import uuid
 from datetime import timedelta
@@ -3931,6 +3933,120 @@ class SuperAdminManagerBulkImportTests(_ScopedOrgFixture):
                               FROM profiles p JOIN user_roles r ON r.user_id = p.id WHERE p.username IN ('P-9001', 'P-9002') ORDER BY 1""")
             self.assertEqual(cursor.fetchall(), [('P-9001', 'admin', 0), ('P-9002', 'academic_manager', 1)])
         self.assertTrue(get_user_model().objects.filter(username__in=['P-9001', 'P-9002']).count() == 2)
+
+
+class StudentExamIntegrityTests(_ScopedOrgFixture):
+    """راه‌های تقلب در آزمون درسی که در آزمون بار ۱۶۰ کاربره پیدا شد: کلید ترتیب/تطبیق در صفحه، رسید بدون تصحیح،
+    آزمون لغوشده، شماره‌ی سؤال نامعتبر، پاسخ بیش از حد بزرگ و ترتیب ثابت سؤال‌ها."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        now = timezone.now()
+        cls.exam_id = TeacherStudentScopeTests._exam('آزمون درسی', cls.teacher_in_id, now - timedelta(minutes=5), now + timedelta(hours=2), cls.group_in_id)
+        TeacherStudentScopeTests._member(cls.group_in_id, cls.student_in_id)
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET lifecycle_status = 'published', duration_minutes = 30 WHERE id = %s", [cls.exam_id])
+        cls.ordering_id, cls.matching_id = str(uuid.uuid4()), str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'ordering_items', 'default_points'],
+                [cls.ordering_id, cls.teacher_in_id, cls.course_in_id, 'مسیر خون را مرتب کنید.', 'ordering',
+                 json.dumps([{'text': 'دهلیز راست'}, {'text': 'بطن راست'}, {'text': 'ریه'}], ensure_ascii=False), 1])
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'matching_pairs', 'default_points'],
+                [cls.matching_id, cls.teacher_in_id, cls.course_in_id, 'دارو را به گروهش وصل کنید.', 'matching',
+                 json.dumps([{'left': 'آسپرین', 'right': 'NSAID'}, {'left': 'وارفارین', 'right': 'ضدانعقاد'}], ensure_ascii=False), 1])
+        for order, question_id in enumerate((cls.ordering_id, cls.matching_id), start=1):
+            _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), cls.exam_id, question_id, 1, order])
+
+    def setUp(self):
+        self.client.force_login(self.student_user)
+
+    def _start(self):
+        response = self.client.post(reverse('core:student_exam_start', args=[self.exam_id]))
+        return response['Location'].rstrip('/').split('/')[-1]
+
+    def _points(self, attempt_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT question_id, points_awarded FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            return {str(question_id): float(points or 0) for question_id, points in cursor.fetchall()}
+
+    def test_ordering_and_matching_keys_stay_off_the_page(self):
+        from apps.core.views import _sx_item_token
+        attempt_id = self._start()
+        url = reverse('core:student_attempt', args=[attempt_id])
+        html = self.client.get(f'{url}?q=1').content.decode() + self.client.get(f'{url}?q=2').content.decode()
+        values = re.findall(r'<li draggable="true" data-value="([^"]+)"', html) + re.findall(r'data-side="right" data-value="([^"]+)"', html)
+        self.assertEqual(len(values), 5)
+        self.assertFalse(any(value.isdigit() for value in values))
+        # The guessable answers (1,2,…,n and i:i) are not this attempt's tokens, so nothing is stored.
+        self.client.post(url, {f'answer_{self.ordering_id}': '1,2,3', f'answer_{self.matching_id}': '1:1,2:2'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            self.assertEqual({json.loads(row[0])['value'] for row in cursor.fetchall()}, {''})
+        token = lambda question_id, value: _sx_item_token(attempt_id, question_id, value)
+        self.client.post(url, {f'answer_{self.ordering_id}': ','.join(token(self.ordering_id, v) for v in '123'),
+                               f'answer_{self.matching_id}': f'1:{token(self.matching_id, "1")},2:{token(self.matching_id, "2")}'})
+        page = self.client.get(f'{url}?q=1')  # the saved order comes back as tokens, in the student's order
+        self.assertEqual(page.context['current_answer']['answer'].split(',')[0], token(self.ordering_id, '1'))
+        self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]))
+        self.assertEqual(self._points(attempt_id), {self.ordering_id: 1.0, self.matching_id: 1.0})
+
+    def test_receipt_of_an_open_attempt_leads_to_the_submit_page(self):
+        attempt_id = self._start()
+        response = self.client.get(reverse('core:student_attempt_receipt', args=[attempt_id]))
+        self.assertRedirects(response, reverse('core:student_attempt_submit', args=[attempt_id]), fetch_redirect_response=False)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT submitted_at FROM exam_attempts WHERE id = %s', [attempt_id])
+            self.assertIsNone(cursor.fetchone()[0])
+
+    def test_cancelled_exam_stops_taking_answers(self):
+        attempt_id = self._start()
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET is_cancelled = %s WHERE id = %s', [True, self.exam_id])
+        self.client.post(reverse('core:student_attempt', args=[attempt_id]), {f'answer_{self.ordering_id}': 'x'})
+        self.assertEqual(self._points(attempt_id), {})
+
+    def test_bad_question_index_and_oversized_answer(self):
+        attempt_id = self._start()
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.assertEqual(self.client.get(f'{url}?q=abc').status_code, 200)
+        essay_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'default_points'], [essay_id, self.teacher_in_id, 'تشریحی', 'essay', 1])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_id, essay_id, 1, 3])
+        self.client.post(url, {f'answer_{essay_id}': 'ا' * 200000})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, essay_id])
+            self.assertEqual(len(json.loads(cursor.fetchone()[0])['value']), 50000)
+
+    def test_shuffled_exam_gives_each_attempt_a_stable_order_of_its_own(self):
+        from apps.core.views import _sx_attempt_rows
+        attempt_id = self._start()
+        base = [row['question_id'] for row in _sx_attempt_rows(attempt_id, self.student_in_id)]
+        self.assertEqual(base, [self.ordering_id, self.matching_id])
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET shuffle_questions = %s WHERE id = %s', [True, self.exam_id])
+        expected = list(base)
+        random.Random(f'{attempt_id}-questions').shuffle(expected)
+        for _ in range(2):
+            self.assertEqual([row['question_id'] for row in _sx_attempt_rows(attempt_id, self.student_in_id)], expected)
+
+    def test_second_start_resumes_the_same_attempt(self):
+        first, second = self._start(), self._start()
+        self.assertEqual(first, second)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM exam_attempts WHERE exam_id = %s', [self.exam_id])
+            self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_practice_exam_cannot_start_after_it_ends(self):
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE exams SET exam_mode = 'practice', max_attempts = 0, start_at = %s, end_at = %s WHERE id = %s",
+                           [timezone.now() - timedelta(days=2), timezone.now() - timedelta(days=1), self.exam_id])
+        response = self.client.post(reverse('core:student_practice_start', args=[self.exam_id]), {'mode': 'tutorial', 'accept_rules': '1'}, follow=True)
+        self.assertContains(response, 'زمان شرکت در این آزمون آزمایشی به پایان رسیده است.')
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM exam_attempts WHERE exam_id = %s', [self.exam_id])
+            self.assertEqual(cursor.fetchone()[0], 0)
 
 
 class StudentDashboardTests(_ScopedOrgFixture):

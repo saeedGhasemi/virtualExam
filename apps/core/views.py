@@ -31,7 +31,7 @@ from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonRespon
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.crypto import get_random_string
+from django.utils.crypto import get_random_string, salted_hmac
 from django.utils.dateparse import parse_datetime
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -17173,7 +17173,38 @@ def _sx_question_media(value):
     return result
 
 
-def _sx_ordering_display_items(value, question_id):
+def _sx_item_token(attempt_id, question_id, value):
+    """Opaque per-attempt id of an ordering item or matching answer: the page must not carry the real index,
+    since the correct ordering is always 1,2,…,n and the correct matching always i:i."""
+    return salted_hmac('exam-item-token', f'{attempt_id}:{question_id}:{value}').hexdigest()[:12]
+
+
+def _sx_token_item_values(kind, row):
+    """The real values the tokens of an ordering/matching question stand for."""
+    if kind == 'ordering':
+        return [item['value'] for item in _sx_ordering_display_items(row.get('ordering_items'), row['question_id'])]
+    return [item['value'] for item in _sx_matching_display_columns(row.get('matching_pairs'), row['question_id'], row.get('scoring_settings'))[1]]
+
+
+def _sx_encode_item_answer(kind, row, attempt_id, answer):
+    """A saved answer ('3,1,2' / '1:2,2:d1') with its real values swapped for this attempt's tokens."""
+    token = lambda value: _sx_item_token(attempt_id, row['question_id'], value)
+    parts = [part.strip() for part in str(answer or '').split(',') if part.strip()]
+    if kind == 'ordering':
+        return ','.join(token(part) for part in parts)
+    return ','.join(f'{left}:{token(right)}' for left, _, right in (part.partition(':') for part in parts) if right)
+
+
+def _sx_decode_item_answer(kind, row, attempt_id, posted):
+    """Back from tokens to real values; anything that is not one of this attempt's tokens is dropped."""
+    by_token = {_sx_item_token(attempt_id, row['question_id'], value): value for value in _sx_token_item_values(kind, row)}
+    parts = [part.strip() for part in str(posted or '').split(',') if part.strip()]
+    if kind == 'ordering':
+        return ','.join(by_token[part] for part in parts if part in by_token)
+    return ','.join(f'{left}:{by_token[right]}' for left, _, right in (part.partition(':') for part in parts) if right in by_token)
+
+
+def _sx_ordering_display_items(value, question_id, attempt_id=None):
     parsed = _sx_json(value, None) or []
     items = []
     for index, entry in enumerate(parsed, start=1):
@@ -17185,11 +17216,16 @@ def _sx_ordering_display_items(value, question_id):
             order = index
         if text:
             items.append({'value': str(order), 'label': text, **(_sx_media_fields(entry.get('media')) if isinstance(entry, dict) else {})})
-    random.Random(str(question_id)).shuffle(items)
+    if attempt_id:  # the exam page: tokens instead of positions, and an order of its own per attempt
+        for item in items:
+            item['value'] = _sx_item_token(attempt_id, question_id, item['value'])
+        random.Random(f'{attempt_id}-{question_id}').shuffle(items)
+    else:
+        random.Random(str(question_id)).shuffle(items)
     return items
 
 
-def _sx_matching_display_columns(value, question_id, scoring_settings=None):
+def _sx_matching_display_columns(value, question_id, scoring_settings=None, attempt_id=None):
     parsed = _sx_json(value, None) or []
     settings_data = _sx_json(scoring_settings, {}) or {}
     settings_data = settings_data if isinstance(settings_data, dict) else {}
@@ -17214,7 +17250,12 @@ def _sx_matching_display_columns(value, question_id, scoring_settings=None):
     for index, distractor in enumerate(settings_data.get('matching_distractors') or [], start=1):
         if str(distractor).strip():
             right_items.append({'value': f'd{index}', 'label': str(distractor).strip()})
-    random.Random(f'{question_id}-right').shuffle(right_items)
+    if attempt_id:  # the exam page: right-hand answers as tokens, in an order of its own per attempt
+        for item in right_items:
+            item['value'] = _sx_item_token(attempt_id, question_id, item['value'])
+        random.Random(f'{attempt_id}-{question_id}-right').shuffle(right_items)
+    else:
+        random.Random(f'{question_id}-right').shuffle(right_items)
     return left_items, right_items
 
 
@@ -17435,14 +17476,18 @@ def _sx_attempt_rows(attempt_id, student_id):
         # accepted_answers carries per-blank media hints; only the hints reach the template, never the answers.
         for column in ('matching_pairs', 'ordering_items', 'question_media', 'scoring_settings', 'suggested_time_seconds', 'accepted_answers')
     )
-    return erd_rows(
+    shuffle_sql = ', '.join(
+        f'COALESCE(e.{column}, false) AS exam_{column}' if erd_has_column('exams', column) else f'false AS exam_{column}'
+        for column in ('shuffle_questions', 'shuffle_options')
+    )
+    rows = erd_rows(
         f"""
         SELECT ea.id AS attempt_id, ea.exam_id, ea.started_at, ea.submitted_at, ea.status,
                e.title AS exam_title, COALESCE(e.duration_minutes, 90) AS duration_minutes,
                q.id AS question_id, q.text, COALESCE(q.type, 'single') AS type, q.options,
                COALESCE(eq.points, q.default_points) AS question_points,
                {optional_sql},
-               aa.answer, {marked_sql}
+               aa.answer, {marked_sql}, {shuffle_sql}
         FROM exam_attempts ea
         JOIN exams e ON e.id = ea.exam_id
         JOIN exam_questions eq ON eq.exam_id = e.id
@@ -17453,6 +17498,10 @@ def _sx_attempt_rows(attempt_id, student_id):
         """,
         [attempt_id, student_id],
     )
+    if rows and rows[0].get('exam_shuffle_questions'):
+        # The exam's «ترتیب تصادفی سؤال‌ها»: an order of its own per attempt, the same on every page load.
+        random.Random(f'{attempt_id}-questions').shuffle(rows)
+    return rows
 
 
 def _sx_answer_dashboard(items, current_index):
@@ -17477,13 +17526,14 @@ ATTEMPT_GRACE_SECONDS = 60
 
 
 def _sx_attempt_accepts_answers(attempt_id):
-    """True while the attempt is in progress, not submitted and within its time limit (plus grace).
+    """True while the attempt is in progress, not submitted, its exam not cancelled, and within its time limit (plus grace).
 
     The limit matches the exam page timer: start time + exam duration (90 minutes when unset).
     """
     attempt = erd_row(
         """
-        SELECT ea.submitted_at, ea.status, ea.started_at, COALESCE(e.duration_minutes, 90) AS duration_minutes
+        SELECT ea.submitted_at, ea.status, ea.started_at, COALESCE(e.duration_minutes, 90) AS duration_minutes,
+               COALESCE(e.is_cancelled, false) AS is_cancelled
         FROM exam_attempts ea
         JOIN exams e ON e.id = ea.exam_id
         WHERE ea.id = %s
@@ -17491,6 +17541,8 @@ def _sx_attempt_accepts_answers(attempt_id):
         [attempt_id],
     )
     if not attempt or attempt.get('submitted_at') or (attempt.get('status') or 'in_progress') != 'in_progress':
+        return False
+    if attempt.get('is_cancelled'):
         return False
     started_at = _sx_dt(attempt.get('started_at'))
     if not started_at:
@@ -17509,6 +17561,9 @@ def _sx_locked_question_ids(attempt_id) -> set:
     }
 
 
+ANSWER_TEXT_MAX = 50000  # characters per posted answer value; a long essay fits, a flood does not
+
+
 def _sx_save_attempt_answers(request, attempt_id):
     """Save posted answers of an attempt the caller already verified belongs to this student.
 
@@ -17521,12 +17576,13 @@ def _sx_save_attempt_answers(request, attempt_id):
         return 0
     locked = _sx_locked_question_ids(attempt_id)
     allowed_questions = {
-        str(row['question_id'])
+        str(row['question_id']): row
         for row in erd_rows(
             """
-            SELECT eq.question_id
+            SELECT eq.question_id, q.type, q.ordering_items, q.matching_pairs, q.scoring_settings
             FROM exam_questions eq
             JOIN exam_attempts ea ON ea.exam_id = eq.exam_id
+            JOIN questions q ON q.id = eq.question_id
             WHERE ea.id = %s
             """,
             [attempt_id],
@@ -17540,8 +17596,11 @@ def _sx_save_attempt_answers(request, attempt_id):
         if question_id not in allowed_questions:
             continue
         key = f'answer_{question_id}'
-        values = request.POST.getlist(key)
+        values = [value[:ANSWER_TEXT_MAX] for value in request.POST.getlist(key)]
         answer_value = values if len(values) > 1 else (values[0] if values else '')
+        question = allowed_questions[question_id]
+        if question.get('type') in ('ordering', 'matching') and key in request.POST:
+            answer_value = _sx_decode_item_answer(question['type'], question, attempt_id, values[0] if values else '')
         answer = json.dumps({'value': answer_value}, ensure_ascii=False)
         marked = bool(request.POST.get(f'mark_{question_id}'))
         existing = erd_row(
@@ -17782,15 +17841,23 @@ def student_exam_start(request, exam_id):
         messages.error(request, 'آزمون هنوز شروع نشده است.' if now < exam['starts_at'] else 'زمان ورود به این آزمون به پایان رسیده است.')
         return redirect('core:student_exam_detail', exam_id=exam_id)
     if not attempt:
-        attempt_id = str(uuid.uuid4())
-        erd_execute(
-            """
-            INSERT INTO exam_attempts (id, exam_id, student_id, started_at, status, is_graded)
-            VALUES (%s, %s, %s, %s, %s, false)
-            """,
-            [attempt_id, exam_id, request.erd_profile_id, timezone.now(), 'in_progress'],
-        )
-    else:
+        with transaction.atomic():
+            # Two quick starts must not both insert: lock the student's profile row and look again (as practice starts do).
+            if connection.vendor == 'postgresql':
+                erd_row('SELECT id FROM profiles WHERE id = %s FOR UPDATE', [request.erd_profile_id])
+            attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
+            if not attempt:
+                attempt_id = str(uuid.uuid4())
+                erd_execute(
+                    """
+                    INSERT INTO exam_attempts (id, exam_id, student_id, started_at, status, is_graded)
+                    VALUES (%s, %s, %s, %s, %s, false)
+                    """,
+                    [attempt_id, exam_id, request.erd_profile_id, timezone.now(), 'in_progress'],
+                )
+    if attempt and attempt.get('submitted_at'):
+        return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
+    if attempt:
         attempt_id = attempt['id']
         erd_execute(
             "UPDATE exam_attempts SET status = %s, started_at = COALESCE(started_at, %s) WHERE id = %s",
@@ -17804,8 +17871,7 @@ def student_attempt(request, attempt_id):
     rows = _sx_attempt_rows(attempt_id, request.erd_profile_id)
     if not rows:
         raise Http404('تلاش آزمون پیدا نشد.')
-    current_index = max(1, int(request.GET.get('q') or 1))
-    current_index = min(current_index, len(rows))
+    current_index = min(max(1, _em_int(request.GET.get('q'), 1)), len(rows))
     if request.method == 'POST':
         is_xhr = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         if not _sx_attempt_accepts_answers(attempt_id):
@@ -17862,15 +17928,17 @@ def student_attempt(request, attempt_id):
             'points': _sx_float(row.get('question_points'), 0),
             'suggested_seconds': int(_sx_float(row.get('suggested_time_seconds'), 0)),
         }
-        if kind in ('single', 'multi') and settings_data.get('shuffle_options'):
+        if kind in ('single', 'multi') and (settings_data.get('shuffle_options') or row.get('exam_shuffle_options')):
             # Stable per attempt so the order does not change between page loads.
             random.Random(f"{attempt_id}-{row['question_id']}").shuffle(item['options'])
         if kind == 'multi':
             item['max_select'] = int(_sx_float(settings_data.get('max_correct'), 0))
         if kind == 'ordering':
-            item['ordering_items'] = _sx_ordering_display_items(row.get('ordering_items'), row['question_id'])
+            item['ordering_items'] = _sx_ordering_display_items(row.get('ordering_items'), row['question_id'], attempt_id)
+            item['answer'] = _sx_encode_item_answer(kind, row, attempt_id, answer)
         elif kind == 'matching':
-            item['matching_left'], item['matching_right'] = _sx_matching_display_columns(row.get('matching_pairs'), row['question_id'], settings_data)
+            item['matching_left'], item['matching_right'] = _sx_matching_display_columns(row.get('matching_pairs'), row['question_id'], settings_data, attempt_id)
+            item['answer'] = _sx_encode_item_answer(kind, row, attempt_id, answer)
             item['matching_many_to_one'] = settings_data.get('matching_mode') == 'many_to_one'
         elif kind == 'fill_blank':
             item['blank_segments'] = _sx_fill_blank_segments(item['text'])
@@ -18010,9 +18078,9 @@ def student_attempt_receipt(request, attempt_id):
         raise Http404('رسید آزمون پیدا نشد.')
     from . import student_practice as practice
 
+    if not row.get('submitted_at'):  # attempts are graded on submission; never close one ungraded here
+        return redirect('core:student_attempt_submit', attempt_id=attempt_id)
     if practice.attempt_practice_mode(attempt_id, request.erd_profile_id):
-        if not row.get('submitted_at'):  # a practice attempt is graded on submission; never close it ungraded here
-            return redirect('core:student_attempt_submit', attempt_id=attempt_id)
         result = next((item for item in _sx_result_rows(request.erd_profile_id, practice=True) if str(item['id']) == str(attempt_id)), None)
         return render(request, 'student/practice_receipt.html', {
             'student': _sx_student_context(request),
@@ -18021,9 +18089,6 @@ def student_attempt_receipt(request, attempt_id):
             'is_pending': not result or result['is_pending'],
             **practice.receipt_context(attempt_id, request.erd_profile_id, _sx_attempt_rows(attempt_id, request.erd_profile_id)),
         })
-    if not row.get('submitted_at'):
-        erd_execute('UPDATE exam_attempts SET submitted_at = %s, status = %s WHERE id = %s', [timezone.now(), 'submitted', attempt_id])
-        row['submitted_at'] = timezone.now()
     attempt = {
         'pk': attempt_id,
         'id': attempt_id,

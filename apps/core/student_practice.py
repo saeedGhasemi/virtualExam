@@ -81,6 +81,8 @@ def start_refusal(exam, student_id) -> str:
     """Why a new attempt may not start now, or '' when it may. An unfinished attempt is resumed, never refused."""
     if exam['starts_at'] > timezone.now():
         return 'این آزمون آزمایشی هنوز شروع نشده است.'
+    if exam.get('entry_ends_at') and timezone.now() > exam['entry_ends_at']:
+        return 'زمان شرکت در این آزمون آزمایشی به پایان رسیده است.'
     limit = attempt_limit(exam)
     if limit is not None and attempts_used(exam['id'], student_id) >= limit:
         return 'تعداد دفعات مجاز شرکت در این آزمون آزمایشی به پایان رسیده است.'

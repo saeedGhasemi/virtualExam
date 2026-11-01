@@ -86,7 +86,7 @@
           {% elif current_answer.type == 'essay' or current_answer.type == 'descriptive' or current_answer.type == 'media_response' %}
             <h3>پاسخ شما</h3>
             {% if not current_answer.answer_formats or 'text' in current_answer.answer_formats %}
-              <textarea class="qx-textarea" name="answer_{{ current_answer.question_id }}" placeholder="پاسخ تشریحی خود را بنویسید...">{{ current_answer.answer|default_if_none:"" }}</textarea>
+              <textarea class="qx-textarea" name="answer_{{ current_answer.question_id }}" maxlength="50000" placeholder="پاسخ تشریحی خود را بنویسید...">{{ current_answer.answer|default_if_none:"" }}</textarea>
             {% endif %}
             {% if current_answer.upload_rules %}
               <div class="qx-uploads" data-answer-uploads>
