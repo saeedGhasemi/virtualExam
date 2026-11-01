@@ -507,6 +507,25 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
             cursor.execute(state, ['آزمون تست'])
             self.assertEqual(cursor.fetchone(), ('published', 'approved', True))
 
+    def test_a_question_serves_practice_or_course_exams_not_both(self):
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, self.question_in_id, 1, 1])
+        self.client.force_login(self.admin_user)
+        response = self.client.post(reverse('core:super_admin_exam_create'), self._base_payload(exam_mode='practice'), follow=True)
+        self.assertContains(response, 'سؤال انتخاب‌شده در آزمون درسی هم آمده است')
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM exams WHERE title = 'آزمون تست'")
+            self.assertEqual(cursor.fetchone()[0], 0)
+        self.client.post(reverse('core:super_admin_exam_create'), self._base_payload())  # another course exam may reuse it
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM exams WHERE title = 'آزمون تست'")
+            self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_manager_question_picker_keeps_to_own_units(self):
+        self.client.force_login(self.manager_user)
+        url = reverse('core:exam_manager_exam_questions', args=[self.exam_in_id])
+        self.assertEqual(self.client.post(url, {'question_ids': [self.question_out_id]}).status_code, 403)
+        self.assertEqual(self.client.post(url, {'question_ids': [self.question_in_id]}).status_code, 302)
+
     def test_manager_can_create_exam_with_in_scope_resources_and_staff(self):
         self.client.force_login(self.manager_user)
         payload = self._base_payload(staff_teacher_id=[self.teacher_in_id], staff_role=['designer'])

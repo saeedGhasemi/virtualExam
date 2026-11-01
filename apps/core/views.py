@@ -7743,6 +7743,39 @@ def _exam_participants_match_response(request, scope=None):
 EXAM_WIZARD_SCOPE_KINDS = ('groups', 'courses', 'teachers', 'students', 'questions')
 
 
+def _exam_question_mode_conflict(question_ids, exam_mode, exam_id=None) -> str:
+    """Why these questions may not go into an exam of this mode, or ''.
+
+    A practice exam shows the key (tutorial feedback, practice results), so a question serves practice exams or course
+    exams, never both: otherwise the key of a course exam question is one practice attempt away."""
+    question_ids = [str(item) for item in dict.fromkeys(question_ids) if item]
+    if not question_ids or not erd_has_column('exams', 'exam_mode'):
+        return ''
+    practice = (exam_mode or '') == PRACTICE_EXAM_MODE
+    placeholders = ', '.join(['%s'] * len(question_ids))
+    row = erd_row(
+        f"""
+        SELECT COUNT(DISTINCT eq.question_id) AS n
+        FROM exam_questions eq
+        JOIN exams e ON e.id = eq.exam_id
+        WHERE eq.question_id IN ({placeholders}) AND COALESCE(e.is_cancelled, false) = false
+          {'AND e.id <> %s' if exam_id else ''}
+          AND COALESCE(e.exam_mode, 'standard') {'<>' if practice else '='} %s
+        """,
+        [*question_ids, *([exam_id] if exam_id else []), PRACTICE_EXAM_MODE],
+    )
+    count = int((row or {}).get('n') or 0)
+    if not count:
+        return ''
+    from .templatetags.core_extras import fa_digits
+
+    if practice:
+        return (f'{fa_digits(count)} سؤال انتخاب‌شده در آزمون درسی هم آمده است. آزمون آزمایشی پاسخ درست را به دانشجو نشان می‌دهد، '
+                'پس سؤال آزمون درسی در آن نمی‌آید؛ سؤال‌های دیگری انتخاب کنید.')
+    return (f'{fa_digits(count)} سؤال انتخاب‌شده در آزمون آزمایشی آمده است و پاسخش به دانشجویان نشان داده شده یا می‌شود؛ '
+            'برای آزمون درسی سؤال‌های دیگری انتخاب کنید.')
+
+
 def _exam_wizard_scope(request) -> dict:
     """SQL filters (condition, params) for every picker of the exam wizard.
 
@@ -8231,6 +8264,9 @@ def super_admin_exam_create(request):
         if not selected_questions:
             messages.error(request, 'حداقل یک سوال برای آزمون انتخاب کنید.')
             return redirect('core:super_admin_exam_create')
+        if conflict := _exam_question_mode_conflict(selected_questions, request.POST.get('exam_mode')):
+            messages.error(request, conflict)
+            return redirect('core:super_admin_exam_create')
         if not is_admin:
             if managed_unit_ids is not None and str(course_id) not in {str(c['id']) for c in courses}:
                 return HttpResponseForbidden('درس انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
@@ -8331,6 +8367,8 @@ def super_admin_exams(request):
             )
         if not valid_questions:
             return JsonResponse({'ok': False, 'message': 'حداقل یک سوال معتبر از بانک سوال استاد انتخاب کنید.'}, status=400)
+        if conflict := _exam_question_mode_conflict([row['id'] for row in valid_questions], 'standard'):
+            return JsonResponse({'ok': False, 'message': conflict}, status=400)
 
         erd_execute(
             """
@@ -8963,6 +9001,9 @@ def super_admin_exam_edit(request, exam_id):
         }.get(step, ())
         if not all(_exam_wizard_ids_in_scope(scope, kind, ids) for kind, ids in posted_ids):
             return HttpResponseForbidden('برخی موارد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+        if step == '3' and (conflict := _exam_question_mode_conflict(request.POST.getlist('question_ids'), exam.get('exam_mode'), exam_id)):
+            messages.error(request, conflict)
+            return redirect(f"{reverse('core:super_admin_exam_edit', args=[exam_id])}?step=3")
         if step == '1':
             erd_execute(
                 """
@@ -15351,6 +15392,9 @@ def _teacher_exam_wizard(request, exam=None):
         if missing:
             messages.error(request, missing)
             return redirect(retry_url)
+        if conflict := _exam_question_mode_conflict(posted['question_ids'], request.POST.get('exam_mode'), exam['id'] if exam else None):
+            messages.error(request, conflict)
+            return redirect(retry_url)
         checks = (
             ('courses', [course_id]),
             ('groups', posted['group_ids']),
@@ -16967,7 +17011,13 @@ def exam_manager_exam_questions(request, exam_id):
         raise Http404('آزمون پیدا نشد.')
     exam = exams[0]
     if request.method == 'POST':
-        selected_ids = request.POST.getlist('question_ids')
+        selected_ids = [item for item in request.POST.getlist('question_ids') if item]
+        if not _exam_wizard_ids_in_scope(_exam_wizard_scope(request), 'questions', selected_ids):
+            return HttpResponseForbidden('برخی سوالات انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+        mode = erd_row('SELECT exam_mode FROM exams WHERE id = %s', [exam_id]) if erd_has_column('exams', 'exam_mode') else None
+        if conflict := _exam_question_mode_conflict(selected_ids, (mode or {}).get('exam_mode'), exam_id):
+            messages.error(request, conflict)
+            return redirect('core:exam_manager_exam_questions', exam_id=exam_id)
         erd_execute('DELETE FROM exam_questions WHERE exam_id = %s', [exam_id])
         for index, question_id in enumerate(selected_ids, start=1):
             erd_execute(
