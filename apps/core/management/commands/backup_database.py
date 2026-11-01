@@ -42,7 +42,10 @@ class Command(BaseCommand):
             environment = {**os.environ, 'PGPASSWORD': str(database.get('PASSWORD') or '')}
             command = ['pg_dump', '-Fc', '-f', str(target), '-h', str(database.get('HOST') or 'localhost'),
                        '-p', str(database.get('PORT') or '5432'), '-U', str(database.get('USER') or ''), str(database['NAME'])]
-            result = subprocess.run(command, env=environment, capture_output=True, text=True)
+            try:
+                result = subprocess.run(command, env=environment, capture_output=True, text=True)
+            except FileNotFoundError as error:
+                raise CommandError('pg_dump was not found; add the PostgreSQL bin folder to PATH.') from error
             if result.returncode != 0:
                 target.unlink(missing_ok=True)
                 raise CommandError(f'pg_dump failed: {result.stderr.strip()}')

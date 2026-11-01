@@ -87,7 +87,7 @@ def convert_legacy_questions(apps, schema_editor):
                 continue  # saved by the current editor, or already converted
             accepted = _load(raw_accepted, [])
             accepted = [item for item in accepted if isinstance(item, dict)] if isinstance(accepted, list) else []
-            # Raw column values: Python values on PostgreSQL (jsonb), the stored text on SQLite.
+            # Raw column values, kept as read so the reverse can write them back unchanged.
             legacy = {'scoring_settings': raw_settings, 'accepted_answers': raw_accepted, 'correct_answer': correct_answer}
 
             settings['scoring_mode'] = 'partial' if settings.get('partial_credit', True) else 'all_or_nothing'
@@ -115,8 +115,12 @@ def convert_legacy_questions(apps, schema_editor):
             cursor.execute(f"UPDATE questions SET {', '.join(assignments)} WHERE id = %s", [*params, question_id])
 
 
+def _stored(value):
+    # Django's psycopg 3 cursor reads jsonb as JSON text (as SQLite does); only a Python value needs encoding again.
+    return value if value is None or isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+
+
 def restore_legacy_questions(apps, schema_editor):
-    is_pg = schema_editor.connection.vendor == 'postgresql'
     with schema_editor.connection.cursor() as cursor:
         cursor.execute('SELECT * FROM questions LIMIT 0')
         if 'scoring_settings' not in {column[0] for column in cursor.description or []}:
@@ -130,8 +134,7 @@ def restore_legacy_questions(apps, schema_editor):
             cursor.execute(
                 'UPDATE questions SET scoring_settings = %s, accepted_answers = %s, correct_answer = %s WHERE id = %s',
                 [
-                    *(json.dumps(legacy[key], ensure_ascii=False) if is_pg and legacy[key] is not None else legacy[key]
-                      for key in ('scoring_settings', 'accepted_answers', 'correct_answer')),
+                    *(_stored(legacy[key]) for key in ('scoring_settings', 'accepted_answers', 'correct_answer')),
                     question_id,
                 ],
             )

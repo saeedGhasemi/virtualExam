@@ -521,15 +521,20 @@ def describe_user_agent(user_agent):
     return f'{os_label} - {browser}' if browser else os_label
 
 
+def _erd_value(value):
+    # ERD ids are uuid columns on PostgreSQL but text on SQLite; the views compare, join and json.dumps them as str.
+    return str(value) if isinstance(value, uuid.UUID) else value
+
+
 def dictfetchall(cursor):
     columns = [column[0] for column in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    return [{column: _erd_value(value) for column, value in zip(columns, row)} for row in cursor.fetchall()]
 
 
 def dictfetchone(cursor):
     columns = [column[0] for column in cursor.description]
     row = cursor.fetchone()
-    return dict(zip(columns, row)) if row else None
+    return {column: _erd_value(value) for column, value in zip(columns, row)} if row else None
 
 
 def erd_adapt_sql(sql):
@@ -15804,7 +15809,7 @@ def exam_manager_teacher_profile(request, teacher_id):
         """
         SELECT p.id, p.full_name, COALESCE(p.email, '') AS email, COALESCE(p.phone, '') AS phone,
                COALESCE(p.avatar_url, '') AS avatar_url, COALESCE(p.status, tp.approval_status, 'active') AS status,
-               COALESCE(p.created_at, '') AS created_at, COALESCE(p.updated_at, p.last_login_at, p.created_at) AS updated_at,
+               p.created_at, COALESCE(p.updated_at, p.last_login_at, p.created_at) AS updated_at,
                COALESCE(tp.personnel_code, p.identifier, '') AS personnel_code,
                COALESCE(tp.specialty, '') AS specialty,
                COALESCE(ou.name, tp.department, 'دانشکده پزشکی') AS unit
