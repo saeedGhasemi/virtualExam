@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.core.middleware.MalformedIdNotFoundMiddleware',
+    'apps.core.exam_schedule.ScheduledPublishMiddleware',
 ]
 
 if HAS_WHITENOISE:

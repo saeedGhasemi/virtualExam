@@ -485,13 +485,27 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
         self.assertIn(self.group_in_id, group_ids)
         self.assertNotIn(self.group_out_id, group_ids)
 
-    def test_scheduled_publish_is_kept_as_a_draft_until_it_exists(self):
+    def test_scheduled_publish_waits_for_its_time(self):
+        from django.core.management import call_command
+        from apps.core.exam_schedule import publish_due_exams
         self.client.force_login(self.admin_user)
-        response = self.client.post(reverse('core:super_admin_exam_create'), self._base_payload(publish_choice='scheduled'), follow=True)
-        self.assertContains(response, 'زمان‌بندی انتشار هنوز فعال نیست؛ آزمون به‌صورت پیش‌نویس ذخیره شد.')
+        url = reverse('core:super_admin_exam_create')
+        response = self.client.post(url, self._base_payload(title='بدون زمان', publish_choice='scheduled'), follow=True)
+        self.assertContains(response, 'زمان انتشار باید در آینده باشد؛ آزمون به‌صورت پیش‌نویس ذخیره شد.')
+        later = (timezone.localtime() + timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M')
+        self.client.post(url, self._base_payload(publish_choice='scheduled', scheduled_publish_at=later))
+        state = "SELECT lifecycle_status, approval_status, is_published FROM exams WHERE title = %s"
         with connection.cursor() as cursor:
-            cursor.execute("SELECT lifecycle_status, is_published FROM exams WHERE title = 'آزمون تست'")
-            self.assertEqual(cursor.fetchone(), ('draft', False))
+            cursor.execute(state, ['بدون زمان'])
+            self.assertEqual(cursor.fetchone(), ('draft', 'pending', False))
+            cursor.execute(state, ['آزمون تست'])
+            self.assertEqual(cursor.fetchone(), ('approved', 'approved', False))
+        self.assertEqual(publish_due_exams(), [])  # not yet
+        call_command('publish_scheduled_exams', stdout=io.StringIO())
+        self.assertEqual([row['title'] for row in publish_due_exams(timezone.now() + timedelta(hours=3))], ['آزمون تست'])
+        with connection.cursor() as cursor:
+            cursor.execute(state, ['آزمون تست'])
+            self.assertEqual(cursor.fetchone(), ('published', 'approved', True))
 
     def test_manager_can_create_exam_with_in_scope_resources_and_staff(self):
         self.client.force_login(self.manager_user)

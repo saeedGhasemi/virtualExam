@@ -8247,18 +8247,23 @@ def super_admin_exam_create(request):
                 return HttpResponseForbidden('برخی دانشجویان انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
 
         publish_choice = request.POST.get('publish_choice') or 'draft'
-        if publish_choice not in ('immediate', 'submit'):
-            if publish_choice != 'draft':  # scheduled publishing has no job behind it yet ('scheduled' is not a lifecycle state)
-                messages.warning(request, 'زمان‌بندی انتشار هنوز فعال نیست؛ آزمون به‌صورت پیش‌نویس ذخیره شد.')
+        if publish_choice == 'scheduled':
+            # Approved now, published by publish_due_exams() once scheduled_publish_at arrives.
+            publish_at = _parse_exam_wizard_datetime(request.POST.get('scheduled_publish_at'))
+            if not publish_at or publish_at <= timezone.now():
+                messages.warning(request, 'زمان انتشار باید در آینده باشد؛ آزمون به‌صورت پیش‌نویس ذخیره شد.')
+                publish_choice = 'draft'
+        elif publish_choice not in ('immediate', 'submit'):
             publish_choice = 'draft'
         is_published = publish_choice == 'immediate'
+        lifecycle = {'immediate': 'published', 'submit': 'pending_approval', 'scheduled': 'approved'}.get(publish_choice, 'draft')
         _exam_wizard_insert(
             request, title=title, teacher_id=teacher_id, course_id=course_id, first_group=first_group,
             selected_questions=selected_questions, selected_groups=selected_groups,
             selected_students=selected_students, excluded_students=excluded_students,
             staff_pairs=zip(staff_teacher_ids, staff_roles), publish_choice=publish_choice, is_published=is_published,
-            lifecycle_status='published' if is_published else ('pending_approval' if publish_choice == 'submit' else 'draft'),
-            approval_status='approved' if is_published else 'pending',
+            lifecycle_status=lifecycle,
+            approval_status='approved' if publish_choice in ('immediate', 'scheduled') else 'pending',
         )
         messages.success(request, 'آزمون با موفقیت ایجاد شد.')
         return redirect('core:super_admin_exams')
