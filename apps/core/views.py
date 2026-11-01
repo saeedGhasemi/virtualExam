@@ -14539,17 +14539,37 @@ def teacher_security(request):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'security'))
 
 
-@erd_role_required('teacher')
+@erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
 def teacher_questions(request):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'questions'))
 
 
-@erd_role_required('teacher')
+@erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
 def teacher_question_type(request):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'question_type'))
 
 
 INDEPENDENT_QUESTION_TYPES = {'single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering', *question_kinds.V2_TYPES}
+
+
+def _question_course_options(request):
+    """Courses a question may belong to: a teacher's group courses, a manager's unit courses, every course for an admin."""
+    role = getattr(request, 'erd_role', None)
+    if role == 'admin':
+        return erd_rows('SELECT id, title FROM courses ORDER BY title')
+    if role == 'academic_manager':
+        managed = _erd_managed_unit_ids(request) or set()
+        return [row for row in erd_rows('SELECT id, title, org_unit_id FROM courses ORDER BY title') if str(row.get('org_unit_id') or '') in managed]
+    return _teacher_question_course_options(request.erd_profile_id)
+
+
+def _question_allowed_course_ids(request, course_options) -> set:
+    """For _question_builder_errors. A teacher without groups is not limited (as before); an admin or manager is held to
+    their own list, where '' (no course) stays allowed."""
+    allowed = {str(row['id']) for row in course_options}
+    if getattr(request, 'erd_role', None) in ('admin', 'academic_manager'):
+        allowed |= {'', None}
+    return allowed
 
 
 def _teacher_question_course_options(teacher_id):
@@ -15195,7 +15215,7 @@ def _attach_question_draft(request, context, key, question_type):
     return context
 
 
-@erd_role_required('teacher')
+@erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
 def teacher_question_autosave(request):
     """Store the in-progress builder form as a private server-side draft (never as a question row)."""
     if request.method != 'POST':
@@ -15231,7 +15251,7 @@ def teacher_question_autosave(request):
 SCENARIO_BUILDERS_IN_DEVELOPMENT = {'kfp', 'case'}
 
 
-@erd_role_required('teacher')
+@erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
 def teacher_question_create(request):
     teacher_id = request.erd_profile_id
     if (request.POST.get('type') or request.GET.get('type')) == 'osce':
@@ -15241,7 +15261,7 @@ def teacher_question_create(request):
         # Their pages were mock-ups that saved a fixed sample scenario whatever the teacher entered.
         messages.info(request, 'سازنده‌ی KFP و گروه سؤال سناریوی بیمار در حال توسعه است و هنوز سؤالی ثبت نمی‌کند.')
         return redirect('core:teacher_question_type')
-    course_options = _teacher_question_course_options(teacher_id)
+    course_options = _question_course_options(request)
     if request.method == 'POST':
         payload = _question_builder_payload(request.POST)
         if payload['structure'] != 'independent':
@@ -15255,7 +15275,7 @@ def teacher_question_create(request):
         else:
             _apply_independent_settings(payload, request.POST)
             errors = _apply_question_uploads(payload, request.FILES, request.POST)
-            errors += _question_builder_errors(payload, {str(row['id']) for row in course_options})
+            errors += _question_builder_errors(payload, _question_allowed_course_ids(request, course_options))
             if not errors:
                 _save_question_payload(payload, teacher_id)
                 _delete_question_draft(_question_draft_key(teacher_id, None, payload['requested_type']))
@@ -15280,13 +15300,13 @@ def teacher_question_bulk_import(request):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'question_import'))
 
 
-@erd_role_required('teacher')
+@erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
 def teacher_question_edit(request, question_id):
     teacher_id = request.erd_profile_id
     row = erd_row('SELECT * FROM questions WHERE id = %s AND teacher_id = %s', [question_id, teacher_id])
     if not row:
         raise Http404('سؤال پیدا نشد.')
-    course_options = _teacher_question_course_options(teacher_id)
+    course_options = _question_course_options(request)
     editable = (row.get('type') in INDEPENDENT_QUESTION_TYPES) and (row.get('structure') or 'independent') == 'independent'
     if not editable:
         context = _teacher_modern_context(request, 'question_edit')
@@ -15298,7 +15318,7 @@ def teacher_question_edit(request, question_id):
         payload = _question_builder_payload(post)
         _apply_independent_settings(payload, post)
         errors = _apply_question_uploads(payload, request.FILES, request.POST)
-        errors += _question_builder_errors(payload, {str(option['id']) for option in course_options})
+        errors += _question_builder_errors(payload, _question_allowed_course_ids(request, course_options))
         if not errors:
             _save_question_payload(payload, teacher_id, question_id)
             _delete_question_draft(_question_draft_key(teacher_id, question_id))

@@ -4001,6 +4001,38 @@ class ExamManagerGroupTeacherAssignTests(_ScopedOrgFixture):
         self.assertIn(self.teacher_in_id, self._teachers(self.group_in_id))
 
 
+class QuestionBankForAdminsTests(_ScopedOrgFixture):
+    """مدیر سیستم و مدیر آموزشی هم بانک سؤال دارند: مدیر سیستم برای هر درس، مدیر آموزشی فقط برای درس‌های واحد خودش."""
+
+    def _create(self, text, course_id):
+        return self.client.post(reverse('core:teacher_question_create'), {
+            'type': 'single', 'structure': 'independent', 'text': text, 'course_id': course_id, 'default_points': '1',
+            'option_text': ['الف', 'ب'], 'correct_options': '1', 'is_published': '1'})
+
+    def _owner(self, text):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT teacher_id FROM questions WHERE text = %s', [text])
+            row = cursor.fetchone()
+            return str(row[0]) if row else None
+
+    def test_admin_builds_questions_for_any_course(self):
+        self.client.force_login(self.admin_user)
+        self.assertEqual(self.client.get(reverse('core:teacher_questions')).status_code, 200)
+        self.assertEqual(self._create('سؤال مدیر سیستم', self.course_out_id).status_code, 302)
+        owner = self._owner('سؤال مدیر سیستم')
+        self.assertIsNotNone(owner)
+        self.assertContains(self.client.get(reverse('core:teacher_questions')), 'سؤال مدیر سیستم')
+        wizard = self.client.get(reverse('core:super_admin_exam_create'))
+        self.assertIn('سؤال مدیر سیستم', [question['text'] for question in wizard.context['questions']])
+
+    def test_manager_builds_questions_only_for_own_courses(self):
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self._create('سؤال خارج واحد', self.course_out_id).status_code, 200)
+        self.assertIsNone(self._owner('سؤال خارج واحد'))
+        self.assertEqual(self._create('سؤال داخل واحد', self.course_in_id).status_code, 302)
+        self.assertEqual(self._owner('سؤال داخل واحد'), self.manager_id)
+
+
 class ExamManagerUserImportPageTests(_ScopedOrgFixture):
     """ورود گروهی مدیر آموزشی همان ورود گروهی مدیر سیستم است، فقط در واحدهای خود او؛ قبلاً صفحه‌ای نمایشی بود که چیزی ثبت نمی‌کرد."""
 

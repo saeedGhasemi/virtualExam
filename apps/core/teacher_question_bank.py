@@ -341,7 +341,7 @@ def question_bank_context(request, teacher_id) -> dict:
     }
 
 
-@erd_role_required('teacher')
+@erd_role_required('teacher', 'academic_manager', 'admin')
 def teacher_question_archive(request, question_id):
     """«آرشیو» / «بازیابی» one of the teacher's questions (POST only; another teacher's question is a 404)."""
     if request.method != 'POST':
