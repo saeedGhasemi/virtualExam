@@ -16024,22 +16024,11 @@ def exam_manager_teacher_request_review(request, request_id):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_user_import(request, kind='students'):
-    if request.method == 'POST':
-        messages.success(request, 'فایل دریافت شد و برای بررسی داده‌ها آماده است.')
-        return redirect(reverse('core:exam_manager_user_import') + f'?kind={kind}&step=review')
-    step = request.GET.get('step') or 'upload'
+    # In development: nothing imports here yet, so the page says so instead of claiming a file was received.
+    kind = request.GET.get('kind') or kind
+    kind = kind if kind in ('students', 'teachers') else 'students'
     context = _em_base_context(request, 'user_import', 'ورود گروهی اساتید' if kind == 'teachers' else 'ورود گروهی دانشجویان', 'users')
-    context.update({
-        'kind': kind,
-        'step': step,
-        'review_rows': [
-            {'name': 'دکتر محمد رضایی', 'code': '۱۰۱۲۳۴۵', 'unit': 'پزشکی', 'specialty': 'داخلی', 'status': 'معتبر'},
-            {'name': 'دکتر سارا احمدی', 'code': 'نامعتبر', 'unit': 'پزشکی', 'specialty': 'جراحی', 'status': 'نیازمند اصلاح'},
-            {'name': 'دکتر علی محمدی', 'code': '۱۰۱۲۳۴۷', 'unit': 'پزشکی', 'specialty': 'کودکان', 'status': 'معتبر'},
-            {'name': 'دکتر نرگس ستاری', 'code': '۱۰۱۲۳۴۸', 'unit': 'نامشخص', 'specialty': 'بیهوشی', 'status': 'نیازمند اصلاح'},
-            {'name': 'دکتر حسین مرادی', 'code': '۱۰۱۲۳۳۹', 'unit': 'پزشکی', 'specialty': 'روان‌پزشکی', 'status': 'معتبر'},
-        ],
-    })
+    context['kind'] = kind
     return render(request, 'exam_manager/users.html', context)
 
 

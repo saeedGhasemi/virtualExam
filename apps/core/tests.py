@@ -4068,6 +4068,17 @@ class ExamManagerGroupTeacherAssignTests(_ScopedOrgFixture):
         self.assertIn(self.teacher_in_id, self._teachers(self.group_in_id))
 
 
+class ExamManagerUserImportPageTests(_ScopedOrgFixture):
+    """صفحه‌ی ورود گروهی مدیر آموزشی چیزی ثبت نمی‌کند؛ باید «در حال توسعه» بگوید، نه ردیف‌های نمونه و پیام موفقیت."""
+
+    def test_bulk_user_import_page_says_it_is_in_development(self):
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:exam_manager_user_import'), {'kind': 'teachers'})
+        self.assertContains(page, 'ورود گروهی اساتید (در حال توسعه)')
+        for invented in ('دکتر محمد رضایی', 'ثبت نهایی ۴۵ استاد', 'استادپزشکی.xlsx'):
+            self.assertNotContains(page, invented)
+
+
 class StudentDashboardTests(_ScopedOrgFixture):
     """داشبورد دانشجو فقط آزمون‌های منتشرشده‌ی اختصاص‌یافته به خود او را نشان می‌دهد و داده‌ی ساختگی ندارد."""
 
