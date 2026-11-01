@@ -498,7 +498,7 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
         self.assertEqual(exam_mode, 'standard')
         with connection.cursor() as cursor:
             cursor.execute('SELECT teacher_id, role FROM exam_staff WHERE exam_id = %s', [exam_id])
-            staff_rows = cursor.fetchall()
+            staff_rows = [(str(teacher_id), role) for teacher_id, role in cursor.fetchall()]
         self.assertEqual(staff_rows, [(self.teacher_in_id, 'designer')])
 
     def test_exam_questions_preserve_submitted_order_not_alphabetical(self):
@@ -515,7 +515,7 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
             cursor.execute("SELECT id FROM exams WHERE title = 'آزمون تست'")
             exam_id = cursor.fetchone()[0]
             cursor.execute('SELECT question_id FROM exam_questions WHERE exam_id = %s ORDER BY order_index', [exam_id])
-            ordered_question_ids = [row[0] for row in cursor.fetchall()]
+            ordered_question_ids = [str(row[0]) for row in cursor.fetchall()]
         self.assertEqual(ordered_question_ids, [self.question_in_id, self.question_in2_id])
 
     def test_manager_blocked_from_using_out_of_scope_course(self):
@@ -652,7 +652,7 @@ class TeacherQuestionBuilderTests(_ScopedOrgFixture):
         row = self._row('سوال تطبیقی تست')
         self.assertIsNotNone(row)
         self.assertEqual(row[1], 'matching')
-        self.assertEqual(row[2], self.course_in_id)
+        self.assertEqual(str(row[2]), self.course_in_id)
         pairs = json.loads(row[5])
         self.assertEqual([(p['left'], p['right']) for p in pairs], [('الف۱', 'ب۱'), ('الف۲', 'ب۲')])
 
@@ -2447,12 +2447,12 @@ class TeacherExamWizardTests(_ScopedOrgFixture):
         response = self.client.post(reverse('core:teacher_exam_create'), self._payload(teacher_id=self.teacher_out_id))
         self.assertRedirects(response, reverse('core:teacher_exams'), fetch_redirect_response=False)
         [(exam_id, teacher_id, lifecycle, approval, is_published)] = self._exam()
-        self.assertEqual((teacher_id, lifecycle, approval, bool(is_published)), (self.teacher_in_id, 'draft', 'pending', False))
+        self.assertEqual((str(teacher_id), lifecycle, approval, bool(is_published)), (self.teacher_in_id, 'draft', 'pending', False))
         with connection.cursor() as cursor:
             cursor.execute('SELECT question_id FROM exam_questions WHERE exam_id = %s ORDER BY order_index', [exam_id])
-            self.assertEqual([row[0] for row in cursor.fetchall()], [self.question_in_id, self.question_in2_id])
+            self.assertEqual([str(row[0]) for row in cursor.fetchall()], [self.question_in_id, self.question_in2_id])
             cursor.execute('SELECT group_id FROM exam_assignments WHERE exam_id = %s', [exam_id])
-            self.assertEqual([row[0] for row in cursor.fetchall()], [self.group_in_id])
+            self.assertEqual([str(row[0]) for row in cursor.fetchall()], [self.group_in_id])
 
     def test_submit_sends_for_approval_and_cannot_publish(self):
         self.client.force_login(self.teacher_user)
@@ -3304,7 +3304,7 @@ class SuperAdminExamEditScopeTests(_ScopedOrgFixture):
             self.assertEqual(self._post(step, **data).status_code, 403, data)
         with connection.cursor() as cursor:
             cursor.execute('SELECT course_id, teacher_id FROM exams WHERE id = %s', [self.exam_in_id])
-            self.assertEqual(cursor.fetchone(), (self.course_in_id, self.teacher_in_id))
+            self.assertEqual(tuple(map(str, cursor.fetchone())), (self.course_in_id, self.teacher_in_id))
             cursor.execute('SELECT COUNT(*) FROM exam_assignments WHERE exam_id = %s', [self.exam_in_id])
             self.assertEqual(cursor.fetchone()[0], 0)
 
@@ -3807,7 +3807,7 @@ class UnassignedExamAccessTests(_ScopedOrgFixture):
         self.assertTrue(response.json()['ok'], response.json())
         with connection.cursor() as cursor:
             cursor.execute('SELECT group_id FROM exam_assignments WHERE exam_id = %s', [exam_id])
-            self.assertEqual([row[0] for row in cursor.fetchall()], [self.group_in_id])
+            self.assertEqual([str(row[0]) for row in cursor.fetchall()], [self.group_in_id])
 
 
 class TeacherExamEditTests(_ScopedOrgFixture):
@@ -3834,7 +3834,7 @@ class TeacherExamEditTests(_ScopedOrgFixture):
     def _rows(self, sql):
         with connection.cursor() as cursor:
             cursor.execute(sql, [self.exam_id])
-            return cursor.fetchall()
+            return [tuple(str(v) if isinstance(v, uuid.UUID) else v for v in row) for row in cursor.fetchall()]
 
     def test_get_prefills_wizard_with_saved_exam(self):
         response = self.client.get(self.url)
@@ -4570,7 +4570,7 @@ class ManagerExamReviewStepTests(_ScopedOrgFixture):
         self.client.post(url, {'edit_step': '5', 'publish_action': 'republish', 'change_note': 'زمان پایان تمدید شد.', 'notify_participants': 'on'})
         with connection.cursor() as cursor:
             cursor.execute('SELECT user_id, message FROM notifications')
-            self.assertEqual(cursor.fetchall(), [(self.student_in_id, 'آزمون «آزمون داخل محدوده» به‌روزرسانی شد. زمان پایان تمدید شد.')])
+            self.assertEqual([(str(user_id), message) for user_id, message in cursor.fetchall()], [(self.student_in_id, 'آزمون «آزمون داخل محدوده» به‌روزرسانی شد. زمان پایان تمدید شد.')])
         self.client.post(url, {'edit_step': '5', 'publish_action': 'republish'})
         with connection.cursor() as cursor:
             cursor.execute('SELECT COUNT(*) FROM notifications')
@@ -4853,7 +4853,7 @@ class BackupDatabaseCommandTests(TestCase):
         with tempfile.TemporaryDirectory() as folder, self.settings(BACKUP_DIR=folder):
             call_command('backup_database', stdout=io.StringIO())
             call_command('backup_database', '--keep', '1', stdout=io.StringIO())
-            files = list(Path(folder).glob('db-*.sqlite3'))
+            files = list(Path(folder).glob('db-*.dump' if connection.vendor == 'postgresql' else 'db-*.sqlite3'))
             self.assertEqual(len(files), 1)
             self.assertGreater(files[0].stat().st_size, 0)
             backup = {item['label']: item for item in _system_health_items()}['پشتیبان‌گیری']
