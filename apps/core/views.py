@@ -15686,10 +15686,15 @@ def exam_manager_group_teacher_assign(request):
     if request.method == 'POST':
         teacher_id = request.POST.get('teacher_id') or (teachers[0]['id'] if teachers else None)
         selected_groups = request.POST.getlist('group_ids')
+        # A manager may only touch groups and teachers of their own units, whatever ids are posted.
+        if teacher_id and not _erd_profile_in_manager_scope(request, teacher_id, 'teacher'):
+            return HttpResponseForbidden('این استاد خارج از محدوده‌ی دسترسی شماست.')
+        if not all(_erd_group_in_manager_scope(request, group_id) for group_id in selected_groups):
+            return HttpResponseForbidden('برخی گروه‌های انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         for group_id in selected_groups:
             erd_execute("UPDATE student_groups SET teacher_id = %s WHERE id = %s", [teacher_id, group_id])
             if teacher_id:
-                erd_execute("INSERT OR IGNORE INTO group_teachers (group_id, teacher_id, created_at) VALUES (%s, %s, CURRENT_TIMESTAMP)", [group_id, teacher_id])
+                erd_execute("INSERT INTO group_teachers (group_id, teacher_id, created_at) VALUES (%s, %s, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING", [group_id, teacher_id])
         messages.success(request, 'انتساب استاد به گروه‌های انتخاب‌شده ثبت شد.')
         return redirect('core:exam_manager_groups')
     for group in groups:

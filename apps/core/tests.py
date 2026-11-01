@@ -4049,6 +4049,25 @@ class StudentExamIntegrityTests(_ScopedOrgFixture):
             self.assertEqual(cursor.fetchone()[0], 0)
 
 
+class ExamManagerGroupTeacherAssignTests(_ScopedOrgFixture):
+    """انتساب استاد به گروه: فقط گروه‌ها و استادهای محدوده‌ی مدیر، و بدون SQL مخصوص SQLite (INSERT OR IGNORE)."""
+
+    def _teachers(self, group_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT teacher_id FROM group_teachers WHERE group_id = %s', [group_id])
+            return {str(row[0]) for row in cursor.fetchall()}
+
+    def test_manager_assigns_only_inside_own_units(self):
+        self.client.force_login(self.manager_user)
+        url = reverse('core:exam_manager_group_teacher_assign')
+        self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_in_id, 'group_ids': [self.group_out_id]}).status_code, 403)
+        self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_out_id, 'group_ids': [self.group_in_id]}).status_code, 403)
+        self.assertNotIn(self.teacher_in_id, self._teachers(self.group_out_id))
+        for _ in range(2):  # the second time the row exists already
+            self.assertEqual(self.client.post(url, {'teacher_id': self.teacher_in_id, 'group_ids': [self.group_in_id]}).status_code, 302)
+        self.assertIn(self.teacher_in_id, self._teachers(self.group_in_id))
+
+
 class StudentDashboardTests(_ScopedOrgFixture):
     """داشبورد دانشجو فقط آزمون‌های منتشرشده‌ی اختصاص‌یافته به خود او را نشان می‌دهد و داده‌ی ساختگی ندارد."""
 
