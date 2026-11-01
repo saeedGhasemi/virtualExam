@@ -3769,7 +3769,7 @@ class StudentPracticeTutorialTests(_ScopedOrgFixture):
     def test_connection_events_reach_the_activity_log_for_own_attempts_only(self):
         attempt_id = self._start('tutorial')
         url = reverse('core:student_attempt_event', args=[attempt_id])
-        self.assertEqual(self.client.post(url, {'event': 'disconnect'}).json(), {'ok': True})
+        self.assertEqual(self.client.post(url, {'event': 'disconnect'}).json(), {'ok': True, 'logged': True})
         self.assertEqual(self.client.post(url, {'event': 'reconnect'}).status_code, 200)
         self.assertEqual(self.client.post(url, {'event': 'bogus'}).status_code, 400)
         with connection.cursor() as cursor:
@@ -4121,6 +4121,35 @@ class StudentExamIntegrityTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute("SELECT COUNT(*) FROM activity_audit_log WHERE action = 'attempt_device_takeover'")
             self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_proctoring_signals_reach_the_teacher(self):
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET track_tab_exit = %s, fullscreen_required = %s WHERE id = %s', [True, True, self.exam_id])
+        attempt_id = self._start()
+        page = self.client.get(reverse('core:student_attempt', args=[attempt_id]))
+        self.assertEqual(page.context['proctoring'], {'track': True, 'fullscreen': True})
+        self.assertContains(page, "addEventListener('visibilitychange'")
+        self.assertContains(page, 'requestFullscreen')
+        url = reverse('core:student_attempt_event', args=[attempt_id])
+        for event in ('tab_hidden', 'tab_hidden', 'fullscreen_exit', 'copy', 'paste', 'disconnect'):
+            self.assertTrue(self.client.post(url, {'event': event}).json()['logged'])
+        self.client.force_login(get_user_model().objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x'))
+        report = self.client.get(reverse('core:teacher_monitoring'), {'exam': self.exam_id})
+        self.assertEqual(report.context['report']['rows'][0]['flags'],
+                         {'tab': 2, 'fullscreen': 1, 'copy_paste': 2, 'disconnect': 1, 'device': 0, 'total': 6})
+        self.assertContains(report, 'خروج از صفحه ۲')
+
+    def test_proctoring_log_has_a_ceiling_per_attempt(self):
+        from apps.core import views
+        attempt_id = self._start()
+        url = reverse('core:student_attempt_event', args=[attempt_id])
+        limit = views.ATTEMPT_EVENT_LIMIT
+        views.ATTEMPT_EVENT_LIMIT = 2
+        try:
+            results = [self.client.post(url, {'event': 'copy'}).json()['logged'] for _ in range(3)]
+        finally:
+            views.ATTEMPT_EVENT_LIMIT = limit
+        self.assertEqual(results, [True, True, False])
 
     def test_second_start_resumes_the_same_attempt(self):
         first, second = self._start(), self._start()

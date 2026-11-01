@@ -11909,24 +11909,80 @@ def student_practice_start(request, exam_id):
     return redirect('core:student_attempt', attempt_id=attempt_id)
 
 
-ATTEMPT_CONNECTION_EVENTS = {
+ATTEMPT_EVENTS = {  # what the exam page reports -> (activity log action, description)
     'disconnect': ('exam_disconnected', 'قطع اتصال اینترنت دانشجو در حین آزمون ثبت شد.'),
     'reconnect': ('exam_reconnected', 'اتصال مجدد دانشجو در حین آزمون ثبت شد.'),
+    'tab_hidden': ('exam_tab_hidden', 'دانشجو در حین آزمون از صفحه‌ی آزمون خارج شد.'),
+    'fullscreen_exit': ('exam_fullscreen_exit', 'دانشجو در حین آزمون از حالت تمام‌صفحه خارج شد.'),
+    'copy': ('exam_copy', 'کپی متن در صفحه‌ی آزمون ثبت شد.'),
+    'paste': ('exam_paste', 'چسباندن متن در صفحه‌ی آزمون ثبت شد.'),
 }
+# log action -> the «رویدادهای مراقبت» counter it adds to on the teacher's pages
+ATTEMPT_EVENT_FLAGS = {
+    'exam_tab_hidden': 'tab', 'exam_fullscreen_exit': 'fullscreen', 'exam_copy': 'copy_paste', 'exam_paste': 'copy_paste',
+    'exam_disconnected': 'disconnect', 'attempt_device_takeover': 'device',
+}
+ATTEMPT_EVENT_LIMIT = 500  # per attempt; a page (or a script) cannot flood the log beyond this
+
+
+def _log_attempt_event(request, attempt_id, action, description):
+    """An activity-log row tied to the attempt (entity_type 'exam_attempt'), so teachers can count it per student."""
+    profile = erd_profile_for_user(request.user)
+    erd_execute(
+        """
+        INSERT INTO activity_audit_log (id, actor_id, action, entity_type, entity_id, reason, metadata)
+        VALUES (%s, %s, %s, 'exam_attempt', %s, %s, %s)
+        """,
+        [str(uuid.uuid4()), profile['id'] if profile else None, action, str(attempt_id), description,
+         json.dumps({'attempt_id': str(attempt_id), 'ip_address': client_ip(request),
+                     'user_agent': request.META.get('HTTP_USER_AGENT', '')[:300]}, ensure_ascii=False)],
+    )
+
+
+def _attempt_event_counts(attempt_ids) -> dict:
+    """attempt id -> {'tab', 'fullscreen', 'copy_paste', 'disconnect', 'device', 'total'} from the attempt events."""
+    attempt_ids = [str(item) for item in attempt_ids if item]
+    if not attempt_ids:
+        return {}
+    placeholders = ', '.join(['%s'] * len(attempt_ids))
+    actions = list(ATTEMPT_EVENT_FLAGS)
+    rows = erd_rows(
+        f"""
+        SELECT entity_id, action, COUNT(*) AS n
+        FROM activity_audit_log
+        WHERE entity_type = 'exam_attempt' AND entity_id IN ({placeholders}) AND action IN ({', '.join(['%s'] * len(actions))})
+        GROUP BY entity_id, action
+        """,
+        attempt_ids + actions,
+    )
+    counts = {}
+    for row in rows:
+        flags = counts.setdefault(str(row['entity_id']), dict.fromkeys(('tab', 'fullscreen', 'copy_paste', 'disconnect', 'device', 'total'), 0))
+        flags[ATTEMPT_EVENT_FLAGS[row['action']]] += int(row['n'])
+        flags['total'] += int(row['n'])
+    return counts
 
 
 @erd_role_required('student')
 def student_attempt_event(request, attempt_id):
-    """The exam page reports a lost / restored connection; it goes to the activity log with the attempt id."""
+    """The exam page reports a lost/restored connection, leaving the page, leaving full screen or copy/paste.
+
+    Each goes to the activity log tied to the attempt; the teacher sees the counts per student. The page can be
+    scripted, so these are signals for the teacher, not proof."""
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'روش درخواست مجاز نیست.'}, status=405)
-    if not erd_row('SELECT id FROM exam_attempts WHERE id = %s AND student_id = %s', [attempt_id, request.erd_profile_id]):
+    attempt = erd_row('SELECT id, submitted_at FROM exam_attempts WHERE id = %s AND student_id = %s', [attempt_id, request.erd_profile_id])
+    if not attempt:
         raise Http404('تلاش آزمون پیدا نشد.')
-    event = ATTEMPT_CONNECTION_EVENTS.get(request.POST.get('event'))
+    event = ATTEMPT_EVENTS.get(request.POST.get('event'))
     if not event:
         return JsonResponse({'ok': False, 'error': 'رویداد نامعتبر است.'}, status=400)
-    log_activity(request.user, event[0], event[1], request, {'attempt_id': str(attempt_id)})
-    return JsonResponse({'ok': True})
+    if attempt.get('submitted_at'):
+        return JsonResponse({'ok': True, 'logged': False})
+    logged = erd_count('activity_audit_log', "entity_type = 'exam_attempt' AND entity_id = %s", [str(attempt_id)]) < ATTEMPT_EVENT_LIMIT
+    if logged:
+        _log_attempt_event(request, attempt_id, *event)
+    return JsonResponse({'ok': True, 'logged': logged})
 
 
 def home(request):
@@ -13683,7 +13739,9 @@ def _teacher_exam_results(exam, page_number) -> dict:
         """,
         [exam['id'], TEACHER_RESULTS_PAGE_SIZE, page.start_index() - 1 if total else 0],
     )
+    flags = _attempt_event_counts(row['id'] for row in rows)
     for row in rows:
+        row['flags'] = flags.get(str(row['id']))
         row['percent'] = _sx_percent(row['score'], row['max_score'])
         row['score_20'] = round(float(row['score']) * 20 / float(row['max_score']), 2) if row['score'] is not None and row['max_score'] else None
         row['status_label'], tone, _pending = _sx_result_status({**row, 'passing_score': exam.get('passing_score')})
@@ -13732,7 +13790,9 @@ def _teacher_exam_monitoring(exam) -> dict:
         [exam['id']],
     )
     question_count = erd_count('exam_questions', 'exam_id = %s', [exam['id']])
+    flags = _attempt_event_counts(row['id'] for row in rows)
     for row in rows:
+        row['flags'] = flags.get(str(row['id']))
         started = erd_datetime(row['started_at'])
         row['started_label'] = timezone.localtime(started).strftime('%H:%M') if started else '-'
         row['elapsed_minutes'] = int((now - started).total_seconds() // 60) if started else None
@@ -17170,7 +17230,7 @@ def _sx_question_media(value):
 def _sx_item_token(attempt_id, question_id, value):
     """Opaque per-attempt id of an ordering item or matching answer: the page must not carry the real index,
     since the correct ordering is always 1,2,…,n and the correct matching always i:i."""
-    return salted_hmac('exam-item-token', f'{attempt_id}:{question_id}:{value}').hexdigest()[:12]
+    return 't' + salted_hmac('exam-item-token', f'{attempt_id}:{question_id}:{value}').hexdigest()[:12]  # never all digits
 
 
 def _sx_token_item_values(kind, row):
@@ -17472,7 +17532,7 @@ def _sx_attempt_rows(attempt_id, student_id):
     )
     shuffle_sql = ', '.join(
         f'COALESCE(e.{column}, false) AS exam_{column}' if erd_has_column('exams', column) else f'false AS exam_{column}'
-        for column in ('shuffle_questions', 'shuffle_options')
+        for column in ('shuffle_questions', 'shuffle_options', 'track_tab_exit', 'fullscreen_required')
     )
     rows = erd_rows(
         f"""
@@ -17571,7 +17631,7 @@ def _sx_take_over_attempt(request, attempt_id):
     if not request.session.session_key:
         request.session.save()
     erd_execute('UPDATE exam_attempts SET active_session_key = %s WHERE id = %s AND submitted_at IS NULL', [request.session.session_key, attempt_id])
-    log_activity(request.user, 'attempt_device_takeover', 'آزمون دانشجو روی دستگاه دیگری ادامه یافت.', request, {'attempt_id': str(attempt_id)})
+    _log_attempt_event(request, attempt_id, 'attempt_device_takeover', 'آزمون دانشجو روی دستگاه دیگری ادامه یافت.')
 
 
 def _sx_locked_question_ids(attempt_id) -> set:
@@ -18014,6 +18074,7 @@ def student_attempt(request, attempt_id):
         'id': attempt_id,
         'exam': {'title': first.get('exam_title') or 'آزمون'},
     }
+    practice_context = _sx_practice_attempt_context(attempt_id, request.erd_profile_id, current_answer)
     return render(request, 'student/attempt.html', {
         'attempt': attempt,
         'current_answer': current_answer,
@@ -18022,7 +18083,11 @@ def student_attempt(request, attempt_id):
         'answered_count': answered_count,
         'attempt_map': _sx_answer_dashboard(items, current_index),
         'remaining_seconds': remaining_seconds,
-        'practice': _sx_practice_attempt_context(attempt_id, request.erd_profile_id, current_answer),
+        'practice': practice_context,
+        # The exam's «هشدار تعویض تب» / «اجبار تمام‌صفحه»; practice attempts are not proctored.
+        'proctoring': None if practice_context else {
+            'track': bool(first.get('exam_track_tab_exit')), 'fullscreen': bool(first.get('exam_fullscreen_required')),
+        },
     })
 
 

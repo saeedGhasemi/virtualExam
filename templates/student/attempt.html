@@ -452,6 +452,61 @@
   }));
   lightbox.addEventListener('click', () => { lightbox.hidden = true; });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') lightbox.hidden = true; });
+{% if proctoring.track or proctoring.fullscreen %}
+  // Proctoring (the exam's «هشدار تعویض تب» / «اجبار تمام‌صفحه»): signals go to the server and the teacher sees them.
+  const proctorNotice = document.createElement('div');
+  proctorNotice.setAttribute('role', 'alert');
+  proctorNotice.hidden = true;
+  proctorNotice.style.cssText = 'position:fixed;inset-inline:16px;bottom:16px;z-index:60;max-width:520px;margin-inline:auto;padding:14px 16px;border-radius:12px;background:#9a3412;color:#fff;font-weight:800;line-height:1.8;box-shadow:0 12px 30px rgba(0,0,0,.25)';
+  document.body.appendChild(proctorNotice);
+  let noticeTimer;
+  const notify = (text) => {
+    proctorNotice.textContent = text;
+    proctorNotice.hidden = false;
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => { proctorNotice.hidden = true; }, 7000);
+  };
+{% if proctoring.track %}
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) postEvent('tab_hidden');
+    else notify('خروج شما از صفحه‌ی آزمون ثبت شد و به استاد نشان داده می‌شود.');
+  });
+  document.addEventListener('copy', () => postEvent('copy'));
+  document.addEventListener('paste', () => postEvent('paste'));
+{% endif %}
+{% if proctoring.fullscreen %}
+  if (document.documentElement.requestFullscreen) {
+    // Each question is a new page and browsers drop full screen on navigation: the gate shows once, later pages
+    // return to full screen on the student's first click or key, and only a deliberate exit is reported.
+    const fsKey = 'mq-fs-{{ attempt.id }}';
+    const wasEntered = () => { try { return sessionStorage.getItem(fsKey) === '1'; } catch (error) { return false; } };
+    const markEntered = () => { try { sessionStorage.setItem(fsKey, '1'); } catch (error) { /* private mode: the gate shows again */ } };
+    const enter = () => document.documentElement.requestFullscreen().catch(() => {});
+    let leaving = false;
+    window.addEventListener('beforeunload', () => { leaving = true; });
+    const gate = document.createElement('div');
+    gate.style.cssText = 'position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(7,24,59,.86);padding:16px';
+    gate.innerHTML = '<div style="max-width:440px;background:#fff;border-radius:16px;padding:24px;text-align:center"><p style="margin:0 0 16px;font-weight:850;line-height:1.9;color:#07183b">این آزمون در حالت تمام‌صفحه برگزار می‌شود. خروج از تمام‌صفحه برای استاد ثبت می‌شود.</p><button type="button" class="qx-btn qx-btn--primary">ورود به حالت تمام‌صفحه</button></div>';
+    gate.querySelector('button').addEventListener('click', enter);
+    gate.hidden = !!document.fullscreenElement || wasEntered();
+    document.body.appendChild(gate);
+    if (!document.fullscreenElement && wasEntered()) {
+      const resume = () => { enter(); document.removeEventListener('pointerdown', resume, true); document.removeEventListener('keydown', resume, true); };
+      document.addEventListener('pointerdown', resume, true);
+      document.addEventListener('keydown', resume, true);
+    }
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        markEntered();
+        gate.hidden = true;
+      } else if (!leaving) {
+        postEvent('fullscreen_exit');
+        gate.hidden = false;
+      }
+    });
+  }
+{% endif %}
+{% endif %}
 })();
 </script>
 {% endblock %}

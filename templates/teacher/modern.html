@@ -661,8 +661,8 @@
                 {% if report.rows %}
                     <div class="texams-table-wrap">
                         <table class="teacher-table">
-                            <thead><tr><th>دانشجو</th><th>شماره دانشجویی</th><th>ساعت ورود</th><th>زمان سپری‌شده</th><th>پاسخ ثبت‌شده</th></tr></thead>
-                            <tbody>{% for row in report.rows %}<tr><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td>{{ row.started_label|fa_digits }}</td><td>{% if row.elapsed_minutes is not None %}{{ row.elapsed_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td><td>{{ row.answered|fa_digits }} از {{ report.question_count|fa_digits }}</td></tr>{% endfor %}</tbody>
+                            <thead><tr><th>دانشجو</th><th>شماره دانشجویی</th><th>ساعت ورود</th><th>زمان سپری‌شده</th><th>پاسخ ثبت‌شده</th><th>رویدادهای مراقبت</th></tr></thead>
+                            <tbody>{% for row in report.rows %}<tr><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td>{{ row.started_label|fa_digits }}</td><td>{% if row.elapsed_minutes is not None %}{{ row.elapsed_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td><td>{{ row.answered|fa_digits }} از {{ report.question_count|fa_digits }}</td><td>{% include "teacher/_attempt_flags.html" with flags=row.flags %}</td></tr>{% endfor %}</tbody>
                         </table>
                     </div>
                 {% else %}
@@ -749,8 +749,8 @@
                 {% if report.rows %}
                     <div class="texams-table-wrap">
                         <table class="teacher-table">
-                            <thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>نمره (از ۲۰)</th><th>درصد</th><th>تاریخ تحویل</th><th>وضعیت</th></tr></thead>
-                            <tbody>{% for row in report.rows %}<tr><td>{{ report.page.start_index|add:forloop.counter0|fa_digits }}</td><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{% if row.score is not None %}{{ row.percent|fa_digits }}٪{% else %}-{% endif %}</td><td>{{ row.submitted_label|default:"-" }}</td><td><span class="teacher-badge {{ row.status_tone }}">{{ row.status_label }}</span></td></tr>{% endfor %}</tbody>
+                            <thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>نمره (از ۲۰)</th><th>درصد</th><th>تاریخ تحویل</th><th>وضعیت</th><th>رویدادهای مراقبت</th></tr></thead>
+                            <tbody>{% for row in report.rows %}<tr><td>{{ report.page.start_index|add:forloop.counter0|fa_digits }}</td><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{% if row.score is not None %}{{ row.percent|fa_digits }}٪{% else %}-{% endif %}</td><td>{{ row.submitted_label|default:"-" }}</td><td><span class="teacher-badge {{ row.status_tone }}">{{ row.status_label }}</span></td><td>{% include "teacher/_attempt_flags.html" with flags=row.flags %}</td></tr>{% endfor %}</tbody>
                         </table>
                     </div>
                     {% if report.page.paginator.num_pages > 1 %}
