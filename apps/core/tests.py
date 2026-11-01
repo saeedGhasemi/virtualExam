@@ -4087,6 +4087,18 @@ class StudentExamIntegrityTests(_ScopedOrgFixture):
         for _ in range(2):
             self.assertEqual([row['question_id'] for row in _sx_attempt_rows(attempt_id, self.student_in_id)], expected)
 
+    def test_attempt_time_never_runs_past_the_exam_end(self):
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET end_at = %s WHERE id = %s', [timezone.now() + timedelta(minutes=5), self.exam_id])
+        attempt_id = self._start()
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.assertLessEqual(self.client.get(url).context['remaining_seconds'], 5 * 60)  # not the exam's 30 minutes
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET end_at = %s WHERE id = %s', [timezone.now() - timedelta(minutes=2), self.exam_id])
+        self.assertEqual(self.client.get(url).context['remaining_seconds'], 0)
+        self.client.post(url, {f'answer_{self.ordering_id}': 'x'})
+        self.assertEqual(self._points(attempt_id), {})
+
     def test_second_start_resumes_the_same_attempt(self):
         first, second = self._start(), self._start()
         self.assertEqual(first, second)

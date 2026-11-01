@@ -17477,7 +17477,7 @@ def _sx_attempt_rows(attempt_id, student_id):
     rows = erd_rows(
         f"""
         SELECT ea.id AS attempt_id, ea.exam_id, ea.started_at, ea.submitted_at, ea.status,
-               e.title AS exam_title, COALESCE(e.duration_minutes, 90) AS duration_minutes,
+               e.title AS exam_title, COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at AS exam_end_at,
                q.id AS question_id, q.text, COALESCE(q.type, 'single') AS type, q.options,
                COALESCE(eq.points, q.default_points) AS question_points,
                {optional_sql},
@@ -17519,14 +17519,21 @@ def _sx_answer_dashboard(items, current_index):
 ATTEMPT_GRACE_SECONDS = 60
 
 
+def _sx_attempt_ends_at(started_at, duration_minutes, exam_end_at):
+    """When an attempt's time runs out: start + exam duration (90 minutes when unset), but never after the exam's end."""
+    ends_at = started_at + timedelta(minutes=_em_int(duration_minutes, 90))
+    exam_end = _sx_dt(exam_end_at)
+    return min(ends_at, exam_end) if exam_end else ends_at
+
+
 def _sx_attempt_accepts_answers(attempt_id):
     """True while the attempt is in progress, not submitted, its exam not cancelled, and within its time limit (plus grace).
 
-    The limit matches the exam page timer: start time + exam duration (90 minutes when unset).
+    The limit matches the exam page timer (_sx_attempt_ends_at).
     """
     attempt = erd_row(
         """
-        SELECT ea.submitted_at, ea.status, ea.started_at, COALESCE(e.duration_minutes, 90) AS duration_minutes,
+        SELECT ea.submitted_at, ea.status, ea.started_at, COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at,
                COALESCE(e.is_cancelled, false) AS is_cancelled
         FROM exam_attempts ea
         JOIN exams e ON e.id = ea.exam_id
@@ -17541,7 +17548,7 @@ def _sx_attempt_accepts_answers(attempt_id):
     started_at = _sx_dt(attempt.get('started_at'))
     if not started_at:
         return True
-    deadline = started_at + timedelta(minutes=_em_int(attempt.get('duration_minutes'), 90), seconds=ATTEMPT_GRACE_SECONDS)
+    deadline = _sx_attempt_ends_at(started_at, attempt.get('duration_minutes'), attempt.get('end_at')) + timedelta(seconds=ATTEMPT_GRACE_SECONDS)
     return timezone.now() <= deadline
 
 
@@ -17967,8 +17974,7 @@ def student_attempt(request, attempt_id):
     current_answer = items[current_index - 1]
     first = rows[0]
     started_at = _sx_dt(first.get('started_at')) or timezone.now()
-    duration = _em_int(first.get('duration_minutes'), 90)
-    remaining_seconds = max(0, duration * 60 - int((timezone.now() - started_at).total_seconds()))
+    remaining_seconds = max(0, int((_sx_attempt_ends_at(started_at, first.get('duration_minutes'), first.get('exam_end_at')) - timezone.now()).total_seconds()))
     answered_count = sum(1 for item in items if item['answered'])
     attempt = {
         'pk': attempt_id,
