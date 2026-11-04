@@ -88,6 +88,8 @@
             <div>
               <h2>{{ card.course_title }}</h2>
               <p class="smc-teacher">{{ card.teacher_name|default:'استاد تعیین نشده' }}</p>
+              {% if card.teacher_bio %}<p class="smc-teacher" style="font-weight:700;line-height:1.8">{{ card.teacher_bio|truncatechars:160 }}</p>{% endif %}
+              {% if card.teacher_email %}<p class="smc-teacher"><bdi dir="ltr"><a href="mailto:{{ card.teacher_email }}">{{ card.teacher_email }}</a></bdi></p>{% endif %}
             </div>
             <div class="smc-meta">
               {% if card.group_code %}<span>{% include 'teacher/_qb_icon.html' with name='users' %}کد گروه {{ card.group_code|fa_digits }}</span>{% endif %}

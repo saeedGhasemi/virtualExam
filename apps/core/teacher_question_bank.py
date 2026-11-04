@@ -129,7 +129,14 @@ def question_page(request, teacher_id, archived=False, status=None):
     rows = erd_rows(
         f"""
         SELECT q.id, q.text, q.type, q.difficulty, {structure}, COALESCE(c.title, '-') AS course, {STATUS_SQL} AS status_key,
-               q.updated_at, q.archived_at, q.shared_at
+               q.updated_at, q.archived_at, q.shared_at,
+               (SELECT COUNT(*) FROM exam_questions eq JOIN exams e ON e.id = eq.exam_id
+                WHERE eq.question_id = q.id AND COALESCE(e.is_cancelled, false) = false) AS usage_count,
+               (SELECT e.title FROM exam_questions eq JOIN exams e ON e.id = eq.exam_id
+                WHERE eq.question_id = q.id AND COALESCE(e.is_cancelled, false) = false
+                ORDER BY e.start_at DESC NULLS LAST LIMIT 1) AS last_exam_title,
+               (SELECT MAX(e.start_at) FROM exam_questions eq JOIN exams e ON e.id = eq.exam_id
+                WHERE eq.question_id = q.id AND COALESCE(e.is_cancelled, false) = false) AS last_exam_at
         {joins}
         WHERE {where}
         ORDER BY {'q.archived_at DESC, ' if archived else ''}q.text, q.id

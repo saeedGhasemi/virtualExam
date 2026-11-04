@@ -207,3 +207,13 @@ SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
 # مرورگر هدر COOP را فقط روی HTTPS/localhost می‌پذیرد؛ روی استقرار HTTP (مثلاً با IP)
 # مقدار خالی بدهید تا هدر ارسال نشود و خطای کنسول ایجاد نکند.
 SECURE_CROSS_ORIGIN_OPENER_POLICY = os.getenv('SECURE_CROSS_ORIGIN_OPENER_POLICY', 'same-origin').strip() or None
+
+# ایمیل اطلاع‌رسانی آزمون («ارسال ایمیل اطلاع‌رسانی» در ویزارد آزمون). بدون EMAIL_HOST ایمیلی ارسال نمی‌شود
+# و فقط اعلان داخل سامانه می‌رود.
+EMAIL_HOST = os.getenv('EMAIL_HOST', '').strip()
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '').strip()
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@localhost').strip()

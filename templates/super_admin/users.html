@@ -1,5 +1,5 @@
 {% extends 'base_standalone.html' %}
-{% load static %}
+{% load static core_extras %}
 
 {% block title %}مدیریت کاربران | متاکوییز{% endblock %}
 
@@ -179,7 +179,7 @@
                                 <td><span class="users-type-pill is-{{ row.type_tone }}">{{ row.type_label }}</span></td>
                                 <td>{{ row.unit_path }}</td>
                                 <td><mark>{{ row.access_label }}</mark></td>
-                                <td>{{ row.last_login_display|date:"Y/m/d H:i"|default:row.last_login_display }}</td>
+                                <td>{{ row.last_login_display|to_jalali|default:row.last_login_display }}</td>
                                 <td><span class="users-status is-{{ row.status_tone }}">{{ row.status_label }}</span></td>
                                 <td>
                                     <div class="users-row-actions">

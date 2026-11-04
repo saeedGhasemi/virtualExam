@@ -36,7 +36,7 @@
                 {% include "teacher/settings/_select.html" with name="bank_default_difficulty" label="سطح دشواری پیش‌فرض" icon="chart" %}
                 {% include "teacher/settings/_select.html" with name="sharing_mode" label="اشتراک‌گذاری سؤالات" icon="users" %}
                 {% include "teacher/settings/_switch.html" with name="question_autosave" label="ذخیره خودکار پیش‌نویس" icon="essay" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
-                {% include "teacher/settings/_switch.html" with name="auto_archive" label="بایگانی خودکار" icon="archive" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
+                {% include "teacher/settings/_switch.html" with name="auto_archive" label="بایگانی خودکار" desc="پیش‌نویس‌هایی که ۹۰ روز ویرایش نشده‌اند به بایگانی می‌روند (از بایگانی قابل بازگردانی‌اند)." icon="archive" on_text="فعال باشد" off_text="فعال نباشد" stacked=True %}
             </div>
         </section>
 
@@ -54,6 +54,8 @@
     {% elif teacher_settings_tab == 'security' %}
         {% if security_errors %}
             <div class="tset-errors" role="alert"><b>انجام نشد:</b><ul>{% for error in security_errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+        {% elif security_done == 'password_change' %}
+            <div class="tset-request-state is-ok" role="status"><div><b>رمز عبور تغییر کرد. نشست‌های دیگر شما بسته شدند.</b></div></div>
         {% elif security_done == 'end_session' or security_done == 'end_other_sessions' %}
             <div class="tset-request-state is-ok" role="status"><div><b>نشست‌های انتخاب‌شده بسته شدند.</b></div></div>
         {% endif %}
@@ -61,9 +63,18 @@
             <section class="tset-card">
                 <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="shield" %}<div><h2>امنیت حساب</h2><p>رمز عبور و روش‌های امنیتی حساب خود را مدیریت کنید.</p></div></header>
                 <div class="tset-list">
-                    <div class="tset-list-row">
+                    <div class="tset-list-row is-wrap">
                         <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="lock" %}رمز عبور</b><small>رمز عبور خود را به‌طور منظم تغییر دهید.</small></span>
-                        <a class="tset-btn" href="{% url 'core:profile' %}?section=security">تغییر رمز عبور</a>
+                        <button type="button" class="tset-btn" onclick="var p=document.getElementById('tset-password-panel');p.hidden=!p.hidden;this.setAttribute('aria-expanded',String(!p.hidden))" aria-controls="tset-password-panel" aria-expanded="{% if security_failed_action == 'password_change' %}true{% else %}false{% endif %}">تغییر رمز عبور</button>
+                        <div class="tset-request-panel" id="tset-password-panel"{% if security_failed_action != 'password_change' %} hidden{% endif %} style="flex-basis:100%">
+                            <label class="tset-field"><span class="tset-label">رمز عبور فعلی</span><input class="tset-input" type="password" name="old_password" autocomplete="current-password" dir="ltr" form="tset-security-form"></label>
+                            <div class="tset-row is-2">
+                                <label class="tset-field"><span class="tset-label">رمز عبور جدید</span><input class="tset-input" type="password" name="new_password1" autocomplete="new-password" dir="ltr" form="tset-security-form"></label>
+                                <label class="tset-field"><span class="tset-label">تکرار رمز عبور جدید</span><input class="tset-input" type="password" name="new_password2" autocomplete="new-password" dir="ltr" form="tset-security-form"></label>
+                            </div>
+                            <small class="tset-hint">حداقل ۸ نویسه، فقط عدد نباشد و شبیه نام کاربری نباشد. پس از تغییر، نشست‌های دیگر شما بسته می‌شوند.</small>
+                            <div class="tset-request-actions"><button class="tset-save" type="submit" form="tset-security-form" name="security_action" value="password_change">ثبت رمز جدید</button></div>
+                        </div>
                     </div>
                     <div class="tset-list-row">
                         <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="phone" %}ورود دو مرحله‌ای</b><small>{% if two_factor.enabled %}هنگام ورود، کد برنامه‌ی Authenticator هم پرسیده می‌شود.{% else %}با برنامه‌ی Google یا Microsoft Authenticator، ورود را امن‌تر کنید.{% endif %}</small></span>
@@ -130,10 +141,9 @@
 
         <section class="tset-card">
             <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="users" %}<div><h2>حریم خصوصی و نمایش اطلاعات</h2><p>مشخص کنید چه اطلاعاتی برای دیگران قابل مشاهده باشد.</p></div></header>
-            <div class="tset-row is-3 is-boxed">
+            <div class="tset-row is-2 is-boxed">
                 {% include "teacher/settings/_switch.html" with name="show_name_to_students" label="نمایش پروفایل به دانشجویان" icon="users" desc="پروفایل شما برای دانشجویان قابل مشاهده باشد." %}
                 {% include "teacher/settings/_switch.html" with name="show_email_in_class" label="نمایش ایمیل" icon="mail" desc="نمایش ایمیل شما در پروفایل عمومی." %}
-                {% include "teacher/settings/_switch.html" with name="share_stats_with_admin" label="اشتراک آمار تجمیعی" icon="chart" desc="مشارکت در بهبود سرویس با اشتراک‌گذاری آمار ناشناس." %}
             </div>
         </section>
 
@@ -200,9 +210,11 @@
                 {% include "teacher/settings/_switch.html" with name="system_channel" label="درون سامانه" icon="bell" %}
                 {% include "teacher/settings/_switch.html" with name="email_channel" label="ایمیل" icon="mail" %}
                 {% include "teacher/settings/_switch.html" with name="browser_channel" label="مرورگر" icon="browser" %}
+                <small class="tset-hint" data-browser-permission hidden></small>
                 <label class="tset-field">
                     <span class="tset-label">{% include "teacher/_qb_icon.html" with name="mail" %}ایمیل اعلان‌ها</span>
                     <input class="tset-input" type="email" name="notification_email" value="{{ teacher_settings.notification_email }}" maxlength="254" dir="ltr" placeholder="{{ request.user.email|default:'name@university.ac.ir' }}">
+                    {% if not teacher_ui.email_ready %}<small class="tset-hint">ارسال ایمیل وقتی انجام می‌شود که سرور ایمیل سامانه تنظیم شده باشد؛ فعلاً تنظیم نشده است.</small>{% endif %}
                 </label>
             </div>
             <div class="tset-row is-delivery">
@@ -272,5 +284,25 @@
         status.removeAttribute('data-dirty');
         text.textContent = 'تغییری ایجاد نشده است.';
     });
+})();
+</script>
+
+<script>
+(() => {
+  // «مرورگر»: turning it on asks the browser for permission to show notifications
+  const box = document.querySelector('input[name="browser_channel"]');
+  const note = document.querySelector('[data-browser-permission]');
+  if (!box || !note) return;
+  const show = () => {
+    if (!('Notification' in window)) { note.textContent = 'این مرورگر اعلان پشتیبانی نمی‌کند.'; note.hidden = false; return; }
+    const text = { granted: 'مرورگر اجازه‌ی نمایش اعلان را داده است.', denied: 'اجازه‌ی اعلان در مرورگر رد شده است؛ از تنظیمات مرورگر آن را باز کنید.', default: '' }[Notification.permission];
+    note.textContent = box.checked ? text : '';
+    note.hidden = !note.textContent;
+  };
+  box.addEventListener('change', () => {
+    if (box.checked && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(show);
+    show();
+  });
+  show();
 })();
 </script>

@@ -255,7 +255,7 @@
             </nav>
             {% endwith %}{% endwith %}
             <table class="teacher-table question-bank-table">
-                <thead><tr><th>کد</th><th>متن سؤال</th><th>ساختار</th><th>نوع</th><th>درس</th><th>دشواری</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                <thead><tr><th>کد</th><th>متن سؤال</th><th>ساختار</th><th>نوع</th><th>درس</th><th>دشواری</th><th>استفاده در آزمون</th><th>وضعیت</th><th>عملیات</th></tr></thead>
                 <tbody>
                     {% for q in questions %}
                         <tr>
@@ -265,11 +265,12 @@
                             <td>{{ q.type_label }}</td>
                             <td>{{ q.course }}</td>
                             <td><span class="teacher-badge {{ q.difficulty_class }}">{{ q.difficulty_label }}</span></td>
+                            <td>{% if q.usage_count %}{{ q.usage_count|fa_digits }} آزمون<small style="display:block;color:#64748b">آخرین: {{ q.last_exam_title|truncatechars:30|fa_digits }}{% if q.last_exam_at %} — {{ q.last_exam_at|to_jalali }}{% endif %}</small>{% else %}<span style="color:#94a3b8">هنوز استفاده نشده</span>{% endif %}</td>
                             <td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span>{% if q.shared_at %} <span class="teacher-badge is-ok">اشتراکی</span>{% endif %}</td>
                             <td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">جزئیات</a><form method="post" action="{% url 'core:teacher_question_share' q.id %}">{% csrf_token %}{% if q.shared_at %}<button type="submit" name="action" value="unshare">لغو اشتراک</button>{% elif q.status_key == 'active' and q.course != '-' %}<button type="submit" name="action" value="share">اشتراک با هم‌درس‌ها</button>{% endif %}</form><form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button type="submit" name="action" value="archive">آرشیو</button></form></span></td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="8">سؤالی با این فیلترها پیدا نشد.</td></tr>
+                        <tr><td colspan="9">سؤالی با این فیلترها پیدا نشد.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -525,67 +526,78 @@
     {% elif page == 'question_import' %}
         <section class="bulk-import-shell">
             <div class="bulk-import-head">
-                <div><h1>ورود گروهی سؤالات</h1><p>مرحله {% if request.GET.step == '2' %}۲{% elif request.GET.step == '3' %}۳{% elif request.GET.step == '4' %}۴{% else %}۱{% endif %} از ۴ - {% if request.GET.step == '2' %}بارگذاری فایل و تعیین نوع{% elif request.GET.step == '3' %}تطبیق و اعتبارسنجی{% elif request.GET.step == '4' %}مرور و ثبت{% else %}انتخاب ساختار{% endif %}</p></div>
-                <span class="question-autosave">● ذخیره خودکار: همین حالا</span>
+                <div><h1>ورود گروهی سؤالات</h1><p>{% if import_rows is not None %}مرحله ۲ از ۲ - مرور و ثبت{% else %}مرحله ۱ از ۲ - بارگذاری فایل{% endif %}</p></div>
             </div>
             <ol class="bulk-import-steps">
-                <li class="{% if request.GET.step == '2' or request.GET.step == '3' or request.GET.step == '4' %}is-done{% else %}is-active{% endif %}"><b>۱</b><span>انتخاب ساختار</span></li>
-                <li class="{% if request.GET.step == '2' %}is-active{% elif request.GET.step == '3' or request.GET.step == '4' %}is-done{% endif %}"><b>۲</b><span>بارگذاری فایل</span></li>
-                <li class="{% if request.GET.step == '3' %}is-active{% elif request.GET.step == '4' %}is-done{% endif %}"><b>۳</b><span>تطبیق و اعتبارسنجی</span></li>
-                <li class="{% if request.GET.step == '4' %}is-active{% endif %}"><b>۴</b><span>مرور و ثبت</span></li>
+                <li class="{% if import_rows is not None %}is-done{% else %}is-active{% endif %}"><b>۱</b><span>بارگذاری فایل</span></li>
+                <li class="{% if import_rows is not None %}is-active{% endif %}"><b>۲</b><span>مرور و ثبت</span></li>
             </ol>
-
-            {% if request.GET.step == '2' %}
-                <div class="bulk-import-statusbar"><span>ساختار: مستقل</span><a href="{% url 'core:teacher_question_bulk_import' %}?step=1">تغییر ساختار</a></div>
-                <section class="bulk-import-panel bulk-upload-stage">
-                    <div class="bulk-upload-drop"><b>☁</b><strong>فایل سؤالات را اینجا رها کنید</strong><span>یا فایل را انتخاب کنید</span><small>xlsx یا csv - حداکثر ۲۰ مگابایت</small><div><button type="button">انتخاب فایل</button><button type="button">دانلود فایل نمونه</button></div></div>
-                    <article class="bulk-file-card"><b>X</b><strong>questions.xlsx</strong><span>۱.۸ مگابایت - ۲۴۰ ردیف</span><i>✓</i></article>
-                    <div class="bulk-type-picker">
-                        <h2>شیوه تعیین نوع سؤال</h2>
-                        <label><input type="radio" name="mode"> یک نوع برای همه ردیف‌ها</label>
-                        <label><input type="radio" name="mode" checked> نوع سؤال از ستون فایل خوانده شود</label>
-                        <div class="bulk-type-grid"><button class="is-active">☷ چهارگزینه‌ای</button><button>☑ چندپاسخی</button><button>✓× درست یا نادرست</button><button>T پاسخ کوتاه</button><button>✎ تشریحی و روبریک</button><button>___ جای‌خالی</button><button>↔ تطبیقی</button><button>☰ مرتب‌سازی</button></div>
-                        <p>در فایل ترکیبی، ستون question_type برای هر ردیف الزامی است.</p>
-                    </div>
-                    <div class="bulk-media-box"><h2>پوشه رسانه‌ها</h2><span>فایل ZIP شامل تصویر، صوت و فیلم سؤال‌ها و پاسخ‌ها</span><button type="button">انتخاب فایل ZIP</button><p>نام فایل‌های رسانه باید با مقادیر ستون‌های media مطابقت داشته باشد.</p></div>
+            {% if import_rows is None %}
+                <section class="teacher-panel">
+                    <h2>فایل سؤال‌ها را بارگذاری کنید</h2>
+                    <p class="texams-empty" style="text-align:start">هر ردیف یک سؤال است؛ ستون‌ها: نوع (تک‌گزینه‌ای، چندگزینه‌ای، درست/نادرست، پاسخ کوتاه، تشریحی)، متن سؤال، گزینه ۱ تا گزینه ۶، پاسخ صحیح (شماره‌ی گزینه؛ برای چندگزینه‌ای مثلاً 1,3؛ برای درست/نادرست «درست» یا «نادرست»؛ برای پاسخ کوتاه پاسخ‌ها با | جدا)، بارم، دشواری (آسان/متوسط/سخت)، تگ‌ها، مبحث و توضیح. هر ردیف با همان قواعد فرم ساخت سؤال بررسی می‌شود.</p>
+                    <p><a class="teacher-primary" href="?template=1">دانلود فایل نمونه (Excel)</a> <a href="?template=csv" style="margin-inline-start:.8rem">نسخه‌ی CSV</a></p>
+                    <form method="post" enctype="multipart/form-data" class="teacher-toolbar texams-toolbar" style="flex-wrap:wrap;gap:.8rem">
+                        {% csrf_token %}
+                        <label>درس سؤال‌ها<select name="course_id"><option value="">بدون درس</option>{% for course in import_courses %}<option value="{{ course.id }}">{{ course.title }}</option>{% endfor %}</select></label>
+                        <label>فایل (xlsx یا csv، حداکثر ۵۰۰ سؤال)<input type="file" name="import_file" accept=".xlsx,.csv" required></label>
+                        <button class="teacher-primary" type="submit">بررسی فایل</button>
+                    </form>
+                    {% if import_error %}<p class="teacher-badge is-danger" role="alert">{{ import_error }}</p>{% endif %}
                 </section>
-                <div class="question-fixed-footer"><a href="{% url 'core:teacher_questions' %}">انصراف</a><a href="{% url 'core:teacher_question_bulk_import' %}?step=1">مرحله قبل</a><a class="teacher-primary" href="{% url 'core:teacher_question_bulk_import' %}?step=3">ادامه و تطبیق ستون‌ها ←</a></div>
-            {% elif request.GET.step == '3' %}
-                <section class="bulk-validate-layout">
-                    <aside class="bulk-validation-card"><h2>نتیجه اعتبارسنجی</h2><strong class="is-ok">۲۲۴ ردیف معتبر</strong><strong class="is-warn">۱۲ هشدار</strong><strong class="is-bad">۴ خطا</strong><div><button>همه</button><button>هشدارها</button><button>خطاها</button></div><p>ردیف ۳۷ - نوع سؤال نامعتبر</p><p>ردیف ۸۲ - فایل ویدئو یافت نشد</p><p>ردیف ۱۱۹ - پاسخ صحیح مشخص نشده</p></aside>
-                    <main class="bulk-map-card">
-                        <div class="bulk-import-chips"><span>ساختار: مستقل</span><span>۲۴۰ ردیف</span><span>۸ نوع سؤال</span><span class="is-green">پوشه رسانه متصل</span></div>
-                        <header><h2>تطبیق ستون‌های فایل</h2><button>تطبیق خودکار</button></header>
-                        <table class="bulk-map-table"><thead><tr><th>فیلد سامانه</th><th>ستون فایل</th><th>نمونه مقدار</th><th>وضعیت</th></tr></thead><tbody><tr><td>نوع سؤال *</td><td><select><option>question_type</option></select></td><td>چهارگزینه‌ای</td><td><b>تطبیق شد</b></td></tr><tr><td>متن سؤال *</td><td><select><option>question_text</option></select></td><td>مهم‌ترین اقدام...</td><td><b>تطبیق شد</b></td></tr><tr><td>رسانه سؤال</td><td><select><option>question_media</option></select></td><td>q001.jpg</td><td><b>فایل یافت شد</b></td></tr><tr><td>گزینه‌ها / پاسخ‌ها *</td><td><select><option>answers</option></select></td><td>option_a | option_b</td><td><b class="is-warn">نیازمند بررسی</b></td></tr><tr><td>پاسخ صحیح / روبریک *</td><td><select><option>correct_answer</option></select></td><td>B</td><td><b>تطبیق شد</b></td></tr><tr><td>نمره</td><td><select><option>score</option></select></td><td>۱.۵</td><td><b>تطبیق شد</b></td></tr></tbody></table>
-                        <p class="bulk-rule-note">برای سناریوی بیمار، KFP و OSCE فیلدهای وابسته مانند scenario_id، key_feature و station_id الزامی هستند.</p>
-                        <table class="bulk-preview-table"><thead><tr><th>#</th><th>نوع سؤال</th><th>متن سؤال</th><th>گزینه‌ها / پاسخ‌ها</th><th>پاسخ صحیح</th><th>نمره</th><th>رسانه سؤال</th><th>رسانه پاسخ</th></tr></thead><tbody><tr><td>۱</td><td><span>چهارگزینه‌ای</span></td><td>مهم‌ترین اقدام اولیه در مواجهه با شوک چیست؟</td><td>A | B | C | D</td><td>B</td><td>۱.۵</td><td>q001.jpg</td><td>a001.mp3</td></tr><tr><td>۲</td><td><span>جای‌خالی</span></td><td>داروی انتخابی در درمان هیپرکالمی ____ است.</td><td>____</td><td>کلسیم گلوکونات</td><td>۱</td><td>q002.png</td><td>-</td></tr><tr><td>۳</td><td><span>تشریحی</span></td><td>مکانیسم اثر هپارین را توضیح دهید.</td><td>-</td><td>-</td><td>۲</td><td>q003.jpg</td><td>a003.mp3</td></tr></tbody></table>
-                    </main>
-                </section>
-                <div class="question-fixed-footer"><a class="is-danger" href="{% url 'core:teacher_questions' %}">انصراف</a><a href="{% url 'core:teacher_question_bulk_import' %}?step=2">مرحله قبل</a><a class="teacher-primary" href="{% url 'core:teacher_question_bulk_import' %}?step=4">ادامه و مرور نهایی ←</a></div>
-            {% elif request.GET.step == '4' %}
-                <section class="bulk-review-layout">
-                    <div class="bulk-review-stats"><article class="is-green"><b>۲۲۴</b><span>سؤال آماده ورود</span></article><article><b>۸</b><span>نوع سؤال</span></article><article><b>۱۸۶</b><span>فایل رسانه</span></article><article class="is-warn"><b>۱۲</b><span>هشدار قابل چشم‌پوشی</span></article></div>
-                    <aside class="bulk-success-card"><button>×</button><b>✓</b><strong>ورود با موفقیت انجام شد</strong><span>۲۲۴ سؤال ثبت شد</span><small>۱۲ مورد نیازمند بازبینی</small><div><a>دانلود گزارش</a><a class="teacher-primary">مشاهده بانک سؤالات</a></div></aside>
-                    <main class="bulk-review-main">
-                        <section class="bulk-summary-card"><h2>خلاصه ورود</h2><dl><div><dt>ساختار:</dt><dd>مستقل</dd></div><div><dt>فایل:</dt><dd>questions.xlsx</dd></div><div><dt>درس مقصد:</dt><dd>اصول و فنون پرستاری</dd></div><div><dt>بانک مقصد:</dt><dd>بانک سؤالات نیمسال اول</dd></div></dl><button>تغییر مقصد</button></section>
-                        <section class="bulk-distribution-card"><h2>توزیع انواع سؤال</h2><div><span>چهارگزینه‌ای <b>۸۰</b></span><span>چندپاسخی <b>۲۶</b></span><span>درست/نادرست <b>۲۴</b></span><span>پاسخ کوتاه <b>۱۸</b></span><span>تشریحی <b>۲۰</b></span><span>جای‌خالی <b>۲۴</b></span><span>تطبیقی <b>۱۶</b></span><span>مرتب‌سازی <b>۱۶</b></span></div></section>
-                        <section class="bulk-sample-table"><h2>نمونه سؤالات</h2><table class="teacher-table"><thead><tr><th>ردیف</th><th>نوع</th><th>متن سؤال</th><th>رسانه سؤال</th><th>رسانه پاسخ</th><th>نمره</th><th>وضعیت</th></tr></thead><tbody><tr><td>۱</td><td>چهارگزینه‌ای</td><td>کدام مورد زیر از علائم حیاتی طبیعی بزرگسال است؟</td><td>تصویر</td><td>-</td><td>۱</td><td>آماده</td></tr><tr><td>۲</td><td>درست/نادرست</td><td>شست‌وشوی دست‌ها قبل از تماس با بیمار ضروری نیست.</td><td>-</td><td>-</td><td>۰.۵</td><td>آماده</td></tr><tr><td>۳</td><td>پاسخ کوتاه</td><td>سه اقدام اول در برخورد با بیمار دچار خفگی را بنویسید.</td><td>صوت</td><td>-</td><td>۱</td><td>آماده</td></tr><tr><td>۴</td><td>تشریحی</td><td>فرآیند پرستاری را به طور کامل توضیح دهید.</td><td>فیلم</td><td>تصویر</td><td>۲</td><td>آماده</td></tr></tbody></table></section>
-                        <label class="bulk-final-check"><input type="checkbox" checked> صحت ساختار، نوع سؤال، پاسخ صحیح، نمره و فایل‌های رسانه را بررسی کردم.</label>
-                    </main>
-                </section>
-                <div class="question-fixed-footer"><a class="is-danger" href="{% url 'core:teacher_questions' %}">انصراف</a><a href="{% url 'core:teacher_question_bulk_import' %}?step=3">مرحله قبل</a><button type="button">ذخیره پیش‌نویس</button><button class="teacher-primary">ثبت و ورود ۲۲۴ سؤال</button></div>
             {% else %}
-                <div class="bulk-import-side-summary"><article><span>ساختار انتخاب‌شده:</span><strong>مستقل</strong></article><article><span>تعداد فایل:</span><strong>۰</strong></article><article><span>وضعیت:</span><strong class="is-ready">آماده شروع</strong></article></div>
-                <section class="bulk-import-panel bulk-structure-stage">
-                    <h2>سؤالات در چه ساختاری قرار دارند؟</h2>
-                    <div class="bulk-structure-grid"><a><b>▤</b><strong>OSCE</strong><span>ایستگاه، دستورالعمل و چک‌لیست ارزیابی</span></a><a><b>KFP</b><strong>KFP</strong><span>مسئله بالینی، ویژگی کلیدی و مرحله تصمیم</span></a><a><b>◎</b><strong>سناریوی بیمار</strong><span>گروه‌بندی با شناسه سناریوی مشترک</span></a><a class="is-selected"><b>▧</b><strong>مستقل</strong><span>هر ردیف یک سؤال مستقل</span></a></div>
-                    <div class="bulk-entry-settings"><h3>تنظیمات ورود</h3><label><input type="radio" checked> یک ساختار برای کل فایل</label><label><input type="radio"> ساختار در هر ردیف فایل مشخص شده است</label><p>نوع سؤال در مرحله بعد از میان ۸ نوع تعیین می‌شود.</p></div>
+                <section class="teacher-panel">
+                    <h2>نتیجه‌ی بررسی فایل</h2>
+                    <p><span class="teacher-badge is-ok">{{ import_valid|fa_digits }} سؤال آماده‌ی ثبت</span> {% if import_invalid %}<span class="teacher-badge is-danger">{{ import_invalid|fa_digits }} ردیف دارای خطا (ثبت نمی‌شود)</span>{% endif %} {% if import_course %}<span class="teacher-badge">درس: {{ import_course.title }}</span>{% endif %}</p>
+                    <table class="teacher-table">
+                        <thead><tr><th>ردیف فایل</th><th>نوع</th><th>متن سؤال</th><th>پاسخ صحیح</th><th>وضعیت</th></tr></thead>
+                        <tbody>
+                            {% for row in import_rows %}
+                                <tr><td>{{ row.number|fa_digits }}</td><td>{{ row.type }}</td><td>{{ row.text|truncatechars:80 }}</td><td>{{ row.correct|default:"-" }}</td>
+                                    <td>{% if row.errors %}<span class="teacher-badge is-danger">{{ row.errors|join:" " }}</span>{% else %}<span class="teacher-badge is-ok">آماده</span>{% endif %}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="question-fixed-footer" style="position:static;margin-top:1rem">
+                        <a href="{% url 'core:teacher_question_bulk_import' %}">بارگذاری فایل دیگر</a>
+                        {% if import_valid %}<form method="post">{% csrf_token %}<button class="teacher-primary" type="submit" name="action" value="confirm">ثبت {{ import_valid|fa_digits }} سؤال در بانک سؤال</button></form>{% endif %}
+                    </div>
                 </section>
-                <div class="question-fixed-footer"><a href="{% url 'core:teacher_questions' %}">انصراف</a><a class="teacher-primary" href="{% url 'core:teacher_question_bulk_import' %}?step=2">ادامه و دریافت فایل ←</a></div>
             {% endif %}
         </section>
     {% elif page == 'exams' %}
         {% with el=exam_list %}
+        <style>
+            /* exam list: narrow columns (duration … actions) centred under their headings; the code on its own line */
+            .texams-panel .teacher-table td{vertical-align:middle}
+            .texams-panel .teacher-table th:nth-child(n+5),.texams-panel .teacher-table td:nth-child(n+5){text-align:center}
+            .texams-panel .teacher-table td.texams-title{min-width:11rem;padding-top:.65rem;padding-bottom:.65rem;line-height:1.6}
+            .texams-code-pill{display:flex;align-items:center;gap:.35rem;width:fit-content;margin-top:.4rem;padding:.12rem .15rem .12rem .5rem;border:1px solid #c7d7fe;border-radius:.5rem;background:#f5f8ff;white-space:nowrap}
+            .texams-code-pill small{font-size:.66rem;font-weight:800;color:#64748b}
+            .texams-code-pill b{min-width:6.6rem;font-size:.82rem;font-weight:900;letter-spacing:.04em;color:#1e3a8a;text-align:left;direction:ltr;unicode-bidi:isolate;user-select:all}
+            .texams-code-pill button{flex:none;min-height:0;height:auto;line-height:1.45;border:0;border-radius:.4rem;background:#1d4ed8;color:#fff;font:inherit;font-size:.68rem;font-weight:900;padding:.16rem .5rem;cursor:pointer;transition:background .15s}
+            .texams-code-pill button:hover{background:#1e40af}
+            .texams-code-pill button.is-done,.texams-saved button.is-done{background:#15803d}
+            td.texams-actions{white-space:nowrap}
+            td.texams-actions .texams-action-row{display:inline-flex;align-items:center;justify-content:center;gap:.4rem}
+            td.texams-actions .texams-action-row > a{display:inline-flex;align-items:center;min-height:2rem;padding:0 .6rem;border:1px solid #dbe5f3;border-radius:.5rem;background:#fff;color:#1e293b;font-size:.78rem;font-weight:800;text-decoration:none}
+            td.texams-actions .texams-action-row > a:hover{border-color:#93c5fd;background:#f5f9ff}
+            td.texams-actions .texams-action-row > a.texams-results-link{border-color:#1d4ed8;background:#1d4ed8;color:#fff!important}
+            td.texams-actions .texams-action-row > a.texams-results-link:hover{background:#1e40af}
+            .texams-saved button{flex:none;min-height:0;height:auto;line-height:1.5;border:0;border-radius:.55rem;background:#1d4ed8;color:#fff;font:inherit;font-weight:900;cursor:pointer}
+            .texams-saved{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 1rem;padding:1.2rem 1.4rem;border:2px solid #93c5fd;border-radius:1rem;background:linear-gradient(135deg,#eff6ff,#fff)}
+            .texams-saved p{margin:.25rem 0 0;color:#475569;font-weight:700;font-size:.85rem}
+            .texams-saved-code{display:flex;align-items:center;gap:.8rem}
+            .texams-saved-code b{font-size:2rem;font-weight:950;letter-spacing:.1em;color:#1e3a8a;user-select:all}
+            .texams-saved button{font-size:.95rem;padding:.6rem 1.2rem}
+            .texams-panel .teacher-table td,.texams-panel .teacher-table th{padding-inline:.45rem}
+        </style>
+        {% if saved_exam %}
+            <section class="texams-saved" role="status">
+                <div><strong>کد آزمون «{{ saved_exam.title }}»</strong><p>این کد را به دانشجویان بدهید؛ پس از انتشار آزمون، با آن از صفحه‌ی اول سایت وارد آزمون می‌شوند.</p></div>
+                <div class="texams-saved-code"><b dir="ltr" data-latin-digits>{{ saved_exam.code }}</b><button type="button" data-copy-code="{{ saved_exam.code }}">کپی کد</button></div>
+            </section>
+        {% endif %}
         <form class="teacher-toolbar texams-toolbar" method="get" action="{% url 'core:teacher_exams' %}">
             <a class="teacher-primary" href="{% url 'core:teacher_exam_create' %}">+ ایجاد آزمون جدید</a>
             <a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a>
@@ -601,7 +613,7 @@
                         <tbody>
                             {% for exam in el.rows %}
                                 <tr>
-                                    <td class="texams-title">{{ exam.title }}</td>
+                                    <td class="texams-title">{{ exam.title }}<span class="texams-code-pill" title="دانشجویان با این کد از صفحه‌ی اول سایت وارد آزمون می‌شوند"><small>کد</small><b dir="ltr" data-latin-digits>{{ exam.id|exam_code }}</b><button type="button" data-copy-code="{{ exam.id|exam_code }}" aria-label="کپی کد آزمون {{ exam.id|exam_code }}">کپی</button></span></td>
                                     <td>{{ exam.course }}</td>
                                     <td>{% if exam.groups_label %}{{ exam.groups_label|fa_digits }}{% elif exam.assigned %}دانشجویان منتخب{% else %}<span class="texams-muted">بدون تخصیص</span>{% endif %}</td>
                                     <td>{% if exam.date_label %}{{ exam.date_label }}<small class="texams-time">{{ exam.time_label|fa_digits }}</small>{% else %}<span class="texams-muted">تعیین نشده</span>{% endif %}</td>
@@ -609,7 +621,7 @@
                                     <td>{{ exam.question_count|fa_digits }}</td>
                                     <td>{{ exam.submitted|fa_digits }}{% if exam.assigned %} / {{ exam.assigned|fa_digits }}{% endif %}</td>
                                     <td><span class="teacher-badge {{ exam.status_tone }}">{{ exam.status_label }}</span></td>
-                                    <td class="texams-actions">{% if exam.editable %}<a href="{% url 'core:teacher_exam_edit' exam.id %}">ویرایش</a>{% endif %}{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% endif %}{% if not exam.editable and not exam.pending_reviews %}<span class="texams-muted">-</span>{% endif %}</td>
+                                    <td class="texams-actions"><span class="texams-action-row">{% if exam.editable %}<a href="{% url 'core:teacher_exam_edit' exam.id %}">ویرایش</a>{% endif %}{% if exam.is_running %}<a href="{% url 'core:teacher_monitoring' %}?exam={{ exam.id }}">پایش زنده</a>{% endif %}{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% endif %}{% if exam.has_results %}<a class="texams-results-link" href="{% url 'core:teacher_results' %}?exam={{ exam.id }}">نتایج و انتشار</a>{% endif %}{% if not exam.editable and not exam.pending_reviews and not exam.is_running and not exam.has_results %}<span class="texams-muted">-</span>{% endif %}</span></td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -702,9 +714,15 @@
                 </select></label>
                 <noscript><button type="submit">نمایش</button></noscript>
             </form>
+            <form class="teacher-toolbar texams-toolbar" method="get">
+                <label><span class="sr-only">شناسه رسید</span><input type="search" name="receipt" value="{{ receipt_query }}" maxlength="40" dir="ltr" autocomplete="off" placeholder="جستجوی شناسه رسید (مثلاً MQ-1A2B3C-7KQ4RZ)"></label>
+                <button type="submit">جستجوی رسید</button>
+                {% if receipt_code %}<a href="{% url 'core:teacher_results' %}?exam={{ report_exam.id }}">نمایش همه پاسخ‌نامه‌ها</a>{% endif %}
+            </form>
+            {% if receipt_error %}<p class="texams-notice" role="alert">{{ receipt_error }}</p>{% endif %}
             <div class="teacher-stat-grid">
                 <article><span>تعداد شرکت‌کنندگان</span><strong>{{ report.participants|fa_digits }}</strong></article>
-                <article><span>میانگین نمره (از ۲۰)</span><strong>{% if report.average is not None %}{{ report.average|fa_digits }}{% else %}-{% endif %}</strong></article>
+                <article><span>میانگین نمره (از {{ report.scale|fa_digits }})</span><strong>{% if report.average is not None %}{{ report.average|fa_digits }}{% else %}-{% endif %}</strong></article>
                 <article><span>بالاترین / پایین‌ترین</span><strong>{% if report.highest is not None %}{{ report.highest|fa_digits }} / {{ report.lowest|fa_digits }}{% else %}-{% endif %}</strong></article>
                 <article><span>نرخ قبولی</span><strong>{% if report.pass_rate is not None %}{{ report.pass_rate|fa_digits }}٪{% else %}-{% endif %}</strong></article>
             </div>
@@ -714,10 +732,11 @@
                 <h2>اعلام نتیجه به دانشجویان</h2>
                 <p class="texams-empty" style="text-align:start">
                     نمایش نمره: <b>{{ visibility.score_mode_label }}</b> —
-                    {% if visibility.published %}نتایج در {{ visibility.published_at|to_jalali }} منتشر شده و دانشجویان نمره، پاسخ صحیح و توضیح‌ها را می‌بینند.
-                    {% elif visibility.score %}نمره هر دانشجو بلافاصله پس از تصحیح نمایش داده می‌شود؛ با انتشار، پاسخ صحیح و توضیح‌ها هم نمایش داده می‌شوند.
+                    {% if visibility.published %}نتایج در {{ visibility.published_at|to_jalali }} منتشر شده و دانشجویان نمره{% if visibility.correct_answers %}، پاسخ صحیح{% endif %}{% if visibility.explanations %} و توضیح‌ها{% endif %} را می‌بینند.
+                    {% elif visibility.score %}نمره هر دانشجو بلافاصله پس از تصحیح نمایش داده می‌شود.
                     {% else %}دانشجویان تا انتشار نتایج، نمره را نمی‌بینند.{% endif %}
                 </p>
+                {% if report_exam.is_owner %}
                 <form method="post" action="{% url 'core:teacher_publish_result' report_exam.id %}">
                     {% csrf_token %}
                     {% if visibility.published %}
@@ -726,11 +745,14 @@
                         <button class="teacher-primary" type="submit" name="action" value="publish">انتشار نتایج و ارسال اعلان</button>
                     {% endif %}
                 </form>
+                {% else %}
+                <p class="texams-empty" style="text-align:start">شما از «عوامل آزمون» هستید؛ انتشار نتایج با استاد مالک آزمون است.</p>
+                {% endif %}
             </section>
             {% endwith %}
             {% if report.buckets %}
                 <section class="teacher-panel">
-                    <h2>توزیع نمرات (از ۲۰)</h2>
+                    <h2>توزیع نمرات (از {{ report.scale|fa_digits }})</h2>
                     <div class="tdash-chart" role="img" aria-label="توزیع نمرات آزمون">
                         <div class="tdash-chart-plot">
                             {% for bucket in report.buckets %}
@@ -749,11 +771,11 @@
                 {% if report.rows %}
                     <div class="texams-table-wrap">
                         <table class="teacher-table">
-                            <thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>نمره (از ۲۰)</th><th>درصد</th><th>تاریخ تحویل</th><th>وضعیت</th><th>رویدادهای مراقبت</th></tr></thead>
-                            <tbody>{% for row in report.rows %}<tr><td>{{ report.page.start_index|add:forloop.counter0|fa_digits }}</td><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{% if row.score is not None %}{{ row.percent|fa_digits }}٪{% else %}-{% endif %}</td><td>{{ row.submitted_label|default:"-" }}</td><td><span class="teacher-badge {{ row.status_tone }}">{{ row.status_label }}</span></td><td>{% include "teacher/_attempt_flags.html" with flags=row.flags %}</td></tr>{% endfor %}</tbody>
+                            <thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>شناسه رسید</th><th>نمره (از {{ report.scale|fa_digits }})</th><th>درصد</th><th>تاریخ تحویل</th><th>وضعیت</th><th>رویدادهای مراقبت</th></tr></thead>
+                            <tbody>{% for row in report.rows %}<tr><td>{{ report.page.start_index|add:forloop.counter0|fa_digits }}</td><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td><bdi dir="ltr" style="user-select:all" data-latin-digits>{{ row.receipt_code|default:"-" }}</bdi></td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{% if row.score is not None %}{{ row.percent|fa_digits }}٪{% else %}-{% endif %}</td><td>{{ row.submitted_label|default:"-" }}</td><td><span class="teacher-badge {{ row.status_tone }}">{{ row.status_label }}</span></td><td>{% include "teacher/_attempt_flags.html" with flags=row.flags %}</td></tr>{% endfor %}</tbody>
                         </table>
                     </div>
-                    {% if report.page.paginator.num_pages > 1 %}
+                    {% if report.page.paginator.num_pages > 1 and not receipt_code %}
                         <footer class="texams-footer"><span></span><nav class="texams-pages" aria-label="صفحه‌بندی">
                             {% if report.page.has_previous %}<a href="{% query_url page=report.page.previous_page_number %}">قبلی</a>{% endif %}
                             <span>صفحه {{ report.page.number|fa_digits }} از {{ report.page.paginator.num_pages|fa_digits }}</span>
@@ -766,14 +788,26 @@
             </section>
         {% endif %}
     {% elif page == 'objections' %}
-        <div class="teacher-review-layout">
-            <aside class="teacher-panel"><h2>فهرست درخواست‌ها</h2><div class="teacher-feed"><article><b>سارا محمدی</b><span>جدید</span></article><article><b>علی اکبری</b><span>در حال بررسی</span></article><article><b>زهرا حسینی</b><span>پاسخ داده‌شده</span></article></div></aside>
-            <section class="teacher-panel"><h2>درخواست بازبینی نمره</h2><p class="teacher-answer-box">با سلام، نمره من در سؤال ۳ کمتر از انتظار ثبت شده است. لطفاً پاسخ را بازبینی کنید.</p><div class="teacher-compare"><article>گزینه‌های سؤال<br><b>x² + C</b></article><article>پاسخ صحیح<br><b>x³ / ۳ + C</b></article><article>پاسخ دانشجو<br><b>x³ / ۳ + C</b></article></div><textarea placeholder="پاسخ استاد"></textarea><button class="teacher-primary">ارسال پاسخ</button></section>
-        </div>
+        <section class="teacher-panel">
+            <h2>اعتراض‌ها و بازبینی نمره <span class="teacher-badge">در حال توسعه</span></h2>
+            <p class="texams-empty" style="text-align:start">ثبت درخواست بازبینی نمره توسط دانشجو هنوز در سامانه فعال نیست؛ تا آن زمان نمره‌ی پاسخ‌های تشریحی را از «تصحیح پاسخ» و نتایج را از «نتایج آزمون» مدیریت کنید.</p>
+            <p><a class="teacher-primary" href="{% url 'core:teacher_reviews' %}">رفتن به تصحیح پاسخ</a></p>
+        </section>
     {% elif page == 'calendar' %}
+        <style>
+            .teacher-calendar-nav{display:grid;width:2.5rem;height:2.5rem;place-items:center;border:1px solid #e2e8f0;border-radius:.5rem;background:#fff;color:#334155;font-size:1.25rem;font-weight:900;text-decoration:none}
+            .teacher-calendar-grid span.teacher-calendar-weekday{min-height:0;padding:.6rem;text-align:center;color:#64748b;background:#f8fafc}
+            .teacher-calendar-grid span.is-today{background:#f5f3ff}
+            .teacher-calendar-grid a{text-decoration:none}
+            .teacher-calendar-grid b.is-draft{background:#f3e8ff;color:#7c3aed}
+        </style>
         <div class="teacher-calendar">
-            <header><button>‹</button><h2>خرداد ۱۴۰۳</h2><button>›</button></header>
-            <div class="teacher-calendar-grid">{% for day in "۱۲۳۴۵۶۷۸۹۱۰۱۱۱۲۱۳۱۴۱۵۱۶۱۷۱۸۱۹۲۰۲۱۲۲۲۳۲۴۲۵۲۶۲۷۲۸۲۹۳۰۳۱" %}<span>{{ forloop.counter|fa_digits }}{% if forloop.counter == 2 %}<b>آزمون میان‌ترم</b>{% elif forloop.counter == 10 %}<b class="is-blue">جلسه درس</b>{% elif forloop.counter == 20 %}<b class="is-green">تحویل پروژه</b>{% endif %}</span>{% endfor %}</div>
+            <header><a class="teacher-calendar-nav" href="?year={{ calendar_month.previous.0 }}&month={{ calendar_month.previous.1 }}" aria-label="ماه قبل">‹</a><h2>{{ calendar_month.title|fa_digits }}</h2><a class="teacher-calendar-nav" href="?year={{ calendar_month.next.0 }}&month={{ calendar_month.next.1 }}" aria-label="ماه بعد">›</a></header>
+            <div class="teacher-calendar-grid">
+                {% for name in calendar_weekdays %}<span class="teacher-calendar-weekday">{{ name }}</span>{% endfor %}
+                {% for cell in calendar_days %}<span{% if cell.is_today %} class="is-today"{% endif %}>{% if cell.day %}{{ cell.day|fa_digits }}{% for event in cell.events %}<a href="{% url 'core:teacher_results' %}?exam={{ event.id }}" title="{{ event.title }} — {{ event.state }}"><b class="{{ event.tone }}">{{ event.time|fa_digits }} {{ event.title|truncatechars:28 }}</b></a>{% endfor %}{% endif %}</span>{% endfor %}
+            </div>
+            <p class="texams-empty" style="text-align:start">رنگ‌ها: سبز منتشرشده، آبی در انتظار تأیید، بنفش پیش‌نویس، قرمز لغو شده.</p>
         </div>
     {% elif page == 'teacher_settings' %}
         {% include 'teacher/settings/_page.html' %}
@@ -979,6 +1013,127 @@
   });
 
   sync();
+})();
+</script>
+{# The teacher's «محیط کار» and «نمایش و دسترسی» settings (teacher_preferences.ui_context) applied to every console page. #}
+{% if teacher_ui %}
+{{ teacher_ui|json_script:"teacher-ui" }}
+<style>
+  html[data-teacher-theme="dark"]{filter:invert(.9) hue-rotate(180deg);background:#fff}
+  html[data-teacher-theme="dark"] img,html[data-teacher-theme="dark"] video,html[data-teacher-theme="dark"] canvas,html[data-teacher-theme="dark"] .tset-totp-qr{filter:invert(1) hue-rotate(180deg)}
+  {% if teacher_ui.compact_tables %}.teacher-console table th,.teacher-console table td{padding-top:.35rem!important;padding-bottom:.35rem!important;font-size:.84rem}{% endif %}
+  .tq-help{position:fixed;left:16px;bottom:16px;z-index:60;font-family:inherit}
+  .tq-help>button{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1rem;border:0;border-radius:999px;background:#1d4ed8;color:#fff;font:inherit;font-weight:900;box-shadow:0 10px 24px rgba(29,78,216,.3);cursor:pointer}
+  .tq-help-panel{position:absolute;left:0;bottom:3.2rem;width:min(320px,calc(100vw - 32px));padding:1rem;border:1px solid #dbe5f3;border-radius:14px;background:#fff;color:#0f172a;box-shadow:0 20px 50px rgba(15,23,42,.2);direction:rtl}
+  .tq-help-panel h3{margin:0 0 .6rem;font-size:.95rem}
+  .tq-help-panel a{display:block;padding:.4rem .2rem;color:#1d4ed8;font-weight:800;text-decoration:none}
+  .tq-help-panel kbd{display:inline-block;min-width:1.4rem;padding:0 .3rem;border:1px solid #cbd5e1;border-radius:.35rem;background:#f8fafc;font:inherit;font-size:.75rem;text-align:center;direction:ltr}
+  .tq-help-panel li{display:flex;justify-content:space-between;gap:.5rem;padding:.25rem 0;font-size:.82rem;font-weight:700}
+  .tq-help-panel ul{margin:.4rem 0 0;padding:0;list-style:none}
+</style>
+{% if teacher_ui.quick_help %}
+<div class="tq-help" data-tq-help>
+  <button type="button" aria-expanded="false" aria-controls="tq-help-panel" data-tq-help-toggle>؟ راهنمای سریع</button>
+  <div class="tq-help-panel" id="tq-help-panel" hidden>
+    <h3>دسترسی سریع</h3>
+    <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون جدید</a>
+    <a href="{% url 'core:teacher_questions' %}">بانک سؤال</a>
+    <a href="{% url 'core:teacher_reviews' %}">تصحیح پاسخ‌ها</a>
+    <a href="{% url 'core:teacher_results' %}">نتایج آزمون‌ها</a>
+    <a href="{% url 'core:teacher_settings' %}">تنظیمات</a>
+    {% if teacher_ui.shortcuts %}
+      <h3 style="margin-top:.8rem">میانبرهای صفحه‌کلید</h3>
+      <ul>
+        <li><span>ایجاد آزمون</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></span></li>
+        <li><span>بانک سؤال</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd></span></li>
+        <li><span>تصحیح پاسخ‌ها</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></span></li>
+        <li><span>نتایج</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></span></li>
+        <li><span>داشبورد</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></span></li>
+        <li><span>جستجو در همین صفحه</span><span><kbd>/</kbd></span></li>
+      </ul>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+<script>
+(() => {
+  const ui = JSON.parse(document.getElementById('teacher-ui').textContent || '{}');
+  // «نمایش پوسته»: light, dark, or the device's own setting
+  const root = document.documentElement;
+  const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const applyTheme = () => {
+    const dark = ui.theme === 'dark' || (ui.theme === 'system' && media && media.matches);
+    if (dark) root.dataset.teacherTheme = 'dark'; else delete root.dataset.teacherTheme;
+  };
+  applyTheme();
+  if (media && media.addEventListener) media.addEventListener('change', applyTheme);
+
+  const help = document.querySelector('[data-tq-help]');
+  const toggle = help?.querySelector('[data-tq-help-toggle]');
+  const panel = help?.querySelector('#tq-help-panel');
+  toggle?.addEventListener('click', () => { panel.hidden = !panel.hidden; toggle.setAttribute('aria-expanded', String(!panel.hidden)); });
+  document.addEventListener('click', (event) => { if (panel && !panel.hidden && !help.contains(event.target)) { panel.hidden = true; toggle.setAttribute('aria-expanded', 'false'); } });
+
+  // «میانبرهای صفحه‌کلید»
+  if (ui.shortcuts) {
+    const targets = {
+      n: "{% url 'core:teacher_exam_create' %}", q: "{% url 'core:teacher_questions' %}", g: "{% url 'core:teacher_reviews' %}",
+      r: "{% url 'core:teacher_results' %}", h: "{% url 'core:teacher_panel' %}",
+    };
+    document.addEventListener('keydown', (event) => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable;
+      if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey) {
+        const url = targets[(event.code || '').replace('Key', '').toLowerCase()];
+        if (url) { event.preventDefault(); window.location.href = url; }
+      } else if (event.key === '/' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const search = document.querySelector('.teacher-console input[type="search"], .teacher-console input[name="q"]');
+        if (search) { event.preventDefault(); search.focus(); }
+      }
+    });
+  }
+
+  // «اعلان مرورگر»: new unread notifications appear as browser notifications while a console page is open
+  if (ui.browser_notifications && 'Notification' in window && Notification.permission === 'granted') {
+    const key = 'mq-teacher-notified-since';
+    let since = null;
+    try { since = localStorage.getItem(key); } catch (error) { /* storage blocked: only new ones from now */ }
+    const poll = () => {
+      fetch("{% url 'core:teacher_notification_feed' %}" + (since ? `?since=${encodeURIComponent(since)}` : ''), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (!data || !data.enabled) return;
+          if (since) {
+            data.items.forEach((item) => {
+              const shown = new Notification(item.title, { body: item.body, tag: item.id });
+              shown.onclick = () => { window.focus(); if (item.link) window.location.href = item.link; };
+            });
+          }
+          if (!data.quiet) { since = data.now; try { localStorage.setItem(key, since); } catch (error) { /* ignore */ } }
+        })
+        .catch(() => {});
+    };
+    poll();
+    setInterval(poll, 60000);
+  }
+})();
+</script>
+{% endif %}
+
+<script>
+(() => {
+  // «کپی» next to every exam code
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-copy-code]');
+    if (!button) return;
+    const code = button.dataset.copyCode;
+    const done = () => { const text = button.textContent; button.textContent = 'کپی شد ✓'; button.classList.add('is-done'); setTimeout(() => { button.textContent = text; button.classList.remove('is-done'); }, 1800); };
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(code).then(done).catch(() => {}); return; }
+    const area = document.createElement('textarea');  // http (not https) pages have no clipboard API
+    area.value = code; area.style.position = 'fixed'; area.style.opacity = '0';
+    document.body.appendChild(area); area.select();
+    try { document.execCommand('copy'); done(); } catch (error) { /* the code stays selectable */ }
+    area.remove();
+  });
 })();
 </script>
 {% endblock %}

@@ -73,7 +73,7 @@
                             <td><span class="am-pill">{{ row.degree|default:"-"|fa_digits }}</span></td>
                             <td><span class="am-pill"># {{ row.student_number|default:row.identifier|default:"-"|fa_digits }}</span></td>
                             <td><span class="am-status is-{{ row.academic_status|default:'active' }}">{% if row.academic_status == 'leave' %}مرخصی{% elif row.academic_status == 'graduated' %}فارغ التحصیل{% elif row.academic_status == 'inactive' %}غیرفعال{% else %}شاغل به تحصیل{% endif %}</span></td>
-                            <td>{{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</td>
+                            <td>{{ row.created_display|jalali_date|default:row.created_display|fa_digits }}</td>
                             <td>
                                 <div class="am-row-actions">
                                     <button type="button" class="am-action-icon" data-student-details="{{ row.id }}" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button>
@@ -144,7 +144,7 @@
                         <span><b>رشته</b><em data-card-field="field">{{ row.field_of_study|default:"-"|fa_digits }}</em></span>
                         <span><b>ایمیل</b><em data-card-field="email">{{ row.email|default:"-" }}</em></span>
                     </div>
-                    <footer><small>ثبت: {{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</small></footer>
+                    <footer><small>ثبت: {{ row.created_display|jalali_date|default:row.created_display|fa_digits }}</small></footer>
                 </article>
             {% empty %}
                 <div class="am-card-empty">موردی برای نمایش وجود ندارد.</div>

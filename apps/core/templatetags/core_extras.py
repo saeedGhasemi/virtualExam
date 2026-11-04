@@ -1,3 +1,4 @@
+import contextvars
 import json
 from datetime import datetime
 
@@ -72,6 +73,44 @@ def _gregorian_to_jalali(year, month, day):
     return jy, jm, jd
 
 
+def _jalali_to_gregorian(jy, jm, jd):
+    """The Gregorian date of a Jalali date: Farvardin 1st found with _gregorian_to_jalali, plus the day offset."""
+    from datetime import date, timedelta
+
+    nowruz = next(day for day in (date(jy + 621, 3, d) for d in range(19, 23)) if _gregorian_to_jalali(day.year, day.month, day.day) == (jy, 1, 1))
+    offset = (jm - 1) * 31 if jm <= 7 else 186 + (jm - 7) * 30
+    return nowruz + timedelta(days=offset + jd - 1)
+
+
+def _jalali_month_length(jy, jm):
+    if jm <= 6:
+        return 31
+    if jm <= 11:
+        return 30
+    return (_jalali_to_gregorian(jy + 1, 1, 1) - _jalali_to_gregorian(jy, 12, 1)).days  # Esfand: 29, or 30 in a leap year
+
+
+@register.filter
+def exam_code(exam_id):
+    """«کد آزمون» of an exam id, as students type it on the home page (MQ-1A2B3C)."""
+    from apps.core.views import exam_access_code
+
+    return exam_access_code(exam_id) if exam_id else ''
+
+
+# «تقویم تاریخ» of a teacher who chose «میلادی»: set for the request by erd_role_required, read by every date filter.
+CALENDAR = contextvars.ContextVar('calendar', default='jalali')
+GREGORIAN_MONTHS = ('ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن', 'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر')
+
+
+def display_date_parts(year, month, day):
+    """(year, month, day, month names) of a Gregorian day in the calendar dates are shown in for this request."""
+    if CALENDAR.get() == 'gregorian':
+        return year, month, day, GREGORIAN_MONTHS
+    jy, jm, jd = _gregorian_to_jalali(year, month, day)
+    return jy, jm, jd, JALALI_MONTHS
+
+
 @register.filter
 def to_jalali(value):
     """Format a date/datetime (or ISO string from a raw SQLite cursor) as a Jalali string."""
@@ -82,11 +121,48 @@ def to_jalali(value):
             value = datetime.fromisoformat(value)
         except ValueError:
             return value
-    jy, jm, jd = _gregorian_to_jalali(value.year, value.month, value.day)
+    if getattr(value, 'tzinfo', None) is not None and value.utcoffset() is not None:
+        value = timezone.localtime(value)  # an aware moment is shown in the site's time zone (Tehran), not UTC
+    jy, jm, jd, _months = display_date_parts(value.year, value.month, value.day)
     date_part = f'{jy:04d}/{jm:02d}/{jd:02d}'
     if hasattr(value, 'hour'):
         return fa_digits(f'{date_part} - {value.hour:02d}:{value.minute:02d}')
     return fa_digits(date_part)
+
+
+JALALI_MONTHS = ('فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند')
+JALALI_WEEKDAYS = ('دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه', 'یکشنبه')  # by date.weekday()
+
+
+def _jalali_moment(value):
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    if getattr(value, 'tzinfo', None) is not None and value.utcoffset() is not None:
+        value = timezone.localtime(value)
+    return value if hasattr(value, 'year') else None
+
+
+@register.filter
+def jalali_date(value):
+    """«۱۴۰۵/۰۸/۱۲»: the Jalali day only (Tehran time for an aware moment)."""
+    moment = _jalali_moment(value) if value else None
+    if not moment:
+        return value or ''
+    jy, jm, jd, _months = display_date_parts(moment.year, moment.month, moment.day)
+    return fa_digits(f'{jy:04d}/{jm:02d}/{jd:02d}')
+
+
+@register.filter
+def jalali_long(value):
+    """«سه‌شنبه، ۱۲ آبان ۱۴۰۵»."""
+    moment = _jalali_moment(value) if value else None
+    if not moment:
+        return value or ''
+    jy, jm, jd, months = display_date_parts(moment.year, moment.month, moment.day)
+    return fa_digits(f'{JALALI_WEEKDAYS[moment.weekday()]}، {jd} {months[jm - 1]} {jy}')
 
 
 @register.simple_tag(takes_context=True)

@@ -103,9 +103,9 @@ def save_personal_info(request, student_id) -> list:
 # disabled («به‌زودی») until the system sends them. Turning a row off keeps the notification in the list but
 # delivers it already read, so nothing a teacher sends is lost.
 NOTIFICATION_ROWS = [
-    {'key': 'new_exam', 'label': 'آزمون جدید', 'icon': 'list', 'types': ()},
+    {'key': 'new_exam', 'label': 'آزمون جدید', 'icon': 'list', 'types': ('new_exam',)},
     {'key': 'exam_reminder', 'label': 'یادآوری آزمون', 'icon': 'clock', 'types': ()},
-    {'key': 'exam_change', 'label': 'تغییر زمان آزمون', 'icon': 'calendar', 'types': ()},
+    {'key': 'exam_change', 'label': 'تغییر زمان آزمون', 'icon': 'calendar', 'types': ('exam_update',)},
     {'key': 'results', 'label': 'اعلام نتایج', 'icon': 'chart', 'types': ('exam_results',)},
     {'key': 'objection_reply', 'label': 'پاسخ به درخواست بازبینی نمره', 'icon': 'message', 'types': ()},
     {'key': 'class_message', 'label': 'اطلاعیه کلاس', 'icon': 'bell', 'types': ('teacher_message', 'teacher_feedback')},

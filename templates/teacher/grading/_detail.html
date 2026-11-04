@@ -77,11 +77,21 @@
                 {% if grading_essay.sample_answer_file %}<p><a href="{{ grading_essay.sample_answer_file.url }}" target="_blank" rel="noopener">{{ grading_essay.sample_answer_file.name }}</a></p>{% endif %}
             </section>
             {% endif %}
+            {% if grading.exam_settings_enforced and grading.exam_correction_instructions or grading.exam_settings_enforced and grading.exam_rubric_template %}
+            <section class="gd-card">
+                {# The exam wizard's «دستورالعمل تصحیح» and «قالب روبریک», for every grader of this exam. #}
+                <h2>دستورالعمل تصحیح آزمون</h2>
+                {% if grading.exam_correction_instructions %}<p class="gd-sample">{{ grading.exam_correction_instructions|linebreaksbr }}</p>{% endif %}
+                {% if grading.exam_rubric_template %}<p class="gd-instructions">قالب روبریک: {% if grading.exam_rubric_template == 'analytic_multilevel' %}روبریک تحلیلی چندسطحی (نمره‌ی هر معیار جداگانه){% elif grading.exam_rubric_template == 'holistic' %}روبریک کل‌نگر (یک نمره برای کل پاسخ){% else %}{{ grading.exam_rubric_template }}{% endif %}</p>{% endif %}
+            </section>
+            {% endif %}
         </div>
 
         <form class="gd-card" method="post" data-grading-form data-max="{{ grading_max_points }}" data-rubric-total="{{ grading_rubric_total }}">
             {% csrf_token %}
             <h2>ثبت نمره (از {{ grading_max_points|fa_digits }})</h2>
+            {% if grading_locked %}<p class="gd-instructions" role="status">نتایج این آزمون منتشر شده و طبق تنظیمات شما («قفل کردن نمرات پس از انتشار») نمره‌ی این پاسخ قفل است.</p>{% endif %}
+            {% if grading_rules.integer_scores %}<p class="gd-empty" style="margin:0 0 .5rem">طبق «دقت نمره‌دهی» نمره به عدد صحیح گرد می‌شود.</p>{% endif %}
             {% if grading_rubric %}
                 <table class="gd-rubric">
                     <thead><tr><th>معیار</th><th>راهنما</th><th>نمره</th></tr></thead>
@@ -90,7 +100,7 @@
                         <tr>
                             <td>{{ item.criterion }}<br><small>حداکثر {{ item.points|fa_digits }}</small></td>
                             <td>{% if item.description %}<small>{{ item.description }}</small>{% else %}<small>ضعیف: {{ item.weak|default:'-' }}<br>متوسط: {{ item.average|default:'-' }}<br>عالی: {{ item.excellent|default:'-' }}</small>{% endif %}</td>
-                            <td><input type="number" name="score_{{ item.index }}" min="0" max="{{ item.points }}" step="0.25" required value="{{ item.previous }}" aria-label="نمره {{ item.criterion }}" data-rubric-score></td>
+                            <td><input type="number" name="score_{{ item.index }}" min="0" max="{{ item.points }}" step="{{ grading_score_step|default:'0.25' }}" required value="{{ item.previous }}" aria-label="نمره {{ item.criterion }}" data-rubric-score></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -98,9 +108,9 @@
                 <div class="gd-total"><span>جمع روبریک: <b data-rubric-sum>۰</b> از {{ grading_rubric_total|fa_digits }}</span><span>نمره سؤال: <b data-awarded>۰</b></span></div>
                 <p class="gd-empty" style="margin:.4rem 0 0">نمره سؤال به نسبت جمع روبریک از بارم این سؤال در آزمون محاسبه می‌شود.</p>
             {% else %}
-                <label class="gd-field">نمره<input class="gd-score" type="number" name="score" min="0" max="{{ grading_max_points }}" step="0.25" required value="{% if grading.graded_at %}{{ grading.points_awarded|floatformat:'-2' }}{% endif %}"></label>
+                <label class="gd-field">نمره<input class="gd-score" type="number" name="score" min="0" max="{{ grading_max_points }}" step="{{ grading_score_step|default:'0.25' }}" required value="{% if grading.graded_at %}{{ grading.points_awarded|floatformat:'-2' }}{% endif %}"></label>
             {% endif %}
-            <label class="gd-field">بازخورد برای دانشجو (اختیاری)<textarea name="feedback" maxlength="2000">{{ grading.grader_feedback|default:'' }}</textarea></label>
+            {% if grading_rules.feedback is not False %}<label class="gd-field">بازخورد برای دانشجو (اختیاری)<textarea name="feedback" maxlength="2000">{{ grading.grader_feedback|default:'' }}</textarea></label>{% endif %}
             <div class="gd-actions">
                 <button class="gd-btn is-primary" type="submit" name="next" value="1">ثبت و پاسخ بعدی</button>
                 <button class="gd-btn" type="submit">ثبت نمره</button>

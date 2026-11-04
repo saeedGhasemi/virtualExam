@@ -96,7 +96,7 @@
                                     {% if row.status == 'blocked' %}مسدود{% elif row.status == 'inactive' %}غیرفعال{% else %}فعال{% endif %}
                                 </span>
                             </td>
-                            <td>{{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</td>
+                            <td>{{ row.created_display|jalali_date|default:row.created_display|fa_digits }}</td>
                             <td>
                                 <div class="am-row-actions">
                                     <button type="button"
@@ -188,7 +188,7 @@
                         <span><b>موبایل</b>{{ row.phone|default:"-"|fa_digits }}</span>
                     </div>
                     <footer>
-                        <small>ثبت: {{ row.created_display|date:"Y/m/d"|default:row.created_display|fa_digits }}</small>
+                        <small>ثبت: {{ row.created_display|jalali_date|default:row.created_display|fa_digits }}</small>
                     </footer>
                 </article>
             {% empty %}

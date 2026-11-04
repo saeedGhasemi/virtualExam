@@ -11,58 +11,114 @@
   <div class="sx-title"><div><h1>جزئیات آزمون</h1><p>آزمون‌های من / {{ exam.title }}</p></div></div>
   <article class="sx-card sx-hero">
     <div class="sx-countbox">
-      <span class="sx-chip green"><span class="sx-dot"></span>آزمون فعال</span>
-      <div class="box"><span>شروع تا</span><strong>۰۲:۱۵:۳۲</strong></div>
+      {% if attempts_used_up %}<span class="sx-chip gray">شرکت کرده‌اید</span>
+      {% elif entry_expired %}<span class="sx-chip gray">پایان‌یافته</span>
+      {% elif can_enter %}<span class="sx-chip green"><span class="sx-dot"></span>آزمون فعال</span>
+      {% else %}<span class="sx-chip orange">پیش رو</span>{% endif %}
+      <div class="box"><span>{% if seconds_until_start %}شروع تا{% else %}وضعیت{% endif %}</span><strong data-countdown="{{ seconds_until_start }}">{% if seconds_until_start %}-{% elif entry_expired %}پایان{% else %}شروع شده{% endif %}</strong></div>
     </div>
     <div>
+      {% if exam.cover_image_url %}<img src="{{ exam.cover_image_url }}" alt="" style="display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin:0 0 18px">{% endif %}
       <h1>{{ exam.title }}</h1>
+      {% if exam.description %}<p style="margin:-14px 0 22px;color:#40506d;font-weight:850;line-height:1.9">{{ exam.description|linebreaksbr }}</p>{% endif %}
       <div class="sx-hero-meta">
-        <div><small>تاریخ برگزاری</small><strong>{{ exam.starts_at|date:"l، j F Y"|fa_digits }}</strong></div>
+        <div><small>تاریخ برگزاری</small><strong>{{ exam.starts_at|jalali_long|fa_digits }}</strong></div>
         <div><small>ساعت برگزاری</small><strong>{{ exam.starts_at|date:"H:i"|fa_digits }} تا {{ exam.ends_at|date:"H:i"|fa_digits }}</strong></div>
         <div><small>مدت زمان</small><strong>{{ exam.duration_minutes|default:"۹۰"|fa_digits }} دقیقه</strong></div>
         <div><small>تعداد سوالات</small><strong>{{ question_count|fa_digits }} سوال</strong></div>
-        <div><small>نمره قبولی</small><strong>{{ exam.passing_score|default:"۶۰"|fa_digits }} از ۱۰۰</strong></div>
+        <div><small>نمره کل / قبولی</small><strong>{{ exam.total_score|floatformat:"-2"|fa_digits }} نمره{% if exam.rules.settings_enforced and exam.passing_score %} — قبولی {{ exam.passing_score|floatformat:"-2"|fa_digits }}٪{% endif %}</strong></div>
       </div>
       <div class="sx-hero-actions">
-        {% if can_enter %}
+        {% if ip_blocked %}
+          <span class="sx-chip orange">شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست.</span>
+        {% elif attempts_used_up %}
+          <span class="sx-chip gray">فرصت‌های شرکت شما در این آزمون تمام شده است.</span>
+        {% elif access_not_open %}
+          <span class="sx-chip orange">ورود به آزمون از {{ access_starts_at|to_jalali }} باز می‌شود</span>
+        {% elif can_enter %}
           <a class="sx-btn primary" href="{% url 'core:student_exam_entry' exam.pk %}">آماده‌ام؛ ورود به آزمون</a>
         {% elif entry_expired %}
           <span class="sx-chip gray">زمان ورود پایان یافته است</span>
         {% else %}
-          <span class="sx-chip orange">تا شروع آزمون {{ seconds_until_start|fa_digits }} ثانیه باقی مانده</span>
+          <span class="sx-chip orange">تا شروع آزمون <span data-countdown="{{ seconds_until_start }}">-</span> باقی مانده</span>
         {% endif %}
         {% if exam.guidance_file_url %}<a class="sx-btn" href="{{ exam.guidance_file_url }}" target="_blank" rel="noopener">دانلود راهنمای آزمون</a>{% endif %}
       </div>
+      {% if attempts_limit != 1 %}<p style="margin:16px 0 0;text-align:center;color:#64748b;font-weight:850">دفعات شرکت: {{ attempts_used|fa_digits }}{% if attempts_limit %} از {{ attempts_limit|fa_digits }}{% else %} (نامحدود){% endif %}</p>{% endif %}
     </div>
   </article>
   <section class="sx-detail-grid">
     <aside class="sx-stack">
-      <article class="sx-card sx-panel"><h2>نحوه نمره‌دهی</h2><p>نمره هر سوال بر اساس تنظیمات استاد محاسبه می‌شود.</p><p>پاسخ ندادن به سوال: ۰ نمره</p><hr><strong>حداقل نمره قبولی: {{ exam.passing_score|default:"۶۰"|fa_digits }} از ۱۰۰</strong></article>
+      <article class="sx-card sx-panel"><h2>نحوه نمره‌دهی</h2><p>نمره هر سوال بر اساس تنظیمات استاد محاسبه می‌شود؛ نمره‌ی کل آزمون {{ exam.total_score|floatformat:"-2"|fa_digits }} است.</p>{% if exam.rules.settings_enforced %}<p>پاسخ ندادن به سوال: ۰ نمره</p>{% endif %}<hr><strong>{% if exam.rules.settings_enforced and exam.passing_score %}حداقل نمره قبولی: {{ exam.passing_score|floatformat:"-2"|fa_digits }}٪ نمره‌ی کل{% else %}حداقل نمره قبولی: {{ exam.passing_score|default:"۶۰"|fa_digits }}{% endif %}</strong></article>
       <article class="sx-card sx-panel"><h2>پشتیبانی آزمون</h2><p>در صورت بروز مشکل در ورود یا هنگام برگزاری آزمون، با پشتیبانی تماس بگیرید.</p><span class="sx-btn" style="width:100%;opacity:.6;cursor:not-allowed" aria-disabled="true">پشتیبانی آنلاین <small class="sx-chip gray">در حال توسعه</small></span></article>
     </aside>
     <article class="sx-card sx-panel">
       <h2>دستورالعمل‌های آزمون</h2>
       <div class="sx-instructions">
-        <p><i>✓</i>قبل از شروع آزمون، از آمادگی کامل اینترنت و دستگاه خود مطمئن شوید.</p>
-        <p><i>✓</i>پس از شروع، زمان آزمون متوقف نخواهد شد.</p>
-        <p><i>✓</i>در طول آزمون از باز کردن تب‌های دیگر یا ترک صفحه خودداری کنید.</p>
-        <p><i>✓</i>استفاده از منابع خارجی و کمک گرفتن از دیگران ممنوع است.</p>
-        <p><i>✓</i>پاسخ خود را با دقت انتخاب کنید و در پایان دکمه پایان آزمون را بزنید.</p>
+        {% for line in rule_lines %}<p><i>✓</i>{{ line|fa_digits }}</p>{% endfor %}
       </div>
       <div class="sx-alert">پس از شروع آزمون، امکان توقف زمان وجود ندارد.</div>
     </article>
     <article class="sx-card sx-panel">
       <h2>بررسی آمادگی دستگاه</h2>
-      <p>لطفا اطمینان حاصل کنید که موارد زیر قبل از شروع آزمون به درستی کار می‌کنند.</p>
-      <div class="sx-check-list">
-        <p>اتصال اینترنت <span>تأیید شد</span></p>
-        <p>مرورگر <span>تأیید شد</span></p>
-        <p>دوربین <span>تأیید شد</span></p>
-        <p>میکروفون <span>تأیید شد</span></p>
+      <p>این بررسی همین حالا روی دستگاه شما انجام می‌شود.</p>
+      <div class="sx-check-list" data-device-check data-needs-camera="{% if exam.rules.webcam_monitoring %}1{% endif %}" data-needs-mic="{% if exam.rules.mic_monitoring %}1{% endif %}" data-needs-fullscreen="{% if exam.rules.fullscreen_required %}1{% endif %}">
+        <p>اتصال اینترنت <span data-check="online">در حال بررسی...</span></p>
+        <p>مرورگر <span data-check="browser">در حال بررسی...</span></p>
+        {% if exam.rules.fullscreen_required %}<p>حالت تمام‌صفحه <span data-check="fullscreen">در حال بررسی...</span></p>{% endif %}
+        {% if exam.rules.webcam_monitoring %}<p>دوربین <span data-check="camera"><button type="button" class="sx-btn" data-check-media>آزمایش دوربین</button></span></p>{% endif %}
+        {% if exam.rules.mic_monitoring %}<p>میکروفون <span data-check="mic">{% if not exam.rules.webcam_monitoring %}<button type="button" class="sx-btn" data-check-media>آزمایش میکروفون</button>{% else %}با دوربین آزمایش می‌شود{% endif %}</span></p>{% endif %}
       </div>
-      <div class="sx-ok">همه موارد با موفقیت بررسی شدند. شما آماده شرکت در آزمون هستید.</div>
+      <div class="sx-ok" data-device-summary hidden>همه موارد لازم برای این آزمون آماده است.</div>
     </article>
   </section>
 </section>
+<script>
+(() => {
+  const fa = (value) => String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const pad = (n) => String(n).padStart(2, '0');
+  document.querySelectorAll('[data-countdown]').forEach((node) => {
+    let left = Number(node.dataset.countdown || 0);
+    if (!left) return;
+    const endsAt = performance.now() + left * 1000;  // a background tab slows timers down, the countdown must not
+    const show = () => {
+      const days = Math.floor(left / 86400), rest = left % 86400;
+      node.textContent = fa(`${days ? `${days} روز و ` : ''}${pad(Math.floor(rest / 3600))}:${pad(Math.floor(rest % 3600 / 60))}:${pad(rest % 60)}`);
+    };
+    show();
+    const timer = setInterval(() => {
+      left = Math.max(0, Math.round((endsAt - performance.now()) / 1000));
+      if (left <= 0) { clearInterval(timer); window.location.reload(); } else show();
+    }, 1000);
+  });
+  const box = document.querySelector('[data-device-check]');
+  if (!box) return;
+  const set = (name, ok, text) => {
+    const node = box.querySelector(`[data-check="${name}"]`);
+    if (!node) return;
+    node.textContent = text || (ok ? 'آماده است' : 'مشکل دارد');
+    node.style.color = ok ? '#10a461' : '#dc2626';
+    node.dataset.ok = ok ? '1' : '0';
+    const all = [...box.querySelectorAll('[data-check]')];
+    document.querySelector('[data-device-summary]').hidden = !all.every((item) => item.dataset.ok === '1');
+  };
+  set('online', navigator.onLine, navigator.onLine ? 'متصل است' : 'قطع است');
+  window.addEventListener('online', () => set('online', true, 'متصل است'));
+  window.addEventListener('offline', () => set('online', false, 'قطع است'));
+  set('browser', !!(window.fetch && window.FormData && window.localStorage), undefined);
+  set('fullscreen', !!document.documentElement.requestFullscreen, document.documentElement.requestFullscreen ? 'پشتیبانی می‌شود' : 'پشتیبانی نمی‌شود');
+  const button = box.querySelector('[data-check-media]');
+  button?.addEventListener('click', () => {
+    const camera = box.dataset.needsCamera === '1';
+    const mic = box.dataset.needsMic === '1';
+    if (!navigator.mediaDevices?.getUserMedia) { set('camera', false, 'پشتیبانی نمی‌شود'); set('mic', false, 'پشتیبانی نمی‌شود'); return; }
+    navigator.mediaDevices.getUserMedia({ video: camera, audio: mic }).then((stream) => {
+      stream.getTracks().forEach((track) => track.stop());
+      set('camera', true, 'آماده است');
+      set('mic', true, 'آماده است');
+    }).catch(() => { set('camera', false, 'دسترسی داده نشد'); set('mic', false, 'دسترسی داده نشد'); });
+  });
+})();
+</script>
 {% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

@@ -1,0 +1,200 @@
+{% load core_extras %}{# One question of the exam page: q is an item of student_attempt's items. Used once (one question per page) or for every question. #}
+        <div class="qx-qhead">
+          <h3>سؤال {{ q.index|fa_digits }} — {{ q.type_label }}</h3>
+          {% if inline_mark and page_rules.flagging %}<label class="qx-mark qx-mark--inline"><input type="checkbox" name="mark_{{ q.question_id }}" form="answer-form" {% if q.marked %}checked{% endif %}><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>علامت‌گذاری برای مرور</label>{% endif %}
+          <div>
+            {% if q.points %}<span class="qx-chip"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>{{ q.points|stringformat:"g"|fa_digits }} نمره</span>{% endif %}
+            {% with seconds=q.suggested_seconds %}{% if seconds %}<span class="qx-chip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>زمان پیشنهادی: {% if seconds|divisibleby:60 %}{% widthratio seconds 60 1 as minutes %}{{ minutes|fa_digits }} دقیقه{% else %}{{ seconds|fa_digits }} ثانیه{% endif %}</span>{% endif %}{% endwith %}
+          </div>
+        </div>
+        {% if q.text_html %}
+          {# Built server-side from the stored Quill Delta with every text fragment escaped (apps/core/rich_text.py). #}
+          <div class="qx-qtext">{{ q.text_html|safe }}</div>
+        {% elif q.type != 'fill_blank' %}
+          <div class="qx-qtext"><p>{{ q.text }}</p></div>
+        {% endif %}
+        {% if q.student_instructions %}<p class="qx-instructions">{{ q.student_instructions }}</p>{% endif %}
+        {% with media=q.media %}
+          {% if media %}
+            <div class="qx-media">
+              {% if media.image and q.type != 'image_label' %}<figure class="qx-figure"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><figcaption><span>{{ media.image_alt }}</span><button type="button" class="qx-zoom" data-zoom><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر</button></figcaption></figure>{% endif %}
+              {% if media.video %}<figure class="qx-figure"><video src="{{ media.video }}" controls preload="metadata"{% if q.playback %} data-playback{% endif %}>{% if media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ media.video_subtitle }}" default>{% endif %}</video>{% if media.video_caption %}<figcaption>{{ media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
+              {% if media.audio %}<figure class="qx-figure"><audio src="{{ media.audio }}" controls preload="metadata"{% if q.playback %} data-playback{% endif %}></audio></figure>{% endif %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% if q.playback %}<div hidden data-playback-rules>{{ q.playback|json_script }}</div>{% endif %}
+        {% if q.transcript %}<details class="qx-transcript"><summary>متن رونویسی</summary><p>{{ q.transcript|linebreaksbr }}</p></details>{% endif %}
+        {% if q.attachment %}<p class="qx-attachment"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg><a href="{{ q.attachment.url }}" target="_blank" rel="noopener">فایل مکمل: {{ q.attachment.name }}</a></p>{% endif %}
+
+        <section class="qx-answer">
+          {# Disabled inputs are not posted; the server ignores this question's answer anyway once feedback was shown. #}
+          {% if q.locked %}<p class="qx-locked-note">پاسخ این سؤال ثبت شده است و طبق قوانین آزمون دیگر تغییر نمی‌کند.</p>{% endif %}
+          <fieldset class="qx-lock"{% if practice.feedback or q.locked %} disabled{% endif %}>
+          {% if q.type == 'single' or q.type == 'multiple_choice' or q.type == 'true_false' %}
+            <div class="qx-options" role="radiogroup" aria-label="گزینه‌های پاسخ">
+              {% for option in q.options %}
+                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
+                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
+                  <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
+                  {% include "student/_practice_option_verdict.html" %}
+                  <input type="radio" name="answer_{{ q.question_id }}" value="{{ option.value }}" {% if q.answer == option.value %}checked{% endif %}>
+                </label>
+              {% empty %}
+                <p class="qx-empty">برای این سؤال گزینه‌ای تعریف نشده است؛ موضوع را به مراقب آزمون اطلاع دهید.</p>
+              {% endfor %}
+            </div>
+          {% elif q.type == 'multi' %}
+            {% if q.max_select %}<p class="qx-select-hint">حداکثر {{ q.max_select|fa_digits }} گزینه را می‌توانید انتخاب کنید.</p>{% endif %}
+            {% if q.min_select > 1 %}<p class="qx-select-hint">دست‌کم {{ q.min_select|fa_digits }} گزینه را انتخاب کنید؛ انتخاب کمتر، پاسخ غلط به حساب می‌آید.</p>{% endif %}
+            <div class="qx-options" data-max-select="{{ q.max_select|default:0 }}">
+              {% for option in q.options %}
+                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
+                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
+                  <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
+                  {% include "student/_practice_option_verdict.html" %}
+                  <input type="checkbox" name="answer_{{ q.question_id }}" value="{{ option.value }}" {% if option.value in q.answer %}checked{% endif %}>
+                </label>
+              {% endfor %}
+            </div>
+          {% elif q.type == 'essay' or q.type == 'descriptive' or q.type == 'media_response' %}
+            <h3>پاسخ شما</h3>
+            {% if not q.answer_formats or 'text' in q.answer_formats %}
+              <textarea class="qx-textarea" name="answer_{{ q.question_id }}" maxlength="50000" placeholder="پاسخ تشریحی خود را بنویسید...">{{ q.answer|default_if_none:"" }}</textarea>
+            {% endif %}
+            {% if q.upload_rules %}
+              <div class="qx-uploads" data-answer-uploads>
+                {% if q.answer_files %}
+                  <ul class="qx-upload-list">
+                    {% for file in q.answer_files %}
+                      <li>
+                        {% if file.kind == 'image' %}<img src="{{ file.url }}" alt="{{ file.name }}">{% elif file.kind == 'audio' %}<audio src="{{ file.url }}" controls preload="metadata"></audio>{% elif file.kind == 'video' %}<video src="{{ file.url }}" controls preload="metadata"></video>{% endif %}
+                        <a href="{{ file.url }}" target="_blank" rel="noopener">{{ file.name }}</a>
+                        <label class="qx-upload-remove"><input type="checkbox" name="remove_file_{{ q.question_id }}" value="{{ file.id }}" data-auto-save>حذف</label>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+                <div class="qx-upload-actions">
+                  {% for kind, rule in q.upload_rules.items %}
+                    {% if kind == 'audio' or kind == 'video' and q.type == 'media_response' %}
+                      <div class="qx-recorder" data-recorder data-record-kind="{{ kind }}"{% if q.max_record_seconds %} data-record-max="{{ q.max_record_seconds }}"{% endif %}>
+                        <button type="button" class="qx-upload-btn" data-record-start>● {% if kind == 'video' %}ضبط ویدئو{% else %}ضبط صدا{% endif %}</button>
+                        <button type="button" class="qx-upload-btn is-stop" data-record-stop hidden>■ پایان ضبط (<span data-record-time>۰۰:۰۰</span>)</button>
+                        <label class="qx-upload-btn">{% if kind == 'video' %}بارگذاری فایل ویدئو{% else %}بارگذاری فایل صوتی{% endif %}<input type="file" name="upload_{{ q.question_id }}_{{ kind }}" accept="{{ rule.accept }}" data-auto-save data-record-target></label>
+                      </div>
+                    {% else %}
+                      <label class="qx-upload-btn">{% if kind == 'image' %}بارگذاری تصویر{% elif kind == 'video' %}بارگذاری ویدئو{% else %}پیوست فایل{% endif %}<input type="file" name="upload_{{ q.question_id }}_{{ kind }}" accept="{{ rule.accept }}"{% if kind != 'video' %} multiple{% endif %} data-auto-save></label>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+                <small class="qx-upload-hint">{% if q.max_record_seconds %}حداکثر زمان ضبط {{ q.max_record_seconds|fa_digits }} ثانیه است. {% endif %}فایل بلافاصله پس از انتخاب ذخیره می‌شود. {% for kind, rule in q.upload_rules.items %}{% if kind == 'image' %}تصویر{% elif kind == 'audio' %}صوت{% elif kind == 'video' %}ویدئو{% else %}فایل PDF/Word{% endif %} تا {{ rule.mb|fa_digits }} مگابایت{% if not forloop.last %}، {% endif %}{% endfor %}؛ حداکثر ۵ فایل.</small>
+              </div>
+            {% endif %}
+          {% elif q.type == 'numeric' %}
+            <h3>پاسخ شما</h3>
+            <div class="qx-numeric">
+              <input class="qx-input" name="answer_{{ q.question_id }}" value="{{ q.numeric_value }}" inputmode="decimal" placeholder="پاسخ خود را وارد کنید" autocomplete="off" aria-label="پاسخ عددی">
+              {% if q.numeric_require_unit %}
+                <input class="qx-input qx-numeric-unit" name="answer_{{ q.question_id }}" value="{{ q.numeric_unit_value }}" placeholder="واحد" autocomplete="off" aria-label="واحد پاسخ">
+              {% elif q.numeric_unit %}
+                <span class="qx-numeric-unit">{{ q.numeric_unit }}</span>
+              {% endif %}
+            </div>
+          {% elif q.type == 'matrix' %}
+            {% if q.matrix_multi %}<p class="qx-select-hint">در هر سطر ممکن است بیش از یک گزینه صحیح باشد.</p>{% endif %}
+            <div class="qx-matrix-wrap">
+              <table class="qx-matrix" data-matrix>
+                {% if q.matrix_show_column_titles %}
+                  <thead><tr><th></th>{% for column in q.matrix_columns %}<th scope="col">{{ column.text }}</th>{% endfor %}</tr></thead>
+                {% endif %}
+                <tbody>
+                  {% for row in q.matrix_rows %}
+                    <tr>
+                      <th scope="row">{% if q.matrix_show_row_titles %}{{ row.text }}{% else %}{{ forloop.counter|fa_digits }}{% endif %}</th>
+                      {% for cell in row.cells %}
+                        <td><input type="{% if q.matrix_multi %}checkbox{% else %}radio{% endif %}" name="mx_{{ q.question_id }}_{{ row.id }}" value="{{ cell.value }}" data-matrix-cell{% if cell.checked %} checked{% endif %} aria-label="{{ row.text }} — {{ cell.label }}"></td>
+                      {% endfor %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <input type="hidden" name="answer_{{ q.question_id }}" value="{{ q.matrix_answer }}" data-matrix-answer>
+          {% elif q.type == 'image_label' %}
+            <div class="qx-label" data-label{% if q.label_drag %} data-label-drag{% endif %}>
+              <div class="qx-label-stage">
+                <img src="{{ q.media.image }}" alt="{{ q.media.image_alt }}">
+                {% for marker in q.label_markers %}<span class="qx-label-pin" style="left:{{ marker.left }}%;top:{{ marker.top }}%">{{ marker.number|fa_digits }}</span>{% endfor %}
+              </div>
+              {% if q.label_drag %}
+                <div class="qx-label-bank" data-label-bank aria-label="برچسب‌ها">
+                  {% for text in q.label_bank %}<button type="button" class="qx-label-chip" draggable="true" data-label-chip>{{ text }}</button>{% endfor %}
+                </div>
+              {% endif %}
+              <ol class="qx-label-answers">
+                {% for marker in q.label_markers %}
+                  <li>
+                    <b>{{ marker.number|fa_digits }}</b>
+                    <input class="qx-input" type="text" name="answer_{{ q.question_id }}" value="{{ marker.value }}" data-label-input aria-label="پاسخ نشانه {{ marker.number|fa_digits }}" autocomplete="off"{% if q.label_drag %} readonly placeholder="برچسب را اینجا رها کنید"{% else %} placeholder="نام بخش"{% endif %}>
+                    {% if q.label_drag %}<button type="button" class="qx-label-clear" data-label-clear aria-label="پاک کردن">×</button>{% endif %}
+                  </li>
+                {% endfor %}
+              </ol>
+            </div>
+          {% elif q.type == 'short_answer' %}
+            <h3>پاسخ شما</h3>
+            <div class="qx-voice">
+              <input class="qx-input" name="answer_{{ q.question_id }}" value="{{ q.answer|default_if_none:'' }}" placeholder="پاسخ خود را بنویسید..." autocomplete="off" data-voice-target data-char-count-source>
+              <button type="button" class="qx-mic" data-voice-mic hidden aria-label="ورودی صوتی">
+                <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
+            </div>
+          {% elif q.type == 'fill_blank' %}
+            {% if q.blank_html %}
+              {# Rich stem from the saved Delta (escaped server-side) with an answer input in place of each [n]. #}
+              <div class="qx-fillblank qx-fillblank--rich">{{ q.blank_html|safe }}</div>
+            {% else %}
+              <p class="qx-fillblank">{% for seg in q.blank_segments %}{% if seg.kind == 'text' %}{{ seg.value }}{% else %}<input class="qx-blank" type="text" name="answer_{{ q.question_id }}" value="{{ seg.value }}" aria-label="جای خالی {{ seg.index|fa_digits }}" placeholder="{{ seg.index|fa_digits }}" autocomplete="off">{% endif %}{% endfor %}</p>
+            {% endif %}
+            {% if q.blank_hints %}
+              <ul class="qx-blank-hints" aria-label="راهنمای رسانه‌ای جای‌خالی‌ها">
+                {% for hint in q.blank_hints %}
+                  <li><b>{{ hint.index|fa_digits }}</b>{% include "student/_attempt_item_media.html" with item=hint %}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          {% elif q.type == 'ordering' %}
+            <ol class="qx-ordering" data-ordering-list>
+              {% for item in q.ordering_items %}
+                <li draggable="true" data-value="{{ item.value }}">
+                  <span class="qx-drag" aria-hidden="true">⋮⋮</span>
+                  <span class="qx-order-badge" data-ordering-badge>{{ forloop.counter|fa_digits }}</span>
+                  <span>{{ item.label }}</span>{% include "student/_attempt_item_media.html" %}
+                </li>
+              {% endfor %}
+            </ol>
+            <input type="hidden" name="answer_{{ q.question_id }}" value="{{ q.answer|default_if_none:'' }}" data-ordering-answer>
+          {% elif q.type == 'matching' %}
+            {% if q.matching_many_to_one %}<p class="qx-select-hint">ممکن است چند مورد به یک پاسخ مشترک وصل شوند.</p>{% endif %}
+            <div class="qx-matching" data-matching{% if q.matching_many_to_one %} data-many-to-one{% endif %}>
+              <div class="qx-matching-col">
+                {% for item in q.matching_left %}<button type="button" class="qx-match-node" data-side="left" data-value="{{ item.value }}">{{ item.label }}{% include "student/_attempt_item_media.html" %}</button>{% endfor %}
+              </div>
+              <svg class="qx-matching-lines" data-matching-lines></svg>
+              <div class="qx-matching-col">
+                {% for item in q.matching_right %}<button type="button" class="qx-match-node" data-side="right" data-value="{{ item.value }}">{{ item.label }}{% include "student/_attempt_item_media.html" %}</button>{% endfor %}
+              </div>
+            </div>
+            <input type="hidden" name="answer_{{ q.question_id }}" value="{{ q.answer|default_if_none:'' }}" data-matching-answer>
+          {% else %}
+            <h3>پاسخ شما</h3>
+            <input class="qx-input" name="answer_{{ q.question_id }}" value="{{ q.answer|default_if_none:'' }}" placeholder="پاسخ خود را وارد کنید">
+          {% endif %}
+          </fieldset>
+          {% if practice.tutorial %}{% include 'student/_practice_feedback.html' with feedback=practice.feedback %}{% endif %}
+          <div class="qx-answer-meta">
+            {% if with_autosave_state %}{% include "student/_attempt_autosave_state.html" %}{% endif %}
+            {% if q.type == 'short_answer' %}<span data-char-count>{{ q.answer|default_if_none:''|length|fa_digits }} نویسه</span>{% endif %}
+          </div>
+        </section>

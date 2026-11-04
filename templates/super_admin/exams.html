@@ -40,6 +40,7 @@
     .exam-subject-icon.is-running{background:#e3fbf5;color:#0f9f8f}.exam-subject-icon.is-finished{background:#eef2f7;color:#64748b}.exam-subject-icon.is-draft{background:#fff7ed;color:#ea580c}.exam-subject-icon.is-cancelled{background:#fee2e2;color:#dc2626}
     .exam-title-cell strong{display:block;font-weight:950}.exam-title-cell small{display:block;margin-top:.15rem;color:#6c7891;font-size:.76rem;font-weight:800}
     .status-pill{display:inline-flex;min-width:6.8rem;height:2.05rem;align-items:center;justify-content:center;border-radius:.55rem;font-size:.78rem;font-weight:950}
+    .status-pill.is-pending,.exam-subject-icon.is-pending{background:#fff7ed;color:#c2410c}
     .status-pill.is-scheduled{background:#e9efff;color:#315cff}.status-pill.is-running{background:#e7f8ee;color:#15803d}.status-pill.is-finished{background:#edf2f7;color:#475569}.status-pill.is-draft{background:#eaf4ff;color:#0284c7}.status-pill.is-cancelled,.status-pill.is-review{background:#fff1e7;color:#ea580c}
     .participant-text{white-space:nowrap}
     .row-actions{display:flex;align-items:center;gap:.8rem;color:#0f326d}
@@ -75,6 +76,7 @@
                 <a class="{% if status_filter == 'scheduled' %}is-active{% endif %}" href="?status=scheduled">پیش‌رو</a>
                 <a class="{% if status_filter == 'running' %}is-active{% endif %}" href="?status=running">در حال برگزاری</a>
                 <a class="{% if status_filter == 'finished' %}is-active{% endif %}" href="?status=finished">پایان‌یافته</a>
+                <a class="{% if status_filter == 'pending' %}is-active{% endif %}" href="?status=pending">در انتظار تأیید</a>
             </nav>
             <span></span>
         </header>
@@ -90,7 +92,7 @@
             <label class="exam-search"><input name="q" value="{{ query }}" placeholder="جست‌وجوی عنوان یا کد آزمون..."><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
             <label class="filter-field"><select name="teacher" onchange="this.form.submit()"><option value="">درس</option>{% for teacher in teachers %}<option value="{{ teacher }}" {% if teacher_filter == teacher %}selected{% endif %}>{{ teacher|fa_digits }}</option>{% endfor %}</select><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg></label>
             <label class="filter-field"><select name="date" onchange="this.form.submit()"><option value="">ترم</option><option value="today" {% if date_filter == 'today' %}selected{% endif %}>امروز</option><option value="week" {% if date_filter == 'week' %}selected{% endif %}>۷ روز آینده</option></select><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg></label>
-            <label class="filter-field"><select name="status" onchange="this.form.submit()"><option value="">وضعیت</option><option value="scheduled" {% if status_filter == 'scheduled' %}selected{% endif %}>پیش‌رو</option><option value="running" {% if status_filter == 'running' %}selected{% endif %}>در حال برگزاری</option><option value="finished" {% if status_filter == 'finished' %}selected{% endif %}>پایان یافته</option><option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>پیش‌نویس</option></select><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/></svg></label>
+            <label class="filter-field"><select name="status" onchange="this.form.submit()"><option value="">وضعیت</option><option value="scheduled" {% if status_filter == 'scheduled' %}selected{% endif %}>پیش‌رو</option><option value="running" {% if status_filter == 'running' %}selected{% endif %}>در حال برگزاری</option><option value="finished" {% if status_filter == 'finished' %}selected{% endif %}>پایان یافته</option><option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>پیش‌نویس</option><option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>در انتظار تأیید</option></select><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/></svg></label>
             <button class="filter-button" type="submit" title="اعمال فیلتر"><svg viewBox="0 0 24 24"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3Z"/></svg></button>
             <a class="filter-button" href="{% url 'core:super_admin_exams' %}" title="بازنشانی"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
         </form>

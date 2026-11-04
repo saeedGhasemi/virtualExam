@@ -145,7 +145,7 @@
             <div class="sap-score-status">
                 <h2>وضعیت امنیت حساب</h2>
                 <span class="sap-chip {% if security_score >= 80 %}green{% else %}blue{% endif %}">{% if security_score >= 80 %}مناسب{% else %}قابل بهبود{% endif %}</span>
-                <p style="margin:.7rem 0 0;color:var(--muted);font-weight:800;font-size:.85rem">برای افزایش امتیاز، شماره همراه و ایمیل سازمانی خود را کامل کنید.</p>
+                <p style="margin:.7rem 0 0;color:var(--muted);font-weight:800;font-size:.85rem">{% if not two_factor.enabled %}برای امنیت بیشتر، ورود دومرحله‌ای را فعال کنید{% if not profile.phone %} و شماره همراه را ثبت کنید{% endif %}.{% elif not profile.phone %}شماره همراه خود را برای بازیابی حساب ثبت کنید.{% else %}حساب شما با رمز عبور و ورود دومرحله‌ای محافظت می‌شود.{% endif %}</p>
             </div>
             <div class="sap-score-visual">
                 <div class="sap-score-bar"><div class="sap-progress"><i style="width:{{ security_score }}%"></i></div><span>امتیاز امنیتی</span></div>
@@ -167,25 +167,57 @@
             </article>
 
             <article class="sap-card sap-pad">
-                <h2>تأیید دومرحله‌ای <span class="sap-soon">در حال توسعه</span></h2>
-                <p style="color:var(--muted);font-weight:800;font-size:.85rem;margin-bottom:1rem">فعال‌سازی برنامه Authenticator و کدهای بازیابی هنوز در سامانه پیاده‌سازی نشده است.</p>
-                <button class="sap-btn is-outline is-block" type="button" disabled>مدیریت تأیید دومرحله‌ای</button>
+                <h2>تأیید دومرحله‌ای {% if two_factor.enabled %}<span class="sap-chip green">فعال</span>{% else %}<span class="sap-chip gray">غیرفعال</span>{% endif %}</h2>
+                <form method="post" id="sap-security-form">{% csrf_token %}<input type="hidden" name="form" value="security"></form>
+                {% if two_factor.new_codes %}
+                    <div class="sap-note" role="status" style="background:#ecfdf5;color:#065f46">
+                        <b>کدهای بازیابی — فقط همین یک بار نمایش داده می‌شوند؛ جای امنی نگهشان دارید:</b>
+                        <ul dir="ltr" style="margin:.5rem 0 0;padding-inline-start:1.2rem">{% for code in two_factor.new_codes %}<li>{{ code }}</li>{% endfor %}</ul>
+                    </div>
+                {% endif %}
+                {% if not two_factor.available %}
+                    <p style="color:var(--muted);font-weight:800;font-size:.85rem">کتابخانه‌های ورود دومرحله‌ای روی سرور نصب نیست.</p>
+                {% elif two_factor.enabled %}
+                    <p style="color:var(--muted);font-weight:800;font-size:.85rem;margin-bottom:.6rem">هنگام ورود، کد برنامه‌ی Authenticator خواسته می‌شود · {{ two_factor.recovery_left|fa_digits }} کد بازیابی باقی مانده</p>
+                    <label class="sap-field">رمز عبور فعلی<input type="password" name="security_password" autocomplete="current-password" form="sap-security-form"></label>
+                    <label class="sap-field">کد Authenticator (فقط برای غیرفعال‌سازی)<input name="totp_code" autocomplete="one-time-code" maxlength="12" dir="ltr" form="sap-security-form"></label>
+                    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                        <button class="sap-btn is-outline" type="submit" form="sap-security-form" name="security_action" value="recovery_regenerate">کدهای بازیابی جدید</button>
+                        <button class="sap-btn is-danger" type="submit" form="sap-security-form" name="security_action" value="totp_disable">غیرفعال‌سازی</button>
+                    </div>
+                {% elif two_factor.setup_secret %}
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start">
+                        <div style="width:140px" aria-label="کد QR برای برنامه‌ی Authenticator">{{ two_factor.setup_qr }}</div>
+                        <p style="margin:0;color:var(--muted);font-weight:800;font-size:.82rem;line-height:1.9">کد QR را با برنامه‌ی Authenticator اسکن کنید، یا این کلید را دستی وارد کنید: <bdi dir="ltr">{{ two_factor.setup_secret }}</bdi></p>
+                    </div>
+                    <label class="sap-field">کد ۶ رقمی برنامه<input name="totp_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" form="sap-security-form"></label>
+                    <label class="sap-field">رمز عبور فعلی<input type="password" name="security_password" autocomplete="current-password" form="sap-security-form"></label>
+                    <button class="sap-btn is-block" type="submit" form="sap-security-form" name="security_action" value="totp_confirm">تأیید و فعال‌سازی</button>
+                {% else %}
+                    <p style="color:var(--muted);font-weight:800;font-size:.85rem;margin-bottom:1rem">با فعال‌سازی، هنگام ورود علاوه بر رمز عبور، کد برنامه‌ی Authenticator (مثل Google Authenticator) هم خواسته می‌شود.</p>
+                    <button class="sap-btn is-block" type="submit" form="sap-security-form" name="security_action" value="totp_start">فعال‌سازی ورود دومرحله‌ای</button>
+                {% endif %}
             </article>
 
             <article class="sap-card sap-pad">
-                <h2>نشست فعلی</h2>
-                <div class="sap-session-current">
-                    <b><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4"/></svg></b>
-                    <div>
-                        <strong>{{ current_session.device }}</strong>
-                        <small style="color:var(--muted);font-weight:800">IP: {{ current_session.ip|fa_digits }}</small>
+                <h2>نشست‌های فعال</h2>
+                {% for item in sessions %}
+                    <div class="sap-session-current" style="margin-bottom:.5rem">
+                        <b><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4"/></svg></b>
+                        <div>
+                            <strong>{{ item.device }}</strong>
+                            <small style="color:var(--muted);font-weight:800">IP: <bdi dir="ltr">{{ item.ip }}</bdi> · ورود {{ item.created_label }}</small>
+                        </div>
+                        {% if item.is_current %}<span class="sap-chip green" style="margin-right:auto">این دستگاه</span>
+                        {% else %}<button class="sap-btn is-outline" style="margin-right:auto" type="submit" form="sap-security-form" name="security_action" value="end_session:{{ item.key }}">خروج</button>{% endif %}
                     </div>
-                    <span class="sap-chip green" style="margin-right:auto">این دستگاه</span>
-                </div>
+                {% empty %}
+                    <p style="color:var(--muted);font-weight:800">نشستی یافت نشد.</p>
+                {% endfor %}
                 <form method="post" style="margin-top:1rem">
                     {% csrf_token %}
                     <input type="hidden" name="form" value="logout_others">
-                    <button class="sap-btn is-outline is-block" type="submit">خروج از سایر دستگاه‌ها ({{ other_sessions_count|fa_digits }})</button>
+                    <button class="sap-btn is-outline is-block" type="submit"{% if not other_sessions_count %} disabled{% endif %}>خروج از سایر دستگاه‌ها ({{ other_sessions_count|fa_digits }})</button>
                 </form>
             </article>
         </section>
@@ -201,7 +233,7 @@
                                 <tr>
                                     <td>{{ item.device }}</td>
                                     <td>{{ item.ip|fa_digits }}</td>
-                                    <td>{{ item.time|date:"Y/m/d H:i"|default:item.time|fa_digits }}</td>
+                                    <td>{{ item.time|to_jalali|default:item.time|fa_digits }}</td>
                                     <td><span class="sap-chip {% if item.result == 'موفق' %}green{% else %}gray{% endif %}">{{ item.result }}</span></td>
                                 </tr>
                             {% endfor %}
@@ -213,14 +245,7 @@
             {% endif %}
         </section>
 
-        <section class="sap-security-grid" style="grid-template-columns:1.3fr 1fr">
-            <article class="sap-card sap-pad">
-                <h2>هشدارهای امنیتی <span class="sap-soon">ذخیره نمی‌شود</span></h2>
-                <div class="sap-toggle-row"><span>ورود از دستگاه جدید</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
-                <div class="sap-toggle-row"><span>تغییر رمز عبور</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
-                <div class="sap-toggle-row"><span>تلاش ورود ناموفق</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
-                <p style="margin:.9rem 0 0;color:var(--muted);font-weight:800;font-size:.78rem">این بخش هنوز به دیتابیس متصل نشده و تغییرات ذخیره نمی‌شود.</p>
-            </article>
+        <section class="sap-security-grid" style="grid-template-columns:1fr">
             <article class="sap-danger-note">
                 <h2 style="color:#b91c1c">اقدامات حساس</h2>
                 <p>این اقدام همه نشست‌های فعال روی دستگاه‌های دیگر را بی‌درنگ خارج می‌کند.</p>
@@ -239,24 +264,24 @@
                 <input type="hidden" name="form" value="profile">
                 <h2>اطلاعات فردی</h2>
                 <div class="sap-form-grid">
-                    <label class="sap-field">نام<input name="first_name" value="{{ profile.first_name|default:'' }}"></label>
-                    <label class="sap-field">نام خانوادگی<input name="last_name" value="{{ profile.last_name|default:'' }}"></label>
+                    <label class="sap-field">نام<input name="first_name" value="{{ profile.first_name|default:'' }}" maxlength="60" required></label>
+                    <label class="sap-field">نام خانوادگی<input name="last_name" value="{{ profile.last_name|default:'' }}" maxlength="60" required></label>
                     <label class="sap-field is-locked">کد ملی<input value="{{ profile.national_id|default:'-'|fa_digits }}" readonly></label>
-                    <label class="sap-field is-locked">کد کاربری<input value="{{ profile_identifier|fa_digits }}" readonly></label>
+                    <label class="sap-field is-locked">نام کاربری (برای ورود)<input value="{{ request.user.username }}" dir="ltr" readonly></label>
                 </div>
                 <h2 style="margin-top:.4rem">اطلاعات تماس</h2>
                 <div class="sap-form-grid">
-                    <label class="sap-field is-full">ایمیل<input type="email" name="email" value="{{ profile.email|default:request.user.email }}"></label>
-                    <label class="sap-field">شماره همراه<input name="phone" value="{{ profile.phone|default:''|fa_digits }}"></label>
+                    <label class="sap-field is-full">ایمیل<input type="email" name="email" value="{{ profile.email|default:request.user.email }}" dir="ltr" required></label>
+                    <label class="sap-field">شماره همراه<input name="phone" value="{{ profile.phone|default:'' }}" dir="ltr" inputmode="tel" maxlength="14" placeholder="09123456789"></label>
                 </div>
                 <h2 style="margin-top:.4rem">اطلاعات سازمانی</h2>
                 <div class="sap-form-grid">
-                    <label class="sap-field is-locked">نقش فعال<input value="مدیر سیستم" readonly></label>
-                    <label class="sap-field is-locked">مسیر سازمانی<input value="مدیریت مرکزی" readonly></label>
+                    <label class="sap-field is-locked">نقش فعال<input value="{{ role_label }}" readonly></label>
+                    <label class="sap-field is-locked">مسیر سازمانی<input value="{{ unit_label }}" readonly></label>
                 </div>
-                <p class="sap-note">تغییر نقش و دسترسی فقط از بخش مدیریت کاربران امکان‌پذیر است.</p>
+                <p class="sap-note">نام کاربری، کد ملی، نقش و دسترسی هویت شما در سامانه‌اند و فقط مدیر سیستم از بخش مدیریت کاربران تغییرشان می‌دهد.</p>
                 <div class="sap-save-row">
-                    <span>آخرین ویرایش: {{ profile.updated_at|date:"Y/m/d H:i"|default:profile.updated_at|slice:":16"|fa_digits }}</span>
+                    <span>آخرین ویرایش: {{ profile.updated_at|to_jalali|default:profile.updated_at|slice:":16"|fa_digits }}</span>
                     <div style="display:flex;gap:.6rem">
                         <a class="sap-btn is-outline" href="?section=overview">انصراف</a>
                         <button class="sap-btn" type="submit">ذخیره تغییرات</button>
@@ -272,12 +297,7 @@
                         تغییر تصویر
                         <input form="sap-edit-form" name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none">
                     </label>
-                    <small>فرمت‌های مجاز: JPG، PNG، WebP، GIF - حداکثر ۲ مگابایت</small>
-                </article>
-                <article class="sap-card sap-pad">
-                    <h2>ترجیحات کاربری <span class="sap-soon">ذخیره نمی‌شود</span></h2>
-                    <div class="sap-toggle-row"><span>دریافت اعلان‌های سامانه</span><label class="sap-toggle"><input type="checkbox" checked disabled><i></i></label></div>
-                    <label class="sap-field" style="margin-top:.9rem">زبان رابط<select disabled><option>فارسی</option></select></label>
+                    <small>فرمت‌های مجاز: JPG، PNG، WebP، GIF - حداکثر ۱ مگابایت؛ با «ذخیره تغییرات» ثبت می‌شود</small>
                 </article>
             </aside>
         </section>
@@ -289,7 +309,7 @@
                     <div class="sap-avatar">{% if profile.avatar_url %}<img src="{{ profile.avatar_url }}" alt="{{ display_name }}">{% else %}{{ display_name|slice:":1" }}{% endif %}</div>
                     <h3>{{ display_name|fa_digits }}</h3>
                     <div class="sap-hero-chips">
-                        <span class="sap-chip blue">مدیر سیستم</span>
+                        <span class="sap-chip blue">{{ role_label }}</span>
                         <span class="sap-chip green">فعال</span>
                     </div>
                 </div>
@@ -297,7 +317,7 @@
                     <div class="sap-detail-row"><span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/></svg>کد کاربری</span><strong>{{ profile_identifier|fa_digits }}</strong></div>
                     <div class="sap-detail-row"><span><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>ایمیل</span><strong>{{ profile.email|default:request.user.email|default:"-" }}</strong></div>
                     <div class="sap-detail-row"><span><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.68 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.32 1.85.55 2.81.68A2 2 0 0 1 22 16.92Z"/></svg>شماره همراه</span><strong>{{ profile.phone|default:"-"|fa_digits }}</strong></div>
-                    <div class="sap-detail-row"><span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>آخرین ورود</span><strong>{{ last_login_at|date:"Y/m/d H:i"|default:"-"|fa_digits }}</strong></div>
+                    <div class="sap-detail-row"><span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>آخرین ورود</span><strong>{{ last_login_at|to_jalali|default:"-"|fa_digits }}</strong></div>
                 </div>
                 <div class="sap-progress-wrap">
                     <div class="sap-progress-head"><span>تکمیل پروفایل</span><span>{{ profile_completion|fa_digits }}٪</span></div>
@@ -369,7 +389,7 @@
 
                 <div class="sap-layout" style="grid-template-columns:1fr 1fr">
                     <article class="sap-card sap-pad">
-                        <h2><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>آخرین فعالیت‌های مدیریتی</h2>
+                        <h2><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>آخرین فعالیت‌ها</h2>
                         {% for item in recent_activities %}
                             <div class="sap-activity">
                                 <span class="sap-activity-icon tone-{{ item.tone }}">
@@ -382,7 +402,7 @@
                                     {% else %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>
                                     {% endif %}
                                 </span>
-                                <div><strong>{{ item.label }}</strong><time>{{ item.created_at|date:"Y/m/d H:i"|default:item.created_at|fa_digits }}</time></div>
+                                <div><strong>{{ item.label }}</strong><time>{{ item.created_at|to_jalali|default:item.created_at|fa_digits }}</time></div>
                             </div>
                         {% empty %}
                             <p style="color:var(--muted);font-weight:800">هنوز فعالیتی برای این حساب ثبت نشده است.</p>
@@ -392,7 +412,7 @@
                     <article class="sap-card sap-pad">
                         <h2>امنیت حساب</h2>
                         <div class="sap-row"><span>وضعیت</span><strong class="sap-chip green">فعال</strong></div>
-                        <div class="sap-row"><span>تأیید دومرحله‌ای</span><strong class="sap-soon">در حال توسعه</strong></div>
+                        <div class="sap-row"><span>تأیید دومرحله‌ای</span>{% if two_factor.enabled %}<strong class="sap-chip green">فعال</strong>{% else %}<strong class="sap-chip gray">غیرفعال</strong>{% endif %}</div>
                         <a class="sap-btn is-outline is-block" style="margin-top:1rem" href="?section=security">مدیریت امنیت</a>
                     </article>
                 </div>

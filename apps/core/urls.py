@@ -97,6 +97,7 @@ from .views import (
     super_admin_exam_create,
     super_admin_exam_detail,
     super_admin_exam_edit,
+    super_admin_exam_wizard_edit,
     super_admin_exam_bulk_import,
     super_admin_exam_participants_match,
     super_admin_exams,
@@ -144,6 +145,7 @@ from .views import (
     student_classes_page,
     student_settings,
     student_exam_start,
+    exam_join,
     student_practice_detail,
     student_practice_exam,
     student_practice_start,
@@ -179,6 +181,7 @@ from .views import (
     teacher_review_detail,
     teacher_results,
     teacher_security,
+    teacher_notification_feed,
     teacher_settings,
 )
 
@@ -190,6 +193,7 @@ urlpatterns = [
     path('profile/', profile_view, name='profile'),
     path('logout/', logout_view, name='logout'),
     path('login/', SecureLoginView.as_view(), name='login'),
+    path('join/', exam_join, name='exam_join'),
     path('register/', register, name='register'),
     path('login/verify/', login_2fa, name='login_2fa'),
     path('super-admin/', super_admin_dashboard, name='super_admin_dashboard'),
@@ -218,6 +222,7 @@ urlpatterns = [
     path('super-admin/exams/bulk/', super_admin_exam_bulk_import, name='super_admin_exam_bulk_import'),
     path('super-admin/exams/active/', super_admin_active_exams, name='super_admin_active_exams'),  # before <exam_id>, or 'active' is read as an id
     path('super-admin/exams/<str:exam_id>/edit/', super_admin_exam_edit, name='super_admin_exam_edit'),
+    path('super-admin/exams/<str:exam_id>/wizard/', super_admin_exam_wizard_edit, name='super_admin_exam_wizard_edit'),
     path('super-admin/exams/<str:exam_id>/', super_admin_exam_detail, name='super_admin_exam_detail'),
     path('super-admin/calendar/', super_admin_calendar, name='super_admin_calendar'),
     path('super-admin/org-units/', super_admin_org_units, name='super_admin_org_units'),
@@ -302,6 +307,7 @@ urlpatterns = [
     path('teacher/profile/', teacher_profile_page, name='teacher_profile_page'),
     path('teacher/settings/', teacher_settings, name='teacher_settings'),
     path('teacher/security/', teacher_security, name='teacher_security'),
+    path('teacher/notifications/feed/', teacher_notification_feed, name='teacher_notification_feed'),
     path('teacher/assistant-requests/', teacher_assistant_requests, name='teacher_assistant_requests'),
     path('teacher/assistant-requests/questions/<int:submission_id>/', teacher_assistant_question_review, name='teacher_assistant_question_review'),
     path('teacher/assistant-requests/suggestions/<int:suggestion_id>/', teacher_assistant_suggestion_review, name='teacher_assistant_suggestion_review'),

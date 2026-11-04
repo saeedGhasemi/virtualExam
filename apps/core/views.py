@@ -5,6 +5,7 @@ import logging
 import math
 import random
 import re
+import secrets
 import uuid
 import zipfile
 from datetime import datetime, timedelta
@@ -12,10 +13,12 @@ from datetime import timezone as dt_timezone
 from decimal import Decimal
 from importlib import import_module
 from pathlib import Path
+from urllib.parse import urlencode
 from functools import lru_cache, wraps
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 
+from django.views.decorators.cache import never_cache
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login as auth_login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -120,6 +123,7 @@ from .models import (
 
 
 User = get_user_model()
+from .teacher_preferences import prefs, share_new_question, ui_context, wizard_defaults
 logger = logging.getLogger(__name__)
 
 
@@ -595,18 +599,45 @@ def _erd_parse_json_field(value):
         return None
 
 
+_ERD_TO_CHAR = re.compile(r"to_char\((COALESCE\(e\.start_at, e\.approved_at\)|e\.start_at|e\.end_at), '")
+_ERD_GREGORIAN_TEXT = re.compile(r'^((?:19|20)\d\d)/(\d\d)/(\d\d)((?: \d\d:\d\d)?)$')
+
+
+def _erd_local_to_char(sql):
+    """to_char() of an exam moment runs in the database session's zone (UTC); format it in the site's zone (Tehran)."""
+    if connection.vendor != 'postgresql' or 'to_char(' not in sql:
+        return sql
+    return _ERD_TO_CHAR.sub(lambda m: f"to_char({m.group(1)} AT TIME ZONE '{settings.TIME_ZONE}', '", sql)
+
+
+def _erd_jalali_texts(rows):
+    """Dates formatted by to_char ('YYYY/MM/DD[ HH24:MI]') are shown as Jalali dates, like every other date on the site."""
+    from .templatetags.core_extras import display_date_parts
+    for row in rows:
+        for key, value in row.items():
+            match = _ERD_GREGORIAN_TEXT.match(value) if isinstance(value, str) else None
+            if match:
+                jy, jm, jd, _months = display_date_parts(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+                row[key] = f'{jy:04d}/{jm:02d}/{jd:02d}{match.group(4)}'
+    return rows
+
+
 def erd_rows(sql, params=None):
-    sql = erd_adapt_sql(sql)
+    formats_dates = 'to_char(' in sql
+    sql = _erd_local_to_char(erd_adapt_sql(sql))
     with connection.cursor() as cursor:
         cursor.execute(sql, params or [])
-        return dictfetchall(cursor)
+        rows = dictfetchall(cursor)
+    return _erd_jalali_texts(rows) if formats_dates else rows
 
 
 def erd_row(sql, params=None):
-    sql = erd_adapt_sql(sql)
+    formats_dates = 'to_char(' in sql
+    sql = _erd_local_to_char(erd_adapt_sql(sql))
     with connection.cursor() as cursor:
         cursor.execute(sql, params or [])
-        return dictfetchone(cursor)
+        row = dictfetchone(cursor)
+    return _erd_jalali_texts([row])[0] if formats_dates and row else row
 
 
 def erd_execute(sql, params=None):
@@ -781,6 +812,11 @@ def _xlsx_cell_value(cell, shared_strings):
 
 
 def read_xlsx_dicts(uploaded_file):
+    return [row for _number, row in read_xlsx_numbered_rows(uploaded_file)]
+
+
+def read_xlsx_numbered_rows(uploaded_file):
+    """[(row number in the sheet, {header: value})] of the first sheet's non-empty rows (row 1 is the header)."""
     ns = {'m': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
     with zipfile.ZipFile(uploaded_file) as archive:
         shared_strings = []
@@ -797,26 +833,27 @@ def read_xlsx_dicts(uploaded_file):
 
         root = ET.fromstring(archive.read(sheet_name))
         rows = []
-        for row in root.findall('.//m:sheetData/m:row', ns):
+        for position, row in enumerate(root.findall('.//m:sheetData/m:row', ns), start=1):
             values = {}
             for cell in row.findall('m:c', ns):
                 ref = cell.attrib.get('r', '')
                 column = ''.join(ch for ch in ref if ch.isalpha())
                 values[column] = _xlsx_cell_value(cell, shared_strings)
-            rows.append(values)
+            number = row.attrib.get('r', '')
+            rows.append((int(number) if number.isdigit() else position, values))
         if not rows:
             return []
 
-        headers = rows[0]
+        headers = rows[0][1]
         parsed_rows = []
-        for row in rows[1:]:
+        for number, row in rows[1:]:
             parsed = {}
             for column, header in headers.items():
                 header = (header or '').strip()
                 if header:
                     parsed[header] = (row.get(column) or '').strip()
             if any(parsed.values()):
-                parsed_rows.append(parsed)
+                parsed_rows.append((number, parsed))
         return parsed_rows
 
 
@@ -947,7 +984,16 @@ def erd_role_required(*allowed_roles):
             request.erd_profile = profile
             request.erd_profile_id = profile['id'] if profile else None
             request.erd_role = role
-            return view_func(request, *args, **kwargs)
+            if role != 'teacher' or not request.erd_profile_id:
+                return view_func(request, *args, **kwargs)
+            from .teacher_preferences import calendar_for
+            from .templatetags.core_extras import CALENDAR
+
+            token = CALENDAR.set(calendar_for(request.erd_profile_id))  # «تقویم تاریخ» of the teacher's settings
+            try:
+                return view_func(request, *args, **kwargs)
+            finally:
+                CALENDAR.reset(token)
         return wrapped
     return decorator
 
@@ -7879,9 +7925,13 @@ def _question_selectable_sql(exam_id=None) -> tuple:
     the given exam (so editing an exam keeps a question archived after it was added)."""
     if not erd_has_column('questions', 'archived_at'):
         return '1=1', []
+    # A question the builder saved as «پیش‌نویس» is not offered («منتشرشده — قابل استفاده در آزمون»). The builder always
+    # writes scoring_settings; older and imported rows have none and read as unpublished only by the column default.
+    usable = "q.archived_at IS NULL AND NOT (COALESCE(q.is_published, false) = false AND q.scoring_settings IS NOT NULL)" \
+        if erd_has_column('questions', 'scoring_settings') else 'q.archived_at IS NULL'
     if exam_id:
-        return '(q.archived_at IS NULL OR q.id IN (SELECT question_id FROM exam_questions WHERE exam_id = %s))', [exam_id]
-    return 'q.archived_at IS NULL', []
+        return f'(({usable}) OR q.id IN (SELECT question_id FROM exam_questions WHERE exam_id = %s))', [exam_id]
+    return usable, []
 
 
 def _exam_wizard_resources(request, scope=None, exam_id=None) -> dict:
@@ -7993,21 +8043,26 @@ def _exam_wizard_resources(request, scope=None, exam_id=None) -> dict:
                COALESCE(c.title, '-') AS course_title,
                COALESCE(p.full_name, '-') AS teacher_name,
                COALESCE(usage_stats.usage_count, 0) AS usage_count,
-               usage_stats.last_used_at
+               usage_stats.last_used_at,
+               (SELECT e2.title FROM exam_questions eq2 JOIN exams e2 ON e2.id = eq2.exam_id
+                WHERE eq2.question_id = q.id AND COALESCE(e2.is_cancelled, false) = false AND CAST(e2.id AS TEXT) <> %s
+                ORDER BY e2.start_at DESC NULLS LAST LIMIT 1) AS last_exam_title
         FROM questions q
         LEFT JOIN courses c ON c.id = q.course_id
         LEFT JOIN profiles p ON p.id = q.teacher_id
         LEFT JOIN (
+            -- «آخرین بار در امتحان استفاده»: other exams (not this one), not cancelled
             SELECT eq.question_id, COUNT(*) AS usage_count, MAX(e.start_at) AS last_used_at
             FROM exam_questions eq
             JOIN exams e ON e.id = eq.exam_id
+            WHERE COALESCE(e.is_cancelled, false) = false AND CAST(e.id AS TEXT) <> %s
             GROUP BY eq.question_id
         ) usage_stats ON usage_stats.question_id = q.id
         WHERE {question_condition} AND {selectable}
         ORDER BY q.teacher_id, q.course_id, q.text
         LIMIT 1000
         """,
-        [*cte_params, *question_params, *selectable_params],
+        [*cte_params, str(exam_id or ''), str(exam_id or ''), *question_params, *selectable_params],
     )
     for question in questions:
         question['options'] = _erd_parse_json_field(question.get('options'))
@@ -8052,6 +8107,15 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         )
     }
     valid_questions = [questions_by_id[q_id] for q_id in dict.fromkeys(selected_questions) if q_id in questions_by_id]
+    uniform = request.POST.get('grading_method') == 'uniform'  # «یکسان برای همه سوالات»
+    for question in valid_questions:
+        # Uniform: every question weighs the same. Otherwise the wizard's «نمره» cell, else the question's «بارم».
+        posted_points = _sx_float(request.POST.get(f"question_points_{question['id']}"), 0)
+        question['points'] = 1 if uniform else (posted_points if posted_points > 0 else question['points'])
+    total_score = _sx_float(request.POST.get('passing_score_total'), 0)
+    passing_percent = request.POST.get('min_passing_percent')
+    passing_percent = min(max(_sx_float(passing_percent, 0), 0), 100) if str(passing_percent or '').strip() else None
+    term_year, _, term_semester = (request.POST.get('academic_term') or '').partition('/')
     duration = int(request.POST.get('duration_minutes') or 45)
     start_at = _parse_exam_wizard_datetime(request.POST.get('start_at'))
     end_at = _parse_exam_wizard_datetime(request.POST.get('end_at'))
@@ -8081,7 +8145,7 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         ('publish_mode', publish_choice),
         ('exam_mode', request.POST.get('exam_mode') or 'standard'),
         ('tags', request.POST.get('tags', '').strip()),
-        ('grading_template', request.POST.get('grading_template') or 'total_score'),
+        ('grading_template', request.POST.get('grading_template') or 'detailed_score'),
         ('registration_start_at', registration_start_at),
         ('registration_end_at', registration_end_at),
         ('last_entry_at', last_entry_at),
@@ -8114,6 +8178,9 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         ('notify_students_system_message', bool(request.POST.get('notify_students_system_message'))),
         ('notify_students_email', bool(request.POST.get('notify_students_email'))),
         ('show_in_academic_calendar', bool(request.POST.get('show_in_academic_calendar'))),
+        ('total_score', total_score if total_score > 0 else None),
+        ('passing_percent', passing_percent),
+        ('settings_enforced', True),  # these settings were chosen in the wizard, so they apply (see _sx_exam_rules)
     ]
     if cover_image_url:
         optional_columns.append(('cover_image_url', cover_image_url))
@@ -8141,12 +8208,12 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         _posted_max_attempts(request.POST),
         is_published,
         bool(request.POST.get('show_results_immediately')),
-        request.POST.get('passing_score') or None,
+        passing_percent if passing_percent is not None else (request.POST.get('passing_score') or None),
         bool(request.POST.get('allow_partial')),
         approval_status,
         request.POST.get('exam_type') or 'standard',
-        request.POST.get('academic_year') or (first_group or {}).get('academic_year') or '',
-        request.POST.get('semester') or (first_group or {}).get('semester') or '',
+        request.POST.get('academic_year') or term_year.strip() or (first_group or {}).get('academic_year') or '',
+        request.POST.get('semester') or term_semester.strip() or (first_group or {}).get('semester') or '',
         lifecycle_status,
     ]
     for column, value in optional_columns:
@@ -8225,8 +8292,10 @@ def _exam_wizard_render(request, resources, **extra):
         {'key': 'fill_blank', 'label': 'جای خالی', 'icon': 'dash'},
         {'key': 'matching', 'label': 'تطبیقی', 'icon': 'nodes'},
         {'key': 'ordering', 'label': 'ترتیبی', 'icon': 'order'},
-        {'key': 'image_based', 'label': 'تصویری', 'icon': 'image'},
-        {'key': 'calculation', 'label': 'محاسباتی', 'icon': 'calculator'},
+        {'key': 'numeric', 'label': 'پاسخ عددی', 'icon': 'calculator'},
+        {'key': 'matrix', 'label': 'ماتریسی / جدول', 'icon': 'list'},
+        {'key': 'image_label', 'label': 'تصویری / نشانه‌گذاری', 'icon': 'image'},
+        {'key': 'media_response', 'label': 'صوتی / ویدئویی', 'icon': 'lines'},
     ]
     teachers_by_department = []
     seen_departments = []
@@ -8246,6 +8315,51 @@ def _exam_wizard_render(request, resources, **extra):
         **resources,
         **extra,
     })
+
+
+def _exam_wizard_settings_error(request):
+    """The first problem with the wizard's timing and scoring fields as a message, else None (the wizard checks the same).
+
+    A draft may still lack its start time; an exam sent for approval or published may not."""
+    post = request.POST
+    try:
+        duration = int(post.get('duration_minutes') or 45)
+    except (TypeError, ValueError):
+        duration = 0
+    if duration <= 0:
+        return 'مدت زمان آزمون باید بیشتر از صفر باشد.'
+    percent = (post.get('min_passing_percent') or '').strip()
+    if percent and not 0 <= _sx_float(percent, -1) <= 100:
+        return 'نمره قبولی باید درصدی بین ۰ تا ۱۰۰ باشد.'
+    if post.get('ip_restriction_enabled') and not _parse_ip_networks(post.get('ip_restriction_range')):
+        return 'برای «محدودیت IP» یک محدوده‌ی معتبر وارد کنید (مثلاً 192.168.1.0/24؛ چند مورد را با ویرگول جدا کنید).'
+    start_at = _parse_exam_wizard_datetime(post.get('start_at'))
+    if not start_at:
+        return None if (post.get('publish_choice') or 'draft') == 'draft' else 'تاریخ و زمان شروع آزمون را انتخاب کنید.'
+    end_at = _parse_exam_wizard_datetime(post.get('end_at')) or start_at + timedelta(minutes=duration)
+    if end_at <= start_at:
+        return 'زمان پایان آزمون باید بعد از شروع آن باشد.'
+    access_start = _parse_exam_wizard_datetime(post.get('registration_start_at'))
+    last_entry = _parse_exam_wizard_datetime(post.get('last_entry_at'))
+    access_end = _parse_exam_wizard_datetime(post.get('registration_end_at'))
+    if access_start and access_start > start_at:
+        return '«شروع دسترسی» نباید بعد از شروع آزمون باشد.'
+    if last_entry and not start_at <= last_entry <= end_at:
+        return '«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد.'
+    if access_end and access_end < start_at:
+        return '«پایان دسترسی» نباید قبل از شروع آزمون باشد.'
+    return None
+
+
+def _parse_ip_networks(value) -> list:
+    """«محدوده IP» as networks: comma/space separated addresses or CIDR ranges; [] when any part is invalid."""
+    import ipaddress
+
+    parts = [part for part in re.split(r'[\s,،]+', str(value or '').strip()) if part]
+    try:
+        return [ipaddress.ip_network(part, strict=False) for part in parts]
+    except ValueError:
+        return []
 
 
 def _exam_wizard_post_selection(request) -> dict:
@@ -8299,6 +8413,9 @@ def super_admin_exam_create(request):
         if not selected_questions:
             messages.error(request, 'حداقل یک سوال برای آزمون انتخاب کنید.')
             return redirect('core:super_admin_exam_create')
+        if settings_error := _exam_wizard_settings_error(request):
+            messages.error(request, settings_error)
+            return redirect('core:super_admin_exam_create')
         if conflict := _exam_question_mode_conflict(selected_questions, request.POST.get('exam_mode')):
             messages.error(request, conflict)
             return redirect('core:super_admin_exam_create')
@@ -8328,7 +8445,7 @@ def super_admin_exam_create(request):
             publish_choice = 'draft'
         is_published = publish_choice == 'immediate'
         lifecycle = {'immediate': 'published', 'submit': 'pending_approval', 'scheduled': 'approved'}.get(publish_choice, 'draft')
-        _exam_wizard_insert(
+        new_exam_id = _exam_wizard_insert(
             request, title=title, teacher_id=teacher_id, course_id=course_id, first_group=first_group,
             selected_questions=selected_questions, selected_groups=selected_groups,
             selected_students=selected_students, excluded_students=excluded_students,
@@ -8336,10 +8453,85 @@ def super_admin_exam_create(request):
             lifecycle_status=lifecycle,
             approval_status='approved' if publish_choice in ('immediate', 'scheduled') else 'pending',
         )
-        messages.success(request, 'آزمون با موفقیت ایجاد شد.')
+        notified = announce_exam_published(new_exam_id) if is_published else 0
+        messages.success(request, 'آزمون با موفقیت ایجاد شد' + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
         return redirect('core:super_admin_exams')
 
     return _exam_wizard_render(request, resources)
+
+
+@erd_role_required('academic_manager', 'admin')
+def super_admin_exam_wizard_edit(request, exam_id):
+    """«ویرایش کامل در ویزارد»: the academic manager changes every wizard setting of an exam in their units (e.g. a
+    teacher's exam before approving it), until a student has started it.
+
+    The exam keeps its owner. «ذخیره پیش‌نویس» keeps the exam's publish state; «انتشار فوری» / «زمان‌بندی انتشار»
+    publish it as on creation."""
+    exam = erd_row('SELECT * FROM exams WHERE id = %s', [exam_id])
+    if not exam or not _erd_exam_in_manager_scope(request, exam_id):
+        raise Http404('آزمون پیدا نشد.')
+    edit_url = reverse('core:super_admin_exam_edit', args=[exam_id])
+    if erd_count('exam_attempts', 'exam_id = %s', [exam_id]):
+        messages.error(request, 'دانشجویان در این آزمون شرکت کرده‌اند؛ ویرایش کامل ممکن نیست و فقط تنظیمات صفحه‌ی ویرایش در دسترس است.')
+        return redirect(edit_url)
+    scope = _exam_wizard_scope(request)
+    resources = _exam_wizard_resources(request, scope, exam_id=exam_id)
+    retry_url = reverse('core:super_admin_exam_wizard_edit', args=[exam_id])
+    if request.method == 'POST':
+        posted = _exam_wizard_post_selection(request)
+        course_id = request.POST.get('course_id') or (posted['first_group'] or {}).get('course_id') or exam.get('course_id')
+        problem = (
+            'عنوان آزمون و درس الزامی است.' if not posted['title'] or not course_id
+            else 'حداقل یک گروه یا دانشجو برای آزمون انتخاب کنید.' if not posted['group_ids'] and not posted['student_ids']
+            else 'حداقل یک سوال برای آزمون انتخاب کنید.' if not posted['question_ids']
+            else _exam_wizard_settings_error(request)
+            or _exam_question_mode_conflict(posted['question_ids'], request.POST.get('exam_mode'), exam_id)
+        )
+        if problem:
+            messages.error(request, problem)
+            return redirect(retry_url)
+        checks = (
+            ('courses', [course_id]), ('groups', posted['group_ids']),
+            ('students', posted['student_ids'] + posted['excluded_student_ids']),
+            ('questions', posted['question_ids']), ('teachers', posted['staff_teacher_ids']),
+        )
+        if not all(_exam_wizard_ids_in_scope(scope, kind, ids) for kind, ids in checks):
+            return HttpResponseForbidden('برخی موارد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+        choice = request.POST.get('publish_choice') or 'draft'
+        was_published = bool(exam.get('is_published'))
+        if choice == 'scheduled':
+            publish_at = _parse_exam_wizard_datetime(request.POST.get('scheduled_publish_at'))
+            if not publish_at or publish_at <= timezone.now():
+                messages.warning(request, 'زمان انتشار باید در آینده باشد؛ وضعیت انتشار آزمون تغییری نکرد.')
+                choice = 'draft'
+        if choice == 'immediate':
+            state = {'is_published': True, 'lifecycle_status': 'published', 'approval_status': 'approved'}
+        elif choice == 'scheduled':
+            state = {'is_published': False, 'lifecycle_status': 'approved', 'approval_status': 'approved'}
+        else:  # the exam stays as it was (published, pending approval, draft …)
+            choice = exam.get('publish_mode') or 'draft'
+            state = {'is_published': was_published, 'lifecycle_status': exam.get('lifecycle_status') or 'draft',
+                     'approval_status': exam.get('approval_status') or 'pending'}
+        _exam_wizard_insert(
+            request, title=posted['title'], teacher_id=exam['teacher_id'], course_id=course_id, first_group=posted['first_group'],
+            selected_questions=posted['question_ids'], selected_groups=posted['group_ids'],
+            selected_students=posted['student_ids'], excluded_students=posted['excluded_student_ids'],
+            staff_pairs=zip(posted['staff_teacher_ids'], posted['staff_roles']), publish_choice=choice,
+            existing_exam_id=exam_id, **state,
+        )
+        if state['is_published'] and not was_published:
+            erd_execute('UPDATE exams SET approved_at = %s WHERE id = %s', [timezone.now(), exam_id])
+            notified = announce_exam_published(exam_id)
+            messages.success(request, 'آزمون ذخیره و منتشر شد' + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
+        else:
+            messages.success(request, 'تنظیمات آزمون ذخیره شد.')
+        log_activity(request.user, 'exam_wizard_edited', f"تنظیمات آزمون {posted['title']} با ویزارد ویرایش شد.", request, {'exam_id': str(exam_id)})
+        return redirect(f'{edit_url}?step=5&saved=1')
+    return _exam_wizard_render(
+        request, resources,
+        title='ویرایش کامل آزمون',
+        wizard_initial=_exam_wizard_initial(exam),
+    )
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -8512,6 +8704,12 @@ def super_admin_exams(request):
         row['end_at'] = end_at
         if row['is_cancelled']:
             return 'cancelled', 'لغو شده'
+        if not row['is_published']:  # not visible to students yet, whatever its time
+            if row.get('lifecycle_status') == 'pending_approval':
+                return 'pending', 'در انتظار تأیید'
+            if row.get('lifecycle_status') == 'approved':
+                return 'scheduled', 'زمان‌بندی انتشار'
+            return 'draft', 'پیش‌نویس'
         if start_at and end_at and start_at <= now <= end_at:
             return 'running', 'در حال برگزاری'
         if end_at and end_at < now:
@@ -8520,11 +8718,16 @@ def super_admin_exams(request):
             return 'scheduled', 'برنامه‌ریزی شده'
         return 'draft', 'پیش‌نویس'
 
+    # «شناسه رسید» in the search box finds the exam that attempt belongs to
+    receipt_query = normalize_receipt_code(query) if query and erd_has_column('exam_attempts', 'receipt_code') else ''
+    receipt_exam_ids = {str(found['exam_id']) for found in erd_rows(
+        'SELECT exam_id FROM exam_attempts WHERE receipt_code = %s', [receipt_query])} if receipt_query else set()
     rows = []
     for row in exams:
         status_key, status_label = exam_state(row)
         haystack = ' '.join(str(row.get(key) or '') for key in ('title', 'course', 'course_code', 'teacher', 'academic_year', 'semester', 'approval_status'))
-        if query and query not in haystack:
+        code_query = _normalize_exam_code(query)
+        if query and query not in haystack and not (code_query and exam_access_code(row['id']) == EXAM_CODE_PREFIX + code_query.upper())                 and str(row['id']) not in receipt_exam_ids:
             continue
         if status_filter and status_filter != status_key:
             continue
@@ -8544,7 +8747,7 @@ def super_admin_exams(request):
         'running': all_statuses.count('running'),
         'scheduled': all_statuses.count('scheduled'),
         'finished': all_statuses.count('finished'),
-        'review': all_statuses.count('draft') + all_statuses.count('cancelled'),
+        'review': all_statuses.count('draft') + all_statuses.count('cancelled') + all_statuses.count('pending'),
     }
     teachers = sorted({row['teacher'] for row in exams if row['teacher'] and row['teacher'] != '-'})
     upcoming = [row for row in exams if row['start_at'] and row['start_at'] >= now][:3]
@@ -8957,6 +9160,42 @@ def _exam_audience_student_ids(exam_id) -> list:
     return [str(row['student_id']) for row in rows]
 
 
+def announce_exam_published(exam_id) -> int:
+    """Tell the exam's students it was published, as its «پس از انتشار» settings say: an in-app notification
+    («اعلان از طریق پیام سامانه») and/or an e-mail («ارسال ایمیل اطلاع‌رسانی», only when EMAIL_HOST is set).
+
+    Only exams whose settings come from the wizard announce themselves (see _sx_exam_rules). Returns how many
+    students were told."""
+    columns = [column for column in ('notify_students_system_message', 'notify_students_email', 'settings_enforced')
+               if erd_has_column('exams', column)]
+    exam = erd_row(f"SELECT id, title, start_at, {', '.join(columns) or 'NULL AS settings_enforced'} FROM exams WHERE id = %s", [exam_id])
+    if not exam or not exam.get('settings_enforced'):
+        return 0
+    in_app, by_email = bool(exam.get('notify_students_system_message')), bool(exam.get('notify_students_email'))
+    students = _exam_audience_student_ids(exam_id) if in_app or by_email else []
+    if not students:
+        return 0
+    start = erd_datetime(exam.get('start_at'))
+    when = f" — زمان شروع: {_sx_jalali(start)} ساعت {timezone.localtime(start):%H:%M}" if start else ''
+    message = f"آزمون «{exam['title']}» برای شما منتشر شد{when}."
+    link = reverse('core:student_exam_detail', args=[exam_id])
+    if in_app:
+        for student_id in students:
+            create_notification(student_id, 'آزمون جدید', message, link=link, notification_type='new_exam')
+    if by_email and settings.EMAIL_HOST:
+        from django.core.mail import send_mass_mail
+
+        placeholders = ', '.join(['%s'] * len(students))
+        addresses = [row['email'] for row in erd_rows(f'SELECT email FROM profiles WHERE id IN ({placeholders})', students)
+                     if row.get('email') and '@' in str(row['email'])]
+        try:
+            send_mass_mail([('آزمون جدید: ' + exam['title'], message, settings.DEFAULT_FROM_EMAIL, [address]) for address in addresses],
+                           fail_silently=False)
+        except Exception:  # a mail server problem must not undo the publish; the in-app notice still went out
+            logger.exception('Sending the publish e-mail of exam %s failed', exam_id)
+    return len(students)
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_exam_edit(request, exam_id):
     def parse_local_datetime_pair(date_value, time_value):
@@ -9058,7 +9297,7 @@ def super_admin_exam_edit(request, exam_id):
                     request.POST.get('title', '').strip() or exam['title'],
                     request.POST.get('course_id') or exam['course_id'],
                     request.POST.get('teacher_id') or exam['teacher_id'],
-                    request.POST.get('exam_type') or exam.get('exam_type') or 'midterm',
+                    request.POST.get('exam_type') or exam.get('exam_type') or 'standard',
                     request.POST.get('academic_year') or exam.get('academic_year') or '',
                     request.POST.get('semester') or exam.get('semester') or '',
                     request.POST.get('description', '').strip(),
@@ -9085,19 +9324,21 @@ def super_admin_exam_edit(request, exam_id):
                     )
             messages.success(request, 'شرکت‌کنندگان آزمون به‌روزرسانی شدند.')
         elif step == '3':
-            question_ids = [item for item in request.POST.getlist('question_ids') if item]
+            question_ids = list(dict.fromkeys(item for item in request.POST.getlist('question_ids') if item))
             valid_questions = []
             if question_ids:
                 placeholders = ','.join(['%s'] * len(question_ids))
-                valid_questions = erd_rows(
-                    f"""
-                    SELECT id, COALESCE(default_points, 1) AS points
-                    FROM questions
-                    WHERE id IN ({placeholders})
-                    ORDER BY text
-                    """,
-                    question_ids,
-                )
+                by_id = {str(row['id']): row for row in erd_rows(
+                    f'SELECT id, COALESCE(default_points, 1) AS points FROM questions WHERE id IN ({placeholders})', question_ids)}
+                # Questions already in the exam keep their place and the points set for them; new ones follow.
+                kept = erd_rows('SELECT question_id, points FROM exam_questions WHERE exam_id = %s ORDER BY order_index', [exam_id])
+                kept_points = {str(row['question_id']): row['points'] for row in kept}
+                order = [str(row['question_id']) for row in kept if str(row['question_id']) in question_ids]
+                order += [item for item in question_ids if item not in order]
+                valid_questions = [
+                    {'id': by_id[item]['id'], 'points': kept_points.get(item) or by_id[item]['points']}
+                    for item in order if item in by_id
+                ]
             with connection.cursor() as cursor:
                 cursor.execute('DELETE FROM exam_questions WHERE exam_id = %s', [exam_id])
                 for index, question in enumerate(valid_questions, start=1):
@@ -9145,7 +9386,7 @@ def super_admin_exam_edit(request, exam_id):
                     request.POST.get('negative_factor') or 0,
                     _posted_max_attempts(request.POST),
                     checked('allow_partial'),
-                    checked('review_answers_enabled'),
+                    checked('review_answers_enabled'),  # «امکان بازگشت به سوال قبلی» (step 4 of this page)
                     checked('show_instructions_before_start'),
                     checked('autosave_enabled'),
                     checked('fullscreen_required'),
@@ -9177,11 +9418,14 @@ def super_admin_exam_edit(request, exam_id):
                 log_activity(request.user, 'exam_republished', f"آزمون {exam['title']} دوباره منتشر شد.", request,
                              {'exam_id': str(exam_id), 'change_note': note})
                 notified = 0
-                if request.POST.get('notify_participants'):
+                if not is_published:
+                    # First publish (e.g. approving a teacher's exam): the exam's own «پس از انتشار» settings apply.
+                    notified = announce_exam_published(exam_id)
+                if not notified and request.POST.get('notify_participants'):
                     message = f"آزمون «{exam['title']}» به‌روزرسانی شد." + (f' {note}' if note else '')
                     for student_id in _exam_audience_student_ids(exam_id):
                         create_notification(student_id, 'به‌روزرسانی آزمون', message,
-                                            link=reverse('core:student_exam_detail', args=[exam_id]))
+                                            link=reverse('core:student_exam_detail', args=[exam_id]), notification_type='exam_update')
                         notified += 1
                 messages.success(request, 'آزمون دوباره منتشر شد' + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
             elif publish_action in ('publish_results', 'unpublish_results'):
@@ -9222,7 +9466,7 @@ def super_admin_exam_edit(request, exam_id):
         local_start = timezone.localtime(start_at)
         exam['start_date_value'] = local_start.strftime('%Y-%m-%d')
         exam['start_time_value'] = local_start.strftime('%H:%M')
-        exam['start_label'] = local_start.strftime('%Y/%m/%d - %H:%M')
+        exam['start_label'] = _to_jalali(local_start)
     else:
         exam['start_date_value'] = ''
         exam['start_time_value'] = ''
@@ -9231,7 +9475,7 @@ def super_admin_exam_edit(request, exam_id):
         local_end = timezone.localtime(end_at)
         exam['end_date_value'] = local_end.strftime('%Y-%m-%d')
         exam['end_time_value'] = local_end.strftime('%H:%M')
-        exam['end_label'] = local_end.strftime('%Y/%m/%d - %H:%M')
+        exam['end_label'] = _to_jalali(local_end)
     else:
         exam['end_date_value'] = ''
         exam['end_time_value'] = ''
@@ -9275,10 +9519,11 @@ def super_admin_exam_edit(request, exam_id):
             GROUP BY group_id
         ) members ON members.group_id = sg.id
         WHERE COALESCE(sg.is_active, true) = true AND {group_condition}
-        ORDER BY sg.academic_year DESC, sg.course_name, sg.group_code
+        ORDER BY CASE WHEN sg.id IN (SELECT group_id FROM exam_assignments WHERE exam_id = %s) THEN 0 ELSE 1 END,
+                 sg.academic_year DESC, sg.course_name, sg.group_code
         LIMIT 300
         """,
-        [*cte_params, *group_params],
+        [*cte_params, *group_params, exam_id],  # assigned groups first, so the limit never drops them from the form
     )
     assigned_groups = {
         str(row['group_id']) for row in erd_rows(
@@ -9296,10 +9541,10 @@ def super_admin_exam_edit(request, exam_id):
         FROM student_profiles sp
         JOIN profiles p ON p.id = sp.user_id
         WHERE {student_condition}
-        ORDER BY p.full_name
+        ORDER BY CASE WHEN p.id IN (SELECT student_profile_id FROM exam_assignments WHERE exam_id = %s) THEN 0 ELSE 1 END, p.full_name
         LIMIT 250
         """,
-        [*cte_params, *student_params],
+        [*cte_params, *student_params, exam_id],
     )
     assigned_students = {
         str(row['student_profile_id']) for row in erd_rows(
@@ -9318,11 +9563,13 @@ def super_admin_exam_edit(request, exam_id):
         FROM questions q
         LEFT JOIN courses c ON c.id = q.course_id
         LEFT JOIN profiles p ON p.id = q.teacher_id
-        WHERE (q.course_id = %s OR %s IS NULL) AND {question_condition} AND {_question_selectable_sql(exam_id)[0]}
-        ORDER BY q.type, q.text
+        WHERE ((q.course_id = %s OR %s IS NULL) AND {question_condition} AND {_question_selectable_sql(exam_id)[0]})
+           OR q.id IN (SELECT question_id FROM exam_questions WHERE exam_id = %s)
+        ORDER BY CASE WHEN q.id IN (SELECT question_id FROM exam_questions WHERE exam_id = %s) THEN 0 ELSE 1 END, q.type, q.text
         LIMIT 600
         """,
-        [*cte_params, exam.get('course_id'), exam.get('course_id'), *question_params, *_question_selectable_sql(exam_id)[1]],
+        [*cte_params, exam.get('course_id'), exam.get('course_id'), *question_params, *_question_selectable_sql(exam_id)[1],
+         exam_id, exam_id],  # the exam's own questions are always listed (and checked), even another course's
     )
     selected_questions = {
         str(row['question_id']) for row in erd_rows(
@@ -9355,7 +9602,8 @@ def super_admin_exam_edit(request, exam_id):
         {'id': '5', 'label': 'بازبینی و انتشار'},
     ]
     step = request.GET.get('step', '1')
-    view = request.GET.get('view', 'edit')
+    # «تاریخچه نسخه‌ها»، «محدودیت ویرایش» و «مقایسه تغییرات» have no data behind them yet (shown «در حال توسعه»).
+    view = request.GET.get('view', 'edit') if request.GET.get('view') in ('edit', 'republish') else 'edit'
     if step not in {'1', '2', '3', '4', '5'}:
         step = '1'
     audience = _exam_audience_student_ids(exam_id)
@@ -9442,7 +9690,7 @@ def super_admin_exam_detail(request, exam_id):
     exam['start_at'] = erd_datetime(exam.get('start_at'))
     exam['end_at'] = erd_datetime(exam.get('end_at'))
     if exam.get('start_at'):
-        exam['start_date'] = timezone.localtime(exam['start_at']).strftime('%Y/%m/%d')
+        exam['start_date'] = _to_jalali(timezone.localtime(exam['start_at']).date())
         exam['start_time'] = timezone.localtime(exam['start_at']).strftime('%H:%M')
     if exam.get('end_at'):
         exam['end_time'] = timezone.localtime(exam['end_at']).strftime('%H:%M')
@@ -9612,6 +9860,41 @@ def super_admin_exam_detail(request, exam_id):
     })
 
 
+JALALI_MONTH_NAMES = {
+    1: 'فروردین', 2: 'اردیبهشت', 3: 'خرداد', 4: 'تیر', 5: 'مرداد', 6: 'شهریور',
+    7: 'مهر', 8: 'آبان', 9: 'آذر', 10: 'دی', 11: 'بهمن', 12: 'اسفند',
+}
+
+
+def _jalali_calendar_month(request) -> dict:
+    """The Jalali month a calendar page shows (?year=&month=, else the current one), with its Gregorian range."""
+    from .templatetags.core_extras import _gregorian_to_jalali, _jalali_month_length, _jalali_to_gregorian
+
+    today = timezone.localdate()
+    current = _gregorian_to_jalali(today.year, today.month, today.day)
+    year = _em_int(request.GET.get('year'), current[0])
+    month = min(max(_em_int(request.GET.get('month'), current[1]), 1), 12)
+    year = min(max(year, 1300), 1500)
+    first = _jalali_to_gregorian(year, month, 1)
+    length = _jalali_month_length(year, month)
+    previous = (year, month - 1) if month > 1 else (year - 1, 12)
+    following = (year, month + 1) if month < 12 else (year + 1, 1)
+    return {
+        'year': year, 'month': month, 'title': f'{JALALI_MONTH_NAMES[month]} {year}', 'length': length,
+        'first': first, 'end': first + timedelta(days=length),
+        'leading_blanks': (first.weekday() + 2) % 7,  # Saturday is the first column
+        'today': current, 'previous': previous, 'next': following,
+    }
+
+
+def _calendar_event_day(moment):
+    """(jalali year, month, day, 'HH:MM') of an event in the site's time zone."""
+    from .templatetags.core_extras import _gregorian_to_jalali
+
+    local = timezone.localtime(moment) if timezone.is_aware(moment) else moment
+    return (*_gregorian_to_jalali(local.year, local.month, local.day), local.strftime('%H:%M'))
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_calendar(request):
     def gregorian_to_jalali(date_value):
@@ -9656,18 +9939,24 @@ def super_admin_calendar(request):
     }
     weekday_names = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه']
     today = timezone.localdate()
-    current_jy, current_jm, current_jd = gregorian_to_jalali(today)
-    selected_year = int(request.GET.get('year') or current_jy)
-    selected_month = int(request.GET.get('month') or current_jm)
+    shown = _jalali_calendar_month(request)
+    current_jy, current_jm, current_jd = shown['today']
+    selected_year, selected_month = shown['year'], shown['month']
     event_type_filter = request.GET.get('type', '').strip()
     course_filter = request.GET.get('course', '').strip()
     teacher_filter = request.GET.get('teacher', '').strip()
-    days_in_month = 31 if selected_month <= 6 else 30 if selected_month <= 11 else 29
+    days_in_month = shown['length']
+    # The shown month, plus today's events and the next two months for «رویدادهای پیش رو».
+    window_start = min(shown['first'], today) - timedelta(days=1)
+    window_end = max(shown['end'], today + timedelta(days=62))
 
     is_admin = _erd_is_admin_request(request)
     scope_cte = '' if is_admin else _erd_manager_scope_cte()
     scope_params = [] if is_admin else [request.erd_profile_id]
     exam_scope_where = '1=1' if is_admin else _erd_exam_scope_condition()
+    # «نمایش در تقویم آموزشی»: an exam saved through the wizard appears only when that option is on.
+    calendar_flag_sql = ('AND (COALESCE(e.settings_enforced, false) = false OR COALESCE(e.show_in_academic_calendar, false) = true)'
+                         if erd_has_column('exams', 'settings_enforced') and erd_has_column('exams', 'show_in_academic_calendar') else '')
     exams = erd_rows(
         f"""
         {scope_cte}
@@ -9682,11 +9971,11 @@ def super_admin_calendar(request):
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         LEFT JOIN profiles p ON p.id = e.teacher_id
-        WHERE {exam_scope_where}
+        WHERE {exam_scope_where} AND e.start_at >= %s AND e.start_at < %s {calendar_flag_sql}
         ORDER BY e.start_at ASC NULLS LAST, e.title
-        LIMIT 300
+        LIMIT 600
         """,
-        scope_params,
+        [*scope_params, window_start, window_end],
     )
     _em_calendar_ensure_table()
     if connection.vendor == 'sqlite':
@@ -9709,11 +9998,11 @@ def super_admin_calendar(request):
         FROM academic_calendar_events ace
         LEFT JOIN courses c ON {calendar_course_join}
         LEFT JOIN student_groups sg ON {calendar_group_join}
-        WHERE {calendar_scope_where}
+        WHERE {calendar_scope_where} AND ace.starts_at >= %s AND ace.starts_at < %s
         ORDER BY ace.starts_at ASC NULLS LAST, ace.title
-        LIMIT 200
+        LIMIT 400
         """,
-        scope_params,
+        [*scope_params, window_start, window_end],
     )
     exams = exams + calendar_events
     terms = erd_rows(
@@ -9740,7 +10029,7 @@ def super_admin_calendar(request):
             continue
         if teacher_filter and teacher_filter != exam['teacher']:
             continue
-        jy, jm, jd = gregorian_to_jalali(start_at.date())
+        jy, jm, jd, local_time = _calendar_event_day(start_at)
         if exam.get('event_type', 'exam') == 'exam':
             tone = 'danger' if exam['is_cancelled'] else 'success' if exam['is_published'] else 'purple'
         else:
@@ -9751,7 +10040,7 @@ def super_admin_calendar(request):
             'jalali_year': jy,
             'jalali_month': jm,
             'jalali_day': jd,
-            'time': start_at.strftime('%H:%M'),
+            'time': local_time,
             'tone': tone,
         }
         normalized_events.append(event)
@@ -9759,10 +10048,7 @@ def super_admin_calendar(request):
             events_by_day[jd].append(event)
 
     calendar_days = []
-    leading_blanks = 0
-    if selected_year == current_jy and selected_month == current_jm:
-        leading_blanks = max(0, (today.weekday() + 2) % 7 - ((current_jd - 1) % 7))
-    for _ in range(leading_blanks % 7):
+    for _ in range(shown['leading_blanks']):
         calendar_days.append({'day': '', 'events': [], 'is_today': False})
     for day in range(1, days_in_month + 1):
         calendar_days.append({
@@ -9773,7 +10059,8 @@ def super_admin_calendar(request):
         })
 
     today_events = [event for event in normalized_events if event['jalali_year'] == current_jy and event['jalali_month'] == current_jm and event['jalali_day'] == current_jd][:3]
-    upcoming_events = [event for event in normalized_events if event['start_at'] and event['start_at'] >= timezone.now()][:4]
+    upcoming_events = sorted((event for event in normalized_events if event['start_at'] and event['start_at'] >= timezone.now()),
+                             key=lambda event: event['start_at'])[:4]
     monthly_events_count = sum(len(items) for items in events_by_day.values())
     stats = {
         'events': len(normalized_events),
@@ -9781,13 +10068,18 @@ def super_admin_calendar(request):
         'active_classes': courses_count,
         'near_exams': len(upcoming_events),
     }
+    # «رویدادهای مهم»: this month's deadlines, holidays and exams; the chart: events on each of the next 7 days.
     important_events = [
-        {'title': 'شروع کلاس‌های ترم جاری', 'date': f'{selected_year}/{selected_month:02d}/01', 'tone': 'purple'},
-        {'title': 'اعلام برنامه آزمون جامع', 'date': f'{selected_year}/{selected_month:02d}/12', 'tone': 'green'},
-        {'title': 'شروع ثبت‌نام دانشجویان', 'date': f'{selected_year}/{selected_month:02d}/20', 'tone': 'blue'},
+        {'title': event['title'], 'date': f"{event['jalali_year']}/{event['jalali_month']:02d}/{event['jalali_day']:02d}", 'tone': event['tone']}
+        for event in sorted((event for event in normalized_events if event['jalali_year'] == selected_year and event['jalali_month'] == selected_month
+                             and event.get('event_type') in ('deadline', 'holiday', 'exam')), key=lambda event: event['start_at'])[:3]
     ]
-    chart_days = ['۱۶ اردیبهشت', '۱۸ اردیبهشت', '۲۲ اردیبهشت', '۲۵ اردیبهشت', '۲۸ اردیبهشت', '۳ خرداد', '۶ خرداد']
-    chart_series = [12, 18, 10, 22, 14, 25, 19]
+    chart_days, chart_series = [], []
+    for offset in range(7):
+        day = today + timedelta(days=offset)
+        jy, jm, jd, _time = _calendar_event_day(datetime(day.year, day.month, day.day, 12))
+        chart_days.append(f'{jd} {JALALI_MONTH_NAMES[jm]}')
+        chart_series.append(sum(1 for event in normalized_events if (event['jalali_year'], event['jalali_month'], event['jalali_day']) == (jy, jm, jd)))
 
     return render(request, 'super_admin/calendar.html', {
         'title': 'تقویم آموزشی',
@@ -9795,6 +10087,8 @@ def super_admin_calendar(request):
         'selected_year': selected_year,
         'selected_month': selected_month,
         'month_title': f'{month_names[selected_month]} {selected_year}',
+        'previous_month': shown['previous'],
+        'next_month': shown['next'],
         'weekday_names': weekday_names,
         'calendar_days': calendar_days,
         'events': normalized_events,
@@ -11707,6 +12001,8 @@ def teacher_educational_question_answer(request, question_id):
 @teacher_required
 def teacher_exam_preview(request, exam_id):
     teacher = request.teacher_profile
+    if not str(exam_id).isdigit():  # legacy ORM exams only; ERD exam ids are UUIDs
+        raise Http404('آزمون پیدا نشد.')
     exam = get_object_or_404(Exam.objects.prefetch_related('exam_questions__question'), pk=exam_id, designer=teacher)
     if request.method == 'POST':
         log_activity(request.user, 'teacher_exam_finalized', f'نسخه نهایی آزمون {exam.title} ثبت شد.', request, {'exam_id': exam.pk})
@@ -11990,12 +12286,17 @@ ATTEMPT_EVENTS = {  # what the exam page reports -> (activity log action, descri
     'fullscreen_exit': ('exam_fullscreen_exit', 'دانشجو در حین آزمون از حالت تمام‌صفحه خارج شد.'),
     'copy': ('exam_copy', 'کپی متن در صفحه‌ی آزمون ثبت شد.'),
     'paste': ('exam_paste', 'چسباندن متن در صفحه‌ی آزمون ثبت شد.'),
+    'screenshot': ('exam_screenshot', 'تلاش برای گرفتن تصویر یا چاپ صفحه‌ی آزمون ثبت شد.'),
+    'camera_off': ('exam_camera_off', 'دوربین دانشجو در حین آزمون قطع یا غیرفعال شد.'),
+    'mic_off': ('exam_mic_off', 'میکروفون دانشجو در حین آزمون قطع یا غیرفعال شد.'),
 }
 # log action -> the «رویدادهای مراقبت» counter it adds to on the teacher's pages
 ATTEMPT_EVENT_FLAGS = {
     'exam_tab_hidden': 'tab', 'exam_fullscreen_exit': 'fullscreen', 'exam_copy': 'copy_paste', 'exam_paste': 'copy_paste',
     'exam_disconnected': 'disconnect', 'attempt_device_takeover': 'device',
+    'exam_screenshot': 'screenshot', 'exam_camera_off': 'camera', 'exam_mic_off': 'camera',
 }
+ATTEMPT_FLAG_KEYS = ('tab', 'fullscreen', 'copy_paste', 'disconnect', 'device', 'screenshot', 'camera')
 ATTEMPT_EVENT_LIMIT = 500  # per attempt; a page (or a script) cannot flood the log beyond this
 
 
@@ -12031,7 +12332,7 @@ def _attempt_event_counts(attempt_ids) -> dict:
     )
     counts = {}
     for row in rows:
-        flags = counts.setdefault(str(row['entity_id']), dict.fromkeys(('tab', 'fullscreen', 'copy_paste', 'disconnect', 'device', 'total'), 0))
+        flags = counts.setdefault(str(row['entity_id']), dict.fromkeys((*ATTEMPT_FLAG_KEYS, 'total'), 0))
         flags[ATTEMPT_EVENT_FLAGS[row['action']]] += int(row['n'])
         flags['total'] += int(row['n'])
     return counts
@@ -12060,6 +12361,11 @@ def student_attempt_event(request, attempt_id):
 
 
 def home(request):
+    # The public home page («ورود با کد آزمون») always starts signed out: whoever opens it, from any account, is
+    # signed out, so entering an exam code asks for the account to use. (A path rule: the same on metaquizy.ir.)
+    if request.user.is_authenticated:
+        log_activity(request.user, 'logout', 'خروج با باز کردن صفحه‌ی اول سایت', request)
+        logout(request)
     upcoming_exams = erd_rows(
         """
         SELECT e.id, e.title, COALESCE(c.title, 'بدون درس') AS course, e.start_at AS starts_at
@@ -12070,7 +12376,89 @@ def home(request):
         LIMIT 5
         """
     )
-    return render(request, 'home.html', {'upcoming_exams': upcoming_exams})
+    code = _normalize_exam_code(request.GET.get('code'))
+    display = f'{EXAM_CODE_PREFIX}{code.upper()}' if code else ''
+    join_errors = {
+        'missing': 'کد آزمون را وارد کنید.',
+        'invalid': 'این کد آزمون درست نیست. کد شش‌حرفی را همان‌طور که استاد داده وارد کنید؛ مثلاً MQ-1A2B3C.',
+        'role': 'با این حساب نمی‌توان با کد آزمون وارد شد.',
+        'not_found_staff': f'آزمونی با کد {display} در حساب شما پیدا نشد؛ این کد مربوط به آزمونی است که به شما ارتباطی ندارد یا کد اشتباه است.',
+        'no_exam': f'آزمونی با کد {display} وجود ندارد. کد را دوباره از استاد خود بپرسید و با دقت وارد کنید.',
+        'not_found': f'آزمونی با کد {display} برای شما پیدا نشد. اگر کد درست است، آزمون هنوز منتشر نشده یا '
+                     'شما در فهرست شرکت‌کنندگان آن نیستید؛ از استاد خود بپرسید.',
+    }
+    return render(request, 'home.html', {
+        'upcoming_exams': upcoming_exams,
+        'join_error': join_errors.get(request.GET.get('join'), ''),
+        'join_code': display or (request.GET.get('code') or '')[:20],
+    })
+
+
+_FA_DIGITS_TO_LATIN = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
+
+
+def _clean_account_fields(post, profile, user) -> tuple:
+    """(values, errors) for the account fields a user edits on their own profile: names, email and mobile.
+
+    Usernames, national ids and student / personnel numbers are not self-service: they identify the person to the
+    institution and are changed by an administrator."""
+    from django.core.validators import validate_email
+
+    values, errors = {}, []
+    for name, label in (('first_name', 'نام'), ('last_name', 'نام خانوادگی')):
+        value = ' '.join((post.get(name) or '').split())
+        if not value:
+            errors.append(f'{label} را وارد کنید.')
+        elif len(value) > 60:
+            errors.append(f'{label} حداکثر ۶۰ نویسه است.')
+        values[name] = value
+    if 'email' in post:
+        email = (post.get('email') or '').translate(_FA_DIGITS_TO_LATIN).strip().lower()
+        try:
+            validate_email(email)
+        except ValidationError:
+            errors.append('ایمیل واردشده معتبر نیست.')
+        else:
+            taken = erd_row('SELECT 1 AS ok FROM profiles WHERE LOWER(email) = %s AND id <> %s', [email, profile['id']]) \
+                or User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists()
+            if taken:
+                errors.append('این ایمیل برای حساب دیگری ثبت شده است.')
+        values['email'] = email
+    if 'phone' in post:
+        phone = re.sub(r'[\s\-()]', '', (post.get('phone') or '').translate(_FA_DIGITS_TO_LATIN))
+        if phone.startswith('+98'):
+            phone = '0' + phone[3:]
+        if phone and not re.fullmatch(r'09\d{9}', phone):
+            errors.append('شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود؛ مثلاً ۰۹۱۲۳۴۵۶۷۸۹.')
+        values['phone'] = phone
+    return values, errors
+
+
+def _save_account_fields(request, profile) -> bool:
+    """Validates and saves the posted account fields (and avatar) to profiles and auth_user; False with error messages."""
+    values, errors = _clean_account_fields(request.POST, profile, request.user)
+    avatar_url = profile.get('avatar_url') or ''
+    if request.FILES.get('avatar') and not errors:
+        avatar_url, error = _save_avatar_upload(request.FILES['avatar'], profile['id'])  # type, signature and size checked
+        if error:
+            errors.append(error)
+    for error in errors:
+        messages.error(request, error)
+    if errors:
+        return False
+    email = values.get('email', profile.get('email') or '')
+    phone = values.get('phone', profile.get('phone') or '')
+    erd_execute(
+        """
+        UPDATE profiles
+        SET full_name = %s, first_name = %s, last_name = %s, email = %s, phone = %s, avatar_url = %s, updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+        """,
+        [f"{values['first_name']} {values['last_name']}", values['first_name'], values['last_name'], email, phone, avatar_url, profile['id']],
+    )
+    request.user.first_name, request.user.last_name, request.user.email = values['first_name'], values['last_name'], email
+    request.user.save(update_fields=['first_name', 'last_name', 'email'])
+    return True
 
 
 def _super_admin_profile_view(request, page_context):
@@ -12096,40 +12484,27 @@ def _super_admin_profile_view(request, page_context):
         form_name = request.POST.get('form')
 
         if form_name == 'profile':
-            first_name = (request.POST.get('first_name') or '').strip()
-            last_name = (request.POST.get('last_name') or '').strip()
-            email = (request.POST.get('email') or '').strip()
-            phone = (request.POST.get('phone') or '').strip()
-            full_name = f'{first_name} {last_name}'.strip() or profile.get('full_name') or request.user.username
-            avatar_url = profile.get('avatar_url') or ''
-            avatar = request.FILES.get('avatar')
-            if avatar:
-                if avatar.size > 2 * 1024 * 1024:
-                    messages.error(request, 'حجم تصویر پروفایل باید کمتر از ۲ مگابایت باشد.')
-                    return redirect(f"{reverse('core:profile')}?section=edit")
-                if avatar.content_type not in {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}:
-                    messages.error(request, 'فرمت تصویر باید JPG، PNG، WebP یا GIF باشد.')
-                    return redirect(f"{reverse('core:profile')}?section=edit")
-                extension = avatar.name.rsplit('.', 1)[-1].lower() if '.' in avatar.name else 'jpg'
-                storage = FileSystemStorage(location=settings.MEDIA_ROOT / 'avatars', base_url=settings.MEDIA_URL + 'avatars/')
-                filename = storage.save(f"{profile['id']}-admin.{extension}", avatar)
-                avatar_url = storage.url(filename)
-            erd_execute(
-                """
-                UPDATE profiles
-                SET full_name = %s, first_name = %s, last_name = %s, email = %s, phone = %s,
-                    avatar_url = %s, updated_at = now()
-                WHERE id = %s
-                """,
-                [full_name, first_name, last_name, email, phone, avatar_url, profile['id']],
-            )
-            request.user.first_name = first_name
-            request.user.last_name = last_name
-            request.user.email = email
-            request.user.save(update_fields=['first_name', 'last_name', 'email'])
-            log_activity(request.user, 'profile_updated', 'ویرایش اطلاعات پروفایل', request)
-            messages.success(request, 'اطلاعات پروفایل با موفقیت ذخیره شد.')
+            if _save_account_fields(request, profile):
+                log_activity(request.user, 'profile_updated', 'ویرایش اطلاعات پروفایل', request)
+                messages.success(request, 'اطلاعات پروفایل با موفقیت ذخیره شد.')
             return redirect(f"{reverse('core:profile')}?section=edit")
+
+        if form_name == 'security':  # «تأیید دومرحله‌ای» and «نشست‌های فعال»: the same actions as on the teacher page
+            action = (request.POST.get('security_action') or '').partition(':')[0]
+            if action not in ('end_session', 'end_other_sessions', *TWO_FACTOR_ACTIONS):
+                messages.error(request, 'درخواست نامعتبر است.')
+            else:
+                errors = _handle_teacher_security_action(request, profile['id'])
+                for error in errors:
+                    messages.error(request, error)
+                if not errors:
+                    messages.success(request, {
+                        'totp_start': 'کد QR را با برنامه‌ی Authenticator اسکن کنید و کد آن را وارد کنید.',
+                        'totp_confirm': 'ورود دومرحله‌ای فعال شد.',
+                        'totp_disable': 'ورود دومرحله‌ای غیرفعال شد.',
+                        'recovery_regenerate': 'کدهای بازیابی جدید ساخته شد.',
+                    }.get(action, 'نشست‌های انتخاب‌شده بسته شدند.'))
+            return redirect(f"{reverse('core:profile')}?section=security")
 
         if form_name == 'password':
             password_form = PasswordChangeForm(user=request.user, data=request.POST)
@@ -12206,14 +12581,8 @@ def _super_admin_profile_view(request, page_context):
             'time': row.get('created_at'),
         })
 
-    current_session_key = request.session.session_key
-    other_sessions = 0
-    for stored_session in Session.objects.all():
-        if stored_session.session_key == current_session_key:
-            continue
-        data = stored_session.get_decoded()
-        if str(data.get('_auth_user_id')) == str(request.user.pk):
-            other_sessions += 1
+    security = _teacher_security_context(request, profile['id'])  # real sessions and authenticator state
+    other_sessions = sum(1 for item in security['sessions'] if not item.get('is_current'))
 
     completion_fields = [
         profile.get('first_name'), profile.get('last_name'),
@@ -12221,17 +12590,53 @@ def _super_admin_profile_view(request, page_context):
         profile.get('avatar_url'),
     ]
     profile_completion = int(sum(1 for value in completion_fields if value) / len(completion_fields) * 100)
-    security_score = 60
-    if profile.get('phone'):
-        security_score += 15
-    if profile.get('email') or request.user.email:
-        security_score += 15
-    if request.user.has_usable_password():
-        security_score += 10
-    security_score = min(security_score, 100)
+    # What actually protects the account: a password, the authenticator, and contact details for recovery.
+    security_score = (40 if request.user.has_usable_password() else 0) + (40 if security['two_factor']['enabled'] else 0) \
+        + (10 if profile.get('email') or request.user.email else 0) + (10 if profile.get('phone') else 0)
+
+    is_admin = 'admin' in (page_context.get('roles') or [])
+    role_label = 'مدیر سیستم' if is_admin else 'مدیر آموزشی'
+    if is_admin:
+        scope_label, unit_label, level_label = 'کل سامانه', 'مدیریت مرکزی', 'دسترسی کامل'
+        stat_tiles = [
+            {'label': 'ثبت‌نام در انتظار تأیید', 'value': pending_registrations, 'tone': 'red', 'icon': 'alert'},
+            {'label': 'آزمون فعال', 'value': active_exams, 'tone': 'blue', 'icon': 'clipboard'},
+            {'label': 'استاد', 'value': teachers_count, 'tone': 'purple', 'icon': 'user-check'},
+            {'label': 'کاربر', 'value': total_users, 'tone': 'teal', 'icon': 'users'},
+        ]
+        shortcuts = [
+            {'label': 'مدیریت کاربران', 'url': reverse('core:super_admin_users'), 'icon': 'users'},
+            {'label': 'تنظیمات سامانه', 'url': reverse('core:super_admin_settings'), 'icon': 'settings'},
+            {'label': 'ساختار سازمانی', 'url': reverse('core:super_admin_org_units'), 'icon': 'org'},
+            {'label': 'گزارش رخدادها', 'url': reverse('core:super_admin_reports'), 'icon': 'report'},
+        ]
+    else:
+        units = [row['name'] for row in safe_rows(
+            'SELECT ou.name FROM academic_manager_scopes s JOIN org_units ou ON ou.id = s.org_unit_id '
+            'WHERE s.manager_id = %s ORDER BY ou.name', [profile['id']])]
+        scope_label = 'واحدهای تحت مدیریت'
+        unit_label = '، '.join(units) or 'هنوز واحدی تعیین نشده'
+        level_label = 'مدیریت آموزشی واحدها'
+        request.erd_profile_id, request.erd_role = profile['id'], 'academic_manager'
+        scoped_exams = _em_exam_rows(request)
+        stat_tiles = [
+            {'label': 'آزمون در انتظار تأیید', 'value': sum(1 for row in scoped_exams if row.get('lifecycle_status') == 'pending_approval'),
+             'tone': 'red', 'icon': 'alert'},
+            {'label': 'آزمون واحدهای من', 'value': len(scoped_exams), 'tone': 'blue', 'icon': 'clipboard'},
+            {'label': 'واحد تحت مدیریت', 'value': len(units), 'tone': 'purple', 'icon': 'user-check'},
+        ]
+        shortcuts = [
+            {'label': 'داشبورد مدیر آموزشی', 'url': reverse('core:exam_manager_dashboard'), 'icon': 'org'},
+            {'label': 'آزمون‌ها', 'url': reverse('core:exam_manager_exams'), 'icon': 'report'},
+            {'label': 'مدیریت کاربران', 'url': reverse('core:super_admin_users'), 'icon': 'users'},
+            {'label': 'تقویم آموزشی', 'url': reverse('core:exam_manager_calendar'), 'icon': 'settings'},
+        ]
 
     return render(request, 'super_admin/profile.html', {
-        'title': 'پروفایل مدیر سیستم',
+        'title': f'پروفایل {role_label}',
+        'role_label': role_label,
+        'unit_label': unit_label,
+        **security,
         'section': section,
         'display_name': profile.get('full_name') or request.user.username,
         'profile': profile,
@@ -12239,24 +12644,14 @@ def _super_admin_profile_view(request, page_context):
         'last_login_at': page_context.get('last_login_at'),
         'profile_completion': profile_completion,
         'security_score': security_score,
-        'stat_tiles': [
-            {'label': 'هشدار امنیتی', 'value': pending_registrations, 'tone': 'red', 'icon': 'alert'},
-            {'label': 'آزمون فعال', 'value': active_exams, 'tone': 'blue', 'icon': 'clipboard'},
-            {'label': 'استاد', 'value': teachers_count, 'tone': 'purple', 'icon': 'user-check'},
-            {'label': 'کاربر', 'value': total_users, 'tone': 'teal', 'icon': 'users'},
-        ],
+        'stat_tiles': stat_tiles,
         'access_items': [
-            {'label': 'نقش فعال', 'value': 'مدیر سیستم', 'icon': 'user'},
-            {'label': 'دامنه دسترسی', 'value': 'کل سامانه', 'icon': 'globe'},
-            {'label': 'واحد سازمانی', 'value': 'مدیریت مرکزی', 'icon': 'building'},
-            {'label': 'سطح دسترسی', 'value': 'دسترسی کامل', 'icon': 'shield-check'},
+            {'label': 'نقش فعال', 'value': role_label, 'icon': 'user'},
+            {'label': 'دامنه دسترسی', 'value': scope_label, 'icon': 'globe'},
+            {'label': 'واحد سازمانی', 'value': unit_label, 'icon': 'building'},
+            {'label': 'سطح دسترسی', 'value': level_label, 'icon': 'shield-check'},
         ],
-        'shortcuts': [
-            {'label': 'مدیریت کاربران', 'url': reverse('core:super_admin_users'), 'icon': 'users'},
-            {'label': 'تنظیمات سامانه', 'url': reverse('core:super_admin_settings'), 'icon': 'settings'},
-            {'label': 'ساختار سازمانی', 'url': reverse('core:super_admin_org_units'), 'icon': 'org'},
-            {'label': 'گزارش رخدادها', 'url': reverse('core:super_admin_reports'), 'icon': 'report'},
-        ],
+        'shortcuts': shortcuts,
         'recent_activities': recent_activities,
         'login_history': login_history,
         'other_sessions_count': other_sessions,
@@ -12275,7 +12670,7 @@ def _legacy_profile_view(request):
         messages.error(request, 'پروفایل کاربری شما در سامانه پیدا نشد.')
         return redirect('core:dashboard')
 
-    if 'admin' in (page_context.get('roles') or []):
+    if {'admin', 'academic_manager'} & set(page_context.get('roles') or []):
         return _super_admin_profile_view(request, page_context)
 
     profile = page_context['profile']
@@ -12286,50 +12681,8 @@ def _legacy_profile_view(request):
         section = 'personal'
 
     if request.method == 'POST':
-        first_name = (request.POST.get('first_name') or '').strip()
-        last_name = (request.POST.get('last_name') or '').strip()
-        email = (request.POST.get('email') or '').strip()
-        phone = (request.POST.get('phone') or '').strip()
-        national_id = (request.POST.get('national_id') or '').strip()
-        full_name = f'{first_name} {last_name}'.strip() or profile.get('full_name') or request.user.username
-        avatar_url = profile.get('avatar_url') or ''
-
-        avatar = request.FILES.get('avatar')
-        if avatar:
-            if avatar.size > 1024 * 1024:
-                messages.error(request, 'حجم تصویر پروفایل باید کمتر از ۱ مگابایت باشد.')
-                return redirect('core:profile')
-            if avatar.content_type not in {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}:
-                messages.error(request, 'فرمت تصویر باید JPG، PNG، WebP یا GIF باشد.')
-                return redirect('core:profile')
-            extension = avatar.name.rsplit('.', 1)[-1].lower() if '.' in avatar.name else 'jpg'
-            storage = FileSystemStorage(
-                location=settings.MEDIA_ROOT / 'avatars',
-                base_url=settings.MEDIA_URL + 'avatars/',
-            )
-            filename = storage.save(f"{profile['id']}.{extension}", avatar)
-            avatar_url = storage.url(filename)
-
-        erd_execute(
-            """
-            UPDATE profiles
-            SET full_name = %s,
-                first_name = %s,
-                last_name = %s,
-                email = %s,
-                phone = %s,
-                national_id = %s,
-                avatar_url = %s,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-            """,
-            [full_name, first_name, last_name, email, phone, national_id, avatar_url, profile['id']],
-        )
-        request.user.first_name = first_name
-        request.user.last_name = last_name
-        request.user.email = email
-        request.user.save(update_fields=['first_name', 'last_name', 'email'])
-        messages.success(request, 'اطلاعات پروفایل با موفقیت ذخیره شد.')
+        if _save_account_fields(request, profile):
+            messages.success(request, 'اطلاعات پروفایل با موفقیت ذخیره شد.')
         return redirect(f"{reverse('core:profile')}?section=personal")
 
     def safe_count(table, where='', params=None):
@@ -13315,9 +13668,12 @@ def _jalali_long_date(value, with_weekday: bool = True) -> str:
         return ''
     if hasattr(value, 'hour'):
         value = timezone.localtime(value)
-    jy, jm, jd = _gregorian_to_jalali(value.year, value.month, value.day)
+    from .templatetags.core_extras import CALENDAR, GREGORIAN_MONTHS
+
+    months = GREGORIAN_MONTHS if CALENDAR.get() == 'gregorian' else JALALI_MONTH_NAMES
+    jy, jm, jd = (value.year, value.month, value.day) if CALENDAR.get() == 'gregorian' else _gregorian_to_jalali(value.year, value.month, value.day)
     weekday = f'{JALALI_WEEKDAY_NAMES[value.weekday()]} ' if with_weekday else ''
-    return fa_digits(f'{weekday}{jd} {JALALI_MONTH_NAMES[jm - 1]} {jy}')
+    return fa_digits(f'{weekday}{jd} {months[jm - 1]} {jy}')
 
 
 TEACHER_DASHBOARD_EXAM_STATUS = {
@@ -13583,6 +13939,9 @@ def _teacher_exam_list(teacher_id, query: str, status: str, page_number) -> dict
         row['assigned'] = assigned_counts.get(exam_id)
         row['submitted'] = submitted_counts.get(exam_id, 0)
         row['pending_reviews'] = pending_counts.get(exam_id, 0)
+        # «پایش زنده» while it runs; «نتایج و انتشار» (where results are released) once anyone handed it in or it ended
+        row['is_running'] = row['status_label'] == 'در حال برگزاری'
+        row['has_results'] = bool(row['is_published']) and (row['submitted'] > 0 or row['status_label'] == 'پایان‌یافته')
         # same rule as _teacher_exam_editable, from the counts already loaded for this page
         row['editable'] = (
             (row['lifecycle'] or 'draft') in ('draft', 'pending_approval')
@@ -13729,19 +14088,30 @@ TEACHER_RESULTS_PAGE_SIZE = 50
 TEACHER_RESULT_BUCKETS = ((0, 4), (4, 8), (8, 12), (12, 16), (16, 20))
 
 
-def _teacher_owned_exam(teacher_id, exam_id):
-    """The exam row when it belongs to this teacher, else None (callers turn None into a 404)."""
+def _exam_score_scale(exam) -> float:
+    """The exam's «مجموع نمرات کل آزمون» (scores are reported out of it); 20 when the exam does not set one."""
+    scale = _sx_float((exam or {}).get('total_score'), 0)
+    return scale if scale > 0 else 20.0
+
+
+def _teacher_owned_exam(teacher_id, exam_id, staff=False):
+    """The exam row when it belongs to this teacher, else None (callers turn None into a 404).
+
+    staff=True also admits the exam's «عوامل آزمون» (ناظر / همکار تصحیح / طراح) for viewing its reports;
+    row['is_owner'] says whether the teacher may also act on it (e.g. publish results)."""
+    staff_sql = " OR e.id IN (SELECT es.exam_id FROM exam_staff es WHERE es.teacher_id = %s)" if staff else ''
     row = erd_row(
         f"""
-        SELECT e.id, e.title, e.start_at, e.end_at, e.duration_minutes, e.passing_score,
+        SELECT e.id, e.title, e.start_at, e.end_at, e.duration_minutes, e.passing_score, e.teacher_id,
                COALESCE(c.title, '-') AS course, {_exam_result_columns()[0]}
         FROM exams e LEFT JOIN courses c ON c.id = e.course_id
-        WHERE e.id = %s AND e.teacher_id = %s
+        WHERE e.id = %s AND (e.teacher_id = %s{staff_sql})
         """,
-        [exam_id, teacher_id],
+        [exam_id, teacher_id, *([teacher_id] if staff else [])],
     )
     if row:
         row['result_visibility'] = _exam_result_visibility(row)
+        row['is_owner'] = str(row['teacher_id']) == str(teacher_id)
     return row
 
 
@@ -13753,11 +14123,12 @@ def _teacher_exam_options(teacher_id) -> list:
                (SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = e.id AND ea.status IN ('submitted', 'graded')) AS submitted,
                (SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = e.id AND ea.status = 'in_progress') AS in_progress
         FROM exams e
-        WHERE e.teacher_id = %s AND COALESCE(e.is_cancelled, false) = false
+        WHERE (e.teacher_id = %s OR e.id IN (SELECT es.exam_id FROM exam_staff es WHERE es.teacher_id = %s))
+          AND COALESCE(e.is_cancelled, false) = false
         ORDER BY CASE WHEN e.start_at IS NULL THEN 1 ELSE 0 END, e.start_at DESC, e.title
         LIMIT 200
         """,
-        [teacher_id],
+        [teacher_id, teacher_id],  # own exams and exams the teacher is «عوامل آزمون» of
     )
     for row in rows:
         row['start_at'], row['end_at'] = erd_datetime(row['start_at']), erd_datetime(row['end_at'])
@@ -13765,9 +14136,16 @@ def _teacher_exam_options(teacher_id) -> list:
     return rows
 
 
-def _teacher_exam_results(exam, page_number) -> dict:
-    """Score summary, 0-20 distribution and one page of submitted attempts for an exam the teacher owns."""
+def _teacher_exam_results(exam, page_number, receipt_code='') -> dict:
+    """Score summary, 0-20 distribution and one page of submitted attempts for an exam the teacher owns.
+
+    With a «شناسه رسید» only that attempt is listed."""
     from django.core.paginator import Paginator
+
+    has_receipt = erd_has_column('exam_attempts', 'receipt_code')
+    # «دقت نمره‌دهی»: scores shown with two decimals or as whole numbers
+    digits = 0 if prefs(exam.get('teacher_id')).get('rounding') == 'integer' else 2
+    receipt_code = receipt_code if has_receipt else ''
 
     graded = erd_rows(
         "SELECT score, max_score FROM exam_attempts WHERE exam_id = %s AND status IN ('submitted', 'graded') "
@@ -13782,17 +14160,19 @@ def _teacher_exam_results(exam, page_number) -> dict:
         """,
         [exam['id']],
     )
-    scores = [float(row['score']) * 20 / float(row['max_score']) for row in graded]
+    scale = _exam_score_scale(exam)
+    scores = [float(row['score']) * scale / float(row['max_score']) for row in graded]
     passed = sum(
         1 for row in graded
         if _sx_result_status({'is_graded': True, 'score': row['score'], 'max_score': row['max_score'],
-                              'passing_score': exam.get('passing_score'),
+                              'passing_score': exam.get('passing_score'), 'passing_percent': exam.get('passing_percent'),
                               'percent': _sx_percent(row['score'], row['max_score'])})[0] == 'قبول'
     )
     buckets = []
-    for low, high in TEACHER_RESULT_BUCKETS:
-        count = sum(1 for score in scores if low <= score < high or (high == 20 and score == 20))
-        buckets.append({'label': f'{low}–{high}', 'count': count})
+    for low_part, high_part in TEACHER_RESULT_BUCKETS:  # the 0-20 bands, stretched to the exam's own scale
+        low, high = low_part * scale / 20, high_part * scale / 20
+        count = sum(1 for score in scores if low <= score < high or (high_part == 20 and score == scale))
+        buckets.append({'label': f'{low:g}–{high:g}', 'count': count})
     peak = max((bucket['count'] for bucket in buckets), default=0) or 1
     for bucket in buckets:
         bucket['height'] = round(bucket['count'] * 100 / peak)
@@ -13801,33 +14181,37 @@ def _teacher_exam_results(exam, page_number) -> dict:
     page = Paginator(range(total), TEACHER_RESULTS_PAGE_SIZE).get_page(page_number)
     rows = erd_rows(
         """
-        SELECT ea.id, ea.score, ea.max_score, ea.is_graded, ea.submitted_at,
+        SELECT ea.id, ea.score, ea.max_score, ea.is_graded, ea.submitted_at, {receipt} AS receipt_code,
                COALESCE(NULLIF(p.full_name, ''), p.username, 'دانشجو') AS name,
                COALESCE(NULLIF(sp.student_number, ''), p.identifier, '') AS code
         FROM exam_attempts ea
         JOIN profiles p ON p.id = ea.student_id
         LEFT JOIN student_profiles sp ON sp.user_id = ea.student_id
-        WHERE ea.exam_id = %s AND ea.status IN ('submitted', 'graded')
+        WHERE ea.exam_id = %s AND ea.status IN ('submitted', 'graded'){only_receipt}
         ORDER BY CASE WHEN ea.score IS NULL THEN 1 ELSE 0 END, ea.score DESC, name
         LIMIT %s OFFSET %s
-        """,
-        [exam['id'], TEACHER_RESULTS_PAGE_SIZE, page.start_index() - 1 if total else 0],
+        """.format(receipt='ea.receipt_code' if has_receipt else 'NULL',
+                   only_receipt=' AND ea.receipt_code = %s' if receipt_code else ''),
+        [exam['id'], *([receipt_code] if receipt_code else []), TEACHER_RESULTS_PAGE_SIZE,
+         page.start_index() - 1 if total and not receipt_code else 0],
     )
     flags = _attempt_event_counts(row['id'] for row in rows)
     for row in rows:
         row['flags'] = flags.get(str(row['id']))
         row['percent'] = _sx_percent(row['score'], row['max_score'])
-        row['score_20'] = round(float(row['score']) * 20 / float(row['max_score']), 2) if row['score'] is not None and row['max_score'] else None
-        row['status_label'], tone, _pending = _sx_result_status({**row, 'passing_score': exam.get('passing_score')})
+        row['score_20'] = round(float(row['score']) * scale / float(row['max_score']), digits) if row['score'] is not None and row['max_score'] else None
+        row['status_label'], tone, _pending = _sx_result_status(
+            {**row, 'passing_score': exam.get('passing_score'), 'passing_percent': exam.get('passing_percent')})
         row['status_tone'] = {'green': 'is-ok', 'red': 'is-danger'}.get(tone, 'is-warn')
         row['submitted_label'] = _jalali_long_date(row['submitted_at'])
     return {
         'participants': summary['participants'] if summary else 0,
         'ungraded': (summary or {}).get('ungraded') or 0,
-        'average': round(sum(scores) / len(scores), 2) if scores else None,
-        'highest': round(max(scores), 2) if scores else None,
-        'lowest': round(min(scores), 2) if scores else None,
+        'average': round(sum(scores) / len(scores), digits) if scores else None,
+        'highest': round(max(scores), digits) if scores else None,
+        'lowest': round(min(scores), digits) if scores else None,
         'pass_rate': round(passed * 100 / len(scores)) if scores else None,
+        'scale': f'{scale:g}',
         'buckets': buckets if scores else [],
         'rows': rows,
         'page': page,
@@ -13935,6 +14319,8 @@ def _teacher_modern_context(request, page, **extra):
         question_bank = question_bank_context(request, teacher_id)
     return {
         'page': page,
+        'teacher_ui': ui_context(teacher_id) if teacher_id else {},
+        'teacher_default_structure': prefs(teacher_id).get('bank_default_structure', 'independent') if page == 'question_type' and teacher_id else '',
         'teacher_profile': _teacher_modern_profile(request),
         # Only the dashboard shows it; the other numbers it used to carry (with invented fallbacks) were never shown.
         'teacher_stats': {'questions': erd_count('questions', 'teacher_id = %s AND archived_at IS NULL', [teacher_id])} if page == 'dashboard' and teacher_id else {},
@@ -13960,9 +14346,10 @@ TEACHER_SETTINGS_CHOICES = {
     'question_order': [('random', 'تصادفی'), ('fixed', 'ثابت')],
     'negative_marking': [('off', 'غیرفعال'), ('on', 'فعال')],
     'result_release': [('after_teacher', 'پس از تأیید استاد'), ('instant', 'بلافاصله پس از پایان آزمون')],
-    'bank_default_structure': [('independent', 'مستقل'), ('case', 'سناریوی بیمار'), ('kfp', 'KFP'), ('osce', 'ایستگاه OSCE')],
+    'bank_default_structure': [('independent', 'مستقل'), ('osce', 'ایستگاه OSCE'), ('case', 'سناریوی بیمار (در حال توسعه)'), ('kfp', 'KFP (در حال توسعه)')],
     'bank_default_difficulty': [('easy', 'آسان'), ('medium', 'متوسط'), ('hard', 'دشوار')],
-    'sharing_mode': [('private', 'خصوصی (فقط خودم)'), ('department', 'اساتید هم‌درس'), ('group', 'گروه آموزشی')],
+    # «اساتید هم‌درس»: a new published question is shared with the teachers of its course (teacher_preferences)
+    'sharing_mode': [('private', 'خصوصی (فقط خودم)'), ('department', 'اساتید هم‌درس')],
     'essay_grading_default': [('rubric', 'با استفاده از روبریک (معیارها)'), ('manual', 'دستی')],
     'rounding': [('two_decimal', '۲ رقم اعشار'), ('integer', 'عدد صحیح')],
 }
@@ -13970,7 +14357,7 @@ TEACHER_SETTINGS_SWITCHES = {
     'account': ['quick_help', 'show_page_meta', 'compact_tables', 'system_channel', 'email_channel', 'browser_channel'],
     'exam': ['show_correct_answer', 'show_result_after_publish', 'question_autosave', 'auto_archive',
              'auto_grade_objective', 'text_feedback', 'lock_score_after_publish'],
-    'security': ['show_name_to_students', 'show_email_in_class', 'share_stats_with_admin'],
+    'security': ['show_name_to_students', 'show_email_in_class'],
 }
 TEACHER_SETTINGS_SELECTS = {
     'account': ['language', 'timezone', 'date_format', 'theme', 'delivery_mode'],
@@ -14098,7 +14485,40 @@ def teacher_course_detail(request, group_id):
 
 @erd_role_required('teacher')
 def teacher_calendar(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'calendar'))
+    """The teacher's exams (own, and those they are «عوامل آزمون» of) on a Jalali month."""
+    teacher_id = request.erd_profile_id
+    shown = _jalali_calendar_month(request)
+    exams = erd_rows(
+        """
+        SELECT e.id, e.title, e.start_at, COALESCE(e.is_published, false) AS is_published,
+               COALESCE(e.is_cancelled, false) AS is_cancelled, COALESCE(e.lifecycle_status, 'draft') AS lifecycle
+        FROM exams e
+        WHERE (e.teacher_id = %s OR e.id IN (SELECT es.exam_id FROM exam_staff es WHERE es.teacher_id = %s))
+          AND e.start_at >= %s AND e.start_at < %s
+        ORDER BY e.start_at
+        LIMIT 400
+        """,
+        [teacher_id, teacher_id, shown['first'] - timedelta(days=1), shown['end'] + timedelta(days=1)],
+    )
+    by_day = {}
+    for exam in exams:
+        start_at = erd_datetime(exam['start_at'])
+        if not start_at:
+            continue
+        jy, jm, jd, time_label = _calendar_event_day(start_at)
+        if (jy, jm) != (shown['year'], shown['month']):
+            continue
+        tone = '' if exam['is_cancelled'] else 'is-green' if exam['is_published'] else 'is-blue' if exam['lifecycle'] == 'pending_approval' else 'is-draft'
+        by_day.setdefault(jd, []).append({'id': exam['id'], 'title': exam['title'], 'time': time_label, 'tone': tone,
+                                          'state': 'لغو شده' if exam['is_cancelled'] else 'منتشرشده' if exam['is_published']
+                                          else 'در انتظار تأیید' if exam['lifecycle'] == 'pending_approval' else 'پیش‌نویس'})
+    days = [{'day': None, 'events': []} for _ in range(shown['leading_blanks'])]
+    days += [{'day': day, 'events': by_day.get(day, []), 'is_today': (shown['year'], shown['month'], day) == shown['today']}
+             for day in range(1, shown['length'] + 1)]
+    return render(request, 'teacher/modern.html', _teacher_modern_context(
+        request, 'calendar', calendar_month=shown, calendar_days=days,
+        calendar_weekdays=['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'],
+    ))
 
 
 @erd_role_required('teacher')
@@ -14431,6 +14851,10 @@ def _handle_teacher_security_action(request, teacher_id) -> list:
         ended = account_security.end_other_sessions(request.user, current_key)
         log_activity(request.user, 'sessions_terminated', f'خروج اجباری از {ended} نشست دیگر', request)
         return []
+    if action == 'password_change':
+        from .student_settings import _change_password
+
+        return _change_password(request)
     if action in TWO_FACTOR_ACTIONS:
         return _handle_two_factor_action(request, action)
     if action == 'deletion_request':
@@ -14522,8 +14946,16 @@ def teacher_settings(request):
 
 
 @erd_role_required('teacher')
+def teacher_notification_feed(request):
+    """«اعلان مرورگر»: unread notifications since ?since= for the console to show as browser notifications."""
+    from .teacher_preferences import browser_feed
+
+    return JsonResponse(browser_feed(request.erd_profile_id, request.GET.get('since')))
+
+
+@erd_role_required('teacher')
 def teacher_security(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'security'))
+    return redirect(f'{reverse("core:teacher_settings")}?tab=security')  # the working security tab
 
 
 @erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
@@ -14770,6 +15202,8 @@ def _question_builder_errors(payload, allowed_course_ids):
             errors.append('حداکثر تعداد انتخاب باید بین حداقل انتخاب و تعداد گزینه‌ها باشد.')
         if max_correct and len(correct) > max_correct:
             errors.append('تعداد گزینه‌های صحیح از حداکثر انتخاب مجاز بیشتر است.')
+        if correct and min_correct > len(correct):
+            errors.append('«حداقل پاسخ صحیح» از تعداد گزینه‌های صحیح بیشتر است؛ در این حالت هیچ پاسخی کامل نمی‌شود.')
     if kind == 'fill_blank':
         blank_count = len(_BLANK_MARKER_RE.findall(payload['text']))
         blanks = payload['accepted_answers']
@@ -15152,6 +15586,8 @@ def _question_form_context(request, page, form_data, course_options, question_id
         'qf': form_data,
         'question_course_options': course_options,
         'question_id': question_id,
+        # «ذخیره خودکار پیش‌نویس» of a teacher's settings (others keep the autosave they always had)
+        'question_autosave': getattr(request, 'erd_role', None) != 'teacher' or prefs(request.erd_profile_id).get('question_autosave', True),
     })
     return context
 
@@ -15264,7 +15700,8 @@ def teacher_question_create(request):
             errors = _apply_question_uploads(payload, request.FILES, request.POST)
             errors += _question_builder_errors(payload, _question_allowed_course_ids(request, course_options))
             if not errors:
-                _save_question_payload(payload, teacher_id)
+                new_question_id = _save_question_payload(payload, teacher_id)
+                share_new_question(teacher_id, new_question_id)  # «اشتراک‌گذاری سؤالات: اساتید هم‌درس»
                 _delete_question_draft(_question_draft_key(teacher_id, None, payload['requested_type']))
                 messages.success(request, 'سؤال ذخیره شد.')
                 if request.POST.get('save_next'):
@@ -15276,15 +15713,274 @@ def teacher_question_create(request):
     requested_type = request.GET.get('type') or 'single'
     form_data = _question_form_data({'type': requested_type if requested_type in INDEPENDENT_QUESTION_TYPES else 'single'})
     form_data['type'] = requested_type
+    if getattr(request, 'erd_role', None) == 'teacher':  # «سطح دشواری پیش‌فرض» of the teacher's settings
+        form_data['difficulty'] = prefs(teacher_id).get('bank_default_difficulty') or form_data.get('difficulty') or 'medium'
     context = _question_form_context(request, 'question_create', form_data, course_options)
     if requested_type in INDEPENDENT_QUESTION_TYPES:
         context = _attach_question_draft(request, context, _question_draft_key(teacher_id, None, requested_type), requested_type)
     return render(request, 'teacher/modern.html', context)
 
 
-@erd_role_required('teacher')
+QUESTION_IMPORT_MAX_ROWS = 500
+QUESTION_IMPORT_MAX_BYTES = 2 * 1024 * 1024
+QUESTION_IMPORT_SESSION_KEY = 'question_import_rows'
+QUESTION_IMPORT_OPTIONS = 6
+# «نوع» cell -> question type; the builder's labels and the English keys are both accepted.
+QUESTION_IMPORT_TYPES = {
+    'single': 'single', 'تک گزینه ای': 'single', 'چهارگزینه ای': 'single', 'چهار گزینه ای': 'single', 'تستی': 'single',
+    'multi': 'multi', 'چندگزینه ای': 'multi', 'چند گزینه ای': 'multi', 'چندپاسخی': 'multi', 'چند پاسخی': 'multi',
+    'true_false': 'true_false', 'درست/نادرست': 'true_false', 'درست نادرست': 'true_false', 'صحیح/غلط': 'true_false',
+    'short_answer': 'short_answer', 'پاسخ کوتاه': 'short_answer',
+    'essay': 'essay', 'تشریحی': 'essay',
+}
+# keys as _question_import_key leaves them («آ» becomes «ا»: «آسان» is looked up as «اسان»)
+QUESTION_IMPORT_DIFFICULTY = {'easy': 'easy', 'اسان': 'easy', 'آسان': 'easy', 'medium': 'medium', 'متوسط': 'medium', 'hard': 'hard', 'سخت': 'hard', 'دشوار': 'hard'}
+QUESTION_IMPORT_HEADERS = {  # normalized header -> field
+    'نوع': 'type', 'type': 'type', 'نوع سوال': 'type',
+    'متن سوال': 'text', 'سوال': 'text', 'text': 'text',
+    'پاسخ صحیح': 'correct', 'پاسخ': 'correct', 'correct': 'correct', 'answer': 'correct',
+    'بارم': 'points', 'نمره': 'points', 'points': 'points',
+    'دشواری': 'difficulty', 'سطح دشواری': 'difficulty', 'difficulty': 'difficulty',
+    'تگ ها': 'tags', 'تگ': 'tags', 'tags': 'tags',
+    'مبحث': 'subject', 'subject': 'subject',
+    'توضیح': 'explanation', 'بازخورد': 'explanation', 'explanation': 'explanation',
+}
+
+
+def _question_import_key(value) -> str:
+    """A header or type cell compared loosely: Persian letters/digits unified, ZWNJ and extra spaces removed."""
+    return ' '.join(_normalize_answer_text(str(value or ''), persian=True).replace('ؤ', 'و').split()).lower()
+
+
+def _question_import_header(value):
+    key = _question_import_key(value)
+    if key in QUESTION_IMPORT_HEADERS:
+        return QUESTION_IMPORT_HEADERS[key]
+    for prefix in ('گزینه', 'option'):
+        if key.startswith(prefix) and key[len(prefix):].strip().isdigit():
+            number = int(key[len(prefix):].strip())
+            return f'option{number}' if 1 <= number <= QUESTION_IMPORT_OPTIONS else None
+    return None
+
+
+def _question_import_post(cells, course_id) -> tuple:
+    """(builder POST, errors) for one spreadsheet row: the same fields the question builder form sends."""
+    errors = []
+    kind = QUESTION_IMPORT_TYPES.get(_question_import_key(cells.get('type')))
+    if not kind:
+        return None, ['نوع سؤال نامعتبر است (تک‌گزینه‌ای، چندگزینه‌ای، درست/نادرست، پاسخ کوتاه یا تشریحی).']
+    post = QueryDict(mutable=True)
+    points = _question_import_number(cells.get('points')) if str(cells.get('points') or '').strip() else '1'
+    if points is None or float(points) <= 0 or float(points) > QUESTION_IMPORT_MAX_POINTS:
+        errors.append(f'«بارم» باید عددی بزرگ‌تر از صفر و حداکثر {QUESTION_IMPORT_MAX_POINTS} باشد (مثلاً 2 یا 1.5).')
+        points = '1'
+    fields = {
+        'type': kind, 'structure': 'independent', 'course_id': course_id or '', 'is_published': '1',
+        'text': str(cells.get('text') or '').strip(),
+        'default_points': points,
+        'difficulty': QUESTION_IMPORT_DIFFICULTY.get(_question_import_key(cells.get('difficulty')), 'medium'),
+        'tags': str(cells.get('tags') or '').replace('،', ',').strip(),
+        'subject': str(cells.get('subject') or '').strip(),
+        'feedback_text': str(cells.get('explanation') or '').strip(),
+    }
+    for name, value in fields.items():
+        post[name] = value
+    correct = str(cells.get('correct') or '').strip()
+    if kind in ('single', 'multi'):
+        # «پاسخ صحیح» counts the option columns as they are in the file («گزینه ۳» is 3 even when «گزینه ۲» is empty)
+        columns = [(number, str(cells.get(f'option{number}') or '').strip()) for number in range(1, QUESTION_IMPORT_OPTIONS + 1)]
+        filled = [(number, text) for number, text in columns if text]
+        position = {number: index for index, (number, _text) in enumerate(filled, start=1)}
+        post.setlist('option_text', [text for _number, text in filled])
+        picked = [_question_import_number(part, whole=True) for part in correct.replace('،', ',').replace(';', ',').split(',') if part.strip()]
+        if any(number is None or not 1 <= int(number) <= QUESTION_IMPORT_OPTIONS for number in picked):
+            errors.append('«پاسخ صحیح» باید شماره‌ی گزینه باشد (برای چندگزینه‌ای با ویرگول جدا شود، مثلاً 1,3).')
+        else:
+            empty = [number for number in picked if int(number) not in position]
+            if empty:
+                errors.append(f"«پاسخ صحیح» به {'، '.join(f'گزینه {number}' for number in empty)} اشاره می‌کند که خالی است.")
+        post.setlist('correct_options', list(dict.fromkeys(
+            str(position[int(number)]) for number in picked if number is not None and int(number) in position)))
+        if kind == 'multi':
+            post['scoring_mode'] = 'all_or_nothing'
+            post['min_correct'] = '1'
+            post['max_correct'] = '0'
+    elif kind == 'true_false':
+        post.setlist('option_text', ['درست', 'نادرست'])
+        value = _question_import_key(correct)
+        choice = '1' if value in ('1', 'درست', 'صحیح', 'true') else '2' if value in ('2', 'نادرست', 'غلط', 'false') else ''
+        if not choice:
+            errors.append('«پاسخ صحیح» سؤال درست/نادرست باید «درست» یا «نادرست» باشد.')
+        post.setlist('correct_options', [choice] if choice else [])
+    elif kind == 'short_answer':
+        answers = [part.strip() for part in correct.split('|') if part.strip()]
+        if not answers:
+            errors.append('برای پاسخ کوتاه دست‌کم یک پاسخ قابل قبول بنویسید (چند پاسخ را با | جدا کنید).')
+        post.setlist('accepted_answer', answers)
+        for index in range(1, len(answers) + 1):
+            post[f'accepted_points_{index}'] = '100'
+            post[f'accepted_mode_{index}'] = 'exact'
+            post[f'accepted_normalize_{index}'] = '1'
+    elif kind == 'essay':
+        post.setlist('answer_formats', ['text'])
+    return post, errors
+
+
+QUESTION_IMPORT_MAX_POINTS = 1000
+
+
+def _question_import_number(value, whole=False):
+    """A number typed in a cell («۲٫۵», «2,5», «2.0» from Excel) as text, or None: whole=True for option numbers."""
+    text = _normalize_answer_text(str(value or ''), persian=True).replace('٫', '.').replace(' ', '')
+    if not whole and text.count(',') == 1 and '.' not in text:
+        text = text.replace(',', '.')  # «2,5» in a locale with a decimal comma
+    try:
+        number = float(text)
+    except ValueError:
+        return None
+    if number != number or number in (float('inf'), float('-inf')):
+        return None
+    if whole:
+        return str(int(number)) if number == int(number) else None
+    return f'{number:g}'
+
+
+def _question_import_text_key(kind, text) -> tuple:
+    """What makes two questions «the same» for duplicates: the type and the text, compared loosely."""
+    return kind, _question_import_key(text)
+
+
+def _question_import_check(post, allowed_course_ids) -> tuple:
+    """(payload, errors) of a builder POST, through the builder's own validation."""
+    payload = _question_builder_payload(post)
+    _apply_independent_settings(payload, post)
+    return payload, _question_builder_errors(payload, allowed_course_ids)
+
+
+def _question_import_csv_rows(data: bytes) -> list:
+    """[(line number, {header: value})] of a CSV file: UTF-8 (with or without BOM) or the Persian Windows code page
+    Excel uses for «CSV», separated by commas, semicolons or tabs."""
+    for encoding in ('utf-8-sig', 'cp1256'):
+        try:
+            text = data.decode(encoding)
+            if encoding == 'cp1256':  # that code page has only the Arabic «ي» and «ك»
+                text = text.replace('ي', 'ی').replace('ك', 'ک')
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        raise ValueError('unknown encoding')
+    first_line = text.splitlines()[0] if text.strip() else ''
+    delimiter = max((',', ';', '\t'), key=first_line.count) if first_line else ','
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+    rows = []
+    for raw in reader:
+        cleaned = {str(header or '').strip(): (value or '').strip() if isinstance(value, str) else '' for header, value in raw.items() if header}
+        if any(cleaned.values()):
+            rows.append((reader.line_num, cleaned))
+    return rows
+
+
+def _question_import_template(as_csv=False) -> HttpResponse:
+    """The sample file: the header row and one example of every type (Excel; ?template=csv for CSV)."""
+    rows = [
+        ['نوع', 'متن سؤال', 'گزینه ۱', 'گزینه ۲', 'گزینه ۳', 'گزینه ۴', 'پاسخ صحیح', 'بارم', 'دشواری', 'تگ‌ها', 'مبحث', 'توضیح'],
+        ['تک‌گزینه‌ای', 'پایتخت ایران کدام است؟', 'تبریز', 'تهران', 'شیراز', 'مشهد', '2', '1', 'آسان', 'جغرافیا', 'شهرها', 'تهران پایتخت ایران است.'],
+        ['چندگزینه‌ای', 'کدام‌ها عدد اول هستند؟', '2', '4', '5', '9', '1,3', '2', 'متوسط', 'ریاضی', 'اعداد', ''],
+        ['درست/نادرست', 'آب در ۱۰۰ درجه می‌جوشد.', '', '', '', '', 'درست', '1', 'آسان', '', '', ''],
+        ['پاسخ کوتاه', 'نماد شیمیایی آب چیست؟', '', '', '', '', 'H2O|اچ‌تواو', '1', 'آسان', 'شیمی', '', ''],
+        ['تشریحی', 'چرخه‌ی آب را توضیح دهید.', '', '', '', '', '', '5', 'سخت', '', '', ''],
+    ]
+    if not as_csv:
+        return xlsx_response('question-import-template.xlsx', rows[0], rows[1:], 'Questions')
+    buffer = io.StringIO()
+    csv.writer(buffer).writerows(rows)
+    response = HttpResponse('\ufeff' + buffer.getvalue(), content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="question-import-template.csv"'
+    return response
+
+
+@erd_role_required('teacher', 'academic_manager', 'admin')  # the same people who keep a question bank
 def teacher_question_bulk_import(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'question_import'))
+    """«ورود گروهی سؤالات»: upload an Excel/CSV file, check every row as the builder would, then save the valid rows."""
+    if request.GET.get('template'):
+        return _question_import_template(as_csv=request.GET.get('template') == 'csv')
+    teacher_id = request.erd_profile_id
+    course_options = _question_course_options(request)
+    allowed = _question_allowed_course_ids(request, course_options)
+    context = {'import_courses': course_options, 'import_rows': None, 'import_error': '', 'import_saved': None}
+    if request.method == 'POST' and request.POST.get('action') == 'confirm':
+        stored = request.session.pop(QUESTION_IMPORT_SESSION_KEY, None) or []
+        saved = 0
+        for fields in stored[:QUESTION_IMPORT_MAX_ROWS]:
+            post = QueryDict(mutable=True)
+            for name, values in fields.items():
+                post.setlist(name, values)
+            payload, errors = _question_import_check(post, allowed)  # checked again: the course list may have changed
+            if not errors:
+                share_new_question(teacher_id, _save_question_payload(payload, teacher_id))  # «اشتراک‌گذاری سؤالات»
+                saved += 1
+        log_activity(request.user, 'questions_bulk_imported', f'{saved} سؤال با ورود گروهی ثبت شد.', request, {'count': saved})
+        messages.success(request, f'{saved} سؤال به بانک سؤال شما اضافه شد.' if saved else 'سؤالی ثبت نشد؛ فایل را دوباره بارگذاری کنید.')
+        return redirect('core:teacher_questions')
+    if request.method == 'POST':
+        uploaded = request.FILES.get('import_file')
+        course_id = request.POST.get('course_id') or ''
+        suffix = Path(uploaded.name).suffix.lower() if uploaded else ''
+        if not uploaded or suffix not in ('.xlsx', '.csv'):
+            context['import_error'] = 'یک فایل Excel (xlsx) یا CSV انتخاب کنید.'
+        elif uploaded.size > QUESTION_IMPORT_MAX_BYTES:
+            context['import_error'] = 'حجم فایل بیش از ۲ مگابایت است.'
+        elif course_id and str(course_id) not in allowed:
+            context['import_error'] = 'درس انتخاب‌شده در فهرست درس‌های شما نیست.'
+        else:
+            try:
+                raw_rows = _question_import_csv_rows(uploaded.read()) if suffix == '.csv' else read_xlsx_numbered_rows(uploaded)
+            except Exception:
+                raw_rows = None
+            headers = {_question_import_header(header) for _number, raw in (raw_rows or [])[:1] for header in raw}
+            missing = [label for field, label in (('type', '«نوع»'), ('text', '«متن سؤال»')) if field not in headers]
+            if raw_rows is None:
+                context['import_error'] = 'فایل خوانده نشد؛ فایل نمونه را دانلود کنید و همان ستون‌ها را پر کنید.'
+            elif not raw_rows:
+                context['import_error'] = 'فایل هیچ سؤالی ندارد؛ ردیف اول عنوان ستون‌هاست و سؤال‌ها از ردیف دوم می‌آیند.'
+            elif missing:
+                context['import_error'] = (f"ستون {' و '.join(missing)} در ردیف اول فایل پیدا نشد. ردیف اول باید عنوان ستون‌ها باشد، "
+                                           'مثل فایل نمونه.')
+            elif len(raw_rows) > QUESTION_IMPORT_MAX_ROWS:
+                context['import_error'] = f'حداکثر {QUESTION_IMPORT_MAX_ROWS} سؤال در هر فایل؛ فایل را چند بخش کنید.'
+            else:
+                preview, valid = [], []
+                # a question already in this bank, or twice in the file, is not added again (a file uploaded twice)
+                in_bank = {_question_import_text_key(row['type'], row['text']) for row in erd_rows(
+                    'SELECT type, text FROM questions WHERE teacher_id = %s AND archived_at IS NULL', [teacher_id])}
+                seen = {}
+                for number, raw in raw_rows:  # each row's own number in the file (row 1 is the header)
+                    cells = {}
+                    for header, value in raw.items():
+                        field = _question_import_header(header)
+                        if field and value not in (None, ''):
+                            cells[field] = str(value).strip()
+                    if not any(cells.values()):
+                        continue
+                    post, errors = _question_import_post(cells, course_id)
+                    if post is not None and not errors:
+                        _payload, errors = _question_import_check(post, allowed)
+                    if post is not None and not errors:
+                        key = _question_import_text_key(post.get('type'), post.get('text'))
+                        if key in in_bank:
+                            errors = ['این سؤال (همین نوع و متن) از قبل در بانک سؤال شما هست.']
+                        elif key in seen:
+                            errors = [f'تکرار سؤال ردیف {seen[key]} همین فایل است.']
+                        seen.setdefault(key, number)
+                    if not errors:
+                        valid.append({name: post.getlist(name) for name in post})
+                    preview.append({'number': number, 'type': cells.get('type', ''), 'text': cells.get('text', ''),
+                                    'correct': cells.get('correct', ''), 'errors': errors})
+                request.session[QUESTION_IMPORT_SESSION_KEY] = valid
+                context.update(import_rows=preview, import_valid=len(valid), import_invalid=len(preview) - len(valid),
+                               import_course=next((row for row in course_options if str(row['id']) == str(course_id)), None))
+    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'question_import', **context))
 
 
 @erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
@@ -15325,7 +16021,9 @@ def teacher_exams(request):
     exam_list = _teacher_exam_list(
         request.erd_profile_id, (request.GET.get('q') or '').strip()[:100], status, request.GET.get('page'),
     )
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'exams', exam_list=exam_list))
+    saved = _teacher_owned_exam(request.erd_profile_id, request.GET.get('saved')) if request.GET.get('saved') else None
+    saved_exam = {'title': saved['title'], 'code': exam_access_code(saved['id'])} if saved else None
+    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'exams', exam_list=exam_list, saved_exam=saved_exam))
 
 
 @erd_role_required('teacher')
@@ -15401,6 +16099,10 @@ def _exam_wizard_initial(exam) -> dict:
         fields[key] = value
     if exam.get('academic_year') or exam.get('semester'):
         fields['academic_term'] = f"{exam.get('academic_year') or ''}/{exam.get('semester') or ''}"
+    # Columns whose wizard field has another name (step 5 of the wizard).
+    for column, field in (('total_score', 'passing_score_total'), ('passing_percent', 'min_passing_percent')):
+        if column in fields:
+            fields[field] = fields[column]
     exam_id = exam['id']
     assignments = erd_rows('SELECT group_id, student_profile_id FROM exam_assignments WHERE exam_id = %s', [exam_id])
     return {
@@ -15411,6 +16113,8 @@ def _exam_wizard_initial(exam) -> dict:
             'SELECT student_profile_id FROM exam_assignment_exclusions WHERE exam_id = %s', [exam_id])],
         'question_ids': [str(row['question_id']) for row in erd_rows(
             'SELECT question_id FROM exam_questions WHERE exam_id = %s ORDER BY order_index', [exam_id])],
+        'question_points': {str(row['question_id']): float(row['points']) for row in erd_rows(
+            'SELECT question_id, points FROM exam_questions WHERE exam_id = %s', [exam_id]) if row['points'] is not None},
         'staff': [{'teacher_id': str(row['teacher_id']), 'role': row['role']} for row in erd_rows(
             'SELECT teacher_id, role FROM exam_staff WHERE exam_id = %s', [exam_id])],
         'tags': [tag.strip() for tag in re.split('[,،]', exam.get('tags') or '') if tag.strip()],
@@ -15431,6 +16135,7 @@ def _teacher_exam_wizard(request, exam=None):
             else 'حداقل یک سوال برای آزمون انتخاب کنید.' if not posted['question_ids']
             else None
         )
+        missing = missing or _exam_wizard_settings_error(request)
         if missing:
             messages.error(request, missing)
             return redirect(retry_url)
@@ -15465,14 +16170,15 @@ def _teacher_exam_wizard(request, exam=None):
             log_activity(request.user, 'teacher_exam_updated' if exam else 'teacher_exam_created',
                          f"آزمون {posted['title']} {action}به‌صورت پیش‌نویس ذخیره شد.", request, {'exam_id': exam_id})
             messages.success(request, 'آزمون به‌صورت پیش‌نویس ذخیره شد.')
-        return redirect('core:teacher_exams')
+        return redirect(f"{reverse('core:teacher_exams')}?{urlencode({'saved': exam_id})}")  # shows its «کد آزمون» card
     return _exam_wizard_render(
         request, resources,
         page='exam_create',  # highlights «آزمون‌ها» in the teacher nav
         wizard_role='teacher',
         participants_match_url=reverse('core:teacher_exam_participants_match'),
         title='ویرایش آزمون' if exam else 'ایجاد آزمون',
-        wizard_initial=_exam_wizard_initial(exam) if exam else None,
+        # a new exam starts from the teacher's «پیش‌فرض آزمون» (every value still changeable in the wizard)
+        wizard_initial=_exam_wizard_initial(exam) if exam else {'fields': wizard_defaults(request.erd_profile_id)},
     )
 
 
@@ -15494,14 +16200,27 @@ def _teacher_exam_report_page(request, page):
         )
         chosen = next(preferred, None) or (options[0] if options else None)
         exam_id = chosen['id'] if chosen else None
-    exam = _teacher_owned_exam(teacher_id, exam_id) if exam_id else None
+    receipt_query = (request.GET.get('receipt') or '').strip()[:40] if page == 'results' else ''
+    receipt_code = normalize_receipt_code(receipt_query)
+    receipt_error = ''
+    if receipt_query:
+        # «جستجوی شناسه رسید»: the attempt with this receipt, in one of this teacher's exams (owner or staff)
+        found = erd_row('SELECT exam_id FROM exam_attempts WHERE receipt_code = %s', [receipt_code])             if receipt_code and erd_has_column('exam_attempts', 'receipt_code') else None
+        if found and _teacher_owned_exam(teacher_id, str(found['exam_id']), staff=True):
+            exam_id = str(found['exam_id'])
+        else:
+            receipt_error = (f'رسیدی با شناسه‌ی {receipt_code} در آزمون‌های شما پیدا نشد.' if receipt_code
+                             else 'شناسه‌ی رسید درست نیست؛ مثلاً MQ-1A2B3C-7KQ4RZ.')
+            receipt_code = ''
+    exam = _teacher_owned_exam(teacher_id, exam_id, staff=True) if exam_id else None
     if exam_id and not exam:
         raise Http404('آزمون پیدا نشد.')
     report = None
     if exam:
-        report = _teacher_exam_monitoring(exam) if page == 'monitoring' else _teacher_exam_results(exam, request.GET.get('page'))
+        report = _teacher_exam_monitoring(exam) if page == 'monitoring' else _teacher_exam_results(exam, request.GET.get('page'), receipt_code)
     return render(request, 'teacher/modern.html', _teacher_modern_context(
         request, page, report_exam=exam, report_exam_options=options, report=report,
+        receipt_query=receipt_query, receipt_code=receipt_code, receipt_error=receipt_error,
     ))
 
 
@@ -16377,15 +17096,16 @@ def create_notification(user_id, title, message, link='', notification_type='sys
     if not user_id:
         return
     from .student_settings import notification_muted
+    from .teacher_preferences import in_app_muted
 
     # a kind the user switched off is still kept, but arrives already read so it raises no alert
-    erd_execute(
-        """
-        INSERT INTO notifications (id, user_id, type, title, message, link, is_read)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """,
-        [str(uuid.uuid4()), user_id, notification_type, title, message, link, notification_muted(user_id, notification_type)],
-    )
+    values = [str(uuid.uuid4()), user_id, notification_type, title, message, link,
+              notification_muted(user_id, notification_type) or in_app_muted(user_id)]
+    if erd_has_column('notifications', 'created_at'):  # the moment it is made, not the start of a long transaction
+        erd_execute('INSERT INTO notifications (id, user_id, type, title, message, link, is_read, created_at) '
+                    'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', [*values, timezone.now()])
+        return
+    erd_execute('INSERT INTO notifications (id, user_id, type, title, message, link, is_read) VALUES (%s, %s, %s, %s, %s, %s, %s)', values)
 
 
 _ANSWER_TRANSLATION = str.maketrans({
@@ -16505,7 +17225,8 @@ def _grade_question(row, answer, max_points):
         correct = as_set(_sx_json(row.get('correct_answer'), []))
         submitted = as_set(answer)
         max_correct = int(_sx_float(settings_data.get('max_correct'), 0))
-        if not correct or (max_correct and len(submitted) > max_correct):
+        min_correct = int(_sx_float(settings_data.get('min_correct'), 1))  # «حداقل پاسخ صحیح»: fewest choices to make
+        if not correct or (max_correct and len(submitted) > max_correct) or (submitted and len(submitted) < min_correct):
             return wrong()
         if submitted == correct:
             return full
@@ -16582,13 +17303,40 @@ def _grade_question(row, answer, max_points):
     return 0, True, False
 
 
+EXAM_NEGATIVE_KINDS = {'single', 'true_false', 'multi'}  # the wizard's «نمره منفی» is a penalty for a wrong choice
+
+
+def _with_exam_grading_rules(row, rules):
+    """The question row as the exam's grading settings say it is graded.
+
+    «اعطای نمره جزئی» off makes partial-credit questions all-or-nothing. «نمره منفی (جریمه)» on takes
+    «مقدار جریمه» (a share of the question's points) off a wrong choice, unless the question sets its own penalty.
+    Exams that do not set these (NULL) keep each question's own settings."""
+    settings_data = _sx_json(row.get('scoring_settings'), {}) or {}
+    settings_data = dict(settings_data) if isinstance(settings_data, dict) else {}
+    changed = False
+    if rules.get('allow_partial') in (False, 0):
+        if settings_data.get('scoring_mode') == 'partial':
+            settings_data['scoring_mode'] = 'all_or_nothing'
+            changed = True
+        if settings_data.get('ordering_mode') in ('position', 'adjacent'):
+            settings_data['ordering_mode'] = 'exact'
+            changed = True
+    factor = abs(_sx_float(rules.get('negative_factor'), 0))
+    if rules.get('negative_marking') in (True, 1) and factor and (row.get('type') or 'single') in EXAM_NEGATIVE_KINDS \
+            and not settings_data.get('negative_marking'):
+        settings_data.update(negative_marking=True, negative_value=factor)
+        changed = True
+    return {**row, 'scoring_settings': settings_data} if changed else row
+
+
 def grade_attempt(attempt_id):
     optional_columns = ['matching_pairs', 'ordering_items', 'scoring_settings', 'accepted_answers']
     optional_sql = ', '.join(f'q.{column}' if erd_has_column('questions', column) else f'NULL AS {column}' for column in optional_columns)
     rows = erd_rows(
         f"""
-        SELECT ea.id AS attempt_id, eq.points, q.id AS question_id, q.type, q.correct_answer, q.options,
-               {optional_sql}, aa.answer
+        SELECT ea.id AS attempt_id, COALESCE(eq.points, q.default_points, 1) AS points, q.id AS question_id, q.type,
+               q.correct_answer, q.options, {optional_sql}, aa.answer
         FROM exam_attempts ea
         JOIN exam_questions eq ON eq.exam_id = ea.exam_id
         JOIN questions q ON q.id = eq.question_id
@@ -16598,6 +17346,15 @@ def grade_attempt(attempt_id):
         """,
         [attempt_id],
     )
+    # The exam's «نمره منفی» / «نمره جزئی» apply when the wizard saved them (see _sx_exam_rules).
+    rules = erd_row(
+        """
+        SELECT e.negative_marking, e.negative_factor, e.allow_partial
+        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id WHERE ea.id = %s AND e.settings_enforced = true
+        """,
+        [attempt_id],
+    ) if erd_has_column('exams', 'settings_enforced') else None
+    rules = rules or {}
     total_score = 0
     max_score = 0
     needs_manual = False
@@ -16607,7 +17364,7 @@ def grade_attempt(attempt_id):
         if answer is None:
             answer = ''
         max_points = _sx_float(row['points'], 0)
-        points, manual, is_correct = _grade_question(row, answer, max_points)
+        points, manual, is_correct = _grade_question(_with_exam_grading_rules(row, rules), answer, max_points)
         needs_manual = needs_manual or manual
         total_score += points
         max_score += max_points
@@ -16636,6 +17393,7 @@ def grade_attempt(attempt_id):
         """,
         [total_score, max_score, not needs_manual, status, attempt_id],
     )
+    attempt_receipt_code(attempt_id)
     return {'score': total_score, 'max_score': max_score, 'needs_manual': needs_manual}
 
 
@@ -17563,10 +18321,66 @@ def _sx_exam_row(exam_id, student_id):
     last_entry = _sx_dt(row.get('last_entry_at'))
     row['entry_ends_at'] = min(row['ends_at'], last_entry) if last_entry else row['ends_at']
     row['question_count'] = _em_int(row.get('question_count'), 0)
+    rules = _sx_exam_rules(exam_id)
+    row['rules'] = rules
+    # «پایان دسترسی»: after it nobody enters or answers; «شروع دسترسی»: the entry page (rules, identity) opens then.
+    access_end = _sx_dt(rules['registration_end_at'])
+    if access_end:
+        row['ends_at'] = min(row['ends_at'], access_end)
+        row['entry_ends_at'] = min(row['entry_ends_at'], access_end)
+    row['access_starts_at'] = _sx_dt(rules['registration_start_at'])
+    row['needs_entry'] = rules['settings_enforced'] and (rules['show_instructions_before_start'] or rules['identity_verification_required'])
+    row['code'] = exam_access_code(row['id'])
+    row['total_score'] = _exam_score_scale(erd_row('SELECT total_score FROM exams WHERE id = %s', [exam_id])
+                                           if erd_has_column('exams', 'total_score') else None)
+    cover = erd_row('SELECT cover_image_url FROM exams WHERE id = %s', [exam_id]) if erd_has_column('exams', 'cover_image_url') else None
+    row['cover_image_url'] = (cover or {}).get('cover_image_url') or ''  # the wizard's «تصویر کاور»
     return row
 
 
+def _sx_exam_rule_lines(exam) -> list:
+    """The exam's rules in words for its detail and entry pages, from its real settings."""
+    rules = exam['rules']
+    lines = [f"مدت آزمون {exam['duration_minutes']} دقیقه است و پس از شروع، زمان متوقف نمی‌شود."]
+    if exam.get('last_entry_at'):
+        lines.append(f"آخرین زمان ورود به آزمون ساعت {timezone.localtime(exam['entry_ends_at']):%H:%M} است.")
+    if rules['max_attempts'] == 0:
+        lines.append('تعداد دفعات شرکت در این آزمون محدود نیست.')
+    elif rules['max_attempts'] > 1:
+        lines.append(f"می‌توانید حداکثر {rules['max_attempts']} بار در این آزمون شرکت کنید.")
+    lines.append('سؤال‌ها یکی‌یکی نمایش داده می‌شوند.' if rules['one_question_per_page'] else 'همه‌ی سؤال‌ها در یک صفحه نمایش داده می‌شوند.')
+    if not rules['review_answers_enabled']:
+        lines.append('بازگشت به سؤال‌های قبلی ممکن نیست.')
+    if not rules['allow_answer_changes']:
+        lines.append('پاسخ هر سؤال پس از رفتن به سؤال دیگر قابل تغییر نیست.')
+    lines.append('در پایان زمان، پاسخ‌های ذخیره‌شده خودکار ارسال می‌شوند.' if rules['auto_submit_on_time_end']
+                 else 'در پایان زمان، پاسخ‌ها خودکار ارسال نمی‌شوند؛ پیش از تمام شدن زمان «پایان آزمون» را بزنید.')
+    if rules['device_limit_enabled']:
+        lines.append('آزمون در هر لحظه فقط روی یک دستگاه قابل پاسخ‌گویی است.')
+    if rules['fullscreen_required']:
+        lines.append('آزمون در حالت تمام‌صفحه برگزار می‌شود و خروج از آن ثبت می‌شود.')
+    if rules['track_tab_exit']:
+        lines.append('خروج از صفحه‌ی آزمون یا رفتن به تب دیگر برای استاد ثبت می‌شود.')
+    if rules['copy_paste_prevention']:
+        lines.append('کپی و چسباندن متن در صفحه‌ی آزمون مجاز نیست.')
+    if rules['screenshot_prevention']:
+        lines.append('گرفتن تصویر یا چاپ صفحه‌ی آزمون مجاز نیست و تلاش برای آن ثبت می‌شود.')
+    if rules['webcam_monitoring'] or rules['mic_monitoring']:
+        device = 'دوربین و میکروفون' if rules['webcam_monitoring'] and rules['mic_monitoring'] else ('دوربین' if rules['webcam_monitoring'] else 'میکروفون')
+        lines.append(f'{device} باید در تمام مدت آزمون روشن باشد؛ قطع آن برای استاد ثبت می‌شود (چیزی ضبط نمی‌شود).')
+    if rules['ip_restriction_enabled']:
+        lines.append('شرکت در آزمون فقط از شبکه‌ی تعیین‌شده توسط استاد ممکن است.')
+    if rules['identity_verification_required']:
+        lines.append('پیش از شروع، کد ملی یا شماره دانشجویی خود را وارد کنید.')
+    if rules['internet_disconnect_policy'] == 'pause':
+        lines.append('اگر اتصال اینترنت قطع شود، پاسخ‌گویی تا وصل شدن دوباره متوقف می‌شود (زمان آزمون ادامه دارد).')
+    elif rules['internet_disconnect_policy'] == 'resume_from_last_save':
+        lines.append('اگر اتصال اینترنت قطع شود، پاسخ‌ها روی دستگاه شما نگه داشته و پس از اتصال ارسال می‌شوند.')
+    return lines
+
+
 PRACTICE_EXAM_MODE = 'practice'
+TRAINING_EXAM_MODE = 'training'  # «آزمون تمرینی»: a course-style exam whose results are released on grading
 
 
 def _sx_exam_mode_sql(alias='e'):
@@ -17658,6 +18472,140 @@ def _sx_attempt_rows(attempt_id, student_id):
     return rows
 
 
+# The exam wizard's attempt settings, with the value an exam gets when it never set one (older exams and exams made
+# outside the wizard). Those defaults are the behaviour exams had before the settings took effect.
+EXAM_RULE_DEFAULTS = {
+    'review_answers_enabled': True,      # «امکان بازگشت به سوال قبلی»
+    'allow_answer_changes': True,        # «امکان تغییر پاسخ»
+    'one_question_per_page': True,       # «نمایش یک سوال در هر صفحه»
+    'show_question_list': True,          # «نمایش فهرست سوالات»
+    'allow_flagging_questions': True,    # «امکان علامت‌گذاری سوال»
+    'auto_submit_on_time_end': True,     # «ارسال خودکار در پایان زمان»
+    'autosave_enabled': True,            # «ذخیره خودکار پاسخ‌ها»
+    'autosave_interval_seconds': 0,      # 0: save shortly after each change
+    'copy_paste_prevention': False,
+    'screenshot_prevention': False,
+    'webcam_monitoring': False,
+    'mic_monitoring': False,
+    'ip_restriction_enabled': False,
+    'ip_restriction_range': '',
+    'identity_verification_required': False,
+    'device_limit_enabled': True,        # «محدودیت دستگاه»: one device at a time
+    'internet_disconnect_policy': 'none',
+    'show_instructions_before_start': False,
+    'track_tab_exit': False,
+    'fullscreen_required': False,
+    'registration_start_at': None,       # «شروع دسترسی»
+    'registration_end_at': None,         # «پایان دسترسی»
+    'end_at': None,
+    'max_attempts': 1,
+    'exam_mode': 'standard',
+}
+INTERNET_DISCONNECT_POLICIES = {'resume_from_last_save', 'pause', 'none'}
+
+
+# Settings every exam has always honoured, wizard-saved or not.
+ALWAYS_HONOURED_RULES = {'track_tab_exit', 'fullscreen_required', 'end_at', 'max_attempts', 'exam_mode'}
+
+
+def _sx_exam_rules(exam_id) -> dict:
+    """The exam's attempt settings (EXAM_RULE_DEFAULTS for every value the exam does not set).
+
+    Only an exam whose settings were saved through the wizard (settings_enforced) has them applied: the settings
+    columns carry defaults (camera on, …) that every other exam has too, without anyone having chosen them."""
+    present = [column for column in EXAM_RULE_DEFAULTS if erd_has_column('exams', column)]
+    if erd_has_column('exams', 'settings_enforced'):
+        present.append('settings_enforced')
+    row = erd_row(f"SELECT {', '.join(present)} FROM exams WHERE id = %s", [exam_id]) if present else None
+    rules = dict(EXAM_RULE_DEFAULTS)
+    enforced = bool((row or {}).pop('settings_enforced', None)) if row else False
+    rules['settings_enforced'] = enforced
+    for column, value in (row or {}).items():
+        if value is None or (not enforced and column not in ALWAYS_HONOURED_RULES):
+            continue
+        default = EXAM_RULE_DEFAULTS[column]
+        if isinstance(default, bool):
+            rules[column] = value in (True, 1, '1', 'true', 't')
+        elif isinstance(default, int):
+            rules[column] = _em_int(value, default)
+        else:
+            rules[column] = value
+    if rules['internet_disconnect_policy'] not in INTERNET_DISCONNECT_POLICIES:
+        rules['internet_disconnect_policy'] = 'none'
+    rules['autosave_interval_seconds'] = min(max(rules['autosave_interval_seconds'], 0), 300)
+    return rules
+
+
+def _sx_exam_cutoff(end_at, registration_end_at=None):
+    """The moment answering stops for everyone: the exam's end or «پایان دسترسی», whichever comes first."""
+    moments = [moment for moment in (_sx_dt(end_at), _sx_dt(registration_end_at)) if moment]
+    return min(moments) if moments else None
+
+
+def _sx_ip_allowed(request, rules) -> bool:
+    """«محدودیت IP»: the student's address is inside one of the exam's ranges (an invalid range admits no one)."""
+    if not rules.get('ip_restriction_enabled'):
+        return True
+    import ipaddress
+
+    try:
+        address = ipaddress.ip_address(_sx_trusted_client_ip(request))
+    except ValueError:
+        return False
+    return any(address in network for network in _parse_ip_networks(rules.get('ip_restriction_range')))
+
+
+def _sx_trusted_client_ip(request) -> str:
+    """The student's address for an access rule, which must not be forgeable.
+
+    X-Forwarded-For's first entry comes from the browser, so it is not used. Behind the site's nginx (deploy/),
+    the connection comes from a local address and X-Real-IP is set by nginx itself; otherwise the connection's
+    own address is the student's."""
+    import ipaddress
+
+    remote = (request.META.get('REMOTE_ADDR') or '').strip()
+    try:
+        via_local_proxy = ipaddress.ip_address(remote).is_loopback or ipaddress.ip_address(remote).is_private
+    except ValueError:
+        via_local_proxy = False
+    real_ip = (request.META.get('HTTP_X_REAL_IP') or '').strip()
+    return real_ip if via_local_proxy and real_ip else remote
+
+
+PAGE_RULE_KEYS = (
+    'review_answers_enabled', 'allow_answer_changes', 'one_question_per_page', 'show_question_list', 'allow_flagging_questions',
+    'auto_submit_on_time_end', 'autosave_enabled', 'autosave_interval_seconds', 'copy_paste_prevention', 'screenshot_prevention',
+    'webcam_monitoring', 'mic_monitoring', 'ip_restriction_enabled', 'device_limit_enabled', 'internet_disconnect_policy',
+)
+
+
+def _sx_attempt_page_rules(attempt_id, student_id, exam_id) -> dict:
+    """The exam's rules for its attempt page. A practice attempt keeps the practice section's own behaviour
+    (one question per page, free navigation, its own connection handling), whatever the wizard said."""
+    from . import student_practice as practice
+
+    rules = _sx_exam_rules(exam_id)
+    if practice.attempt_practice_mode(attempt_id, student_id):
+        rules.update({key: EXAM_RULE_DEFAULTS[key] for key in PAGE_RULE_KEYS})
+        rules['is_practice'] = True
+    if not rules['review_answers_enabled']:
+        rules['one_question_per_page'] = True  # forward-only needs the questions one at a time
+    return rules
+
+
+def _sx_furthest_question(attempt_id) -> int:
+    if not erd_has_column('exam_attempts', 'furthest_question'):
+        return 1
+    row = erd_row('SELECT furthest_question FROM exam_attempts WHERE id = %s', [attempt_id])
+    return max(_em_int((row or {}).get('furthest_question'), 1), 1)
+
+
+def _sx_set_furthest_question(attempt_id, index) -> None:
+    if erd_has_column('exam_attempts', 'furthest_question'):
+        erd_execute('UPDATE exam_attempts SET furthest_question = %s WHERE id = %s AND COALESCE(furthest_question, 1) < %s',
+                    [index, attempt_id, index])
+
+
 def _sx_answer_dashboard(items, current_index):
     total = len(items)
     answered = sum(1 for item in items if item.get('answered'))
@@ -17693,8 +18641,8 @@ def _sx_attempt_accepts_answers(attempt_id):
     """
     attempt = erd_row(
         """
-        SELECT ea.submitted_at, ea.status, ea.started_at, COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at,
-               COALESCE(e.is_cancelled, false) AS is_cancelled
+        SELECT ea.submitted_at, ea.status, ea.started_at, ea.exam_id, COALESCE(e.duration_minutes, 90) AS duration_minutes,
+               e.end_at, COALESCE(e.is_cancelled, false) AS is_cancelled
         FROM exam_attempts ea
         JOIN exams e ON e.id = ea.exam_id
         WHERE ea.id = %s
@@ -17708,15 +18656,21 @@ def _sx_attempt_accepts_answers(attempt_id):
     started_at = _sx_dt(attempt.get('started_at'))
     if not started_at:
         return True
-    deadline = _sx_attempt_ends_at(started_at, attempt.get('duration_minutes'), attempt.get('end_at')) + timedelta(seconds=ATTEMPT_GRACE_SECONDS)
+    rules = _sx_exam_rules(attempt['exam_id'])
+    cutoff = _sx_exam_cutoff(attempt.get('end_at'), rules['registration_end_at'])
+    deadline = _sx_attempt_ends_at(started_at, attempt.get('duration_minutes'), cutoff) + timedelta(seconds=ATTEMPT_GRACE_SECONDS)
     return timezone.now() <= deadline
 
 
 def _sx_attempt_device(request, attempt_id) -> str:
     """'ok' when this browser session may work the attempt (binding a not-yet-bound attempt to it), else 'other'.
 
-    One attempt is answered from one device: another session must take it over explicitly (_sx_take_over_attempt)."""
+    One attempt is answered from one device: another session must take it over explicitly (_sx_take_over_attempt).
+    The exam's «محدودیت دستگاه» off lets any of the student's sessions work it."""
     if not erd_has_column('exam_attempts', 'active_session_key'):
+        return 'ok'
+    attempt = erd_row('SELECT exam_id FROM exam_attempts WHERE id = %s', [attempt_id])
+    if attempt and not _sx_exam_rules(attempt['exam_id'])['device_limit_enabled']:
         return 'ok'
     if not request.session.session_key:
         request.session.save()
@@ -17735,13 +18689,33 @@ def _sx_take_over_attempt(request, attempt_id):
 
 
 def _sx_locked_question_ids(attempt_id) -> set:
-    """Questions whose practice-tutorial feedback the student has seen; their answers no longer change."""
-    if not erd_has_column('attempt_answers', 'feedback_shown_at'):
+    """Questions whose answer no longer changes: practice-tutorial feedback was shown, or the exam's
+    «امکان تغییر پاسخ» is off and the student left the answered question (locked_at)."""
+    conditions = [f'{column} IS NOT NULL' for column in ('feedback_shown_at', 'locked_at') if erd_has_column('attempt_answers', column)]
+    if not conditions:
         return set()
     return {
         str(row['question_id'])
-        for row in erd_rows('SELECT question_id FROM attempt_answers WHERE attempt_id = %s AND feedback_shown_at IS NOT NULL', [attempt_id])
+        for row in erd_rows(f"SELECT question_id FROM attempt_answers WHERE attempt_id = %s AND ({' OR '.join(conditions)})", [attempt_id])
     }
+
+
+def _sx_lock_answers(attempt_id, question_ids) -> None:
+    """«امکان تغییر پاسخ» off: answered questions among question_ids keep their answer from now on."""
+    question_ids = [str(item) for item in question_ids if item]
+    if not question_ids or not erd_has_column('attempt_answers', 'locked_at'):
+        return
+    files = ', answer_files' if erd_has_column('attempt_answers', 'answer_files') else ''
+    rows = erd_rows(
+        f"""
+        SELECT id, answer{files} FROM attempt_answers
+        WHERE attempt_id = %s AND locked_at IS NULL AND question_id IN ({', '.join(['%s'] * len(question_ids))})
+        """,
+        [attempt_id, *question_ids],
+    )
+    answered = [row['id'] for row in rows if _sx_result_values(row.get('answer')) or _sx_answer_files(row.get('answer_files'))]
+    for answer_id in answered:
+        erd_execute('UPDATE attempt_answers SET locked_at = %s WHERE id = %s', [timezone.now(), answer_id])
 
 
 ANSWER_TEXT_MAX = 50000  # characters per posted answer value; a long essay fits, a flood does not
@@ -17757,6 +18731,8 @@ def _sx_save_attempt_answers(request, attempt_id):
     """
     if not _sx_attempt_accepts_answers(attempt_id):
         return 0
+    attempt = erd_row('SELECT exam_id FROM exam_attempts WHERE id = %s', [attempt_id]) or {}
+    rules = _sx_exam_rules(attempt['exam_id']) if attempt else dict(EXAM_RULE_DEFAULTS)
     locked = _sx_locked_question_ids(attempt_id)
     allowed_questions = {
         str(row['question_id']): row
@@ -17785,7 +18761,8 @@ def _sx_save_attempt_answers(request, attempt_id):
         if question.get('type') in ('ordering', 'matching') and key in request.POST:
             answer_value = _sx_decode_item_answer(question['type'], question, attempt_id, values[0] if values else '')
         answer = json.dumps({'value': answer_value}, ensure_ascii=False)
-        marked = bool(request.POST.get(f'mark_{question_id}'))
+        # «امکان علامت‌گذاری سوال» off: the review mark is not offered, and none is stored.
+        marked = bool(request.POST.get(f'mark_{question_id}')) and rules['allow_flagging_questions']
         existing = erd_row(
             'SELECT id FROM attempt_answers WHERE attempt_id = %s AND question_id = %s LIMIT 1',
             [attempt_id, question_id],
@@ -17818,6 +18795,10 @@ def _sx_save_attempt_answers(request, attempt_id):
                 params.append(marked)
             erd_execute(f'INSERT INTO attempt_answers ({columns}) VALUES ({placeholders})', params)
         saved += 1
+    if not rules['allow_answer_changes']:
+        # The page posts lock_<id> when the student leaves an answered question (moving on, or leaving its field).
+        _sx_lock_answers(attempt_id, [key[len('lock_'):] for key in request.POST if key.startswith('lock_')
+                                      and key[len('lock_'):] in allowed_questions])
     return saved
 
 
@@ -17955,6 +18936,149 @@ def student_settings(request):
     return render(request, 'student/settings/page.html', context)
 
 
+EXAM_CODE_PREFIX = 'MQ-'
+EXAM_JOIN_LOGIN_KEY = 'exam_join_login_for'  # the code a guest was sent to sign in for
+EXAM_CODE_LENGTH = 6
+# The same keys on the Persian layout: پ=M ض=Q ش=A ذ=B ز=C ی/ي=D ث=E ب=F.
+_EXAM_CODE_FA_KEYS = str.maketrans({'پ': 'M', 'ض': 'Q', 'ش': 'A', 'ذ': 'B', 'ز': 'C', 'ی': 'D', 'ي': 'D', 'ث': 'E', 'ب': 'F'})
+
+
+def exam_access_code(exam_id) -> str:
+    """«کد آزمون»: what the teacher gives students to join from the home page (MQ- and the id's first six hex digits)."""
+    return f"{EXAM_CODE_PREFIX}{str(exam_id or '').replace('-', '')[:EXAM_CODE_LENGTH].upper()}"
+
+
+def _normalize_exam_code(value) -> str:
+    """The six hex digits of a typed code («mq-1a2b3c», «۱A2B3C», «MQ 1A2B3C»), or '' when it is not one."""
+    text = str(value or '').translate(_EXAM_CODE_FA_KEYS)  # typed with the Persian keyboard layout
+    text = _normalize_answer_text(text, persian=True).upper()
+    text = re.sub(r'[\s\-_‌]+', '', text)
+    if text.startswith(EXAM_CODE_PREFIX.rstrip('-')):
+        text = text[len(EXAM_CODE_PREFIX) - 1:]
+    return text.lower() if re.fullmatch(r'[0-9A-F]{%d}' % EXAM_CODE_LENGTH, text) else ''
+
+
+RECEIPT_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'  # matches migration 0058: no 0/O or 1/I to mix up
+RECEIPT_RANDOM_LENGTH = 6
+
+
+def attempt_receipt_code(attempt_id) -> str:
+    """«شناسه رسید» of a submitted attempt: «کد آزمون» and six random characters (MQ-1A2B3C-7KQ4RZ).
+
+    Given once, on submission, and kept; the unique index (migration 0058) makes it one attempt's only.
+    An attempt not submitted has none."""
+    if not erd_has_column('exam_attempts', 'receipt_code'):
+        return ''
+    row = erd_row('SELECT exam_id, receipt_code, submitted_at FROM exam_attempts WHERE id = %s', [attempt_id])
+    if not row or row.get('receipt_code') or not row.get('submitted_at'):
+        return (row or {}).get('receipt_code') or ''
+    for _ in range(10):
+        code = f"{exam_access_code(row['exam_id'])}-{''.join(secrets.choice(RECEIPT_ALPHABET) for _ in range(RECEIPT_RANDOM_LENGTH))}"
+        try:
+            with transaction.atomic():
+                erd_execute('UPDATE exam_attempts SET receipt_code = %s WHERE id = %s AND receipt_code IS NULL', [code, attempt_id])
+            break
+        except IntegrityError:  # taken by another attempt: draw again
+            continue
+    return (erd_row('SELECT receipt_code FROM exam_attempts WHERE id = %s', [attempt_id]) or {}).get('receipt_code') or ''
+
+
+def normalize_receipt_code(value) -> str:
+    """A typed receipt id («mq-1a2b3c-7kq4rz», Persian digits, spaces) as stored, or '' when it is not one."""
+    text = re.sub(r'[\s\-_‌]+', '', _normalize_answer_text(str(value or ''), persian=True).upper())
+    if text.startswith('MQ'):
+        text = text[2:]
+    pattern = r'([0-9A-F]{%d})([%s]{%d})' % (EXAM_CODE_LENGTH, RECEIPT_ALPHABET, RECEIPT_RANDOM_LENGTH)
+    match = re.fullmatch(pattern, text)
+    return f'{EXAM_CODE_PREFIX}{match.group(1)}-{match.group(2)}' if match else ''
+
+
+def _exam_ids_for_code(code) -> list:
+    """Every exam whose «کد آزمون» this is (two exams may share the six digits; callers keep the one the user may reach)."""
+    return [str(row['id']) for row in erd_rows(
+        "SELECT id FROM exams WHERE LOWER(REPLACE(CAST(id AS TEXT), '-', '')) LIKE %s", [f'{code}%'])]
+
+
+def _exam_for_code(code, student_id):
+    """The exam with this code that the student may take (published, not cancelled, in its audience), else None."""
+    for exam_id in _exam_ids_for_code(code):
+        if erd_row('SELECT 1 AS ok FROM exams WHERE id = %s AND COALESCE(is_cancelled, false) = false', [exam_id]):
+            exam = _sx_exam_row(exam_id, student_id)
+            if exam:
+                return exam
+    return None
+
+
+def _exam_code_staff_page(request, role, code):
+    """Where a teacher, academic manager or admin lands with an exam code: that exam in their own panel, or None
+    when no exam with this code is theirs (a teacher's own or one they are staff on; a manager's units; any for admin)."""
+    for exam_id in _exam_ids_for_code(code):
+        if role == 'teacher':
+            if not _teacher_owned_exam(request.erd_profile_id, exam_id, staff=True):
+                continue
+            exam = erd_row('SELECT id, lifecycle_status, is_published, is_cancelled, start_at, end_at FROM exams WHERE id = %s', [exam_id])
+            if erd_row('SELECT 1 AS ok FROM exams WHERE id = %s AND teacher_id = %s', [exam_id, request.erd_profile_id])                     and _teacher_exam_editable(exam):
+                return reverse('core:teacher_exam_edit', args=[exam_id])
+            now = timezone.now()
+            start, end = erd_datetime(exam.get('start_at')), erd_datetime(exam.get('end_at'))
+            running = bool(exam.get('is_published')) and start and start <= now and (not end or now <= end)
+            return f"{reverse('core:teacher_monitoring' if running else 'core:teacher_results')}?{urlencode({'exam': exam_id})}"
+        if role in ('academic_manager', 'admin') and _erd_exam_in_manager_scope(request, exam_id):
+            return reverse('core:super_admin_exam_detail', args=[exam_id])
+    return None
+
+
+def exam_join(request):
+    """«ورود با کد آزمون» on the home page: sign in if needed, then straight to that exam: a student to its entry
+    page, a teacher / academic manager / admin to the exam in their own panel (_exam_code_staff_page).
+
+    The entry page then handles every moment of the exam: not open yet (countdown), rules and identity,
+    resuming an attempt, entry time over, or the receipt when no attempt is left."""
+    raw = (request.POST.get('code') or request.GET.get('code') or '').strip()[:40]
+    code = _normalize_exam_code(raw)
+
+    def back(reason):  # the error is shown in the home page's code box, which the page scrolls to
+        return redirect(f"{reverse('core:home')}?{urlencode({'join': reason, 'code': raw[:20]})}#join")
+
+    if not code:
+        return back('invalid' if raw else 'missing')
+    display = f'{EXAM_CODE_PREFIX}{code.upper()}'
+    if not request.user.is_authenticated:
+        # A code no exam has is refused here, before asking anyone to sign in.
+        if not any(erd_row('SELECT 1 AS ok FROM exams WHERE id = %s AND COALESCE(is_cancelled, false) = false', [exam_id])
+                   for exam_id in _exam_ids_for_code(code)):
+            return back('no_exam')
+        request.session[EXAM_JOIN_LOGIN_KEY] = display  # this sign-in is only for the code (undone below if it fails)
+        query = urlencode({'next': f"{reverse('core:exam_join')}?{urlencode({'code': display})}", 'code': display})
+        return redirect(f"{reverse('core:login')}?{query}")
+    signed_in_for_code = request.session.pop(EXAM_JOIN_LOGIN_KEY, None) == display
+
+    def refuse(reason):
+        """The code does not lead this account anywhere: a sign-in made just for it is undone, so the next try
+        asks for an account again."""
+        if signed_in_for_code:
+            logout(request)
+        return back(reason)
+
+    role = erd_primary_role(request.user)
+    profile = erd_profile_for_user(request.user)
+    if not profile or role not in ('student', 'teacher', 'academic_manager', 'admin'):
+        return refuse('role')
+    if role != 'student':  # staff open the exam in their own panel; the panel pages check access again
+        request.erd_profile, request.erd_profile_id, request.erd_role = profile, profile['id'], role
+        page = _exam_code_staff_page(request, role, code)
+        return redirect(page) if page else refuse('not_found_staff')
+    exam = _exam_for_code(code, profile['id'])
+    if not exam:
+        return refuse('not_found')
+    if practice_redirect := _sx_practice_exam_redirect(exam):
+        return practice_redirect
+    attempt = _sx_attempt_for_exam(exam['id'], profile['id'])
+    if attempt and attempt.get('status') == 'in_progress' and attempt.get('started_at') and not attempt.get('submitted_at'):
+        return redirect('core:student_attempt', attempt_id=attempt['id'])
+    return redirect('core:student_exam_entry', exam_id=exam['id'])
+
+
 def _sx_practice_exam_redirect(exam):
     """Practice exams run through their own section (several attempts, a chosen mode), never the course-exam flow."""
     if exam.get('exam_mode') == PRACTICE_EXAM_MODE:
@@ -17962,6 +19086,60 @@ def _sx_practice_exam_redirect(exam):
     return None
 
 
+def _sx_attempt_count(exam_id, student_id) -> int:
+    """Attempts of a course exam that are used up: submitted, or closed because their time ran out."""
+    return erd_count('exam_attempts', "exam_id = %s AND student_id = %s AND (submitted_at IS NOT NULL OR status = 'expired')",
+                     [exam_id, student_id])
+
+
+def _sx_attempts_left(exam, student_id) -> bool:
+    """«تعداد تلاش مجاز» (0: unlimited) leaves room for a new attempt."""
+    limit = exam['rules']['max_attempts']
+    return limit == 0 or _sx_attempt_count(exam['id'], student_id) < max(limit, 1)
+
+
+def _sx_entry_key(exam_id) -> str:
+    return f'exam_entry_ok_{exam_id}'
+
+
+def _sx_identity_matches(request, code) -> bool:
+    """«احراز هویت داوطلب»: the code is the student's own national id or student number (Persian digits allowed)."""
+    code = _normalize_answer_text(code or '', persian=True).replace(' ', '')
+    if not code:
+        return False
+    row = erd_row(
+        """
+        SELECT p.national_id, sp.student_number, p.identifier
+        FROM profiles p LEFT JOIN student_profiles sp ON sp.user_id = p.id WHERE p.id = %s
+        """,
+        [request.erd_profile_id],
+    ) or {}
+    known = {_normalize_answer_text(str(value), persian=True).replace(' ', '') for value in row.values() if value}
+    return code in known
+
+
+def _sx_entry_context(request, exam, attempt):
+    """What the detail and entry pages show about entering: the window, rules, attempts and the IP rule."""
+    now = timezone.now()
+    access_starts_at = exam.get('access_starts_at')
+    resuming = bool(attempt and attempt.get('status') == 'in_progress' and not attempt.get('submitted_at'))
+    used_up = bool(attempt) and not resuming and not _sx_attempts_left(exam, request.erd_profile_id)
+    return {
+        'can_enter': (exam['starts_at'] <= now <= exam['entry_ends_at'] or resuming) and not used_up,
+        'entry_expired': now > exam['entry_ends_at'] and not resuming,
+        'access_not_open': bool(access_starts_at and now < access_starts_at),
+        'access_starts_at': access_starts_at,
+        'seconds_until_start': max(0, int((exam['starts_at'] - now).total_seconds())),
+        'question_count': exam['question_count'],
+        'rule_lines': _sx_exam_rule_lines(exam),
+        'attempts_used': _sx_attempt_count(exam['id'], request.erd_profile_id),
+        'attempts_limit': exam['rules']['max_attempts'],
+        'attempts_used_up': used_up,
+        'ip_blocked': not _sx_ip_allowed(request, exam['rules']),
+    }
+
+
+@never_cache
 @erd_role_required('student')
 def student_exam_detail(request, exam_id):
     exam = _sx_exam_row(exam_id, request.erd_profile_id)
@@ -17970,18 +19148,15 @@ def student_exam_detail(request, exam_id):
     if practice_redirect := _sx_practice_exam_redirect(exam):
         return practice_redirect
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
-    now = timezone.now()
     return render(request, 'student/exam_detail.html', {
         'student': _sx_student_context(request),
         'exam': exam,
         'attempt': attempt,
-        'can_enter': exam['starts_at'] <= now <= exam['entry_ends_at'],
-        'entry_expired': now > exam['entry_ends_at'],
-        'seconds_until_start': max(0, int((exam['starts_at'] - now).total_seconds())),
-        'question_count': exam['question_count'],
+        **_sx_entry_context(request, exam, attempt),
     })
 
 
+@never_cache
 @erd_role_required('student')
 def student_exam_entry(request, exam_id):
     exam = _sx_exam_row(exam_id, request.erd_profile_id)
@@ -17990,20 +19165,32 @@ def student_exam_entry(request, exam_id):
     if practice_redirect := _sx_practice_exam_redirect(exam):
         return practice_redirect
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
-    if attempt and attempt.get('submitted_at'):
+    entry = _sx_entry_context(request, exam, attempt)
+    if attempt and attempt.get('submitted_at') and entry['attempts_used_up']:
         return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
+    rules = exam['rules']
     entry_error = ''
     if request.method == 'POST':
-        if not request.POST.get('accept_rules'):
+        if entry['access_not_open']:
+            entry_error = 'ورود به این آزمون هنوز باز نشده است.'
+        elif entry['ip_blocked']:
+            entry_error = 'شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست.'
+        elif not request.POST.get('accept_rules'):
             entry_error = 'برای ادامه باید قوانین آزمون را بپذیرید.'
+        elif rules['settings_enforced'] and rules['identity_verification_required'] and not _sx_identity_matches(request, request.POST.get('identity_code')):
+            entry_error = 'کد ملی یا شماره دانشجویی واردشده با اطلاعات شما مطابقت ندارد.'
         else:
+            request.session[_sx_entry_key(exam_id)] = True
             return redirect(f"{reverse('core:student_exam_entry', args=[exam_id])}?ready=1")
     return render(request, 'student/exam_entry.html', {
         'student': _sx_student_context(request),
         'exam': exam,
-        'can_start': bool(request.GET.get('ready') or (attempt and attempt.get('status') in {'ready', 'in_progress'})),
+        # The entry step passed in this session (not just ?ready=1 in the address), or an attempt to resume.
+        'can_start': bool(request.session.get(_sx_entry_key(exam_id)) or (attempt and attempt.get('status') == 'in_progress')),
         'entry_error': entry_error,
         'identity_code': request.POST.get('identity_code', ''),
+        'needs_identity': rules['settings_enforced'] and rules['identity_verification_required'],
+        **entry,
     })
 
 
@@ -18014,22 +19201,35 @@ def student_exam_start(request, exam_id):
         raise Http404('آزمون پیدا نشد.')
     if practice_redirect := _sx_practice_exam_redirect(exam):
         return practice_redirect
+    if request.method != 'POST':  # an attempt is created only by the entry page's button
+        return redirect('core:student_exam_detail', exam_id=exam_id)
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
-    if attempt and attempt.get('submitted_at'):
-        return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
     # A started attempt may be resumed (its own time limit applies); a new start must fall inside the exam window.
-    resuming = bool(attempt and attempt.get('started_at') and attempt.get('status') == 'in_progress')
+    resuming = bool(attempt and attempt.get('started_at') and attempt.get('status') == 'in_progress' and not attempt.get('submitted_at'))
+    if not resuming and attempt and not _sx_attempts_left(exam, request.erd_profile_id):
+        if attempt.get('submitted_at'):
+            return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
+        messages.error(request, 'فرصت شرکت شما در این آزمون تمام شده است.')
+        return redirect('core:student_exam_detail', exam_id=exam_id)
+    if not _sx_ip_allowed(request, exam['rules']):
+        messages.error(request, 'شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست.')
+        return redirect('core:student_exam_detail', exam_id=exam_id)
     now = timezone.now()
     if not resuming and not exam['starts_at'] <= now <= exam['entry_ends_at']:
         messages.error(request, 'آزمون هنوز شروع نشده است.' if now < exam['starts_at'] else 'زمان ورود به این آزمون به پایان رسیده است.')
         return redirect('core:student_exam_detail', exam_id=exam_id)
-    if not attempt:
+    if not resuming and exam['needs_entry'] and not request.session.get(_sx_entry_key(exam_id)):
+        messages.error(request, 'ابتدا قوانین آزمون را بپذیرید' + (' و هویت خود را تأیید کنید.' if exam['rules']['identity_verification_required'] else '.'))
+        return redirect('core:student_exam_entry', exam_id=exam_id)
+    if not resuming:
         with transaction.atomic():
             # Two quick starts must not both insert: lock the student's profile row and look again (as practice starts do).
             if connection.vendor == 'postgresql':
                 erd_row('SELECT id FROM profiles WHERE id = %s FOR UPDATE', [request.erd_profile_id])
-            attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
-            if not attempt:
+            latest = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
+            if latest and latest.get('status') == 'in_progress' and not latest.get('submitted_at'):
+                attempt = latest
+            elif not latest or _sx_attempts_left(exam, request.erd_profile_id):
                 attempt_id = str(uuid.uuid4())
                 erd_execute(
                     """
@@ -18038,17 +19238,18 @@ def student_exam_start(request, exam_id):
                     """,
                     [attempt_id, exam_id, request.erd_profile_id, timezone.now(), 'in_progress'],
                 )
-    if attempt and attempt.get('submitted_at'):
-        return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
-    if attempt:
-        attempt_id = attempt['id']
-        erd_execute(
-            "UPDATE exam_attempts SET status = %s, started_at = COALESCE(started_at, %s) WHERE id = %s",
-            ['in_progress', timezone.now(), attempt_id],
-        )
-    return redirect('core:student_attempt', attempt_id=attempt_id)
+                attempt = {'id': attempt_id}
+            else:
+                return redirect('core:student_attempt_receipt', attempt_id=latest['id'])
+        request.session.pop(_sx_entry_key(exam_id), None)  # each attempt passes the entry step again
+    erd_execute(
+        "UPDATE exam_attempts SET status = %s, started_at = COALESCE(started_at, %s) WHERE id = %s",
+        ['in_progress', timezone.now(), attempt['id']],
+    )
+    return redirect('core:student_attempt', attempt_id=attempt['id'])
 
 
+@never_cache
 @erd_role_required('student')
 def student_attempt(request, attempt_id):
     rows = _sx_attempt_rows(attempt_id, request.erd_profile_id)
@@ -18056,6 +19257,15 @@ def student_attempt(request, attempt_id):
         raise Http404('تلاش آزمون پیدا نشد.')
     current_index = min(max(1, _em_int(request.GET.get('q'), 1)), len(rows))
     is_xhr = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    finished = rows[0].get('submitted_at') or (rows[0].get('status') or 'in_progress') not in ('in_progress', '')
+    if finished and request.method == 'GET' and not is_xhr:
+        return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
+    rules = _sx_attempt_page_rules(attempt_id, request.erd_profile_id, rows[0]['exam_id'])
+    if not rows[0].get('submitted_at') and not _sx_ip_allowed(request, rules):
+        if is_xhr:
+            return JsonResponse({'ok': False, 'error': 'شرکت در این آزمون از این شبکه مجاز نیست.'}, status=403)
+        return render(request, 'student/attempt_device.html', {
+            'exam_title': rows[0].get('exam_title') or 'آزمون', 'ip_blocked': True}, status=403)
     if not rows[0].get('submitted_at'):
         if request.method == 'POST' and request.POST.get('action') == 'take_over':
             _sx_take_over_attempt(request, attempt_id)
@@ -18078,7 +19288,7 @@ def student_attempt(request, attempt_id):
             messages.error(request, error)
         if is_xhr:
             return JsonResponse({'ok': True})
-        action = request.POST.get('action')
+        action = request.POST.get('action') or ('goto' if request.POST.get('goto') else None)
         if action == 'feedback':
             from . import student_practice as practice
 
@@ -18088,12 +19298,33 @@ def student_attempt(request, attempt_id):
                     messages.error(request, error)
         if action == 'finish':
             # «پایان آزمون» submits the answer form, so the answer on screen is saved before the confirmation page.
+            if not rules['allow_answer_changes']:
+                _sx_lock_answers(attempt_id, [rows[current_index - 1]['question_id']])
             return redirect('core:student_attempt_submit', attempt_id=attempt_id)
+        target = current_index
         if action == 'previous':
-            current_index = max(1, current_index - 1)
+            target = max(1, current_index - 1)
         elif action == 'next':
-            current_index = min(len(rows), current_index + 1)
-        return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={current_index}")
+            target = min(len(rows), current_index + 1)
+        elif action == 'goto':  # a «فهرست سؤالات» cell: saved first, then opened
+            target = min(max(1, _em_int(request.POST.get('goto'), current_index)), len(rows))
+        if target != current_index and not rules['allow_answer_changes']:
+            _sx_lock_answers(attempt_id, [rows[current_index - 1]['question_id']])  # leaving an answered question
+        if not rules['review_answers_enabled']:
+            # «امکان بازگشت به سوال قبلی» off: only forward, one question at a time.
+            furthest = _sx_furthest_question(attempt_id)
+            target = furthest + 1 if action == 'next' and current_index >= furthest else furthest
+            target = min(max(target, 1), len(rows))
+            _sx_set_furthest_question(attempt_id, target)
+        return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={target}")
+    if not rules['review_answers_enabled'] and not rows[0].get('submitted_at'):
+        furthest = min(max(_sx_furthest_question(attempt_id), 1), len(rows))
+        if current_index != furthest:
+            return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={furthest}")
+    if not rules['allow_answer_changes'] and rules['one_question_per_page'] and not rows[0].get('submitted_at'):
+        # Answered questions other than the one on screen were left behind (e.g. through the question list).
+        _sx_lock_answers(attempt_id, [row['question_id'] for index, row in enumerate(rows, start=1) if index != current_index])
+    locked_ids = _sx_locked_question_ids(attempt_id) if not rules['allow_answer_changes'] else set()
     items = []
     for index, row in enumerate(rows, start=1):
         kind = row.get('type') or 'single'
@@ -18127,6 +19358,7 @@ def student_attempt(request, attempt_id):
             random.Random(f"{attempt_id}-{row['question_id']}").shuffle(item['options'])
         if kind == 'multi':
             item['max_select'] = int(_sx_float(settings_data.get('max_correct'), 0))
+            item['min_select'] = int(_sx_float(settings_data.get('min_correct'), 1))
         if kind == 'ordering':
             item['ordering_items'] = _sx_ordering_display_items(row.get('ordering_items'), row['question_id'], attempt_id)
             item['answer'] = _sx_encode_item_answer(kind, row, attempt_id, answer)
@@ -18163,11 +19395,13 @@ def student_attempt(request, attempt_id):
                 kind: {'accept': ','.join(f'.{ext}' for ext in sorted(rule[0])), 'mb': rule[1] // (1024 * 1024)}
                 for kind, rule in ANSWER_FILE_RULES.items() if kind in item['answer_formats']
             }
+        item['locked'] = str(row['question_id']) in locked_ids  # «امکان تغییر پاسخ» off and already left
         items.append(item)
     current_answer = items[current_index - 1]
     first = rows[0]
     started_at = _sx_dt(first.get('started_at')) or timezone.now()
-    remaining_seconds = max(0, int((_sx_attempt_ends_at(started_at, first.get('duration_minutes'), first.get('exam_end_at')) - timezone.now()).total_seconds()))
+    cutoff = _sx_exam_cutoff(first.get('exam_end_at'), rules['registration_end_at'])
+    remaining_seconds = max(0, int((_sx_attempt_ends_at(started_at, first.get('duration_minutes'), cutoff) - timezone.now()).total_seconds()))
     answered_count = sum(1 for item in items if item['answered'])
     attempt = {
         'pk': attempt_id,
@@ -18184,9 +19418,24 @@ def student_attempt(request, attempt_id):
         'attempt_map': _sx_answer_dashboard(items, current_index),
         'remaining_seconds': remaining_seconds,
         'practice': practice_context,
-        # The exam's «هشدار تعویض تب» / «اجبار تمام‌صفحه»; practice attempts are not proctored.
+        # The exam's security settings (step 6 of the wizard); practice attempts are not proctored.
         'proctoring': None if practice_context else {
             'track': bool(first.get('exam_track_tab_exit')), 'fullscreen': bool(first.get('exam_fullscreen_required')),
+            'copy_paste': rules['copy_paste_prevention'], 'screenshot': rules['screenshot_prevention'],
+            'webcam': rules['webcam_monitoring'], 'mic': rules['mic_monitoring'],
+        },
+        # The exam's attempt rules (step 2 and «ذخیره خودکار» / «قطع شدن اینترنت» of step 6).
+        'items': items,
+        'page_rules': {
+            'one_per_page': rules['one_question_per_page'],
+            'show_list': rules['show_question_list'],
+            'flagging': rules['allow_flagging_questions'],
+            'back': rules['review_answers_enabled'],
+            'lock_on_leave': not rules['allow_answer_changes'],
+            'auto_submit': rules['auto_submit_on_time_end'],
+            'autosave': rules['autosave_enabled'],
+            'autosave_seconds': rules['autosave_interval_seconds'],
+            'offline': rules['internet_disconnect_policy'],
         },
     })
 
@@ -18215,6 +19464,7 @@ def _sx_practice_attempt_context(attempt_id, student_id, current_answer):
     }
 
 
+@never_cache
 @erd_role_required('student')
 def student_attempt_submit(request, attempt_id):
     rows = _sx_attempt_rows(attempt_id, request.erd_profile_id)
@@ -18222,6 +19472,18 @@ def student_attempt_submit(request, attempt_id):
         raise Http404('تلاش آزمون پیدا نشد.')
     if request.method == 'POST' and not rows[0].get('submitted_at') and _sx_attempt_device(request, attempt_id) == 'other':
         return redirect('core:student_attempt', attempt_id=attempt_id)  # shows the take-over screen; nothing is submitted
+    rules = _sx_attempt_page_rules(attempt_id, request.erd_profile_id, rows[0]['exam_id'])
+    open_attempt = not rows[0].get('submitted_at') and (rows[0].get('status') or 'in_progress') == 'in_progress'
+    if open_attempt and not rules['auto_submit_on_time_end'] and not _sx_attempt_accepts_answers(attempt_id):
+        # «ارسال خودکار در پایان زمان» off: an attempt not submitted in time is closed, not submitted.
+        erd_execute("UPDATE exam_attempts SET status = 'expired' WHERE id = %s AND submitted_at IS NULL", [attempt_id])
+        rows[0]['status'] = 'expired'
+    if rows[0].get('status') == 'expired' and not rows[0].get('submitted_at'):
+        messages.error(request, 'زمان آزمون به پایان رسید و چون آزمون پیش از آن ارسال نشد، پاسخ‌ها ثبت نشد (ارسال خودکار در این آزمون غیرفعال است).')
+        return redirect('core:student_exam_detail', exam_id=rows[0]['exam_id'])
+    if request.method == 'POST' and open_attempt and not _sx_ip_allowed(request, rules):
+        messages.error(request, 'شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست؛ آزمون ارسال نشد.')
+        return redirect('core:student_attempt', attempt_id=attempt_id)
     if request.method == 'POST':
         _sx_save_attempt_answers(request, attempt_id)
         if not erd_row('SELECT submitted_at FROM exam_attempts WHERE id = %s AND submitted_at IS NOT NULL', [attempt_id]):
@@ -18232,6 +19494,7 @@ def student_attempt_submit(request, attempt_id):
                 logger.exception('Grading attempt %s failed; saved as submitted without a score.', attempt_id)
                 result = {'grading_failed': True}
                 erd_execute('UPDATE exam_attempts SET submitted_at = %s, status = %s WHERE id = %s', [timezone.now(), 'submitted', attempt_id])
+                attempt_receipt_code(attempt_id)
             log_activity(request.user, 'exam_submitted', 'دانشجو آزمون را ارسال کرد.', request, {'attempt_id': attempt_id, **result})
         return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
     from . import student_practice as practice
@@ -18263,6 +19526,7 @@ def student_attempt_submit(request, attempt_id):
     })
 
 
+@never_cache
 @erd_role_required('student')
 def student_attempt_receipt(request, attempt_id):
     row = erd_row(
@@ -18294,7 +19558,7 @@ def student_attempt_receipt(request, attempt_id):
         'id': attempt_id,
         'exam': {'title': row.get('exam_title') or 'آزمون'},
         'submitted_at': row.get('submitted_at'),
-        'receipt_code': f"MQ-1405-027-{str(attempt_id)[:4].upper()}",
+        'receipt_code': attempt_receipt_code(attempt_id),
     }
     answer_rows = _sx_attempt_rows(attempt_id, request.erd_profile_id)
     items = [
@@ -18326,12 +19590,18 @@ def _sx_jalali(value):
     dt = _sx_dt(value)
     if not dt:
         return '-'
+    dt = timezone.localtime(dt)  # the day in Tehran, not in UTC
     try:
-        from .templatetags.core_extras import _gregorian_to_jalali
-        jy, jm, jd = _gregorian_to_jalali(dt.year, dt.month, dt.day)
+        from .templatetags.core_extras import display_date_parts
+        jy, jm, jd, _months = display_date_parts(dt.year, dt.month, dt.day)
         return f'{jy:04d}/{jm:02d}/{jd:02d}'
     except Exception:
         return dt.strftime('%Y/%m/%d')
+
+
+def _to_jalali(value):
+    from .templatetags.core_extras import to_jalali
+    return to_jalali(value)
 
 
 def _sx_percent(score, max_score):
@@ -18347,6 +19617,8 @@ RESULT_RELEASE_COLUMNS = (
     'score_display_mode', 'correct_answer_display_mode', 'explanation_display_mode',
     'show_results_immediately', 'results_published_at',
     'exam_mode',  # practice exams release everything at once (see _exam_result_visibility)
+    'total_score', 'passing_percent',  # the wizard's «مجموع نمرات کل آزمون» / «نمره قبولی (حداقل درصد)»
+    'grading_template', 'settings_enforced',  # «قالب نمره‌دهی»: «فقط نمره‌ی کل» hides the per-question report
 )
 
 
@@ -18368,12 +19640,17 @@ def _exam_result_visibility(exam) -> dict:
     explanations are shown as soon as the attempt is graded, whatever the display modes say."""
     published = bool(exam.get('results_published_at'))
     score_mode = exam.get('score_display_mode') or ('immediate' if exam.get('show_results_immediately') else 'after_publish')
-    if exam.get('exam_mode') == PRACTICE_EXAM_MODE:
+    # «آزمون تمرینی» (training) is a self-check run through the normal exam pages: like a practice exam, the student
+    # sees the score, key and explanations as soon as the attempt is graded.
+    if exam.get('exam_mode') in (PRACTICE_EXAM_MODE, TRAINING_EXAM_MODE):
         score_mode = 'immediate'
         exam = {**exam, 'correct_answer_display_mode': 'immediate', 'explanation_display_mode': 'immediate'}
 
     def shown(mode):
         return published or mode == 'immediate'
+
+    def detail_shown(mode):  # «پاسخ صحیح» / «توضیح پاسخ»: 'manual' is «نمایش داده نشود», even after publishing
+        return mode != 'manual' and shown(mode)
 
     score = shown(score_mode)
     return {
@@ -18382,8 +19659,9 @@ def _exam_result_visibility(exam) -> dict:
         'score_mode': score_mode,
         'score_mode_label': RESULT_DISPLAY_MODES.get(score_mode, RESULT_DISPLAY_MODES['after_publish']),
         'score': score,
-        'correct_answers': score and shown(exam.get('correct_answer_display_mode') or 'after_publish'),
-        'explanations': score and shown(exam.get('explanation_display_mode') or 'after_publish'),
+        'correct_answers': score and detail_shown(exam.get('correct_answer_display_mode') or 'after_publish'),
+        'explanations': score and detail_shown(exam.get('explanation_display_mode') or 'after_publish'),
+        'per_question': not (exam.get('settings_enforced') and exam.get('grading_template') == 'total_score'),
     }
 
 
@@ -18397,7 +19675,8 @@ def _notify_published_result(attempt) -> None:
 def _set_exam_results_published(request, exam_id, publish: bool) -> int:
     """Publish or withdraw an exam's results; on publishing, notify each student whose attempt is graded.
 
-    Returns how many students were notified. Students graded later are notified when grading finishes."""
+    Returns how many students were notified. Students graded later are notified when grading finishes.
+    request is None when the release is automatic (exam_schedule.release_due_results)."""
     with transaction.atomic():
         erd_execute('UPDATE exams SET results_published_at = %s WHERE id = %s', [timezone.now() if publish else None, exam_id])
         graded = erd_rows(
@@ -18411,8 +19690,9 @@ def _set_exam_results_published(request, exam_id, publish: bool) -> int:
         for attempt in graded:
             _notify_published_result(attempt)
     log_activity(
-        request.user, 'exam_results_published' if publish else 'exam_results_withdrawn',
-        'نتایج آزمون منتشر شد.' if publish else 'انتشار نتایج آزمون لغو شد.', request, {'exam_id': str(exam_id)},
+        request.user if request else None, 'exam_results_published' if publish else 'exam_results_withdrawn',
+        ('نتایج آزمون منتشر شد.' if publish else 'انتشار نتایج آزمون لغو شد.') + ('' if request else ' (خودکار)'),
+        request, {'exam_id': str(exam_id)},
     )
     return len(graded)
 
@@ -18437,6 +19717,8 @@ def _sx_result_status(row):
     if not is_graded:
         return 'در انتظار اعلام نتیجه', 'orange', True
     percent = row.get('percent', 0)
+    if row.get('passing_percent') is not None:  # set by the wizard's «نمره قبولی (حداقل درصد)»
+        return ('قبول', 'green', False) if percent >= _sx_float(row.get('passing_percent'), 60) else ('مردود', 'red', False)
     passing_score = _sx_float(row.get('passing_score'), 60)
     if passing_score <= 20:
         passing_percent = _sx_percent(passing_score, row.get('max_score') or 20)
@@ -18508,6 +19790,9 @@ def _sx_result_rows(student_id, practice=None):
             'score': None if pending else row.get('score'),
             'max_score': max_score,
             'percent': percent,
+            # The score on the exam's «مجموع نمرات کل آزمون» (out of 20 when the exam sets none).
+            'scale': f'{_exam_score_scale(row):g}',
+            'scaled_score': None if pending or not max_score else round(float(row.get('score') or 0) * _exam_score_scale(row) / float(max_score), 2),
             'status_label': label,
             'status_tone': tone,
             'is_pending': pending,
@@ -18617,7 +19902,8 @@ def _sx_result_question_rows(attempt_id, student_id):
             'points': points,
             'max_points': max_points,
             'tone': tone,
-            'explanation': str(row.get('explanation') or '').strip(),
+            # The builder saves its «بازخورد کلی» in feedback.text; older questions have an explanation column.
+            'explanation': str(row.get('explanation') or '').strip() or str(notes.get('text') or '').strip(),
             'feedback': str(row.get('grader_feedback') or '').strip(),
             'subject': str(row.get('subject') or '').strip(),
             'builder_note': str(notes.get('text') or '').strip(),
@@ -18629,6 +19915,8 @@ def _sx_result_question_rows(attempt_id, student_id):
 @erd_role_required('student')
 def student_result_detail(request, attempt_id):
     result = next((item for item in _sx_result_rows(request.erd_profile_id) if str(item['id']) == str(attempt_id)), None)
+    if result:
+        result['receipt_code'] = attempt_receipt_code(attempt_id)
     if not result:
         raise Http404('نتیجه آزمون پیدا نشد.')
     if result['is_practice']:
@@ -18733,8 +20021,12 @@ def profile_view(request):
     if not page_context:
         messages.error(request, 'پروفایل کاربری شما در سامانه پیدا نشد.')
         return redirect('core:dashboard')
-    if 'student' not in (page_context.get('roles') or []):
-        return _legacy_profile_view(request)
-    # the student's profile now lives on the settings page
-    old_sections = {'security': 'security', 'announcements': 'workspace'}
-    return redirect(f'{reverse("core:student_settings")}?tab={old_sections.get(request.GET.get("section"), "personal")}')
+    # «پروفایل من» (the name in the panel chrome): each role's own, working account page.
+    role = erd_primary_role(request.user)
+    section = request.GET.get('section')
+    if role == 'student':
+        old_sections = {'security': 'security', 'announcements': 'workspace'}
+        return redirect(f'{reverse("core:student_settings")}?tab={old_sections.get(section, "personal")}')
+    if role == 'teacher':
+        return redirect(f'{reverse("core:teacher_settings")}?tab={"security" if section in ("security", "sessions") else "personal"}')
+    return _legacy_profile_view(request)

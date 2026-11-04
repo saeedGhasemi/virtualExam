@@ -1,6 +1,6 @@
 {% extends 'base_standalone.html' %}
 {% load core_extras %}
-{% block title %}تأیید هویت و شروع آزمون | متاکوییز{% endblock %}
+{% block title %}ورود به آزمون | متاکوییز{% endblock %}
 {% block content %}
 {% include 'student/_exam_shell_head.html' %}
 <style>
@@ -9,56 +9,76 @@
   @media(max-width:1180px){.sx-entry-grid{grid-template-columns:1fr}.sx-steps{max-width:100%}}
 </style>
 <section class="sx-entry">
-  <div class="sx-title"><div><h1>تأیید هویت و شروع آزمون</h1><p>آزمون‌ها / ورود به آزمون</p></div></div>
-  <div class="sx-steps"><div class="sx-step done"><b>✓</b><span>بررسی دستگاه</span></div><div class="sx-step active"><b>۲</b><span>تأیید هویت</span></div><div class="sx-step"><b>۳</b><span>شروع آزمون</span></div></div>
+  <div class="sx-title"><div><h1>{% if needs_identity %}تأیید هویت و شروع آزمون{% else %}پذیرش قوانین و شروع آزمون{% endif %}</h1><p>آزمون‌ها / ورود به آزمون</p></div></div>
+  <div class="sx-steps"><div class="sx-step done"><b>✓</b><span>بررسی دستگاه</span></div><div class="sx-step {% if can_start %}done{% else %}active{% endif %}"><b>{% if can_start %}✓{% else %}۲{% endif %}</b><span>{% if needs_identity %}تأیید هویت{% else %}پذیرش قوانین{% endif %}</span></div><div class="sx-step {% if can_start %}active{% endif %}"><b>۳</b><span>شروع آزمون</span></div></div>
   <section class="sx-entry-grid">
     <aside class="sx-help">
-      <article class="sx-card sx-entry-card sx-privacy"><div class="shield"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.4 8.5-8 9-4.6-.5-8-4-8-9V7l8-4Z"/><path d="M9 12l2 2 4-5"/></svg></div><h2>حریم خصوصی شما برای ما مهم است</h2><p>تصویر شما فقط برای احراز هویت آزمون استفاده می‌شود و ذخیره یا اشتراک‌گذاری نخواهد شد.</p></article>
-      <article class="sx-card sx-entry-card"><h2>نیاز به کمک دارید؟</h2><p>در صورت بروز مشکل در مراحل تأیید هویت یا شروع آزمون، با پشتیبانی تماس بگیرید.</p><span class="sx-btn" style="width:100%;opacity:.6;cursor:not-allowed" aria-disabled="true">تماس با پشتیبانی <small class="sx-chip gray">در حال توسعه</small></span></article>
-      <article class="sx-card sx-entry-card sx-count-small"><h2>زمان باقی‌مانده تا شروع:</h2><strong>۰۲:۱۵:۳۲</strong></article>
+      <article class="sx-card sx-entry-card"><h2>{{ exam.title }}</h2><p>{{ exam.course_title }} — {{ exam.teacher_name }}</p><p>مدت آزمون: {{ exam.duration_minutes|fa_digits }} دقیقه — {{ exam.question_count|fa_digits }} سؤال</p></article>
+      <article class="sx-card sx-entry-card"><h2>نیاز به کمک دارید؟</h2><p>در صورت بروز مشکل در مراحل ورود یا شروع آزمون، با پشتیبانی تماس بگیرید.</p><span class="sx-btn" style="width:100%;opacity:.6;cursor:not-allowed" aria-disabled="true">تماس با پشتیبانی <small class="sx-chip gray">در حال توسعه</small></span></article>
+      <article class="sx-card sx-entry-card sx-count-small"><h2>{% if seconds_until_start %}زمان باقی‌مانده تا شروع:{% else %}وضعیت آزمون:{% endif %}</h2><strong data-countdown="{{ seconds_until_start }}">{% if seconds_until_start %}-{% elif entry_expired %}پایان{% else %}شروع شده{% endif %}</strong></article>
     </aside>
     <article class="sx-card sx-entry-card sx-identity">
-      <h2>لطفا تصویر خود را برای تأیید هویت ثبت کنید</h2>
-      <p>در محیطی با نور مناسب قرار بگیرید و مستقیم به دوربین نگاه کنید.</p>
-      {% if can_start %}
-        <div class="sx-face"></div>
-        <div class="sx-id-table">
-          <div class="sx-id-row"><span>نام و نام خانوادگی:</span><strong>{{ student.profile.full_name|default:request.user.username }}</strong></div>
-          <div class="sx-id-row"><span>شماره دانشجویی:</span><strong>{{ student.student_number|default:student.pk|fa_digits }}</strong></div>
-          <div class="sx-id-row"><span>کد آزمون:</span><strong>MQ-1405-027</strong></div>
-          <div class="sx-id-row"><span>وضعیت:</span><strong>تأیید شده</strong></div>
-        </div>
-        <form class="sx-start" method="post" action="{% url 'core:student_exam_start' exam.pk %}">{% csrf_token %}<button class="sx-btn primary" style="min-width:320px">تأیید و شروع آزمون</button></form>
+      <h2>{% if needs_identity %}کد ملی یا شماره دانشجویی خود را وارد کنید{% else %}قوانین آزمون را بخوانید و بپذیرید{% endif %}</h2>
+      {% if needs_identity %}<p>کدی که وارد می‌کنید با اطلاعات ثبت‌شده‌ی شما در سامانه مقایسه می‌شود.</p>{% endif %}
+      <div class="sx-id-table">
+        <div class="sx-id-row"><span>نام و نام خانوادگی:</span><strong>{{ student.profile.full_name|default:request.user.username }}</strong></div>
+        <div class="sx-id-row"><span>شماره دانشجویی:</span><strong>{{ student.student_number|default:"-"|fa_digits }}</strong></div>
+        <div class="sx-id-row"><span>کد آزمون:</span><strong dir="ltr" data-latin-digits>{{ exam.code }}</strong></div>
+        <div class="sx-id-row"><span>وضعیت:</span><strong>{% if can_start %}تأیید شده{% else %}در انتظار {% if needs_identity %}تأیید هویت{% else %}پذیرش قوانین{% endif %}{% endif %}</strong></div>
+      </div>
+      {% if ip_blocked %}
+        <div class="sx-form-errors">شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست.</div>
+      {% elif attempts_used_up %}
+        <div class="sx-form-errors">فرصت‌های شرکت شما در این آزمون تمام شده است.</div>
+      {% elif access_not_open %}
+        <div class="sx-form-errors">ورود به این آزمون از {{ access_starts_at|to_jalali }} باز می‌شود.</div>
+      {% elif can_start %}
+        {% if can_enter %}
+          <form class="sx-start" method="post" action="{% url 'core:student_exam_start' exam.pk %}">{% csrf_token %}<button class="sx-btn primary" style="min-width:320px">شروع آزمون</button></form>
+        {% else %}
+          <div class="sx-form-errors">{% if entry_expired %}زمان ورود به این آزمون به پایان رسیده است.{% else %}آزمون هنوز شروع نشده است؛ این صفحه در زمان شروع به‌روز می‌شود.{% endif %}</div>
+        {% endif %}
       {% else %}
-        <form method="post" enctype="multipart/form-data">
+        <form method="post">
           {% csrf_token %}
-          <div class="sx-face"></div>
-          <label class="sx-upload"><input type="file" name="identity_image" accept="image/*">ثبت تصویر</label>
-          <div class="sx-id-table">
-            <label class="sx-field"><span>کد احراز هویت</span><input name="identity_code" value="{{ identity_code|default:'' }}" placeholder="MQ-1405-027"></label>
-            <div class="sx-id-row"><span>نام و نام خانوادگی:</span><strong>{{ student.profile.full_name|default:request.user.username }}</strong></div>
-            <div class="sx-id-row"><span>شماره دانشجویی:</span><strong>{{ student.student_number|default:student.pk|fa_digits }}</strong></div>
-            <div class="sx-id-row"><span>کد آزمون:</span><strong>MQ-1405-027</strong></div>
-          </div>
+          {% if needs_identity %}
+            <div class="sx-id-table"><label class="sx-field"><span>کد ملی یا شماره دانشجویی</span><input name="identity_code" value="{{ identity_code|default:'' }}" required autocomplete="off" inputmode="numeric"></label></div>
+          {% endif %}
           <label class="sx-accept"><input type="checkbox" name="accept_rules" required> قوانین را می‌پذیرم و متعهد می‌شوم آزمون را منصفانه انجام دهم.</label>
           {% if entry_error %}<div class="sx-form-errors">{{ entry_error }}</div>{% endif %}
-          <div class="sx-start"><button class="sx-btn primary" style="min-width:320px">ثبت تأیید</button></div>
+          <div class="sx-start"><button class="sx-btn primary" style="min-width:320px">{% if needs_identity %}تأیید هویت{% else %}ثبت تأیید{% endif %}</button></div>
         </form>
       {% endif %}
     </article>
     <article class="sx-card sx-entry-card">
       <h2>قوانین و الزامات آزمون</h2>
       <div class="sx-rules">
-        <p><span>✓</span>در طول آزمون باید مقابل دوربین باشید.</p>
-        <p><span>✓</span>استفاده از موبایل، ساعت هوشمند و هدفون مجاز نیست.</p>
-        <p><span>✓</span>خروج از صفحه آزمون یا بستن مرورگر مجاز نیست.</p>
-        <p><span>✓</span>هیچ فرد دیگری نباید در محیط آزمون حضور داشته باشد.</p>
-        <p><span>✓</span>از صحبت کردن یا خواندن سوالات با صدای بلند خودداری کنید.</p>
-        <p><span>✓</span>در صورت بروز مشکل، دست خود را بالا ببرید و منتظر راهنمایی بمانید.</p>
+        {% for line in rule_lines %}<p><span>✓</span>{{ line|fa_digits }}</p>{% endfor %}
       </div>
+      {% if exam.description %}<p style="margin:18px 0 0;color:#40506d;font-weight:850;line-height:1.9">{{ exam.description|linebreaksbr }}</p>{% endif %}
       <div class="sx-chip" style="margin-top:22px">با شروع آزمون، قوانین فوق را می‌پذیرید.</div>
     </article>
   </section>
 </section>
+<script>
+(() => {
+  const fa = (value) => String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const pad = (n) => String(n).padStart(2, '0');
+  document.querySelectorAll('[data-countdown]').forEach((node) => {
+    let left = Number(node.dataset.countdown || 0);
+    if (!left) return;
+    const endsAt = performance.now() + left * 1000;  // a background tab slows timers down, the countdown must not
+    const show = () => {
+      const days = Math.floor(left / 86400), rest = left % 86400;
+      node.textContent = fa(`${days ? `${days} روز و ` : ''}${pad(Math.floor(rest / 3600))}:${pad(Math.floor(rest % 3600 / 60))}:${pad(rest % 60)}`);
+    };
+    show();
+    const timer = setInterval(() => {
+      left = Math.max(0, Math.round((endsAt - performance.now()) / 1000));
+      if (left <= 0) { clearInterval(timer); window.location.reload(); } else show();
+    }, 1000);
+  });
+})();
+</script>
 {% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

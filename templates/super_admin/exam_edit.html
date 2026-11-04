@@ -1,5 +1,5 @@
 {% extends 'base_standalone.html' %}
-{% load core_extras %}
+{% load core_extras static %}
 
 {% block title %}ویرایش آزمون | متاکوییز{% endblock %}
 
@@ -30,7 +30,7 @@
                 <p class="crumb">آزمون‌ها / مدیریت آزمون / ویرایش آزمون</p>
                 <h1>{{ exam.title|default:"ویرایش آزمون"|fa_digits }}</h1>
                 <div class="hero-meta">
-                    <span class="pill blue">کد آزمون: {{ exam.id|slice:":11"|fa_digits }}</span>
+                    <span class="pill blue">کد آزمون: <bdi dir="ltr" data-latin-digits>{{ exam.id|exam_code }}</bdi></span>
                     <span class="pill gray">{{ exam.course_title|default:"درس نامشخص"|fa_digits }}</span>
                     {% if is_published %}<span class="pill green">منتشرشده</span>{% else %}<span class="pill orange">پیش‌نویس</span>{% endif %}
                     <span class="pill orange">تغییرات ذخیره‌نشده</span>
@@ -39,6 +39,7 @@
             <div class="hero-actions">
                 <a class="btn" href="{% url 'core:super_admin_exams' %}">انصراف</a>
                 <a class="btn soft" href="{% url 'core:super_admin_exam_detail' exam.id %}">پیش‌نمایش</a>
+                {% if not stats.started_count %}<a class="btn soft" href="{% url 'core:super_admin_exam_wizard_edit' exam.id %}" title="همه‌ی تنظیمات ویزارد (امنیت، نمره‌دهی، قوانین، پس از انتشار)">ویرایش کامل در ویزارد</a>{% endif %}
                 {% if view == 'edit' or view == 'republish' %}
                     <button class="btn primary" form="examEditForm" type="submit">ذخیره تغییرات</button>
                 {% elif view == 'compare' %}
@@ -53,10 +54,10 @@
 
         <nav class="workspace-tabs glass" aria-label="بخش‌های ویرایش آزمون">
             <a class="{% if view == 'edit' %}is-active{% endif %}" href="?view=edit&step={{ step }}">ویرایش</a>
-            <a class="{% if view == 'versions' %}is-active{% endif %}" href="?view=versions">تاریخچه نسخه‌ها</a>
+            <span aria-disabled="true" title="در حال توسعه" style="opacity:.55;cursor:not-allowed">تاریخچه نسخه‌ها <small>(در حال توسعه)</small></span>
             <a class="{% if view == 'republish' %}is-active{% endif %}" href="?view=republish">انتشار مجدد</a>
-            <a class="{% if view == 'limited' %}is-active{% endif %}" href="?view=limited">محدودیت ویرایش</a>
-            <a class="{% if view == 'compare' %}is-active{% endif %}" href="?view=compare">مقایسه تغییرات</a>
+            <span aria-disabled="true" title="در حال توسعه" style="opacity:.55;cursor:not-allowed">محدودیت ویرایش <small>(در حال توسعه)</small></span>
+            <span aria-disabled="true" title="در حال توسعه" style="opacity:.55;cursor:not-allowed">مقایسه تغییرات <small>(در حال توسعه)</small></span>
             <a href="{% url 'core:super_admin_exam_detail' exam.id %}?tab=results">گزارش‌ها</a>
             <a href="{% url 'core:super_admin_exam_detail' exam.id %}?tab=session">نظارت زنده</a>
         </nav>
@@ -64,7 +65,7 @@
         {% if request.GET.saved %}
             <div class="notice ok">تغییرات ذخیره شد. برای اعمال تغییر روی نسخه‌ی قابل مشاهده شرکت‌کنندگان، از بخش انتشار مجدد استفاده کنید.</div>
         {% elif is_running %}
-            <div class="notice warn">این آزمون در حال برگزاری است؛ فقط تنظیمات مجاز را از بخش محدودیت ویرایش تغییر دهید.</div>
+            <div class="notice warn">این آزمون در حال برگزاری است؛ تغییر سؤال‌ها یا زمان‌بندی روی دانشجویانی که شروع کرده‌اند اثر می‌گذارد.</div>
         {% elif is_published %}
             <div class="notice">این آزمون منتشر شده است. ذخیره تغییرات پیش‌نویس جدید می‌سازد و انتشار مجدد آن را برای شرکت‌کنندگان فعال می‌کند.</div>
         {% endif %}
@@ -106,26 +107,25 @@
                 <section class="panel glass">
                     <h2>تایید انتشار مجدد</h2>
                     <div class="review-grid">
-                        <article class="review-card glass"><small>نسخه فعلی</small><b>نسخه ۳</b><span>منتشرشده</span></article>
-                        <article class="review-card glass"><small>نسخه جدید</small><b>نسخه ۴</b><span>با انتشار نسخه جدید، این تغییرات اعمال می‌شود.</span></article>
+                        <article class="review-card glass"><small>وضعیت فعلی</small><b>{% if exam.is_published %}منتشرشده{% else %}منتشرنشده{% endif %}</b><span>{% if exam.is_published %}نسخه‌ی فعلی برای دانشجویان در دسترس است.{% else %}آزمون هنوز برای دانشجویان منتشر نشده است.{% endif %}</span></article>
+                        <article class="review-card glass"><small>پس از انتشار</small><b>منتشرشده</b><span>با انتشار، آخرین تغییرات ذخیره‌شده برای دانشجویان اعمال می‌شود.</span></article>
                         <article class="review-card glass"><small>اطلاع‌رسانی</small><b>{{ stats.participant_count|fa_digits }} نفر</b><span>شرکت‌کنندگان مطلع خواهند شد.</span></article>
                         <article class="review-card glass"><small>تاثیر بر تلاش‌های فعلی</small><b>بدون تغییر</b><span>تلاش‌های در حال انجام حفظ می‌شوند.</span></article>
                     </div>
                     <div class="republish-grid" style="margin-top:1rem">
                         <article class="panel glass">
                             <h2>زمان انتشار</h2>
-                            <label class="toggle-row">انتشار فوری <span class="toggle"><input name="publish_mode" value="immediate" type="checkbox" checked><span></span></span></label>
-                            <div class="field"><label>انتشار زمان‌بندی‌شده</label><input type="datetime-local" disabled></div>
+                            <input type="hidden" name="publish_mode" value="immediate">
+                            <p class="muted">آزمون بلافاصله پس از تأیید منتشر می‌شود. برای انتشار در زمان مشخص، آزمون را با «زمان‌بندی انتشار» در ویزارد ثبت کنید.</p>
                         </article>
                         <article class="panel glass">
-                            <h2>کانال‌های اطلاع‌رسانی</h2>
-                            <label class="toggle-row">اعلان درون سامانه <span class="toggle"><input type="checkbox" checked><span></span></span></label>
-                            <label class="toggle-row">ایمیل <span class="toggle"><input type="checkbox" checked><span></span></span></label>
+                            <h2>اطلاع‌رسانی</h2>
+                            <label class="toggle-row">اعلان درون سامانه به شرکت‌کنندگان <span class="toggle"><input name="notify_participants" type="checkbox" checked><span></span></span></label>
+                            <p class="muted">در اولین انتشار، تنظیمات «پس از انتشار» خود آزمون (اعلان سامانه / ایمیل) اعمال می‌شود.</p>
                         </article>
                         <article class="panel glass">
                             <h2>پیام به شرکت‌کنندگان</h2>
-                            <textarea class="message-box" name="announcement">سلام و احترام
-نسخه جدیدی از آزمون «{{ exam.title }}» منتشر شده است. لطفا برای مشاهده تغییرات و ادامه شرکت در آزمون، به سامانه مراجعه کنید.</textarea>
+                            <textarea class="message-box" name="change_note" maxlength="1000" placeholder="یادداشت اختیاری؛ در گزارش فعالیت ثبت و در اعلان شرکت‌کنندگان آورده می‌شود."></textarea>
                         </article>
                     </div>
                     <label class="toggle-row" style="border-bottom:0;margin-top:1rem">تغییرات را بررسی و تایید می‌کنم <input required type="checkbox"></label>
@@ -203,7 +203,7 @@
                                 <label class="field">عنوان آزمون *<input name="title" value="{{ exam.title|fa_digits }}" required></label>
                                 <label class="field">درس *<select name="course_id">{% for course in courses %}<option value="{{ course.id }}" {% if course.id == exam.course_id %}selected{% endif %}>{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
                                 <label class="field">استاد *<select name="teacher_id">{% for teacher in teachers %}<option value="{{ teacher.id }}" {% if teacher.id == exam.teacher_id %}selected{% endif %}>{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
-                                <label class="field">نوع آزمون<select name="exam_type"><option value="midterm" {% if exam.exam_type == 'midterm' %}selected{% endif %}>میان‌ترم</option><option value="final" {% if exam.exam_type == 'final' %}selected{% endif %}>پایان‌ترم</option><option value="quiz" {% if exam.exam_type == 'quiz' %}selected{% endif %}>کوییز</option></select></label>
+                                <label class="field">نوع آزمون<select name="exam_type"><option value="standard" {% if exam.exam_type == 'standard' or not exam.exam_type %}selected{% endif %}>عادی</option><option value="midterm" {% if exam.exam_type == 'midterm' %}selected{% endif %}>میان‌ترم</option><option value="final" {% if exam.exam_type == 'final' %}selected{% endif %}>پایان‌ترم</option><option value="quiz" {% if exam.exam_type == 'quiz' %}selected{% endif %}>کوییز</option></select></label>
                                 <label class="field">سال تحصیلی<input name="academic_year" value="{{ exam.academic_year|default:'1405-1404'|fa_digits }}"></label>
                                 <label class="field">نیمسال<input name="semester" value="{{ exam.semester|default:'نیمسال اول'|fa_digits }}"></label>
                                 <label class="field">مدت آزمون<input type="number" name="duration_minutes" value="{{ exam.duration_minutes|default:90 }}"></label>
@@ -214,7 +214,7 @@
                         <aside class="panel glass">
                             <h2>خلاصه آزمون</h2>
                             <div class="summary-list">
-                                <div><span>کد آزمون</span><b>{{ exam.id|slice:":11"|fa_digits }}</b></div>
+                                <div><span>کد آزمون</span><b><bdi dir="ltr" data-latin-digits>{{ exam.id|exam_code }}</bdi></b></div>
                                 <div><span>وضعیت</span><b>{% if is_published %}منتشرشده{% else %}پیش‌نویس{% endif %}</b></div>
                                 <div><span>درس</span><b>{{ exam.course_title|fa_digits }}</b></div>
                                 <div><span>استاد</span><b>{{ exam.teacher_name|fa_digits }}</b></div>
@@ -236,12 +236,12 @@
                             <h2>گروه‌های درسی انتخاب‌شده</h2>
                             <table class="data-table">
                                 <thead><tr><th></th><th>نام گروه</th><th>استاد</th><th>تعداد دانشجو</th><th>شرط احراز</th><th>عملیات</th></tr></thead>
-                                <tbody>{% for group in groups|slice:":8" %}<tr><td><input type="checkbox" name="group_ids" value="{{ group.id }}" {% if group.id in assigned_groups %}checked{% endif %}></td><td>{{ group.course_title|fa_digits }} - گروه {{ group.group_code|fa_digits }}</td><td>{{ group.teacher_name|fa_digits }}</td><td>{{ group.members_count|fa_digits }}</td><td><span class="pill green">دارای پیش‌نیاز</span></td><td><span class="tiny-btn">×</span></td></tr>{% endfor %}</tbody>
+                                <tbody>{% for group in groups %}<tr><td><input type="checkbox" name="group_ids" value="{{ group.id }}" {% if group.id in assigned_groups %}checked{% endif %}></td><td>{{ group.course_title|fa_digits }} - گروه {{ group.group_code|fa_digits }}</td><td>{{ group.teacher_name|fa_digits }}</td><td>{{ group.members_count|fa_digits }}</td><td><span class="pill green">دارای پیش‌نیاز</span></td><td><span class="tiny-btn">×</span></td></tr>{% endfor %}</tbody>
                             </table>
                             <h2 style="margin-top:1rem">دانشجویان منتخب مستقیم</h2>
                             <table class="data-table">
                                 <thead><tr><th></th><th>دانشجو</th><th>شماره دانشجویی</th><th>رشته</th></tr></thead>
-                                <tbody>{% for student in students|slice:":6" %}<tr><td><input type="checkbox" name="student_ids" value="{{ student.id }}" {% if student.id in assigned_students %}checked{% endif %}></td><td>{{ student.full_name|fa_digits }}</td><td>{{ student.student_number|fa_digits }}</td><td>{{ student.field_of_study|fa_digits }}</td></tr>{% endfor %}</tbody>
+                                <tbody>{% for student in students %}<tr><td><input type="checkbox" name="student_ids" value="{{ student.id }}" {% if student.id in assigned_students %}checked{% endif %}></td><td>{{ student.full_name|fa_digits }}</td><td>{{ student.student_number|fa_digits }}</td><td>{{ student.field_of_study|fa_digits }}</td></tr>{% endfor %}</tbody>
                             </table>
                             <div class="notice" style="margin:1rem 0 0">تنها دانشجویانی که شرایط احراز را دارند می‌توانند در آزمون شرکت کنند.</div>
                         </article>
@@ -252,7 +252,6 @@
                                 <article class="mini-stat glass"><small>تعداد کل دانشجویان</small><b>{{ stats.participant_count|fa_digits }}</b></article>
                                 <article class="mini-stat glass"><small>دانشجویان مستقیم</small><b>{{ stats.selected_students|fa_digits }}</b></article>
                             </div>
-                            <a class="btn soft" style="width:100%;margin-top:1rem" href="?view=limited">مدیریت استثناها</a>
                         </aside>
                     </section>
                 {% elif step == '3' %}
@@ -265,7 +264,7 @@
                             <div class="footer-actions" style="margin-bottom:1rem"><button class="btn primary" type="button">ساخت سؤال جدید</button><button class="btn soft" type="button">افزودن از بانک سؤال</button></div>
                             <table class="data-table">
                                 <thead><tr><th></th><th>ترتیب</th><th>سؤال</th><th>نوع</th><th>امتیاز</th><th>سطح دشواری</th></tr></thead>
-                                <tbody>{% for question in questions|slice:":12" %}<tr><td><input type="checkbox" name="question_ids" value="{{ question.id }}" {% if question.id in selected_questions %}checked{% endif %}></td><td>{{ forloop.counter|fa_digits }}</td><td>{{ question.text|truncatechars:90|fa_digits }}</td><td><span class="pill blue">{{ question.type_label|fa_digits }}</span></td><td>{{ question.points|fa_digits }}</td><td>{{ question.difficulty|default:'متوسط'|fa_digits }}</td></tr>{% empty %}<tr><td colspan="6">سؤالی برای این درس پیدا نشد.</td></tr>{% endfor %}</tbody>
+                                <tbody>{% for question in questions %}<tr><td><input type="checkbox" name="question_ids" value="{{ question.id }}" {% if question.id in selected_questions %}checked{% endif %}></td><td>{{ forloop.counter|fa_digits }}</td><td>{{ question.text|truncatechars:90|fa_digits }}</td><td><span class="pill blue">{{ question.type_label|fa_digits }}</span></td><td>{{ question.points|fa_digits }}</td><td>{{ question.difficulty|default:'متوسط'|fa_digits }}</td></tr>{% empty %}<tr><td colspan="6">سؤالی برای این درس پیدا نشد.</td></tr>{% endfor %}</tbody>
                             </table>
                             <div class="drop-row">برای افزودن سؤال جدید به این گروه، اینجا کلیک کنید یا سؤال را بکشید و رها کنید.</div>
                         </article>
@@ -285,14 +284,15 @@
                         <article class="panel glass">
                             <h2>زمان‌بندی آزمون</h2>
                             <div class="form-grid">
-                                <label class="field">تاریخ شروع<input type="date" name="start_date" value="{{ exam.start_date_value }}"></label>
+                                <label class="field">تاریخ شروع<div class="jalali-field" data-jalali-field data-jalali-date-only><input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ شمسی"><input type="hidden" name="start_date" value="{{ exam.start_date_value }}" data-jalali-value></div></label>
                                 <label class="field">ساعت شروع<input type="time" name="start_time" value="{{ exam.start_time_value }}"></label>
-                                <label class="field">تاریخ پایان<input type="date" name="end_date" value="{{ exam.end_date_value }}"></label>
+                                <label class="field">تاریخ پایان<div class="jalali-field" data-jalali-field data-jalali-date-only><input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ شمسی"><input type="hidden" name="end_date" value="{{ exam.end_date_value }}" data-jalali-value></div></label>
                                 <label class="field">ساعت پایان<input type="time" name="end_time" value="{{ exam.end_time_value }}"></label>
                                 <label class="field">مدت آزمون<input type="number" name="duration_minutes" value="{{ exam.duration_minutes|default:90 }}"></label>
                                 <label class="field">دفعات مجاز شرکت<input type="number" name="max_attempts" value="{{ exam.max_attempts|default:1 }}"></label>
                             </div>
                             <div class="notice" style="margin:1rem 0 0">آزمون در بازه تعیین‌شده برای شرکت‌کنندگان در دسترس خواهد بود.</div>
+                            <script type="module" src="{% static 'js/jalali-datepicker.js' %}"></script>
                         </article>
                         <article class="panel glass">
                             <h2>قوانین و رفتار آزمون‌دهنده</h2>
@@ -313,6 +313,7 @@
                             <article class="panel glass">
                                 <h2>سایر تنظیمات</h2>
                                 <label class="toggle-row">امتیاز جزئی <span class="toggle"><input name="allow_partial" type="checkbox" {% if exam.allow_partial %}checked{% endif %}><span></span></span></label>
+                                <label class="toggle-row">امکان بازگشت به سوال قبلی <span class="toggle"><input name="review_answers_enabled" type="checkbox" {% if exam.review_answers_enabled %}checked{% endif %}><span></span></span></label>
                             </article>
                         </div>
                     </section>
@@ -342,9 +343,9 @@
                         <aside class="panel glass">
                             <h2>گزینه‌های انتشار</h2>
                             <label class="field">شیوه ثبت<select name="publish_mode"><option value="draft" {% if exam.publish_mode == 'draft' %}selected{% endif %}>ذخیره پیش‌نویس</option><option value="immediate" {% if exam.publish_mode == 'immediate' %}selected{% endif %}>انتشار فوری</option><option value="scheduled" {% if exam.publish_mode == 'scheduled' %}selected{% endif %}>انتشار زمان‌بندی‌شده</option></select></label>
-                            <label class="field">نمایش نمره<select name="score_display_mode"><option value="after_publish"{% if exam.score_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.score_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.score_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>دستی</option></select></label>
-                            <label class="field">نمایش پاسخ صحیح<select name="correct_answer_display_mode"><option value="after_publish"{% if exam.correct_answer_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.correct_answer_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.correct_answer_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>دستی</option></select></label>
-                            <label class="field">نمایش توضیح پاسخ<select name="explanation_display_mode"><option value="after_publish"{% if exam.explanation_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.explanation_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.explanation_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>دستی</option></select></label>
+                            <label class="field">نمایش نمره<select name="score_display_mode"><option value="after_publish"{% if exam.score_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.score_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.score_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>دستی (با انتشار نتایج توسط استاد)</option></select></label>
+                            <label class="field">نمایش پاسخ صحیح<select name="correct_answer_display_mode"><option value="after_publish"{% if exam.correct_answer_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.correct_answer_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.correct_answer_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>نمایش داده نشود</option></select></label>
+                            <label class="field">نمایش توضیح پاسخ<select name="explanation_display_mode"><option value="after_publish"{% if exam.explanation_display_mode|default:'after_publish' == 'after_publish' %} selected{% endif %}>پس از انتشار نتایج</option><option value="immediate"{% if exam.explanation_display_mode|default:'after_publish' == 'immediate' %} selected{% endif %}>بلافاصله پس از تصحیح</option><option value="manual"{% if exam.explanation_display_mode|default:'after_publish' == 'manual' %} selected{% endif %}>نمایش داده نشود</option></select></label>
                             <button class="btn primary" name="publish_action" value="republish" type="submit" style="width:100%;margin-top:1rem">ذخیره و انتشار مجدد</button>
                             <h2 style="margin-top:1.4rem">انتشار نتایج</h2>
                             <p class="notice" style="margin:.4rem 0">{% if exam.results_published_at %}نتایج منتشر شده است؛ دانشجویان نمره و موارد مجاز را می‌بینند.{% else %}نتایج منتشر نشده است؛ نمره فقط در حالت «بلافاصله پس از تصحیح» نمایش داده می‌شود.{% endif %}</p>

@@ -267,11 +267,14 @@
     .wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.wizard-footer div{display:flex;gap:.8rem}.nav-btn,.save-btn,.publish-btn{display:inline-flex;height:3.1rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.75rem;padding:0 1.3rem;font-weight:950}.nav-btn,.save-btn{border:1px solid #cbd9ec;background:#fff;color:#315cff}.publish-btn{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.nav-btn[hidden],.save-btn[hidden],.publish-btn[hidden]{display:none}
     @media(max-width:1180px){.wizard-layout,.selector-grid,.rules-layout{grid-template-columns:1fr}.wizard-steps{grid-template-columns:repeat(4,1fr)}.form-grid,.form-grid.four,.form-grid.five,.rule-grid,.rule-grid.six,.review-grid,.type-grid,.security-grid,.import-summary,.type-count-grid,.subgrid.three,.grading-channel-row{grid-template-columns:1fr 1fr}.summary-card{position:static}}
     @media(max-width:700px){.wizard-steps,.form-grid,.form-grid.two,.form-grid.four,.form-grid.five,.subgrid,.subgrid.three,.selection-toolbar,.type-grid,.rule-grid,.rule-grid.six,.review-grid,.security-grid,.import-summary,.type-count-grid,.grading-toggle-row,.grading-channel-row,.audience-tabs,.audience-banners{grid-template-columns:1fr}.grading-toggle-row{display:flex}.wizard-footer{align-items:stretch;flex-direction:column}.wizard-footer div{flex-direction:column}.nav-btn,.save-btn,.publish-btn{width:100%}}
+    .security-card.is-disabled{opacity:.55;cursor:not-allowed}
+    .q-points-input{width:4.6rem;height:2.2rem;border:1px solid #cbd9ec;border-radius:.55rem;padding:0 .45rem;font:inherit;font-weight:850;color:#071936;background:#fff}.q-points-input:disabled{background:#f1f5fb;color:#65728a}
 </style>
 
 <section class="super-admin-page super-admin-workspace exam-wizard" dir="rtl" data-fixed-scroll-page>
     {% if wizard_initial %}{{ wizard_initial|json_script:"wizard-initial" }}{% endif %}
-    <form class="wizard-shell" method="post" enctype="multipart/form-data" data-exam-wizard>
+    {# novalidate: the submit handler below checks every step itself and opens the step with the problem. #}
+    <form class="wizard-shell" method="post" enctype="multipart/form-data" data-exam-wizard novalidate>
         {% csrf_token %}
         <input type="hidden" name="publish_choice" value="draft" data-publish-mode>
         <nav class="wizard-steps" aria-label="مراحل ایجاد آزمون">
@@ -321,7 +324,7 @@
                         </label>
                     </div>
                     <div class="subgrid">
-                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid two"><label class="field">نمره کل آزمون<input type="number" name="passing_score" step="0.25" placeholder="مثلا ۲۰"></label><label class="field">قالب نمره‌دهی<select name="grading_template"><option value="total_score">نمره کل</option><option value="detailed_score">نمره تشریحی</option></select></label></div></div>
+                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid two"><label class="field">نمره کل آزمون<input type="number" step="0.25" placeholder="مثلا ۲۰" data-total-mirror aria-describedby="total-mirror-hint"><small id="total-mirror-hint" class="field-hint">همان «مجموع نمرات کل آزمون» در مرحله‌ی نمره‌دهی است.</small></label><label class="field">قالب نمره‌دهی<select name="grading_template"><option value="detailed_score">کارنامه‌ی تفصیلی (نمره‌ی هر سؤال)</option><option value="total_score">فقط نمره‌ی کل</option></select></label></div></div>
                         <div class="mini-card"><h3>تنظیمات اولیه</h3><label class="toggle-row"><input type="checkbox" name="show_instructions_before_start" checked><span class="switch"></span><span>نمایش دستورالعمل پیش از شروع</span></label></div>
                     </div>
                 </section>
@@ -369,9 +372,9 @@
                     <div class="mini-card" style="margin-top:1rem">
                         <div class="mini-card-title"><h3>پس از پایان آزمون</h3><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
                         <div class="form-grid">
-                            <label class="field">نمایش نمره<select name="score_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">دستی</option></select></label>
-                            <label class="field">نمایش پاسخ صحیح<select name="correct_answer_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">دستی</option></select></label>
-                            <label class="field">نمایش توضیح پاسخ<select name="explanation_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">دستی</option></select></label>
+                            <label class="field">نمایش نمره<select name="score_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">دستی (با انتشار نتایج توسط استاد)</option></select></label>
+                            <label class="field">نمایش پاسخ صحیح<select name="correct_answer_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">نمایش داده نشود</option></select></label>
+                            <label class="field">نمایش توضیح پاسخ<select name="explanation_display_mode"><option value="after_publish">پس از انتشار نتایج</option><option value="immediate">بلافاصله</option><option value="manual">نمایش داده نشود</option></select></label>
                         </div>
                     </div>
                 </section>
@@ -403,7 +406,7 @@
                     <a id="teacher-question-edit-url-template" href="{% url 'core:teacher_question_edit' question_id='__QID__' %}" hidden></a>
                     <div class="wizard-card" style="overflow:auto;margin-bottom:1.25rem">
                         <table class="table q-bank-table">
-                            <thead><tr><th>ردیف</th><th>سؤال</th><th>نوع سؤال</th><th>درس</th><th>سطح دشواری</th><th>تگ‌ها</th><th>نمره</th><th>استاد طراح</th><th>آخرین بار در امتحان استفاده</th><th><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="10" cy="18" r="1.5"/></svg></th></tr></thead>
+                            <thead><tr><th>ردیف</th><th>سؤال</th><th>نوع سؤال</th><th>درس</th><th>سطح دشواری</th><th>تگ‌ها</th><th>نمره</th><th>استاد طراح</th><th>تعداد استفاده</th><th>آخرین بار در امتحان استفاده</th><th><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="10" cy="18" r="1.5"/></svg></th></tr></thead>
                             <tbody data-question-bank-body>
                                 {% for question in questions %}
                                 <tr data-question-row data-id="{{ question.id }}" data-text="{{ question.text|fa_digits }}" data-course="{{ question.course_title|fa_digits }}" data-difficulty="{{ question.difficulty|default:'medium' }}" data-type="{{ question.type|default:'single' }}" data-points="{{ question.points|default:'1' }}" data-tags="{{ question.tags|default:'' }}" data-teacher="{{ question.teacher_id }}" data-teacher-name="{{ question.teacher_name|fa_digits }}">
@@ -411,15 +414,16 @@
                                     <td><strong>{{ question.text|truncatechars:60|fa_digits }}</strong></td>
                                     <td><span class="badge type" data-type-label></span></td>
                                     <td>{{ question.course_title|fa_digits }}</td>
-                                    <td><span class="badge {{ question.difficulty|default:'medium' }}">{{ question.difficulty|default:"medium" }}</span></td>
+                                    <td><span class="badge {{ question.difficulty|default:'medium' }}">{% if question.difficulty == 'easy' %}آسان{% elif question.difficulty == 'hard' %}سخت{% else %}متوسط{% endif %}</span></td>
                                     <td data-tags-cell></td>
                                     <td>{{ question.points|fa_digits }}</td>
                                     <td>{{ question.teacher_name|fa_digits }}</td>
-                                    <td data-last-used>{{ question.last_used_at|to_jalali|default:"-" }}</td>
+                                    <td data-usage-count>{% if question.usage_count %}{{ question.usage_count|fa_digits }} آزمون{% else %}<span style="color:#94a3b8">استفاده نشده</span>{% endif %}</td>
+                                    <td data-last-used>{% if question.last_used_at %}{{ question.last_used_at|to_jalali }}{% if question.last_exam_title %}<small style="display:block;color:#65728a">{{ question.last_exam_title|truncatechars:36|fa_digits }}</small>{% endif %}{% elif question.last_exam_title %}{{ question.last_exam_title|truncatechars:36|fa_digits }}{% else %}-{% endif %}</td>
                                     <td><input type="checkbox" data-add-question aria-label="افزودن به آزمون"></td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="10" style="padding:1rem;color:#65728a">سوالی در بانک سوال یافت نشد.</td></tr>
+                                <tr><td colspan="11" style="padding:1rem;color:#65728a">سوالی در بانک سوال یافت نشد.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -582,7 +586,7 @@
                     </div>
                     <div class="grading-toggle-row">
                         <label class="toggle-row"><input type="checkbox" name="allow_partial" checked><span class="switch"></span><span>اعطای نمره جزئی (Partial Credit)<svg class="info-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span></label>
-                        <label class="toggle-row"><input type="checkbox" name="manual_review_required" checked><span class="switch"></span><span>نیاز به بازبینی دستی برای سوالات تشریحی<svg class="info-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span></label>
+                        <label class="toggle-row" title="سؤال‌های تشریحی و پاسخ‌های کوتاهِ منطبق‌نشده همیشه به صف تصحیح استاد می‌روند."><input type="checkbox" name="manual_review_required" checked disabled><span class="switch"></span><span>بازبینی دستی سوالات تشریحی (همیشه فعال)<svg class="info-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span></label>
                     </div></div>
                     <div class="subgrid three">
                         <div class="mini-card"><h3>دستورالعمل تصحیح</h3><p class="correction-note">دستورالعمل عمومی برای تصحیح این آزمون</p><label class="field is-full"><textarea name="correction_instructions" maxlength="500" data-correction-instructions>لطفاً پاسخ‌ها را بر اساس کلید نمره‌دهی و راهنمای تصحیح ارائه‌شده بررسی کنید. در صورت وجود ابهام، موارد مشکوک را برای بازبینی علامت بزنید.</textarea><span class="char-counter" data-correction-counter>۱۱۲/۵۰۰</span></label><label class="field">قالب روبریک<select name="rubric_template"><option value="">بدون روبریک</option><option value="analytic_multilevel" selected>روبریک تحلیلی چندسطحی</option><option value="holistic">روبریک کل‌نگر</option></select></label></div>
@@ -593,8 +597,8 @@
                         <div class="mini-card"><h3>تخصیص نمره به بخش‌ها</h3><div style="overflow:auto"><table class="score-alloc-table"><thead><tr><th>نوع سوال</th><th>تعداد سوال</th><th>نمره هر سوال</th><th>جمع نمره</th></tr></thead><tbody data-score-allocation-body></tbody></table></div></div>
                     </div>
                     <div class="grading-channel-row">
-                        <label class="grading-channel-card is-auto"><input type="checkbox" name="auto_grade_objective" checked><span class="gc-check"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></span><span class="gc-icon"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M9 8V5m6 3V5M9 21v-2m6 2v-2"/><circle cx="9.5" cy="13" r="1"/><circle cx="14.5" cy="13" r="1"/></svg></span><strong>تصحیح خودکار برای سوالات عینی</strong><p>تصحیح خودکار MCQ، صحیح/غلط، جای‌خالی و ...</p></label>
-                        <label class="grading-channel-card is-manual"><input type="checkbox" name="manual_grade_subjective" checked><span class="gc-check"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></span><span class="gc-icon"><svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span><strong>تصحیح دستی توسط مدرس</strong><p>تصحیح دستی سوالات تشریحی و موارد کیفی</p></label>
+                        <label class="grading-channel-card is-auto"><input type="checkbox" name="auto_grade_objective" checked disabled><span class="gc-check"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></span><span class="gc-icon"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M9 8V5m6 3V5M9 21v-2m6 2v-2"/><circle cx="9.5" cy="13" r="1"/><circle cx="14.5" cy="13" r="1"/></svg></span><strong>تصحیح خودکار برای سوالات عینی</strong><p>تصحیح خودکار MCQ، صحیح/غلط، جای‌خالی و ... (همیشه فعال)</p></label>
+                        <label class="grading-channel-card is-manual"><input type="checkbox" name="manual_grade_subjective" checked disabled><span class="gc-check"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></span><span class="gc-icon"><svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span><strong>تصحیح دستی توسط مدرس</strong><p>تصحیح دستی سوالات تشریحی و موارد کیفی (همیشه فعال)</p></label>
                     </div>
                 </section>
 
@@ -612,8 +616,8 @@
                             <div class="section-title"><h2>حالت برگزاری آزمون</h2></div>
                             <div class="security-grid">
                                 <label class="security-card"><input type="radio" name="execution_mode" value="web" checked><span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg></span><strong>وب (هر دستگاه)</strong><small>اجرای آزمون در مرورگر وب</small></label>
-                                <label class="security-card"><input type="radio" name="execution_mode" value="in_app"><span><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><strong>در دسکتاپ</strong><small>نصب و اجرای نرم‌افزار دسکتاپ</small></label>
-                                <label class="security-card"><input type="radio" name="execution_mode" value="lockdown_browser"><span><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><strong>مرورگر متمرکز</strong><small>Safe Exam Browser</small></label>
+                                <label class="security-card is-disabled" title="در حال توسعه"><input type="radio" name="execution_mode" value="in_app" disabled><span><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><strong>در دسکتاپ</strong><small>در حال توسعه</small></label>
+                                <label class="security-card is-disabled" title="در حال توسعه"><input type="radio" name="execution_mode" value="lockdown_browser" disabled><span><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><strong>مرورگر متمرکز</strong><small>Safe Exam Browser — در حال توسعه</small></label>
                             </div>
                         </div>
                     </div>
@@ -632,7 +636,7 @@
                             <small>لطفاً از اتصال پایدار اینترنت و باتری کافی دستگاه خود اطمینان حاصل نمایید.</small>
                         </div>
 
-                        <label class="security-toggle" style="grid-area:a"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><input type="checkbox" name="identity_verification_required" checked><span class="switch"></span></div><div><strong>احراز هویت داوطلب</strong><p>ورود با نام کاربری و رمز عبور</p></div></label>
+                        <label class="security-toggle" style="grid-area:a"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><input type="checkbox" name="identity_verification_required"><span class="switch"></span></div><div><strong>احراز هویت داوطلب</strong><p>ورود کد ملی یا شماره دانشجویی پیش از شروع</p></div></label>
 
                         <label class="security-toggle" style="grid-area:b"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><input type="checkbox" name="device_limit_enabled" checked><span class="switch"></span></div><div><strong>محدودیت دستگاه</strong><p>فقط یک دستگاه در هر بار ورود</p></div></label>
 
@@ -640,9 +644,9 @@
 
                         <label class="security-toggle" style="grid-area:d"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></span><input type="checkbox" name="fullscreen_required" checked><span class="switch"></span></div><div><strong>اجبار تمام‌صفحه</strong><p>نمایش در حالت تمام‌صفحه</p></div></label>
 
-                        <label class="security-toggle" style="grid-area:e"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></span><input type="checkbox" name="webcam_monitoring" checked><span class="switch"></span></div><div><strong>نظارت وبکم</strong><p>نظارت لحظه‌ای وبکم</p></div></label>
+                        <label class="security-toggle" style="grid-area:e"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></span><input type="checkbox" name="webcam_monitoring"><span class="switch"></span></div><div><strong>نظارت وبکم</strong><p>دوربین در طول آزمون روشن بماند (ضبط نمی‌شود)</p></div></label>
 
-                        <label class="security-toggle" style="grid-area:f"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span><input type="checkbox" name="mic_monitoring"><span class="switch"></span></div><div><strong>نظارت میکروفون</strong><p>نظارت لحظه‌ای میکروفون</p></div></label>
+                        <label class="security-toggle" style="grid-area:f"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span><input type="checkbox" name="mic_monitoring"><span class="switch"></span></div><div><strong>نظارت میکروفون</strong><p>میکروفون در طول آزمون روشن بماند (ضبط نمی‌شود)</p></div></label>
 
                         <label class="security-toggle" style="grid-area:h"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span><input type="checkbox" name="track_tab_exit" checked><span class="switch"></span></div><div><strong>هشدار تعویض تب</strong><p>هشدار در صورت تعویض تب</p></div></label>
 
@@ -650,7 +654,7 @@
                     </div>
 
                     <div class="security-row3">
-                        <label class="security-toggle" style="order:4"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M6.13 1 6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13 16 6a2 2 0 0 1 2 2v15"/></svg></span><input type="checkbox" name="screenshot_prevention" checked><span class="switch"></span></div><div><strong>جلوگیری از اسکرین‌شات</strong><p>جلوگیری از گرفتن اسکرین‌شات</p></div></label>
+                        <label class="security-toggle" style="order:4"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M6.13 1 6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13 16 6a2 2 0 0 1 2 2v15"/></svg></span><input type="checkbox" name="screenshot_prevention"><span class="switch"></span></div><div><strong>جلوگیری از اسکرین‌شات</strong><p>پنهان‌سازی صفحه، مسدودسازی چاپ و ثبت تلاش‌ها</p></div></label>
 
                         <label class="security-toggle" style="order:3"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10Z"/></svg></span><input type="checkbox" name="autosave_enabled" checked><span class="switch"></span></div><div><strong>ذخیره خودکار پاسخ‌ها</strong><p>ذخیره خودکار در بازه زمانی</p><select name="autosave_interval_seconds"><option value="15">۱۵ ثانیه</option><option value="30" selected>۳۰ ثانیه</option><option value="60">۶۰ ثانیه</option></select></div></label>
 
@@ -738,7 +742,7 @@
                             <section class="wizard-card composition"><h2>پس از انتشار</h2>
                                 <label class="toggle-row"><input type="checkbox" name="notify_students_system_message" checked><span class="switch"></span><span>اعلان به دانشجویان از طریق پیام سامانه</span></label>
                                 <label class="toggle-row"><input type="checkbox" name="notify_students_email" checked><span class="switch"></span><span>ارسال ایمیل اطلاع‌رسانی</span></label>
-                                <label class="toggle-row"><input type="checkbox" name="show_in_academic_calendar"><span class="switch"></span><span>نمایش در تقویم آموزشی</span></label>
+                                <label class="toggle-row"><input type="checkbox" name="show_in_academic_calendar" checked><span class="switch"></span><span>نمایش در تقویم آموزشی</span></label>
                             </section>
                         </div>
                     </div>
@@ -925,6 +929,16 @@
             [form.querySelectorAll('[name="question_ids"]').length > 0, 'حداقل یک سوال انتخاب شده است.'],
             [!!form.elements.duration_minutes.value, 'مدت زمان آزمون تعیین شده است.'],
         ];
+        // «تعداد کل سوالات آزمون»: each type with a target must have exactly that many selected questions.
+        const selectedByType = {};
+        form.querySelectorAll('[name="question_ids"]').forEach((el) => { selectedByType[el.dataset.type] = (selectedByType[el.dataset.type] || 0) + 1; });
+        form.querySelectorAll('[data-count-input]').forEach((input) => {
+            const target = Number(input.value || 0);
+            if (!target) return;
+            const type = input.dataset.countInput;
+            const have = selectedByType[type] || 0;
+            checks.push([have === target, `${TYPE_LABELS[type] || type}: ${fa(have)} از ${fa(target)} سؤال هدف انتخاب شده است.`]);
+        });
         list.innerHTML = checks.map(([ok, label]) => `<div>${label} <b class="${ok ? '' : 'is-bad'}">${ok ? '✓' : '!'}</b></div>`).join('');
     };
 
@@ -1096,7 +1110,7 @@
         essay: { label: 'سوالات تشریحی', color: '#22c55e', types: ['essay'] },
         kfp_osce: { label: 'سوالات KFP/OSCE', color: '#a855f7', types: ['kfp', 'osce'] },
     };
-    const TYPE_TARGET_KEYS = ['single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering'];
+    const TYPE_TARGET_KEYS = ['single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering', 'numeric', 'matrix', 'image_label', 'media_response'];
     const updateScoreAllocation = () => {
         const body = document.querySelector('[data-score-allocation-body]');
         if (!body) return;
@@ -1179,10 +1193,39 @@
         form.querySelector('[data-publish-mode]').value = selected;
     });
 
+    // Timing rules the browser cannot check on hidden date fields (the server checks them again).
+    function timingProblem() {
+        const value = (name) => form.querySelector(`[name="${name}"]`)?.value || '';
+        const time = (name) => (value(name) ? new Date(value(name)).getTime() : null);
+        if (!(Number(value('duration_minutes')) > 0)) return ['duration_minutes', 'مدت زمان آزمون باید بیشتر از صفر باشد.'];
+        const start = time('start_at');
+        // A draft may be saved before its date is known; sending or publishing needs it.
+        if (!start) return value('publish_choice') === 'draft' ? null : ['start_at', 'تاریخ و زمان شروع آزمون را انتخاب کنید.'];
+        const end = start + Number(value('duration_minutes') || 0) * 60000;
+        const accessStart = time('registration_start_at');
+        const lastEntry = time('last_entry_at');
+        const accessEnd = time('registration_end_at');
+        if (accessStart && accessStart > start) return ['registration_start_at', '«شروع دسترسی» نباید بعد از شروع آزمون باشد.'];
+        if (lastEntry && (lastEntry < start || lastEntry > end)) return ['last_entry_at', '«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد.'];
+        if (accessEnd && accessEnd < start) return ['registration_end_at', '«پایان دسترسی» نباید قبل از شروع آزمون باشد.'];
+        const percent = value('min_passing_percent');
+        if (percent !== '' && (Number(percent) < 0 || Number(percent) > 100)) return ['min_passing_percent', 'نمره قبولی باید درصدی بین ۰ تا ۱۰۰ باشد.'];
+        return null;
+    }
+
     form.addEventListener('submit', (event) => {
-        if (form.checkValidity()) return;
+        const problem = timingProblem();
+        if (form.checkValidity() && !problem) return;
         event.preventDefault();
-        const invalid = form.querySelector(':invalid');
+        let invalid = form.querySelector(':invalid');
+        if (!invalid && problem) {
+            invalid = form.querySelector(`[name="${problem[0]}"]`);
+            const shown = invalid?.closest('[data-jalali-field]')?.querySelector('[data-jalali-display]') || invalid;
+            const pane = invalid?.closest('[data-pane]');
+            if (pane) setStep(pane.dataset.pane);
+            window.requestAnimationFrame(() => { shown?.focus?.(); alert(problem[1]); });
+            return;
+        }
         if (!invalid) return;
         const pane = invalid.closest('[data-pane]');
         if (pane) setStep(pane.dataset.pane);
@@ -1238,7 +1281,7 @@
     };
     document.querySelectorAll('[data-filter-select]').forEach((select) => select.addEventListener('change', applyQuestionFilters));
 
-    const TYPE_LABELS = {single: 'چهارگزینه‌ای', multi: 'چندگزینه‌ای', true_false: 'درست / نادرست', short_answer: 'پاسخ کوتاه', essay: 'تشریحی', fill_blank: 'جای خالی', matching: 'تطبیقی', ordering: 'ترتیبی', image_based: 'تصویری', calculation: 'محاسباتی'};
+    const TYPE_LABELS = {single: 'چهارگزینه‌ای', multi: 'چندگزینه‌ای', true_false: 'درست / نادرست', short_answer: 'پاسخ کوتاه', essay: 'تشریحی', fill_blank: 'جای خالی', matching: 'تطبیقی', ordering: 'ترتیبی', numeric: 'پاسخ عددی', matrix: 'ماتریسی / جدول', image_label: 'تصویری / نشانه‌گذاری', media_response: 'صوتی / ویدئویی'};
     const visibleQuestionRows = () => [...document.querySelectorAll('[data-question-row]')].filter((row) => !row.hidden);
     const renumberQuestionBank = () => {
         visibleQuestionRows().forEach((row, index) => {
@@ -1677,6 +1720,28 @@
         updateCounts(); updateDistribution(); updateReadiness(); updateScoreAllocation(); updateReviewCards(); renderQuestionPreview();
     }
 
+    // Step 1 «نمره کل آزمون» and step 5 «مجموع نمرات کل آزمون» are one value; only step 5's field is posted.
+    const totalField = form.querySelector('[name="passing_score_total"]');
+    const totalMirror = form.querySelector('[data-total-mirror]');
+    if (totalField && totalMirror) {
+        totalMirror.addEventListener('input', () => { totalField.value = totalMirror.value; totalField.dispatchEvent(new Event('input', { bubbles: true })); });
+        ['input', 'change'].forEach((type) => totalField.addEventListener(type, () => { if (totalMirror.value !== totalField.value) totalMirror.value = totalField.value; }));
+    }
+
+    // «یکسان برای همه سوالات»: every question weighs 1, so the per-question «نمره» cells are locked.
+    const gradingMethodSelect = form.querySelector('[name="grading_method"]');
+    function applyGradingMethodToPoints(tr) {
+        const input = tr.querySelector('[data-question-points]');
+        if (!input) return;
+        const uniform = gradingMethodSelect?.value === 'uniform';
+        input.disabled = uniform;
+        tr.dataset.points = uniform ? '1' : (input.value || tr.dataset.points);
+    }
+    gradingMethodSelect?.addEventListener('change', () => {
+        selectedQuestionsBody.querySelectorAll('tr[data-id]').forEach(applyGradingMethodToPoints);
+        rebuildQuestionHiddenInputs();
+    });
+
     function addQuestionToSelection(bankRow) {
         if (selectedQuestionsBody.querySelector(`tr[data-id="${bankRow.dataset.id}"]`)) return;
         const checkbox = bankRow.querySelector('[data-add-question]');
@@ -1692,12 +1757,17 @@
             <td>${TYPE_LABELS[bankRow.dataset.type] || bankRow.dataset.type}</td>
             <td>${rowTags(bankRow).map((tag) => `<span class="tag-chip">${tag}</span>`).join('') || '-'}</td>
             <td>${bankRow.dataset.course}</td>
-            <td>${fa(bankRow.dataset.points)}</td>
-            <td><span class="badge ${bankRow.dataset.difficulty}">${bankRow.dataset.difficulty}</span></td>
+            <td><input type="number" class="q-points-input" name="question_points_${bankRow.dataset.id}" value="${bankRow.dataset.points}" min="0.25" step="0.25" aria-label="نمره این سؤال در آزمون" data-question-points></td>
+            <td><span class="badge ${bankRow.dataset.difficulty}">${({ easy: 'آسان', hard: 'سخت' })[bankRow.dataset.difficulty] || 'متوسط'}</span></td>
             <td>${bankRow.dataset.teacherName || '-'}</td>
             <td class="row-actions"><button type="button" class="remove-row-btn" data-remove-selected-question aria-label="حذف"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></button><span class="drag-handle" aria-hidden="true">⋮⋮</span></td>
         `;
         tr.querySelector('[data-remove-selected-question]').addEventListener('click', () => removeQuestionFromSelection(bankRow.dataset.id));
+        const pointsInput = tr.querySelector('[data-question-points]');
+        pointsInput.addEventListener('input', () => {
+            if (Number(pointsInput.value) > 0) { tr.dataset.points = pointsInput.value; rebuildQuestionHiddenInputs(); }
+        });
+        applyGradingMethodToPoints(tr);
         selectedQuestionsBody.appendChild(tr);
         renumberSelectedQuestions();
         rebuildQuestionHiddenInputs();
@@ -2031,10 +2101,29 @@
         });
     }
 
+    // «سطح امنیت»: picking a level sets the security switches to that level; each can still be changed afterwards.
+    const SECURITY_PRESETS = {
+        low: { device_limit_enabled: false, fullscreen_required: false, track_tab_exit: false, copy_paste_prevention: false,
+               screenshot_prevention: false, webcam_monitoring: false, identity_verification_required: false },
+        medium: { device_limit_enabled: true, fullscreen_required: true, track_tab_exit: true, copy_paste_prevention: true,
+                  screenshot_prevention: false, webcam_monitoring: false, identity_verification_required: false },
+        high: { device_limit_enabled: true, fullscreen_required: true, track_tab_exit: true, copy_paste_prevention: true,
+                screenshot_prevention: true, webcam_monitoring: true, identity_verification_required: true },
+    };
+    let restoringSavedExam = false;
+    form.querySelectorAll('[name="security_level"]').forEach((radio) => radio.addEventListener('change', () => {
+        if (restoringSavedExam || !radio.checked) return;
+        Object.entries(SECURITY_PRESETS[radio.value] || {}).forEach(([name, on]) => {
+            const checkbox = form.querySelector(`[name="${name}"]`);
+            if (checkbox) { checkbox.checked = on; checkbox.dispatchEvent(new Event('change', { bubbles: true })); }
+        });
+    }));
+
     // Edit mode: re-apply a saved exam through the same functions the UI uses.
     const initialEl = document.getElementById('wizard-initial');
     const initial = initialEl ? JSON.parse(initialEl.textContent) : null;
     if (initial) {
+        restoringSavedExam = true;
         const truthy = (value) => value === true || value === 1 || value === '1' || value === 'true' || value === 't';
         Object.entries(initial.fields || {}).forEach(([name, value]) => {
             const el = form.elements[name];
@@ -2069,7 +2158,11 @@
         staffPager.render();
         (initial.question_ids || []).forEach((id) => {
             const bankRow = document.querySelector(`[data-question-row][data-id="${id}"]`);
-            if (bankRow) addQuestionToSelection(bankRow);
+            if (!bankRow) return;
+            addQuestionToSelection(bankRow);
+            const saved = (initial.question_points || {})[id];
+            const input = selectedQuestionsBody.querySelector(`tr[data-id="${id}"] [data-question-points]`);
+            if (saved && input && !input.disabled) { input.value = saved; input.dispatchEvent(new Event('input')); }
         });
         const tagsInput = document.querySelector('[data-exam-tags-input]');
         (initial.tags || []).forEach((tag) => { if (tagsInput) { tagsInput.value = tag; tagsInput.dispatchEvent(new Event('blur')); } });
@@ -2077,6 +2170,7 @@
         if (publishRadio) publishRadio.checked = true;
         updateCounts();
         updateSummary();
+        restoringSavedExam = false;
     }
 
     setStep(1);

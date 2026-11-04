@@ -353,7 +353,7 @@
         {% endif %}
     </div>
 {% endif %}
-<form class="qb-form" method="post" enctype="multipart/form-data" data-question-create-form data-question-type="{{ qf.type }}" data-autosave-url="{% url 'core:teacher_question_autosave' %}"{% if question_id %} data-question-id="{{ question_id }}"{% endif %}>
+<form class="qb-form" method="post" enctype="multipart/form-data" data-question-create-form data-question-type="{{ qf.type }}"{% if question_autosave %} data-autosave-url="{% url 'core:teacher_question_autosave' %}"{% endif %}{% if question_id %} data-question-id="{{ question_id }}"{% endif %}>
     {% csrf_token %}
     <input type="hidden" name="type" value="{{ qf.type }}">
     <input type="hidden" name="structure" value="independent">
@@ -729,7 +729,7 @@
                         <label class="qb-field">حداقل پاسخ صحیح<input type="number" name="min_correct" min="1" value="{{ qf.settings.min_correct }}" data-min-correct></label>
                         <label class="qb-field">حداکثر انتخاب<input type="number" name="max_correct" min="0" value="{{ qf.settings.max_correct }}" data-max-correct></label>
                     </div>
-                    <p class="qb-help">حداکثر انتخاب ۰ یعنی بدون محدودیت؛ انتخاب بیش از حد مجاز پاسخ غلط است. در نمره‌ی جزئی، «امتیاز انتخاب» وزن هر گزینه‌ی صحیح و «جریمه» کسر هر گزینه‌ی غلطِ انتخاب‌شده است.</p>
+                    <p class="qb-help">حداکثر انتخاب ۰ یعنی بدون محدودیت؛ انتخاب کمتر از «حداقل پاسخ صحیح» یا بیش از حد مجاز، پاسخ غلط است. در نمره‌ی جزئی، «امتیاز انتخاب» وزن هر گزینه‌ی صحیح و «جریمه» کسر هر گزینه‌ی غلطِ انتخاب‌شده است.</p>
                     <label class="qb-switch"><span>حداقل نمره کل: ۰<small>نمره کل هرگز از صفر کمتر نشود</small></span><input type="checkbox" name="floor_zero" value="1" {% if qf.settings.floor_zero %}checked{% endif %}><span class="qb-switch-ui"></span></label>
                 {% endif %}
                 {% if qf.type == 'image_label' %}
@@ -1393,6 +1393,7 @@
   const autosaveText = createForm.querySelector('[data-autosave-text]');
   let autosaveTimer;
   const autosave = () => {
+    if (!createForm.dataset.autosaveUrl) return;  // «ذخیره خودکار پیش‌نویس» is off in the teacher's settings
     serializeForm();
     const data = new FormData(createForm);
     [...data.entries()].forEach(([name, entry]) => { if (entry instanceof File) data.delete(name); });

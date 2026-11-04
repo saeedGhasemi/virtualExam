@@ -10,9 +10,9 @@
     <div class="receipt-icon">✓</div>
     <h1>پاسخ‌های شما با موفقیت ثبت شد</h1>
     <p>از شرکت شما در آزمون سپاسگزاریم.</p>
-    <div class="receipt-code"><small>شناسه رسید (Receipt ID):</small><strong>{{ attempt.receipt_code|default:"MQ-1405-027-3921" }}</strong></div>
+    <div class="receipt-code"><small>شناسه رسید (Receipt ID):</small><strong style="user-select:all" data-latin-digits>{{ attempt.receipt_code|default:"-" }}</strong><small style="display:block;margin-top:8px;color:#64748b;font-weight:700">این شناسه را نگه دارید؛ گواه تحویل برگه‌ی شماست و استاد با آن برگه‌تان را پیدا می‌کند.</small></div>
     <div class="receipt-grid">
-      <div><small>زمان اتمام آزمون:</small><b>{{ attempt.submitted_at|default:"ثبت نشده"|fa_digits }}</b></div>
+      <div><small>زمان اتمام آزمون:</small><b>{% if attempt.submitted_at %}{{ attempt.submitted_at|to_jalali }}{% else %}ثبت نشده{% endif %}</b></div>
       <div><small>پاسخ‌داده‌شده:</small><b>{{ attempt_map.answered_count|fa_digits }} از {{ attempt_map.items|length|fa_digits }}</b></div>
     </div>
     <a href="{% url 'core:student_exam_schedule' %}">بازگشت به آزمون‌های من</a>

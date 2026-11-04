@@ -116,11 +116,11 @@
                 <b>سؤال مستقل:</b> سؤال تکی بدون وابستگی به سناریو یا ایستگاه؛ نوع آن را از فهرست پایین انتخاب کنید.
             </div>
             <div class="qs-structs" aria-label="ساختار سؤال">
-                <a class="qs-struct" data-choice="osce" href="{% url 'core:teacher_osce_create' %}"><span class="qs-art">{% include "teacher/_qs_art.html" with name="osce" %}</span><strong>سازنده ایستگاه OSCE</strong><span>ایستگاه بالینی، زمان و چک‌لیست</span></a>
+                <a class="qs-struct{% if teacher_default_structure == 'osce' %} is-selected{% endif %}" data-choice="osce" href="{% url 'core:teacher_osce_create' %}"><span class="qs-art">{% include "teacher/_qs_art.html" with name="osce" %}</span><strong>سازنده ایستگاه OSCE</strong><span>ایستگاه بالینی، زمان و چک‌لیست</span></a>
                 <span class="qs-struct" data-choice="kfp" aria-disabled="true" style="opacity:.6;cursor:not-allowed"><span class="qs-art">{% include "teacher/_qs_art.html" with name="kfp" %}</span><strong>سازنده سناریوی KFP</strong><span>ارزیابی ویژگی‌های کلیدی تصمیم‌گیری</span><small class="qb-soon" style="display:inline-block;margin-top:.3rem;padding:.1rem .5rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.72rem;font-weight:800">در حال توسعه</small></span>
                 <span class="qs-struct" data-choice="case" aria-disabled="true" style="opacity:.6;cursor:not-allowed"><span class="qs-art">{% include "teacher/_qs_art.html" with name="case" %}</span><strong>گروه سؤال مبتنی بر سناریوی بیمار</strong><span>چند سؤال وابسته به یک سناریوی مشترک و یکپارچه</span><small class="qb-soon" style="display:inline-block;margin-top:.3rem;padding:.1rem .5rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:.72rem;font-weight:800">در حال توسعه</small></span>
             </div>
-            <div class="qs-indep">
+            <div class="qs-indep{% if teacher_default_structure == 'independent' %} is-selected{% endif %}"{% if teacher_default_structure == 'independent' %} style="outline:2px solid #2563eb;outline-offset:4px;border-radius:14px"{% endif %}>
                 <div class="qs-indep-head">
                     <i>{% include "teacher/_qb_icon.html" with name="essay" %}</i>
                     <div><strong>سؤال مستقل</strong><span>انتخاب نوع سؤال مستقل</span></div>

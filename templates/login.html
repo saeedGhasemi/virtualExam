@@ -32,7 +32,7 @@
                 {% endif %}
                 {% if request.GET.code %}
                     <input type="hidden" name="exam_code" value="{{ request.GET.code }}">
-                    <div class="auth-code-alert">کد آزمون: <strong>{{ request.GET.code }}</strong></div>
+                    <div class="auth-code-alert">کد آزمون: <strong dir="ltr" data-latin-digits>{{ request.GET.code }}</strong></div>
                 {% endif %}
                 {% if messages %}
                     {% for message in messages %}

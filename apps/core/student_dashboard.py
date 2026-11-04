@@ -172,7 +172,7 @@ def student_classes(student_id, include_archived=False) -> list:
     return erd_rows(
         f"""
         SELECT sg.id, COALESCE(c.title, sg.course_name, 'درس') AS course_title, sg.group_code,
-               p.full_name AS teacher_name, sg.academic_year, sg.semester,
+               p.full_name AS teacher_name, sg.teacher_id, sg.academic_year, sg.semester,
                COALESCE(sg.is_archived, false) AS is_archived, COALESCE(sg.is_active, true) AS is_active
         FROM student_group_members sgm
         JOIN student_groups sg ON sg.id = sgm.group_id
@@ -276,6 +276,14 @@ def student_classes_page_context(request, student_id) -> dict:
     rows_by_id = {str(row['id']): row for row in student_exam_rows(student_id)} if groups else {}
     exams_by_group = _group_exam_ids([str(group['id']) for group in groups])
     cards = [_class_card(group, exams_by_group.get(str(group['id']), set()), rows_by_id) for group in groups]
+    from .teacher_preferences import public_teacher_cards
+
+    # the teacher as they chose to be shown: display name, and bio / e-mail only when their privacy settings allow
+    teachers = public_teacher_cards(group.get('teacher_id') for group in groups)
+    for card, group in zip(cards, groups):
+        teacher = teachers.get(str(group.get('teacher_id') or ''))
+        if teacher:
+            card.update(teacher_name=teacher['name'] or card.get('teacher_name'), teacher_bio=teacher['bio'], teacher_email=teacher['email'])
 
     tab = 'past' if request.GET.get('tab') == 'past' else 'current'
     view = 'list' if request.GET.get('view') == 'list' else 'grid'

@@ -5,7 +5,7 @@ condition, so a changed id in the URL answers 404 instead of exposing another te
 """
 import json
 import logging
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -25,6 +25,7 @@ from .views import (
     _sx_json,
     _teacher_modern_context,
     erd_execute,
+    erd_has_column,
     erd_profile_for_user,
     erd_role_required,
     erd_row,
@@ -40,7 +41,9 @@ FEEDBACK_MAX = 2000
 MANUAL_GRADING_TYPES = ('essay', 'descriptive', 'media_response', 'short_answer')
 GRADING_FILTERS = {'pending': 'در انتظار تصحیح', 'graded': 'تصحیح‌شده', 'all': 'همه'}
 
-# Base of every grading query: manually graded answers of submitted attempts that this teacher may grade.
+# Base of every grading query: manually graded answers of submitted attempts that this teacher may grade: the exam's
+# or the question's owner, or a teacher the wizard named «همکار تصحیح» of the exam. Takes the teacher id three times
+# (grader_params).
 _SCOPED_FROM = f"""
     FROM attempt_answers aa
     JOIN exam_attempts ea ON ea.id = aa.attempt_id
@@ -50,8 +53,13 @@ _SCOPED_FROM = f"""
     LEFT JOIN exam_questions eq ON eq.exam_id = e.id AND eq.question_id = q.id
     WHERE q.type IN ({', '.join(f"'{kind}'" for kind in MANUAL_GRADING_TYPES)})
       AND ea.submitted_at IS NOT NULL
-      AND (e.teacher_id = %s OR q.teacher_id = %s)
+      AND (e.teacher_id = %s OR q.teacher_id = %s
+           OR e.id IN (SELECT es.exam_id FROM exam_staff es WHERE es.teacher_id = %s AND es.role = 'co_grader'))
 """
+
+
+def grader_params(teacher_id) -> list:
+    return [teacher_id, teacher_id, teacher_id]
 
 
 def _filter_sql(status):
@@ -67,7 +75,7 @@ def teacher_reviews(request):
     """List of essay and short answers to grade (replaces the former static sample page)."""
     teacher_id = request.erd_profile_id
     status = request.GET.get('status') if request.GET.get('status') in GRADING_FILTERS else 'pending'
-    params = [teacher_id, teacher_id]
+    params = grader_params(teacher_id)
     counts = erd_row(
         f"""
         SELECT COUNT(*) AS total,
@@ -106,10 +114,12 @@ def _grading_answer(teacher_id, answer_id):
         SELECT aa.id, aa.attempt_id, aa.answer, aa.answer_files, aa.points_awarded, aa.needs_manual_grading,
                aa.rubric_scores, aa.grader_feedback, aa.graded_at, ea.submitted_at, ea.status AS attempt_status,
                e.title AS exam_title, p.full_name AS student_name, q.id AS question_id, q.text AS question_text,
-               q.type AS question_type, q.accepted_answers, q.rubric, q.scoring_settings, COALESCE(eq.points, q.default_points) AS max_points
+               q.type AS question_type, q.accepted_answers, q.rubric, q.scoring_settings, COALESCE(eq.points, q.default_points) AS max_points,
+               e.correction_instructions AS exam_correction_instructions, e.rubric_template AS exam_rubric_template,
+               e.settings_enforced AS exam_settings_enforced
         {_SCOPED_FROM} AND aa.id = %s
         """,
-        [teacher_id, teacher_id, str(answer_id)],
+        [*grader_params(teacher_id), str(answer_id)],
     )
     if not row:
         raise Http404('پاسخ پیدا نشد.')
@@ -183,10 +193,28 @@ def _refresh_attempt_score(attempt_id):
 def teacher_grading_detail(request, answer_id):
     teacher_id = request.erd_profile_id
     row = _grading_answer(teacher_id, answer_id)
+    from .teacher_preferences import grading_rules
+
+    rules = grading_rules(teacher_id)  # the grading teacher's «تصحیح و بازخورد» settings
     rubric = [item for item in (_sx_json(row.get('rubric'), []) or []) if isinstance(item, dict) and item.get('criterion')]
+    if not rules['use_rubric']:  # «نحوه تصحیح سؤالات تشریحی: دستی»: one score for the answer
+        rubric = []
     max_points = _decimal(row.get('max_points')) or Decimal(0)
+    published = erd_has_column('exams', 'results_published_at') and bool((erd_row(
+        'SELECT e.results_published_at FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id WHERE ea.id = %s',
+        [row['attempt_id']]) or {}).get('results_published_at'))
+    locked = rules['lock_after_publish'] and published and bool(row.get('graded_at'))  # «قفل کردن نمرات پس از انتشار»
+    if request.method == 'POST' and locked:
+        messages.error(request, 'نتایج این آزمون منتشر شده و نمره‌ها طبق تنظیمات شما قفل است؛ برای تغییر، ابتدا «قفل کردن نمرات پس از انتشار» را خاموش کنید.')
+        return redirect('core:teacher_grading_detail', answer_id=row['id'])
     if request.method == 'POST':
-        awarded, scores, feedback, errors = _grade_from_post(request.POST, rubric, max_points)
+        post = request.POST
+        if not rules['feedback']:  # «ارائه بازخورد کتبی» off: no box, and an earlier feedback is kept as it was
+            post = request.POST.copy()
+            post['feedback'] = row.get('grader_feedback') or ''
+        awarded, scores, feedback, errors = _grade_from_post(post, rubric, max_points)
+        if rules['integer_scores']:  # «دقت نمره‌دهی: عدد صحیح»
+            awarded = awarded.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
         if errors:
             for error in errors:
                 messages.error(request, error)
@@ -205,7 +233,7 @@ def teacher_grading_detail(request, answer_id):
             messages.success(request, f'نمره {awarded.normalize()} از {max_points.normalize()} ثبت شد.')
             following = erd_row(
                 f"SELECT aa.id {_SCOPED_FROM} AND COALESCE(aa.needs_manual_grading, false) = true ORDER BY ea.submitted_at, aa.id LIMIT 1",
-                [teacher_id, teacher_id],
+                grader_params(teacher_id),
             )
             if request.POST.get('next') and following:
                 return redirect('core:teacher_grading_detail', answer_id=following['id'])
@@ -225,6 +253,7 @@ def teacher_grading_detail(request, answer_id):
             if isinstance(item, dict) and item.get('answer')
         ],
         grading_rubric=[{**item, 'index': index, 'previous': previous.get(item.get('criterion'), '')} for index, item in enumerate(rubric)],
+        grading_rules=rules, grading_locked=locked, grading_score_step='1' if rules['integer_scores'] else '0.25',
         grading_rubric_total=sum((_decimal(item.get('points')) or Decimal(0) for item in rubric), Decimal(0)).normalize(),
     ))
 

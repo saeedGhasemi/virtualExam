@@ -27,228 +27,62 @@
     <div class="qx-grid">
       <form method="post" enctype="multipart/form-data" class="qx-card qx-main" id="answer-form" data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
         {% csrf_token %}
-        <input type="hidden" name="seen_{{ current_answer.question_id }}" value="1">
-        <div class="qx-qhead">
-          <h3>سؤال {{ current_index|fa_digits }} — {{ current_answer.type_label }}</h3>
-          <div>
-            {% if current_answer.points %}<span class="qx-chip"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>{{ current_answer.points|stringformat:"g"|fa_digits }} نمره</span>{% endif %}
-            {% with seconds=current_answer.suggested_seconds %}{% if seconds %}<span class="qx-chip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>زمان پیشنهادی: {% if seconds|divisibleby:60 %}{% widthratio seconds 60 1 as minutes %}{{ minutes|fa_digits }} دقیقه{% else %}{{ seconds|fa_digits }} ثانیه{% endif %}</span>{% endif %}{% endwith %}
+        {% if page_rules.one_per_page %}
+          <input type="hidden" name="seen_{{ current_answer.question_id }}" value="1">
+          <div data-question-block data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
+            {% include "student/_attempt_question.html" with q=current_answer with_autosave_state=True %}
           </div>
-        </div>
-        {% if current_answer.text_html %}
-          {# Built server-side from the stored Quill Delta with every text fragment escaped (apps/core/rich_text.py). #}
-          <div class="qx-qtext">{{ current_answer.text_html|safe }}</div>
-        {% elif current_answer.type != 'fill_blank' %}
-          <div class="qx-qtext"><p>{{ current_answer.text }}</p></div>
+        {% else %}
+          {# «نمایش یک سوال در هر صفحه» off: every question on this page; each block saves with the same form. #}
+          {% for item in items %}
+            <input type="hidden" name="seen_{{ item.question_id }}" value="1">
+            <div class="qx-qblock" id="q-{{ item.index }}" data-question-block data-question-id="{{ item.question_id }}" data-answered="{% if item.answered %}1{% endif %}" data-has-files="{% if item.answer_files %}1{% endif %}">
+              {% include "student/_attempt_question.html" with q=item inline_mark=True %}
+            </div>
+          {% endfor %}
+          <div class="qx-answer-meta">{% include "student/_attempt_autosave_state.html" %}</div>
         {% endif %}
-        {% if current_answer.student_instructions %}<p class="qx-instructions">{{ current_answer.student_instructions }}</p>{% endif %}
-        {% with media=current_answer.media %}
-          {% if media %}
-            <div class="qx-media">
-              {% if media.image and current_answer.type != 'image_label' %}<figure class="qx-figure"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><figcaption><span>{{ media.image_alt }}</span><button type="button" class="qx-zoom" data-zoom><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر</button></figcaption></figure>{% endif %}
-              {% if media.video %}<figure class="qx-figure"><video src="{{ media.video }}" controls preload="metadata"{% if current_answer.playback %} data-playback{% endif %}>{% if media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ media.video_subtitle }}" default>{% endif %}</video>{% if media.video_caption %}<figcaption>{{ media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
-              {% if media.audio %}<figure class="qx-figure"><audio src="{{ media.audio }}" controls preload="metadata"{% if current_answer.playback %} data-playback{% endif %}></audio></figure>{% endif %}
-            </div>
-          {% endif %}
-        {% endwith %}
-        {% if current_answer.playback %}{{ current_answer.playback|json_script:"playback-rules" }}{% endif %}
-        {% if current_answer.transcript %}<details class="qx-transcript"><summary>متن رونویسی</summary><p>{{ current_answer.transcript|linebreaksbr }}</p></details>{% endif %}
-        {% if current_answer.attachment %}<p class="qx-attachment"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg><a href="{{ current_answer.attachment.url }}" target="_blank" rel="noopener">فایل مکمل: {{ current_answer.attachment.name }}</a></p>{% endif %}
-
-        <section class="qx-answer">
-          {# Disabled inputs are not posted; the server ignores this question's answer anyway once feedback was shown. #}
-          <fieldset class="qx-lock"{% if practice.feedback %} disabled{% endif %}>
-          {% if current_answer.type == 'single' or current_answer.type == 'multiple_choice' or current_answer.type == 'true_false' %}
-            <div class="qx-options" role="radiogroup" aria-label="گزینه‌های پاسخ">
-              {% for option in current_answer.options %}
-                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
-                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
-                  <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
-                  {% include "student/_practice_option_verdict.html" %}
-                  <input type="radio" name="answer_{{ current_answer.question_id }}" value="{{ option.value }}" {% if current_answer.answer == option.value %}checked{% endif %}>
-                </label>
-              {% empty %}
-                <p class="qx-empty">برای این سؤال گزینه‌ای تعریف نشده است؛ موضوع را به مراقب آزمون اطلاع دهید.</p>
-              {% endfor %}
-            </div>
-          {% elif current_answer.type == 'multi' %}
-            {% if current_answer.max_select %}<p class="qx-select-hint">حداکثر {{ current_answer.max_select|fa_digits }} گزینه را می‌توانید انتخاب کنید.</p>{% endif %}
-            <div class="qx-options" data-max-select="{{ current_answer.max_select|default:0 }}">
-              {% for option in current_answer.options %}
-                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
-                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
-                  <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
-                  {% include "student/_practice_option_verdict.html" %}
-                  <input type="checkbox" name="answer_{{ current_answer.question_id }}" value="{{ option.value }}" {% if option.value in current_answer.answer %}checked{% endif %}>
-                </label>
-              {% endfor %}
-            </div>
-          {% elif current_answer.type == 'essay' or current_answer.type == 'descriptive' or current_answer.type == 'media_response' %}
-            <h3>پاسخ شما</h3>
-            {% if not current_answer.answer_formats or 'text' in current_answer.answer_formats %}
-              <textarea class="qx-textarea" name="answer_{{ current_answer.question_id }}" maxlength="50000" placeholder="پاسخ تشریحی خود را بنویسید...">{{ current_answer.answer|default_if_none:"" }}</textarea>
-            {% endif %}
-            {% if current_answer.upload_rules %}
-              <div class="qx-uploads" data-answer-uploads>
-                {% if current_answer.answer_files %}
-                  <ul class="qx-upload-list">
-                    {% for file in current_answer.answer_files %}
-                      <li>
-                        {% if file.kind == 'image' %}<img src="{{ file.url }}" alt="{{ file.name }}">{% elif file.kind == 'audio' %}<audio src="{{ file.url }}" controls preload="metadata"></audio>{% elif file.kind == 'video' %}<video src="{{ file.url }}" controls preload="metadata"></video>{% endif %}
-                        <a href="{{ file.url }}" target="_blank" rel="noopener">{{ file.name }}</a>
-                        <label class="qx-upload-remove"><input type="checkbox" name="remove_file_{{ current_answer.question_id }}" value="{{ file.id }}" data-auto-save>حذف</label>
-                      </li>
-                    {% endfor %}
-                  </ul>
-                {% endif %}
-                <div class="qx-upload-actions">
-                  {% for kind, rule in current_answer.upload_rules.items %}
-                    {% if kind == 'audio' or kind == 'video' and current_answer.type == 'media_response' %}
-                      <div class="qx-recorder" data-recorder data-record-kind="{{ kind }}"{% if current_answer.max_record_seconds %} data-record-max="{{ current_answer.max_record_seconds }}"{% endif %}>
-                        <button type="button" class="qx-upload-btn" data-record-start>● {% if kind == 'video' %}ضبط ویدئو{% else %}ضبط صدا{% endif %}</button>
-                        <button type="button" class="qx-upload-btn is-stop" data-record-stop hidden>■ پایان ضبط (<span data-record-time>۰۰:۰۰</span>)</button>
-                        <label class="qx-upload-btn">{% if kind == 'video' %}بارگذاری فایل ویدئو{% else %}بارگذاری فایل صوتی{% endif %}<input type="file" name="upload_{{ current_answer.question_id }}_{{ kind }}" accept="{{ rule.accept }}" data-auto-save data-record-target></label>
-                      </div>
-                    {% else %}
-                      <label class="qx-upload-btn">{% if kind == 'image' %}بارگذاری تصویر{% elif kind == 'video' %}بارگذاری ویدئو{% else %}پیوست فایل{% endif %}<input type="file" name="upload_{{ current_answer.question_id }}_{{ kind }}" accept="{{ rule.accept }}"{% if kind != 'video' %} multiple{% endif %} data-auto-save></label>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-                <small class="qx-upload-hint">{% if current_answer.max_record_seconds %}حداکثر زمان ضبط {{ current_answer.max_record_seconds|fa_digits }} ثانیه است. {% endif %}فایل بلافاصله پس از انتخاب ذخیره می‌شود. {% for kind, rule in current_answer.upload_rules.items %}{% if kind == 'image' %}تصویر{% elif kind == 'audio' %}صوت{% elif kind == 'video' %}ویدئو{% else %}فایل PDF/Word{% endif %} تا {{ rule.mb|fa_digits }} مگابایت{% if not forloop.last %}، {% endif %}{% endfor %}؛ حداکثر ۵ فایل.</small>
-              </div>
-            {% endif %}
-          {% elif current_answer.type == 'numeric' %}
-            <h3>پاسخ شما</h3>
-            <div class="qx-numeric">
-              <input class="qx-input" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.numeric_value }}" inputmode="decimal" placeholder="پاسخ خود را وارد کنید" autocomplete="off" aria-label="پاسخ عددی">
-              {% if current_answer.numeric_require_unit %}
-                <input class="qx-input qx-numeric-unit" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.numeric_unit_value }}" placeholder="واحد" autocomplete="off" aria-label="واحد پاسخ">
-              {% elif current_answer.numeric_unit %}
-                <span class="qx-numeric-unit">{{ current_answer.numeric_unit }}</span>
-              {% endif %}
-            </div>
-          {% elif current_answer.type == 'matrix' %}
-            {% if current_answer.matrix_multi %}<p class="qx-select-hint">در هر سطر ممکن است بیش از یک گزینه صحیح باشد.</p>{% endif %}
-            <div class="qx-matrix-wrap">
-              <table class="qx-matrix" data-matrix>
-                {% if current_answer.matrix_show_column_titles %}
-                  <thead><tr><th></th>{% for column in current_answer.matrix_columns %}<th scope="col">{{ column.text }}</th>{% endfor %}</tr></thead>
-                {% endif %}
-                <tbody>
-                  {% for row in current_answer.matrix_rows %}
-                    <tr>
-                      <th scope="row">{% if current_answer.matrix_show_row_titles %}{{ row.text }}{% else %}{{ forloop.counter|fa_digits }}{% endif %}</th>
-                      {% for cell in row.cells %}
-                        <td><input type="{% if current_answer.matrix_multi %}checkbox{% else %}radio{% endif %}" name="mx_{{ current_answer.question_id }}_{{ row.id }}" value="{{ cell.value }}" data-matrix-cell{% if cell.checked %} checked{% endif %} aria-label="{{ row.text }} — {{ cell.label }}"></td>
-                      {% endfor %}
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-            <input type="hidden" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.matrix_answer }}" data-matrix-answer>
-          {% elif current_answer.type == 'image_label' %}
-            <div class="qx-label" data-label{% if current_answer.label_drag %} data-label-drag{% endif %}>
-              <div class="qx-label-stage">
-                <img src="{{ current_answer.media.image }}" alt="{{ current_answer.media.image_alt }}">
-                {% for marker in current_answer.label_markers %}<span class="qx-label-pin" style="left:{{ marker.left }}%;top:{{ marker.top }}%">{{ marker.number|fa_digits }}</span>{% endfor %}
-              </div>
-              {% if current_answer.label_drag %}
-                <div class="qx-label-bank" data-label-bank aria-label="برچسب‌ها">
-                  {% for text in current_answer.label_bank %}<button type="button" class="qx-label-chip" draggable="true" data-label-chip>{{ text }}</button>{% endfor %}
-                </div>
-              {% endif %}
-              <ol class="qx-label-answers">
-                {% for marker in current_answer.label_markers %}
-                  <li>
-                    <b>{{ marker.number|fa_digits }}</b>
-                    <input class="qx-input" type="text" name="answer_{{ current_answer.question_id }}" value="{{ marker.value }}" data-label-input aria-label="پاسخ نشانه {{ marker.number|fa_digits }}" autocomplete="off"{% if current_answer.label_drag %} readonly placeholder="برچسب را اینجا رها کنید"{% else %} placeholder="نام بخش"{% endif %}>
-                    {% if current_answer.label_drag %}<button type="button" class="qx-label-clear" data-label-clear aria-label="پاک کردن">×</button>{% endif %}
-                  </li>
-                {% endfor %}
-              </ol>
-            </div>
-          {% elif current_answer.type == 'short_answer' %}
-            <h3>پاسخ شما</h3>
-            <div class="qx-voice">
-              <input class="qx-input" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.answer|default_if_none:'' }}" placeholder="پاسخ خود را بنویسید..." autocomplete="off" data-voice-target data-char-count-source>
-              <button type="button" class="qx-mic" data-voice-mic hidden aria-label="ورودی صوتی">
-                <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              </button>
-            </div>
-          {% elif current_answer.type == 'fill_blank' %}
-            {% if current_answer.blank_html %}
-              {# Rich stem from the saved Delta (escaped server-side) with an answer input in place of each [n]. #}
-              <div class="qx-fillblank qx-fillblank--rich">{{ current_answer.blank_html|safe }}</div>
-            {% else %}
-              <p class="qx-fillblank">{% for seg in current_answer.blank_segments %}{% if seg.kind == 'text' %}{{ seg.value }}{% else %}<input class="qx-blank" type="text" name="answer_{{ current_answer.question_id }}" value="{{ seg.value }}" aria-label="جای خالی {{ seg.index|fa_digits }}" placeholder="{{ seg.index|fa_digits }}" autocomplete="off">{% endif %}{% endfor %}</p>
-            {% endif %}
-            {% if current_answer.blank_hints %}
-              <ul class="qx-blank-hints" aria-label="راهنمای رسانه‌ای جای‌خالی‌ها">
-                {% for hint in current_answer.blank_hints %}
-                  <li><b>{{ hint.index|fa_digits }}</b>{% include "student/_attempt_item_media.html" with item=hint %}</li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          {% elif current_answer.type == 'ordering' %}
-            <ol class="qx-ordering" data-ordering-list>
-              {% for item in current_answer.ordering_items %}
-                <li draggable="true" data-value="{{ item.value }}">
-                  <span class="qx-drag" aria-hidden="true">⋮⋮</span>
-                  <span class="qx-order-badge" data-ordering-badge>{{ forloop.counter|fa_digits }}</span>
-                  <span>{{ item.label }}</span>{% include "student/_attempt_item_media.html" %}
-                </li>
-              {% endfor %}
-            </ol>
-            <input type="hidden" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.answer|default_if_none:'' }}" data-ordering-answer>
-          {% elif current_answer.type == 'matching' %}
-            {% if current_answer.matching_many_to_one %}<p class="qx-select-hint">ممکن است چند مورد به یک پاسخ مشترک وصل شوند.</p>{% endif %}
-            <div class="qx-matching" data-matching{% if current_answer.matching_many_to_one %} data-many-to-one{% endif %}>
-              <div class="qx-matching-col">
-                {% for item in current_answer.matching_left %}<button type="button" class="qx-match-node" data-side="left" data-value="{{ item.value }}">{{ item.label }}{% include "student/_attempt_item_media.html" %}</button>{% endfor %}
-              </div>
-              <svg class="qx-matching-lines" data-matching-lines></svg>
-              <div class="qx-matching-col">
-                {% for item in current_answer.matching_right %}<button type="button" class="qx-match-node" data-side="right" data-value="{{ item.value }}">{{ item.label }}{% include "student/_attempt_item_media.html" %}</button>{% endfor %}
-              </div>
-            </div>
-            <input type="hidden" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.answer|default_if_none:'' }}" data-matching-answer>
-          {% else %}
-            <h3>پاسخ شما</h3>
-            <input class="qx-input" name="answer_{{ current_answer.question_id }}" value="{{ current_answer.answer|default_if_none:'' }}" placeholder="پاسخ خود را وارد کنید">
-          {% endif %}
-          </fieldset>
-          {% if practice.tutorial %}{% include 'student/_practice_feedback.html' with feedback=practice.feedback %}{% endif %}
-          <div class="qx-answer-meta">
-            <span class="qx-autosave" id="autosave-state"><svg viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97M12 12v6m0 0-2.5-2.5M12 18l2.5-2.5"/></svg><span data-autosave-text>پاسخ به‌صورت خودکار ذخیره می‌شود</span></span>
-            {% if current_answer.type == 'short_answer' %}<span data-char-count>{{ current_answer.answer|default_if_none:''|length|fa_digits }} نویسه</span>{% endif %}
-          </div>
-        </section>
       </form>
 
       <aside class="qx-side">
         <section class="qx-card">
-          <h3>فهرست سؤالات</h3>
-          <div class="qx-legend"><span><i></i>بدون پاسخ</span><span><i class="is-answered"></i>پاسخ داده‌شده</span><span><i class="is-marked"></i>علامت‌گذاری‌شده</span></div>
-          <nav class="qx-map" aria-label="فهرست سؤالات">
-            {% for item in attempt_map.items %}
-              <a class="{% if item.current %}is-current{% elif item.marked %}is-marked{% elif item.answered %}is-answered{% endif %}" href="{% url 'core:student_attempt' attempt.pk %}?q={{ item.index }}"{% if item.current %} aria-current="page"{% endif %}>{{ item.index|fa_digits }}</a>
-            {% endfor %}
-          </nav>
+          {% if page_rules.show_list %}
+            <h3>فهرست سؤالات</h3>
+            <div class="qx-legend"><span><i></i>بدون پاسخ</span><span><i class="is-answered"></i>پاسخ داده‌شده</span>{% if page_rules.flagging %}<span><i class="is-marked"></i>علامت‌گذاری‌شده</span>{% endif %}</div>
+            <nav class="qx-map" aria-label="فهرست سؤالات">
+              {% for item in attempt_map.items %}
+                {% if not page_rules.one_per_page %}
+                  <a class="qx-map-cell {% if item.marked %}is-marked{% elif item.answered %}is-answered{% endif %}" href="#q-{{ item.index }}" data-map-cell="{{ item.index }}">{{ item.index|fa_digits }}</a>
+                {% elif page_rules.back %}
+                  {# Saves the answer on screen, then opens that question. #}
+                  <button type="submit" form="answer-form" name="goto" value="{{ item.index }}" class="qx-map-cell {% if item.current %}is-current{% elif item.marked %}is-marked{% elif item.answered %}is-answered{% endif %}"{% if item.current %} aria-current="page"{% endif %}>{{ item.index|fa_digits }}</button>
+                {% else %}
+                  {# «امکان بازگشت به سوال قبلی» off: the list shows progress only. #}
+                  <span class="qx-map-cell {% if item.current %}is-current{% elif item.marked %}is-marked{% elif item.answered %}is-answered{% endif %}"{% if item.current %} aria-current="page"{% endif %}>{{ item.index|fa_digits }}</span>
+                {% endif %}
+              {% endfor %}
+            </nav>
+          {% else %}
+            <h3>پیشرفت آزمون</h3>
+          {% endif %}
           <div class="qx-progress"><i style="width:{{ attempt_map.progress_percent }}%" data-progress-bar></i></div>
           <span class="qx-progress-label"><span data-answered-count>{{ answered_count|fa_digits }}</span> از {{ total_questions|fa_digits }} پاسخ داده‌شده</span>
+          {% if not page_rules.back %}<p class="qx-rule-note">در این آزمون بازگشت به سؤال‌های قبلی ممکن نیست.</p>{% endif %}
+          {% if page_rules.lock_on_leave %}<p class="qx-rule-note">پاسخ هر سؤال پس از رفتن به سؤال دیگر قابل تغییر نیست.</p>{% endif %}
         </section>
+        {% if page_rules.one_per_page %}
         <section class="qx-card">
           <h3>وضعیت سؤال <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></h3>
           <div class="qx-status">
             <div class="qx-state{% if current_answer.answered %} is-answered{% endif %}" data-answer-state><i></i><span data-answer-state-text>{% if current_answer.answered %}پاسخ داده‌شده{% else %}بدون پاسخ{% endif %}</span></div>
-            <label class="qx-mark"><input type="checkbox" name="mark_{{ current_answer.question_id }}" form="answer-form" {% if current_answer.marked %}checked{% endif %}><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>علامت‌گذاری برای مرور</label>
+            {% if page_rules.flagging %}<label class="qx-mark"><input type="checkbox" name="mark_{{ current_answer.question_id }}" form="answer-form" {% if current_answer.marked %}checked{% endif %}><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>علامت‌گذاری برای مرور</label>{% endif %}
           </div>
         </section>
         <section class="qx-card">
           <h3>راهنمای {{ current_answer.type_label }} <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></h3>
           <p class="qx-guide"><svg viewBox="0 0 24 24"><path d="m4 20 4-1L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>{% include "partials/exam_guide_text.html" with kind=current_answer.type max_select=current_answer.max_select can_upload=current_answer.upload_rules %}</p>
         </section>
+        {% endif %}
         {% if practice %}
           <section class="qx-card qx-practice-guide">
             <h3>راهنمای آزمون آزمایشی {% include 'teacher/_qb_icon.html' with name='cap' %}</h3>
@@ -261,26 +95,37 @@
     </div>
 
     <footer class="qx-card qx-foot">
-      {# Submits the answer form (saving the current answer) and then opens the end-of-exam confirmation. #}
+      {# Submits the answer form (saving the answers on screen) and then opens the end-of-exam confirmation. #}
       <button class="qx-btn qx-btn--primary" type="submit" form="answer-form" name="action" value="finish"><svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>{% if practice %}پایان آزمون آزمایشی{% else %}پایان آزمون{% endif %}</button>
-      <button class="qx-btn" type="submit" form="answer-form" name="action" value="next"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>{% if current_index < total_questions %}ذخیره پاسخ و سؤال بعدی{% else %}ذخیره پاسخ{% endif %}</button>
-      <button class="qx-btn qx-prev" type="submit" form="answer-form" name="action" value="previous"{% if current_index <= 1 %} disabled{% endif %}>سؤال قبلی<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+      {% if page_rules.one_per_page %}
+        <button class="qx-btn" type="submit" form="answer-form" name="action" value="next"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>{% if current_index < total_questions %}ذخیره پاسخ و سؤال بعدی{% else %}ذخیره پاسخ{% endif %}</button>
+        {% if page_rules.back %}<button class="qx-btn qx-prev" type="submit" form="answer-form" name="action" value="previous"{% if current_index <= 1 %} disabled{% endif %}>سؤال قبلی<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>{% endif %}
+      {% else %}
+        <button class="qx-btn" type="submit" form="answer-form" name="action" value="save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>ذخیره پاسخ‌ها</button>
+      {% endif %}
     </footer>
   </div>
   <div class="qx-lightbox" data-lightbox hidden><img alt=""></div>
 </section>
 <form method="post" action="{% url 'core:student_attempt_submit' attempt.pk %}" id="auto-submit-form" hidden>{% csrf_token %}<input type="hidden" name="auto" value="1"></form>
-{% if practice %}{% include 'student/_practice_connection.html' %}{% endif %}
+{% if practice or page_rules.offline == 'resume_from_last_save' %}{% include 'student/_practice_connection.html' %}{% endif %}
 <script src="{% static 'js/exam-interactions.js' %}"></script>
 <script src="{% static 'js/waveform-player.js' %}" defer></script>
+{{ page_rules|json_script:"attempt-rules" }}
+{{ proctoring|json_script:"attempt-proctoring" }}
 <script>
 (() => {
+  // The exam's own rules (student_attempt's page_rules / proctoring): every behaviour below follows them.
+  const rules = JSON.parse(document.getElementById('attempt-rules').textContent);
+  const proctoring = JSON.parse(document.getElementById('attempt-proctoring').textContent) || {};
   const form = document.getElementById('answer-form');
+  const blocks = [...document.querySelectorAll('[data-question-block]')];
   const state = document.getElementById('autosave-state');
-  const stateText = state.querySelector('[data-autosave-text]');
-  const setSaveState = (text, isError = false) => { stateText.textContent = text; state.classList.toggle('is-error', isError); };
+  const stateText = state?.querySelector('[data-autosave-text]');
+  const setSaveState = (text, isError = false) => { if (!stateText) return; stateText.textContent = text; state.classList.toggle('is-error', isError); };
   const timer = document.getElementById('timer');
   const eventUrl = "{% url 'core:student_attempt_event' attempt.pk %}";
+  const submitUrl = "{% url 'core:student_attempt_submit' attempt.pk %}";
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
   const pad = n => String(Math.max(0,n)).padStart(2,'0');
   const fa = s => String(s).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -288,9 +133,23 @@
     const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), sec = seconds % 60;
     timer.textContent = fa(`${pad(h)}:${pad(m)}:${pad(sec)}`);
   };
-  let saveTimer;
-  const postEvent = event => fetch(eventUrl, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: new URLSearchParams({ event }) });
-  // Connection indicator: browser connectivity, plus whether the last autosave reached the server.
+
+  // Proctoring signals. One sent while offline (e.g. «قطع اتصال») is kept and sent once the page is back online.
+  const eventQueueKey = 'mq-events-{{ attempt.pk }}';
+  const readQueue = () => { try { return JSON.parse(localStorage.getItem(eventQueueKey) || '[]'); } catch (error) { return []; } };
+  const writeQueue = (items) => { try { if (items.length) localStorage.setItem(eventQueueKey, JSON.stringify(items.slice(-50))); else localStorage.removeItem(eventQueueKey); } catch (error) { /* storage blocked */ } };
+  const sendEvent = event => fetch(eventUrl, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: new URLSearchParams({ event }) })
+    .then(response => { if (!response.ok && response.status >= 500) throw new Error('event failed'); });
+  const postEvent = event => sendEvent(event).catch(() => writeQueue([...readQueue(), event]));
+  const flushEvents = async () => {
+    const queued = readQueue();
+    writeQueue([]);
+    for (const [index, event] of queued.entries()) {
+      try { await sendEvent(event); } catch (error) { writeQueue(queued.slice(index)); return; }
+    }
+  };
+
+  // Connection indicator: browser connectivity, plus whether the last save reached the server.
   const connection = document.querySelector('[data-connection]');
   const setConnection = (online, text) => {
     connection.classList.toggle('is-offline', !online);
@@ -298,27 +157,63 @@
   };
   setConnection(navigator.onLine);
   window.addEventListener('offline', () => { setConnection(false); postEvent('disconnect'); });
-  window.addEventListener('online', () => { setConnection(true); postEvent('reconnect'); });
-  // Listen on the document: the mark-for-review checkbox lives in the side card, tied to the form via form="answer-form".
-  document.addEventListener('input', (event) => {
-    if (!form || event.target.form !== form) return;
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      // Autosave carries text answers only; files are saved by a normal submit right after they are picked.
-      const data = new FormData(form);
-      [...data.entries()].forEach(([name, value]) => { if (value instanceof File) data.delete(name); });
-      fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: data })
-        .then(response => {
-          if (response.status === 423) { window.location.reload(); return; }  // taken over on another device
-          setSaveState(response.ok ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'ذخیره خودکار ناموفق بود.', !response.ok);
-          if (navigator.onLine) setConnection(true);
-        })
-        .catch(() => {
-          setSaveState('ذخیره خودکار ناموفق بود.', true);
-          setConnection(false, navigator.onLine ? 'ارتباط با سرور برقرار نشد' : undefined);
-        });
-    }, 700);
-  });
+  window.addEventListener('online', () => { setConnection(true); postEvent('reconnect'); flushEvents(); });
+  if (navigator.onLine) flushEvents();
+
+  // «قطع شدن اینترنت: توقف آزمون»: nothing can be answered until the connection is back (the exam time still runs).
+  if (rules.offline === 'pause') {
+    const pause = document.createElement('div');
+    pause.className = 'qx-overlay';
+    pause.setAttribute('role', 'alertdialog');
+    pause.innerHTML = '<div>اتصال اینترنت قطع شده است و طبق قوانین این آزمون، پاسخ‌گویی تا برقراری دوباره‌ی اتصال متوقف است. زمان آزمون همچنان در حال گذر است.</div>';
+    pause.hidden = navigator.onLine;
+    document.body.appendChild(pause);
+    window.addEventListener('offline', () => { pause.hidden = false; });
+    window.addEventListener('online', () => { pause.hidden = true; });
+    form?.addEventListener('submit', (event) => { if (!navigator.onLine) event.preventDefault(); });
+  }
+
+  // Saving. «ذخیره خودکار پاسخ‌ها» off: answers are saved only when the student moves on or presses a save button.
+  // With a «بازه زمانی» the changes are sent every N seconds; without one, shortly after each change.
+  let saveTimer;
+  let dirty = false;
+  const answerData = () => {
+    // Autosave carries text answers only; files are saved by a normal submit right after they are picked.
+    const data = new FormData(form);
+    [...data.entries()].forEach(([name, value]) => { if (value instanceof File) data.delete(name); });
+    return data;
+  };
+  const save = () => {
+    dirty = false;
+    return fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: answerData() })
+      .then(response => {
+        if (response.status === 423 || response.status === 403) { window.location.reload(); return; }  // another device / network
+        setSaveState(response.ok ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'ذخیره خودکار ناموفق بود.', !response.ok);
+        if (!response.ok) dirty = true;
+        if (navigator.onLine) setConnection(true);
+      })
+      .catch(() => {
+        dirty = true;
+        setSaveState('ذخیره خودکار ناموفق بود.', true);
+        setConnection(false, navigator.onLine ? 'ارتباط با سرور برقرار نشد' : undefined);
+      });
+  };
+  if (rules.autosave) {
+    if (rules.autosave_seconds > 0) {
+      setInterval(() => { if (dirty) save(); }, rules.autosave_seconds * 1000);
+    }
+    document.addEventListener('input', (event) => {
+      if (!form || event.target.form !== form) return;
+      dirty = true;
+      if (rules.autosave_seconds > 0) return;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(save, 700);
+    });
+    // Closing the page with changes not yet sent (between two interval saves) still sends them when possible.
+    window.addEventListener('pagehide', () => {
+      if (dirty && navigator.sendBeacon) navigator.sendBeacon(window.location.href, answerData());
+    });
+  }
   // Essay uploads: picking (or removing) a file submits the form and stays on this question.
   const stay = () => {
     clearTimeout(saveTimer);
@@ -386,63 +281,109 @@
       recorder?.stop();
     });
   });
+
+  // Time. «ارسال خودکار در پایان زمان» on: the attempt is submitted with the saved answers (also when the page
+  // opens after the time is over). Off: answering stops and the confirmation page says what happens.
   let remaining = Number("{{ remaining_seconds|default:0 }}");
-  showTime(remaining);
-  if (timer && remaining > 0) {
-    setInterval(() => {
-      remaining -= 1;
-      showTime(remaining);
-      // A page part may take over the time-up (the practice connection dialog does) by cancelling this event.
-      if (remaining <= 0 && document.dispatchEvent(new CustomEvent('exam:time-up', { cancelable: true }))) document.getElementById('auto-submit-form').submit();
-    }, 1000);
+  const timeUp = () => {
+    // A page part may take over the time-up (the connection dialog does) by cancelling this event.
+    if (!document.dispatchEvent(new CustomEvent('exam:time-up', { cancelable: true }))) return;
+    if (rules.auto_submit) document.getElementById('auto-submit-form').submit();
+    else window.location.href = submitUrl;
+  };
+  if (timer) {
+    showTime(remaining);
+    if (remaining > 0) {
+      // Counted from a fixed end moment: a background tab slows timers down, the clock must not.
+      const endsAt = performance.now() + remaining * 1000;
+      const ticker = setInterval(() => {
+        remaining = Math.max(0, Math.round((endsAt - performance.now()) / 1000));
+        showTime(remaining);
+        if (remaining <= 0) { clearInterval(ticker); timeUp(); }
+      }, 1000);
+    } else {
+      timeUp();
+    }
   }
 
-  // Voice input, multi-answer limit, ordering and matching: shared with the question builder's preview.
-  window.ExamInteractions.voiceInput(document.querySelector('[data-voice-mic]'), document.querySelector('[data-voice-target]'));
-  const multiRoot = document.querySelector('[data-max-select]');
-  if (multiRoot) window.ExamInteractions.limitChoices(multiRoot, Number(multiRoot.dataset.maxSelect || 0));
+  // Each question block: voice input, multi-answer limit, ordering, matching, matrix, image labels, playback.
+  blocks.forEach((block) => {
+    window.ExamInteractions.voiceInput(block.querySelector('[data-voice-mic]'), block.querySelector('[data-voice-target]'));
+    const multiRoot = block.querySelector('[data-max-select]');
+    if (multiRoot) window.ExamInteractions.limitChoices(multiRoot, Number(multiRoot.dataset.maxSelect || 0));
+    const orderingList = block.querySelector('[data-ordering-list]');
+    if (orderingList) window.ExamInteractions.ordering(orderingList, block.querySelector('[data-ordering-answer]'));
+    const matchingRoot = block.querySelector('[data-matching]');
+    if (matchingRoot) window.ExamInteractions.matching(matchingRoot, block.querySelector('[data-matching-answer]'));
+    const matrixRoot = block.querySelector('[data-matrix]');
+    if (matrixRoot) window.ExamInteractions.matrix(matrixRoot, block.querySelector('[data-matrix-answer]'));
+    const labelRoot = block.querySelector('[data-label]');
+    if (labelRoot) window.ExamInteractions.imageLabel(labelRoot);
+    const playbackRules = block.querySelector('[data-playback-rules] script');
+    if (playbackRules) {
+      const playback = JSON.parse(playbackRules.textContent);
+      block.querySelectorAll('[data-playback]').forEach((media) => window.ExamInteractions.playback(media, {
+        maxPlays: playback.max_plays, start: playback.start, end: playback.end,
+        storageKey: `exam-plays-{{ attempt.pk }}-${block.dataset.questionId}-${media.tagName}`,
+      }));
+    }
+  });
 
-  const orderingList = document.querySelector('[data-ordering-list]');
-  if (orderingList) window.ExamInteractions.ordering(orderingList, document.querySelector('[data-ordering-answer]'));
-  const matchingRoot = document.querySelector('[data-matching]');
-  if (matchingRoot) window.ExamInteractions.matching(matchingRoot, document.querySelector('[data-matching-answer]'));
-  const matrixRoot = document.querySelector('[data-matrix]');
-  if (matrixRoot) window.ExamInteractions.matrix(matrixRoot, document.querySelector('[data-matrix-answer]'));
-  const labelRoot = document.querySelector('[data-label]');
-  if (labelRoot) window.ExamInteractions.imageLabel(labelRoot);
-  const playbackRules = document.getElementById('playback-rules');
-  if (playbackRules) {
-    const rules = JSON.parse(playbackRules.textContent);
-    document.querySelectorAll('[data-playback]').forEach((media) => window.ExamInteractions.playback(media, {
-      maxPlays: rules.max_plays, start: rules.start, end: rules.end,
-      storageKey: `exam-plays-{{ attempt.pk }}-{{ current_answer.question_id }}-${media.tagName}`,
-    }));
-  }
-
-  // Live «وضعیت سؤال», progress and the current cell's state; the server stays the source of truth on reload.
-  const answerName = `answer_${form.dataset.questionId}`;
-  const hasFiles = form.dataset.hasFiles === '1';
-  const wasAnswered = form.dataset.answered === '1';
+  // Live «وضعیت سؤال», progress and the question list; the server stays the source of truth on reload.
   const answeredCount = document.querySelector('[data-answered-count]');
-  const baseCount = Number(answeredCount.textContent.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) - (wasAnswered ? 1 : 0);
   const totalQuestions = {{ total_questions|default:1 }};
-  const isAnswered = () => hasFiles || [...form.elements].some((el) => el.name === answerName && ((el.type === 'radio' || el.type === 'checkbox') ? el.checked : el.value.trim()));
+  const isAnswered = (block) => block.dataset.hasFiles === '1' || [...form.elements].some((el) => el.name === `answer_${block.dataset.questionId}`
+    && ((el.type === 'radio' || el.type === 'checkbox') ? el.checked : el.value.trim()));
+  const answeredBefore = blocks.reduce((sum, block) => sum + (block.dataset.answered === '1' ? 1 : 0), 0);
+  const baseCount = Number(answeredCount.textContent.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) - answeredBefore;
   const refreshAnswerState = () => {
-    const answered = isAnswered();
+    let count = baseCount;
+    blocks.forEach((block, index) => {
+      const answered = isAnswered(block);
+      count += answered ? 1 : 0;
+      if (blocks.length > 1) document.querySelector(`[data-map-cell="${index + 1}"]`)?.classList.toggle('is-answered', answered);
+    });
     const stateBox = document.querySelector('[data-answer-state]');
-    stateBox.classList.toggle('is-answered', answered);
-    stateBox.querySelector('[data-answer-state-text]').textContent = answered ? 'پاسخ داده‌شده' : 'بدون پاسخ';
-    const count = baseCount + (answered ? 1 : 0);
+    if (stateBox && blocks.length === 1) {
+      const answered = isAnswered(blocks[0]);
+      stateBox.classList.toggle('is-answered', answered);
+      stateBox.querySelector('[data-answer-state-text]').textContent = answered ? 'پاسخ داده‌شده' : 'بدون پاسخ';
+    }
     answeredCount.textContent = fa(count);
     document.querySelector('[data-progress-bar]').style.width = `${Math.round(count * 100 / totalQuestions)}%`;
   };
-  const charSource = document.querySelector('[data-char-count-source]');
-  const charCount = document.querySelector('[data-char-count]');
   document.addEventListener('input', (event) => {
     if (event.target.form !== form) return;
     refreshAnswerState();
+    const block = event.target.closest('[data-question-block]');
+    const charSource = block?.querySelector('[data-char-count-source]');
+    const charCount = block?.querySelector('[data-char-count]');
     if (charSource && charCount) charCount.textContent = `${fa(charSource.value.length)} نویسه`;
   });
+
+  // «امکان تغییر پاسخ» off with every question on one page: starting another question locks the one left behind.
+  if (rules.lock_on_leave && blocks.length > 1) {
+    let active = null;
+    const lock = (block) => {
+      if (!block || !isAnswered(block) || block.dataset.locked) return;
+      block.dataset.locked = '1';
+      const flag = document.createElement('input');
+      flag.type = 'hidden';
+      flag.name = `lock_${block.dataset.questionId}`;
+      flag.value = '1';
+      form.appendChild(flag);
+      if (rules.autosave) save();
+      block.querySelector('fieldset.qx-lock')?.setAttribute('disabled', '');
+    };
+    const enter = (event) => {
+      const block = event.target.closest?.('[data-question-block]');
+      if (!block || block === active) return;
+      lock(active);
+      active = block;
+    };
+    document.addEventListener('pointerdown', enter, true);
+    document.addEventListener('focusin', enter, true);
+  }
 
   // Image zoom.
   const lightbox = document.querySelector('[data-lightbox]');
@@ -452,8 +393,8 @@
   }));
   lightbox.addEventListener('click', () => { lightbox.hidden = true; });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') lightbox.hidden = true; });
-{% if proctoring.track or proctoring.fullscreen %}
-  // Proctoring (the exam's «هشدار تعویض تب» / «اجبار تمام‌صفحه»): signals go to the server and the teacher sees them.
+
+  // Proctoring (step 6 of the wizard): signals go to the server and the teacher sees them per student.
   const proctorNotice = document.createElement('div');
   proctorNotice.setAttribute('role', 'alert');
   proctorNotice.hidden = true;
@@ -466,16 +407,129 @@
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => { proctorNotice.hidden = true; }, 7000);
   };
-{% if proctoring.track %}
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) postEvent('tab_hidden');
-    else notify('خروج شما از صفحه‌ی آزمون ثبت شد و به استاد نشان داده می‌شود.');
-  });
-  document.addEventListener('copy', () => postEvent('copy'));
-  document.addEventListener('paste', () => postEvent('paste'));
-{% endif %}
-{% if proctoring.fullscreen %}
-  if (document.documentElement.requestFullscreen) {
+  const page = document.querySelector('.qx--exam');
+  if (proctoring.track) {
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) postEvent('tab_hidden');
+      else notify('خروج شما از صفحه‌ی آزمون ثبت شد و به استاد نشان داده می‌شود.');
+    });
+  }
+  // «جلوگیری از کپی و چسباندن»: copying, cutting, pasting and the context menu are blocked (and reported).
+  if (proctoring.copy_paste) {
+    page.classList.add('qx--no-copy');
+    ['copy', 'cut', 'paste'].forEach((type) => document.addEventListener(type, (event) => {
+      event.preventDefault();
+      postEvent(type === 'paste' ? 'paste' : 'copy');
+      notify('کپی و چسباندن در این آزمون مجاز نیست.');
+    }));
+    document.addEventListener('contextmenu', (event) => event.preventDefault());
+  } else if (proctoring.track) {
+    document.addEventListener('copy', () => postEvent('copy'));
+    document.addEventListener('paste', () => postEvent('paste'));
+  }
+  // «جلوگیری از اسکرین‌شات»: a browser cannot stop a screenshot, so the page does what it can and reports the
+  // rest: the questions are blurred while the page is not in front, printing shows nothing, the PrintScreen key
+  // clears the clipboard, and print/save shortcuts are blocked.
+  if (proctoring.screenshot) {
+    page.classList.add('qx--no-print');
+    const shield = (on) => page.classList.toggle('qx--shielded', on);
+    window.addEventListener('blur', () => shield(true));
+    window.addEventListener('focus', () => shield(false));
+    document.addEventListener('visibilitychange', () => shield(document.hidden));
+    window.addEventListener('beforeprint', () => postEvent('screenshot'));
+    document.addEventListener('keyup', (event) => {
+      if (event.key !== 'PrintScreen') return;
+      navigator.clipboard?.writeText('').catch(() => {});
+      postEvent('screenshot');
+      notify('گرفتن تصویر از صفحه‌ی آزمون مجاز نیست و برای استاد ثبت شد.');
+    });
+    document.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && ['p', 's'].includes((event.key || '').toLowerCase())) { event.preventDefault(); postEvent('screenshot'); }
+    });
+  }
+  // «نظارت وبکم» / «نظارت میکروفون»: the camera/microphone must stay on for the whole exam; the student sees
+  // their own camera in a corner. Nothing is recorded or uploaded; losing it is reported to the teacher.
+  if (proctoring.webcam || proctoring.mic) {
+    const gate = document.createElement('div');
+    gate.className = 'qx-overlay';
+    const needs = proctoring.webcam ? (proctoring.mic ? 'دوربین و میکروفون' : 'دوربین') : 'میکروفون';
+    gate.innerHTML = `<div><p style="margin:0 0 14px">این آزمون با نظارت ${needs} برگزار می‌شود؛ برای ادامه، دسترسی مرورگر به ${needs} را مجاز کنید و آن را روشن نگه دارید.</p><p data-cam-help style="margin:0 0 14px;padding:10px 12px;border-radius:10px;background:#fef2f2;color:#991b1b;font-size:.9rem;line-height:1.9" hidden></p><button type="button" class="qx-btn qx-btn--primary" data-cam-start>فعال‌سازی</button></div>`;
+    gate.hidden = true;
+    document.body.appendChild(gate);
+    const help = gate.querySelector('[data-cam-help]');
+    const startButton = gate.querySelector('[data-cam-start]');
+    let reported = false;
+    let pending = false;
+    // Why the camera could not start, and what the student can do about it (a blocked permission is never asked again
+    // by the browser, so «فعال‌سازی» alone cannot fix it).
+    const reasonText = (error) => {
+      const name = error && error.name;
+      if (!window.isSecureContext) return `مرورگر فقط در اتصال امن (https) اجازه‌ی ${needs} می‌دهد.`;
+      if (name === 'NotAllowedError' || name === 'SecurityError') return `دسترسی ${needs} برای این سایت مسدود است. روی نماد قفل (یا دوربین) کنار نشانی سایت در نوار آدرس بزنید، «${needs}» را روی «Allow / اجازه» بگذارید و دوباره «فعال‌سازی» را بزنید.`;
+      if (name === 'NotFoundError' || name === 'OverconstrainedError') return `${needs} روی این دستگاه پیدا نشد؛ آن را وصل کنید و دوباره «فعال‌سازی» را بزنید.`;
+      if (name === 'NotReadableError' || name === 'AbortError') return `${needs} در برنامه‌ی دیگری (مثل Skype یا Zoom) باز است؛ آن برنامه را ببندید و دوباره «فعال‌سازی» را بزنید.`;
+      return `روشن کردن ${needs} ممکن نشد؛ دوباره «فعال‌سازی» را بزنید.`;
+    };
+    const lost = (error) => {
+      pending = false;
+      gate.hidden = false;
+      startButton.disabled = false;
+      startButton.textContent = error ? 'تلاش دوباره' : 'فعال‌سازی';
+      help.textContent = error ? reasonText(error) : `${needs} قطع شد؛ برای ادامه‌ی آزمون دوباره «فعال‌سازی» را بزنید.`;
+      help.hidden = false;
+      document.querySelector('.qx-cam')?.remove();
+      if (!reported) { reported = true; postEvent(proctoring.webcam ? 'camera_off' : 'mic_off'); }
+    };
+    const start = () => {
+      if (pending) return;
+      if (!navigator.mediaDevices?.getUserMedia) { lost({ name: 'NotSupported' }); return; }
+      pending = true;
+      startButton.disabled = true;
+      startButton.textContent = 'در انتظار اجازه‌ی مرورگر…';
+      navigator.mediaDevices.getUserMedia({ video: !!proctoring.webcam, audio: !!proctoring.mic }).then((stream) => {
+        pending = false;
+        reported = false;
+        gate.hidden = true;
+        help.hidden = true;
+        startButton.disabled = false;
+        startButton.textContent = 'فعال‌سازی';
+        document.querySelector('.qx-cam')?.remove();
+        stream.getTracks().forEach((track) => track.addEventListener('ended', () => lost()));
+        if (proctoring.webcam) {
+          const box = document.createElement('div');
+          box.className = 'qx-cam';
+          box.innerHTML = '<span>● نظارت</span>';
+          const video = document.createElement('video');
+          video.muted = true;
+          video.autoplay = true;
+          video.playsInline = true;
+          video.srcObject = stream;
+          box.prepend(video);
+          document.body.appendChild(box);
+        }
+      }).catch(lost);
+    };
+    startButton.addEventListener('click', start);
+    // Allowed from the address bar while the gate is open: start without another click.
+    const permissionName = proctoring.webcam ? 'camera' : 'microphone';
+    navigator.permissions?.query({ name: permissionName }).then((status) => {
+      status.addEventListener('change', () => { if (status.state === 'granted' && !gate.hidden) start(); });
+    }).catch(() => {});
+    start();
+  }
+
+  // While the exam is open, «Back» / «Forward» (and Alt+←) stay on it: leaving is «پایان آزمون» or the end of time.
+  if ({% if practice %}false{% else %}true{% endif %}) {  // practice attempts may be left freely
+    const stay = () => history.pushState({ mqExam: true }, '', window.location.href);
+    stay();
+    window.addEventListener('popstate', () => {
+      stay();
+      notify('تا پایان آزمون نمی‌توانید با دکمه‌ی بازگشت مرورگر از صفحه‌ی آزمون خارج شوید؛ برای خروج «پایان آزمون» را بزنید.');
+    });
+  }
+  // A page restored from the browser's memory (back / forward) is asked again: a finished attempt opens its receipt.
+  window.addEventListener('pageshow', (event) => { if (event.persisted) window.location.reload(); });
+  if (proctoring.fullscreen && document.documentElement.requestFullscreen) {
     // Each question is a new page and browsers drop full screen on navigation: the gate shows once, later pages
     // return to full screen on the student's first click or key, and only a deliberate exit is reported.
     const fsKey = 'mq-fs-{{ attempt.id }}';
@@ -485,8 +539,8 @@
     let leaving = false;
     window.addEventListener('beforeunload', () => { leaving = true; });
     const gate = document.createElement('div');
-    gate.style.cssText = 'position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(7,24,59,.86);padding:16px';
-    gate.innerHTML = '<div style="max-width:440px;background:#fff;border-radius:16px;padding:24px;text-align:center"><p style="margin:0 0 16px;font-weight:850;line-height:1.9;color:#07183b">این آزمون در حالت تمام‌صفحه برگزار می‌شود. خروج از تمام‌صفحه برای استاد ثبت می‌شود.</p><button type="button" class="qx-btn qx-btn--primary">ورود به حالت تمام‌صفحه</button></div>';
+    gate.className = 'qx-overlay';  // its [hidden] rule really hides it (an inline display would keep it on screen)
+    gate.innerHTML = '<div><p style="margin:0 0 14px">این آزمون در حالت تمام‌صفحه برگزار می‌شود. خروج از تمام‌صفحه برای استاد ثبت می‌شود.</p><button type="button" class="qx-btn qx-btn--primary">ورود به حالت تمام‌صفحه</button></div>';
     gate.querySelector('button').addEventListener('click', enter);
     gate.hidden = !!document.fullscreenElement || wasEntered();
     document.body.appendChild(gate);
@@ -505,8 +559,6 @@
       }
     });
   }
-{% endif %}
-{% endif %}
 })();
 </script>
 {% endblock %}
