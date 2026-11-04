@@ -2139,6 +2139,8 @@ def super_admin_toggle_account_status(request, kind, user_id):
 
     with transaction.atomic():
         erd_execute("UPDATE profiles SET status = %s, updated_at = now() WHERE id = %s", [new_status, user_id])
+        if kind == 'teacher' and new_status == 'active':  # a self-registered teacher's sign-up is approved with it
+            erd_execute("UPDATE teacher_profiles SET approval_status = 'approved' WHERE user_id = %s AND approval_status = 'pending'", [user_id])
         if profile.get('username'):
             User.objects.filter(username=profile['username']).update(is_active=(new_status == 'active'))
 
@@ -2169,25 +2171,33 @@ def super_admin_delete_account(request, kind, user_id):
     if not profile:
         raise Http404('کاربر پیدا نشد.')
 
-    with transaction.atomic():
-        if kind == 'teacher':
-            erd_execute("DELETE FROM teacher_profiles WHERE user_id = %s", [user_id])
-        else:
-            erd_execute("DELETE FROM student_course_enrollments WHERE student_user_id = %s", [user_id])
-            erd_execute("DELETE FROM student_group_members WHERE student_user_id = %s", [user_id])
-            erd_execute("DELETE FROM student_profiles WHERE user_id = %s", [user_id])
-        erd_execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [user_id, kind])
-        erd_execute("DELETE FROM notifications WHERE user_id = %s", [user_id])
-        erd_execute("DELETE FROM activity_audit_log WHERE actor_id = %s", [user_id])
-        erd_execute("DELETE FROM profiles WHERE id = %s", [user_id])
-        if profile.get('username'):
-            User.objects.filter(username=profile['username']).delete()
+    tab = {'teacher': 'teachers', 'student': 'students'}[kind]
+    next_url = request.POST.get('next') or f'{reverse("core:super_admin_users")}?tab={tab}'
+    try:
+        with transaction.atomic():
+            if kind == 'teacher':
+                erd_execute("DELETE FROM teacher_profiles WHERE user_id = %s", [user_id])
+            else:
+                erd_execute("DELETE FROM student_course_enrollments WHERE student_user_id = %s", [user_id])
+                erd_execute("DELETE FROM student_group_members WHERE student_user_id = %s", [user_id])
+                erd_execute("DELETE FROM student_profiles WHERE user_id = %s", [user_id])
+            erd_execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [user_id, kind])
+            erd_execute("DELETE FROM notifications WHERE user_id = %s", [user_id])
+            erd_execute("DELETE FROM activity_audit_log WHERE actor_id = %s", [user_id])
+            erd_execute("DELETE FROM account_deletion_requests WHERE profile_id = %s", [user_id])
+            erd_execute("UPDATE system_settings SET updated_by = NULL WHERE updated_by = %s", [user_id])
+            erd_execute("DELETE FROM profiles WHERE id = %s", [user_id])
+            if profile.get('username'):
+                User.objects.filter(username=profile['username']).delete()
+    except IntegrityError:
+        # The account has a record others depend on (exam attempts, questions, exams, grades, objections): deleting
+        # it would break that history, so it is kept; switching it off stops the sign-in instead.
+        messages.error(request, f"حساب «{profile['full_name']}» در سامانه سابقه دارد (آزمون، سؤال، نمره یا کلاس) و حذف آن "
+                                'سوابق را از بین می‌برد؛ به‌جای حذف، آن را با دکمه‌ی «غیرفعال‌سازی» غیرفعال کنید.')
+        return redirect(next_url)
 
     log_activity(request.user, 'account_deleted', f"حساب {profile['full_name']} حذف شد.", request, {'profile_id': user_id, 'kind': kind})
     messages.success(request, f"حساب «{profile['full_name']}» حذف شد.")
-
-    tab = {'teacher': 'teachers', 'student': 'students'}[kind]
-    next_url = request.POST.get('next') or f'{reverse("core:super_admin_users")}?tab={tab}'
     return redirect(next_url)
 
 

@@ -6715,3 +6715,105 @@ class QuestionImportScenariosTests(_EnforcedExamFixture):
         confirm_again = self.client.post(self.url, {'action': 'confirm'})  # a second click saves nothing more
         self.assertRedirects(confirm_again, reverse('core:teacher_questions'), fetch_redirect_response=False)
         self.assertEqual(len(self._saved('سؤال کدگذاری%')), 1)
+
+
+class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
+    """صفحه‌ی «کاربران» مدیر کل برای ثبت‌نام‌های تازه: پیدا کردن در لیست و فیلترها، فعال‌سازی، ورود، غیرفعال‌سازی،
+    مشاهده، ویرایش و حذف؛ حذف حسابی که سابقه دارد به‌جای خطا با پیام رد می‌شود."""
+
+    def _register(self, role, username, number=''):
+        from django.core.cache import cache
+        cache.clear()
+        return self.client.post(reverse('core:register'), {
+            'full_name': f'کاربر تازه {username}', 'username': username, 'student_number': number,
+            'email': f'{username}@example.com', 'password': 'Strong#Pass99', 'role': role})
+
+    def _profile_id(self, username):
+        return str(self._rows('SELECT id FROM profiles WHERE username = %s', [username])[0][0])
+
+    def _login_ok(self, username):
+        self.client.logout()
+        response = self.client.post(reverse('core:login'), {'username': username, 'password': 'Strong#Pass99'})
+        return response.status_code == 302, response
+
+    def test_new_student_from_sign_up_to_active_and_back(self):
+        self._register('student', 'newstudent', '40199999')
+        student_id = self._profile_id('newstudent')
+        ok, page = self._login_ok('newstudent')
+        self.assertFalse(ok)
+        self.assertIn('هنوز توسط مدیر سیستم بررسی نشده', ' '.join(page.context['form'].errors.get('__all__', [])))
+
+        self.client.force_login(self.admin_user)
+        users = reverse('core:super_admin_users')
+        listing = self.client.get(users, {'tab': 'students'})
+        self.assertContains(listing, 'کاربر تازه newstudent')
+        self.assertContains(listing, 'پیش‌ثبت‌نام')
+        for params, shown in (({'status': 'pending'}, True), ({'status': 'active'}, False), ({'q': 'newstudent'}, True),
+                              ({'q': '40199999'}, True), ({'q': 'هیچ‌کس'}, False), ({'entry_year': '1300'}, False),
+                              ({'unit': self.ou_scoped}, False), ({'academic_status': 'active'}, True)):
+            page = self.client.get(users, {'tab': 'students', **params})
+            self.assertEqual(page.status_code, 200, params)
+            self.assertEqual('کاربر تازه newstudent' in page.content.decode(), shown, params)
+        for section in ('', 'courses', 'activity'):  # «مشاهده» and its «درس‌ها» / «فعالیت» parts
+            self.assertEqual(self.client.get(reverse('core:super_admin_user_profile', args=['student', student_id]), {'section': section}).status_code, 200)
+        self.assertEqual(self.client.get(reverse('core:super_admin_student_profile_edit', args=[student_id])).status_code, 200)
+
+        toggle = reverse('core:super_admin_toggle_account_status', args=['student', student_id])
+        self.client.post(toggle, {'action': 'activate'})
+        self.assertEqual(self._rows('SELECT status FROM profiles WHERE id = %s', [student_id]), [('active',)])
+        self.assertContains(self.client.get(users, {'tab': 'students', 'status': 'active'}), 'کاربر تازه newstudent')
+        ok, page = self._login_ok('newstudent')
+        self.assertTrue(ok)
+        self.assertEqual(self.client.get(page['Location']).status_code, 200)
+
+        self.client.force_login(self.admin_user)
+        self.client.post(toggle, {'action': 'deactivate'})
+        ok, page = self._login_ok('newstudent')
+        self.assertFalse(ok)
+        self.assertIn('غیرفعال', ' '.join(page.context['form'].errors.get('__all__', [])))
+
+        self.client.force_login(self.admin_user)
+        self.client.post(reverse('core:super_admin_delete_account', args=['student', student_id]))
+        self.assertEqual(self._rows('SELECT count(*) FROM profiles WHERE id = %s', [student_id]), [(0,)])
+        self.assertFalse(get_user_model().objects.filter(username='newstudent').exists())
+        after = self.client.get(users, {'tab': 'students'})
+        self.assertContains(after, 'حذف شد')
+        self.assertNotContains(after, 'data-full-name="کاربر تازه newstudent"')  # no longer a row in the list
+
+    def test_new_teacher_is_approved_with_activation(self):
+        self._register('teacher', 'newteacher')
+        teacher_id = self._profile_id('newteacher')
+        self.client.force_login(self.admin_user)
+        listing = self.client.get(reverse('core:super_admin_users'), {'tab': 'teachers', 'status': 'pending'})
+        self.assertContains(listing, 'کاربر تازه newteacher')
+        self.client.post(reverse('core:super_admin_toggle_account_status', args=['teacher', teacher_id]), {'action': 'activate'})
+        self.assertEqual(self._rows('SELECT approval_status FROM teacher_profiles WHERE user_id = %s', [teacher_id]), [('approved',)])
+        ok, page = self._login_ok('newteacher')
+        self.assertTrue(ok)
+        self.assertEqual(self.client.get(page['Location'], follow=True).status_code, 200)
+
+    def test_account_with_history_is_kept_not_crashed(self):
+        exam_id = self._exam()
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [str(uuid.uuid4()), exam_id, self.student_in_id, timezone.now(), 'in_progress'])
+        self.client.force_login(self.admin_user)
+        response = self.client.post(reverse('core:super_admin_delete_account', args=['student', self.student_in_id]), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'سابقه دارد')
+        self.assertEqual(self._rows('SELECT count(*) FROM profiles WHERE id = %s', [self.student_in_id]), [(1,)])
+        self.assertTrue(get_user_model().objects.filter(username='student_in_scope').exists())
+        response = self.client.post(reverse('core:super_admin_delete_account', args=['teacher', self.teacher_in_id]), follow=True)
+        self.assertContains(response, 'سابقه دارد')  # owns questions
+        self.assertEqual(self._rows('SELECT count(*) FROM teacher_profiles WHERE user_id = %s', [self.teacher_in_id]), [(1,)])
+
+    def test_manager_sees_only_students_of_their_units(self):
+        self._register('student', 'unitstudent')
+        student_id = self._profile_id('unitstudent')
+        self.client.force_login(self.manager_user)
+        toggle = reverse('core:super_admin_toggle_account_status', args=['student', student_id])
+        self.assertEqual(self.client.post(toggle, {'action': 'activate'}).status_code, 403)  # no unit yet: not theirs
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE student_profiles SET org_unit_id = %s WHERE user_id = %s', [self.ou_scoped, student_id])
+        self.assertContains(self.client.get(reverse('core:super_admin_users'), {'tab': 'students'}), 'کاربر تازه unitstudent')
+        self.client.post(toggle, {'action': 'activate'})
+        self.assertEqual(self._rows('SELECT status FROM profiles WHERE id = %s', [student_id]), [('active',)])
