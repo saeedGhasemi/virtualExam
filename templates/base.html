@@ -233,7 +233,7 @@
                     acceptNode(node) {
                         const parent = node.parentElement;
                         // data-latin-digits: text typed back by the user exactly (keys, recovery codes) keeps 0-9
-                        if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT'].includes(parent.tagName) || parent.closest('[data-latin-digits]')) {
+                        if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT'].includes(parent.tagName) || parent.closest('[data-latin-digits], [contenteditable], .ql-editor')) {  // editable text is saved back as typed
                             return NodeFilter.FILTER_REJECT;
                         }
                         return /[0-9]/.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;

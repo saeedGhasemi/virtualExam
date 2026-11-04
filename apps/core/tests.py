@@ -6817,3 +6817,15 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         self.assertContains(self.client.get(reverse('core:super_admin_users'), {'tab': 'students'}), 'کاربر تازه unitstudent')
         self.client.post(toggle, {'action': 'activate'})
         self.assertEqual(self._rows('SELECT status FROM profiles WHERE id = %s', [student_id]), [('active',)])
+
+
+class EditableTextKeepsItsDigitsTests(TestCase):
+    """The page shows 0-9 as Persian digits, but never inside an editor: the question editor's text (and anything
+    contenteditable) is saved back exactly as typed (H2O, 5 mL)."""
+
+    def test_digit_converters_skip_editors(self):
+        from pathlib import Path
+        from django.conf import settings as django_settings
+        for name in ('base.html', 'base_standalone.html'):
+            source = (Path(django_settings.BASE_DIR) / 'templates' / name).read_text(encoding='utf-8')
+            self.assertIn("parent.closest('[data-latin-digits], [contenteditable], .ql-editor')", source, name)
