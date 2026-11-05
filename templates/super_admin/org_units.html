@@ -1,4 +1,4 @@
-﻿{% extends 'base_standalone.html' %}
+{% extends 'base_standalone.html' %}
 {% load static core_extras %}
 
 {% block title %}ساختار سازمانی | متاکوییز{% endblock %}
@@ -519,6 +519,21 @@
     .org-settings .table-pages a.is-disabled{pointer-events:none;opacity:.42}
     .org-settings .table-pages svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     @media (max-width:1100px){.settings-glass{padding-right:1rem;overflow:auto}.settings-topbar{grid-template-columns:1fr;margin:0 -1rem;padding:0 1rem}.settings-brand,.settings-userbar{display:none}.settings-layout,.org-grid{grid-template-columns:1fr;padding:1rem}.settings-rail{display:none}.settings-tabs,.org-actions,.org-levels{grid-template-columns:1fr}.settings-nav{overflow:auto;justify-content:flex-start}.org-parent-grid{grid-template-columns:1fr}}
+    /* phones: the fixed icon rail is hidden by the chrome (burger menu is used), so drop the gutter reserved for it and stack the columns */
+    @media (max-width:760px){
+        body:has(.org-settings) .super-admin-rail{display:none!important}
+        body:has(.org-settings) .app-main{padding:1rem!important}
+        .org-settings .settings-hero{padding:1rem 0 .8rem!important}
+        .org-settings .settings-layout{grid-template-columns:minmax(0,1fr)!important;padding:0 0 1rem!important}
+        .org-settings .org-grid{grid-template-columns:minmax(0,1fr);padding:0}
+        .org-settings .org-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .org-settings .org-actions>*{grid-column:auto!important;grid-row:auto!important;min-width:0!important}
+        .org-settings .org-actions>label{grid-column:1/-1!important}
+        .org-table-card .settings-table-wrap{overflow-x:auto!important}
+        .org-table-card .settings-table{min-width:34rem!important}
+        .org-settings .org-table-footer{grid-template-columns:minmax(0,1fr);justify-items:center}
+        .org-settings .table-pages{flex-wrap:wrap;justify-content:center}
+    }
 </style>
 
 <script>

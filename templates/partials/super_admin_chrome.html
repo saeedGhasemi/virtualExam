@@ -1,4 +1,4 @@
-﻿{% load static core_extras %}
+{% load static core_extras %}
 <style>
     html:has(.super-admin-chrome),body:has(.super-admin-chrome){margin:0!important;padding:0!important}
     body:has(.super-admin-chrome){font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif!important}
@@ -39,7 +39,9 @@
     body:has(.super-admin-chrome):has(.user-profile-page--student) .app-main{padding-top:0!important}
     body:has(.super-admin-chrome) .app-content{width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
     body:has(.super-admin-chrome) .super-admin-page{font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif!important;font-size:15px!important}
-    body:has(.super-admin-chrome) .sys-overview{min-height:calc(100dvh - 82px)!important;height:calc(100dvh - 82px)!important;margin-top:0!important;background:transparent!important;overflow:auto!important}
+    /* Dashboard: the overview fills whatever height is left under the chrome (a fixed calc() left 48px cut off) */
+    body:has(.super-admin-chrome):has(.sys-overview){display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+    body:has(.super-admin-chrome) .sys-overview{flex:1 1 auto;min-height:0!important;height:auto!important;margin-top:0!important;background:transparent!important;overflow:auto!important}
     body:has(.super-admin-chrome) .sys-top,body:has(.super-admin-chrome) .sys-rail{display:none!important}
     body:has(.super-admin-chrome) .sys-shell{display:block!important;padding:1rem 6.6rem 1.5rem 1.3rem!important}
     body:has(.super-admin-chrome) .sys-main{height:auto!important;overflow:visible!important;padding:0!important}
@@ -70,7 +72,15 @@
         .super-admin-nav a{justify-content:flex-start;height:3rem}
         .super-admin-menu-toggle:checked ~ .super-admin-topbar .super-admin-nav{display:flex}
     }
-    @media (max-width:760px){.super-admin-topbar{padding:0 1rem;grid-template-columns:1fr auto}.super-admin-userbar{display:none}.super-admin-rail{display:none}body:has(.super-admin-chrome) .app-main{height:auto!important;overflow:visible!important;padding:1rem!important}.settings-glass:has(.super-admin-chrome){overflow:auto}.settings-glass:has(.super-admin-chrome) .settings-hero,.settings-glass:has(.super-admin-chrome) .settings-layout{padding:1rem}body:has(.super-admin-workspace){height:auto!important;overflow:auto!important}body:has(.super-admin-workspace) .super-admin-workspace{height:auto!important;min-height:100dvh!important;overflow:visible!important;padding:1rem!important}}
+    @media (max-width:760px){.super-admin-topbar{padding:0 1rem;grid-template-columns:1fr auto}.super-admin-userbar{display:none}.super-admin-rail{display:none}body:has(.super-admin-chrome) .app-main{height:auto!important;overflow:visible!important;padding:1rem!important}body:has(.super-admin-chrome) .sys-shell{padding:1rem!important}.settings-glass:has(.super-admin-chrome){overflow:auto}.settings-glass:has(.super-admin-chrome) .settings-hero,.settings-glass:has(.super-admin-chrome) .settings-layout{padding:1rem}body:has(.super-admin-workspace){height:auto!important;overflow:auto!important}body:has(.super-admin-workspace) .super-admin-workspace{height:auto!important;min-height:100dvh!important;overflow:visible!important;padding:1rem!important}}
+    /* Responsive: dropdown menu anchored under the menu button; profile/logout inside it when the userbar is hidden */
+    .super-admin-nav-mobile{display:none!important}
+    @media (max-width:1320px){.super-admin-brand{padding-inline-start:3.4rem}.super-admin-nav{flex-wrap:nowrap!important;overflow-x:hidden!important;overflow-y:auto;overscroll-behavior:contain;justify-self:auto;right:1rem;left:auto;width:min(20rem,calc(100vw - 2rem));margin-top:.35rem;border:1px solid #e3e9f3;border-radius:1rem}.super-admin-nav a{width:100%}}
+    /* Tablet/desktop: app-main takes exactly the height left under the chrome (calc(100dvh - 82px) ignored the chrome's 24px offset and cut the bottom of every page) */
+    @media (min-width:761px){body:has(.super-admin-chrome) .app-shell{display:flex!important;flex-direction:column}body:has(.super-admin-chrome) .app-shell>.app-main{flex:1 1 auto;min-height:0;height:auto!important}}
+    /* Phones: the page itself scrolls (app-main is height:auto there), so the shell must not be locked to the viewport */
+    @media (max-width:760px){body:has(.super-admin-chrome) .app-shell{height:auto!important;min-height:100dvh;overflow:visible!important}}
+    @media (max-width:760px){.super-admin-brand{padding-inline-start:3.1rem}.super-admin-brand-logo{height:2.5rem}.super-admin-menu-btn{right:.85rem}.super-admin-nav{right:.75rem;left:.75rem;width:auto;gap:.15rem;max-height:calc(100dvh - 96px)}.super-admin-nav a{height:2.75rem!important;flex:0 0 auto}.super-admin-nav-mobile{display:inline-flex!important}.super-admin-nav-mobile:not(.is-danger){margin-top:.35rem;border-top:1px solid #e9eef6;border-radius:0 0 .85rem .85rem}.super-admin-nav a.is-danger{color:#dc2626}}
 </style>
 <div class="super-admin-chrome" dir="rtl">
     <input type="checkbox" id="super-admin-menu-toggle" class="super-admin-menu-toggle">
@@ -98,6 +108,8 @@
                 <a class="{% if 'teacher_question' in request.resolver_match.url_name %}is-active{% endif %}" href="{% url 'core:teacher_questions' %}"><span class="super-admin-nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M12 7v6M9 10h6"/></svg></span>بانک سؤال</a>
                 <a class="{% if request.resolver_match.url_name == 'super_admin_settings' or request.resolver_match.url_name == 'super_admin_org_units' or request.resolver_match.url_name == 'super_admin_academic_terms' %}is-active{% endif %}" href="{% url 'core:super_admin_settings' %}"><span class="super-admin-nav-icon"><svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-.6 1Z"/></svg></span>تنظیمات سامانه</a>
             {% endif %}
+            <a class="super-admin-nav-mobile{% if request.resolver_match.url_name == 'profile' %} is-active{% endif %}" href="{% url 'core:profile' %}"><span class="super-admin-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>پروفایل</a>
+            <a class="super-admin-nav-mobile is-danger" href="{% url 'core:logout' %}"><span class="super-admin-nav-icon"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>خروج</a>
         </nav>
         <div class="super-admin-userbar">
             <a class="super-admin-user" href="{% url 'core:profile' %}" aria-label="پروفایل">

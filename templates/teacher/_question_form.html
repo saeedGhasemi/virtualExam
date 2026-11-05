@@ -37,7 +37,7 @@
     .qb-pills svg{width:1rem;height:1rem}
     /* layout */
     .qb-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1.1rem;align-items:start}
-    .qb-main,.qb-side{display:grid;gap:1.1rem;min-width:0}
+    .qb-main,.qb-side{display:grid;grid-template-columns:minmax(0,1fr);gap:1.1rem;min-width:0}
     .qb-card{padding:1.15rem 1.25rem;border:1px solid var(--qb-line);border-radius:1.1rem;background:#fff;box-shadow:0 10px 30px rgba(30,55,110,.05)}
     .qb-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.9rem}
     .qb-card-head h3{display:flex;align-items:center;gap:.45rem;margin:0;font-size:.98rem;font-weight:900}
@@ -331,6 +331,7 @@
     @media (max-width:720px){.qb--v2 .qb-footer{grid-template-columns:1fr 1fr}.qb--tf .qb-option--tf > .qf-media--compact .qf-media-buttons{margin-inline-start:0}}
     @media (max-width:1100px){.qb-essay-rubric{grid-template-columns:1fr}}
     @media (max-width:1100px){.qb-grid{grid-template-columns:1fr}}
+    @media (max-width:720px){.qb-pills{max-width:100%;overflow-x:auto}}
     @media (max-width:720px){
         .qb-table-head{display:none}
         .qb-blank{grid-template-columns:2.4rem 1fr 1fr}

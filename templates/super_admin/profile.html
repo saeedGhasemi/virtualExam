@@ -127,6 +127,10 @@
   .sap-avatar-card small{display:block;margin-top:.6rem;color:var(--muted);font-weight:800;font-size:.75rem}
   @media (max-width:1200px){.sap-security-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
   @media (max-width:980px){.sap-layout,.sap-layout.is-reverse,.sap-form-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
+/* Responsive */
+.sap-layout>*,.sap-side>*{min-width:0}.sap-row{gap:.75rem}.sap-row>:last-child{min-width:0;overflow-wrap:anywhere;text-align:left}
+@media (max-width:420px){.sap-tabs svg{display:none}}
+@media (max-width:640px){.sap .sap-layout[style],.sap-shortcuts{grid-template-columns:minmax(0,1fr)!important}.sap-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));direction:ltr;gap:.25rem}.sap-tabs>*{direction:rtl;justify-content:center;min-width:0;padding-inline:.35rem;font-size:.76rem;white-space:nowrap}.sap-stats{grid-template-columns:1fr}}
 </style>
 
 <section class="super-admin-page super-admin-workspace sap" dir="rtl">

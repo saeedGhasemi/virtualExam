@@ -1,0 +1,217 @@
+/*
+ * Responsive layer — loaded after dist/styles.css by base.html and base_standalone.html.
+ * Only layout fixes for tablet/phone widths; desktop look is untouched.
+ * Breakpoints follow the existing ones: 1320 (chrome burger), 1100/980 (tablet), 760 (phone), 480 (small phone).
+ */
+
+/* ---------- Global safety nets ---------- */
+img, video, canvas, iframe { max-width: 100%; }
+/* no global height:auto here: it overrode <img height> on avatars and stretched them */
+input, select, textarea { max-width: 100%; }
+pre { max-width: 100%; overflow-x: auto; }
+
+/* Any table placed directly inside a card can scroll instead of pushing the page wider */
+@media (max-width: 760px) {
+  .table-responsive, .settings-table-wrap, .table-wrap, .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ---------- Super-admin / manager wizards (add student, teacher, manager) ---------- */
+@media (max-width: 1100px) {
+  .teacher-wizard-basic, .teacher-wizard-subunits, .teacher-wizard-final { grid-template-columns: minmax(0, 1fr); }
+  .teacher-wizard-basic > *, .teacher-wizard-final > *, .teacher-wizard-subunits > * { min-width: 0; }
+  .teacher-wizard-photo-card { align-self: stretch; }
+}
+@media (max-width: 760px) {
+  .teacher-wizard-card { padding: 1rem; }
+  .teacher-wizard-panel, .teacher-wizard-summary { padding: 1rem; }
+  .teacher-wizard-back { position: static; margin-bottom: .75rem; }
+  .teacher-wizard-steps { padding-left: 0; padding-right: 0; }
+  .teacher-wizard-steps li { font-size: .72rem; }
+  .teacher-wizard-org, .teacher-wizard-radio, .teacher-wizard-grid, .teacher-wizard-grid.is-four { grid-template-columns: minmax(0, 1fr); }
+  .teacher-wizard-panel-foot, .teacher-wizard-course-tools { flex-wrap: wrap; }
+  .teacher-wizard-actions > * { flex: 1 1 auto; }
+}
+
+/* ---------- Bulk import pages (students / teachers / managers) ---------- */
+.manager-bulk-grid > *, .manager-bulk-upload > * { min-width: 0; }
+@media (max-width: 760px) {
+  .manager-bulk-file-status-row { flex-wrap: wrap; }
+  .manager-bulk-file-status-filled { min-width: 0; flex: 1 1 100%; }
+  .manager-bulk-file-status-filled b { overflow-wrap: anywhere; }
+}
+
+/* ---------- User profile (student) ---------- */
+.student-profile-grid > *, .student-profile-aside > *, .student-profile-tab-layout > * { min-width: 0; }
+.student-profile-card { overflow-wrap: anywhere; }
+
+/* ---------- Student profile edit ---------- */
+@media (max-width: 760px) {
+  .student-edit-hero { grid-template-columns: minmax(0, 1fr); }
+  .student-edit-hero > * { min-width: 0; }
+  .student-edit-summary { flex-wrap: wrap; }
+}
+
+/* ---------- Group detail ---------- */
+@media (max-width: 760px) {
+  .gd-top-actions { flex-wrap: wrap; width: 100%; }
+  .gd-top-actions > * { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ---------- Calendar ---------- */
+.edu-cal-layout > * { min-width: 0; }
+@media (max-width: 1180px) {
+  .edu-cal-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .edu-calendar-card > header { flex-wrap: wrap; row-gap: .5rem; }
+  .edu-calendar-grid article { min-height: 64px; padding: 5px; }
+}
+
+/* ---------- Org units toolbar (tablet) ---------- */
+@media (max-width: 1320px) {
+  .org-settings .settings-main-card .org-actions { display: flex; flex-wrap: wrap; }
+  .org-settings .org-actions > label { flex: 1 1 16rem; }
+}
+
+/* ---------- Login: quick role buttons keep full labels on phones ---------- */
+@media (max-width: 480px) {
+  .auth-quick-login nav { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: .4rem; }
+  .auth-quick-login a { justify-content: flex-start; padding: .3rem .5rem; }
+  .auth-quick-login a strong { font-size: 11px; }
+}
+
+/* ---------- Home: the featured plan card is blue, so its price, title and button must be light ---------- */
+.landing-pricing .landing-plan-grid .is-popular div strong,
+.landing-pricing .landing-plan-grid .is-popular h3 { color: #fff; }
+.landing-pricing .landing-plan-grid .is-popular div span { color: rgba(255, 255, 255, .78); }
+.landing-plan-grid .is-popular a { background: #fff; color: #2b56d6; }
+.landing-plan-grid .is-popular a:hover { background: #eef3ff; }
+
+/* ---------- Teacher console pages (shared wrapper) ---------- */
+@media (max-width: 760px) {
+  .teacher-console .teacher-content { padding: 1rem .85rem 1.25rem; }
+  .teacher-toolbar { flex-wrap: wrap; }
+  .teacher-toolbar > * { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  .teacher-toolbar label { grid-template-columns: minmax(0, 1fr); }
+  .teacher-toolbar input, .teacher-toolbar select { width: 100%; min-width: 0; }
+  .question-studio-head { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: .75rem; }
+  .question-studio-head > :first-child { grid-column: 1 / -1; }
+  .question-studio-head .teacher-primary, .question-studio-head a, .question-studio-head button { white-space: nowrap; justify-content: center; }
+  .question-view-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: .35rem; }
+  .question-view-tabs > * { justify-content: center; text-align: center; white-space: nowrap; }
+}
+
+/* ---------- Exam wizard: steps become a swipeable strip on phones ---------- */
+@media (max-width: 760px) {
+  .exam-wizard .wizard-steps { display: flex; gap: .5rem; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: .25rem; }
+  .exam-wizard .wizard-steps::-webkit-scrollbar { display: none; }
+  .exam-wizard .wizard-step { flex: 0 0 auto; width: auto; min-width: 9.5rem; padding-inline: .75rem; scroll-snap-align: start; }
+}
+
+/* ---------- Exam detail (super-admin / manager): inline 3-column panel rows ---------- */
+@media (max-width: 1100px) {
+  .exam-detail .overview-grid[style] { grid-template-columns: minmax(0, 1fr) !important; }
+  .exam-detail .detail-hero, .exam-detail .overview-grid, .exam-detail .two-col, .exam-detail .monitor-grid { grid-template-columns: minmax(0, 1fr); }
+  .exam-detail .overview-grid > *, .exam-detail .two-col > *, .exam-detail .monitor-grid > * { min-width: 0; }
+}
+@media (max-width: 680px) {
+  .exam-detail .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin-top: .25rem; }
+  .exam-detail .hero-stats span { margin: 0; }
+  .exam-detail .hero-stats span { border: 0; border-radius: .75rem; background: rgba(241, 246, 253, .9); padding: .55rem .5rem; min-width: 0; overflow-wrap: anywhere; }
+  .exam-detail .hero-stats b { font-size: .95rem; }
+}
+
+/* ---------- Exam attempt page (student) on phones ---------- */
+@media (max-width: 560px) {
+  .qx { padding: .75rem; }
+  .qx-matching { grid-template-columns: minmax(0, 1fr) 2.25rem minmax(0, 1fr); gap: .4rem; }
+  .qx-map { grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr)); }
+  .qx-cam { width: 96px; inset-inline-start: 10px; bottom: 10px; }
+  .qx-foot { flex-wrap: wrap; gap: .5rem; }
+}
+
+/* ---------- Small phones (≤420px) ---------- */
+.gc-layout > *, .group-filters > *, .users-feature-strip > * { min-width: 0; }
+@media (max-width: 420px) {
+  .users-table-footer { grid-template-columns: minmax(0, 1fr); justify-items: center; row-gap: .5rem; }
+  .users-feature-profile { flex-wrap: wrap; min-width: 0; }
+  .group-filters, .gc-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Question form: media cards never wider than the card on small phones ---------- */
+.qb .qb-media-grid { grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); }
+.qb.qb--fb .qb-media-grid { grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); }
+.qb.qb--tf .qb-tf-media-card .qb-media-grid { grid-template-columns: minmax(0, 1fr); }
+.qb .qb-pills { position: relative; min-width: 0; max-width: 100%; } /* contains the absolutely-placed radio inputs inside the scroller */
+@media (max-width: 420px) {
+  .qb .qb-card-head { flex-wrap: wrap; }
+  .users-feature-metrics { flex-wrap: wrap; row-gap: .5rem; }
+}
+
+/* ---------- System settings: the summary card is height-capped, so its list must scroll instead of being cut ---------- */
+.settings-layout-other aside.settings-side-card { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+@media (max-width: 1100px) {
+  .settings-layout-other aside.settings-side-card { max-height: none; overflow: visible; }
+}
+
+/* ---------- Courses, teachers, students, managers lists (phones) ---------- */
+.emx-layout > *, .am-table-toolbar > *, .am-page-header > * { min-width: 0; }
+@media (max-width: 760px) {
+  .course-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .courses-filters { grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); }
+  .courses-filters > * { min-width: 0; }
+  .am-page-header, .am-header-actions, .am-table-toolbar { flex-wrap: wrap; }
+  .am-header-actions { width: 100%; }
+  .am-header-actions > * { flex: 1 1 auto; justify-content: center; }
+  .am-search-form { flex-wrap: wrap; width: 100%; }
+  .am-search-form > * { flex: 1 1 10rem; min-width: 0; }
+  .am-photo-box { grid-template-columns: auto minmax(0, 1fr); }
+  .am-photo-box > * { min-width: 0; }
+  .emx-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .am-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .am-form-grid > *, .am-form-grid input { min-width: 0; }
+}
+
+/* ---------- Home: exam-code form stacks on phones (the button used to squeeze the input to ~24px) ---------- */
+@media (max-width: 480px) {
+  .landing-code-card form { flex-wrap: wrap; }
+  .landing-code-card form input { flex: 1 1 100%; min-height: 2.9rem; }
+  .landing-code-card form button { flex: 1 1 100%; width: 100%; }
+}
+/* the swipeable testimonials scroll sideways only */
+.landing-testimonial-track { overflow-y: hidden; }
+
+/* ---------- Settings family (system settings, org units, academic terms) on tablets ----------
+   Next to the fixed icon rail, a 280px summary card + 3 card columns leave ~100px per card,
+   so labels and inputs overlapped. Stack the summary card under the main card and use 2 / 1 columns. */
+@media (max-width: 1180px) {
+  body .settings-layout.settings-layout { grid-template-columns: minmax(0, 1fr) !important; }
+  body .settings-layout > * { min-width: 0; }
+  body .settings-layout > aside.settings-side-card { order: 2; max-height: none !important; overflow: visible !important; }
+  body .settings-card-grid.settings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body .settings-card-grid > * { grid-column: auto !important; grid-row: auto !important; min-width: 0; }
+  body .org-settings .org-grid, body .org-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  body .settings-panel .color-row { grid-template-columns: minmax(0, 1fr) 7.5rem; }
+  body .settings-panel .color-row .swatches { grid-column: 1 / -1; flex-wrap: wrap; }
+}
+@media (max-width: 760px) {
+  body .settings-card-grid.settings-card-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* ---------- User profile pages (student / teacher / manager) ----------
+   The hero had a fixed 186px height; on tablets/phones its avatar + name spilled over the tabs below. */
+.user-profile-avatar { overflow: hidden; }
+.user-profile-avatar img { width: 100%; height: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
+@media (max-width: 1100px) {
+  .user-profile-page .user-profile-hero.user-profile-hero { display: flex; flex-direction: column-reverse; align-items: stretch; height: auto; min-height: 0; gap: 1rem; padding: 1.25rem; }
+  .user-profile-page .user-profile-identity.user-profile-identity { justify-content: flex-start; flex-wrap: wrap; min-width: 0; }
+  .user-profile-page .user-profile-identity > div:not(.user-profile-avatar) { min-width: 0; flex: 1 1 12rem; }
+  .user-profile-page .user-profile-actions.user-profile-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+  .user-profile-page .user-profile-actions .user-profile-action { flex: 1 1 12rem; max-width: none; width: auto; }
+}
+@media (max-width: 480px) {
+  .user-profile-page .user-profile-identity.user-profile-identity { flex-direction: column; align-items: center; text-align: center; }
+  .user-profile-page .user-profile-identity h1 { font-size: 1.35rem; line-height: 2rem; }
+}
