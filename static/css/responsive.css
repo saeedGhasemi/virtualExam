@@ -215,3 +215,36 @@ pre { max-width: 100%; overflow-x: auto; }
   .user-profile-page .user-profile-identity.user-profile-identity { flex-direction: column; align-items: center; text-align: center; }
   .user-profile-page .user-profile-identity h1 { font-size: 1.35rem; line-height: 2rem; }
 }
+
+/* ---------- Exam-manager dashboard: the 4-column card grid stayed 4 columns on phones ---------- */
+@media (max-width: 1100px) {
+  body .edu-dashboard-grid.edu-dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body .edu-dashboard-grid > * { grid-column: auto !important; grid-row: auto !important; min-width: 0; }
+}
+@media (max-width: 760px) {
+  body .edu-dashboard-grid.edu-dashboard-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* ---------- Avatars: height:100% does not resolve inside aspect-ratio/grid boxes, which stretched photos into ovals
+   over the "choose image" button. Square them by width instead. ---------- */
+body :is(.avatar, .emp-avatar, .sap-avatar, .sst-avatar, .super-admin-avatar, .sys-avatar, .teacher-avatar-preview, .user-profile-avatar) > img {
+  width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 50%;
+}
+
+/* ---------- Filter bars (teacher classes, students, …): on phones/tablets the selects were squeezed to 0–47px ---------- */
+@media (max-width: 1100px) {
+  main [class*="-filters"] { flex-wrap: wrap; }
+  main [class*="-filters"] > :is(label, div, select, input, a, button) { flex: 1 1 9rem; min-width: 0; }
+  main [class*="-filters"] :is(select, input[type="search"], input[type="text"]) { min-width: 0; width: 100%; }
+}
+
+/* ---------- Teacher calendar: weekday names fit 7 narrow columns ---------- */
+@media (max-width: 480px) {
+  .teacher-calendar-grid .teacher-calendar-weekday.teacher-calendar-weekday { font-size: .6rem; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-inline: 1px; }
+}
+
+/* ---------- OSCE builder tabs share the row instead of fixed 104px each ---------- */
+.ob-tabs.ob-tabs > * { flex: 1 1 0 !important; width: auto !important; min-width: 6.75rem !important; }
+
+/* page headings: title and subtitle no longer touch */
+.super-admin-heading h1 { line-height: 1.35; margin-bottom: .35rem; }

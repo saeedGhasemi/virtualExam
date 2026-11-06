@@ -10,14 +10,15 @@ _Last updated: 2026-11-05. Every chat updates this file before it ends (see `CLA
 - **Don't ask the teacher to run anything until the user says so.**
 - Local `main` is 85 commits ahead of `origin/main` (not pushed, by choice).
 
-## Uncommitted work in the tree (2026-11-05, from the responsive chat)
-~60 templates modified + new `static/css/responsive.css`. Must be committed (user approval) before any deploy.
-- **Responsive pass:** `responsive.css` (linked after `dist/styles.css` in `base.html`, `base_standalone.html`, `login.html`, `register.html`) holds phone/tablet fixes; page-local fixes in `super_admin/profile.html`; panel chrome (`partials/super_admin_chrome.html`) got a dropdown menu plus «پروفایل»/«خروج» on phones. Playwright crawl (Edge, 4 roles, ~170 pages, 320–1440px): no horizontal overflow. Home page featured plan card colours fixed. Not crawled: live attempt pages (phone tweaks for `.qx-*` added in `responsive.css`, untested in a real attempt).
-- **Scroll fix:** (1) 55 templates had a UTF-8 BOM that rendered as a line in `<body>`; stripped — keep templates BOM-less. (2) ≤760px the `.app-shell` is unlocked; on tablet/desktop it's a flex column so `.app-main` fills the rest (`super_admin_chrome.html`). (3) Admin dashboard overview and settings summary card no longer clipped. (4) After the BOM strip, small-phone overflow on courses / teachers / students / managers lists and the exam-manager new-exam form was fixed. Vertical + horizontal audits: clean.
-- Not mine, already in the tree before this chat: edits to `exam_manager/grouping.html`, `super_admin/org_units.html`, `super_admin/settings.html`, `teacher/_question_form.html`, `teacher/osce/_builder.html` (BOM strip touched some of them too), plus `README.md`/`CLAUDE.md`/`PROGRESS.md` from the docs chat.
-- Tests: full suite 377 OK (2026-11-05, final run), `check` and `makemigrations --check` clean. Needs a local `collectstatic` first (manifest storage fails with "Missing staticfiles manifest entry" otherwise).
-- Local env note: `.venv` here is a Linux-style venv (no `Scripts\`); this chat ran Python from `..\venv\Scripts\python.exe`.
-- Tailwind isn't installed locally, so `input.css` can't be rebuilt; put CSS fixes in `static/css/responsive.css`.
+## Responsive + scroll work (2026-11-05 → 07), committed in `22a5ccf` and the commit after it
+- `static/css/responsive.css` (new, linked after `dist/styles.css` in `base.html`, `base_standalone.html`, `login.html`, `register.html`) holds all phone/tablet fixes; page-local fixes in `super_admin/profile.html`, `teacher/students/report.html`; panel chrome in `partials/super_admin_chrome.html`.
+- Chrome: burger dropdown with «پروفایل»/«خروج» on phones; the dropdown no longer wraps «خروج» into a side column (no sideways scroll). ≤760px the page scrolls (shell unlocked); tablet/desktop `.app-shell` is a flex column so `.app-main` fills the rest.
+- 55 templates had a UTF-8 BOM that rendered as a 25px line in `<body>`; stripped — **keep templates BOM-less**.
+- Tablet layouts fixed: settings family (system settings, org units, academic terms) stacks the summary card, 2/1 card columns; user profile hero (avatar no longer over the tabs); exam-manager dashboard grid; avatars were stretched into ovals (now square). Phones: home exam-code form stacks, filter bars (teacher classes/students) no longer squeeze selects to 0px, calendar weekdays, OSCE tabs, report print button.
+- Checked with Playwright crawls (Edge, 4 roles + public pages, ~170 pages, 320–1440px): no horizontal overflow, nothing clipped/unreachable vertically, and a text/overlap/squeezed-control check whose remaining hits were reviewed as intended (decorative overlaps, input unit suffixes). Not crawled: live attempt pages (phone tweaks for `.qx-*` added, untested in a real attempt).
+- Tests: full suite 377 OK (2026-11-07). Needs a local `collectstatic` first (manifest storage fails with "Missing staticfiles manifest entry" otherwise).
+- `static/dist/styles.css` is **gitignored**, so `git archive` packages don't contain it; the deploy package must add the locally built file. Build locally with `node node_modules/tailwindcss/lib/cli.js -i ./static/src/input.css -o ./static/dist/styles.css --minify` (`npx tailwindcss` isn't on PATH here). `input.css` was also reformatted by an editor (whitespace only) in `22a5ccf`.
+- Local env note: `.venv` here is a Linux-style venv (no `Scripts\`); Python runs from `..\venv\Scripts\python.exe`.
 
 ## Completed and committed (tested locally)
 - **Exam code:** `MQ-` + 6 hex; bold, copyable; joinable from home (`/join/`) by every role, with errors for wrong codes.

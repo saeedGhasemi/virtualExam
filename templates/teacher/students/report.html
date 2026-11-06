@@ -11,7 +11,8 @@
         .rc{max-width:900px;margin:24px auto;padding:32px;background:#fff;border:1px solid #e2e8f0;border-radius:16px}
         .rc-bar{display:flex;justify-content:space-between;align-items:center;max-width:900px;margin:24px auto 0;gap:12px}
         .rc-bar p{margin:0;color:#475569;font-weight:700}
-        .rc-bar button{height:40px;padding:0 18px;border:0;border-radius:10px;background:#2563eb;color:#fff;font:inherit;font-weight:900;cursor:pointer}
+        .rc-bar button{height:40px;padding:0 18px;border:0;border-radius:10px;background:#2563eb;color:#fff;font:inherit;font-weight:900;cursor:pointer;white-space:nowrap;flex-shrink:0}
+        @media (max-width:560px){.rc-bar{flex-wrap:wrap;padding:0 12px}.rc-bar p{flex:1 1 100%}}
         .rc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:16px;border-bottom:2px solid #e2e8f0}
         .rc-head h1{margin:0 0 6px;font-size:20px}
         .rc-head p{margin:2px 0;color:#475569;font-weight:600}
