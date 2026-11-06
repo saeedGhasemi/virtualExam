@@ -4,11 +4,10 @@ _Last updated: 2026-11-05. Every chat updates this file before it ends (see `CLA
 
 ## Deployment status
 - **Production runs commit `1f9e4ea`** (applied 2026-11-04, verified: files identical, migrations 0058–0059 applied, service active).
-- Everything after `1f9e4ea` is **not deployed**: commit `6c81667` (editor digits) + the uncommitted responsive/scroll work below.
-- `~/metaquizy-backup-20261105-0025/` on the server holds an old package for `6c81667` only — **superseded, don't use it**. The next deploy is one package built from `1f9e4ea..HEAD` (README → «ارسال آخرین نسخه به سرور»).
-- That next package adds a new static file (`static/css/responsive.css`), so `collectstatic` is required (it's in the standard `apply-update.sh`). No new migrations since 0059.
-- **Don't ask the teacher to run anything until the user says so.**
-- Local `main` is 85 commits ahead of `origin/main` (not pushed, by choice).
+- **Package for `1f9e4ea..9cfd352` is staged on the server, waiting for the teacher** (2026-11-07): `~/metaquizy-backup-20261107-0248/` holds `deploy.tar` (66 git files + locally built `static/dist/styles.css`), `files-before.tar`, `existing.txt`, `db-before.dump` (pg_dump, 96 tables), `apply-update.sh`, `rollback.sh`. Verified in a temp copy with the server venv: `check` clean, no migrations, `collectstatic` OK. Teacher command: `sudo bash /home/amirhossein/metaquizy-backup-20261107-0248/apply-update.sh`.
+- After the teacher runs it: verify (service active, `127.0.0.1:8020/login/` 200, deployed files match `9cfd352`), then set the production commit above to `9cfd352`.
+- Older packages `~/metaquizy-backup-20261104-*` and `-20261105-0025` are superseded.
+- The SSH user has no sudo (checked). Local `main` is ahead of `origin/main` (not pushed, by choice).
 
 ## Responsive + scroll work (2026-11-05 → 07), committed in `22a5ccf` and the commit after it
 - `static/css/responsive.css` (new, linked after `dist/styles.css` in `base.html`, `base_standalone.html`, `login.html`, `register.html`) holds all phone/tablet fixes; page-local fixes in `super_admin/profile.html`, `teacher/students/report.html`; panel chrome in `partials/super_admin_chrome.html`.
