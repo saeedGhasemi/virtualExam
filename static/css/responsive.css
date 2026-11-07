@@ -79,6 +79,12 @@ pre { max-width: 100%; overflow-x: auto; }
   .auth-quick-login a { justify-content: flex-start; padding: .3rem .5rem; }
   .auth-quick-login a strong { font-size: 11px; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.3; }
 }
+/* the white wave panel is a fixed 620px mask: below the card's full width it ran over the form, so the
+   split layout starts only where the whole card fits */
+@media (max-width: 1023px) {
+  .auth-card { grid-template-columns: minmax(0, 1fr) !important; min-height: 0 !important; max-width: 560px; }
+  .auth-card::before, .auth-art { display: none !important; }
+}
 
 /* ---------- Home: the featured plan card is blue, so its price, title and button must be light ---------- */
 .landing-pricing .landing-plan-grid .is-popular div strong,
@@ -292,6 +298,9 @@ body .org-settings .org-levels.org-levels, .org-levels.org-levels { flex-wrap: w
   table.rt-cards > tbody > tr { margin: 0 0 .75rem; padding: .35rem .95rem; border: 1px solid #dfe7f3; border-radius: 14px; background: #fff; box-shadow: 0 8px 22px rgba(15, 23, 42, .05); }
   table.rt-cards > tbody > tr > td { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 2.5rem; padding: .5rem 0 !important; border: 0 !important; border-bottom: 1px dashed #e7edf6 !important; background: transparent !important; text-align: left; white-space: normal !important; overflow-wrap: anywhere; }
   table.rt-cards > tbody > tr > td:last-child { border-bottom: 0 !important; }
+  table.rt-cards > tbody > tr:last-child { margin-bottom: 0; } /* a trailing margin made scrolling wrappers scroll a few px */
+  table.rt-cards.rt-cards > tbody > tr > td { height: auto !important; } /* page rules fix cell heights (44px) that cut multi-line card rows */
+  :has(> table.rt-cards) { overflow: visible !important; max-height: none !important; } /* card tables need no scrolling wrapper: the page scrolls */
   table.rt-cards > tbody > tr > td::before { content: attr(data-label); flex: 0 0 auto; max-width: 42%; color: #64748b; font-size: .78rem; font-weight: 800; text-align: right; white-space: normal; }
   table.rt-cards > tbody > tr > td[data-label=""]::before, table.rt-cards > tbody > tr > td:not([data-label])::before { display: none; }
   table.rt-cards > tbody > tr > td:is([data-label=""], :not([data-label])) { justify-content: flex-start; }
@@ -345,7 +354,16 @@ form.sst > *, .sst-split > *, .sst-split.sst-split { min-width: 0; }
 @media (max-width: 760px) { .sst-split.sst-split { grid-template-columns: minmax(0, 1fr); } }
 .sst-fields > *, .sst-field.sst-field { min-width: 0; }
 .sst-field.sst-field { grid-template-columns: minmax(0, 1fr); }
-@media (max-width: 480px) { .sst-box.sst-box { flex-wrap: wrap; row-gap: .35rem; height: auto; min-height: 2.9rem; padding-block: .45rem; } }
+/* boxes keep icon · value · lock on one line; a long value wraps inside its own span instead */
+.sst-box.sst-box { min-width: 0; }
+.sst-box > svg { flex: 0 0 auto; }
+.sst-box > :is(span, input) { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+/* `.sst-box{display:flex}` beat the [hidden] attribute, so the phone view and the phone input showed together */
+.sst [hidden] { display: none !important; }
+/* phone row: masked number + «تغییر شماره» wrap onto two lines instead of pushing the button out of the card */
+.sst-inline.sst-inline { flex-wrap: wrap; }
+.sst-inline.sst-inline > .sst-box { flex: 1 1 9rem; }
+.sst-inline.sst-inline > .sst-btn { flex: 1 0 auto; white-space: nowrap; justify-content: center; }
 .sst-themes.sst-themes { grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); }
 .sst-themes > * { min-width: 0; }
 .sst-theme > * { max-width: 100%; white-space: normal; text-align: center; }
@@ -393,3 +411,68 @@ form.sst > *, .sst-split > *, .sst-split.sst-split { min-width: 0; }
   .sst-themes.sst-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
   .sst-label.sst-label { flex-wrap: wrap; row-gap: .15rem; }
 }
+
+/* ---------- Filter rows: an unlabelled search box sits on the same baseline as the labelled selects next to it,
+   so its icon (centred on the label box) is centred in the input too ---------- */
+[class*="-filters"] > label[class*="search"]:not(:has(> span)) { align-self: end; }
+.courses-filters .courses-search input { padding-right: 2.75rem; }
+
+/* ---------- Stat strips: the ≤1180px rule dropped them to one card per row (a near-empty wide card each);
+   fit as many ≥13rem cards per row as the width allows instead ---------- */
+@media (max-width: 1180px) {
+  .question-bank-stats, .student-stat-grid, .student-profile-stats { grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)) !important; }
+}
+/* question bank filters: search on its own row, the three selects side by side (were four full-width rows) */
+@media (min-width: 640px) and (max-width: 1180px) {
+  .question-bank-filters { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .question-bank-filters > label, .question-bank-filters > button { grid-column: 1 / -1; }
+}
+/* table link colour rules turned the blue «ادامه» primary button's text blue as well */
+table a.teacher-primary.teacher-primary, .question-row-actions a.teacher-primary { color: #fff; }
+/* student classes toolbar: «1fr 1fr» grew to the select's min-content width and pushed past the card on small phones */
+@media (max-width: 900px) { .smc .smc-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .smc-toolbar > * { min-width: 0; } }
+
+/* ---------- Small phones (≈300–480px): rows that pushed controls out of their card ---------- */
+@media (max-width: 560px) {
+  /* calendar head: «امروز / ‹ ›» + month title on one row, the view switch on its own full row */
+  .edu-calendar-card > header { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .edu-calendar-card > header > .edu-cal-view { grid-column: 1 / -1; justify-content: stretch; }
+  .edu-cal-view > button { flex: 1 1 0; }
+  /* single-column forms whose one track kept a fixed min width */
+  .emx-form-grid.emx-form-grid, .gc-card .form-grid.form-grid { grid-template-columns: minmax(0, 1fr); }
+  :is(.emx-field, .gc-card .field) { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  :is(.emx-field, .gc-card .field) :is(select, input, textarea) { min-width: 0; max-width: 100%; }
+  /* question type picker head, tag cloud layout, settings action rows */
+  .qs-head.qs-head { flex-wrap: wrap; }
+  .qs-head > * { min-width: 0; }
+  .question-tag-layout.question-tag-layout { grid-template-columns: minmax(0, 1fr); }
+  .question-popular-tags { min-width: 0; }
+  .question-popular-tags > div { grid-template-columns: minmax(0, 1fr) auto !important; }
+  .settings-action-row.settings-action-row { flex-wrap: wrap; }
+  /* exam code pill + copy button in card tables */
+  .rt-cards td.texams-title { flex-wrap: wrap; }
+  .texams-code-pill.texams-code-pill { flex-shrink: 0; }
+}
+@media (max-width: 480px) {
+  .manager-bulk-actions > div { flex: 1 1 100%; }
+  .manager-bulk-actions button { min-width: 0 !important; flex: 1 1 auto; white-space: normal; }
+}
+/* calendar weekday names ran into each other on phones */
+@media (max-width: 560px) {
+  .edu-calendar-grid > b { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: clip; font-size: 9px; padding-inline: 1px; text-align: center; }
+}
+@media (max-width: 380px) { .edu-calendar-grid > b { font-size: 8px; letter-spacing: -.02em; } }
+/* a card-level link colour rule turned the filled profile button's text navy */
+a.sap-btn.sap-btn:not(.is-outline):not(.is-danger) { color: #fff; }
+/* profile tabs on narrow phones: labels wrap to two lines instead of running together */
+@media (max-width: 420px) { .sap .sap-tabs > * { white-space: normal; text-align: center; line-height: 1.25; height: auto; min-height: 2.9rem; font-size: .72rem; } }
+@media (max-width: 560px) { .qs .qs-top .qs-head { flex: 1 1 100%; min-width: 0; } }
+/* security rows: the description takes the line, its button drops below it when they don't fit side by side */
+.tset-list-row.tset-list-row { flex-wrap: wrap; }
+.tset-list-row > .tset-switch-text { flex: 1 1 12rem; }
+.tset-list-row > .tset-btn { flex-shrink: 0; }
+/* the icon rail is hidden on phones (its links are in the burger menu); some pages force it visible with
+   `body:has(...) .super-admin-rail{display:flex!important}` without a phone exception (academic terms) */
+@media (max-width: 760px) { body .super-admin-chrome .super-admin-rail.super-admin-rail { display: none !important; } }
+/* question builder: the long «درج جای خالی در محل نشانگر» button wraps instead of sticking out of its card */
+.qb .qb-insert-blank { max-width: 100%; white-space: normal; text-align: center; height: auto; min-height: 2.5rem; }

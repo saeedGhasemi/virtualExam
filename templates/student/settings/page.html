@@ -138,6 +138,18 @@
       });
       sync();
     });
+    // «تغییر شماره»: swap the masked number for the phone input
+    document.querySelectorAll('[data-sst-phone-edit]').forEach(function (button) {
+      var view = button.closest('[data-sst-phone-view]');
+      var box = view && view.parentElement.querySelector('[data-sst-phone-input]');
+      if (!box) return;
+      button.addEventListener('click', function () {
+        view.hidden = true;
+        box.hidden = false;
+        var input = box.querySelector('input');
+        if (input) input.focus();
+      });
+    });
   })();
   </script>
 {% endif %}

@@ -14113,7 +14113,7 @@
   }
 
   .question-view-tabs {
-    @apply mb-4 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-[#d8e3f2] bg-white/75 p-2 shadow-[0_12px_28px_rgba(33,55,104,.05)];
+    @apply mb-4 flex flex-wrap items-center justify-between rounded-xl border border-[#d8e3f2] bg-white/75 p-2 shadow-[0_12px_28px_rgba(33,55,104,.05)];
   }
 
   .question-view-tabs a {

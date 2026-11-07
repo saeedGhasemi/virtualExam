@@ -25,6 +25,16 @@ _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLA
 - `static/dist/styles.css` is **gitignored**, so `git archive` packages don't contain it; the deploy package must add the locally built file. Build locally with `node node_modules/tailwindcss/lib/cli.js -i ./static/src/input.css -o ./static/dist/styles.css --minify` (`npx tailwindcss` isn't on PATH here). `input.css` was also reformatted by an editor (whitespace only) in `22a5ccf`.
 - Local env note: `.venv` here is a Linux-style venv (no `Scripts\`); Python runs from `..\venv\Scripts\python.exe`.
 
+## Alignment / overflow pass (2026-11-07, after `5c7e622`) — NOT committed, not deployed (user wants to review first)
+- Files: `static/css/responsive.css`, `partials/super_admin_chrome.html`, `student/settings/page.html`, `teacher/students/report.html`. No migrations, no new static files. `static/src/input.css` also has the user's own uncommitted `.question-view-tabs` change (not ours).
+- Topbar: profile cluster always on the far left, logo on the right (≤1320px it sat mid-bar).
+- ≥761px: the in-flow `.super-admin-chrome` block was only 36px tall under the 83px fixed topbar, so `.app-main` (the scroller) started 47px under the header and titles/icons slid beneath it → the block is pinned to 82px in the app-shell flex column.
+- Login: the fixed-620px wave panel covered the form at 768–1023px → single-column card below 1024px.
+- Contrast: «ادامه» (blue text on blue in question-bank tables) and the profile «ویرایش اطلاعات» button now have white text.
+- Alignment: courses search box/icon aligned with the selects; stat strips no longer one-card-per-row at ≤1180px; question-bank filters 3 across on tablets.
+- Small phones (300px): student-settings phone row wraps (and `[hidden]` was overridden by `display:flex`, so the masked number and the input showed together → fixed, plus a few lines of JS so the existing «تغییر شماره» button reveals the input); calendar head/weekdays, exam/group create forms, bulk-import footer, question-type head, tag layout, security rows, classes toolbar, report page, profile tabs; icon rail forced visible on academic terms on phones → hidden; card tables: fixed cell heights and scrolling wrappers removed.
+- Checked: Playwright crawl of all roles at 300/800/1180 (new checks: control outside its card, low-contrast buttons, header layout) — remaining hits reviewed as false positives. Full test suite 377 OK.
+
 ## Completed and committed (tested locally)
 - **Exam code:** `MQ-` + 6 hex; bold, copyable; joinable from home (`/join/`) by every role, with errors for wrong codes.
 - **Receipts:** real unique code per attempt (migration 0058); searchable by teachers and managers.

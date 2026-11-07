@@ -66,7 +66,10 @@
         .super-admin-nav::-webkit-scrollbar{display:none}
         .super-admin-nav a{padding:0 .65rem}
     }
+    /* logo stays on the right, the profile cluster on the far left, at every width the userbar is shown */
+    .super-admin-userbar{justify-self:end}
     @media (max-width:1320px){
+        .super-admin-topbar{grid-template-columns:auto minmax(0,1fr)}
         .super-admin-menu-btn{display:grid}
         .super-admin-nav{display:none;position:absolute;top:100%;right:0;left:0;flex-direction:column;align-items:stretch;gap:.3rem;max-height:calc(100dvh - 90px);overflow-y:auto;padding:.75rem 1rem 1.25rem;background:#fdfeff;border-top:1px solid var(--line);box-shadow:0 30px 60px rgba(30,55,95,.16)}
         .super-admin-nav a{justify-content:flex-start;height:3rem}
@@ -77,7 +80,7 @@
     .super-admin-nav-mobile{display:none!important}
     @media (max-width:1320px){.super-admin-brand{padding-inline-start:3.4rem}.super-admin-nav{flex-wrap:nowrap!important;overflow-x:hidden!important;overflow-y:auto;overscroll-behavior:contain;justify-self:auto;right:1rem;left:auto;width:min(20rem,calc(100vw - 2rem));margin-top:.35rem;border:1px solid #e3e9f3;border-radius:1rem}.super-admin-nav a{width:100%}}
     /* Tablet/desktop: app-main takes exactly the height left under the chrome (calc(100dvh - 82px) ignored the chrome's 24px offset and cut the bottom of every page) */
-    @media (min-width:761px){body:has(.super-admin-chrome) .app-shell{display:flex!important;flex-direction:column}body:has(.super-admin-chrome) .app-shell>.app-main{flex:1 1 auto;min-height:0;height:auto!important}}
+    @media (min-width:761px){body:has(.super-admin-chrome) .app-shell{display:flex!important;flex-direction:column}body:has(.super-admin-chrome) .app-shell>.super-admin-chrome{flex:0 0 82px;height:82px}body:has(.super-admin-chrome) .app-shell>.app-main{flex:1 1 auto;min-height:0;height:auto!important}}
     /* Phones: the page itself scrolls (app-main is height:auto there), so the shell must not be locked to the viewport */
     @media (max-width:760px){body:has(.super-admin-chrome) .app-shell{height:auto!important;min-height:100dvh;overflow:visible!important}}
     @media (max-width:760px){.super-admin-brand{padding-inline-start:3.1rem}.super-admin-brand-logo{height:2.5rem}.super-admin-menu-btn{right:.85rem}.super-admin-nav{right:.75rem;left:.75rem;width:auto;gap:.15rem;max-height:calc(100dvh - 96px)}.super-admin-nav a{height:2.75rem!important;flex:0 0 auto}.super-admin-nav-mobile{display:inline-flex!important}.super-admin-nav-mobile:not(.is-danger){margin-top:.35rem;border-top:1px solid #e9eef6;border-radius:0 0 .85rem .85rem}.super-admin-nav a.is-danger{color:#dc2626}}
