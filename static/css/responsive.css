@@ -121,7 +121,9 @@ pre { max-width: 100%; overflow-x: auto; }
   .qx-matching { grid-template-columns: minmax(0, 1fr) 2.25rem minmax(0, 1fr); gap: .4rem; }
   .qx-map { grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr)); }
   .qx-cam { width: 96px; inset-inline-start: 10px; bottom: 10px; }
-  .qx-foot { flex-wrap: wrap; gap: .5rem; }
+  .qx-foot.qx-foot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .qx-foot.qx-foot > * { width: 100%; min-width: 0; margin: 0 !important; justify-content: center; }
+  .qx-foot.qx-foot > .qx-btn--primary { grid-column: 1 / -1; order: 3; }
 }
 
 /* ---------- Small phones (≤420px) ---------- */
@@ -253,7 +255,7 @@ body :is(.avatar, .emp-avatar, .sap-avatar, .sst-avatar, .super-admin-avatar, .s
 .qb .qb-pills.qb-pills { flex-wrap: wrap; overflow: visible !important; }
 .qb .qb-pills.qb-pills > * { flex: 1 1 auto; min-width: max-content; }
 /* teacher → students tabs, student settings tabs */
-.tstu-tabs.tstu-tabs, .sst-tabs.sst-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); overflow: visible !important; }
+.tstu-tabs.tstu-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); overflow: visible !important; }
 .tstu-tabs.tstu-tabs > *, .sst-tabs.sst-tabs > * { min-width: 0; justify-content: center; text-align: center; }
 /* create-exam steps */
 @media (max-width: 1320px) {
@@ -282,6 +284,10 @@ body .org-settings .org-levels.org-levels, .org-levels.org-levels { flex-wrap: w
 @media screen {
   table.rt-cards, table.rt-cards > tbody, table.rt-cards > tbody > tr, table.rt-cards > tbody > tr > td { display: block; width: 100%; }
   table.rt-cards { min-width: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+  table.rt-cards.rt-cards.rt-cards, table.rt-cards.rt-cards.rt-cards > tbody > tr, table.rt-cards.rt-cards.rt-cards > tbody > tr > td { width: 100% !important; min-width: 0 !important; max-width: none !important; table-layout: auto !important; }
+  table.rt-cards > colgroup { display: none; }
+  table.rt-cards > tbody > tr > td > :not(svg, img) { min-width: 0; overflow-wrap: anywhere; }
+  table.rt-cards > tbody > tr > td > * { white-space: normal !important; }
   table.rt-cards > thead { display: none; } /* each cell carries its header as a label */
   table.rt-cards > tbody > tr { margin: 0 0 .75rem; padding: .35rem .95rem; border: 1px solid #dfe7f3; border-radius: 14px; background: #fff; box-shadow: 0 8px 22px rgba(15, 23, 42, .05); }
   table.rt-cards > tbody > tr > td { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 2.5rem; padding: .5rem 0 !important; border: 0 !important; border-bottom: 1px dashed #e7edf6 !important; background: transparent !important; text-align: left; white-space: normal !important; overflow-wrap: anywhere; }
@@ -313,3 +319,77 @@ body .org-settings .org-levels.org-levels, .org-levels.org-levels { flex-wrap: w
 }
 .qb .qb-accepted-top { flex-wrap: wrap; }
 .qb .qb-accepted-top > input { flex: 1 1 12rem; min-width: 0; }
+
+/* ---------- Settings pages (student / teacher): tab bar like the design ----------
+   Active tab = soft blue fill + blue underline. Phones: student 3 tabs → 3 columns with the icon above the label;
+   teacher 4 tabs → 2 × 2 with icon + label in a row. Card headers stack their action button under the title. */
+.sst-tabs.sst-tabs a.is-active, .tset-tabs.tset-tabs a.is-active { background: #eef4ff; color: #1d4ed8; box-shadow: inset 0 -3px 0 #2563eb; border-color: #c9dafc; }
+@media (max-width: 760px) {
+  .sst-tabs.sst-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .3rem; overflow: visible !important; }
+  .sst-tabs.sst-tabs > a { flex-direction: column; justify-content: center; gap: .3rem; min-height: 4rem; padding: .55rem .3rem; font-size: .74rem; line-height: 1.35; text-align: center; white-space: normal; min-width: 0; }
+  .tset-tabs.tset-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; overflow: visible !important; }
+  .tset-tabs.tset-tabs > a { justify-content: center; gap: .4rem; min-height: 3rem; padding: .5rem .4rem; font-size: .78rem; line-height: 1.35; white-space: normal; text-align: center; min-width: 0; }
+  .sst-tabs.sst-tabs > a svg, .tset-tabs.tset-tabs > a svg { display: inline-block !important; flex: 0 0 auto; width: 1.1rem; height: 1.1rem; }
+  .tset-card-head { flex-wrap: wrap; row-gap: .75rem; }
+  .tset-card-head > :first-child { flex: 1 1 12rem; min-width: 0; }
+}
+@media (max-width: 480px) {
+  .tset-card-head > .tset-outline-btn, .tset-card-head > button, .tset-card-head > a { flex: 1 1 100%; }
+}
+/* the sticky save bar never covers the last card */
+form.sst, form.tset { padding-bottom: 1.25rem; }
+form.sst:has(.sst-footer) > :nth-last-child(2), form.tset:has(footer) > :nth-last-child(2) { margin-bottom: .5rem; }
+/* student settings: the form grid grew to its widest child (the notification matrix) on phones */
+form.sst.sst { grid-template-columns: minmax(0, 1fr); }
+form.sst > *, .sst-split > *, .sst-split.sst-split { min-width: 0; }
+@media (max-width: 760px) { .sst-split.sst-split { grid-template-columns: minmax(0, 1fr); } }
+.sst-fields > *, .sst-field.sst-field { min-width: 0; }
+.sst-field.sst-field { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 480px) { .sst-box.sst-box { flex-wrap: wrap; row-gap: .35rem; height: auto; min-height: 2.9rem; padding-block: .45rem; } }
+.sst-themes.sst-themes { grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); }
+.sst-themes > * { min-width: 0; }
+.sst-theme > * { max-width: 100%; white-space: normal; text-align: center; }
+@media (max-width: 480px) { .sst-theme :is(em, small, b, .badge, [class*=badge], [class*=chip]) { font-size: .64rem; padding-inline: .45rem; line-height: 1.5; } }
+/* teacher settings: the 3-option theme switcher is wider than half a card on tablets → its row stacks */
+.tset-row > * { min-width: 0; }
+.tset-segment.tset-segment { max-width: 100%; flex-wrap: wrap; }
+.tset-segment.tset-segment > * { flex: 1 1 5rem; min-width: 0; }
+@media (max-width: 1100px) { .tset-row.is-2:has(.tset-segment) { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Question builder (phones) ---------- */
+@media (max-width: 760px) {
+  /* bottom actions: primary on its own row, the rest in an even 2-column grid (was a ragged staircase) */
+  .qb .qb-footer.qb-footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .qb .qb-footer > * { width: 100%; min-width: 0; margin: 0 !important; justify-content: center; height: auto; min-height: 2.75rem; padding: .45rem .5rem; font-size: .8rem; line-height: 1.35; white-space: normal; text-align: center; }
+  .qb .qb-footer > .qb-btn--primary { grid-column: 1 / -1; order: -1; }
+  /* content-type tabs: four equal columns, icon above the label */
+  .qb nav.qb-pills[data-media-tabs] { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
+  .qb nav.qb-pills[data-media-tabs] > * { flex-direction: column; gap: .2rem; min-width: 0 !important; padding: .45rem .2rem; font-size: .74rem; }
+  .qb .qb-row2 { margin-bottom: .6rem; }
+}
+.qb .qb-option > .qb-option-text { flex: 1 1 auto; min-width: 0; }
+/* the study-source link field had no input style at any size */
+.qb input[type=url] { width: 100%; min-width: 0; height: 2.6rem; padding: 0 .8rem; border: 1px solid #d9e2f0; border-radius: .7rem; background: #fff; font-size: .86rem; font-weight: 700; outline: 0; }
+.qb input[type=url]:focus { border-color: #3159ff; box-shadow: 0 0 0 3px rgba(49, 89, 255, .12); }
+
+/* exam page: an option keeps letter, text and radio on one row (it used to wrap into three rows on phones) */
+.qx-option.qx-option { flex-wrap: nowrap; }
+.qx-option > .qx-option-body { flex: 1 1 auto; min-width: 0; }
+.qx-option > .qx-letter, .qx-option > input { flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .qx-answer.qx-answer { padding: .6rem; border-radius: .9rem; }
+  .qx-option.qx-option { padding: .6rem .7rem; gap: .55rem; }
+  .qx-option > .qx-letter { width: 1.9rem; height: 1.9rem; }
+}
+@media (min-width: 600px) and (max-width: 960px) {
+  .qx-side.qx-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+  .qx-side.qx-side > * { margin: 0; min-width: 0; }
+}
+/* grid/list view switches stay compact instead of stretching across a toolbar cell */
+.smc-views.smc-views, .tclass-view-toggle.tclass-view-toggle { width: auto; flex: 0 0 auto; justify-self: start; }
+@media (max-width: 480px) {
+  .sst-box.sst-box > :not(svg):not(.sst-chip):not(small) { flex: 1 1 11rem; min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; }
+  .sst-box.sst-box > .sst-chip { margin-inline-start: auto; }
+  .sst-themes.sst-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+  .sst-label.sst-label { flex-wrap: wrap; row-gap: .15rem; }
+}
