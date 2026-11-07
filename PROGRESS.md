@@ -4,9 +4,9 @@ _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLA
 
 ## Deployment status
 - **Production runs commit `1f9e4ea`** (applied 2026-11-04, verified: files identical, migrations 0058–0059 applied, service active).
-- **Package for `1f9e4ea..3e84467` is staged on the server, waiting for the teacher** (2026-11-07): `~/metaquizy-backup-20261107-0446/` holds `deploy.tar` (67 git files + locally built `static/dist/styles.css`), `files-before.tar`, `existing.txt`, `db-before.dump` (pg_dump, 96 tables), `apply-update.sh`, `rollback.sh`. Verified in a temp copy with the server venv: `check` clean, no migrations, `collectstatic` OK. New static files: `static/css/responsive.css`, `static/js/responsive-tables.js`. Teacher command: `sudo bash /home/amirhossein/metaquizy-backup-20261107-0446/apply-update.sh`.
-- After the teacher runs it: verify (service active, `127.0.0.1:8020/login/` 200, deployed files match `3e84467`), then set the production commit above to `3e84467`.
-- Superseded packages: `~/metaquizy-backup-20261107-0353`, `-20261107-0248` (its script renamed to `apply-update.sh.SUPERSEDED-…`), `-20261104-*`, `-20261105-0025`.
+- **Package for `1f9e4ea..4bd93d9` is staged on the server, waiting for the teacher** (2026-11-07): `~/metaquizy-backup-20261107-0608/` holds `deploy.tar` (68 git files + locally built `static/dist/styles.css`), `files-before.tar`, `existing.txt`, `db-before.dump` (pg_dump, 96 tables), `apply-update.sh`, `rollback.sh`. Verified in a temp copy with the server venv: `check` clean, no migrations, `collectstatic` OK. New static files: `static/css/responsive.css`, `static/js/responsive-tables.js`. Teacher command: `sudo bash /home/amirhossein/metaquizy-backup-20261107-0608/apply-update.sh`.
+- After the teacher runs it: verify (service active, `127.0.0.1:8020/login/` 200, deployed files match `4bd93d9`), then set the production commit above to `4bd93d9`.
+- Superseded packages (scripts renamed `apply-update.sh.SUPERSEDED-…`): `~/metaquizy-backup-20261107-0446`, `-20261107-0353`, `-20261107-0248`, `-20261104-*`, `-20261105-0025`.
 - The SSH user has no sudo (checked). Local `main` is ahead of `origin/main` (not pushed, by choice).
 
 ## Responsive + scroll work (2026-11-05 → 07), committed in `22a5ccf` and the commit after it
@@ -25,7 +25,7 @@ _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLA
 - `static/dist/styles.css` is **gitignored**, so `git archive` packages don't contain it; the deploy package must add the locally built file. Build locally with `node node_modules/tailwindcss/lib/cli.js -i ./static/src/input.css -o ./static/dist/styles.css --minify` (`npx tailwindcss` isn't on PATH here). `input.css` was also reformatted by an editor (whitespace only) in `22a5ccf`.
 - Local env note: `.venv` here is a Linux-style venv (no `Scripts\`); Python runs from `..\venv\Scripts\python.exe`.
 
-## Alignment / overflow pass (2026-11-07, after `5c7e622`) — NOT committed, not deployed (user wants to review first)
+## Alignment / overflow pass (2026-11-07), committed in `4bd93d9`, staged for deploy (see above)
 - Files: `static/css/responsive.css`, `partials/super_admin_chrome.html`, `student/settings/page.html`, `teacher/students/report.html`. No migrations, no new static files. `static/src/input.css` also has the user's own uncommitted `.question-view-tabs` change (not ours).
 - Topbar: profile cluster always on the far left, logo on the right (≤1320px it sat mid-bar).
 - ≥761px: the in-flow `.super-admin-chrome` block was only 36px tall under the 83px fixed topbar, so `.app-main` (the scroller) started 47px under the header and titles/icons slid beneath it → the block is pinned to 82px in the app-shell flex column.
