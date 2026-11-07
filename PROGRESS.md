@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-11-05. Every chat updates this file before it ends (see `CLAUDE.md` → Session workflow)._
+_Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLAUDE.md` → Session workflow)._
 
 ## Deployment status
 - **Production runs commit `1f9e4ea`** (applied 2026-11-04, verified: files identical, migrations 0058–0059 applied, service active).
@@ -14,7 +14,10 @@ _Last updated: 2026-11-05. Every chat updates this file before it ends (see `CLA
 - Chrome: burger dropdown with «پروفایل»/«خروج» on phones; the dropdown no longer wraps «خروج» into a side column (no sideways scroll). ≤760px the page scrolls (shell unlocked); tablet/desktop `.app-shell` is a flex column so `.app-main` fills the rest.
 - 55 templates had a UTF-8 BOM that rendered as a 25px line in `<body>`; stripped — **keep templates BOM-less**.
 - Tablet layouts fixed: settings family (system settings, org units, academic terms) stacks the summary card, 2/1 card columns; user profile hero (avatar no longer over the tabs); exam-manager dashboard grid; avatars were stretched into ovals (now square). Phones: home exam-code form stacks, filter bars (teacher classes/students) no longer squeeze selects to 0px, calendar weekdays, OSCE tabs, report print button.
-- Checked with Playwright crawls (Edge, 4 roles + public pages, ~170 pages, 320–1440px): no horizontal overflow, nothing clipped/unreachable vertically, and a text/overlap/squeezed-control check whose remaining hits were reviewed as intended (decorative overlaps, input unit suffixes). Not crawled: live attempt pages (phone tweaks for `.qx-*` added, untested in a real attempt).
+- **No sideways-scrolling strips** (user preference: a longer page is fine, horizontal scroll is not): question-type picker, option pills, teacher-students / student-settings tabs, create-exam steps, OSCE tabs and org-level cards now wrap into rows. Only the home image carousel still swipes (kept on purpose).
+- **Tables → cards:** `static/js/responsive-tables.js` (new, loaded by `base.html` / `base_standalone.html`) labels each cell with its column header and adds `rt-cards` to any listing table wider than its box, so it shows as a card stack instead of scrolling; tables that fit stay tables. Editors/matrices are excluded (`SKIP` list in the file). List footers (page size / pager / count) stack on phones.
+- Also fixed: home exam-code and search forms (input squeezed to ~0px at 481–760px), login quick-role labels truncated, matching-question column B and short-answer accepted answer inputs squeezed on phones.
+- Checked with Playwright crawls (Edge, 4 roles + public pages, ~170 pages, 320–1440px incl. 626/900/1180): no horizontal overflow, no sideways-scrolling boxes except the home carousel, nothing clipped/unreachable vertically, and a text/overlap/squeezed-control check whose remaining hits were reviewed as intended (decorative overlaps, input unit suffixes). Not crawled: live attempt pages (phone tweaks for `.qx-*` added, untested in a real attempt).
 - Tests: full suite 377 OK (2026-11-07). Needs a local `collectstatic` first (manifest storage fails with "Missing staticfiles manifest entry" otherwise).
 - `static/dist/styles.css` is **gitignored**, so `git archive` packages don't contain it; the deploy package must add the locally built file. Build locally with `node node_modules/tailwindcss/lib/cli.js -i ./static/src/input.css -o ./static/dist/styles.css --minify` (`npx tailwindcss` isn't on PATH here). `input.css` was also reformatted by an editor (whitespace only) in `22a5ccf`.
 - Local env note: `.venv` here is a Linux-style venv (no `Scripts\`); Python runs from `..\venv\Scripts\python.exe`.
