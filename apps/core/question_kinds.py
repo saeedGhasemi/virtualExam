@@ -1,4 +1,4 @@
-"""Numeric, matrix, image-labelling and audio/video-response questions.
+"""Numeric, matrix, image-labelling, image-hotspot and audio/video-response questions.
 
 Builder parsing, validation, edit-form values, grading and the student exam view of the four question types
 added after the original eight. The question builder (views._apply_independent_settings / _question_form_data),
@@ -8,8 +8,12 @@ Storage (all in existing `questions` columns, no new columns):
 - numeric:        correct_answer = value; scoring_settings.numeric = unit / decimals / tolerance / switches
 - matrix:         options = rows [{id, text, points, correct: [column ids]}]; scoring_settings.matrix = columns
                   and display switches; correct_answer = ["r1:c2", ...]
-- image_label:    question_media.image = the image; accepted_answers = markers [{marker, x, y, answer, synonyms,
-                  points}] (x/y in % of the image); scoring_settings.image_label = answer mode / synonyms switch
+- image_label:    question_media.image = the image; accepted_answers = markers [{marker, x, y, lx, ly, answer, synonyms,
+                  points}] (x/y = the point, optional lx/ly = its numbered callout, all in % of the image);
+                  scoring_settings.image_label = answer mode / synonyms switch
+- hotspot:        question_media.image = the image; accepted_answers = regions [{id, name, shape, coords, points}] in % of
+                  the image (rect: two corners; circle: [[cx, cy], [rx, ry]]; polygon: 3+ vertices);
+                  scoring_settings.hotspot = max_clicks / teacher_only; the answer is the clicks «x,y;x,y» (%).
 - media_response: question_media.audio|video = the stimulus; scoring_settings.media_response = playback rules,
                   transcript, record limit; scoring_settings.essay = answer formats / instructions (shared with the
                   essay upload and grading code); rubric = manual-grading criteria. Always graded manually.
@@ -18,18 +22,23 @@ import json
 import random
 import re
 
-V2_TYPES = ('numeric', 'matrix', 'image_label', 'media_response')
+V2_TYPES = ('numeric', 'matrix', 'image_label', 'hotspot', 'media_response')
 
 TYPE_LABELS = {
     'numeric': 'پاسخ عددی',
     'matrix': 'ماتریسی / جدول',
     'image_label': 'تصویری / نشانه‌گذاری',
+    'hotspot': 'انتخاب ناحیه روی تصویر',
     'media_response': 'صوتی / ویدئویی',
 }
 
 MATRIX_MAX_ROWS = 30
 MATRIX_MAX_COLUMNS = 10
 LABEL_MAX_MARKERS = 30
+HOTSPOT_MAX_REGIONS = 20
+HOTSPOT_MAX_VERTICES = 40
+HOTSPOT_SHAPES = {'rect': 'مستطیل', 'circle': 'دایره', 'polygon': 'چندضلعی'}
+HOTSPOT_MAX_CLICKS = 10
 CELL_TEXT_MAX = 300
 TRANSCRIPT_MAX = 3000
 MEDIA_ANSWER_FORMATS = ('text', 'audio', 'video')
@@ -138,9 +147,19 @@ def apply_settings(payload, post, settings_data):
         settings_data['image_label'] = {
             'answer_mode': 'drag' if post.get('label_answer_mode') == 'drag' else 'type',
             'accept_synonyms': bool(post.get('label_accept_synonyms')),
+            'texts': _parse_label_texts(post.get('label_texts_json')),
         }
         payload['accepted_answers'] = markers
         payload['correct_answer'] = '|'.join(marker['answer'] for marker in markers)
+        payload['options'] = []
+    elif kind == 'hotspot':
+        regions = _parse_regions(post.get('hotspot_regions_json'))
+        settings_data['hotspot'] = {
+            'max_clicks': min(max(int(_number(post.get('hotspot_max_clicks'), 1) or 1), 1), HOTSPOT_MAX_CLICKS),
+            'teacher_only': bool(post.get('hotspot_teacher_only')),
+        }
+        payload['accepted_answers'] = regions
+        payload['correct_answer'] = '|'.join(region['name'] for region in regions)
         payload['options'] = []
     elif kind == 'media_response':
         record = int(_number(post.get('media_max_record_seconds'), 120) or 120)
@@ -198,15 +217,98 @@ def _parse_matrix(raw):
 def _parse_markers(raw):
     markers = []
     for index, item in enumerate([item for item in _json_list(raw) if isinstance(item, dict)][:LABEL_MAX_MARKERS], start=1):
+        lx, ly = _number(item.get('lx')), _number(item.get('ly'))
         markers.append({
             'marker': index,
             'x': min(max(_number(item.get('x'), 50) or 0, 0), 100),
             'y': min(max(_number(item.get('y'), 50) or 0, 0), 100),
+            # «خط و پیکان»: the numbered callout sits here and a line points at (x, y); None = callout on the point.
+            'lx': None if lx is None or ly is None else round(min(max(lx, 0), 100), 2),
+            'ly': None if lx is None or ly is None else round(min(max(ly, 0), 100), 2),
             'answer': _text(item.get('answer'), 120),
             'synonyms': [_text(part, 120) for part in _split(item.get('synonyms'))][:20],
             'points': max(_number(item.get('points'), 1) or 0, 0),
         })
     return markers
+
+
+LABEL_MAX_TEXTS = 20
+
+
+def _parse_label_texts(raw):
+    """«متن» tool: fixed captions written on the image (e.g. «چپ»/«راست»), shown to the student as they are."""
+    texts = []
+    for item in [item for item in _json_list(raw) if isinstance(item, dict)][:LABEL_MAX_TEXTS]:
+        text = _text(item.get('text'), 60)
+        if text:
+            texts.append({'x': _percent(item.get('x')), 'y': _percent(item.get('y')), 'text': text})
+    return texts
+
+
+def _percent(value):
+    return round(min(max(_number(value, 0) or 0, 0), 100), 2)
+
+
+def _parse_regions(raw):
+    regions = []
+    for item in [item for item in _json_list(raw) if isinstance(item, dict)][:HOTSPOT_MAX_REGIONS]:
+        shape = item.get('shape') if item.get('shape') in HOTSPOT_SHAPES else None
+        points = [[_percent(point[0]), _percent(point[1])] for point in (item.get('coords') or [])
+                  if isinstance(point, (list, tuple)) and len(point) == 2][:HOTSPOT_MAX_VERTICES]
+        if shape == 'rect' and len(points) >= 2:
+            (x1, y1), (x2, y2) = points[0], points[1]
+            coords = [[min(x1, x2), min(y1, y2)], [max(x1, x2), max(y1, y2)]]
+            if coords[1][0] - coords[0][0] < 0.5 or coords[1][1] - coords[0][1] < 0.5:
+                continue
+        elif shape == 'circle' and len(points) >= 2:
+            coords = [points[0], [max(points[1][0], 0.5), max(points[1][1], 0.5)]]
+        elif shape == 'polygon' and len(points) >= 3:
+            coords = points
+        else:
+            continue
+        regions.append({
+            'id': f'h{len(regions) + 1}',
+            'name': _text(item.get('name'), 120),
+            'shape': shape,
+            'coords': coords,
+            'points': max(_number(item.get('points'), 1) or 0, 0),
+        })
+    return regions
+
+
+def region_contains(region, x, y):
+    coords = region.get('coords') or []
+    try:
+        if region.get('shape') == 'rect':
+            (x1, y1), (x2, y2) = coords[0], coords[1]
+            return x1 <= x <= x2 and y1 <= y <= y2
+        if region.get('shape') == 'circle':
+            (cx, cy), (rx, ry) = coords[0], coords[1]
+            return rx > 0 and ry > 0 and ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1
+        if region.get('shape') == 'polygon' and len(coords) >= 3:
+            inside = False
+            for (ax, ay), (bx, by) in zip(coords, coords[1:] + coords[:1]):
+                if (ay > y) != (by > y) and x < (bx - ax) * (y - ay) / (by - ay) + ax:
+                    inside = not inside
+            return inside
+    except (TypeError, ValueError, IndexError, ZeroDivisionError):
+        return False
+    return False
+
+
+def hotspot_clicks(answer, limit=HOTSPOT_MAX_CLICKS):
+    """«x,y;x,y» (or a list of «x,y») -> [(x, y), ...] in % of the image, at most `limit`."""
+    clicks = []
+    for part in ';'.join(_answer_list(answer)).split(';'):
+        x, _, y = part.strip().partition(',')
+        x, y = _number(x), _number(y)
+        if x is not None and y is not None and 0 <= x <= 100 and 0 <= y <= 100:
+            clicks.append((x, y))
+    return clicks[:limit]
+
+
+def region_label(region):
+    return HOTSPOT_SHAPES.get(region.get('shape'), '')
 
 
 def resolve_uploads(payload, files, post, store, errors):
@@ -260,6 +362,17 @@ def errors_for(payload):
             errors.append('حداقل یک نشانه روی تصویر قرار دهید.')
         elif any(not marker['answer'] for marker in markers):
             errors.append('برای هر نشانه پاسخ صحیح وارد کنید.')
+    elif kind == 'hotspot':
+        regions = payload.get('accepted_answers') or []
+        hotspot = settings_data.get('hotspot') or {}
+        if not (payload.get('question_media') or {}).get('image'):
+            errors.append('تصویر سؤال را برای تعیین ناحیه‌ی پاسخ بارگذاری کنید.')
+        if not regions:
+            errors.append('حداقل یک ناحیه‌ی پاسخ صحیح روی تصویر رسم کنید.')
+        elif any(not region['name'] for region in regions):
+            errors.append('برای هر ناحیه‌ی پاسخ یک نام وارد کنید.')
+        if regions and hotspot.get('max_clicks', 1) < len(regions):
+            errors.append('«تعداد کلیک مجاز برای پاسخ» نباید کمتر از تعداد ناحیه‌های صحیح باشد.')
     elif kind == 'media_response':
         media = payload.get('question_media') or {}
         media_settings = settings_data.get('media_response') or {}
@@ -313,6 +426,15 @@ def form_values(kind, source, settings_data):
             'markers': markers,
             'answer_mode': label.get('answer_mode') or 'type',
             'accept_synonyms': label.get('accept_synonyms', True),
+            'texts': label.get('texts') or [],
+        }}
+    if kind == 'hotspot':
+        hotspot = settings_data.get('hotspot') or {}
+        regions = [region for region in _json(source.get('accepted_answers'), []) if isinstance(region, dict) and region.get('shape')]
+        return {'hotspot': {
+            'regions': regions,
+            'max_clicks': hotspot.get('max_clicks') or 1,
+            'teacher_only': hotspot.get('teacher_only', True),
         }}
     if kind == 'media_response':
         media_settings = settings_data.get('media_response') or {}
@@ -365,6 +487,13 @@ def grade(kind, row, answer, max_points, settings_data, partial, wrong):
             text = given[index] if index < len(given) else ''
             hit = bool(text.strip()) and any(_normalize(text) == _normalize(item) for item in accepted)
             weights.append((max(float(marker.get('points') or 0), 0) or 1, hit))
+        return _weighted(weights, max_points, partial, full, wrong)
+    if kind == 'hotspot':
+        regions = [item for item in _json(row.get('accepted_answers'), []) if isinstance(item, dict) and item.get('shape')]
+        if not regions:
+            return 0, True, False
+        clicks = hotspot_clicks(answer, (settings_data.get('hotspot') or {}).get('max_clicks') or 1)
+        weights = [(max(float(region.get('points') or 0), 0) or 1, any(region_contains(region, x, y) for x, y in clicks)) for region in regions]
         return _weighted(weights, max_points, partial, full, wrong)
     return 0, True, False
 
@@ -454,12 +583,24 @@ def student_view(kind, row, settings_data, answer, attempt_id):
                     'number': item['marker'],
                     # Pre-formatted so a localized number format can never break the inline style.
                     'left': f"{float(item.get('x', 50)):.2f}", 'top': f"{float(item.get('y', 50)):.2f}",
+                    **({'callout_left': f"{float(item['lx']):.2f}", 'callout_top': f"{float(item['ly']):.2f}"}
+                       if item.get('lx') is not None and item.get('ly') is not None else {}),
                     'value': given[index] if index < len(given) else '',
                 }
                 for index, item in enumerate(markers)
             ],
             'label_drag': label.get('answer_mode') == 'drag',
+            'label_texts': [{'left': f"{float(item.get('x', 0)):.2f}", 'top': f"{float(item.get('y', 0)):.2f}", 'text': item.get('text', '')}
+                            for item in label.get('texts') or [] if isinstance(item, dict) and item.get('text')],
             'label_bank': [text for text in bank if text],
+        }
+    if kind == 'hotspot':
+        max_clicks = (settings_data.get('hotspot') or {}).get('max_clicks') or 1
+        clicks = hotspot_clicks(answer, max_clicks)
+        return {
+            'hotspot_max_clicks': max_clicks,
+            'hotspot_clicks': [{'left': f'{x:.2f}', 'top': f'{y:.2f}'} for x, y in clicks],
+            'hotspot_value': ';'.join(f'{x:g},{y:g}' for x, y in clicks),
         }
     if kind == 'media_response':
         media_settings = settings_data.get('media_response') or {}

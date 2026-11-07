@@ -29,6 +29,7 @@
     .wf-play:focus-visible,.wf-wave:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
     .wf-play svg{width:1rem;height:1rem;fill:currentColor}
     .wf-wave{flex:1 1 auto;min-width:5rem;height:2rem;cursor:pointer;touch-action:none}
+    .wf-player.is-exhausted .wf-play{background:#cbd5e1;cursor:not-allowed}
     .wf-time{flex:0 0 auto;color:#475569;font:800 .72rem/1 Vazirmatn,Tahoma,sans-serif;white-space:nowrap}
   `;
   document.head.append(style);
@@ -130,7 +131,9 @@
 
     const player = { audio, canvas, time, button, peaks: null, peaksFor: '' };
     players.set(audio, player);
+    if (audio.classList.contains('is-exhausted')) wrapper.classList.add('is-exhausted');  // play limit already used up
     button.addEventListener('click', () => {
+      if (audio.classList.contains('is-exhausted')) { wrapper.classList.add('is-exhausted'); return; }
       if (audio.paused) {
         document.querySelectorAll('.wf-player > audio').forEach((other) => { if (other !== audio) other.pause(); });
         audio.play().catch(() => {});
@@ -162,6 +165,16 @@
     if (root.tagName === 'AUDIO') enhance(root);
     else root.querySelectorAll?.('audio').forEach(enhance);
   };
+  // Browser recordings (WebM from MediaRecorder) carry no duration: seek to the end once so it becomes known.
+  document.addEventListener('loadedmetadata', (event) => {
+    const media = event.target;
+    if (!(media instanceof HTMLMediaElement) || media.duration !== Infinity || media.dataset.durationFix) return;
+    media.dataset.durationFix = '1';
+    const back = () => { if (Number.isFinite(media.duration)) { media.removeEventListener('durationchange', back); media.currentTime = 0; } };
+    media.addEventListener('durationchange', back);
+    media.currentTime = 1e101;
+  }, true);
+
   const start = () => {
     scan(document.body);
     new MutationObserver((mutations) => mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {

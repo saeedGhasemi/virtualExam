@@ -3,6 +3,8 @@
         <b class="qb-badge" data-row-number>{{ number|fa_digits }}</b>
         <input type="text" data-accepted-answer value="{{ item.answer }}" placeholder="{% if main %}پاسخ اصلی (کاملاً صحیح){% else %}پاسخ جایگزین قابل قبول{% endif %}">
         <label class="qb-accepted-points" title="درصدی از بارم سؤال که این پاسخ می‌گیرد">امتیاز (٪)<input type="number" data-accepted-points value="{{ item.points|default:'100' }}" step="5" min="0" max="100"></label>
+        {# Optional image/audio/video of this answer (e.g. its pronunciation): shown to the grader and in the answer review. #}
+        {% include "teacher/_qf_media_slot.html" with url=item.media kind=item.media_kind base="accepted_media" %}
         <button type="button" class="qb-icon-btn" data-remove-row title="{% if main %}پاک کردن{% else %}حذف{% endif %}">{% include "teacher/_qb_icon.html" with name="trash" %}</button>
     </div>
     <div class="qb-accepted-rules">

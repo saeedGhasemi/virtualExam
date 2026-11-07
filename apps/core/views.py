@@ -8305,6 +8305,7 @@ def _exam_wizard_render(request, resources, **extra):
         {'key': 'numeric', 'label': 'پاسخ عددی', 'icon': 'calculator'},
         {'key': 'matrix', 'label': 'ماتریسی / جدول', 'icon': 'list'},
         {'key': 'image_label', 'label': 'تصویری / نشانه‌گذاری', 'icon': 'image'},
+        {'key': 'hotspot', 'label': 'انتخاب ناحیه روی تصویر', 'icon': 'image'},
         {'key': 'media_response', 'label': 'صوتی / ویدئویی', 'icon': 'lines'},
     ]
     teachers_by_department = []
@@ -13346,6 +13347,7 @@ QUESTION_BUILDER_TYPES = {
     'numeric': {'label': 'سؤال پاسخ عددی', 'structure': 'independent'},
     'matrix': {'label': 'سؤال ماتریسی / جدول', 'structure': 'independent'},
     'image_label': {'label': 'سؤال تصویری / نشانه‌گذاری', 'structure': 'independent'},
+    'hotspot': {'label': 'سؤال انتخاب ناحیه روی تصویر', 'structure': 'independent'},
     'media_response': {'label': 'سؤال صوتی / ویدئویی', 'structure': 'independent'},
     'case': {'label': 'گروه سؤال مبتنی بر سناریوی بیمار', 'structure': 'case', 'stored_type': 'single'},
     'kfp': {'label': 'سازنده سناریوی KFP', 'structure': 'kfp', 'stored_type': 'single'},
@@ -15052,6 +15054,9 @@ def _essay_settings(post):
         'answer_formats': [key for key in ESSAY_ANSWER_FORMATS if key in post.getlist('answer_formats')],
         'sample_answer_text': (post.get('sample_answer_text') or '').strip(),
         'sample_answer_file': None,  # resolved with the other uploads
+        # «تصحیح ناشناس»: graders see no student name; «نمره‌دهنده دوم»: two independent grades, the mean counts.
+        'blind_grading': bool(post.get('essay_blind_grading')),
+        'second_grader': bool(post.get('essay_second_grader')),
     }
 
 
@@ -15087,7 +15092,12 @@ def _essay_view(scoring_settings):
         'answer_formats': essay.get('answer_formats') or ['text'],
         'sample_answer_text': essay.get('sample_answer_text') or '',
         'sample_answer_file': essay.get('sample_answer_file') or None,
+        'blind_grading': bool(essay.get('blind_grading')),
+        'second_grader': bool(essay.get('second_grader')),
     }
+
+
+SHORT_ANSWER_MAX_CHARS = 2000
 
 
 def _apply_independent_settings(payload, post):
@@ -15140,6 +15150,8 @@ def _apply_independent_settings(payload, post):
             })
         payload['accepted_answers'] = accepted
         settings_data['correct_threshold'] = min(max(_form_number(post, 'correct_threshold', 100), 0), 100)
+        # «حداکثر طول پاسخ»: 0 = no limit; the exam page caps the field and the server cuts longer answers.
+        settings_data['max_chars'] = min(max(int(_form_number(post, 'short_answer_max_chars', 0) or 0), 0), SHORT_ANSWER_MAX_CHARS)
     if kind == 'fill_blank':
         # «نرمال‌سازی پاسخ‌ها»: unify Persian/Arabic digits and «ي/ك» before comparing (default on).
         settings_data['normalize_answers'] = post.get('normalize_answers') != '0'
@@ -15319,6 +15331,10 @@ def _apply_question_uploads(payload, files, post):
         pair['right_media'], pair['right_media_kind'] = resolve(f'matching_right_media_file_{index}', f'matching_right_media_{index}', f'matching_right_media_remove_{index}')
     for index, item in enumerate(payload['ordering_items'], start=1):
         item['media'], item['media_kind'] = resolve(f'ordering_media_file_{index}', f'ordering_media_{index}', f'ordering_media_remove_{index}')
+    if payload['stored_type'] == 'short_answer':
+        # Optional media per accepted answer (e.g. its pronunciation), for the grader and the answer review.
+        for index, item in enumerate(payload['accepted_answers'], start=1):
+            item['media'], item['media_kind'] = resolve(f'accepted_media_file_{index}', f'accepted_media_{index}', f'accepted_media_remove_{index}')
     if payload['stored_type'] == 'fill_blank':
         # Optional media hint per blank (e.g. the image of the structure to name), shown to the student.
         for index, blank in enumerate(payload['accepted_answers'], start=1):
@@ -15424,6 +15440,7 @@ def _question_form_data(source):
             'ordering_mode': settings_data.get('ordering_mode') or 'exact',
             'correct_threshold': f"{_sx_float(settings_data.get('correct_threshold'), 100):g}",
             'normalize_answers': settings_data.get('normalize_answers', True),
+            'max_chars': int(_sx_float(settings_data.get('max_chars'), 0)),
         },
         'options': [],
         'blanks': [],
@@ -15484,6 +15501,8 @@ def _question_form_data(source):
                 'tolerance': f"{float(item.get('tolerance') or 0):g}",
                 'typo_tolerance': str(item.get('typo_tolerance') or 0),
                 'ignore_word_order': bool(item.get('ignore_word_order')),
+                'media': item.get('media') or '',
+                'media_kind': _media_kind(item.get('media') or ''),
             }
             for item in (_sx_json(source.get('accepted_answers'), []) or []) if isinstance(item, dict)
         ]
@@ -15497,6 +15516,8 @@ def _question_form_data(source):
             'answer_formats': essay.get('answer_formats') or ['text'],
             'sample_answer_text': essay.get('sample_answer_text') or '',
             'sample_answer_file': essay.get('sample_answer_file') or None,
+            'blind_grading': bool(essay.get('blind_grading')),
+            'second_grader': bool(essay.get('second_grader')),
         }
     form.update(question_kinds.form_values(kind, source, settings_data))
     if kind in RICH_STEM_TYPES:
@@ -15678,6 +15699,27 @@ def teacher_question_autosave(request):
         [_question_draft_key(teacher_id, question_id, question_type), value, 'Question builder autosave draft', teacher_id],
     )
     return JsonResponse({'ok': True, 'saved_at': saved_at})
+
+
+@erd_role_required('teacher', 'academic_manager', 'admin')
+def teacher_question_media_upload(request):
+    """Store one builder media file at once (a recording made in the browser) and return its URL.
+
+    The builder keeps the URL in the slot's «existing» field, so the file survives autosave, a reload and the draft;
+    saving the question then attaches it like any kept media (_apply_question_uploads)."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'روش درخواست نامعتبر است.'}, status=405)
+    uploaded = request.FILES.get('file')
+    kind = request.POST.get('kind')
+    if not uploaded or kind not in QUESTION_MEDIA_RULES:
+        return JsonResponse({'ok': False, 'error': 'فایل یا نوع رسانه نامعتبر است.'}, status=400)
+    extension = file_extension(uploaded.name)
+    if extension in QUESTION_MEDIA_RULES[kind][0] and not signature_ok(uploaded, extension):
+        return JsonResponse({'ok': False, 'error': f'محتوای فایل «{uploaded.name}» با پسوند آن هم‌خوانی ندارد.'}, status=400)
+    url, stored_kind, error = _store_question_media(uploaded, (kind,))
+    if error:
+        return JsonResponse({'ok': False, 'error': error}, status=400)
+    return JsonResponse({'ok': True, 'url': url, 'kind': stored_kind, 'name': uploaded.name[:150], 'size': uploaded.size})
 
 
 # Question structures whose builders are not real yet; teachers cannot open or save them.
@@ -17404,13 +17446,21 @@ def _with_exam_grading_rules(row, rules):
     return {**row, 'scoring_settings': settings_data} if changed else row
 
 
+MANUAL_ANSWER_KINDS = {'essay', 'descriptive', 'media_response'}  # answered with text and/or files, graded by a teacher
+
+
+def _answer_given(answer):
+    return any(str(value).strip() for value in answer) if isinstance(answer, list) else bool(str(answer or '').strip())
+
+
 def grade_attempt(attempt_id):
     optional_columns = ['matching_pairs', 'ordering_items', 'scoring_settings', 'accepted_answers']
     optional_sql = ', '.join(f'q.{column}' if erd_has_column('questions', column) else f'NULL AS {column}' for column in optional_columns)
+    files_sql = 'aa.answer_files' if erd_has_column('attempt_answers', 'answer_files') else 'NULL AS answer_files'
     rows = erd_rows(
         f"""
         SELECT ea.id AS attempt_id, COALESCE(eq.points, q.default_points, 1) AS points, q.id AS question_id, q.type,
-               q.correct_answer, q.options, {optional_sql}, aa.answer
+               q.correct_answer, q.options, {optional_sql}, aa.answer, {files_sql}
         FROM exam_attempts ea
         JOIN exam_questions eq ON eq.exam_id = ea.exam_id
         JOIN questions q ON q.id = eq.question_id
@@ -17439,6 +17489,8 @@ def grade_attempt(attempt_id):
             answer = ''
         max_points = _sx_float(row['points'], 0)
         points, manual, is_correct = _grade_question(_with_exam_grading_rules(row, rules), answer, max_points)
+        if manual and row.get('type') in MANUAL_ANSWER_KINDS and not _answer_given(answer) and not _sx_answer_files(row.get('answer_files')):
+            manual = False  # nothing written, recorded or attached: zero, no manual grading needed
         needs_manual = needs_manual or manual
         total_score += points
         max_score += max_points
@@ -18834,7 +18886,17 @@ def _sx_save_attempt_answers(request, attempt_id):
         question = allowed_questions[question_id]
         if question.get('type') in ('ordering', 'matching') and key in request.POST:
             answer_value = _sx_decode_item_answer(question['type'], question, attempt_id, values[0] if values else '')
-        answer = json.dumps({'value': answer_value}, ensure_ascii=False)
+        stored = {'value': answer_value}
+        if question.get('type') == 'short_answer' and isinstance(answer_value, str):
+            limit = int(_sx_float((_sx_json(question.get('scoring_settings'), {}) or {}).get('max_chars'), 0))
+            if limit:
+                stored['value'] = answer_value[:limit]
+        if question.get('type') in MANUAL_ANSWER_KINDS and request.POST.get(f'answer_delta_{question_id}'):
+            delta = clean_delta(request.POST.get(f'answer_delta_{question_id}'))
+            if delta.get('ops'):
+                stored['delta'] = delta
+                stored['value'] = delta_text(delta).strip()[:ANSWER_TEXT_MAX]
+        answer = json.dumps(stored, ensure_ascii=False)
         # «امکان علامت‌گذاری سوال» off: the review mark is not offered, and none is stored.
         marked = bool(request.POST.get(f'mark_{question_id}')) and rules['allow_flagging_questions']
         existing = erd_row(
@@ -18913,6 +18975,8 @@ def _sx_save_answer_files(request, attempt_id, rows):
         uploads = [(kind, uploaded) for kind in ANSWER_FILE_RULES if kind in formats
                    for uploaded in request.FILES.getlist(f'upload_{question_id}_{kind}')]
         removals = set(request.POST.getlist(f'remove_file_{question_id}'))
+        # «ضبط دوباره»: a new recording of this kind replaces the earlier one(s), once it is stored successfully.
+        replace_kinds = {kind for kind in request.POST.getlist(f'replace_file_{question_id}') if kind in ('audio', 'video')}
         if not uploads and not removals:
             continue
         files = _sx_answer_files(row.get('answer_files'))
@@ -18920,10 +18984,12 @@ def _sx_save_answer_files(request, attempt_id, rows):
             if item['id'] in removals:
                 delete_private(item['path'])
         files = [item for item in files if item['id'] not in removals]
+        replaced = [item for item in files if item['kind'] in replace_kinds and any(kind == item['kind'] for kind, _uploaded in uploads)]
+        added_kinds = set()
         for kind, uploaded in uploads:
             extensions, limit = ANSWER_FILE_RULES[kind]
             extension = file_extension(uploaded.name)
-            if len(files) >= ANSWER_FILES_MAX:
+            if len(files) - len(replaced) >= ANSWER_FILES_MAX:
                 errors.append(f'حداکثر {ANSWER_FILES_MAX} فایل برای هر پاسخ مجاز است.')
                 break
             if extension not in extensions:
@@ -18937,6 +19003,10 @@ def _sx_save_answer_files(request, attempt_id, rows):
                     'id': uuid.uuid4().hex, 'name': uploaded.name[:150], 'kind': kind, 'ext': extension, 'size': uploaded.size,
                     'path': store_private(uploaded, f'answer-files/{attempt_id}', extension),
                 })
+                added_kinds.add(kind)
+        for item in [item for item in replaced if item['kind'] in added_kinds]:
+            delete_private(item['path'])
+            files.remove(item)
         payload = json.dumps(files, ensure_ascii=False)
         if erd_row('SELECT id FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id]):
             erd_execute('UPDATE attempt_answers SET answer_files = %s WHERE attempt_id = %s AND question_id = %s',
@@ -19456,7 +19526,11 @@ def student_attempt(request, attempt_id):
             item['text_html'] = _question_stem_html(settings_data)
         if kind in question_kinds.V2_TYPES:
             item.update(question_kinds.student_view(kind, row, settings_data, answer, attempt_id))
+        if kind == 'short_answer':
+            item['max_chars'] = int(_sx_float(settings_data.get('max_chars'), 0))
         if item['type'] in {'essay', 'descriptive', 'media_response'}:
+            raw_answer = _sx_json(row.get('answer'), {})
+            item['answer_delta'] = raw_answer.get('delta') if isinstance(raw_answer, dict) and isinstance(raw_answer.get('delta'), dict) else None
             essay_view = _essay_view(settings_data)
             item['student_instructions'] = essay_view['student_instructions']
             item['answer_formats'] = essay_view['answer_formats']
@@ -19465,6 +19539,7 @@ def student_attempt(request, attempt_id):
                 for file in _sx_answer_files(row.get('answer_files'))
             ]
             item['answered'] = item['answered'] or bool(item['answer_files'])
+            item['recorded_kinds'] = {file['kind'] for file in item['answer_files'] if file.get('kind') in ('audio', 'video')}
             item['upload_rules'] = {
                 kind: {'accept': ','.join(f'.{ext}' for ext in sorted(rule[0])), 'mb': rule[1] // (1024 * 1024)}
                 for kind, rule in ANSWER_FILE_RULES.items() if kind in item['answer_formats']
@@ -19914,7 +19989,43 @@ def _sx_result_answer_text(kind, values, row):
             if left.isdigit() and right.isdigit() and 0 < int(left) <= len(pairs) and 0 < int(right) <= len(pairs):
                 shown.append(f"{pairs[int(left) - 1].get('left', '')}: {pairs[int(right) - 1].get('right', '')}")
         return '، '.join(shown)
+    if kind == 'hotspot':
+        clicks = question_kinds.hotspot_clicks(values)
+        return f'{len(clicks)} نقطه روی تصویر' if clicks else ''
     return ' | '.join(values)
+
+
+def _sx_result_hotspot(row, answers):
+    """Report-card view of a hotspot answer: the image, the student's clicks and (unless «فقط برای مدرس») the regions."""
+    image = _sx_question_media(row.get('question_media')).get('image')
+    if not image:
+        return None
+    settings_data = _sx_json(row.get('scoring_settings'), {}) or {}
+    hotspot = settings_data.get('hotspot') or {} if isinstance(settings_data, dict) else {}
+    clicks = question_kinds.hotspot_clicks(answers, hotspot.get('max_clicks') or 1)
+    shapes = []
+    if not hotspot.get('teacher_only', True):
+        for region in _sx_json(row.get('accepted_answers'), []) or []:
+            if not isinstance(region, dict):
+                continue
+            coords = region.get('coords') or []
+            try:
+                if region.get('shape') == 'rect':
+                    (x1, y1), (x2, y2) = coords[0], coords[1]
+                    shapes.append({'shape': 'rect', 'x': f'{x1:.2f}', 'y': f'{y1:.2f}', 'w': f'{x2 - x1:.2f}', 'h': f'{y2 - y1:.2f}', 'name': region.get('name', '')})
+                elif region.get('shape') == 'circle':
+                    (cx, cy), (rx, ry) = coords[0], coords[1]
+                    shapes.append({'shape': 'circle', 'cx': f'{cx:.2f}', 'cy': f'{cy:.2f}', 'rx': f'{rx:.2f}', 'ry': f'{ry:.2f}', 'name': region.get('name', '')})
+                elif region.get('shape') == 'polygon':
+                    shapes.append({'shape': 'polygon', 'points': ' '.join(f'{x:.2f},{y:.2f}' for x, y in coords), 'name': region.get('name', '')})
+            except (TypeError, ValueError, IndexError):
+                continue
+    return {
+        'image': image,
+        'image_alt': _sx_question_media(row.get('question_media')).get('image_alt', ''),
+        'clicks': [{'left': f'{x:.2f}', 'top': f'{y:.2f}'} for x, y in clicks],
+        'regions': shapes,
+    }
 
 
 def _sx_result_question_rows(attempt_id, student_id):
@@ -19923,7 +20034,7 @@ def _sx_result_question_rows(attempt_id, student_id):
     tone: good = full points, partial = some points, bad = answered without points, empty = not answered."""
     optional = ', '.join(
         f'q.{column}' if erd_has_column('questions', column) else f'NULL AS {column}'
-        for column in ('ordering_items', 'matching_pairs', 'subject', 'feedback')
+        for column in ('ordering_items', 'matching_pairs', 'subject', 'feedback', 'question_media', 'accepted_answers', 'scoring_settings')
     )
     files = 'aa.answer_files' if erd_has_column('attempt_answers', 'answer_files') else 'NULL AS answer_files'
     rows = erd_rows(
@@ -19982,6 +20093,7 @@ def _sx_result_question_rows(attempt_id, student_id):
             'subject': str(row.get('subject') or '').strip(),
             'builder_note': str(notes.get('text') or '').strip(),
             'resource': question_resource(notes),
+            'hotspot': _sx_result_hotspot(row, answers) if kind == 'hotspot' else None,
         })
     return items
 

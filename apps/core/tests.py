@@ -2142,7 +2142,8 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
         from apps.core.views import _sx_type_label
         self.client.force_login(self.teacher_user)
         url = reverse('core:teacher_question_create')
-        markers = {'numeric': 'name="numeric_answer"', 'matrix': 'data-matrix-table', 'image_label': 'data-label-canvas', 'media_response': 'name="media_max_plays"'}
+        markers = {'numeric': 'name="numeric_answer"', 'matrix': 'data-matrix-table', 'image_label': 'data-label-canvas',
+                   'hotspot': 'data-hot-canvas', 'media_response': 'name="media_max_plays"'}
         for kind, marker in markers.items():
             html = self.client.get(f'{url}?type={kind}').content.decode()
             self.assertIn(marker, html, kind)
@@ -2151,7 +2152,7 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
         picker = self.client.get(reverse('core:teacher_question_type')).content.decode()
         for kind in markers:
             self.assertIn(f'?type={kind}"', picker, kind)
-        self.assertIn('نقطه‌ای / مربوط به تصویر', picker)  # hotspot stays «در حال توسعه»
+        self.assertNotIn('نقطه‌ای / مربوط به تصویر', picker)  # the former «در حال توسعه» card is the hotspot type now
 
     def test_numeric_question_saves_tolerance_and_reloads_in_edit_form(self):
         self.client.force_login(self.teacher_user)
@@ -2223,7 +2224,7 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
         self.assertTrue(row['question_media']['image'].endswith('.png'))
         self.assertEqual([(m['marker'], m['x'], m['answer'], m['synonyms']) for m in row['accepted_answers']],
                          [(1, 40.5, 'آئورت', ['آئورت صعودی', 'سرخرگ آئورت']), (2, 100.0, 'بطن چپ', [])])
-        self.assertEqual(row['scoring_settings']['image_label'], {'answer_mode': 'drag', 'accept_synonyms': True})
+        self.assertEqual(row['scoring_settings']['image_label'], {'answer_mode': 'drag', 'accept_synonyms': True, 'texts': []})
 
     def test_media_response_requires_media_and_saves_playback_rubric_and_attachment(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -2353,6 +2354,303 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
             cursor.execute('SELECT answer_files FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id])
             files = json.loads(cursor.fetchone()[0])
         self.assertEqual([(item['kind'], item['name']) for item in files], [('audio', 'recording.mp3')])
+
+    WAV = b'RIFF\x24\x00\x00\x00WAVEfmt ' + b'\x00' * 40
+
+    def _answer_files(self, attempt_id, question_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer_files FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id])
+            row = cursor.fetchone()
+        return json.loads(row[0]) if row and row[0] else []
+
+    def test_recording_replaces_the_earlier_one_streams_by_range_and_reaches_the_grader(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        question_id, attempt_id = self._attempt({'type': 'media_response', 'question_media': {'audio': '/media/question-media/heart.mp3'},
+                                                 'scoring_settings': {'essay': {'answer_formats': ['audio']}, 'media_response': {
+                                                     'max_record_seconds': 120, 'transcript': 'صدای قلب با سوفل', 'show_transcript': False}}})
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        page = self.client.get(url).content.decode()
+        self.assertIn('data-record-toggle', page)
+        self.assertIn('حداکثر زمان ضبط ۲ دقیقه است', page)
+        self.assertNotIn('صدای قلب با سوفل', page)  # transcript hidden from the student
+        upload = lambda name: SimpleUploadedFile(name, self.WAV)
+        self.client.post(url, {f'upload_{question_id}_audio': upload('recording-1.wav')})
+        self.client.post(url, {f'upload_{question_id}_audio': upload('recording-2.wav'), f'replace_file_{question_id}': 'audio'})
+        files = self._answer_files(attempt_id, question_id)
+        self.assertEqual([item['name'] for item in files], ['recording-2.wav'])  # «ضبط دوباره» replaced the first take
+        self.client.post(url, {f'upload_{question_id}_audio': upload('extra.wav')})
+        self.assertEqual([item['name'] for item in self._answer_files(attempt_id, question_id)], ['recording-2.wav', 'extra.wav'])
+
+        file_url = reverse('core:attempt_answer_file', args=[attempt_id, files[0]['id']])
+        ranged = self.client.get(file_url, HTTP_RANGE='bytes=0-3')
+        self.assertEqual(ranged.status_code, 206)
+        self.assertEqual(ranged.content, b'RIFF')
+        self.assertEqual(ranged['Content-Range'], f'bytes 0-3/{len(self.WAV)}')
+        self.assertEqual(ranged['Content-Type'], 'audio/wav')
+        self.assertEqual(self.client.get(file_url, HTTP_RANGE=f'bytes={len(self.WAV) + 5}-').status_code, 416)
+        whole = self.client.get(file_url)
+        self.assertEqual((whole.status_code, whole['Accept-Ranges']), (200, 'bytes'))
+
+        self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]), {f'answer_{question_id}': ''})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id, needs_manual_grading FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id])
+            answer_id, pending = cursor.fetchone()
+            cursor.execute('SELECT exam_id FROM exam_attempts WHERE id = %s', [attempt_id])
+            exam_id = cursor.fetchone()[0]
+        self.assertTrue(pending)  # a recording only (no text) still goes to the teacher
+        self.client.force_login(self.teacher_user)
+        detail = self.client.get(reverse('core:teacher_grading_detail', args=[str(answer_id)])).content.decode()
+        self.assertIn('تصحیح پاسخ صوتی / ویدئویی', detail)
+        self.assertIn('src="/media/question-media/heart.mp3"', detail)  # the stimulus the student heard
+        self.assertIn('صدای قلب با سوفل', detail)  # transcript for the grader
+        self.assertIn(file_url, detail)
+
+        co_grader = get_user_model().objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+        self.client.force_login(co_grader)
+        self.assertEqual(self.client.get(file_url).status_code, 404)
+        _insert('exam_staff', ['id', 'exam_id', 'teacher_id', 'role'], [str(uuid.uuid4()), exam_id, self.teacher_out_id, 'co_grader'])
+        self.assertEqual(self.client.get(file_url).status_code, 200)
+
+    def test_unanswered_audio_video_and_essay_questions_need_no_manual_grading(self):
+        from apps.core.views import grade_attempt
+        for kind in ('media_response', 'essay'):
+            question_id, attempt_id = self._attempt({'type': kind, 'scoring_settings': {'essay': {'answer_formats': ['text', 'audio']}}}, '')
+            grade_attempt(attempt_id)
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT needs_manual_grading, points_awarded FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+                pending, points = cursor.fetchone()
+                cursor.execute('SELECT status, is_graded FROM exam_attempts WHERE id = %s', [attempt_id])
+                status, graded = cursor.fetchone()
+            self.assertEqual((bool(pending), float(points or 0), status, bool(graded)), (False, 0.0, 'graded', True), kind)
+
+
+    # ----- image hotspot («انتخاب ناحیه روی تصویر») -----
+
+    HOT_REGIONS = [
+        {'name': 'دریچه میترال', 'shape': 'polygon', 'coords': [[60, 40], [80, 40], [80, 60], [60, 60]], 'points': 2},
+        {'name': 'آئورت', 'shape': 'circle', 'coords': [[30, 20], [5, 8]], 'points': 1},
+        {'name': 'بطن راست', 'shape': 'rect', 'coords': [[30, 80], [10, 60]], 'points': 1},
+    ]
+
+    def test_hotspot_builder_validates_and_saves_regions(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.teacher_user)
+        self.assertContains(self.client.get(f"{reverse('core:teacher_question_create')}?type=hotspot"), 'data-v2-hotspot')
+        regions = json.dumps(self.HOT_REGIONS, ensure_ascii=False)
+        response = self._create('hotspot', {'text': 'محل دریچه‌ها', 'hotspot_regions_json': regions, 'hotspot_max_clicks': '3'})
+        self.assertContains(response, 'تصویر سؤال را برای تعیین ناحیه‌ی پاسخ بارگذاری کنید.')
+        image = lambda: SimpleUploadedFile('heart.png', self.PNG, content_type='image/png')
+        response = self._create('hotspot', {'text': 'محل دریچه‌ها', 'hotspot_regions_json': regions, 'hotspot_max_clicks': '2', 'question_image_file': image()})
+        self.assertContains(response, 'نباید کمتر از تعداد ناحیه‌های صحیح باشد')
+        response = self._create('hotspot', {'text': 'محل دریچه‌ها', 'hotspot_regions_json': regions, 'hotspot_max_clicks': '3',
+                                            'scoring_mode': 'partial', 'question_image_file': image()})
+        self.assertEqual(response.status_code, 302)
+        row = self._row('محل دریچه‌ها')
+        self.assertEqual(row['type'], 'hotspot')
+        self.assertEqual([(region['id'], region['shape']) for region in row['accepted_answers']], [('h1', 'polygon'), ('h2', 'circle'), ('h3', 'rect')])
+        self.assertEqual(row['accepted_answers'][2]['coords'], [[10, 60], [30, 80]])  # rectangle corners normalised
+        self.assertEqual(row['scoring_settings']['hotspot'], {'max_clicks': 3, 'teacher_only': False})
+        edit = self.client.get(reverse('core:teacher_question_edit', args=[row['id']])).content.decode()
+        self.assertIn('"shape": "polygon"', edit)  # regions reload into the editor (json_script)
+        self.assertIn('name="hotspot_max_clicks" min="1" max="10" step="1" value="3"', edit)
+
+    def test_hotspot_grading_shapes_partial_and_click_limit(self):
+        from apps.core import question_kinds
+        regions = question_kinds._parse_regions(json.dumps(self.HOT_REGIONS))
+        polygon, circle, rect = regions
+        self.assertTrue(question_kinds.region_contains(polygon, 70, 50))
+        self.assertFalse(question_kinds.region_contains(polygon, 50, 50))
+        self.assertTrue(question_kinds.region_contains(circle, 33, 25))
+        self.assertFalse(question_kinds.region_contains(circle, 36, 20))  # outside rx = 5
+        self.assertTrue(question_kinds.region_contains(rect, 20, 70))
+        columns = {'type': 'hotspot', 'accepted_answers': regions, 'scoring_settings': {'scoring_mode': 'partial', 'hotspot': {'max_clicks': 3}}}
+        self.assertEqual(self._score(columns, '70,50;31,21;20,70')['score'], 2)
+        self.assertEqual(self._score(columns, '70,50;5,5')['score'], 1)  # 2 of 4 weighted points
+        self.assertEqual(self._score(columns, '5,5;6,6;7,7;70,50')['score'], 0)  # the 4th click is over the limit
+        strict = {**columns, 'scoring_settings': {'scoring_mode': 'all_or_nothing', 'hotspot': {'max_clicks': 3}}}
+        self.assertEqual(self._score(strict, '70,50;31,21')['score'], 0)
+
+    def test_student_hotspot_page_saves_clicks_and_report_card_shows_them(self):
+        regions = [{'id': 'h1', 'name': 'دریچه', 'shape': 'rect', 'coords': [[10, 10], [40, 40]], 'points': 1}]
+        question_id, attempt_id = self._attempt({'type': 'hotspot', 'accepted_answers': regions,
+                                                 'question_media': {'image': '/media/question-media/heart.png'},
+                                                 'scoring_settings': {'hotspot': {'max_clicks': 1, 'teacher_only': False}}})
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        page = self.client.get(url).content.decode()
+        self.assertIn('data-hotspot data-max="1"', page)
+        self.assertNotIn('دریچه', page)  # regions never reach the exam page
+        self.assertEqual(page.count('/media/question-media/heart.png'), 1)
+        self.client.post(url, {f'answer_{question_id}': '20.5,30'})
+        self.assertIn('value="20.5,30" data-hotspot-answer', self.client.get(url).content.decode())
+        self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]), {f'answer_{question_id}': '20.5,30'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT score FROM exam_attempts WHERE id = %s', [attempt_id])
+            self.assertEqual(float(cursor.fetchone()[0]), 2.0)
+        from apps.core.views import _sx_result_question_rows
+        [item] = _sx_result_question_rows(attempt_id, self.student_in_id)
+        self.assertEqual(item['answer_text'], '1 نقطه روی تصویر')
+        self.assertEqual(item['hotspot']['clicks'], [{'left': '20.50', 'top': '30.00'}])
+        self.assertEqual(item['hotspot']['regions'][0]['shape'], 'rect')
+
+    def test_image_label_callout_is_saved_and_drawn_for_the_student(self):
+        from apps.core import question_kinds
+        markers = question_kinds._parse_markers(json.dumps([{'x': 40, 'y': 50, 'lx': 5, 'ly': 10, 'answer': 'آئورت'},
+                                                            {'x': 60, 'y': 70, 'answer': 'بطن'}]))
+        self.assertEqual([(m['lx'], m['ly']) for m in markers], [(5, 10), (None, None)])
+        _question_id, attempt_id = self._attempt({'type': 'image_label', 'accepted_answers': markers,
+                                                  'question_media': {'image': '/media/question-media/heart.png'}})
+        self.client.force_login(self.student_user)
+        page = self.client.get(reverse('core:student_attempt', args=[attempt_id])).content.decode()
+        self.assertIn('<line x1="5.00" y1="10.00" x2="40.00" y2="50.00"/>', page)
+        self.assertIn('style="left:5.00%;top:10.00%"', page)  # the numbered callout
+        self.assertIn('style="left:60.00%;top:70.00%"', page)  # a marker without a callout stays on its point
+
+    def test_short_answer_character_limit_and_accepted_answer_media(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.teacher_user)
+        response = self._create('short_answer', {'text': 'تشخیص آندوسکوپی', 'accepted_answer': ['گاستریت', 'H. pylori gastritis'],
+                                                 'accepted_points_1': '100', 'accepted_points_2': '50', 'short_answer_max_chars': '50',
+                                                 'accepted_media_file_2': SimpleUploadedFile('answer.mp3', self.MP3, content_type='audio/mpeg')})
+        self.assertEqual(response.status_code, 302)
+        row = self._row('تشخیص آندوسکوپی')
+        self.assertEqual(row['scoring_settings']['max_chars'], 50)
+        self.assertEqual(row['accepted_answers'][0].get('media'), '')
+        self.assertTrue(row['accepted_answers'][1]['media'].endswith('.mp3'))
+        self.assertIn(row['accepted_answers'][1]['media'], self.client.get(reverse('core:teacher_question_edit', args=[row['id']])).content.decode())
+        question_id, attempt_id = self._attempt({'type': 'short_answer', 'scoring_settings': {'max_chars': 10},
+                                                 'accepted_answers': [{'answer': 'آتروپین', 'match_mode': 'exact', 'points': 100}]})
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        page = self.client.get(url).content.decode()
+        self.assertIn('maxlength="10"', page)
+        self.assertIn('حداکثر ۱۰ نویسه', page)
+        self.client.post(url, {f'answer_{question_id}': 'آتروپین با دوز بالا و تکرار'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            self.assertEqual(json.loads(cursor.fetchone()[0])['value'], 'آتروپین با')  # cut to 10 characters
+
+    def test_rich_essay_answer_is_saved_cleaned_and_shown_to_the_grader(self):
+        question_id, attempt_id = self._attempt({'type': 'essay', 'scoring_settings': {'essay': {'answer_formats': ['text']}}})
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.assertContains(self.client.get(url), 'data-rich-answer')
+        delta = {'ops': [{'insert': 'افزایش '}, {'insert': 'فشار', 'attributes': {'bold': True, 'onclick': 'x'}},
+                         {'insert': '<script>alert(1)</script>\n'}]}
+        self.client.post(url, {f'answer_{question_id}': 'ignored', f'answer_delta_{question_id}': json.dumps(delta, ensure_ascii=False)})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT answer FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            stored = json.loads(cursor.fetchone()[0])
+        self.assertEqual(stored['value'], 'افزایش فشار<script>alert(1)</script>')  # plain text comes from the Delta
+        self.assertNotIn('onclick', json.dumps(stored['delta']))
+        self.assertIn('"ops"', self.client.get(url).content.decode())  # the editor reopens with the formatting
+        self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]), {f'answer_delta_{question_id}': json.dumps(delta)})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            answer_id = str(cursor.fetchone()[0])
+        self.client.force_login(self.teacher_user)
+        detail = self.client.get(reverse('core:teacher_grading_detail', args=[answer_id])).content.decode()
+        self.assertIn('<strong>فشار</strong>', detail)
+        self.assertNotIn('<script>alert(1)</script>', detail)
+
+
+    # ----- recordings in the builder are stored at once; real grading options -----
+
+    def test_builder_recording_is_uploaded_at_once_and_kept_by_the_draft(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_question_media_upload')
+        bad = self.client.post(url, {'kind': 'audio', 'file': SimpleUploadedFile('recording.wav', b'not a wav file at all')})
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn('هم‌خوانی ندارد', bad.json()['error'])
+        self.assertEqual(self.client.post(url, {'kind': 'video', 'file': SimpleUploadedFile('recording.wav', self.WAV)}).status_code, 400)
+        ok = self.client.post(url, {'kind': 'audio', 'file': SimpleUploadedFile('recording-1.wav', self.WAV)}).json()
+        self.assertTrue(ok['ok'])
+        self.assertTrue(ok['url'].startswith('/media/question-media/') and ok['url'].endswith('.wav'))
+        from django.conf import settings
+        from pathlib import Path
+        self.assertTrue((Path(settings.MEDIA_ROOT) / 'question-media' / ok['url'].rsplit('/', 1)[1]).is_file())
+        # the builder puts the URL in the slot's «existing» field: autosave keeps it and the restored draft shows it
+        self.client.post(reverse('core:teacher_question_autosave'), {'type': 'media_response', 'text': 'پیش‌نویس با ضبط', 'existing_question_audio': ok['url']})
+        restored = self.client.get(f"{reverse('core:teacher_question_create')}?type=media_response&draft=restore").content.decode()
+        self.assertIn(ok['url'], restored)
+        response = self._create('media_response', {'text': 'سؤال با صدای ضبط‌شده', 'existing_question_audio': ok['url'], 'answer_formats': ['audio']})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._row('سؤال با صدای ضبط‌شده')['question_media']['audio'], ok['url'])
+        self.client.logout()
+        self.assertNotEqual(self.client.post(url, {'kind': 'audio', 'file': SimpleUploadedFile('r.wav', self.WAV)}).status_code, 200)
+
+    def _essay_attempt(self, essay):
+        question_id, attempt_id = self._attempt({'type': 'essay', 'scoring_settings': {'essay': {'answer_formats': ['text'], **essay}}})
+        self.client.force_login(self.student_user)
+        self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]), {f'answer_{question_id}': 'پاسخ تشریحی دانشجو'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id FROM attempt_answers WHERE attempt_id = %s', [attempt_id])
+            answer_id = str(cursor.fetchone()[0])
+            cursor.execute('SELECT exam_id FROM exam_attempts WHERE id = %s', [attempt_id])
+            exam_id = cursor.fetchone()[0]
+        return answer_id, attempt_id, exam_id
+
+    def _answer_state(self, answer_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT points_awarded, needs_manual_grading, first_grade FROM attempt_answers WHERE id = %s', [answer_id])
+            points, pending, first = cursor.fetchone()
+        return (None if points is None else float(points)), bool(pending), (json.loads(first) if isinstance(first, str) else first)
+
+    def test_blind_grading_hides_the_student_name(self):
+        answer_id, _attempt_id, _exam = self._essay_attempt({'blind_grading': True})
+        self.client.force_login(self.teacher_user)
+        listing = self.client.get(reverse('core:teacher_reviews')).content.decode()
+        detail = self.client.get(reverse('core:teacher_grading_detail', args=[answer_id])).content.decode()
+        for page in (listing, detail):
+            self.assertNotIn('دانشجوی داخل محدوده', page)
+            self.assertIn('دانشجوی ناشناس #', page)
+        normal_id, _attempt, _exam = self._essay_attempt({})
+        self.client.force_login(self.teacher_user)
+        self.assertIn('دانشجوی داخل محدوده', self.client.get(reverse('core:teacher_grading_detail', args=[normal_id])).content.decode())
+
+    def test_second_grader_keeps_the_answer_pending_and_averages_two_grades(self):
+        answer_id, attempt_id, exam_id = self._essay_attempt({'second_grader': True})
+        detail_url = reverse('core:teacher_grading_detail', args=[answer_id])
+        self.client.force_login(self.teacher_user)
+        self.client.post(detail_url, {'score': '2'})
+        points, pending, first = self._answer_state(answer_id)
+        self.assertTrue(pending)
+        self.assertEqual(first['points'], 2.0)
+        self.client.post(detail_url, {'score': '1.5'})  # the first grader corrects their own grade
+        self.assertEqual(self._answer_state(answer_id)[2]['points'], 1.5)
+        self.assertContains(self.client.get(reverse('core:teacher_reviews')), 'در انتظار نمره‌دهنده‌ی دوم')
+        second = get_user_model().objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+        _insert('exam_staff', ['id', 'exam_id', 'teacher_id', 'role'], [str(uuid.uuid4()), exam_id, self.teacher_out_id, 'co_grader'])
+        self.client.force_login(second)
+        page = self.client.get(detail_url).content.decode()
+        self.assertIn('شما نمره‌دهنده‌ی دوم هستید', page)
+        self.assertNotIn('۱٫۵', page)  # independent marking: the first grade is not shown to the second grader
+        self.client.post(detail_url, {'score': '0.5'})
+        points, pending, first = self._answer_state(answer_id)
+        self.assertEqual((points, pending), (1.0, False))  # mean of 1.5 and 0.5
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT score, status FROM exam_attempts WHERE id = %s', [attempt_id])
+            score, status = cursor.fetchone()
+        self.assertEqual((float(score), status), (1.0, 'graded'))
+
+    def test_image_label_text_tool_captions_reach_the_student(self):
+        self.client.force_login(self.teacher_user)
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        markers = [{'x': 40, 'y': 20, 'answer': 'آئورت', 'points': 1}]
+        texts = [{'x': 10, 'y': 90, 'text': 'چپ'}, {'x': 50, 'y': 50, 'text': '  '}]
+        response = self._create('image_label', {'text': 'قلب با متن', 'label_markers_json': json.dumps(markers, ensure_ascii=False),
+                                                'label_texts_json': json.dumps(texts, ensure_ascii=False),
+                                                'question_image_file': SimpleUploadedFile('heart.png', self.PNG, content_type='image/png')})
+        self.assertEqual(response.status_code, 302)
+        row = self._row('قلب با متن')
+        self.assertEqual(row['scoring_settings']['image_label']['texts'], [{'x': 10.0, 'y': 90.0, 'text': 'چپ'}])
+        _question_id, attempt_id = self._attempt({'type': 'image_label', 'accepted_answers': row['accepted_answers'],
+                                                  'question_media': row['question_media'], 'scoring_settings': row['scoring_settings']})
+        self.client.force_login(self.student_user)
+        self.assertIn('<span class="qx-label-text" style="left:10.00%;top:90.00%">چپ</span>',
+                      self.client.get(reverse('core:student_attempt', args=[attempt_id])).content.decode())
 
 
 class TeacherDashboardTests(_ScopedOrgFixture):
@@ -5535,6 +5833,8 @@ class ExamTimedTasksTests(_EnforcedExamFixture):
                 [attempt_id, exam_id, self.student_in_id, timezone.now() - timedelta(hours=1), 'in_progress'])
         _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'needs_manual_grading'],
                 [str(uuid.uuid4()), attempt_id, self.single_id, json.dumps({'value': '2'}), False])
+        _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'needs_manual_grading'],
+                [str(uuid.uuid4()), attempt_id, self.essay_id, json.dumps({'value': 'پاسخ تشریحی'}), False])
         return exam_id, attempt_id
 
     def test_expired_attempts_are_submitted_or_closed(self):
@@ -5858,7 +6158,8 @@ class ExamTimingScenariosTests(_EnforcedExamFixture):
             self.assertEqual(self._save(attempt_id, '3').status_code, 409)
         self.assertEqual(finalize_expired_attempts(now=start + timedelta(minutes=32, seconds=1)), [attempt_id])  # browser closed
         [(status, score)] = self._rows('SELECT status, score FROM exam_attempts WHERE id = %s', [attempt_id])
-        self.assertEqual((status, float(score)), ('submitted', 2.0))  # the answer saved in time («2») counts
+        # the answer saved in time («2») counts; the essay was left blank, so nothing waits for the teacher
+        self.assertEqual((status, float(score)), ('graded', 2.0))
         [(answer,)] = self._rows('SELECT answer FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, self.single_id])
         self.assertEqual(json.loads(answer) if isinstance(answer, str) else answer, {'value': '2'})
 
@@ -6911,6 +7212,52 @@ class QuestionImportWordTests(_EnforcedExamFixture):
         self.assertEqual([item['text'] for item in items], ['کاشت بذر', 'جوانه زدن', 'رشد ساقه و برگ', 'گل دادن'])
         options = self._saved('کدام شکل دایره است؟')[0][1]  # picture options; the answer comes from «کلید پاسخ: 13-ب»
         self.assertEqual([(bool(option['media']), option['is_correct']) for option in options], [(True, False), (True, True)])
+
+    def test_questions_from_the_word_sample_are_graded_like_builder_questions(self):
+        """Every auto-graded type imported from Word: the right answer earns full points, a wrong one none."""
+        from apps.core.views import _grade_question
+        before = {str(row[0]) for row in self._rows('SELECT id FROM questions', [])}
+        self._upload(self.client.get(self.url, {'template': 'word'}).content)
+        self.client.post(self.url, {'action': 'confirm'})
+        rows = self._rows(
+            'SELECT id, text, type, options, correct_answer, accepted_answers, matching_pairs, ordering_items, scoring_settings '
+            'FROM questions WHERE course_id = %s AND teacher_id = %s', [self.course_in_id, self.teacher_in_id])
+        load = lambda value: json.loads(value) if isinstance(value, str) and value[:1] in '[{"' else value
+        graded = set()
+        for question_id, text, kind, options, correct, accepted, pairs, items, settings_data in rows:
+            if str(question_id) in before:
+                continue
+            row = {'type': kind, 'options': options, 'correct_answer': correct, 'accepted_answers': accepted,
+                   'matching_pairs': pairs, 'ordering_items': items, 'scoring_settings': settings_data}
+            correct, accepted, pairs = load(correct), load(accepted) or [], load(pairs) or []
+            if kind in ('single', 'true_false'):
+                right, wrong = str(correct), 'گزینه‌ای که نیست'
+            elif kind == 'multi':
+                right, wrong = [str(value) for value in correct], [str(correct[0])]
+            elif kind == 'short_answer':
+                right, wrong = accepted[0]['answer'], 'پاسخ نادرست'
+            elif kind == 'numeric':
+                right, wrong = [str(correct)], ['123456']
+            elif kind == 'fill_blank':
+                right, wrong = [blank['answers'][0] for blank in accepted], ['نادرست'] * len(accepted)
+            elif kind == 'matching':
+                right = ','.join(f'{index}:{index}' for index in range(1, len(pairs) + 1))
+                wrong = ','.join(f'{index}:{len(pairs) + 1 - index}' for index in range(1, len(pairs) + 1))
+            elif kind == 'ordering':
+                count = len([item for item in load(items) or [] if item])
+                right, wrong = ','.join(str(n) for n in range(1, count + 1)), ','.join(str(n) for n in range(count, 0, -1))
+            elif kind == 'matrix':
+                right, wrong = ','.join(correct), ''
+            elif kind == 'image_label':
+                right, wrong = [marker['answer'] for marker in accepted], ['نادرست'] * len(accepted)
+            else:
+                self.assertEqual(_grade_question(row, 'هر پاسخی', 2)[1], True, text)  # essay: manual
+                continue
+            self.assertEqual(_grade_question(row, right, 2), (2, False, True), text)
+            points, _manual, correct_flag = _grade_question(row, wrong, 2)
+            self.assertEqual((points < 2, correct_flag), (True, False), text)
+            graded.add(kind)
+        self.assertEqual(graded, {'single', 'multi', 'true_false', 'short_answer', 'numeric', 'fill_blank', 'matching', 'ordering', 'matrix', 'image_label'})
 
     def test_section_titles_and_stray_lines_are_not_part_of_a_question(self):
         from apps.core.question_import_word import build_docx

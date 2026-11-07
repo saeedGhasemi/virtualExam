@@ -17,7 +17,7 @@
         {% with media=q.media %}
           {% if media %}
             <div class="qx-media">
-              {% if media.image and q.type != 'image_label' %}<figure class="qx-figure"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><figcaption><span>{{ media.image_alt }}</span><button type="button" class="qx-zoom" data-zoom><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر</button></figcaption></figure>{% endif %}
+              {% if media.image and q.type != 'image_label' and q.type != 'hotspot' %}<figure class="qx-figure"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><figcaption><span>{{ media.image_alt }}</span><button type="button" class="qx-zoom" data-zoom><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر</button></figcaption></figure>{% endif %}
               {% if media.video %}<figure class="qx-figure"><video src="{{ media.video }}" controls preload="metadata"{% if q.playback %} data-playback{% endif %}>{% if media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ media.video_subtitle }}" default>{% endif %}</video>{% if media.video_caption %}<figcaption>{{ media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
               {% if media.audio %}<figure class="qx-figure"><audio src="{{ media.audio }}" controls preload="metadata"{% if q.playback %} data-playback{% endif %}></audio></figure>{% endif %}
             </div>
@@ -60,7 +60,26 @@
           {% elif q.type == 'essay' or q.type == 'descriptive' or q.type == 'media_response' %}
             <h3>پاسخ شما</h3>
             {% if not q.answer_formats or 'text' in q.answer_formats %}
-              <textarea class="qx-textarea" name="answer_{{ q.question_id }}" maxlength="50000" placeholder="پاسخ تشریحی خود را بنویسید...">{{ q.answer|default_if_none:"" }}</textarea>
+              {# Rich answer (ExamInteractions.richAnswer): the textarea is the posted plain text and the fallback without the editor. #}
+              <div class="qx-rich" data-rich-answer>
+                <div class="qx-rich-toolbar" data-rich-toolbar>
+                  <button type="button" class="ql-undo" aria-label="واگرد"><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/></svg></button>
+                  <button type="button" class="ql-redo" aria-label="ازنو"><svg viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12H9a5 5 0 0 0 0 10h2"/></svg></button>
+                  <span class="qx-rich-sep"></span>
+                  <button type="button" class="ql-bold" aria-label="پررنگ"></button>
+                  <button type="button" class="ql-italic" aria-label="کج"></button>
+                  <span class="qx-rich-sep"></span>
+                  <button type="button" class="ql-list" value="ordered" aria-label="فهرست شماره‌دار"></button>
+                  <button type="button" class="ql-list" value="bullet" aria-label="فهرست نقطه‌ای"></button>
+                  <span class="qx-rich-sep"></span>
+                  <button type="button" class="ql-link" aria-label="پیوند"></button>
+                </div>
+                <div class="qx-rich-editor" data-rich-editor></div>
+                <textarea class="qx-textarea" name="answer_{{ q.question_id }}" maxlength="50000" placeholder="پاسخ خود را اینجا بنویسید..." data-rich-text>{{ q.answer|default_if_none:"" }}</textarea>
+                <input type="hidden" name="answer_delta_{{ q.question_id }}" value="" data-rich-delta>
+                {% if q.answer_delta %}{{ q.answer_delta|json_script }}{% endif %}
+                <div class="qx-rich-foot"><span data-word-count>۰ کلمه</span></div>
+              </div>
             {% endif %}
             {% if q.upload_rules %}
               <div class="qx-uploads" data-answer-uploads>
@@ -78,17 +97,28 @@
                 <div class="qx-upload-actions">
                   {% for kind, rule in q.upload_rules.items %}
                     {% if kind == 'audio' or kind == 'video' and q.type == 'media_response' %}
-                      <div class="qx-recorder" data-recorder data-record-kind="{{ kind }}"{% if q.max_record_seconds %} data-record-max="{{ q.max_record_seconds }}"{% endif %}>
-                        <button type="button" class="qx-upload-btn" data-record-start>● {% if kind == 'video' %}ضبط ویدئو{% else %}ضبط صدا{% endif %}</button>
-                        <button type="button" class="qx-upload-btn is-stop" data-record-stop hidden>■ پایان ضبط (<span data-record-time>۰۰:۰۰</span>)</button>
-                        <label class="qx-upload-btn">{% if kind == 'video' %}بارگذاری فایل ویدئو{% else %}بارگذاری فایل صوتی{% endif %}<input type="file" name="upload_{{ q.question_id }}_{{ kind }}" accept="{{ rule.accept }}" data-auto-save data-record-target></label>
+                      {# Recorder (ExamInteractions.recorder): the take is saved on the server as soon as recording stops (then listed above to listen to); a new take replaces the earlier recording of this kind. #}
+                      <div class="qx-recorder qx-recorder--{{ kind }}" data-recorder data-record-kind="{{ kind }}"{% if q.max_record_seconds %} data-record-max="{{ q.max_record_seconds }}"{% endif %} data-record-mb="{{ rule.mb }}">
+                        <div class="qx-rec-stage">
+                          <button type="button" class="qx-rec-dot" data-record-toggle aria-label="{% if kind == 'video' %}شروع یا پایان ضبط ویدئو{% else %}شروع یا پایان ضبط صدا{% endif %}"><span></span></button>
+                          <canvas class="qx-rec-wave" data-record-wave aria-hidden="true"></canvas>
+                          <span class="qx-rec-time" data-record-time data-latin-digits>{% if q.max_record_seconds %}۰۰:۰۰{% endif %}</span>
+                        </div>
+                        {% if kind == 'video' %}<div class="qx-rec-live" data-record-live hidden></div>{% endif %}
+                        <div class="qx-rec-actions">
+                          <button type="button" class="qx-rec-main" data-record-toggle data-record-main><svg viewBox="0 0 24 24" aria-hidden="true">{% if kind == 'video' %}<rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="m16 10.5 5-3v9l-5-3"/>{% else %}<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>{% endif %}</svg><span data-record-label>{% if kind in q.recorded_kinds %}ضبط دوباره{% elif kind == 'video' %}شروع ضبط ویدئو{% else %}شروع ضبط{% endif %}</span></button>
+                          <label class="qx-upload-btn" data-record-upload>{% if kind == 'video' %}بارگذاری فایل ویدئو{% else %}بارگذاری فایل صوتی{% endif %}<input type="file" name="upload_{{ q.question_id }}_{{ kind }}" accept="{{ rule.accept }}" data-auto-save data-record-target></label>
+                        </div>
+                        <input type="hidden" name="replace_file_{{ q.question_id }}" value="" data-record-replace>
+                        <small class="qx-rec-status" data-record-status role="status" aria-live="polite" hidden></small>
+                        <small class="qx-rec-hint">{% if q.max_record_seconds %}حداکثر زمان ضبط {% if q.max_record_seconds|divisibleby:60 %}{% widthratio q.max_record_seconds 60 1 as record_minutes %}{{ record_minutes|fa_digits }} دقیقه{% else %}{{ q.max_record_seconds|fa_digits }} ثانیه{% endif %} است. {% endif %}با پایان ضبط، پاسخ بلافاصله روی سرور ذخیره و در فهرست بالا قابل شنیدن است؛ «ضبط دوباره» جایگزین ضبط قبلی می‌شود.</small>
                       </div>
                     {% else %}
                       <label class="qx-upload-btn">{% if kind == 'image' %}بارگذاری تصویر{% elif kind == 'video' %}بارگذاری ویدئو{% else %}پیوست فایل{% endif %}<input type="file" name="upload_{{ q.question_id }}_{{ kind }}" accept="{{ rule.accept }}"{% if kind != 'video' %} multiple{% endif %} data-auto-save></label>
                     {% endif %}
                   {% endfor %}
                 </div>
-                <small class="qx-upload-hint">{% if q.max_record_seconds %}حداکثر زمان ضبط {{ q.max_record_seconds|fa_digits }} ثانیه است. {% endif %}فایل بلافاصله پس از انتخاب ذخیره می‌شود. {% for kind, rule in q.upload_rules.items %}{% if kind == 'image' %}تصویر{% elif kind == 'audio' %}صوت{% elif kind == 'video' %}ویدئو{% else %}فایل PDF/Word{% endif %} تا {{ rule.mb|fa_digits }} مگابایت{% if not forloop.last %}، {% endif %}{% endfor %}؛ حداکثر ۵ فایل.</small>
+                <small class="qx-upload-hint">فایل بلافاصله پس از انتخاب ذخیره می‌شود. {% for kind, rule in q.upload_rules.items %}{% if kind == 'image' %}تصویر{% elif kind == 'audio' %}صوت{% elif kind == 'video' %}ویدئو{% else %}فایل PDF/Word{% endif %} تا {{ rule.mb|fa_digits }} مگابایت{% if not forloop.last %}، {% endif %}{% endfor %}؛ حداکثر ۵ فایل.</small>
               </div>
             {% endif %}
           {% elif q.type == 'numeric' %}
@@ -125,7 +155,9 @@
             <div class="qx-label" data-label{% if q.label_drag %} data-label-drag{% endif %}>
               <div class="qx-label-stage">
                 <img src="{{ q.media.image }}" alt="{{ q.media.image_alt }}">
-                {% for marker in q.label_markers %}<span class="qx-label-pin" style="left:{{ marker.left }}%;top:{{ marker.top }}%">{{ marker.number|fa_digits }}</span>{% endfor %}
+                {% for caption in q.label_texts %}<span class="qx-label-text" style="left:{{ caption.left }}%;top:{{ caption.top }}%">{{ caption.text }}</span>{% endfor %}
+                <svg class="qx-label-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{% for marker in q.label_markers %}{% if marker.callout_left %}<line x1="{{ marker.callout_left }}" y1="{{ marker.callout_top }}" x2="{{ marker.left }}" y2="{{ marker.top }}"/>{% endif %}{% endfor %}</svg>
+                {% for marker in q.label_markers %}{% if marker.callout_left %}<span class="qx-label-anchor" style="left:{{ marker.left }}%;top:{{ marker.top }}%"></span><span class="qx-label-pin" style="left:{{ marker.callout_left }}%;top:{{ marker.callout_top }}%">{{ marker.number|fa_digits }}</span>{% else %}<span class="qx-label-pin" style="left:{{ marker.left }}%;top:{{ marker.top }}%">{{ marker.number|fa_digits }}</span>{% endif %}{% endfor %}
               </div>
               {% if q.label_drag %}
                 <div class="qx-label-bank" data-label-bank aria-label="برچسب‌ها">
@@ -142,10 +174,22 @@
                 {% endfor %}
               </ol>
             </div>
+          {% elif q.type == 'hotspot' %}
+            {# ExamInteractions.hotspot: clicks become numbered markers; the answer is «x,y;x,y» in % of the image. #}
+            <div class="qx-hotspot" data-hotspot data-max="{{ q.hotspot_max_clicks }}">
+              <div class="qx-hot-stage">
+                <img src="{{ q.media.image }}" alt="{{ q.media.image_alt }}" draggable="false">
+              </div>
+              <div class="qx-hot-bar">
+                <span class="qx-hot-left" data-hotspot-left>{{ q.hotspot_clicks|length|fa_digits }} از {{ q.hotspot_max_clicks|fa_digits }} انتخاب</span>
+                <button type="button" class="qx-hot-clear" data-hotspot-clear>پاک کردن انتخاب‌ها</button>
+              </div>
+              <input type="hidden" name="answer_{{ q.question_id }}" value="{{ q.hotspot_value }}" data-hotspot-answer>
+            </div>
           {% elif q.type == 'short_answer' %}
             <h3>پاسخ شما</h3>
             <div class="qx-voice">
-              <input class="qx-input" name="answer_{{ q.question_id }}" value="{{ q.answer|default_if_none:'' }}" placeholder="پاسخ خود را بنویسید..." autocomplete="off" data-voice-target data-char-count-source>
+              <input class="qx-input" name="answer_{{ q.question_id }}" value="{{ q.answer|default_if_none:'' }}" placeholder="پاسخ خود را بنویسید..." autocomplete="off" data-voice-target data-char-count-source{% if q.max_chars %} maxlength="{{ q.max_chars }}"{% endif %}>
               <button type="button" class="qx-mic" data-voice-mic hidden aria-label="ورودی صوتی">
                 <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               </button>
@@ -195,6 +239,6 @@
           {% if practice.tutorial %}{% include 'student/_practice_feedback.html' with feedback=practice.feedback %}{% endif %}
           <div class="qx-answer-meta">
             {% if with_autosave_state %}{% include "student/_attempt_autosave_state.html" %}{% endif %}
-            {% if q.type == 'short_answer' %}<span data-char-count>{{ q.answer|default_if_none:''|length|fa_digits }} نویسه</span>{% endif %}
+            {% if q.type == 'short_answer' %}{% if q.max_chars %}<span class="qx-char-limit">حداکثر {{ q.max_chars|fa_digits }} نویسه</span>{% endif %}<span data-char-count>{{ q.answer|default_if_none:''|length|fa_digits }}{% if q.max_chars %} / {{ q.max_chars|fa_digits }}{% endif %} نویسه</span>{% endif %}
           </div>
         </section>

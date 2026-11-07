@@ -60,7 +60,9 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
 
 {% elif qf.type == 'image_label' %}
     {{ qf.image_label.markers|json_script:"label-markers" }}
+    {{ qf.image_label.texts|json_script:"label-texts" }}
     <input type="hidden" name="label_markers_json" data-label-json>
+    <input type="hidden" name="label_texts_json" data-label-texts-json>
     <section class="qb-card" data-v2-label>
         <div class="qb-card-head"><h3>نشانه‌گذاری روی تصویر</h3><small>تصویر را از زبانه‌ی «تصویر» بالای همین صفحه بارگذاری کنید.</small></div>
         <div class="qb2-label-editor">
@@ -76,11 +78,11 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
                 <button type="button" class="is-active" data-label-tool="add" aria-pressed="true">{% include "teacher/_qb_icon.html" with name="plus" %}<span>افزودن نشانه</span></button>
                 <button type="button" data-label-tool="move" aria-pressed="false">{% include "teacher/_qb_icon.html" with name="grip" %}<span>جابجایی</span></button>
                 <button type="button" data-label-delete>{% include "teacher/_qb_icon.html" with name="trash" %}<span>حذف</span></button>
-                <button type="button" disabled title="در حال توسعه">✎<span>خط و پیکان</span><i class="qb-dev-badge">در حال توسعه</i></button>
-                <button type="button" disabled title="در حال توسعه">T<span>متن</span><i class="qb-dev-badge">در حال توسعه</i></button>
+                <button type="button" data-label-tool="line" aria-pressed="false" title="شماره‌ی نشانه را از روی نقطه بیرون بکشید تا با خط به آن اشاره کند"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="6" r="3"/><path d="M15.8 8.2 6 18"/><circle cx="6" cy="18" r="1.4" fill="currentColor"/></svg><span>خط و پیکان</span></button>
+                <button type="button" data-label-tool="text" aria-pressed="false" title="روی تصویر کلیک کنید تا متنی ثابت (مثلاً «چپ») روی آن نوشته شود">T<span>متن</span></button>
             </div>
         </div>
-        <p class="qb-help" data-label-hint>«افزودن نشانه»: روی تصویر کلیک کنید. «جابجایی»: نشانه را بکشید. برای حذف، نشانه یا ردیف آن را انتخاب کنید و «حذف» را بزنید.</p>
+        <p class="qb-help" data-label-hint>«افزودن نشانه»: روی تصویر کلیک کنید. «جابجایی»: نشانه را بکشید. «خط و پیکان»: شماره را از روی نقطه بیرون بکشید تا با خط به آن اشاره کند (دوبار کلیک: برگرداندن روی نقطه). برای حذف، نشانه یا ردیف آن را انتخاب کنید و «حذف» را بزنید.</p>
     </section>
     <section class="qb-card">
         <div class="qb-card-head"><h3>پاسخ‌های صحیح و امتیازدهی</h3>
@@ -98,7 +100,60 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
             </table>
         </div>
         <p class="qb-help" data-label-empty-rows>هنوز نشانه‌ای اضافه نشده است؛ روی تصویر کلیک کنید.</p>
+        <div class="qb2-texts" data-label-texts-box>
+            <h4 class="qb2-subhead">متن‌های روی تصویر (ابزار «متن»)</h4>
+            <div data-label-text-rows></div>
+            <p class="qb-help" data-label-texts-empty>متنی اضافه نشده است؛ ابزار «متن» را انتخاب و روی تصویر کلیک کنید. متن‌ها همان‌طور که هستند به دانشجو نمایش داده می‌شوند و نمره ندارند.</p>
+        </div>
         <p class="qb-help">در حالت «کشیدن و رها کردن»، پاسخ‌های صحیح به‌صورت درهم به دانشجو نمایش داده می‌شوند تا روی نشانه‌ها بکشد.</p>
+    </section>
+
+{% elif qf.type == 'hotspot' %}
+    {{ qf.hotspot.regions|json_script:"hotspot-regions" }}
+    <input type="hidden" name="hotspot_regions_json" data-hotspot-json>
+    <section class="qb-card" data-v2-hotspot>
+        <div class="qb-card-head"><h3>ناحیه‌های پاسخ روی تصویر</h3><small>تصویر را از زبانه‌ی «تصویر» بالای همین صفحه بارگذاری کنید.</small></div>
+        <div class="qb2-hot-toolbar">
+            <div class="qb2-hot-shapes" role="toolbar" aria-label="شکل ناحیه">
+                <button type="button" class="is-active" data-hot-tool="polygon" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 5 9-1.5 5 7-4 9.5H6.5L3.5 12Z"/></svg><span>چندضلعی</span></button>
+                <button type="button" data-hot-tool="circle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg><span>دایره</span></button>
+                <button type="button" data-hot-tool="rect" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg><span>مستطیل</span></button>
+            </div>
+            <div class="qb2-hot-zoom">
+                <button type="button" data-hot-zoom="-1" aria-label="کوچک‌نمایی">−</button>
+                <output data-hot-zoom-value data-latin-digits>100%</output>
+                <button type="button" data-hot-zoom="1" aria-label="بزرگ‌نمایی">+</button>
+                <button type="button" class="qb2-hot-reset" data-hot-reset>{% include "teacher/_qb_icon.html" with name="refresh" %}<span>بازنشانی</span></button>
+            </div>
+        </div>
+        <div class="qb2-hot-viewport" data-hot-viewport>
+            <div class="qb2-hot-canvas" data-hot-canvas>
+                <img alt="" data-hot-image hidden>
+                <svg class="qb2-hot-svg" data-hot-svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+                <div class="qb2-label-empty" data-hot-empty>
+                    {% include "teacher/_qb_icon.html" with name="image" %}
+                    <strong>هنوز تصویری بارگذاری نشده است</strong>
+                    <button type="button" class="qb-btn" data-hot-open-image>بارگذاری تصویر سؤال</button>
+                </div>
+            </div>
+        </div>
+        <div class="qb2-hot-file" data-hot-file hidden>
+            <button type="button" class="qb-btn" data-hot-open-image>{% include "teacher/_qb_icon.html" with name="image" %}تعویض تصویر</button>
+            <span data-hot-file-info data-latin-digits></span>
+        </div>
+        <p class="qb-help" data-hot-hint>«چندضلعی»: روی تصویر نقطه‌به‌نقطه کلیک کنید و برای بستن، روی نقطه‌ی اول کلیک کنید (یا دوبار کلیک). «دایره» و «مستطیل»: روی تصویر بکشید. برای اصلاح، ناحیه را انتخاب و گوشه‌ها را جابجا کنید.</p>
+    </section>
+    <section class="qb-card">
+        <div class="qb-card-head"><h3>ناحیه پاسخ صحیح {% include "teacher/_qb_icon.html" with name="info" %}</h3></div>
+        <p class="qb-help" style="margin-top:0">ناحیه‌ای که مدرس مشخص می‌کند به عنوان پاسخ صحیح در نظر گرفته می‌شود. دانشجو باید با کلیک روی ناحیه‌ی صحیح به سؤال پاسخ دهد.</p>
+        <div class="qb2-table-wrap">
+            <table class="qb2-matrix qb2-markers">
+                <thead><tr><th>ردیف</th><th>نام ناحیه</th><th>نوع شکل</th><th>امتیاز (نمره)</th><th>عملیات</th></tr></thead>
+                <tbody data-hot-rows></tbody>
+            </table>
+        </div>
+        <p class="qb-help" data-hot-empty-rows>هنوز ناحیه‌ای رسم نشده است.</p>
+        <button type="button" class="qb-add" data-hot-add>{% include "teacher/_qb_icon.html" with name="plus" %}افزودن ناحیه پاسخ</button>
     </section>
 
 {% elif qf.type == 'media_response' %}
@@ -198,5 +253,45 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
     .qb2-range em{font-style:normal;color:var(--qb-muted);font-size:.75rem}
     .qb2-attach{display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;font-size:.78rem}
     .qb2-attach img{width:3rem;height:3rem;border-radius:.5rem;object-fit:cover}
+    .qb2-label-tools svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:1.7}
+    .qb2-text{position:absolute;transform:translate(-50%,-50%);padding:.1rem .45rem;border:1px dashed #94a3b8;border-radius:.4rem;background:rgba(255,255,255,.92);color:#0f172a;font-size:.78rem;font-weight:900;white-space:nowrap;cursor:pointer}
+    .qb2-text.is-selected{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.3)}
+    .qb2-label-canvas.is-text img{cursor:text}
+    .qb2-text-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+    .qb2-text-row input{flex:1;height:2.3rem}
+    .qb2-anchor{position:absolute;width:.75rem;height:.75rem;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:999px;background:var(--qb-blue);pointer-events:none}
+    .qb-help.is-flash{color:var(--qb-blue)}
+    .qb2-label-lines,.qb2-hot-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+    .qb2-label-lines line{stroke:var(--qb-blue);stroke-width:2;vector-effect:non-scaling-stroke}
+    .qb2-label-lines circle{fill:var(--qb-blue);stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
+    .qb2-label-canvas.is-line .qb2-pin{cursor:move}
+    /* image hotspot editor */
+    .qb2-hot-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.7rem}
+    .qb2-hot-shapes{display:flex;gap:.45rem}
+    .qb2-hot-shapes button{display:grid;justify-items:center;gap:.15rem;min-width:5.4rem;padding:.45rem .6rem;border:1px solid var(--qb-line);border-radius:.7rem;background:#fff;color:#475569;font-size:.72rem;font-weight:900;cursor:pointer}
+    .qb2-hot-shapes button.is-active{border-color:#93c5fd;background:var(--qb-blue-soft);color:var(--qb-blue)}
+    .qb2-hot-shapes svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
+    .qb2-hot-zoom{display:flex;align-items:center;gap:.3rem;direction:ltr}
+    .qb2-hot-zoom button{display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-width:2.2rem;height:2.2rem;padding:0 .5rem;border:1px solid var(--qb-line);border-radius:.55rem;background:#fff;color:#334155;font:inherit;font-size:.85rem;font-weight:900;cursor:pointer}
+    .qb2-hot-zoom output{min-width:3.2rem;text-align:center;font-size:.78rem;font-weight:900;color:#334155}
+    .qb2-hot-reset{direction:rtl}
+    .qb2-hot-reset svg{width:1rem;height:1rem}
+    .qb2-hot-viewport{max-height:34rem;overflow:auto;border:1px solid var(--qb-line);border-radius:.9rem;background:#f8fafc}
+    .qb2-hot-canvas{position:relative;min-width:100%;user-select:none;touch-action:none}
+    .qb2-hot-canvas img{display:block;width:100%;height:auto;cursor:crosshair}
+    .qb2-hot-svg{pointer-events:auto}
+    .qb2-hot-canvas > svg.qb2-hot-svg,.qb2-label-canvas > svg.qb2-label-lines{position:absolute;inset:0;width:100%!important;height:100%!important;max-width:none;fill:none;stroke:none}
+    .qb2-hot-svg .hs-shape{fill:rgba(79,70,229,.22);stroke:#4f46e5;stroke-width:2;vector-effect:non-scaling-stroke;cursor:pointer}
+    .qb2-hot-svg .hs-shape.is-selected{fill:rgba(37,99,235,.3);stroke:#1d4ed8;stroke-dasharray:6 4}
+    .qb2-hot-svg .hs-draft{fill:rgba(79,70,229,.12);stroke:#4f46e5;stroke-width:2;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;pointer-events:none}
+    .qb2-hot-handle{position:absolute;width:.9rem;height:.9rem;margin:-.45rem 0 0 -.45rem;border:2px solid #4f46e5;border-radius:999px;background:#fff;cursor:move;padding:0}
+    .qb2-hot-badge{position:absolute;display:grid;place-items:center;width:1.6rem;height:1.6rem;margin:-.8rem 0 0 -.8rem;border:2px solid #fff;border-radius:999px;background:#2563eb;color:#fff;font-size:.72rem;font-weight:900;pointer-events:none;box-shadow:0 3px 8px rgba(37,99,235,.35)}
+    .qb2-hot-file{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.6rem;color:#64748b;font-size:.75rem;font-weight:800}
+    .qb2-hot-file[hidden]{display:none}
+    .qb2-shape-cell{display:inline-flex;align-items:center;gap:.35rem;font-weight:800}
+    .qb2-shape-cell svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:1.7}
+    .qb2-row-actions{display:inline-flex;gap:.35rem}
+    .qb2-row-actions button{display:inline-flex;align-items:center;gap:.25rem;height:2rem;padding:0 .6rem;border:1px solid #bfdbfe;border-radius:.5rem;background:#fff;color:var(--qb-blue);font:inherit;font-size:.72rem;font-weight:900;cursor:pointer}
+    .qb2-row-actions button.is-danger{border-color:#fecaca;color:#dc2626}
     @media (max-width:900px){.qb2-grid2,.qb2-grid3{grid-template-columns:1fr}.qb2-label-editor{grid-template-columns:1fr}.qb2-label-tools{flex-direction:row;flex-wrap:wrap;width:auto}}
 </style>

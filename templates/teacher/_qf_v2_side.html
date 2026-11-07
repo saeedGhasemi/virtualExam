@@ -11,7 +11,7 @@ and the optional supplementary file shown to the student.
     <section class="qb-card">
         <div class="qb-card-head"><h3>تنظیمات دسترس‌پذیری</h3></div>
         <label class="qb-switch"><span>نمایش متن رونویسی برای دانشجو</span><input type="checkbox" name="media_show_transcript" value="1"{% if qf.media_response.show_transcript %} checked{% endif %}><span class="qb-switch-ui"></span></label>
-        <label class="qb-switch"><span>فعال‌سازی زیرنویس خودکار (برای ویدئو)<small>نیازمند سرویس تبدیل گفتار به متن؛ فعلاً فایل زیرنویس WebVTT را در زبانه‌ی «ویدئو» بارگذاری کنید.</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span><i class="qb-dev-badge">در حال توسعه</i></label>
+        <p class="qb-help">زیرنویس ویدئو را به‌صورت فایل WebVTT در زبانه‌ی «ویدئو» بارگذاری کنید؛ در صفحه‌ی آزمون روی ویدئو نمایش داده می‌شود.</p>
     </section>
     <section class="qb-card" data-media-attachment>
         <div class="qb-card-head"><h3>فایل مکمل (اختیاری)</h3></div>
@@ -26,5 +26,19 @@ and the optional supplementary file shown to the student.
         <div class="qb2-attach" data-attach-preview hidden></div>
         <label class="qb-upload-btn">{% include "teacher/_qb_icon.html" with name="plus" %}<span>{% if qf.media_response.attachment %}جایگزینی فایل کمکی{% else %}بارگذاری فایل کمکی{% endif %}</span><input type="file" name="media_attachment_file" accept=".pdf,.docx,.jpg,.jpeg,.png" data-attach-file></label>
         <small class="qb-help">PDF، DOCX، JPG، PNG — حداکثر ۱۰ مگابایت؛ در صفحه‌ی آزمون برای دانشجو قابل دریافت است.</small>
+    </section>
+{% endif %}
+{% if qf.type == 'hotspot' %}
+    <section class="qb-card" data-hot-side>
+        <div class="qb-card-head"><h3>تنظیمات پاسخ روی تصویر</h3></div>
+        <label class="qb-field">تعداد کلیک مجاز برای پاسخ {% include "teacher/_qb_icon.html" with name="info" %}
+            <input type="number" name="hotspot_max_clicks" min="1" max="10" step="1" value="{{ qf.hotspot.max_clicks }}" data-hot-max-clicks>
+            <small>نباید کمتر از تعداد ناحیه‌های صحیح باشد؛ کلیک‌های بیشتر شمرده نمی‌شوند.</small>
+        </label>
+        <label class="qb-switch"><span>نمایش ناحیه فقط برای مدرس<small>خاموش: پس از اعلام پاسخ صحیح، ناحیه‌ها در کارنامه‌ی دانشجو هم دیده می‌شوند</small></span><input type="checkbox" name="hotspot_teacher_only" value="1"{% if qf.hotspot.teacher_only %} checked{% endif %}><span class="qb-switch-ui"></span></label>
+        <label class="qb-field">متن جایگزین تصویر (توصیفی)
+            <textarea rows="3" maxlength="200" data-hot-alt placeholder="مثلاً: نمای برشی از قلب انسان با حفره‌ها و دریچه‌ها"></textarea>
+            <small class="qb-count" data-hot-alt-count data-latin-digits></small>
+        </label>
     </section>
 {% endif %}

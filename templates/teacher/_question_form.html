@@ -222,6 +222,20 @@
     .qb-rubric th small{display:block;color:#94a3b8;font-size:.6rem;font-weight:800}
     .qb-sample-file{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.72rem;font-weight:800}
     .qb-sample-file a{color:var(--qb-blue)}
+    .qb-recorder{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-top:.6rem;padding:.5rem .6rem;border:1px dashed #cfdcf5;border-radius:.75rem;background:#fbfcff}
+    .qb-recorder-btn i{display:block;width:.8rem;height:.8rem;border-radius:999px;background:#ef4444}
+    .qb-recorder.is-recording .qb-recorder-btn{border-color:#fca5a5;color:#dc2626}
+    .qb-recorder.is-recording .qb-recorder-btn i{border-radius:.15rem;animation:qb-rec-blink 1s step-end infinite}
+    @keyframes qb-rec-blink{50%{opacity:.3}}
+    .qb-recorder-wave{flex:1 1 8rem;min-width:6rem;height:2rem}
+    .qb-recorder-time{direction:ltr;color:#475569;font-size:.8rem;font-weight:900;font-variant-numeric:tabular-nums}
+    .qb-recorder-live{flex:1 1 100%}
+    .qb-recorder-live[hidden]{display:none}
+    .qb-recorder-status{flex:1 1 100%;color:#1d4ed8;font-size:.75rem;font-weight:800;line-height:1.8}
+    .qb-recorder-status[hidden]{display:none}
+    .qb-recorder-status.is-error{color:#b91c1c}
+    .qb-recorder.is-unsupported .qb-recorder-btn,.qb-recorder.is-unsupported .qb-recorder-wave{display:none}
+    .qb-recorder-live video{display:block;width:min(100%,22rem);border-radius:.6rem;background:#0f172a}
     .qb-upload-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;width:100%;height:2.5rem;margin-top:.5rem;border:1px solid #bfdbfe;border-radius:.65rem;background:#fff;color:var(--qb-blue);font-size:.75rem;font-weight:900;cursor:pointer}
     .qb-upload-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
     .qb-upload-btn svg{width:1rem;height:1rem}
@@ -354,7 +368,7 @@
         {% endif %}
     </div>
 {% endif %}
-<form class="qb-form" method="post" enctype="multipart/form-data" data-question-create-form data-question-type="{{ qf.type }}"{% if question_autosave %} data-autosave-url="{% url 'core:teacher_question_autosave' %}"{% endif %}{% if question_id %} data-question-id="{{ question_id }}"{% endif %}>
+<form class="qb-form" method="post" enctype="multipart/form-data" data-question-create-form data-question-type="{{ qf.type }}" data-media-upload-url="{% url 'core:teacher_question_media_upload' %}"{% if question_autosave %} data-autosave-url="{% url 'core:teacher_question_autosave' %}"{% endif %}{% if question_id %} data-question-id="{{ question_id }}"{% endif %}>
     {% csrf_token %}
     <input type="hidden" name="type" value="{{ qf.type }}">
     <input type="hidden" name="structure" value="independent">
@@ -388,7 +402,7 @@
             <span class="qb-type-icon">{% include "teacher/_qb_icon.html" with name=qf.type %}</span>
             <div>
                 <h2>{{ question_builder_label }}</h2>
-                <p>{% if qf.type == 'single' %}یک پاسخ صحیح بین گزینه‌ها{% elif qf.type == 'multi' %}انتخاب چند پاسخ صحیح از بین گزینه‌ها{% elif qf.type == 'true_false' %}گزینه‌ی دوحالته‌ی درست یا نادرست{% elif qf.type == 'short_answer' %}پاسخ متنی کوتاه با تصحیح خودکار{% elif qf.type == 'essay' %}پاسخ کامل با روبریک تصحیح{% elif qf.type == 'fill_blank' %}عبارات را با واژه‌های مناسب کامل کنید{% elif qf.type == 'matching' %}موارد ستون الف را با موارد مناسب ستون ب مطابقت دهید{% elif qf.type == 'ordering' %}موارد را به ترتیب صحیح مرتب کنید{% elif qf.type == 'numeric' %}پاسخ عددی با بازه‌ی قابل قبول و واحد، با تصحیح خودکار{% elif qf.type == 'matrix' %}برای هر سطر جدول، ستون(های) صحیح را انتخاب کنید{% elif qf.type == 'image_label' %}بخش‌های مشخص‌شده روی تصویر را نام‌گذاری کنید{% elif qf.type == 'media_response' %}پخش فایل صوتی/ویدئویی و پاسخ متنی، صوتی یا ویدئویی دانشجو{% endif %}</p>
+                <p>{% if qf.type == 'single' %}یک پاسخ صحیح بین گزینه‌ها{% elif qf.type == 'multi' %}انتخاب چند پاسخ صحیح از بین گزینه‌ها{% elif qf.type == 'true_false' %}گزینه‌ی دوحالته‌ی درست یا نادرست{% elif qf.type == 'short_answer' %}پاسخ متنی کوتاه با تصحیح خودکار{% elif qf.type == 'essay' %}پاسخ کامل با روبریک تصحیح{% elif qf.type == 'fill_blank' %}عبارات را با واژه‌های مناسب کامل کنید{% elif qf.type == 'matching' %}موارد ستون الف را با موارد مناسب ستون ب مطابقت دهید{% elif qf.type == 'ordering' %}موارد را به ترتیب صحیح مرتب کنید{% elif qf.type == 'numeric' %}پاسخ عددی با بازه‌ی قابل قبول و واحد، با تصحیح خودکار{% elif qf.type == 'matrix' %}برای هر سطر جدول، ستون(های) صحیح را انتخاب کنید{% elif qf.type == 'image_label' %}بخش‌های مشخص‌شده روی تصویر را نام‌گذاری کنید{% elif qf.type == 'hotspot' %}دانشجو روی ناحیه‌ی صحیح تصویر کلیک می‌کند؛ تصحیح خودکار{% elif qf.type == 'media_response' %}پخش فایل صوتی/ویدئویی و پاسخ متنی، صوتی یا ویدئویی دانشجو{% endif %}</p>
             </div>
         </div>
     </section>
@@ -599,8 +613,9 @@
                                 <h4>تنظیمات تصحیح</h4>
                                 <div class="qb-grading-box">
                                     <label><input type="checkbox" checked disabled>تصحیح دستی (مدرس)</label>
-                                    <label class="qb-dev"><input type="checkbox" disabled>تصحیح ناشناس (Blind)<i class="qb-dev-badge">در حال توسعه</i></label>
-                                    <label class="qb-dev"><input type="checkbox" disabled>تصحیح توسط نمره‌دهنده دوم<i class="qb-dev-badge">در حال توسعه</i></label>
+                                    <label title="نام دانشجو در فهرست و صفحه‌ی تصحیح این سؤال نمایش داده نمی‌شود"><input type="checkbox" name="essay_blind_grading" value="1"{% if qf.essay.blind_grading %} checked{% endif %}>تصحیح ناشناس (Blind)</label>
+                                    <label title="پاسخ پس از نمره‌ی اول در صف می‌ماند تا مصحح دیگری (همکار تصحیح آزمون) مستقل نمره دهد؛ نمره‌ی نهایی میانگین دو نمره است"><input type="checkbox" name="essay_second_grader" value="1"{% if qf.essay.second_grader %} checked{% endif %}>تصحیح توسط نمره‌دهنده دوم</label>
+                                    <small class="qb-help">نمره‌دهنده‌ی دوم باید شخص دیگری باشد (مثلاً «همکار تصحیح» آزمون)؛ نمره‌ی نهایی میانگین دو نمره است.</small>
                                 </div>
                             </div>
                             <div class="qb-grading-box">
@@ -620,7 +635,7 @@
                         </aside>
                     </div>
                 </section>
-            {% elif qf.type == 'numeric' or qf.type == 'matrix' or qf.type == 'image_label' or qf.type == 'media_response' %}
+            {% elif qf.type == 'numeric' or qf.type == 'matrix' or qf.type == 'image_label' or qf.type == 'hotspot' or qf.type == 'media_response' %}
                 {% include "teacher/_qf_v2_main.html" %}
             {% endif %}
         </main>
@@ -716,7 +731,7 @@
                     <label class="qb-field">نمره منفی <small>برای هر پاسخ نادرست؛ روی جریمه‌ی همه‌ی گزینه‌ها اعمال می‌شود</small>
                         <span class="qb-stepper"><button type="button" data-step="0.25">+</button><input type="number" step="0.25" min="-10" max="0" value="-0.5" data-penalty-all aria-label="جریمه‌ی پیش‌فرض همه‌ی گزینه‌ها"><button type="button" data-step="-0.25">−</button></span>
                     </label>
-                {% elif qf.type == 'fill_blank' or qf.type == 'matching' or qf.type == 'matrix' or qf.type == 'image_label' %}
+                {% elif qf.type == 'fill_blank' or qf.type == 'matching' or qf.type == 'matrix' or qf.type == 'image_label' or qf.type == 'hotspot' %}
                     {# Unchecked box → the hidden value (all-or-nothing) is the one posted. #}
                     <input type="hidden" name="scoring_mode" value="all_or_nothing">
                     <label class="qb-switch"><span>امتیازدهی جزئی (Partial Credit)<small>خاموش: فقط پاسخ کاملاً درست نمره می‌گیرد (همه یا هیچ)</small></span><input type="checkbox" name="scoring_mode" value="partial" {% if qf.settings.scoring_mode != 'all_or_nothing' %}checked{% endif %}><span class="qb-switch-ui"></span></label>
@@ -750,6 +765,7 @@
                     <label class="qb-switch"><span>نمره‌ی منفی<small>در این نوع سؤال پاسخ نامنطبق به‌جای کسر نمره به تصحیح دستی می‌رود</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span></label>
                     <input type="hidden" name="scoring_mode" value="all_or_nothing">
                     <label class="qb-switch"><span>امتیاز بخشی<small>پاسخ‌های جایگزین به اندازه‌ی «امتیاز (٪)» خود نمره بگیرند؛ خاموش: فقط پاسخ ۱۰۰٪ نمره دارد</small></span><input type="checkbox" name="scoring_mode" value="partial" {% if qf.settings.scoring_mode != 'all_or_nothing' %}checked{% endif %}><span class="qb-switch-ui"></span></label>
+                    <label class="qb-field">حداکثر طول پاسخ (نویسه)<input type="number" name="short_answer_max_chars" min="0" max="2000" step="1" value="{{ qf.settings.max_chars|default:0 }}"><small>۰ یعنی بدون محدودیت؛ در صفحه‌ی آزمون «حداکثر … نویسه» و شمارنده نمایش داده می‌شود.</small></label>
                     <label class="qb-field">حداقل امتیاز برای پاسخ صحیح (٪)<input type="number" name="correct_threshold" min="0" max="100" step="5" value="{{ qf.settings.correct_threshold }}"><small>پاسخی با امتیاز کمتر از این درصد در گزارش‌ها «صحیح» شمرده نمی‌شود؛ نمره‌ی آن تغییری نمی‌کند.</small></label>
                     <label class="qb-switch"><span>بر هم زدن ترتیب گزینه‌ها<small>در این نوع سؤال غیرفعال است</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span></label>
                     <p class="qb-help">پاسخ‌ها با قواعد هر ردیف خودکار تصحیح می‌شوند و بهترین تطابق نمره می‌گیرد. پاسخی که با هیچ قاعده‌ای منطبق نباشد صفر نمی‌شود و برای بازبینی به صف تصحیح دستی استاد می‌رود.</p>
@@ -758,6 +774,8 @@
                     <p class="qb-help">پاسخ تشریحی همیشه به‌صورت دستی و با کمک روبریک تصحیح می‌شود.</p>
                 {% elif qf.type == 'media_response' %}
                     <p class="qb-help">پاسخ صوتی/ویدئویی همیشه به‌صورت دستی و با کمک روبریک تصحیح می‌شود.</p>
+                {% elif qf.type == 'hotspot' %}
+                    <p class="qb-help">هر ناحیه‌ای که دانشجو داخل آن کلیک کند به اندازه‌ی «امتیاز» خود حساب می‌شود؛ با امتیازدهی جزئی خاموش، فقط پیدا کردن همه‌ی ناحیه‌ها نمره دارد. کلیک‌های بیش از «تعداد کلیک مجاز» شمرده نمی‌شوند.</p>
                 {% elif qf.type == 'numeric' %}
                     <p class="qb-help">پاسخ در بازه‌ی قابل قبول نمره‌ی کامل و خارج از آن صفر (یا نمره‌ی منفی) می‌گیرد.</p>
                 {% endif %}
@@ -780,8 +798,8 @@
 {# Outside .qb so the builder's form-control styles don't leak into the exam view. #}
 {% include "teacher/_qf_exam_preview.html" %}
 <script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>
-<script src="{% static 'js/waveform-player.js' %}" defer></script>
-<script src="{% static 'js/question-types-v2.js' %}"></script>
+<script src="{% static 'js/waveform-player.js' %}?v=media-20261107e" defer></script>
+<script src="{% static 'js/question-types-v2.js' %}?v=media-20261107e"></script>
 <script>
 (() => {
   const createForm = document.querySelector('[data-question-create-form]');
@@ -949,6 +967,50 @@
     refreshTfMedia();
     scheduleAutosave({ target: input });
   };
+  // «ضبط صدا/ویدئو»: the take is uploaded to the server right away (so autosave, a reload and the draft keep it) and
+  // its URL goes into the slot's «existing» field, exactly like media saved before. Audio is recorded as WAV.
+  createForm.querySelectorAll('[data-builder-recorder]').forEach((box) => {
+    const slot = box.closest('[data-media-panel]')?.querySelector('[data-media-slot]');
+    if (!slot || !window.ExamInteractions?.recorder) return;
+    const kind = box.dataset.recordKind;
+    const keepInInput = (file) => {
+      const input = slot.querySelector('[data-media-file]');
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      input.files = transfer.files;
+    };
+    let control = null;
+    control = window.ExamInteractions.recorder(box, {
+      kind,
+      maxSeconds: Number(box.dataset.recordMax || 0),
+      maxBytes: Number(slot.dataset.mediaLimit || 0) * 1024 * 1024,
+      wavRate: 22050,
+      onRecorded: async (file) => {
+        if (!showMediaFile(slot, file)) return;
+        slot.querySelector('[data-media-file]').value = '';
+        control.setState('uploading', 'در حال بارگذاری فایل ضبط‌شده روی سرور...');
+        const data = new FormData();
+        data.append('file', file);
+        data.append('kind', kind);
+        data.append('csrfmiddlewaretoken', createForm.querySelector('[name=csrfmiddlewaretoken]').value);
+        try {
+          const response = await fetch(createForm.dataset.mediaUploadUrl, { method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`);
+          slot.querySelector('[data-media-existing]').value = body.url;
+          slot.querySelector('[data-media-remove]').value = '';
+          const name = slot.querySelector('[data-media-name]');
+          if (name) name.textContent = file.name;
+          control.setState('saved', 'ضبط روی سرور ذخیره شد؛ با «ثبت سؤال» به این سؤال متصل می‌شود (پیش‌نویس خودکار هم آن را نگه می‌دارد).');
+          scheduleAutosave({ target: slot });
+        } catch (error) {
+          // Upload failed (network/size): keep the take in the form so «ثبت سؤال» still sends it.
+          keepInInput(file);
+          control.setState('error', `بارگذاری فوری ناموفق بود (${error.message}); فایل همراه فرم با «ثبت سؤال» ارسال می‌شود.`);
+        }
+      },
+    });
+  });
   const stemPick = createForm.querySelector('[data-stem-pick]');
   // Video subtitles: show the chosen (or saved) WebVTT track on the stem video previews.
   const subtitleInput = createForm.querySelector('[data-subtitle-file]');
@@ -1364,9 +1426,10 @@
       // Main answer card first, then the alternatives — the server treats row order as given.
       createForm.querySelectorAll('[data-row-list="accepted-main"] article, [data-row-list="accepted"] article').forEach((row) => {
         const answer = value(row.querySelector('[data-accepted-answer]'));
-        if (!answer) return;
+        if (!answer) { nameRowMedia(row, 0); return; }
         index += 1;
         addHidden('accepted_answer', answer);
+        nameRowMedia(row, index);
         addHidden(`accepted_points_${index}`, value(row.querySelector('[data-accepted-points]')) || '100');
         addHidden(`accepted_mode_${index}`, value(row.querySelector('[data-accepted-mode]')) || 'exact');
         addHidden(`accepted_tolerance_${index}`, value(row.querySelector('[data-accepted-tolerance]')) || '0');
@@ -1479,6 +1542,8 @@
     input.placeholder = 'پاسخ خود را بنویسید...';
     input.autocomplete = 'off';
     input.dataset.qxCountSource = '';
+    const maxChars = Number(toEn(createForm.querySelector('[name="short_answer_max_chars"]')?.value || 0)) || 0;
+    if (maxChars) input.maxLength = maxChars;
     const mic = el('button', 'qx-mic');
     mic.type = 'button';
     mic.hidden = true;
@@ -1491,23 +1556,82 @@
   const renderEssay = (area) => {
     const formats = [...createForm.querySelectorAll('[name="answer_formats"]:checked')].map((input) => input.value);
     area.append(el('h3', '', 'پاسخ شما'));
-    if (!formats.length || formats.includes('text')) {
-      const textarea = el('textarea', 'qx-textarea');
-      textarea.placeholder = 'پاسخ تشریحی خود را بنویسید...';
-      area.append(textarea);
-    }
+    if (!formats.length || formats.includes('text')) area.append(previewRichAnswer());
     const uploads = formats.filter((kind) => kind !== 'text');
     if (!uploads.length) return;
     const box = el('div', 'qx-uploads');
     const actions = el('div', 'qx-upload-actions');
     const labels = { image: 'بارگذاری تصویر', audio: 'بارگذاری فایل صوتی', video: 'بارگذاری ویدئو', file: 'پیوست فایل' };
+    const recordMax = questionType === 'media_response' ? Number(toEn(createForm.querySelector('[name="media_max_record_seconds"]')?.value || 0)) : 0;
     uploads.forEach((kind) => {
-      if (kind === 'audio') actions.append(el('span', 'qx-upload-btn', '● ضبط صدا'));
-      actions.append(el('span', 'qx-upload-btn', labels[kind] || 'پیوست فایل'));
+      // Same recorder as the exam page (works here too, but the recording stays in this browser).
+      if (kind === 'audio' || (kind === 'video' && questionType === 'media_response')) actions.append(previewRecorder(kind, recordMax));
+      else actions.append(el('span', 'qx-upload-btn', labels[kind] || 'پیوست فایل'));
     });
     box.append(actions, el('small', 'qx-upload-hint', 'در آزمون واقعی فایل بلافاصله پس از انتخاب ذخیره می‌شود؛ حداکثر ۵ فایل.'));
     area.append(box);
   };
+  // Same editor as the exam page's essay answer (ExamInteractions.richAnswer).
+  const previewRichAnswer = () => {
+    const box = el('div', 'qx-rich');
+    box.innerHTML = `<div class="qx-rich-toolbar" data-rich-toolbar>
+      <button type="button" class="ql-undo" aria-label="واگرد"><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/></svg></button>
+      <button type="button" class="ql-redo" aria-label="ازنو"><svg viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12H9a5 5 0 0 0 0 10h2"/></svg></button>
+      <span class="qx-rich-sep"></span><button type="button" class="ql-bold"></button><button type="button" class="ql-italic"></button>
+      <span class="qx-rich-sep"></span><button type="button" class="ql-list" value="ordered"></button><button type="button" class="ql-list" value="bullet"></button>
+      <span class="qx-rich-sep"></span><button type="button" class="ql-link"></button></div>
+      <div class="qx-rich-editor" data-rich-editor></div>
+      <textarea class="qx-textarea" placeholder="پاسخ خود را اینجا بنویسید..." data-rich-text></textarea>
+      <input type="hidden" data-rich-delta>
+      <div class="qx-rich-foot"><span data-word-count>۰ کلمه</span></div>`;
+    window.ExamInteractions.richAnswer(box);
+    return box;
+  };
+  const previewRecorder = (kind, maxSeconds) => {
+    const box = el('div', `qx-recorder qx-recorder--${kind}`);
+    const stage = el('div', 'qx-rec-stage');
+    const dot = el('button', 'qx-rec-dot');
+    dot.type = 'button';
+    dot.dataset.recordToggle = '';
+    dot.setAttribute('aria-label', 'شروع یا پایان ضبط');
+    dot.append(el('span'));
+    const wave = el('canvas', 'qx-rec-wave');
+    wave.dataset.recordWave = '';
+    const time = el('span', 'qx-rec-time');
+    time.dataset.recordTime = '';
+    stage.append(dot, wave, time);
+    const live = el('div', 'qx-rec-live');
+    live.dataset.recordLive = '';
+    live.hidden = true;
+    const preview = el('div', 'qx-rec-preview');
+    preview.hidden = true;
+    const actions = el('div', 'qx-rec-actions');
+    const main = el('button', 'qx-rec-main');
+    main.type = 'button';
+    main.dataset.recordToggle = '';
+    const label = el('span', '', kind === 'video' ? 'شروع ضبط ویدئو' : 'شروع ضبط');
+    label.dataset.recordLabel = '';
+    main.append(label);
+    actions.append(main, el('span', 'qx-upload-btn', kind === 'video' ? 'بارگذاری فایل ویدئو' : 'بارگذاری فایل صوتی'));
+    const minutes = maxSeconds && maxSeconds % 60 === 0 ? `${toFa(maxSeconds / 60)} دقیقه` : `${toFa(maxSeconds)} ثانیه`;
+    const status = el('small', 'qx-rec-status');
+    status.dataset.recordStatus = '';
+    status.hidden = true;
+    box.append(stage, live, preview, actions, status, el('small', 'qx-rec-hint', `${maxSeconds ? `حداکثر زمان ضبط ${minutes} است. ` : ''}در آزمون واقعی با پایان ضبط، پاسخ بلافاصله روی سرور ذخیره می‌شود؛ در این پیش‌نمایش فقط همین‌جا پخش می‌شود.`));
+    window.ExamInteractions.recorder(box, {
+      kind, maxSeconds,
+      onRecorded: (file) => {
+        preview.querySelectorAll('audio, video').forEach((media) => URL.revokeObjectURL(media.src));
+        const player = el(kind === 'video' ? 'video' : 'audio');
+        player.controls = true;
+        player.src = URL.createObjectURL(file);
+        preview.replaceChildren(player);
+        preview.hidden = false;
+      },
+    });
+    return box;
+  };
+  window.QuestionPreview = { recorder: previewRecorder, richAnswer: previewRichAnswer };  // also used by question-types-v2.js (audio/video question)
   // Text with an answer input in place of each [n] marker, keeping the surrounding (rich) formatting.
   const blankInputs = (container) => {
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
@@ -1676,7 +1800,7 @@
     qx('media').innerHTML = '';
     createForm.querySelectorAll('[data-media-panel] [data-media-slot].has-media').forEach((slot) => {
       // Image labelling shows the stem image inside its answer area, with the markers.
-      if (questionType === 'image_label' && slot.closest('[data-media-panel="image"]')) return;
+      if (['image_label', 'hotspot'].includes(questionType) && slot.closest('[data-media-panel="image"]')) return;
       const media = slotMedia(slot);
       if (!media) return;
       const figure = el('figure', 'qx-figure');

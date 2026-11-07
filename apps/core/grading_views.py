@@ -5,16 +5,19 @@ condition, so a changed id in the URL answers 404 instead of exposing another te
 """
 import json
 import logging
+import re
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 
+from .rich_text import clean_delta, delta_to_html
 from .uploads import CONTENT_TYPES, private_path
 from .views import (
     _essay_view,
@@ -22,7 +25,9 @@ from .views import (
     _sx_answer_files,
     _sx_answer_value,
     _sx_float,
+    _media_kind,
     _sx_json,
+    _sx_question_media,
     _teacher_modern_context,
     erd_execute,
     erd_has_column,
@@ -58,6 +63,15 @@ _SCOPED_FROM = f"""
 """
 
 
+def _first_grade_sql():
+    return 'aa.first_grade' if erd_has_column('attempt_answers', 'first_grade') else 'NULL AS first_grade'
+
+
+def _blind_name(answer_id):
+    """«تصحیح ناشناس»: a stable anonymous label instead of the student's name."""
+    return f'دانشجوی ناشناس #{str(answer_id).replace("-", "")[:6].upper()}'
+
+
 def grader_params(teacher_id) -> list:
     return [teacher_id, teacher_id, teacher_id]
 
@@ -91,8 +105,8 @@ def teacher_reviews(request):
     rows = erd_rows(
         f"""
         SELECT aa.id, aa.points_awarded, aa.needs_manual_grading, aa.graded_at, ea.submitted_at,
-               e.title AS exam_title, p.full_name AS student_name, q.text AS question_text,
-               COALESCE(eq.points, q.default_points) AS max_points
+               e.title AS exam_title, p.full_name AS student_name, q.text AS question_text, q.scoring_settings,
+               {_first_grade_sql()}, COALESCE(eq.points, q.default_points) AS max_points
         {_SCOPED_FROM}{_filter_sql(status)}
         ORDER BY ea.submitted_at, aa.id
         LIMIT {PAGE_SIZE} OFFSET {(page.number - 1) * PAGE_SIZE}
@@ -101,6 +115,11 @@ def teacher_reviews(request):
     ) if total else []
     for row in rows:
         row['id'] = str(row['id'])
+        essay = (_sx_json(row.get('scoring_settings'), {}) or {}).get('essay') or {}
+        if essay.get('blind_grading'):
+            row['student_name'] = _blind_name(row['id'])
+        first = _sx_json(row.get('first_grade'), None)
+        row['awaiting_second'] = bool(essay.get('second_grader') and isinstance(first, dict) and row.get('needs_manual_grading'))
     return render(request, 'teacher/modern.html', _teacher_modern_context(
         request, 'reviews',
         grading_rows=rows, grading_page=page, grading_status=status, grading_filters=GRADING_FILTERS,
@@ -114,9 +133,9 @@ def _grading_answer(teacher_id, answer_id):
         SELECT aa.id, aa.attempt_id, aa.answer, aa.answer_files, aa.points_awarded, aa.needs_manual_grading,
                aa.rubric_scores, aa.grader_feedback, aa.graded_at, ea.submitted_at, ea.status AS attempt_status,
                e.title AS exam_title, p.full_name AS student_name, q.id AS question_id, q.text AS question_text,
-               q.type AS question_type, q.accepted_answers, q.rubric, q.scoring_settings, COALESCE(eq.points, q.default_points) AS max_points,
+               q.type AS question_type, q.accepted_answers, q.rubric, q.scoring_settings, q.question_media, COALESCE(eq.points, q.default_points) AS max_points,
                e.correction_instructions AS exam_correction_instructions, e.rubric_template AS exam_rubric_template,
-               e.settings_enforced AS exam_settings_enforced
+               e.settings_enforced AS exam_settings_enforced, {_first_grade_sql()}
         {_SCOPED_FROM} AND aa.id = %s
         """,
         [*grader_params(teacher_id), str(answer_id)],
@@ -215,6 +234,26 @@ def teacher_grading_detail(request, answer_id):
         awarded, scores, feedback, errors = _grade_from_post(post, rubric, max_points)
         if rules['integer_scores']:  # «دقت نمره‌دهی: عدد صحیح»
             awarded = awarded.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        essay_settings = (_sx_json(row.get('scoring_settings'), {}) or {}).get('essay') or {}
+        first = _sx_json(row.get('first_grade'), None)
+        first = first if isinstance(first, dict) else None
+        double = bool(essay_settings.get('second_grader')) and erd_has_column('attempt_answers', 'first_grade') and not row.get('graded_at')
+        if not errors and double and (first is None or str(first.get('by')) == str(teacher_id)):
+            # «نمره‌دهنده دوم»: the first grade is kept apart and the answer stays in the queue for another grader.
+            grade = {'by': str(teacher_id), 'by_name': (erd_profile_for_user(request.user) or {}).get('full_name') or '',
+                     'points': float(awarded), 'scores': scores, 'feedback': feedback, 'at': timezone.now().isoformat()}
+            erd_execute('UPDATE attempt_answers SET first_grade = %s, needs_manual_grading = true WHERE id = %s',
+                        [json.dumps(grade, ensure_ascii=False), row['id']])
+            messages.success(request, f'نمره‌ی اول ({awarded.normalize()} از {max_points.normalize()}) ثبت شد؛ پاسخ تا نمره‌دهی مستقلِ مصحح دوم در صف می‌ماند و نمره‌ی نهایی میانگین دو نمره خواهد بود.')
+            return redirect('core:teacher_reviews')
+        if not errors and double and first:
+            # Second, independent grade: the final points are the mean of both.
+            second = awarded
+            awarded = ((Decimal(str(first.get('points') or 0)) + second) / 2).quantize(Decimal('0.01'))
+            if rules['integer_scores']:
+                awarded = awarded.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+            scores = {'first': first.get('scores') or [], 'second': scores, 'first_points': first.get('points'), 'second_points': float(second)}
+            feedback = '\n\n'.join(part for part in (first.get('feedback') or '', feedback) if part)
         if errors:
             for error in errors:
                 messages.error(request, error)
@@ -230,26 +269,56 @@ def teacher_grading_detail(request, answer_id):
                     [awarded, json.dumps(scores, ensure_ascii=False), feedback, teacher_id, row['id']],
                 )
                 _refresh_attempt_score(row['attempt_id'])
-            messages.success(request, f'نمره {awarded.normalize()} از {max_points.normalize()} ثبت شد.')
-            following = erd_row(
-                f"SELECT aa.id {_SCOPED_FROM} AND COALESCE(aa.needs_manual_grading, false) = true ORDER BY ea.submitted_at, aa.id LIMIT 1",
+            messages.success(request, f'نمره {awarded.normalize()} از {max_points.normalize()} ثبت شد.'
+                             + (' (میانگین نمره‌ی دو مصحح)' if double and first else ''))
+            # Next pending answer, skipping those this teacher already graded first (they wait for someone else).
+            following = next((item for item in erd_rows(
+                f"SELECT aa.id, {_first_grade_sql()} {_SCOPED_FROM} AND COALESCE(aa.needs_manual_grading, false) = true ORDER BY ea.submitted_at, aa.id LIMIT 50",
                 grader_params(teacher_id),
-            )
+            ) if str((_sx_json(item.get('first_grade'), None) or {}).get('by', '')) != str(teacher_id)), None)
             if request.POST.get('next') and following:
                 return redirect('core:teacher_grading_detail', answer_id=following['id'])
             return redirect('core:teacher_reviews')
     answer_id = str(row['id'])
     files = [{**item, 'url': reverse('core:attempt_answer_file', args=[str(row['attempt_id']), item['id']])}
              for item in _sx_answer_files(row.get('answer_files'))]
-    previous = {item.get('criterion'): item.get('score') for item in (_sx_json(row.get('rubric_scores'), []) or []) if isinstance(item, dict)}
-    essay = _essay_view(_sx_json(row.get('scoring_settings'), {}) or {})
+    first_grade = _sx_json(row.get('first_grade'), None)
+    own_first = isinstance(first_grade, dict) and str(first_grade.get('by')) == str(teacher_id) and not row.get('graded_at')
+    # The first grader reopening their (not yet final) grade sees their own scores; otherwise the final rubric scores.
+    previous_scores = first_grade.get('scores') if own_first else _sx_json(row.get('rubric_scores'), [])
+    previous = {item.get('criterion'): item.get('score') for item in (previous_scores if isinstance(previous_scores, list) else []) if isinstance(item, dict)}
+    scoring_settings = _sx_json(row.get('scoring_settings'), {}) or {}
+    essay = _essay_view(scoring_settings)
+    first = _sx_json(row.get('first_grade'), None)
+    first = first if isinstance(first, dict) else None
+    blind = essay.get('blind_grading')
+    if blind:
+        row['student_name'] = _blind_name(row['id'])
+    # Audio/video questions: the grader hears/sees the same stimulus (and transcript) the student answered.
+    media_settings = (scoring_settings.get('media_response') or {}) if isinstance(scoring_settings, dict) else {}
+    raw_answer = _sx_json(row.get('answer'), {})
+    delta = raw_answer.get('delta') if isinstance(raw_answer, dict) else None
+    # A rich essay answer (written with the exam page's editor): safe HTML built from its Quill Delta.
+    answer_html = delta_to_html(clean_delta(delta)) if isinstance(delta, dict) else ''
     return render(request, 'teacher/modern.html', _teacher_modern_context(
         request, 'grading_detail',
         grading=row, grading_answer_id=answer_id, grading_answer_text=_sx_answer_value(row.get('answer')),
+        grading_answer_html=answer_html,
+        grading_blind=blind,
+        # Double marking: the first grader sees and may change their own grade; the second grader only learns that a
+        # first grade exists (independent marking). Once final, both grades are shown.
+        grading_double=bool(essay.get('second_grader')),
+        grading_first=first,
+        grading_first_mine=bool(first and str(first.get('by')) == str(teacher_id)),
         grading_files=files, grading_essay=essay, grading_max_points=max_points.normalize(),
         grading_is_short_answer=row.get('question_type') == 'short_answer',
+        grading_is_media=row.get('question_type') == 'media_response',
+        grading_media=_sx_question_media(row.get('question_media')),
+        grading_transcript=media_settings.get('transcript') or '',
+        grading_attachment=media_settings.get('attachment') or None,
         grading_accepted_answers=[
-            item.get('answer') for item in (_sx_json(row.get('accepted_answers'), []) or [])
+            {'answer': item.get('answer'), 'media': item.get('media') or '', 'media_kind': _media_kind(item.get('media') or '')}
+            for item in (_sx_json(row.get('accepted_answers'), []) or [])
             if isinstance(item, dict) and item.get('answer')
         ],
         grading_rubric=[{**item, 'index': index, 'previous': previous.get(item.get('criterion'), '')} for index, item in enumerate(rubric)],
@@ -258,36 +327,72 @@ def teacher_grading_detail(request, answer_id):
     ))
 
 
+# Audio answers recorded in Chrome/Firefox are WebM/Ogg containers; serve them as audio so <audio> plays them.
+AUDIO_CONTENT_TYPES = {'webm': 'audio/webm', 'ogg': 'audio/ogg', 'mp4': 'audio/mp4'}
+_RANGE_RE = re.compile(r'bytes=(\d*)-(\d*)$')
+
+
+def _ranged_file_response(request, path, content_type):
+    """A single «Range: bytes=a-b» answer (206) so players can seek and Safari plays audio/video; else the file."""
+    size = path.stat().st_size
+    match = _RANGE_RE.match((request.headers.get('Range') or '').strip())
+    if not match or not size or (not match.group(1) and not match.group(2)):
+        return None
+    if match.group(1):
+        start = int(match.group(1))
+        end = min(int(match.group(2)), size - 1) if match.group(2) else size - 1
+    else:  # «bytes=-N»: the last N bytes
+        start, end = max(size - int(match.group(2)), 0), size - 1
+    if start >= size or end < start:
+        response = HttpResponse(status=416)
+        response['Content-Range'] = f'bytes */{size}'
+        return response
+    with open(path, 'rb') as handle:
+        handle.seek(start)
+        body = handle.read(end - start + 1)
+    response = HttpResponse(body, status=206, content_type=content_type)
+    response['Content-Range'] = f'bytes {start}-{end}/{size}'
+    response['Content-Length'] = str(len(body))
+    return response
+
+
 @login_required
 def attempt_answer_file(request, attempt_id, file_id):
-    """Stream one answer file to the attempt's student or to a teacher who may grade it."""
+    """Stream one answer file to the attempt's student or to a teacher who may grade it (owner or co-grader)."""
     profile = erd_profile_for_user(request.user)
     if not profile:
         raise Http404
     rows = erd_rows(
         """
-        SELECT aa.answer_files, ea.student_id, e.teacher_id AS exam_teacher, q.teacher_id AS question_teacher
+        SELECT aa.answer_files, ea.student_id, e.teacher_id AS exam_teacher, q.teacher_id AS question_teacher,
+               EXISTS (SELECT 1 FROM exam_staff es WHERE es.exam_id = e.id AND es.teacher_id = %s AND es.role = 'co_grader') AS is_co_grader
         FROM attempt_answers aa
         JOIN exam_attempts ea ON ea.id = aa.attempt_id
         JOIN exams e ON e.id = ea.exam_id
         JOIN questions q ON q.id = aa.question_id
         WHERE aa.attempt_id = %s
         """,
-        [str(attempt_id)],
+        [str(profile['id']), str(attempt_id)],
     )
     viewer = str(profile['id'])
     for row in rows:
-        allowed = viewer in {str(row['student_id']), str(row['exam_teacher']), str(row['question_teacher'])}
+        allowed = viewer in {str(row['student_id']), str(row['exam_teacher']), str(row['question_teacher'])} or bool(row.get('is_co_grader'))
         for item in _sx_answer_files(row.get('answer_files')):
             if item['id'] != file_id:
                 continue
             path = private_path(item['path'])
             if not allowed or not path:
                 raise Http404
-            response = FileResponse(
-                open(path, 'rb'), content_type=CONTENT_TYPES.get(item.get('ext'), 'application/octet-stream'),
-                as_attachment=item.get('kind') == 'file', filename=item.get('name') or path.name,
-            )
+            extension = item.get('ext')
+            content_type = (AUDIO_CONTENT_TYPES.get(extension) if item.get('kind') == 'audio' else None)                 or CONTENT_TYPES.get(extension, 'application/octet-stream')
+            response = None if item.get('kind') == 'file' else _ranged_file_response(request, path, content_type)
+            if response is None:
+                response = FileResponse(
+                    open(path, 'rb'), content_type=content_type,
+                    as_attachment=item.get('kind') == 'file', filename=item.get('name') or path.name,
+                )
+            if item.get('kind') != 'file':
+                response['Accept-Ranges'] = 'bytes'
             response['X-Content-Type-Options'] = 'nosniff'
             response['Cache-Control'] = 'private, no-store'
             return response

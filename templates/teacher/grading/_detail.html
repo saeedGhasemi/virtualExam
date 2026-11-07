@@ -32,12 +32,19 @@
     .gd-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
     .gd-btn{display:inline-flex;align-items:center;justify-content:center;height:2.8rem;padding:0 1.2rem;border:1px solid #bfdbfe;border-radius:.6rem;background:#fff;color:var(--gd-blue);font:inherit;font-size:.86rem;font-weight:900;cursor:pointer}
     .gd-btn.is-primary{border-color:transparent;background:var(--gd-blue);color:#fff}
+    .gd-media{display:grid;gap:.7rem;margin-top:.8rem}
+    .gd-media img{max-width:100%;max-height:22rem;border-radius:.6rem;object-fit:contain;background:#f8fafc}
+    .gd-media video{width:100%;max-height:22rem;border-radius:.6rem;background:#0f172a}
+    .gd-media figure{margin:0}
+    .gd-media figcaption{margin-top:.3rem;color:var(--gd-muted);font-size:.74rem;font-weight:700}
+    .gd details{margin-top:.7rem;padding:.55rem .8rem;border:1px solid var(--gd-line);border-radius:.6rem;background:#f8fafc;font-size:.8rem;font-weight:700;line-height:1.9}
+    .gd details summary{cursor:pointer;font-weight:900}
     .gd-sample{margin:0;color:#334155;font-size:.84rem;font-weight:600;line-height:2;white-space:pre-wrap}
     @media (max-width:1000px){.gd-grid{grid-template-columns:1fr}}
 </style>
 <div class="gd">
     <div class="gd-head">
-        <div><h1>{% if grading_is_short_answer %}تصحیح پاسخ کوتاه{% else %}تصحیح پاسخ تشریحی{% endif %}</h1><p>{{ grading.exam_title }} · {{ grading.student_name }} · ارسال: {{ grading.submitted_at|to_jalali|default:'-' }}</p></div>
+        <div><h1>{% if grading_is_short_answer %}تصحیح پاسخ کوتاه{% elif grading_is_media %}تصحیح پاسخ صوتی / ویدئویی{% else %}تصحیح پاسخ تشریحی{% endif %}</h1><p>{{ grading.exam_title }} · {{ grading.student_name }} · ارسال: {{ grading.submitted_at|to_jalali|default:'-' }}</p></div>
         <a class="gd-back" href="{% url 'core:teacher_reviews' %}">بازگشت به فهرست</a>
     </div>
     <div class="gd-grid">
@@ -46,12 +53,21 @@
                 <h2>صورت سؤال</h2>
                 {% if grading_essay.text_html %}<div class="gd-rich">{{ grading_essay.text_html|safe }}</div>{% else %}<p class="gd-rich">{{ grading.question_text }}</p>{% endif %}
                 {% if grading_essay.student_instructions %}<p class="gd-instructions">{{ grading_essay.student_instructions|linebreaksbr }}</p>{% endif %}
+                {% if grading_media %}
+                <div class="gd-media" data-waveform>
+                    {% if grading_media.image %}<figure><img src="{{ grading_media.image }}" alt="{{ grading_media.image_alt }}"></figure>{% endif %}
+                    {% if grading_media.audio %}<figure><audio src="{{ grading_media.audio }}" controls preload="metadata"></audio></figure>{% endif %}
+                    {% if grading_media.video %}<figure><video src="{{ grading_media.video }}" controls preload="metadata">{% if grading_media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ grading_media.video_subtitle }}" default>{% endif %}</video>{% if grading_media.video_caption %}<figcaption>{{ grading_media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
+                </div>
+                {% endif %}
+                {% if grading_transcript %}<details><summary>متن رونویسی فایل سؤال</summary><p class="gd-sample">{{ grading_transcript }}</p></details>{% endif %}
+                {% if grading_attachment %}<p class="gd-instructions">فایل مکمل سؤال: <a href="{{ grading_attachment.url }}" target="_blank" rel="noopener">{{ grading_attachment.name }}</a></p>{% endif %}
             </section>
             <section class="gd-card">
                 <h2>پاسخ دانشجو</h2>
-                {% if grading_answer_text %}<p class="gd-answer">{{ grading_answer_text }}</p>{% elif not grading_files %}<p class="gd-empty">دانشجو پاسخی ثبت نکرده است.</p>{% endif %}
+                {% if grading_answer_html %}<div class="gd-answer gd-rich" style="white-space:normal">{{ grading_answer_html|safe }}</div>{% elif grading_answer_text %}<p class="gd-answer">{{ grading_answer_text }}</p>{% elif not grading_files %}<p class="gd-empty">دانشجو پاسخی ثبت نکرده است.</p>{% endif %}
                 {% if grading_files %}
-                <div class="gd-files">
+                <div class="gd-files" data-waveform>
                     {% for file in grading_files %}
                     <div class="gd-file">
                         {% if file.kind == 'image' %}<img src="{{ file.url }}" alt="{{ file.name }}">
@@ -67,7 +83,7 @@
             {% if grading_is_short_answer %}
             <section class="gd-card">
                 <h2>پاسخ‌های قابل قبول تعریف‌شده (فقط برای مصحح)</h2>
-                {% if grading_accepted_answers %}<ul class="gd-sample">{% for answer in grading_accepted_answers %}<li>{{ answer }}</li>{% endfor %}</ul>{% else %}<p class="gd-empty">برای این سؤال پاسخ قابل قبولی ثبت نشده است.</p>{% endif %}
+                {% if grading_accepted_answers %}<ul class="gd-sample" data-waveform>{% for answer in grading_accepted_answers %}<li>{{ answer.answer }}{% if answer.media %}<div class="gd-media">{% if answer.media_kind == 'image' %}<img src="{{ answer.media }}" alt="">{% elif answer.media_kind == 'audio' %}<audio src="{{ answer.media }}" controls preload="metadata"></audio>{% elif answer.media_kind == 'video' %}<video src="{{ answer.media }}" controls preload="metadata"></video>{% endif %}</div>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="gd-empty">برای این سؤال پاسخ قابل قبولی ثبت نشده است.</p>{% endif %}
             </section>
             {% endif %}
             {% if grading_essay.sample_answer_text or grading_essay.sample_answer_file %}
@@ -90,6 +106,14 @@
         <form class="gd-card" method="post" data-grading-form data-max="{{ grading_max_points }}" data-rubric-total="{{ grading_rubric_total }}">
             {% csrf_token %}
             <h2>ثبت نمره (از {{ grading_max_points|fa_digits }})</h2>
+            {% if grading_double %}
+                <p class="gd-instructions" role="status">
+                    {% if grading.graded_at and grading_first %}نمره‌ی نهایی میانگین دو مصحح است: نمره‌ی اول {{ grading_first.points|floatformat:"-2"|fa_digits }}{% if grading_first.by_name %} ({{ grading_first.by_name }}){% endif %} و نمره‌ی نهایی {{ grading.points_awarded|floatformat:"-2"|fa_digits }}.
+                    {% elif grading_first_mine %}شما نمره‌ی اول ({{ grading_first.points|floatformat:"-2"|fa_digits }}) را داده‌اید و می‌توانید آن را تغییر دهید؛ نمره‌ی دوم را مصحح دیگری (مثلاً همکار تصحیح آزمون) مستقل ثبت می‌کند و نمره‌ی نهایی میانگین دو نمره است.
+                    {% elif grading_first %}نمره‌دهنده‌ی اول نمره داده است؛ شما نمره‌دهنده‌ی دوم هستید و مستقل نمره می‌دهید. نمره‌ی نهایی میانگین دو نمره خواهد بود.
+                    {% else %}این سؤال دو مصحح دارد: نمره‌ی شما نمره‌ی اول است و پاسخ تا نمره‌ی مستقل مصحح دوم در صف می‌ماند.{% endif %}
+                </p>
+            {% endif %}
             {% if grading_locked %}<p class="gd-instructions" role="status">نتایج این آزمون منتشر شده و طبق تنظیمات شما («قفل کردن نمرات پس از انتشار») نمره‌ی این پاسخ قفل است.</p>{% endif %}
             {% if grading_rules.integer_scores %}<p class="gd-empty" style="margin:0 0 .5rem">طبق «دقت نمره‌دهی» نمره به عدد صحیح گرد می‌شود.</p>{% endif %}
             {% if grading_rubric %}
@@ -118,6 +142,7 @@
         </form>
     </div>
 </div>
+{% load static %}<script src="{% static 'js/waveform-player.js' %}?v=media-20261107e" defer></script>
 <script>
 (() => {
   const form = document.querySelector('[data-grading-form]');

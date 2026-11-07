@@ -21,7 +21,8 @@ Online exam system (Persian UI, RTL). Roles: student, teacher, academic_manager,
 - Timestamp columns without time zone store UTC (see `_db_naive_datetime`). Display dates in Jalali via `templatetags/core_extras.py`.
 - A global JS converter in `base.html` / `base_standalone.html` turns digits Persian; mark codes/IDs with `data-latin-digits` (editors are excluded).
 - Keep the existing structure and templates; don't create new templates/patterns where an existing one fits.
-- Schema changes go in a new migration in `apps/core/migrations/` (latest: `0059`).
+- When you change a static JS/CSS file, bump the `?v=` on its `{% static %}` include (locally `DEBUG=True` serves unhashed URLs without Cache-Control, so browsers keep the old file).
+- Schema changes go in a new migration in `apps/core/migrations/` (latest: `0061`).
 
 ## Commands (PowerShell, from repo root)
 - Run: `.venv\Scripts\python manage.py runserver 8001` (port 8000 is used by another local project).

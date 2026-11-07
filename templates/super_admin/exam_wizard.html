@@ -1110,7 +1110,7 @@
         essay: { label: 'سوالات تشریحی', color: '#22c55e', types: ['essay'] },
         kfp_osce: { label: 'سوالات KFP/OSCE', color: '#a855f7', types: ['kfp', 'osce'] },
     };
-    const TYPE_TARGET_KEYS = ['single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering', 'numeric', 'matrix', 'image_label', 'media_response'];
+    const TYPE_TARGET_KEYS = ['single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering', 'numeric', 'matrix', 'image_label', 'hotspot', 'media_response'];
     const updateScoreAllocation = () => {
         const body = document.querySelector('[data-score-allocation-body]');
         if (!body) return;
@@ -1281,7 +1281,7 @@
     };
     document.querySelectorAll('[data-filter-select]').forEach((select) => select.addEventListener('change', applyQuestionFilters));
 
-    const TYPE_LABELS = {single: 'چهارگزینه‌ای', multi: 'چندگزینه‌ای', true_false: 'درست / نادرست', short_answer: 'پاسخ کوتاه', essay: 'تشریحی', fill_blank: 'جای خالی', matching: 'تطبیقی', ordering: 'ترتیبی', numeric: 'پاسخ عددی', matrix: 'ماتریسی / جدول', image_label: 'تصویری / نشانه‌گذاری', media_response: 'صوتی / ویدئویی'};
+    const TYPE_LABELS = {single: 'چهارگزینه‌ای', multi: 'چندگزینه‌ای', true_false: 'درست / نادرست', short_answer: 'پاسخ کوتاه', essay: 'تشریحی', fill_blank: 'جای خالی', matching: 'تطبیقی', ordering: 'ترتیبی', numeric: 'پاسخ عددی', matrix: 'ماتریسی / جدول', image_label: 'تصویری / نشانه‌گذاری', hotspot: 'انتخاب ناحیه روی تصویر', media_response: 'صوتی / ویدئویی'};
     const visibleQuestionRows = () => [...document.querySelectorAll('[data-question-row]')].filter((row) => !row.hidden);
     const renumberQuestionBank = () => {
         visibleQuestionRows().forEach((row, index) => {

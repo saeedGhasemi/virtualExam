@@ -12,10 +12,26 @@ as tiles followed by an "add media" tile that routes a file to the matching slot
     <div class="qb-media-panel" data-media-panel="audio"{% if not qf.media.audio %} hidden{% endif %}>
         <span>{% include "teacher/_qb_icon.html" with name="audio" %}{% if fb_layout %}تلفظ واژه‌ها (اختیاری){% else %}صوت سؤال{% endif %}</span>
         {% include "teacher/_qf_media_slot.html" with url=qf.media.audio kind="audio" file_name="question_audio_file" existing_name="existing_question_audio" remove_name="remove_question_audio" accept=".mp3,.wav,.ogg,.m4a" label="فایل صوتی" hint="mp3، wav، ogg، m4a — حداکثر ۲۰ مگابایت" limit=20 large=True %}
+        {# Record straight from the microphone/camera (ExamInteractions.recorder); the take is uploaded at once (teacher_question_media_upload) and kept in the slot above. #}
+        <div class="qb-recorder" data-builder-recorder data-record-kind="audio" data-record-max="300">
+            <button type="button" class="qb-btn qb-recorder-btn" data-record-toggle><i aria-hidden="true"></i><span data-record-label>ضبط صدا با میکروفون</span></button>
+            <canvas class="qb-recorder-wave" data-record-wave aria-hidden="true"></canvas>
+            <span class="qb-recorder-time" data-record-time data-latin-digits></span>
+            <div class="qb-recorder-live" data-record-live hidden></div>
+            <small class="qb-recorder-status" data-record-status role="status" aria-live="polite" hidden></small>
+        </div>
     </div>
     <div class="qb-media-panel" data-media-panel="video"{% if not qf.media.video %} hidden{% endif %}>
         <span>{% include "teacher/_qb_icon.html" with name="video" %}ویدئوی سؤال</span>
         {% include "teacher/_qf_media_slot.html" with url=qf.media.video kind="video" file_name="question_video_file" existing_name="existing_question_video" remove_name="remove_question_video" accept=".mp4,.webm" label="ویدئو" hint="mp4، webm — حداکثر ۳۰۰ مگابایت" limit=300 large=True %}
+        {# Record straight from the microphone/camera (ExamInteractions.recorder); the take is uploaded at once (teacher_question_media_upload) and kept in the slot above. #}
+        <div class="qb-recorder" data-builder-recorder data-record-kind="video" data-record-max="300">
+            <button type="button" class="qb-btn qb-recorder-btn" data-record-toggle><i aria-hidden="true"></i><span data-record-label>ضبط ویدئو با دوربین</span></button>
+            <canvas class="qb-recorder-wave" data-record-wave aria-hidden="true"></canvas>
+            <span class="qb-recorder-time" data-record-time data-latin-digits></span>
+            <div class="qb-recorder-live" data-record-live hidden></div>
+            <small class="qb-recorder-status" data-record-status role="status" aria-live="polite" hidden></small>
+        </div>
         <label class="qb-field">زیرنویس / توضیح ویدئو<input type="text" name="question_video_caption" value="{{ qf.media.video_caption }}" placeholder="توضیح کوتاه درباره‌ی محتوای ویدئو"></label>
         <div class="qb-field" data-subtitle>زیرنویس ویدئو (فایل WebVTT)
             {% if qf.media.video_subtitle %}

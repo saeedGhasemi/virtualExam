@@ -2,7 +2,8 @@
 {% load static core_extras %}
 {% block title %}صفحه آزمون | متاکوییز{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/exam-view.css' %}">
+<link rel="stylesheet" href="{% static 'css/exam-view.css' %}?v=media-20261107e">
+<link rel="stylesheet" href="{% static 'js/vendor/quill-2.0.3/quill.snow.css' %}">
 {% if practice %}{% include 'student/_practice_attempt_styles.html' %}{% endif %}
 {# Field names (answer_*, mark_*, upload_*, remove_file_*, action) and data-* hooks are what the view and the script below rely on. #}
 <section class="qx qx--exam" data-attempt-id="{{ attempt.pk }}">
@@ -109,8 +110,9 @@
 </section>
 <form method="post" action="{% url 'core:student_attempt_submit' attempt.pk %}" id="auto-submit-form" hidden>{% csrf_token %}<input type="hidden" name="auto" value="1"></form>
 {% if practice or page_rules.offline == 'resume_from_last_save' %}{% include 'student/_practice_connection.html' %}{% endif %}
-<script src="{% static 'js/exam-interactions.js' %}"></script>
-<script src="{% static 'js/waveform-player.js' %}" defer></script>
+<script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>
+<script src="{% static 'js/exam-interactions.js' %}?v=media-20261107e"></script>
+<script src="{% static 'js/waveform-player.js' %}?v=media-20261107e" defer></script>
 {{ page_rules|json_script:"attempt-rules" }}
 {{ proctoring|json_script:"attempt-proctoring" }}
 <script>
@@ -223,63 +225,29 @@
   form?.querySelectorAll('[data-auto-save]').forEach((input) => input.addEventListener('change', () => {
     if (input.type !== 'file' || input.files.length) stay();
   }));
+  // Recorders: when recording stops the take is put in the question's file input and the form is submitted at once,
+  // so it is stored on the server (and listed above the recorder, playable); «ضبط دوباره» replaces the earlier take.
   form?.querySelectorAll('[data-recorder]').forEach((box) => {
-    const start = box.querySelector('[data-record-start]');
-    const stop = box.querySelector('[data-record-stop]');
     const target = box.querySelector('[data-record-target]');
-    const clock = box.querySelector('[data-record-time]');
-    if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
-      start.hidden = true;
-      return;
-    }
-    let recorder = null;
-    let ticker = null;
-    start.addEventListener('click', async () => {
-      try {
-        const isVideo = box.dataset.recordKind === 'video';
-        const stream = await navigator.mediaDevices.getUserMedia(isVideo ? { audio: true, video: true } : { audio: true });
-        if (isVideo) {
-          const live = document.createElement('video');
-          live.className = 'qx-record-live';
-          live.muted = true;
-          live.autoplay = true;
-          live.playsInline = true;
-          live.srcObject = stream;
-          box.append(live);
-        }
-        const chunks = [];
-        recorder = new MediaRecorder(stream);
-        recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
-        recorder.addEventListener('stop', () => {
-          stream.getTracks().forEach((track) => track.stop());
-          clearInterval(ticker);
-          box.querySelector('.qx-record-live')?.remove();
-          const type = recorder.mimeType || (isVideo ? 'video/webm' : 'audio/webm');
-          const extension = type.includes('ogg') ? 'ogg' : 'webm';
-          const transfer = new DataTransfer();
-          transfer.items.add(new File(chunks, `recording-${Date.now()}.${extension}`, { type }));
-          target.files = transfer.files;
-          stay();
-        });
-        recorder.start();
-        let seconds = 0;
-        clock.textContent = fa('00:00');
-        const maxSeconds = Number(box.dataset.recordMax || 0);
-        ticker = setInterval(() => {
-          seconds += 1;
-          clock.textContent = fa(`${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`);
-          if (maxSeconds && seconds >= maxSeconds && recorder.state === 'recording') { stop.hidden = true; recorder.stop(); }
-        }, 1000);
-        start.hidden = true;
-        stop.hidden = false;
-      } catch (error) {
-        setSaveState(box.dataset.recordKind === 'video' ? 'دسترسی به دوربین یا میکروفون ممکن نشد؛ می‌توانید فایل ویدئو را بارگذاری کنید.' : 'دسترسی به میکروفون ممکن نشد؛ می‌توانید فایل صوتی را بارگذاری کنید.', true);
-      }
+    const replace = box.querySelector('[data-record-replace]');
+    const kind = box.dataset.recordKind;
+    let control = null;
+    control = window.ExamInteractions.recorder(box, {
+      kind,
+      maxSeconds: Number(box.dataset.recordMax || 0),
+      maxBytes: Number(box.dataset.recordMb || 0) * 1024 * 1024,
+      onError: (message) => setSaveState(message, true),
+      onRecorded: (file) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        target.files = transfer.files;
+        replace.value = kind;
+        control.setState('uploading', 'در حال ذخیره‌ی ضبط روی سرور...');
+        box.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+        stay();
+      },
     });
-    stop.addEventListener('click', () => {
-      stop.hidden = true;
-      recorder?.stop();
-    });
+    target.addEventListener('change', () => { replace.value = ''; }, true);  // before the auto-save submit: a picked file is added, not a replacement
   });
 
   // Time. «ارسال خودکار در پایان زمان» on: the attempt is submitted with the saved answers (also when the page
@@ -319,6 +287,9 @@
     if (matrixRoot) window.ExamInteractions.matrix(matrixRoot, block.querySelector('[data-matrix-answer]'));
     const labelRoot = block.querySelector('[data-label]');
     if (labelRoot) window.ExamInteractions.imageLabel(labelRoot);
+    const hotspotRoot = block.querySelector('[data-hotspot]');
+    if (hotspotRoot) window.ExamInteractions.hotspot(hotspotRoot);
+    block.querySelectorAll('[data-rich-answer]').forEach((box) => window.ExamInteractions.richAnswer(box));
     const playbackRules = block.querySelector('[data-playback-rules] script');
     if (playbackRules) {
       const playback = JSON.parse(playbackRules.textContent);
@@ -358,7 +329,7 @@
     const block = event.target.closest('[data-question-block]');
     const charSource = block?.querySelector('[data-char-count-source]');
     const charCount = block?.querySelector('[data-char-count]');
-    if (charSource && charCount) charCount.textContent = `${fa(charSource.value.length)} نویسه`;
+    if (charSource && charCount) charCount.textContent = `${fa(charSource.value.length)}${charSource.maxLength > 0 ? ` / ${fa(charSource.maxLength)}` : ''} نویسه`;
   });
 
   // «امکان تغییر پاسخ» off with every question on one page: starting another question locks the one left behind.
