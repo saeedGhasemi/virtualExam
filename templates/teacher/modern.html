@@ -535,12 +535,21 @@
             {% if import_rows is None %}
                 <section class="teacher-panel">
                     <h2>فایل سؤال‌ها را بارگذاری کنید</h2>
-                    <p class="texams-empty" style="text-align:start">هر ردیف یک سؤال است؛ ستون‌ها: نوع (تک‌گزینه‌ای، چندگزینه‌ای، درست/نادرست، پاسخ کوتاه، تشریحی)، متن سؤال، گزینه ۱ تا گزینه ۶، پاسخ صحیح (شماره‌ی گزینه؛ برای چندگزینه‌ای مثلاً 1,3؛ برای درست/نادرست «درست» یا «نادرست»؛ برای پاسخ کوتاه پاسخ‌ها با | جدا)، بارم، دشواری (آسان/متوسط/سخت)، تگ‌ها، مبحث و توضیح. هر ردیف با همان قواعد فرم ساخت سؤال بررسی می‌شود.</p>
-                    <p><a class="teacher-primary" href="?template=1">دانلود فایل نمونه (Excel)</a> <a href="?template=csv" style="margin-inline-start:.8rem">نسخه‌ی CSV</a></p>
+                    <p class="texams-empty" style="text-align:start">فایل Word سؤال‌ها را همان‌طور که برگه‌ی آزمون را می‌نویسید بارگذاری کنید؛ سامانه نوع هر سؤال، گزینه‌ها، پاسخ درست و تصویرها را خودش تشخیص می‌دهد و پیش از ثبت، نتیجه را برای مرور نشان می‌دهد. همه‌ی انواع سؤال پشتیبانی می‌شود (نمونه‌ی هر نوع در فایل نمونه هست).</p>
+                    <ul class="texams-empty" style="text-align:start;margin:0 0 1rem;padding-inline-start:1.2rem;line-height:2">
+                        <li>هر سؤال با شماره شروع شود (مثل «۱- متن سؤال»)؛ شماره‌گذاری خودکار Word هم خوانده می‌شود.</li>
+                        <li><b>تک‌گزینه‌ای / چندپاسخی:</b> گزینه‌ها با «الف)»، «ب)» … یا «۱)»، «۲)» …؛ گزینه‌ی درست با * کنار آن، خط «پاسخ: ب»، کلید پاسخ در انتهای فایل («کلید: ۱-ب ۲-ج») یا هایلایت همان گزینه. چند گزینه‌ی درست = چندپاسخی.</li>
+                        <li><b>درست/نادرست:</b> «پاسخ: درست». <b>پاسخ کوتاه:</b> «پاسخ: …» (چند پاسخ با |). <b>عددی:</b> «پاسخ: 9.8» و اختیاری «تلرانس: 0.1»، «واحد: …». <b>تشریحی:</b> بدون پاسخ (یا «پاسخ نمونه: …»).</li>
+                        <li><b>جای خالی:</b> پاسخ داخل [ ] در متن، مثل «پایتخت ایران [تهران] است». <b>تطبیقی:</b> هر جفت در یک خط «ایران = تهران» یا جدول دوستونه. <b>مرتب‌سازی:</b> موارد + «ترتیب صحیح: ج، الف، ب».</li>
+                        <li><b>ماتریسی:</b> جدول با ردیف اول عنوان ستون‌ها و ✓ در خانه‌های درست. <b>تصویری:</b> تصویر در Word + «نشانه ۱: پاسخ (۳۰، ۴۰)». <b>صوتی/ویدئویی:</b> «فایل: نام.mp3» و همان فایل در «فایل‌های همراه».</li>
+                        <li>تصویرهای داخل متن سؤال، گزینه‌ها، جدول تطبیقی و «توضیح» هم منتقل می‌شوند (PNG، JPG، GIF، WEBP). خط‌های اختیاری: «بارم:»، «دشواری:»، «تگ:»، «مبحث:»، «توضیح:»، «نوع:»، «نمره منفی:».</li>
+                    </ul>
+                    <p><a class="teacher-primary" href="?template=word">دانلود فایل نمونه (Word)</a></p>
                     <form method="post" enctype="multipart/form-data" class="teacher-toolbar texams-toolbar" style="flex-wrap:wrap;gap:.8rem">
                         {% csrf_token %}
                         <label>درس سؤال‌ها<select name="course_id"><option value="">بدون درس</option>{% for course in import_courses %}<option value="{{ course.id }}">{{ course.title }}</option>{% endfor %}</select></label>
-                        <label>فایل (xlsx یا csv، حداکثر ۵۰۰ سؤال)<input type="file" name="import_file" accept=".xlsx,.csv" required></label>
+                        <label>فایل Word (docx، حداکثر ۵۰۰ سؤال)<input type="file" name="import_file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required></label>
+                        <label>فایل‌های همراه (اختیاری؛ صوت/ویدئو/تصویری که در Word با «فایل:» نام برده‌اید)<input type="file" name="media_files" multiple accept=".mp3,.wav,.ogg,.m4a,.mp4,.webm,.jpg,.jpeg,.png,.gif,.webp"></label>
                         <button class="teacher-primary" type="submit">بررسی فایل</button>
                     </form>
                     {% if import_error %}<p class="teacher-badge is-danger" role="alert">{{ import_error }}</p>{% endif %}
@@ -550,11 +559,13 @@
                     <h2>نتیجه‌ی بررسی فایل</h2>
                     <p><span class="teacher-badge is-ok">{{ import_valid|fa_digits }} سؤال آماده‌ی ثبت</span> {% if import_invalid %}<span class="teacher-badge is-danger">{{ import_invalid|fa_digits }} ردیف دارای خطا (ثبت نمی‌شود)</span>{% endif %} {% if import_course %}<span class="teacher-badge">درس: {{ import_course.title }}</span>{% endif %}</p>
                     <table class="teacher-table">
-                        <thead><tr><th>ردیف فایل</th><th>نوع</th><th>متن سؤال</th><th>پاسخ صحیح</th><th>وضعیت</th></tr></thead>
+                        <thead><tr><th>ردیف</th><th>نوع</th><th>متن سؤال</th><th>پاسخ صحیح</th><th>وضعیت</th></tr></thead>
                         <tbody>
                             {% for row in import_rows %}
-                                <tr><td>{{ row.number|fa_digits }}</td><td>{{ row.type }}</td><td>{{ row.text|truncatechars:80 }}</td><td>{{ row.correct|default:"-" }}</td>
-                                    <td>{% if row.errors %}<span class="teacher-badge is-danger">{{ row.errors|join:" " }}</span>{% else %}<span class="teacher-badge is-ok">آماده</span>{% endif %}</td></tr>
+                                <tr><td>{{ row.number|fa_digits }}</td><td>{{ row.type }}</td>
+                                    <td><div style="white-space:pre-line">{{ row.text|truncatechars:300 }}</div>{% if row.options %}<ul style="margin:.35rem 0 0;padding:0;list-style:none;color:#475569;font-size:.85em">{% for option in row.options %}<li>{{ option|truncatechars:120 }}</li>{% endfor %}</ul>{% endif %}{% if row.media %}<small style="color:#1d4ed8">{{ row.media|fa_digits }} تصویر/فایل همراه این سؤال ثبت می‌شود</small>{% endif %}</td>
+                                    <td>{{ row.correct|default:"-" }}</td>
+                                    <td>{% if row.errors %}<span class="teacher-badge is-danger">{{ row.errors|join:" " }}</span>{% else %}<span class="teacher-badge is-ok">آماده</span>{% endif %}{% for note in row.notes %}<br><small style="color:#b45309">{{ note }}</small>{% endfor %}</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

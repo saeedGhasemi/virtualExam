@@ -6829,3 +6829,126 @@ class EditableTextKeepsItsDigitsTests(TestCase):
         for name in ('base.html', 'base_standalone.html'):
             source = (Path(django_settings.BASE_DIR) / 'templates' / name).read_text(encoding='utf-8')
             self.assertIn("parent.closest('[data-latin-digits], [contenteditable], .ql-editor')", source, name)
+
+
+class QuestionImportWordTests(_EnforcedExamFixture):
+    """ورود گروهی سؤال با فایل Word: همه‌ی انواع سؤال، تصویرها، فایل همراه، شماره‌گذاری خودکار Word و خطاها."""
+
+    def setUp(self):
+        from django.test import override_settings
+        self.media_dir = tempfile.TemporaryDirectory()
+        self.media_override = override_settings(MEDIA_ROOT=self.media_dir.name)
+        self.media_override.enable()
+        self.client.force_login(self.teacher_user)
+        self.url = reverse('core:teacher_question_bulk_import')
+
+    def tearDown(self):
+        self.media_override.disable()
+        self.media_dir.cleanup()
+
+    def _upload(self, data, name='q.docx', media=()):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return self.client.post(self.url, {'course_id': self.course_in_id, 'import_file': SimpleUploadedFile(name, data),
+                                           'media_files': list(media)})
+
+    def _saved(self, text):
+        rows = self._rows('SELECT type, options, correct_answer, question_media, ordering_items FROM questions WHERE text = %s', [text])
+        return [tuple(json.loads(value) if isinstance(value, str) and value[:1] in '[{' else value for value in row) for row in rows]
+
+    @staticmethod
+    def _auto_numbered_docx():
+        """Questions on Word's automatic list (level 0 = «1.», level 1 = «الف)»): the numbers are not in the text."""
+        import zipfile
+        from apps.core.question_import_word import build_docx
+        w = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+        def para(text, level, highlight=False):
+            mark = '<w:rPr><w:highlight w:val="yellow"/></w:rPr>' if highlight else ''
+            return (f'<w:p><w:pPr><w:numPr><w:ilvl w:val="{level}"/><w:numId w:val="1"/></w:numPr></w:pPr>'
+                    f'<w:r>{mark}<w:t>{text}</w:t></w:r></w:p>')
+        body = (para('خودکار یک: رنگ آسمان؟', 0) + para('سبز', 1) + para('آبی', 1, highlight=True) + para('قرمز', 1)
+                + para('خودکار دو: کدام زوج است؟', 0) + para('سه', 1) + para('چهار', 1) + para('پنج', 1)
+                + '<w:p><w:r><w:t>کلید: 2-ب</w:t></w:r></w:p>')
+        numbering = (f'<w:numbering {w}><w:abstractNum w:abstractNumId="0">'
+                     '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>'
+                     '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="arabicAbjad"/><w:lvlText w:val="%2)"/></w:lvl>'
+                     '</w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>')
+        source = zipfile.ZipFile(io.BytesIO(build_docx(['x'])))
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, 'w') as archive:
+            for name in source.namelist():
+                data = source.read(name)
+                if name == 'word/document.xml':
+                    data = f'<w:document {w}><w:body>{body}</w:body></w:document>'.encode()
+                archive.writestr(name, data)
+            archive.writestr('word/numbering.xml', numbering)
+        return out.getvalue()
+
+    def test_sample_word_file_saves_every_question_type(self):
+        sample = self.client.get(self.url, {'template': 'word'})
+        self.assertTrue(sample['Content-Disposition'].endswith('.docx"'))
+        page = self._upload(sample.content)
+        self.assertEqual(page.context['import_error'], '')
+        rows = page.context['import_rows']
+        # the guide boxes/headings of the sample are skipped: only its 13 example questions, none with a note
+        self.assertEqual([(row['number'], row['errors'], row['notes']) for row in rows], [(number, [], []) for number in range(1, 14)])
+        self.client.post(self.url, {'action': 'confirm'})
+        expected = {
+            'پایتخت ایران کدام شهر است؟': 'single', 'کدام اعداد اول هستند؟': 'multi',
+            'آب در فشار یک اتمسفر در دمای ۱۰۰ درجه‌ی سانتی‌گراد می‌جوشد.': 'true_false', 'فرمول شیمیایی آب چیست؟': 'short_answer',
+            'شتاب جاذبه‌ی زمین چند متر بر مجذور ثانیه است؟': 'numeric', 'چرخه‌ی آب در طبیعت را توضیح دهید.': 'essay',
+            'پایتخت ایران [1] و پایتخت ترکیه [2] است.': 'fill_blank', 'هر کشور را به پایتخت آن وصل کنید.': 'matching',
+            'هر عضو بدن را به کار آن وصل کنید.': 'matching', 'مراحل رشد گیاه را به ترتیب مرتب کنید.': 'ordering',
+            'هر جانور در کدام محیط زندگی می‌کند؟': 'matrix', 'نام شکل‌های مشخص‌شده روی تصویر را بنویسید.': 'image_label',
+            'کدام شکل دایره است؟': 'single',
+        }
+        for text, kind in expected.items():
+            self.assertEqual([row[0] for row in self._saved(text)], [kind], text)
+        _kind, _options, correct, media, _items = self._saved('نام شکل‌های مشخص‌شده روی تصویر را بنویسید.')[0]
+        self.assertIn('question-media/', media['image'])
+        self.assertEqual(json.loads(correct) if correct.startswith('"') else correct, 'دایره|مربع')
+        items = self._saved('مراحل رشد گیاه را به ترتیب مرتب کنید.')[0][4]
+        self.assertEqual([item['text'] for item in items], ['کاشت بذر', 'جوانه زدن', 'رشد ساقه و برگ', 'گل دادن'])
+        options = self._saved('کدام شکل دایره است؟')[0][1]  # picture options; the answer comes from «کلید پاسخ: 13-ب»
+        self.assertEqual([(bool(option['media']), option['is_correct']) for option in options], [(True, False), (True, True)])
+
+    def test_section_titles_and_stray_lines_are_not_part_of_a_question(self):
+        from apps.core.question_import_word import build_docx
+        rows = self._upload(build_docx(['1- سؤال یک؟', 'الف) یک *', 'ب) دو', 'بخش دوم: سؤالات تشریحی', '2- سؤال دو را شرح دهید.'])).context['import_rows']
+        self.assertEqual([row['text'] for row in rows], ['سؤال یک؟', 'سؤال دو را شرح دهید.'])
+        self.assertEqual(rows[0]['options'], ['الف) یک', 'ب) دو'])
+        self.assertIn('بخش دوم', ' '.join(rows[0]['notes']))
+
+    def test_auto_numbering_highlight_and_answer_key(self):
+        rows = self._upload(self._auto_numbered_docx()).context['import_rows']
+        self.assertEqual([(row['text'], row['correct'], row['errors']) for row in rows], [
+            ('خودکار یک: رنگ آسمان؟', 'ب) آبی', []),
+            ('خودکار دو: کدام زوج است؟', 'ب) چهار', []),
+        ])
+
+    def test_option_pictures_and_audio_question(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.core.question_import_word import build_docx, sample_shapes_png
+        data = build_docx(['1- کدام تصویر درست است؟', 'الف) ', {'image': sample_shapes_png()}, 'ب) متن', 'پاسخ: الف',
+                           '2- به فایل گوش دهید و پاسخ دهید.', 'نوع: صوتی', 'فایل: listen.mp3',
+                           '3- فایل جاافتاده', 'نوع: صوتی', 'فایل: missing.mp3'])
+        rows = self._upload(data, media=[SimpleUploadedFile('listen.mp3', b'ID3' + b'\0' * 64)]).context['import_rows']
+        self.assertEqual([row['errors'] for row in rows[:2]], [[], []])
+        self.assertIn('missing.mp3', ' '.join(rows[2]['errors']))
+        self.client.post(self.url, {'action': 'confirm'})
+        options = self._saved('کدام تصویر درست است؟')[0][1]
+        self.assertIn('question-media/', options[0]['media'])
+        kind, _options, _correct, media, _items = self._saved('به فایل گوش دهید و پاسخ دهید.')[0]
+        self.assertEqual(kind, 'media_response')
+        self.assertTrue(media['audio'].endswith('.mp3'))
+
+    def test_errors_and_old_word_files(self):
+        from apps.core.question_import_word import build_docx
+        rows = self._upload(build_docx(['1- بی‌پاسخ؟', 'الف) یک', 'ب) دو', '2- پاسخ نامعلوم؟', 'الف) یک', 'ب) دو', 'پاسخ: ه',
+                                        '3- نوع ناشناخته', 'نوع: عجیب'])).context['import_rows']
+        self.assertIn('گزینه‌ی درست مشخص نشده', ' '.join(rows[0]['errors']))
+        self.assertIn('جور نیست', ' '.join(rows[1]['errors']))
+        self.assertIn('شناخته نشد', ' '.join(rows[2]['errors']))
+        self.assertIn('docx', self._upload(b'x', name='q.doc').context['import_error'])
+        self.assertIn('Word', self._upload(b'not a zip').context['import_error'])
+        self.assertIn('سؤالی پیدا نشد', self._upload(build_docx([''])).context['import_error'])

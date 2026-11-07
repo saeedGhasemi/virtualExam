@@ -3,10 +3,9 @@
 _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLAUDE.md` → Session workflow)._
 
 ## Deployment status
-- **Production runs commit `1f9e4ea`** (applied 2026-11-04, verified: files identical, migrations 0058–0059 applied, service active).
-- **Package for `1f9e4ea..4bd93d9` is staged on the server, waiting for the teacher** (2026-11-07): `~/metaquizy-backup-20261107-0608/` holds `deploy.tar` (68 git files + locally built `static/dist/styles.css`), `files-before.tar`, `existing.txt`, `db-before.dump` (pg_dump, 96 tables), `apply-update.sh`, `rollback.sh`. Verified in a temp copy with the server venv: `check` clean, no migrations, `collectstatic` OK. New static files: `static/css/responsive.css`, `static/js/responsive-tables.js`. Teacher command: `sudo bash /home/amirhossein/metaquizy-backup-20261107-0608/apply-update.sh`.
-- After the teacher runs it: verify (service active, `127.0.0.1:8020/login/` 200, deployed files match `4bd93d9`), then set the production commit above to `4bd93d9`.
-- Superseded packages (scripts renamed `apply-update.sh.SUPERSEDED-…`): `~/metaquizy-backup-20261107-0446`, `-20261107-0353`, `-20261107-0248`, `-20261104-*`, `-20261105-0025`.
+- **Production runs commit `4bd93d9`** (applied 2026-11-07 by us via root SSH given by the teacher, after the teacher's own run never happened: verified files identical to the package, no migrations, service active, `127.0.0.1:8020/login/` 200 with `X-Forwarded-Proto: https`, public `https://metaquizy.ir/login/` 200 and serves `responsive.css`). Rollback: `bash /home/amirhossein/metaquizy-backup-20261107-0608/rollback.sh` (+ `db-before.dump`).
+- The apply script's `site check` prints 301 (http→https redirect) because it doesn't send `X-Forwarded-Proto: https`; that's fine.
+- Old packages (scripts renamed `apply-update.sh.SUPERSEDED-…`): `~/metaquizy-backup-20261107-0446`, `-20261107-0353`, `-20261107-0248`, `-20261104-*`, `-20261105-0025`.
 - The SSH user has no sudo (checked). Local `main` is ahead of `origin/main` (not pushed, by choice).
 
 ## Responsive + scroll work (2026-11-05 → 07), committed in `22a5ccf` and the commit after it
@@ -25,7 +24,7 @@ _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLA
 - `static/dist/styles.css` is **gitignored**, so `git archive` packages don't contain it; the deploy package must add the locally built file. Build locally with `node node_modules/tailwindcss/lib/cli.js -i ./static/src/input.css -o ./static/dist/styles.css --minify` (`npx tailwindcss` isn't on PATH here). `input.css` was also reformatted by an editor (whitespace only) in `22a5ccf`.
 - Local env note: `.venv` here is a Linux-style venv (no `Scripts\`); Python runs from `..\venv\Scripts\python.exe`.
 
-## Alignment / overflow pass (2026-11-07), committed in `4bd93d9`, staged for deploy (see above)
+## Alignment / overflow pass (2026-11-07), committed in `4bd93d9`, deployed 2026-11-07
 - Files: `static/css/responsive.css`, `partials/super_admin_chrome.html`, `student/settings/page.html`, `teacher/students/report.html`. No migrations, no new static files. `static/src/input.css` also has the user's own uncommitted `.question-view-tabs` change (not ours).
 - Topbar: profile cluster always on the far left, logo on the right (≤1320px it sat mid-bar).
 - ≥761px: the in-flow `.super-admin-chrome` block was only 36px tall under the 83px fixed topbar, so `.app-main` (the scroller) started 47px under the header and titles/icons slid beneath it → the block is pinned to 82px in the app-shell flex column.
@@ -34,6 +33,14 @@ _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLA
 - Alignment: courses search box/icon aligned with the selects; stat strips no longer one-card-per-row at ≤1180px; question-bank filters 3 across on tablets.
 - Small phones (300px): student-settings phone row wraps (and `[hidden]` was overridden by `display:flex`, so the masked number and the input showed together → fixed, plus a few lines of JS so the existing «تغییر شماره» button reveals the input); calendar head/weekdays, exam/group create forms, bulk-import footer, question-type head, tag layout, security rows, classes toolbar, report page, profile tabs; icon rail forced visible on academic terms on phones → hidden; card tables: fixed cell heights and scrolling wrappers removed.
 - Checked: Playwright crawl of all roles at 300/800/1180 (new checks: control outside its card, low-contrast buttons, header layout) — remaining hits reviewed as false positives. Full test suite 377 OK.
+
+## Question import from Word (2026-11-07), not committed
+- «ورود گروهی سؤالات» now takes a Word `.docx` (UI shows Word only; `.xlsx`/`.csv` still accepted by the view, `?template=1`/`csv` still work). Sample: `?template=word`.
+- New `apps/core/question_import_word.py` (stdlib zip+XML, nothing to install) builds, per question, the **builder's own POST fields** for all 12 independent types (single, multi, true_false, short_answer, essay, fill_blank, matching, ordering, numeric, matrix, image_label, media_response); the view checks them with `_question_builder_payload` + `_apply_independent_settings` + `_apply_question_uploads` + `_question_builder_errors` (`_question_import_check`). Case/KFP are not importable (their builders don't save yet).
+- Format (see the sample `?template=word` and the guide on the page): numbered (typed or Word auto-numbering) questions; options «الف)»/«1)»/«a)»; correct via `*`, «پاسخ:», answer key «کلید: 1-ب», or highlight; `[answer]` blanks; `a = b` lines or a 2-column table → matching; options + «ترتیب صحیح:» → ordering; a number answer (+ «تلرانس:»/«واحد:») → numeric; a ✓ table → matrix; picture + «نشانه 1: x (30، 40)» → image_label; «فایل: x.mp3» + the file in the new «فایل‌های همراه» input → media_response.
+- Pictures in the stem, options, matching cells, ordering items and «توضیح» are carried over: checked with a `question-media/pending.*` stand-in, stored with `_store_question_media` only for valid questions, URLs kept in the session as `existing_*` / `option_media_N` keys. EMF/WMF pictures get a «convert to PNG» note. Word upload limit 40MB (server nginx `client_max_body_size` not checked).
+- Sample file (`sample_docx`) rewritten as a guide: title, «how to use», shared rules, a table of optional lines, then one section per type (instructions box + example, 13 importable examples; audio shown in a box only). Instructions use `MQ…` paragraph styles / an `MQGuideTable` table, which the reader skips; Word Heading/Title paragraphs are section titles; any other line after a question's options/settings is ignored and listed as a note on that question (no longer glued into the question). Persian runs carry `<w:rtl/>` (without it Word put «)» and digits on the wrong side). Checked by exporting to PDF with Word and looking at the pages.
+- Tests: `QuestionImportWordTests` (5: every type from the sample saved incl. picture options + answer key, auto-numbering + highlight + key, option picture + audio companion file, section title/stray lines, errors), plus the Excel import tests. Full suite 382 OK. No migrations, no new static files.
 
 ## Completed and committed (tested locally)
 - **Exam code:** `MQ-` + 6 hex; bold, copyable; joinable from home (`/join/`) by every role, with errors for wrong codes.

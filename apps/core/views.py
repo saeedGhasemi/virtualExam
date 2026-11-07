@@ -39,7 +39,7 @@ from django.utils.crypto import get_random_string, salted_hmac
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from . import account_security, question_kinds
+from . import account_security, question_import_word, question_kinds
 from .rich_text import clean_delta, delta_length, delta_text, delta_to_html
 from .uploads import delete_private, file_extension, image_ok, signature_ok, store_private
 from .forms import (
@@ -15864,7 +15864,27 @@ def _question_import_check(post, allowed_course_ids) -> tuple:
     """(payload, errors) of a builder POST, through the builder's own validation."""
     payload = _question_builder_payload(post)
     _apply_independent_settings(payload, post)
-    return payload, _question_builder_errors(payload, allowed_course_ids)
+    errors = _apply_question_uploads(payload, {}, post)  # pictures/files of a Word file: stored URLs in existing_* keys
+    return payload, errors + _question_builder_errors(payload, allowed_course_ids)
+
+
+QUESTION_IMPORT_WORD_MAX_BYTES = 40 * 1024 * 1024  # a Word file carries its pictures
+QUESTION_IMPORT_MAX_ATTACHMENTS = 100
+
+
+def _question_import_store_files(files) -> tuple:
+    """({POST key: stored URL}, errors) for the pictures/files of one Word question (question-media, as the builder)."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    stored, errors = {}, []
+    for key, (name, source) in files.items():
+        uploaded = SimpleUploadedFile(name, source) if isinstance(source, bytes) else source
+        uploaded.seek(0)
+        url, _kind, error = _store_question_media(uploaded)
+        if error:
+            errors.append(error)
+        else:
+            stored[key] = url
+    return stored, errors
 
 
 def _question_import_csv_rows(data: bytes) -> list:
@@ -15912,7 +15932,13 @@ def _question_import_template(as_csv=False) -> HttpResponse:
 
 @erd_role_required('teacher', 'academic_manager', 'admin')  # the same people who keep a question bank
 def teacher_question_bulk_import(request):
-    """«ورود گروهی سؤالات»: upload an Excel/CSV file, check every row as the builder would, then save the valid rows."""
+    """«ورود گروهی سؤالات»: upload a Word file (or Excel/CSV), check every question as the builder would, then save the
+    valid ones. Word questions can be any builder type and carry their pictures (question_import_word)."""
+    if request.GET.get('template') == 'word':
+        response = HttpResponse(question_import_word.sample_docx(),
+                                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        response['Content-Disposition'] = 'attachment; filename="question-import-sample.docx"'
+        return response
     if request.GET.get('template'):
         return _question_import_template(as_csv=request.GET.get('template') == 'csv')
     teacher_id = request.erd_profile_id
@@ -15937,34 +15963,49 @@ def teacher_question_bulk_import(request):
         uploaded = request.FILES.get('import_file')
         course_id = request.POST.get('course_id') or ''
         suffix = Path(uploaded.name).suffix.lower() if uploaded else ''
-        if not uploaded or suffix not in ('.xlsx', '.csv'):
-            context['import_error'] = 'یک فایل Excel (xlsx) یا CSV انتخاب کنید.'
-        elif uploaded.size > QUESTION_IMPORT_MAX_BYTES:
-            context['import_error'] = 'حجم فایل بیش از ۲ مگابایت است.'
+        if suffix == '.doc':
+            context['import_error'] = 'فایل‌های قدیمی Word (doc) خوانده نمی‌شوند؛ فایل را در Word با «Save As» به‌صورت docx ذخیره کنید.'
+        elif not uploaded or suffix not in ('.docx', '.xlsx', '.csv'):
+            context['import_error'] = 'یک فایل Word (docx) انتخاب کنید (فایل Excel یا CSV هم پذیرفته می‌شود).'
+        elif uploaded.size > (QUESTION_IMPORT_WORD_MAX_BYTES if suffix == '.docx' else QUESTION_IMPORT_MAX_BYTES):
+            context['import_error'] = ('حجم فایل Word بیش از ۴۰ مگابایت است؛ آن را چند بخش کنید.' if suffix == '.docx'
+                                       else 'حجم فایل بیش از ۲ مگابایت است.')
         elif course_id and str(course_id) not in allowed:
             context['import_error'] = 'درس انتخاب‌شده در فهرست درس‌های شما نیست.'
+        elif len(request.FILES.getlist('media_files')) > QUESTION_IMPORT_MAX_ATTACHMENTS:
+            context['import_error'] = f'حداکثر {QUESTION_IMPORT_MAX_ATTACHMENTS} فایل همراه در هر بارگذاری.'
         else:
+            word_questions = []
             try:
-                raw_rows = _question_import_csv_rows(uploaded.read()) if suffix == '.csv' else read_xlsx_numbered_rows(uploaded)
-            except Exception:
+                if suffix == '.docx':
+                    attachments = {Path(item.name).name.lower(): item for item in request.FILES.getlist('media_files')}
+                    header_rows, word_questions = question_import_word.read_docx_questions(
+                        uploaded.read(), _question_import_header, attachments)
+                    raw_rows = list(enumerate(header_rows, start=2))  # a table with the Excel headers: its row numbers
+                elif suffix == '.csv':
+                    raw_rows = _question_import_csv_rows(uploaded.read())
+                else:
+                    raw_rows = read_xlsx_numbered_rows(uploaded)
+            except Exception as exc:
+                logger.info('question import: could not read %s (%s)', uploaded.name, exc)
                 raw_rows = None
             headers = {_question_import_header(header) for _number, raw in (raw_rows or [])[:1] for header in raw}
             missing = [label for field, label in (('type', '«نوع»'), ('text', '«متن سؤال»')) if field not in headers]
             if raw_rows is None:
-                context['import_error'] = 'فایل خوانده نشد؛ فایل نمونه را دانلود کنید و همان ستون‌ها را پر کنید.'
-            elif not raw_rows:
+                context['import_error'] = ('فایل Word خوانده نشد؛ فایل را در Word با پسوند docx ذخیره کنید یا فایل نمونه را ببینید.'
+                                           if suffix == '.docx' else 'فایل خوانده نشد؛ فایل نمونه را دانلود کنید و همان ستون‌ها را پر کنید.')
+            elif suffix == '.docx' and not raw_rows and not word_questions:
+                context['import_error'] = ('در فایل Word سؤالی پیدا نشد؛ هر سؤال را با شماره شروع کنید (مثل «۱- متن سؤال») '
+                                           'و گزینه‌ها را با «الف)»، «ب)» … بنویسید. فایل نمونه را ببینید.')
+            elif suffix != '.docx' and not raw_rows:
                 context['import_error'] = 'فایل هیچ سؤالی ندارد؛ ردیف اول عنوان ستون‌هاست و سؤال‌ها از ردیف دوم می‌آیند.'
-            elif missing:
+            elif raw_rows and missing:
                 context['import_error'] = (f"ستون {' و '.join(missing)} در ردیف اول فایل پیدا نشد. ردیف اول باید عنوان ستون‌ها باشد، "
                                            'مثل فایل نمونه.')
-            elif len(raw_rows) > QUESTION_IMPORT_MAX_ROWS:
+            elif len(raw_rows) + len(word_questions) > QUESTION_IMPORT_MAX_ROWS:
                 context['import_error'] = f'حداکثر {QUESTION_IMPORT_MAX_ROWS} سؤال در هر فایل؛ فایل را چند بخش کنید.'
             else:
-                preview, valid = [], []
-                # a question already in this bank, or twice in the file, is not added again (a file uploaded twice)
-                in_bank = {_question_import_text_key(row['type'], row['text']) for row in erd_rows(
-                    'SELECT type, text FROM questions WHERE teacher_id = %s AND archived_at IS NULL', [teacher_id])}
-                seen = {}
+                entries = []  # (number, builder POST or None, errors, files to store, preview row)
                 for number, raw in raw_rows:  # each row's own number in the file (row 1 is the header)
                     cells = {}
                     for header, value in raw.items():
@@ -15974,6 +16015,26 @@ def teacher_question_bulk_import(request):
                     if not any(cells.values()):
                         continue
                     post, errors = _question_import_post(cells, course_id)
+                    entries.append((number, post, errors, {}, {
+                        'type': cells.get('type', ''), 'text': cells.get('text', ''), 'correct': cells.get('correct', ''), 'notes': [],
+                        'options': [cells[f'option{i}'] for i in range(1, QUESTION_IMPORT_OPTIONS + 1) if cells.get(f'option{i}')]}))
+                for question in word_questions:
+                    post = QueryDict(mutable=True)
+                    for name, values in question['fields'].items():
+                        post.setlist(name, values)
+                    post['course_id'] = course_id
+                    for key, (name, _source) in question['files'].items():  # checked with a stand-in, stored once valid
+                        post[key] = f"{settings.MEDIA_URL}question-media/pending.{name.rsplit('.', 1)[-1].lower()}"
+                    entries.append((question['number'], post, list(question['errors']), question['files'], {
+                        'type': question_import_word.TYPE_LABELS.get(question['kind'], ''), 'text': question['text'],
+                        'correct': question['correct'], 'notes': question['notes'], 'options': question['details'],
+                        'media': len(question['files'])}))
+                preview, valid = [], []
+                # a question already in this bank, or twice in the file, is not added again (a file uploaded twice)
+                in_bank = {_question_import_text_key(row['type'], row['text']) for row in erd_rows(
+                    'SELECT type, text FROM questions WHERE teacher_id = %s AND archived_at IS NULL', [teacher_id])}
+                seen = {}
+                for number, post, errors, files, shown in entries:
                     if post is not None and not errors:
                         _payload, errors = _question_import_check(post, allowed)
                     if post is not None and not errors:
@@ -15983,10 +16044,13 @@ def teacher_question_bulk_import(request):
                         elif key in seen:
                             errors = [f'تکرار سؤال ردیف {seen[key]} همین فایل است.']
                         seen.setdefault(key, number)
+                    if not errors and files:
+                        stored, errors = _question_import_store_files(files)
+                        for key, url in stored.items():
+                            post[key] = url
                     if not errors:
                         valid.append({name: post.getlist(name) for name in post})
-                    preview.append({'number': number, 'type': cells.get('type', ''), 'text': cells.get('text', ''),
-                                    'correct': cells.get('correct', ''), 'errors': errors})
+                    preview.append({'number': number, 'errors': errors, **shown})
                 request.session[QUESTION_IMPORT_SESSION_KEY] = valid
                 context.update(import_rows=preview, import_valid=len(valid), import_invalid=len(preview) - len(valid),
                                import_course=next((row for row in course_options if str(row['id']) == str(course_id)), None))
