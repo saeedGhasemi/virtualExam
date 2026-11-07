@@ -4,9 +4,9 @@ _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLA
 
 ## Deployment status
 - **Production runs commit `1f9e4ea`** (applied 2026-11-04, verified: files identical, migrations 0058–0059 applied, service active).
-- **Package for `1f9e4ea..25b72c3` is staged on the server, waiting for the teacher** (2026-11-07): `~/metaquizy-backup-20261107-0353/` holds `deploy.tar` (67 git files + locally built `static/dist/styles.css`), `files-before.tar`, `existing.txt`, `db-before.dump` (pg_dump, 96 tables), `apply-update.sh`, `rollback.sh`. Verified in a temp copy with the server venv: `check` clean, no migrations, `collectstatic` OK. New static files: `static/css/responsive.css`, `static/js/responsive-tables.js`. Teacher command: `sudo bash /home/amirhossein/metaquizy-backup-20261107-0353/apply-update.sh`.
-- After the teacher runs it: verify (service active, `127.0.0.1:8020/login/` 200, deployed files match `25b72c3`), then set the production commit above to `25b72c3`.
-- Superseded packages: `~/metaquizy-backup-20261107-0248` (its script renamed to `apply-update.sh.SUPERSEDED-…`), `-20261104-*`, `-20261105-0025`.
+- **Package for `1f9e4ea..3e84467` is staged on the server, waiting for the teacher** (2026-11-07): `~/metaquizy-backup-20261107-0446/` holds `deploy.tar` (67 git files + locally built `static/dist/styles.css`), `files-before.tar`, `existing.txt`, `db-before.dump` (pg_dump, 96 tables), `apply-update.sh`, `rollback.sh`. Verified in a temp copy with the server venv: `check` clean, no migrations, `collectstatic` OK. New static files: `static/css/responsive.css`, `static/js/responsive-tables.js`. Teacher command: `sudo bash /home/amirhossein/metaquizy-backup-20261107-0446/apply-update.sh`.
+- After the teacher runs it: verify (service active, `127.0.0.1:8020/login/` 200, deployed files match `3e84467`), then set the production commit above to `3e84467`.
+- Superseded packages: `~/metaquizy-backup-20261107-0353`, `-20261107-0248` (its script renamed to `apply-update.sh.SUPERSEDED-…`), `-20261104-*`, `-20261105-0025`.
 - The SSH user has no sudo (checked). Local `main` is ahead of `origin/main` (not pushed, by choice).
 
 ## Responsive + scroll work (2026-11-05 → 07), committed in `22a5ccf` and the commit after it
