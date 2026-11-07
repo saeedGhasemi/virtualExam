@@ -3,9 +3,10 @@
 _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLAUDE.md` → Session workflow)._
 
 ## Deployment status
-- **Production runs commit `4bd93d9`** (applied 2026-11-07 by us via root SSH given by the teacher, after the teacher's own run never happened: verified files identical to the package, no migrations, service active, `127.0.0.1:8020/login/` 200 with `X-Forwarded-Proto: https`, public `https://metaquizy.ir/login/` 200 and serves `responsive.css`). Rollback: `bash /home/amirhossein/metaquizy-backup-20261107-0608/rollback.sh` (+ `db-before.dump`).
+- **Production runs commit `ae48750`** (Word question import; applied 2026-11-07 by us via root SSH: live files matched `4bd93d9` before, deployed files identical to the package, no migrations, no new static files, service active, `127.0.0.1:8020/login/` 200 with `X-Forwarded-Proto: https`, public `https://metaquizy.ir/login/` 200 and serves `responsive.css`). Rollback: `bash /home/amirhossein/metaquizy-backup-20261107-1709/rollback.sh` (+ `db-before.dump`).
+- `git archive` on this Windows checkout writes CRLF files (autocrlf), so server files are CRLF; compare against `git show` output converted to CRLF.
 - The apply script's `site check` prints 301 (http→https redirect) because it doesn't send `X-Forwarded-Proto: https`; that's fine.
-- Old packages (scripts renamed `apply-update.sh.SUPERSEDED-…`): `~/metaquizy-backup-20261107-0446`, `-20261107-0353`, `-20261107-0248`, `-20261104-*`, `-20261105-0025`.
+- Old packages (scripts renamed `apply-update.sh.SUPERSEDED-…`): `~/metaquizy-backup-20261107-0608`, `-20261107-0446`, `-20261107-0353`, `-20261107-0248`, `-20261104-*`, `-20261105-0025`.
 - The SSH user has no sudo (checked). Local `main` is ahead of `origin/main` (not pushed, by choice).
 
 ## Responsive + scroll work (2026-11-05 → 07), committed in `22a5ccf` and the commit after it
@@ -34,7 +35,7 @@ _Last updated: 2026-11-07. Every chat updates this file before it ends (see `CLA
 - Small phones (300px): student-settings phone row wraps (and `[hidden]` was overridden by `display:flex`, so the masked number and the input showed together → fixed, plus a few lines of JS so the existing «تغییر شماره» button reveals the input); calendar head/weekdays, exam/group create forms, bulk-import footer, question-type head, tag layout, security rows, classes toolbar, report page, profile tabs; icon rail forced visible on academic terms on phones → hidden; card tables: fixed cell heights and scrolling wrappers removed.
 - Checked: Playwright crawl of all roles at 300/800/1180 (new checks: control outside its card, low-contrast buttons, header layout) — remaining hits reviewed as false positives. Full test suite 377 OK.
 
-## Question import from Word (2026-11-07), not committed
+## Question import from Word (2026-11-07), committed in `ae48750`, deployed 2026-11-07
 - «ورود گروهی سؤالات» now takes a Word `.docx` (UI shows Word only; `.xlsx`/`.csv` still accepted by the view, `?template=1`/`csv` still work). Sample: `?template=word`.
 - New `apps/core/question_import_word.py` (stdlib zip+XML, nothing to install) builds, per question, the **builder's own POST fields** for all 12 independent types (single, multi, true_false, short_answer, essay, fill_blank, matching, ordering, numeric, matrix, image_label, media_response); the view checks them with `_question_builder_payload` + `_apply_independent_settings` + `_apply_question_uploads` + `_question_builder_errors` (`_question_import_check`). Case/KFP are not importable (their builders don't save yet).
 - Format (see the sample `?template=word` and the guide on the page): numbered (typed or Word auto-numbering) questions; options «الف)»/«1)»/«a)»; correct via `*`, «پاسخ:», answer key «کلید: 1-ب», or highlight; `[answer]` blanks; `a = b` lines or a 2-column table → matching; options + «ترتیب صحیح:» → ordering; a number answer (+ «تلرانس:»/«واحد:») → numeric; a ✓ table → matrix; picture + «نشانه 1: x (30، 40)» → image_label; «فایل: x.mp3» + the file in the new «فایل‌های همراه» input → media_response.
