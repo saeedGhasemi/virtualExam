@@ -1,0 +1,103 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}تقویم من | متاکوییز{% endblock %}
+{% block content %}
+{% include 'student/_exam_shell_head.html' %}
+<style>
+  .scal{max-width:1530px;margin:0 auto;display:grid;gap:18px}
+  .scal-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px}
+  .scal-head-title{display:flex;align-items:center;gap:14px}
+  .scal-head-icon{display:grid;width:56px;height:56px;place-items:center;border-radius:16px;background:#fff;color:#075fff;border:1px solid #e0e9f6;box-shadow:0 16px 34px rgba(30,55,95,.08)}.scal-head-icon svg{width:1.6rem;height:1.6rem}
+  .scal-head h1{margin:0;font-size:1.9rem;font-weight:950}.scal-head p{margin:.2rem 0 0;color:#61708d;font-weight:850}
+  .scal-nav{display:flex;align-items:center;gap:10px}
+  .scal-nav a{display:grid;width:44px;height:44px;place-items:center;border:1px solid #dbe6f4;border-radius:12px;background:#fff;color:#30415f;font-size:1.35rem;font-weight:950}
+  .scal-nav h2{min-width:9.5rem;margin:0;text-align:center;font-size:1.2rem;font-weight:950}
+  .scal-nav .scal-today{width:auto;padding:0 14px;font-size:.88rem}
+  .scal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:hidden;padding:0}
+  .scal-wd-short{display:none}
+  .scal-weekday{min-width:0;padding:12px 6px;background:rgba(244,248,253,.9);color:#53627e;font-size:.86rem;font-weight:950;text-align:center}
+  .scal-day{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:118px;padding:10px;border-top:1px solid #e6edf6;border-inline-start:1px solid #e6edf6}
+  .scal-day:nth-child(7n+1){border-inline-start:0}
+  .scal-day.is-blank{background:rgba(244,248,253,.45)}
+  .scal-day.is-today{background:#eef4ff}
+  .scal-num{align-self:flex-start;font-weight:950;color:#30415f}
+  .scal-day.is-today .scal-num{display:grid;min-width:30px;height:30px;place-items:center;border-radius:999px;background:#075fff;color:#fff}
+  .scal-event{display:block;overflow:hidden;padding:5px 8px;border-radius:8px;font-size:.78rem;font-weight:900;line-height:1.5;white-space:nowrap;text-overflow:ellipsis}
+  .scal-event.is-continues{opacity:.7}
+  .scal-event.green,.scal-row .sx-chip.green{background:#dcf8ea;color:#0b8a50}
+  .scal-event.orange,.scal-row .sx-chip.orange{background:#fff1d6;color:#b45309}
+  .scal-event.blue,.scal-row .sx-chip.blue{background:#e8f0ff;color:#075fff}
+  .scal-event.violet,.scal-row .sx-chip.violet{background:#f3e8ff;color:#7c3aed}
+  .scal-event.red,.scal-row .sx-chip.red{background:#fee2e2;color:#dc2626}
+  .scal-legend{display:flex;flex-wrap:wrap;gap:8px;padding:0 4px;color:#61708d;font-weight:900}
+  .scal-legend .scal-event{display:inline-block}
+  .scal-list{padding:6px 0}
+  .scal-list h2{margin:0;padding:14px 20px 8px;font-size:1.1rem;font-weight:950}
+  .scal-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid #e6edf6}
+  .scal-row strong{display:block;font-weight:950}.scal-row small{display:block;margin-top:.15rem;color:#61708d;font-weight:850}
+  .scal-when{color:#30415f;font-weight:900;white-space:nowrap;unicode-bidi:isolate}
+  .scal-empty{padding:28px 20px;text-align:center;color:#64748b;font-weight:900}
+  @media(max-width:760px){
+    .scal-head h1{font-size:1.45rem}
+    .scal-day{min-height:58px;padding:6px 4px;align-items:center}
+    .scal-num{align-self:center;font-size:.85rem}
+    .scal-weekday{font-size:.8rem;padding:10px 2px}.scal-wd-full{display:none}.scal-wd-short{display:inline}
+    .scal{min-width:0}.scal-grid{width:100%}
+    .scal-when{white-space:normal}
+    .scal-row .sx-chip{justify-self:start}
+    .scal-day .scal-event{width:8px;height:8px;padding:0;border-radius:99px;font-size:0}
+    .scal-day .scal-events{display:flex;flex-wrap:wrap;justify-content:center;gap:3px}
+    .scal-row{grid-template-columns:1fr;gap:8px}
+  }
+</style>
+<div class="scal">
+  <header class="scal-head">
+    <div class="scal-head-title">
+      <span class="scal-head-icon">{% include 'teacher/_qb_icon.html' with name='calendar' %}</span>
+      <div><h1>تقویم من</h1><p>زمان آزمون‌های شما به وقت تهران</p></div>
+    </div>
+    <nav class="scal-nav" aria-label="ماه">
+      <a href="?year={{ calendar_month.previous.0 }}&month={{ calendar_month.previous.1 }}" aria-label="ماه قبل">‹</a>
+      <h2>{{ calendar_month.title|fa_digits }}</h2>
+      <a href="?year={{ calendar_month.next.0 }}&month={{ calendar_month.next.1 }}" aria-label="ماه بعد">›</a>
+      {% if calendar_month.today.0 != calendar_month.year or calendar_month.today.1 != calendar_month.month %}<a class="scal-today" href="?">امروز</a>{% endif %}
+    </nav>
+  </header>
+
+  <section class="sx-card scal-grid">
+    {% for name in calendar_weekdays %}<div class="scal-weekday" title="{{ name }}"><span class="scal-wd-full">{{ name }}</span><span class="scal-wd-short" aria-hidden="true">{{ name|slice:":1" }}</span></div>{% endfor %}
+    {% for cell in calendar_days %}
+      {% if cell.day %}
+        <div class="scal-day{% if cell.is_today %} is-today{% endif %}">
+          <span class="scal-num">{{ cell.day|fa_digits }}</span>
+          <div class="scal-events">
+            {% for event in cell.events %}
+              <a class="scal-event {{ event.tone }}{% if event.continues %} is-continues{% endif %}" href="{{ event.url }}" title="{{ event.title }} — {{ event.label }} — {{ event.date_label }} ساعت {{ event.time|fa_digits }} تا {{ event.until_label|fa_digits }}">{% if not event.continues %}{{ event.time|fa_digits }} {% endif %}{{ event.title }}</a>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="scal-day is-blank"></div>
+      {% endif %}
+    {% endfor %}
+  </section>
+
+  <div class="scal-legend">
+    {% for label, tone in calendar_legend %}<span class="scal-event {{ tone }}">{{ label }}</span>{% endfor %}
+  </div>
+
+  <section class="sx-card scal-list">
+    <h2>آزمون‌های {{ calendar_month.title|fa_digits }}</h2>
+    {% for event in calendar_rows %}
+      <div class="scal-row">
+        <div><strong>{{ event.title }}</strong><small>{{ event.course }}</small></div>
+        <span class="scal-when">{{ event.date_label }} ساعت {{ event.time|fa_digits }} تا {{ event.until_label|fa_digits }}</span>
+        <a class="sx-chip {{ event.tone }}" href="{{ event.url }}">{{ event.label }}</a>
+      </div>
+    {% empty %}
+      <p class="scal-empty">در این ماه آزمونی برای شما ثبت نشده است.</p>
+    {% endfor %}
+  </section>
+</div>
+{% include 'student/_exam_shell_foot.html' %}
+{% endblock %}

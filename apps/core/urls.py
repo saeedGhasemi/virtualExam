@@ -1,4 +1,6 @@
 from django.urls import path
+from .exam_report import super_admin_exam_report, teacher_exam_report
+from .user_directory import super_admin_user_directory
 from .grading_views import attempt_answer_file, teacher_grading_detail, teacher_reviews
 from .teacher_question_bank import teacher_question_archive, teacher_question_share, teacher_shared_question_copy
 from .teacher_students import (
@@ -94,6 +96,7 @@ from .views import (
     super_admin_courses,
     super_admin_dashboard,
     super_admin_emergency_stop,
+    super_admin_exam_approve,
     super_admin_exam_create,
     super_admin_exam_detail,
     super_admin_exam_edit,
@@ -134,6 +137,8 @@ from .views import (
     super_admin_user_detail,
     super_admin_users,
     super_admin_toggle_account_status,
+    super_admin_set_user_password,
+    password_change_required_view,
     super_admin_delete_account,
     student_attempt,
     student_attempt_event,
@@ -142,6 +147,7 @@ from .views import (
     student_exam_detail,
     student_exam_entry,
     student_exam_schedule,
+    student_calendar,
     student_classes_page,
     student_settings,
     student_exam_start,
@@ -193,6 +199,7 @@ urlpatterns = [
     path('dashboard/', dashboard, name='dashboard'),
     path('profile/', profile_view, name='profile'),
     path('logout/', logout_view, name='logout'),
+    path('account/password/change/', password_change_required_view, name='password_change_required'),
     path('login/', SecureLoginView.as_view(), name='login'),
     path('join/', exam_join, name='exam_join'),
     path('register/', register, name='register'),
@@ -223,6 +230,8 @@ urlpatterns = [
     path('super-admin/exams/bulk/', super_admin_exam_bulk_import, name='super_admin_exam_bulk_import'),
     path('super-admin/exams/active/', super_admin_active_exams, name='super_admin_active_exams'),  # before <exam_id>, or 'active' is read as an id
     path('super-admin/exams/<str:exam_id>/edit/', super_admin_exam_edit, name='super_admin_exam_edit'),
+    path('super-admin/exams/<str:exam_id>/approve/', super_admin_exam_approve, name='super_admin_exam_approve'),
+    path('super-admin/exams/<str:exam_id>/report/', super_admin_exam_report, name='super_admin_exam_report'),
     path('super-admin/exams/<str:exam_id>/wizard/', super_admin_exam_wizard_edit, name='super_admin_exam_wizard_edit'),
     path('super-admin/exams/<str:exam_id>/', super_admin_exam_detail, name='super_admin_exam_detail'),
     path('super-admin/calendar/', super_admin_calendar, name='super_admin_calendar'),
@@ -232,6 +241,7 @@ urlpatterns = [
     path('super-admin/settings/', super_admin_settings, name='super_admin_settings'),
     path('super-admin/institutions/create/', super_admin_institution_create, name='super_admin_institution_create'),
     path('super-admin/users/', super_admin_users, name='super_admin_users'),
+    path('super-admin/users/directory/', super_admin_user_directory, name='super_admin_user_directory'),
     path('super-admin/account-deletions/', super_admin_account_deletions, name='super_admin_account_deletions'),
     path('super-admin/account-deletions/<str:request_id>/review/', super_admin_account_deletion_review, name='super_admin_account_deletion_review'),
     path('super-admin/users/manager/<str:user_id>/access/', super_admin_manager_access, name='super_admin_manager_access'),
@@ -241,6 +251,7 @@ urlpatterns = [
     path('super-admin/users/teacher/<str:user_id>/profile/edit/', super_admin_teacher_profile_edit, name='super_admin_teacher_profile_edit'),
     path('super-admin/users/<str:kind>/<str:user_id>/profile/', super_admin_user_profile, name='super_admin_user_profile'),
     path('super-admin/users/<str:kind>/<str:user_id>/toggle-status/', super_admin_toggle_account_status, name='super_admin_toggle_account_status'),
+    path('super-admin/users/<str:kind>/<str:user_id>/password/', super_admin_set_user_password, name='super_admin_set_user_password'),
     path('super-admin/users/<str:kind>/<str:user_id>/delete/', super_admin_delete_account, name='super_admin_delete_account'),
     path('super-admin/users/<int:profile_id>/', super_admin_user_detail, name='super_admin_user_detail'),
     path('super-admin/roles/', super_admin_roles, name='super_admin_roles'),
@@ -342,6 +353,7 @@ urlpatterns = [
     path('teacher/exams/create/', teacher_exam_create, name='teacher_exam_create'),
     path('teacher/exams/create/participants-match/', teacher_exam_participants_match, name='teacher_exam_participants_match'),
     path('teacher/exams/<str:exam_id>/edit/', teacher_exam_edit, name='teacher_exam_edit'),
+    path('teacher/exams/<str:exam_id>/report/', teacher_exam_report, name='teacher_exam_report'),
     path('teacher/exams/<str:exam_id>/preview/', teacher_exam_preview, name='teacher_exam_preview'),
     path('teacher/monitoring/', teacher_monitoring, name='teacher_monitoring'),
     path('teacher/reviews/', teacher_reviews, name='teacher_reviews'),
@@ -363,6 +375,7 @@ urlpatterns = [
     path('assistant/educational-questions/<int:question_id>/', assistant_educational_question_answer, name='assistant_educational_question_answer'),
     path('student/exams/', student_exam_schedule, name='student_exam_schedule'),
     path('student/classes/', student_classes_page, name='student_classes'),
+    path('student/calendar/', student_calendar, name='student_calendar'),
     path('student/settings/', student_settings, name='student_settings'),
     path('student/exams/<str:exam_id>/', student_exam_detail, name='student_exam_detail'),
     path('student/exams/<str:exam_id>/entry/', student_exam_entry, name='student_exam_entry'),

@@ -2176,12 +2176,17 @@
     setStep(1);
 })();
 </script>
-<script type="module" src="{% static 'js/jalali-datepicker.js' %}"></script>
 <script type="module">
+// one import = the date pickers start too (the same URL is one module, so they never start twice)
+import { wallParts } from "{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108";
 import { toJalaali } from "{% static 'js/vendor/jalaali.js' %}";
 const FA_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 const toFaDigits = (value) => String(value).replace(/[0-9]/g, (d) => FA_DIGITS[d]);
 const pad2 = (n) => String(n).padStart(2, '0');
+const jalaliText = (p) => {
+    const j = toJalaali(p.gy, p.gm, p.gd);
+    return toFaDigits(`${j.jy}/${pad2(j.jm)}/${pad2(j.jd)} - ${pad2(p.hh)}:${pad2(p.mm)}`);
+};
 
 const startHidden = document.querySelector('[name="start_at"][data-jalali-value]');
 const durationInput = document.querySelector('[data-duration]');
@@ -2190,11 +2195,11 @@ const computedEnd = document.querySelector('[data-computed-end]');
 function updateComputedEnd() {
     if (!startHidden || !durationInput || !computedEnd) return;
     if (!startHidden.value || !durationInput.value) { computedEnd.value = ''; return; }
-    const start = new Date(startHidden.value);
-    if (Number.isNaN(start.getTime())) { computedEnd.value = ''; return; }
-    const end = new Date(start.getTime() + Number(durationInput.value) * 60000);
-    const j = toJalaali(end.getFullYear(), end.getMonth() + 1, end.getDate());
-    computedEnd.value = toFaDigits(`${j.jy}/${pad2(j.jm)}/${pad2(j.jd)} - ${pad2(end.getHours())}:${pad2(end.getMinutes())}`);
+    const start = wallParts(startHidden.value);  // Tehran wall time
+    if (!start) { computedEnd.value = ''; return; }
+    // add the duration on the wall clock (UTC arithmetic: no daylight-saving jump of the visitor's device)
+    const end = new Date(Date.UTC(start.gy, start.gm - 1, start.gd, start.hh, start.mm) + Number(durationInput.value) * 60000);
+    computedEnd.value = jalaliText({ gy: end.getUTCFullYear(), gm: end.getUTCMonth() + 1, gd: end.getUTCDate(), hh: end.getUTCHours(), mm: end.getUTCMinutes() });
 }
 
 startHidden?.addEventListener('change', updateComputedEnd);
@@ -2202,11 +2207,8 @@ durationInput?.addEventListener('input', updateComputedEnd);
 updateComputedEnd();
 
 window.formatJalaliDateTime = (isoString) => {
-    if (!isoString) return '';
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return '';
-    const j = toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
-    return toFaDigits(`${j.jy}/${pad2(j.jm)}/${pad2(j.jd)} - ${pad2(d.getHours())}:${pad2(d.getMinutes())}`);
+    const parts = isoString ? wallParts(isoString) : null;  // a «…Z» moment is shown at Tehran time
+    return parts ? jalaliText(parts) : '';
 };
 window.dispatchEvent(new Event('jalali-helpers-ready'));
 </script>

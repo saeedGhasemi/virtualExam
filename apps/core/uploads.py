@@ -11,7 +11,7 @@ from django.conf import settings
 CONTENT_TYPES = {
     'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp',
     'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'm4a': 'audio/mp4',
-    'mp4': 'video/mp4', 'webm': 'video/webm',
+    'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
     'pdf': 'application/pdf',
     'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 }
@@ -39,6 +39,8 @@ def signature_ok(uploaded, extension: str) -> bool:
         return head[:4] == b'RIFF' and head[8:12] == b'WAVE'
     if extension in {'mp4', 'm4a'}:
         return head[4:8] == b'ftyp'
+    if extension == 'mov':  # iPhone camera videos (QuickTime); older files start with another atom than ftyp
+        return head[4:8] in {b'ftyp', b'moov', b'mdat', b'wide', b'free', b'skip'}
     if extension == 'webm':
         return head.startswith(b'\x1a\x45\xdf\xa3')
     if extension == 'ogg':

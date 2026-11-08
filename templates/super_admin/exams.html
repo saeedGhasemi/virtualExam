@@ -42,16 +42,26 @@
     .status-pill{display:inline-flex;min-width:6.8rem;height:2.05rem;align-items:center;justify-content:center;border-radius:.55rem;font-size:.78rem;font-weight:950}
     .status-pill.is-pending,.exam-subject-icon.is-pending{background:#fff7ed;color:#c2410c}
     .status-pill.is-scheduled{background:#e9efff;color:#315cff}.status-pill.is-running{background:#e7f8ee;color:#15803d}.status-pill.is-finished{background:#edf2f7;color:#475569}.status-pill.is-draft{background:#eaf4ff;color:#0284c7}.status-pill.is-cancelled,.status-pill.is-review{background:#fff1e7;color:#ea580c}
+    .status-pill{gap:.3rem;padding:0 .7rem;white-space:nowrap}.status-pill svg{width:.95rem;height:.95rem;flex:none;stroke-width:2.6}
     .participant-text{white-space:nowrap}
+    .row-actions .row-approve{display:inline-flex;width:auto;min-width:4.6rem;height:2.1rem;align-items:center;justify-content:center;gap:.3rem;border:1px solid #bcd0ff;border-radius:.6rem;background:#eef3ff;color:#315cff;padding:0 .65rem;font-size:.78rem;font-weight:950;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+    .row-actions button.row-approve:hover,.row-actions button.row-approve:focus-visible{border-color:#315cff;background:#315cff;color:#fff;outline:0}
+    .row-actions .row-approve.is-done{border-color:#cdeedd;background:#effaf4;color:#15803d;cursor:default}
+    .row-actions .row-approve svg{width:1rem;height:1rem;stroke-width:2.6}.row-actions .row-approve b{font-weight:inherit}
+    .exam-approve-panel{max-width:30rem;text-align:center}.exam-approve-panel h2{margin-top:.9rem}.exam-approve-panel p b{color:#071936}
+    .exam-approve-icon{display:grid;width:3.6rem;height:3.6rem;margin:0 auto;place-items:center;border-radius:1rem;background:#eef3ff;color:#315cff}.exam-approve-icon svg{width:1.8rem;height:1.8rem;stroke-width:2.6}
+    .exam-approve-panel .exam-approve-error{margin-top:1rem;border:1px solid #fed7aa;border-radius:.75rem;background:#fff7ed;padding:.7rem .9rem;color:#c2410c}.exam-approve-error[hidden],.exam-approve-panel [hidden]{display:none!important}
+    .exam-muted{color:#7a8597}
+    .exam-approve-panel footer{display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem;margin-top:1.4rem}.exam-approve-panel footer>*{min-width:8rem}
+    @media (max-width:480px){.exam-approve-panel{padding:1.4rem 1rem}.exam-approve-panel footer{flex-direction:column-reverse}.exam-approve-panel footer>*{width:100%}}
     .row-actions{display:flex;align-items:center;gap:.8rem;color:#0f326d}
     .row-actions button,.row-actions a{display:grid;width:1.75rem;height:1.75rem;place-items:center;border:0;background:transparent;color:inherit}
     .row-actions svg{width:1.15rem;height:1.15rem}
     .exam-table-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem;color:#25344f;font-weight:850}
     .pager{display:flex;align-items:center;gap:.55rem}.pager button,.pager b{display:grid;min-width:2.6rem;height:2.6rem;place-items:center;border:1px solid #cbd9ec;border-radius:.65rem;background:#fff}.pager b{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border-color:transparent}
     .page-size{display:flex;align-items:center;gap:.45rem}.page-size button{height:2.5rem;min-width:3rem;border:1px solid #d4dfef;border-radius:.6rem;background:#fff;color:#34435f}.page-size button.is-active{border-color:#7b61ff;color:#315cff;background:#f2f0ff}
-    .exam-upcoming{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:1.2rem;margin-top:1.1rem;padding:1.1rem 1.35rem}
+    .exam-upcoming{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:1.2rem;margin-top:1.1rem;padding:1.1rem 1.35rem}
     .upcoming-title h2{margin:0 0 .3rem;font-size:1.2rem;font-weight:950}.upcoming-title p{margin:0;color:#52617b;font-weight:850}
-    .countdown{display:grid;gap:.2rem;color:#315cff;font-size:1.1rem;font-weight:950;text-align:center}.countdown small{color:#59677f;font-size:.84rem}
     .exam-empty{text-align:center;color:#7a8597!important;height:5rem!important}
     .exam-create-modal[hidden]{display:none}.exam-create-modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:1rem}.exam-create-backdrop{position:absolute;inset:0;background:rgba(7,25,54,.38);backdrop-filter:blur(8px)}
     .exam-create-panel{position:relative;z-index:1;width:min(1000px,96vw);max-height:90vh;overflow:auto;border:1px solid #dbe4f1;border-radius:1rem;background:#fff;padding:1.1rem;box-shadow:0 30px 80px rgba(7,25,54,.25)}
@@ -122,14 +132,19 @@
                                 </div>
                             </td>
                             <td>{{ row.course|fa_digits }} - {{ row.teacher|fa_digits }}</td>
-                            <td>{{ row.start_date|fa_digits }}، {{ row.start_time|fa_digits }}</td>
+                            <td>{% if row.start_at %}{{ row.start_date|fa_digits }}، {{ row.start_time|fa_digits }}{% else %}<span class="exam-muted">تعیین نشده</span>{% endif %}</td>
                             <td>{{ row.duration_minutes|default:"-"|fa_digits }} دقیقه</td>
                             <td class="participant-text">{{ row.participant_count|fa_digits }} از {{ row.question_count|default:0|add:row.participant_count|fa_digits }}</td>
-                            <td><span class="status-pill is-{{ row.status_key }}">{{ row.status_label }}</span></td>
+                            <td><span class="status-pill is-{{ row.status_key }}{% if row.is_approved %} is-approved{% endif %}">{% if row.is_approved %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>{% endif %}{{ row.status_label }}</span></td>
                             <td>
                                 <div class="row-actions">
-                                    <button type="button" title="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+                                    {% if row.can_approve %}
+                                        <button type="button" class="row-approve" data-approve-url="{% url 'core:super_admin_exam_approve' row.id %}" data-approve-title="{{ row.title }}" data-approve-blocker="{{ row.approve_blocker }}" data-edit-url="{% url 'core:super_admin_exam_edit' row.id %}" title="تأیید آزمون" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg><b>تأیید</b></button>
+                                    {% else %}
+                                        <span class="row-approve is-done" title="{% if row.is_cancelled %}آزمون لغو شده است{% else %}تأیید شده{% endif %}" aria-label="{% if row.is_cancelled %}آزمون لغو شده است{% else %}تأیید شده{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true">{% if row.is_cancelled %}<path d="M18 6 6 18M6 6l12 12"/>{% else %}<path d="m5 12 5 5L20 7"/>{% endif %}</svg><b>{% if row.is_cancelled %}لغو شده{% else %}تأیید شده{% endif %}</b></span>
+                                    {% endif %}
                                     <a href="{% url 'core:super_admin_exam_edit' row.id %}" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5L16 3Z"/></svg></a>
+                                    <a href="{% url 'core:super_admin_exam_report' row.id %}" title="گزارش آزمون" aria-label="گزارش آزمون"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></a>
                                     <a href="{% url 'core:super_admin_exam_detail' row.id %}" title="مشاهده"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg></a>
                                 </div>
                             </td>
@@ -150,12 +165,29 @@
             <div class="upcoming-title">
                 <h2>آزمون‌های نزدیک</h2>
                 {% with next_exam=upcoming.0 %}
-                    <p>{% if next_exam %}{{ next_exam.title|fa_digits }} · {{ next_exam.course|fa_digits }} - {{ next_exam.teacher|fa_digits }}{% else %}آزمون نزدیکی ثبت نشده است{% endif %}</p>
+                    <p>{% if next_exam %}{{ next_exam.title|fa_digits }} · {{ next_exam.course|fa_digits }} - {{ next_exam.teacher|fa_digits }} · شروع: {{ next_exam.start_date|fa_digits }}، ساعت {{ next_exam.start_time|fa_digits }}{% else %}آزمون منتشرشده‌ای برای روزهای آینده ثبت نشده است.{% endif %}</p>
                 {% endwith %}
             </div>
-            <div class="countdown"><span>۲ ساعت و ۳۵ دقیقه تا شروع</span><small>{% if upcoming.0 %}{{ upcoming.0.start_date|fa_digits }}، {{ upcoming.0.start_time|fa_digits }}{% else %}-{% endif %}</small></div>
             <a class="users-secondary-action" href="{% url 'core:super_admin_calendar' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>مشاهده برنامه</a>
         </section>
+    </div>
+
+    <div class="users-modal" id="examApproveModal" aria-hidden="true">
+        <div class="users-modal-backdrop" data-close-approve></div>
+        <form method="post" class="users-modal-panel exam-approve-panel" role="dialog" aria-modal="true" aria-labelledby="examApproveTitle" aria-describedby="examApproveText" data-approve-form>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="button" class="users-modal-close" data-close-approve aria-label="بستن">×</button>
+            <span class="exam-approve-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></span>
+            <h2 id="examApproveTitle">تأیید آزمون</h2>
+            <p id="examApproveText" data-approve-question>آیا از تأیید آزمون «<b data-approve-name></b>» مطمئن هستید؟ پس از تأیید، آزمون برای دانشجویان منتشر می‌شود (یا اگر زمان انتشار تعیین شده باشد، در همان زمان منتشر خواهد شد).</p>
+            <p class="exam-approve-error" role="alert" data-approve-error hidden></p>
+            <footer>
+                <button type="button" class="users-secondary-action" data-close-approve>انصراف</button>
+                <button type="submit" class="users-primary-action" data-approve-submit>تأیید آزمون</button>
+                <a class="users-primary-action" href="#" data-approve-edit hidden>ویرایش آزمون</a>
+            </footer>
+        </form>
     </div>
 
     <div class="exam-create-modal" data-exam-create hidden>
@@ -281,6 +313,58 @@
         questionList.querySelectorAll('[data-question-option]').forEach((item) => { item.hidden = q && !item.dataset.search.includes(q); });
     });
     questionList?.addEventListener('change', refreshCount);
+    const approveModal = document.getElementById('examApproveModal');
+    const approveForm = approveModal?.querySelector('[data-approve-form]');
+    let approveOpener = null;
+    const closeApprove = () => {
+        if (!approveModal?.classList.contains('is-open')) return;
+        approveModal.classList.remove('is-open');
+        approveModal.setAttribute('aria-hidden', 'true');
+        approveOpener?.focus();
+    };
+    const approveSubmit = approveForm?.querySelector('[data-approve-submit]');
+    const approveError = approveForm?.querySelector('[data-approve-error]');
+    const approveEdit = approveForm?.querySelector('[data-approve-edit]');
+    const showApproveError = (text, editUrl = '') => {
+        approveError.textContent = text;
+        approveError.hidden = !text;
+        approveEdit.hidden = !editUrl;
+        if (editUrl) approveEdit.href = editUrl;
+        approveSubmit.hidden = Boolean(editUrl);
+        approveForm.querySelector('[data-approve-question]').hidden = Boolean(editUrl);  // blocked: only say why
+    };
+    document.querySelectorAll('[data-approve-url]').forEach((item) => item.addEventListener('click', () => {
+        approveOpener = item;
+        approveForm.action = item.dataset.approveUrl;
+        approveForm.querySelector('[data-approve-name]').textContent = item.dataset.approveTitle || '';
+        approveSubmit.disabled = false;
+        approveSubmit.textContent = 'تأیید آزمون';
+        // an exam that can't be published yet (e.g. no questions) says why and offers «ویرایش آزمون» instead
+        showApproveError(item.dataset.approveBlocker || '', item.dataset.approveBlocker ? item.dataset.editUrl : '');
+        approveModal.classList.add('is-open');
+        approveModal.setAttribute('aria-hidden', 'false');
+        (approveSubmit.hidden ? approveEdit : approveSubmit).focus();
+    }));
+    approveModal?.querySelectorAll('[data-close-approve]').forEach((item) => item.addEventListener('click', closeApprove));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeApprove(); });
+    approveForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (approveSubmit.disabled) return;
+        approveSubmit.disabled = true;
+        approveSubmit.textContent = 'در حال تأیید…';
+        showApproveError('');
+        let payload = {};
+        try {
+            const response = await fetch(approveForm.action, {method: 'POST', body: new FormData(approveForm), headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'});
+            payload = await response.json().catch(() => ({}));
+            if (response.ok && payload.ok) { location.reload(); return; }
+        } catch (error) {
+            payload = {message: 'ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید.'};
+        }
+        approveSubmit.disabled = false;
+        approveSubmit.textContent = 'تأیید آزمون';
+        showApproveError(payload.message || 'تأیید آزمون انجام نشد؛ دوباره تلاش کنید.', payload.message && payload.message.includes('سؤالی ندارد') ? approveOpener?.dataset.editUrl : '');
+    });
     form?.addEventListener('submit', async (event) => {
         event.preventDefault();
         const response = await fetch(location.href, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'XMLHttpRequest'}});

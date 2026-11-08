@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static core_extras %}
 
 {% block title %}صفحه اصلی | متاکوییز{% endblock %}
 {% block public_header %}{% endblock %}
@@ -577,7 +577,7 @@
     </footer>
 
     <div class="landing-footer-bottom">
-        <span>© ۲۰۲۶ متاکوییز، تمامی حقوق محفوظ است.</span>
+        <span>© {% jalali_year %} متاکوییز، تمامی حقوق محفوظ است.</span>
         <div><a href="#">حریم خصوصی</a><a href="#">قوانین و شرایط</a></div>
     </div>
 

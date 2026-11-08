@@ -10,7 +10,7 @@
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=auth-card-mask-fix-20260827c">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261105">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261108r">
 </head>
 <body class="auth-page">
     <main class="auth-card">
@@ -37,15 +37,15 @@
                 {% endif %}
                 {% if messages %}
                     {% for message in messages %}
-                        <div class="auth-error">{{ message }}</div>
+                        <div class="{% if message.tags == 'success' or message.tags == 'info' %}auth-code-alert{% else %}auth-error{% endif %}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>
                     {% endfor %}
                 {% endif %}
 
                 <h1 id="login-title">ورود</h1>
 
                 <label class="auth-field">
-                    <span>نام کاربری</span>
-                    <input type="text" dir="ltr" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" placeholder="نام کاربری خود را وارد کنید" required>
+                    <span>نام کاربری یا ایمیل</span>
+                    <input type="text" dir="ltr" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" placeholder="نام کاربری، ایمیل یا شماره دانشجویی" required>
                 </label>
 
                 <label class="auth-field">

@@ -48,7 +48,7 @@
     .table-footer{display:flex;align-items:center;justify-content:space-between;padding:1rem;color:#53617b;font-weight:850}.pager{display:flex;gap:.45rem}.pager button,.pager b{display:grid;min-width:2.35rem;height:2.35rem;place-items:center;border:1px solid #d4dfef;border-radius:.6rem;background:#fff;cursor:pointer}.pager b{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border:0;cursor:default}.pager select{height:2.35rem;border:1px solid #d4dfef;border-radius:.6rem;background:#fff;padding:0 .5rem}
     .footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.footer div{display:flex;gap:.8rem}.btn-primary,.btn-secondary{display:inline-flex;height:3.2rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.78rem;padding:0 1.35rem;font-weight:950;cursor:pointer}.btn-primary{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.btn-secondary{border:1px solid #cbd9ec;background:#fff;color:#315cff}.btn-primary:disabled{opacity:.5;cursor:not-allowed}
     @media(max-width:1120px){.gc-layout,.student-layout,.excel-layout{grid-template-columns:1fr}.form-grid,.form-grid.two,.student-toolbar,.excel-stats,.excel-found-list{grid-template-columns:1fr 1fr}.gc-steps{max-width:none}}
-    @media(max-width:700px){.form-grid,.form-grid.two,.student-toolbar,.excel-stats,.excel-found-list{grid-template-columns:1fr}.footer,.footer div{flex-direction:column;align-items:stretch}.btn-primary,.btn-secondary{width:100%}.gc-top-row{flex-direction:column}}
+    @media(max-width:700px){.form-grid,.form-grid.two,.student-toolbar,.excel-stats,.excel-found-list{grid-template-columns:1fr}.footer,.footer div{flex-direction:column;align-items:stretch}.btn-primary,.btn-secondary{width:100%}.gc-top-row{flex-direction:column}.unit-box{flex-wrap:wrap;gap:.6rem 1rem;padding:.75rem .85rem}.unit-box div{min-width:0}.unit-box strong{white-space:nowrap}}
 </style>
 
 <section class="super-admin-page super-admin-workspace group-create" dir="rtl" data-fixed-scroll-page>
@@ -483,5 +483,5 @@
     setStep(1);
 })();
 </script>
-<script type="module" src="{% static 'js/jalali-datepicker.js' %}"></script>
+<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108"></script>
 {% endblock %}

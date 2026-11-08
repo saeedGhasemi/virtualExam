@@ -43,6 +43,120 @@ pre { max-width: 100%; overflow-x: auto; }
 /* ---------- User profile (student) ---------- */
 .student-profile-grid > *, .student-profile-aside > *, .student-profile-tab-layout > * { min-width: 0; }
 .student-profile-card { overflow-wrap: anywhere; }
+.student-course-cards, .student-exam-cards { grid-template-columns: minmax(0, 1fr); }
+/* course / exam rows are a fixed ~840px grid: below wide desktops they wrap (icon + title row, then the values) */
+@media (max-width: 1439px) {
+  .student-course-cards article, .student-exam-cards article { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  .student-course-cards article > *, .student-exam-cards article > * { order: 0; min-width: 0; }
+  .student-course-cards article > em, .student-exam-cards article > em { flex: none; order: -1; }
+  .student-course-title, .student-exam-title { flex: 1 1 calc(100% - 80px); }
+  .student-course-units, .student-course-state, .student-exam-cards article > div:not(.student-exam-title) { flex: 1 1 88px; }
+  .student-course-progress { flex: 2 1 160px; }
+  .student-exam-status { flex: none; }
+  .student-course-cards article > a, .student-exam-cards article > a { flex: 1 1 100%; }
+}
+/* ---------- Teacher profile edit (super-admin): 3 fixed columns and an LTR hero had no smaller layout ---------- */
+@media (max-width: 1100px) {
+  .teacher-edit-grid { grid-template-columns: minmax(0, 1fr); }
+  .teacher-edit-card { min-height: 0; }
+}
+@media (max-width: 760px) {
+  .teacher-edit-hero { grid-template-columns: minmax(0, 1fr); direction: rtl; justify-items: center; gap: 12px; padding: 20px 16px; text-align: center; }
+  .teacher-edit-hero-copy { text-align: center; }
+  .teacher-edit-card { padding: 18px 16px; }
+  .teacher-edit-submitbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 16px; }
+  .teacher-edit-save, .teacher-edit-submitbar > a { min-width: 0; width: 100%; }
+  .teacher-edit-submitbar > span { margin-right: 0; justify-content: center; }
+  .teacher-edit-submitbar small { justify-content: center; }
+}
+@media (max-width: 420px) {
+  .teacher-edit-row.two { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
+/* ---------- Manager access (super-admin): the permission matrix pushed its card past the screen on phones ---------- */
+.manager-access-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) { .manager-access-grid { grid-template-columns: 290px minmax(0, 1fr); } .manager-access-left { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); } }
+@media (min-width: 1700px) { .manager-access-grid { grid-template-columns: 290px minmax(0, 1fr) 420px; } .manager-access-left { grid-column: auto; grid-template-columns: minmax(0, 1fr); } }
+.manager-access-grid > * { min-width: 0; }
+.manager-access-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 20px; }
+.manager-access-title { min-width: 0; }
+@media (max-width: 760px) {
+  .manager-access-title { border-right: 0; padding-right: 0; justify-self: auto; }
+  .manager-access-title h1 { font-size: 1.45rem; line-height: 1.5; }
+  .manager-access-actions { width: 100%; }
+  .manager-access-actions > * { flex: 1 1 auto; justify-content: center; }
+}
+@media (max-width: 560px) {
+  .manager-access-card { padding: 14px 12px; }
+  .manager-access-table th { padding: 8px 2px; font-size: 10.5px; text-align: center; }
+  .manager-access-table td { padding: 6px 2px; }
+  .manager-access-table td:first-child { gap: 4px; font-size: 12px; }
+  .manager-access-module-icon { display: none; }
+  .manager-access-check, .manager-access-check span, .manager-access-dash { width: 28px; height: 28px; }
+}
+
+/* ---------- Teacher courses (super-admin): fixed 190px + hero row and 4 stat columns at every width ---------- */
+.teacher-course-actions a { white-space: nowrap; }
+@media (max-width: 1100px) {
+  .teacher-course-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .teacher-course-topline { grid-template-columns: minmax(0, 1fr); gap: 12px; direction: rtl; }
+  .teacher-course-topline > .teacher-course-hero { order: -1; padding: 18px 16px; }
+  .teacher-course-add { margin-top: 0; width: 100%; }
+  .teacher-course-hero-id { gap: 14px; }
+  .teacher-course-avatar { width: 4.5rem; height: 4.5rem; flex: none; }
+  .teacher-course-hero h1 { font-size: 1.25rem; }
+  .teacher-course-stats article { padding: 14px 16px 14px 72px; min-height: 0; }
+  .teacher-course-stats em { left: 14px; top: 14px; }
+  .teacher-course-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .teacher-course-actions a { white-space: nowrap; }
+}
+@media (max-width: 420px) {
+  .teacher-course-stats { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* manager edit: the redesign pins a 170px avatar column at every width, which left ~40px for the fields on phones */
+@media (max-width: 560px) {
+  .manager-edit-redesign .manager-edit-personal-grid { grid-template-columns: minmax(0, 1fr); justify-items: stretch; }
+  .manager-edit-redesign .manager-edit-avatar { justify-self: center; }
+}
+
+/* ---------- Manager profile: input.css pins 290px + 2 columns at every width (beats its own xl: rules) ---------- */
+.manager-profile-avatar { overflow: hidden; }
+.manager-profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.user-profile-page--manager .user-profile-stats article { padding-left: 80px; }
+.manager-permission-chips { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+@media (max-width: 1699px) {
+  .manager-status-layout { grid-template-columns: minmax(0, 1fr); }
+  .manager-chart { border-right: 0; padding-right: 0; height: 11rem; margin-bottom: 1.5rem; }
+}
+@media (max-width: 1279px) {
+  .user-profile-page--manager .manager-profile-grid { grid-template-columns: minmax(0, 1fr); }
+  .user-profile-page--manager .manager-profile-sidecard { min-height: 0; }
+}
+@media (max-width: 900px) {
+  .user-profile-page--manager .manager-profile-main { grid-template-columns: minmax(0, 1fr); }
+  .user-profile-page--manager .manager-profile-card { min-height: 0; }
+  .user-profile-page--manager .user-profile-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 380px) {
+  .user-profile-page--manager .user-profile-stats { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1279px) {
+  .student-activity-panel { max-width: 100%; }
+  .student-activity-filters { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .student-activity-filters > * { min-width: 0; }
+}
+@media (max-width: 900px) {
+  .student-activity-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 4px; }
+  .student-activity-list article > * { order: 0; }
+  .student-activity-list strong { grid-column: 1; grid-row: 1; }
+  .student-activity-list b { grid-column: 2; grid-row: 1; }
+  .student-activity-list small { grid-column: 1 / -1; grid-row: 2; text-align: right; }
+  .student-activity-list time { grid-column: 1; grid-row: 3; }
+  .student-activity-list article > span { grid-column: 2; grid-row: 3; justify-self: end; }
+}
 
 /* ---------- Student profile edit ---------- */
 @media (max-width: 760px) {
@@ -134,8 +248,10 @@ pre { max-width: 100%; overflow-x: auto; }
 
 /* ---------- Small phones (≤420px) ---------- */
 .gc-layout > *, .group-filters > *, .users-feature-strip > * { min-width: 0; }
-@media (max-width: 420px) {
+@media (max-width: 640px) {
   .users-table-footer { grid-template-columns: minmax(0, 1fr); justify-items: center; row-gap: .5rem; }
+}
+@media (max-width: 420px) {
   .users-feature-profile { flex-wrap: wrap; min-width: 0; }
   .group-filters, .gc-layout { grid-template-columns: minmax(0, 1fr); }
 }
@@ -200,9 +316,102 @@ pre { max-width: 100%; overflow-x: auto; }
   body .settings-panel .color-row { grid-template-columns: minmax(0, 1fr) 7.5rem; }
   body .settings-panel .color-row .swatches { grid-column: 1 / -1; flex-wrap: wrap; }
 }
+/* small desktops: next to the summary card, 3 card columns still squeezed labels into 4 lines and pushed the swatches out */
+@media (min-width: 1181px) and (max-width: 1599px) {
+  body .settings-card-grid.settings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body .settings-card-grid > * { grid-column: auto !important; grid-row: auto !important; min-width: 0; }
+  body .settings-card-grid > .exam-panel { grid-column: 1 / -1 !important; }
+  body .settings-panel .color-row { grid-template-columns: minmax(0, 1fr) 7.5rem; }
+  body .settings-panel .color-row .swatches { grid-column: 1 / -1; flex-wrap: wrap; }
+}
 @media (max-width: 760px) {
   body .settings-card-grid.settings-card-grid { grid-template-columns: minmax(0, 1fr) !important; }
 }
+/* fill-blank rows (question builder): 7 columns need ~800px; the card is narrower at 721–900px and next to the
+   side card at 1101–1279px → use the stacked row there too, and show the checkbox labels (the header is hidden) */
+@media (max-width: 900px), (min-width: 1101px) and (max-width: 1279px) {
+  .qb-card .qb-table-head { display: none; }
+  .qb-card .qb-blank { grid-template-columns: 2.4rem minmax(0, 1fr) minmax(0, 1fr); row-gap: .5rem; }
+  .qb-card .qb-blank > input[data-blank-answers] { grid-column: 2 / -1; grid-row: 1; }
+  .qb-card .qb-blank > .qb-mini { grid-column: 2; grid-row: 2; width: 100%; }
+  .qb-card .qb-blank > label:has([data-blank-case]) { grid-column: 3; grid-row: 2; }
+  .qb-card .qb-blank > .qf-media, .qb-card .qb-blank > .qf-media > .qf-media-buttons { grid-column: 2; grid-row: 3; min-width: 0; }
+  .qb-card .qb-blank .qf-media-buttons { display: flex; flex-direction: row; gap: .35rem; }
+  .qb-card .qb-blank > label:has([data-blank-spaces]) { grid-column: 3; grid-row: 3; }
+  .qb-card .qb-blank > [data-remove-row] { grid-column: 1; grid-row: 2; }
+  .qb-card .qb-blank .qf-media-buttons { justify-content: flex-start; flex-wrap: wrap; }
+}
+@media (max-width: 1279px) {
+  .qb-blank label[title] { justify-content: flex-start; align-items: center; gap: .4rem; color: #475569; font-size: .72rem; font-weight: 800; }
+  .qb-blank label[title]::after { content: attr(title); }
+}
+@media (min-width: 1280px), (min-width: 901px) and (max-width: 1100px) {
+  .qb-blank label[title]::after { content: none; }
+}
+/* exam list code pill: card tables break words anywhere, which split «کد» letter by letter */
+.texams-code-pill, .texams-code-pill * { overflow-wrap: normal !important; word-break: keep-all; }
+.texams-code-pill small { flex: none; }
+/* next to the side card (1101–1279px) the rubric + its grading aside were 2 narrow columns → stack like ≤1100px */
+@media (max-width: 1279px) { .qb-card .qb-essay-rubric { grid-template-columns: minmax(0, 1fr); } }
+/* essay rubric (question builder): 5 input columns left ~40px per input on phones → one block per criterion */
+@media (max-width: 600px) {
+  .qb-essay-rubric .qb-rubric thead { display: none; }
+  .qb-essay-rubric .qb-rubric, .qb-essay-rubric .qb-rubric tbody, .qb-essay-rubric .qb-rubric tfoot { display: block; width: 100%; }
+  .qb-essay-rubric .qb-rubric tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; padding: .6rem; border-top: 1px solid var(--qb-line, #e2e8f0); }
+  .qb-essay-rubric .qb-rubric tbody tr:first-child { border-top: 0; }
+  .qb-essay-rubric .qb-rubric tbody td { display: block; padding: 0; border: 0; min-width: 0; }
+  .qb-essay-rubric .qb-rubric tbody td:first-child { grid-column: 1 / -1; }
+  .qb-essay-rubric .qb-rubric tbody td::before { display: block; margin-bottom: .2rem; color: #475569; font-size: .68rem; font-weight: 900; }
+  .qb-essay-rubric .qb-rubric tbody td:nth-child(1)::before { content: "معیار"; }
+  .qb-essay-rubric .qb-rubric tbody td:nth-child(2)::before { content: "عملکرد ضعیف"; }
+  .qb-essay-rubric .qb-rubric tbody td:nth-child(3)::before { content: "عملکرد متوسط"; }
+  .qb-essay-rubric .qb-rubric tbody td:nth-child(4)::before { content: "عملکرد عالی"; }
+  .qb-essay-rubric .qb-rubric tbody td:nth-child(5)::before { content: "نمره"; }
+  .qb-essay-rubric .qb-rubric tbody td input { width: 100%; }
+  .qb-essay-rubric .qb-rubric tfoot tr { display: flex; justify-content: space-between; }
+  .qb-essay-rubric .qb-rubric tfoot td { border-top: 1px solid var(--qb-line, #e2e8f0); }
+  .qb-essay-rubric .qb-rubric tfoot td:first-child { flex: 1; }
+}
+/* settings tab bar (settings / org units / academic terms): a fixed 52px, overflow-hidden box, so on phones the
+   tabs stacked into one column and only the first was visible → 3 compact columns, icon over label */
+@media (max-width: 1100px) {
+  body .settings-tabs.settings-tabs { height: auto !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: .35rem !important; }
+  body .settings-tabs.settings-tabs > * { min-width: 0; }
+}
+@media (max-width: 760px) {
+  body .settings-tabs.settings-tabs a { flex-direction: column; gap: .2rem !important; min-height: 3.6rem !important; padding: .35rem .25rem; font-size: .74rem !important; line-height: 1.35; text-align: center; white-space: normal; }
+}
+/* teacher dashboard chart: bars kept their label width (flex min-width:auto), so the last bars fell out of the card */
+.tdash-chart-plot, .tdash-bar { min-width: 0; }
+/* hotspot builder: the 3 shape buttons (min 5.4rem each) overflowed small phones */
+@media (max-width: 420px) {
+  .qb2-hot-shapes { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .qb2-hot-shapes button { min-width: 0 !important; padding: .45rem .3rem; }
+}
+/* matrix question builder on phones: 8rem column headers left ~35px for the row names and cut the 2nd column */
+@media (max-width: 560px) {
+  [data-matrix-table] th, [data-matrix-table] td { padding: .3rem .2rem; }
+  .qb2-matrix[data-matrix-table] th .qb2-col { min-width: 4.4rem; }
+  [data-matrix-table] input[type=text] { width: 100%; min-width: 0; padding-inline: .4rem; }
+  [data-matrix-table] .qb2-col input[type=text] { width: 4.4rem; flex: 1 1 4.4rem; }
+  [data-matrix-table] tr > :first-child { width: 5.6rem; min-width: 5.6rem; }
+  [data-matrix-table] th { font-size: .66rem; }
+  .qb2-matrix[data-matrix-table] select { min-width: 3.3rem; padding-inline: .3rem; }
+  .qb2-matrix[data-matrix-table] th .qb2-col { min-width: 4.2rem; }
+  [data-matrix-table] tr > :first-child { width: 5rem; min-width: 5rem; }
+}
+/* teacher's student profile: on phones the 112px portrait sat beside the facts and left them ~137px (number cut) */
+@media (max-width: 600px) {
+  .tstu-hero-body { flex-direction: column; align-items: stretch; gap: 16px; }
+  .tstu-hero-body > .tstu-portrait { order: -1; }
+  .tstu-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+  .tstu-facts > div.is-code { grid-column: 1 / -1; grid-row: auto; text-align: center; }
+  .tstu-facts .is-code dd { font-size: 1.6rem; }
+  .tstu-facts .is-code p { justify-content: center; }
+  .tstu-facts dd { white-space: normal; overflow-wrap: anywhere; }
+}
+/* teacher dashboard: the time next to the date broke mid-number in narrow cells */
+.tdash-time, .texams-time, table.rt-cards > tbody > tr > td > .tdash-time, table.rt-cards > tbody > tr > td > .texams-time { white-space: nowrap !important; overflow-wrap: normal; flex: none; display: inline-block; }
 
 /* ---------- User profile pages (student / teacher / manager) ----------
    The hero had a fixed 186px height; on tablets/phones its avatar + name spilled over the tabs below. */
@@ -375,6 +584,28 @@ form.sst > *, .sst-split > *, .sst-split.sst-split { min-width: 0; }
 @media (max-width: 1100px) { .tset-row.is-2:has(.tset-segment) { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- Question builder (phones) ---------- */
+/* tablets: the 4 equal footer buttons are ~150px, «ذخیره و سؤال بعدی» ran out of its button → let labels wrap */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .qb--v2 .qb-footer { gap: .6rem; }
+  .qb--v2 .qb-footer > * { min-width: 0; height: auto; min-height: 2.75rem; padding: .45rem .6rem; line-height: 1.35; white-space: normal; text-align: center; justify-content: center; }
+}
+/* audio/video answer rubric: same one-block-per-criterion layout as the essay rubric on phones */
+@media (max-width: 600px) {
+  [data-media-rubric] .qb-rubric thead { display: none; }
+  [data-media-rubric] .qb-rubric, [data-media-rubric] .qb-rubric tbody { display: block; width: 100%; }
+  [data-media-rubric] .qb-rubric tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: .45rem; padding: .6rem; border-top: 1px solid var(--qb-line, #e2e8f0); }
+  [data-media-rubric] .qb-rubric tbody tr:first-child { border-top: 0; }
+  [data-media-rubric] .qb-rubric tbody td { display: block; padding: 0; border: 0; min-width: 0; }
+  [data-media-rubric] .qb-rubric tbody td:nth-child(1), [data-media-rubric] .qb-rubric tbody td:nth-child(2) { grid-column: 1 / -1; }
+  [data-media-rubric] .qb-rubric tbody td:nth-child(5) { align-self: end; }
+  [data-media-rubric] .qb-rubric tbody td::before { display: block; margin-bottom: .2rem; color: #475569; font-size: .68rem; font-weight: 900; }
+  [data-media-rubric] .qb-rubric tbody td:nth-child(1)::before { content: "معیار"; }
+  [data-media-rubric] .qb-rubric tbody td:nth-child(2)::before { content: "توضیحات"; }
+  [data-media-rubric] .qb-rubric tbody td:nth-child(3)::before { content: "حداکثر نمره"; }
+  [data-media-rubric] .qb-rubric tbody td:nth-child(4)::before { content: "نوع نمره‌دهی"; }
+  [data-media-rubric] .qb-rubric tbody td input, [data-media-rubric] .qb-rubric tbody td select { width: 100%; }
+  [data-media-rubric] .qb2-table-wrap { overflow: visible; }
+}
 @media (max-width: 760px) {
   /* bottom actions: primary on its own row, the rest in an even 2-column grid (was a ragged staircase) */
   .qb .qb-footer.qb-footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
@@ -476,3 +707,18 @@ a.sap-btn.sap-btn:not(.is-outline):not(.is-danger) { color: #fff; }
 @media (max-width: 760px) { body .super-admin-chrome .super-admin-rail.super-admin-rail { display: none !important; } }
 /* question builder: the long «درج جای خالی در محل نشانگر» button wraps instead of sticking out of its card */
 .qb .qb-insert-blank { max-width: 100%; white-space: normal; text-align: center; height: auto; min-height: 2.5rem; }
+/* Absolutely positioned bits inside the scrolling main area (e.g. the hidden checkbox of a switch) were laid out
+   against the whole page, so the document grew taller than the screen: a second scrollbar, the topbar scrolled away
+   and the content slid under it. The main area (and each switch) is their containing block now. */
+.app-shell > .app-main { position: relative; }
+.tset-switch-control { position: relative; }
+/* settings pages: save / cancel is a plain row at the end of the form, not a bar floating over the content */
+.tset-footer.tset-footer { position: static; padding: 0; border: 0; background: transparent; box-shadow: none; }
+/* pages without .app-shell (system settings, academic terms, org units) scroll the whole document; keep their topbar
+   on screen like every other panel page (phones keep the scrolling topbar, as everywhere) */
+@media (min-width: 761px) {
+  body > .super-admin-chrome { position: sticky; top: 0; z-index: 60; }
+  /* their page styles give <body> overflow:auto, which makes it a scroll box that never scrolls and so disables sticky;
+     clip only cuts sideways overflow without creating a scroll box */
+  html body:has(> .super-admin-chrome) { overflow-x: clip !important; overflow-y: visible !important; }
+}

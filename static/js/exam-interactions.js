@@ -21,7 +21,7 @@
  *   ExamInteractions.playback(media, { maxPlays, start, end, storageKey })
  *     audio/video stimulus rules in the browser: play count (0 = unlimited) and the allowed [start, end] seconds.
  *     The count survives reloads via localStorage when storageKey is given. This is a client-side limit only.
- *   ExamInteractions.recorder(box, { kind, maxSeconds, maxBytes, wavRate, onRecorded, onError, onState })
+ *   ExamInteractions.recorder(box, { kind, maxSeconds, maxBytes, wavRate, keepCompressed, onRecorded, onError, onState, onCancel })
  *     in-browser audio/video recording (student answers and the question builder). Inside box: [data-record-toggle]
  *     buttons start/stop, [data-record-wave] canvas shows the live input level, [data-record-time] the clock
  *     («mm:ss / max»), [data-record-live] holds the camera preview, [data-record-label] the toggle's text.
@@ -326,7 +326,7 @@
 
   // States reported through onState(state, text) and shown in [data-record-status]:
   // idle, asking, recording, processing, error (the page adds its own: uploading, saved).
-  const recorder = (box, { kind = 'audio', maxSeconds = 0, maxBytes = 0, wavRate = 16000, onRecorded = () => {}, onError = () => {}, onState = () => {} } = {}) => {
+  const recorder = (box, { kind = 'audio', maxSeconds = 0, maxBytes = 0, wavRate = 16000, keepCompressed = true, onRecorded = () => {}, onError = () => {}, onState = () => {}, onCancel = () => {} } = {}) => {
     const supported = !!(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
     const toggles = [...box.querySelectorAll('[data-record-toggle]')];
     const wave = box.querySelector('[data-record-wave]');
@@ -344,6 +344,11 @@
     let ticker = 0;
     let seconds = 0;
     let busy = false;
+    let processing = false;
+    let recordedBytes = 0;
+    // stop() while the microphone/camera is still being opened (the button reads «لغو» then): nothing is recorded,
+    // so an earlier take is never replaced by an empty one.
+    let cancelStart = false;
 
     const setState = (state, text = '') => {
       box.dataset.recordState = state;
@@ -407,7 +412,14 @@
       setState('processing', 'در حال آماده‌سازی فایل ضبط‌شده...');
       let name = `recording-${Date.now()}`;
       if (kind === 'audio' && wavRate) {
-        try { blob = await toWav(blob, wavRate); name += '.wav'; } catch (error) { name += `.${extension}`; }
+        // WAV plays and seeks everywhere, but is ~10x larger: a long take that would pass the size limit as WAV
+        // is kept in the browser's compressed format instead of being lost.
+        try {
+          const wav = await toWav(blob, wavRate);
+          if (keepCompressed && maxBytes && wav.size > maxBytes) throw new Error('wav too large');
+          blob = wav;
+          name += '.wav';
+        } catch (error) { name += `.${extension}`; }
       } else {
         name += `.${extension}`;
       }
@@ -420,16 +432,31 @@
     };
     let startedAt = 0;
     const stop = () => {
-      if (!media || media.state !== 'recording') return;
+      if (!media || media.state !== 'recording') {
+        if (busy && !processing && !media) cancelStart = true;
+        return;
+      }
       const early = 1000 - (performance.now() - startedAt);
       if (early > 0) { setTimeout(stop, early); return; }  // at least one second, never an empty take
       try { media.requestData(); } catch (error) { /* not supported: stop() still flushes */ }
       media.stop();
     };
     const start = async () => {
-      if (media || busy) return;
+      if (media || busy || processing) return;
       if (!supported) { fail(recordUnsupported()); return; }
       busy = true;
+      cancelStart = false;
+      labels.forEach((label) => { label.textContent = 'لغو'; });
+      const cancelled = () => {
+        if (!cancelStart) return false;
+        cancelStart = false;
+        busy = false;
+        release();
+        setRecording(false);
+        setState('idle', '');
+        onCancel();
+        return true;
+      };
       // Created inside the click (a user gesture) so the browser lets it run: the live level needs it.
       try {
         const Context = window.AudioContext || window.webkitAudioContext;
@@ -438,8 +465,17 @@
       } catch (error) { audioContext = null; }
       setState('asking', kind === 'video' ? 'در حال درخواست دسترسی به دوربین و میکروفون؛ در پنجره‌ی مرورگر «اجازه» را بزنید.' : 'در حال درخواست دسترسی به میکروفون؛ در پنجره‌ی مرورگر «اجازه» را بزنید.');
       let silentVideo = false;
+      const constraints = kind === 'video' ? { audio: true, video: true } : { audio: true };
       try {
-        stream = await navigator.mediaDevices.getUserMedia(kind === 'video' ? { audio: true, video: true } : { audio: true });
+        // A device released a moment ago (an earlier or cancelled take) may still report busy / missing: retry twice.
+        for (let attempt = 0; !stream; attempt += 1) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+          } catch (error) {
+            if (attempt >= 2 || cancelStart || !['NotReadableError', 'AbortError', 'NotFoundError'].includes(error?.name)) throw error;
+            await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+          }
+        }
       } catch (error) {
         // A camera without a microphone (common on desktops) still records a silent video.
         if (kind === 'video' && ['NotFoundError', 'OverconstrainedError', 'NotReadableError'].includes(error?.name)) {
@@ -449,10 +485,13 @@
           busy = false;
           if (audioContext) audioContext.close?.();
           audioContext = null;
+          setRecording(false);
           fail(recordError(error, kind));
+          if (cancelStart) { cancelStart = false; onCancel(); }
           return;
         }
       }
+      if (cancelled()) return;
       if (kind === 'video') {
         // Cameras need a moment before the first frame; recording before that gives an empty file.
         setState('asking', 'در حال آماده‌سازی دوربین...');
@@ -467,6 +506,7 @@
           setTimeout(ready, 3000);
         });
         await new Promise((resolve) => setTimeout(resolve, 200));
+        if (cancelled()) return;
       }
       if (audioContext && stream.getAudioTracks().length) {
         try {
@@ -480,12 +520,15 @@
       if (kind === 'video') options.videoBitsPerSecond = 1000000;
       const chunks = [];
       try { media = new MediaRecorder(stream, options); } catch (error) {
-        try { media = new MediaRecorder(stream); } catch (second) { busy = false; release(); fail(recordError(second, kind)); return; }
+        try { media = new MediaRecorder(stream); } catch (second) { busy = false; release(); setRecording(false); fail(recordError(second, kind)); return; }
       }
       const current = media;
       let lateData = null;
       current.addEventListener('dataavailable', (event) => {
         if (event.data.size) chunks.push(event.data);
+        recordedBytes += event.data.size || 0;
+        // Stop on time before the file passes the upload limit (a take over it could not be saved).
+        if (maxBytes && recordedBytes > maxBytes * 0.95 && current.state === 'recording') stop();
         if (lateData && chunks.length) lateData();
       });
       current.addEventListener('error', (event) => fail(recordError(event.error, kind)));
@@ -498,10 +541,12 @@
         media = null;
         busy = false;
         release();
-        finish(chunks, usedType);
+        processing = true;
+        try { await finish(chunks, usedType); } finally { processing = false; }
       });
       levels = [];
       seconds = 0;
+      recordedBytes = 0;
       showTime();
       current.start(250);
       startedAt = performance.now();
@@ -522,7 +567,7 @@
       drawWave();
       setState('idle', '');
     };
-    toggles.forEach((button) => button.addEventListener('click', () => (media ? stop() : start())));
+    toggles.forEach((button) => button.addEventListener('click', () => (media || busy ? stop() : start())));  // «لغو» while starting
     if (!supported) {
       // Not hidden: the user sees why recording is unavailable here (and can still upload a file).
       box.classList.add('is-unsupported');
@@ -531,7 +576,8 @@
     showTime();
     if ('ResizeObserver' in window && wave) new ResizeObserver(drawWave).observe(wave);
     drawWave();
-    return { start, stop, reset, supported, setState };
+    // isBusy: recording, or a take still being turned into a file (navigating away now would lose it).
+    return { start, stop, reset, supported, setState, isBusy: () => !!media || busy || processing, isRecording: () => !!media && media.state === 'recording' };
   };
 
 

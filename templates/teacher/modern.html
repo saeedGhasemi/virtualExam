@@ -50,21 +50,20 @@
             <section class="teacher-panel">
                 <header><h2>اعلان‌های اخیر</h2></header>
                 <div class="teacher-feed">
-                    <article><b>پاسخ جدید در آزمون مبانی مدیریت ثبت شد.</b><span>۵ دقیقه پیش</span></article>
-                    <article><b>مهلت ارسال پروژه گروهی تا ۱۴۰۳/۰۳/۲۲ تمدید شد.</b><span>دیروز</span></article>
-                    <article><b>آزمون تحلیل آماری برای ۱۰:۰۰ برنامه‌ریزی شد.</b><span>۱۴۰۳/۰۳/۲۴</span></article>
-                    <article><b>۷ سؤال جدید به بانک سؤالات درس رفتار سازمانی اضافه شد.</b><span>۱۴۰۳/۰۳/۲۴</span></article>
+                    {% for item in announcements %}
+                        <article><b>{% if item.link %}<a href="{{ item.link }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}{% if item.message %} — {{ item.message }}{% endif %}</b><span>{{ item.time_label }}</span></article>
+                    {% empty %}
+                        <article><b>اعلانی برای شما ثبت نشده است.</b></article>
+                    {% endfor %}
                 </div>
             </section>
             <aside class="teacher-panel">
                 <h2>کارها و مهلت‌ها</h2>
                 <div class="teacher-task-list">
-                    <span>تصحیح پاسخ‌های میان‌ترم مدیریت <b>۱۲</b></span>
-                    <span>بررسی درخواست گروهی <b>۱۸</b></span>
-                    <span>تکمیل نظرات تکمیلی <b>۲۴</b></span>
-                    <span>بارگذاری منابع فصل ۶ <b>۰</b></span>
+                    {% for task in announcement_tasks %}
+                        <span><a href="{{ task.url }}">{{ task.label }}</a> <b>{{ task.count }}</b></span>
+                    {% endfor %}
                 </div>
-                <button class="teacher-primary">کار جدید +</button>
             </aside>
         </div>
     {% elif page == 'courses' %}
@@ -633,7 +632,7 @@
                                     <td>{{ exam.question_count|fa_digits }}</td>
                                     <td>{{ exam.submitted|fa_digits }}{% if exam.assigned %} / {{ exam.assigned|fa_digits }}{% endif %}</td>
                                     <td><span class="teacher-badge {{ exam.status_tone }}">{{ exam.status_label }}</span></td>
-                                    <td class="texams-actions"><span class="texams-action-row">{% if exam.editable %}<a href="{% url 'core:teacher_exam_edit' exam.id %}">ویرایش</a>{% endif %}{% if exam.is_running %}<a href="{% url 'core:teacher_monitoring' %}?exam={{ exam.id }}">پایش زنده</a>{% endif %}{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% endif %}{% if exam.has_results %}<a class="texams-results-link" href="{% url 'core:teacher_results' %}?exam={{ exam.id }}">نتایج و انتشار</a>{% endif %}{% if not exam.editable and not exam.pending_reviews and not exam.is_running and not exam.has_results %}<span class="texams-muted">-</span>{% endif %}</span></td>
+                                    <td class="texams-actions"><span class="texams-action-row"><a href="{% url 'core:teacher_exam_report' exam.id %}" title="مشخصات و گزارش آزمون">گزارش آزمون</a>{% if exam.editable %}<a href="{% url 'core:teacher_exam_edit' exam.id %}">ویرایش</a>{% endif %}{% if exam.is_running %}<a href="{% url 'core:teacher_monitoring' %}?exam={{ exam.id }}">پایش زنده</a>{% endif %}{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% endif %}{% if exam.has_results %}<a class="texams-results-link" href="{% url 'core:teacher_results' %}?exam={{ exam.id }}">نتایج و انتشار</a>{% endif %}</span></td>
                                 </tr>
                             {% endfor %}
                         </tbody>

@@ -22,7 +22,8 @@ from django.views.decorators.cache import never_cache
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login as auth_login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.views import LoginView
 from django.contrib.sessions.models import Session
 from django.conf import settings
@@ -36,7 +37,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string, salted_hmac
-from django.utils.html import format_html
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.html import format_html, strip_tags
 from django.utils.safestring import mark_safe
 
 from . import account_security, question_import_word, question_kinds
@@ -1182,6 +1184,7 @@ def erd_admin_dashboard_panel():
         today_exams_count = erd_count('exams', 'DATE(start_at) = CURRENT_DATE AND COALESCE(is_cancelled, false) = false')
     review_needed_count = erd_count('exams', "COALESCE(lifecycle_status, '') = 'pending_approval' AND COALESCE(is_cancelled, false) = false")
     pending_registrations_count = erd_count('profiles', "status = 'pending'")
+    pending_teachers_count = erd_count('profiles', "status = 'pending' AND id IN (SELECT user_id FROM teacher_profiles)")
     active_users_count = erd_count('profiles', "status = 'active'")
     exam_status_items = _exam_status_counts()
     account_items = [
@@ -1199,8 +1202,12 @@ def erd_admin_dashboard_panel():
             {'label': 'آزمون‌های امروز', 'value': today_exams_count, 'hint': 'با شروع امروز', 'tone': 'orange', 'icon': 'calendar'},
             {'label': 'کاربران فعال', 'value': active_users_count, 'hint': f'از {users_count} کاربر', 'tone': 'emerald', 'icon': 'users'},
             {'label': 'نیازمند بررسی', 'value': review_needed_count, 'hint': 'آزمون در انتظار تأیید', 'tone': 'red', 'icon': 'alert'},
-            {'label': 'درخواست‌های ثبت‌نام', 'value': pending_registrations_count, 'hint': 'در انتظار تأیید', 'tone': 'indigo', 'icon': 'shield',
-             'url': f'{reverse("core:super_admin_users")}?tab=students&status=pending'},
+            {'label': 'درخواست‌های ثبت‌نام', 'value': pending_registrations_count,
+             'hint': f'{pending_registrations_count - pending_teachers_count} دانشجو · {pending_teachers_count} استاد در انتظار تأیید'
+             if pending_teachers_count else 'در انتظار تأیید', 'tone': 'indigo', 'icon': 'shield',
+             # open the tab that has someone waiting (students first)
+             'url': f'{reverse("core:super_admin_users")}?tab='
+                    f'{"teachers" if pending_teachers_count and pending_teachers_count == pending_registrations_count else "students"}&status=pending'},
         ],
         'health_items': _system_health_items(),
         'exam_status_items': exam_status_items,
@@ -1598,55 +1605,64 @@ class SecureLoginView(LoginView):
 
 
 def register(request):
+    if request.user.is_authenticated:
+        return redirect('core:dashboard')
     if request.method == 'POST':
         form = PublicRegistrationForm(request.POST)
         if form.is_valid():
             role_code = form.cleaned_data['role']
-            username = form.cleaned_data.get('username') or form.cleaned_data.get('student_number') or form.cleaned_data['email'].split('@')[0]
+            email = form.cleaned_data['email']
+            number = form.cleaned_data.get('student_number') or ''
+            username = form.cleaned_data.get('username') or number or email.split('@')[0]
             base_username = username[:140] or 'user'
             suffix = 1
-            while User.objects.filter(username=username).exists():
+            while User.objects.filter(username__iexact=username).exists():
                 username = f'{base_username}-{suffix}'
                 suffix += 1
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=username,
-                    email=form.cleaned_data.get('email') or '',
-                    password=form.cleaned_data['password'],
-                    first_name=form.cleaned_data['full_name'],
-                    is_active=False,
-                )
-                profile_id = str(uuid.uuid4())
-                erd_execute(
-                    """
-                    INSERT INTO profiles (id, full_name, first_name, username, email, identifier, status, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, 'pending', now(), now())
-                    """,
-                    [
-                        profile_id,
-                        form.cleaned_data['full_name'],
-                        form.cleaned_data['full_name'],
-                        username,
-                        form.cleaned_data.get('email') or '',
-                        form.cleaned_data.get('student_number') or '',
-                    ],
-                )
-                erd_role = role_code if role_code in ('teacher', 'student') else 'student'
-                erd_execute(
-                    'INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, now())',
-                    [str(uuid.uuid4()), profile_id, erd_role],
-                )
-                if erd_role == 'teacher':
-                    erd_execute(
-                        'INSERT INTO teacher_profiles (user_id, personnel_code, approval_status) VALUES (%s, %s, %s)',
-                        [profile_id, form.cleaned_data.get('student_number') or '', 'pending'],
+            erd_role = role_code if role_code in ('teacher', 'student') else 'student'
+            try:
+                with transaction.atomic():
+                    user = User.objects.create_user(
+                        username=username,
+                        email=email,
+                        password=form.cleaned_data['password'],
+                        first_name=form.cleaned_data['full_name'],
+                        is_active=False,
                     )
-                else:
+                    profile_id = str(uuid.uuid4())
                     erd_execute(
-                        'INSERT INTO student_profiles (user_id, student_number, academic_status) VALUES (%s, %s, %s)',
-                        [profile_id, form.cleaned_data.get('student_number') or '', 'active'],
+                        """
+                        INSERT INTO profiles (id, full_name, first_name, username, email, identifier, status, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, 'pending', now(), now())
+                        """,
+                        [profile_id, form.cleaned_data['full_name'], form.cleaned_data['full_name'], username, email, number],
                     )
-            messages.success(request, 'ثبت‌نام شما با موفقیت ثبت شد. پس از تأیید مدیر سیستم می‌توانید وارد سامانه شوید.')
+                    erd_execute(
+                        'INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, now())',
+                        [str(uuid.uuid4()), profile_id, erd_role],
+                    )
+                    if erd_role == 'teacher':
+                        erd_execute(
+                            'INSERT INTO teacher_profiles (user_id, personnel_code, approval_status) VALUES (%s, %s, %s)',
+                            [profile_id, number, 'pending'],
+                        )
+                    else:
+                        erd_execute(
+                            'INSERT INTO student_profiles (user_id, student_number, academic_status) VALUES (%s, %s, %s)',
+                            [profile_id, number, 'active'],
+                        )
+                    account_security.mark_password_set(user, change_required=False)
+                    role_label = 'استاد' if erd_role == 'teacher' else 'دانشجو'
+                    review_url = f"{reverse('core:super_admin_users')}?tab={'teachers' if erd_role == 'teacher' else 'students'}&status=pending"
+                    for admin in erd_rows("SELECT DISTINCT user_id FROM user_roles WHERE role = 'admin'"):
+                        create_notification(admin['user_id'], f'ثبت‌نام جدید {role_label}',
+                                            f"«{form.cleaned_data['full_name']}» ({email}) ثبت‌نام کرده و منتظر تأیید است.", review_url)
+            except IntegrityError:  # the same form sent twice at once: the first one made the account
+                form.add_error(None, 'این حساب همین الان ثبت شد؛ پس از تأیید مدیر سامانه با ایمیل خود وارد شوید.')
+                return render(request, 'register.html', {'form': form})
+            log_activity(user, 'account_registered', f'ثبت‌نام عمومی به‌عنوان {role_label}', request, {'profile_id': profile_id})
+            login_hint = f'ایمیل ({email})' + (f' یا {"شماره دانشجویی" if erd_role == "student" else "کد پرسنلی"} ({number})' if number == username else '')
+            messages.success(request, f'ثبت‌نام شما با موفقیت ثبت شد. پس از تأیید مدیر سامانه می‌توانید با {login_hint} و رمز عبورتان وارد شوید.')
             return redirect('core:login')
     else:
         form = PublicRegistrationForm()
@@ -2154,7 +2170,9 @@ def super_admin_toggle_account_status(request, kind, user_id):
     messages.success(request, f"حساب «{profile['full_name']}» {'فعال' if new_status == 'active' else 'غیرفعال'} شد.")
 
     tab = {'manager': 'managers', 'teacher': 'teachers', 'student': 'students'}[kind]
-    next_url = request.POST.get('next') or f'{reverse("core:super_admin_users")}?tab={tab}'
+    next_url = request.POST.get('next') or ''
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = f'{reverse("core:super_admin_users")}?tab={tab}'
     return redirect(next_url)
 
 
@@ -2172,7 +2190,9 @@ def super_admin_delete_account(request, kind, user_id):
         raise Http404('کاربر پیدا نشد.')
 
     tab = {'teacher': 'teachers', 'student': 'students'}[kind]
-    next_url = request.POST.get('next') or f'{reverse("core:super_admin_users")}?tab={tab}'
+    next_url = request.POST.get('next') or ''
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = f'{reverse("core:super_admin_users")}?tab={tab}'
     try:
         with transaction.atomic():
             if kind == 'teacher':
@@ -2278,6 +2298,7 @@ def super_admin_user_profile(request, kind, user_id):
         )
         if not user:
             raise Http404('مدیر پیدا نشد.')
+        _profile_moment_labels(user)
         is_system_admin = user.get('role') == 'admin'
         role_label = 'مدیر سیستم' if is_system_admin else 'مدیر آموزشی'
         back_url = f'{reverse("core:super_admin_users")}?tab=managers'
@@ -2334,13 +2355,7 @@ def super_admin_user_profile(request, kind, user_id):
             {'label': 'آخرین تغییر رمز عبور', 'value': user.get('last_login_at') or '-'},
             {'label': 'وضعیت فعالیت', 'value': 'مطلوب', 'tone': 'active'},
         ]
-        manager_chart = [
-            {'label': '۱۴۰۳/۰۱/۲۴', 'value': 42},
-            {'label': '۱۴۰۳/۰۲/۰۲', 'value': 62},
-            {'label': '۱۴۰۳/۰۲/۰۹', 'value': 58},
-            {'label': '۱۴۰۳/۰۲/۱۶', 'value': 66},
-            {'label': '۱۴۰۳/۰۲/۲۳', 'value': 82},
-        ]
+        manager_chart = _profile_activity_chart(user_id)
         info_cards = [
             {
                 'title': 'اطلاعات سازمانی',
@@ -2380,6 +2395,7 @@ def super_admin_user_profile(request, kind, user_id):
         )
         if not user:
             raise Http404('استاد پیدا نشد.')
+        _profile_moment_labels(user)
         primary = unit_path(user.get('org_unit_id'))
         if primary.get('label') == '-':
             primary = {
@@ -2400,8 +2416,6 @@ def super_admin_user_profile(request, kind, user_id):
         user['department'] = user.get('department') or 'ساختمان آموزشی، اتاق 214'
         academic_ranks = {'مربی', 'استادیار', 'دانشیار', 'استاد'}
         user['specialty'] = user.get('specialty') if user.get('specialty') in academic_ranks else 'دانشیار'
-        user['last_login_at'] = user.get('last_login_at') or '1403/03/23 08:42'
-        user['created_at'] = user.get('created_at') or '1395/07/15'
         user['avatar_url'] = user.get('avatar_url') or '/media/avatars/e346e324-6107-519f-b569-57f0cbab4593.jpg'
         teacher_rank = user.get('specialty') or 'دانشیار'
         role_label = 'استاد'
@@ -2486,11 +2500,7 @@ def super_admin_user_profile(request, kind, user_id):
             {'label': 'مدیریت درس‌ها', 'url': reverse('core:super_admin_teacher_courses', args=[user_id]), 'tone': 'ghost', 'icon': 'book'},
             {'label': '', 'url': '#', 'tone': 'ghost', 'icon': 'more'},
         ]
-        timeline = [
-            {'title': 'آزمون «پرستاری داخلی جراحی 1» برگزار شد', 'meta': '1403/03/23، 10:15'},
-            {'title': 'بانک سوال «روش تحقیق» به‌روزرسانی شد', 'meta': '1403/03/20، 15:20'},
-            {'title': 'آزمون «روش تحقیق» ایجاد شد', 'meta': '1403/03/18، 09:45'},
-        ]
+        timeline = _teacher_profile_timeline(user_id)
     else:
         user = erd_row(
             """
@@ -2507,6 +2517,7 @@ def super_admin_user_profile(request, kind, user_id):
         )
         if not user:
             raise Http404('دانشجو پیدا نشد.')
+        _profile_moment_labels(user)
         primary = unit_path(user.get('org_unit_id'))
         if primary.get('label') == '-':
             primary = {
@@ -2527,8 +2538,6 @@ def super_admin_user_profile(request, kind, user_id):
         user['degree'] = user.get('degree') or 'دانش‌آموز'
         user['semester'] = user.get('semester') or '1402'
         user['academic_status'] = user.get('academic_status') or 'active'
-        user['last_login_at'] = user.get('last_login_at') or '1403/02/20 - 10:24'
-        user['created_at'] = user.get('created_at') or '1402/06/01'
         role_label = 'دانش‌آموز' if user.get('degree') == 'دانش‌آموز' else (f"دانشجوی {user.get('degree') or ''}".strip() or 'دانشجو')
         back_url = f'{reverse("core:super_admin_users")}?tab=students'
         edit_url = reverse('core:super_admin_student_profile_edit', args=[user_id])
@@ -2573,17 +2582,12 @@ def super_admin_user_profile(request, kind, user_id):
             LEFT JOIN student_group_members sgm ON sgm.group_id = ea.group_id
             WHERE (ea.student_profile_id = %s OR sgm.student_user_id = %s)
               AND COALESCE(e.is_cancelled, false) = false
+              AND COALESCE(e.end_at, e.start_at) >= %s
             ORDER BY e.start_at ASC NULLS LAST, e.title
             LIMIT 3
             """,
-            [user_id, user_id],
+            [user_id, user_id, timezone.now()],
         )
-        if not upcoming_exams:
-            upcoming_exams = [
-                {'title': 'آزمون میان‌ترم', 'course_title': 'پرستاری داخلی جراحی', 'exam_date': '1404/03/05', 'exam_time': '10:00'},
-                {'title': 'آزمون پایان فصل', 'course_title': 'فارماکولوژی', 'exam_date': '1404/03/15', 'exam_time': '09:00'},
-                {'title': 'آزمون عملی', 'course_title': 'اخلاق پرستاری', 'exam_date': '1404/03/25', 'exam_time': '13:30'},
-            ]
         student_exams = erd_rows(
             """
             SELECT DISTINCT e.id, e.title, e.start_at, COALESCE(c.title, '-') AS course_title,
@@ -2637,13 +2641,8 @@ def super_admin_user_profile(request, kind, user_id):
         scored_values = [float(item.get('score') or 0) for item in student_exams if item.get('score') is not None]
         average_score = round(sum(scored_values) / len(scored_values), 2) if scored_values else 17.25
         passed_exams = sum(1 for item in student_exams if (item.get('attempt_status') or '') in {'submitted', 'graded', 'completed'})
-        activity_items = [
-            {'title': 'ورود موفق به سامانه', 'type': 'ورود', 'tone': 'active', 'time': user.get('last_login_at') or 'امروز، ۱۰:۳۵', 'meta': 'Chrome / Windows'},
-            {'title': f"مشاهده درس {courses[0].get('title')}" if courses else 'مشاهده درس', 'type': 'درس', 'tone': 'info', 'time': 'امروز، ۰۹:۴۸', 'meta': primary['label']},
-            {'title': f"شرکت در آزمون {student_exams[0].get('title')}" if student_exams else 'شرکت در آزمون', 'type': 'آزمون', 'tone': 'violet', 'time': 'دیروز، ۱۴:۰۰', 'meta': 'نمره ۱۷ از ۲۰'},
-            {'title': 'دانلود جزوه درس', 'type': 'فایل', 'tone': 'waiting', 'time': '۲ مرداد، ۱۱:۲۰', 'meta': courses[0].get('title') if courses else '-'},
-            {'title': 'تغییر رمز عبور', 'type': 'امنیت', 'tone': 'danger', 'time': '۱ مرداد، ۱۸:۱۰', 'meta': 'امنیت حساب'},
-        ]
+        all_activity = _student_profile_activity(user_id)
+        activity_items, activity_total = all_activity[:10], len(all_activity)
         overview_stats = stats
         course_stats = [
             {'label': 'کل درس‌ها', 'value': len(courses) or 12, 'tone': 'blue', 'icon': 'book'},
@@ -2657,11 +2656,13 @@ def super_admin_user_profile(request, kind, user_id):
             {'label': 'شرکت‌کرده', 'value': passed_exams or attempts_count, 'tone': 'green', 'icon': 'check'},
             {'label': 'میانگین نمره', 'value': average_score, 'tone': 'orange', 'icon': 'trend'},
         ]
+        today = timezone.localdate()
+        last_login = erd_datetime(user.get('last_login_raw'))
         activity_stats = [
-            {'label': 'کل فعالیت‌ها', 'value': 128, 'tone': 'violet', 'icon': 'trend'},
-            {'label': 'امروز', 'value': 8, 'tone': 'blue', 'icon': 'calendar'},
-            {'label': 'آخرین ورود', 'value': '۱۰:۳۵', 'tone': 'violet', 'icon': 'clock'},
-            {'label': 'دستگاه‌های فعال', 'value': 2, 'tone': 'green', 'icon': 'device'},
+            {'label': 'کل فعالیت‌ها', 'value': activity_total, 'tone': 'violet', 'icon': 'trend'},
+            {'label': 'امروز', 'value': sum(1 for item in all_activity if timezone.localtime(item['moment']).date() == today), 'tone': 'blue', 'icon': 'calendar'},
+            {'label': 'آخرین ورود', 'value': timezone.localtime(last_login).strftime('%H:%M') if last_login else '-', 'tone': 'violet', 'icon': 'clock'},
+            {'label': 'دستگاه‌های فعال', 'value': _profile_recent_devices(user.get('username')), 'tone': 'green', 'icon': 'device'},
         ]
         stats = {
             'overview': overview_stats,
@@ -2728,7 +2729,7 @@ def super_admin_user_profile(request, kind, user_id):
         ]
     elif not timeline:
         timeline = [
-            {'title': 'ورود موفق به سامانه', 'meta': user.get('last_login_at') or 'امروز'},
+            {'title': 'ورود موفق به سامانه', 'meta': user.get('last_login_at') or '-'},
             {'title': 'به‌روزرسانی اطلاعات پروفایل', 'meta': user.get('created_at') or '-'},
             {'title': 'بازبینی وضعیت حساب', 'meta': status_labels.get(user.get('status') or 'active')},
         ]
@@ -2780,7 +2781,94 @@ def super_admin_user_profile(request, kind, user_id):
         } if kind == 'student' else {},
         'student_exams': locals().get('student_exams', []),
         'activity_items': locals().get('activity_items', []),
+        'activity_total': locals().get('activity_total', 0),
     })
+
+
+def _profile_moment_labels(user) -> None:
+    """created_at / last_login_at of a profile row (UTC in the database) as «۱۴۰۵/۰۸/۱۸ - ۰۲:۵۷» at Tehran time."""
+    user['last_login_raw'] = user.get('last_login_at')
+    for column in ('created_at', 'last_login_at'):
+        moment = erd_datetime(user.get(column))
+        user[column] = _to_jalali(moment) if moment else None
+
+
+def _profile_activity_chart(profile_id, bars=5, days=30) -> list:
+    """«فعالیت در ۳۰ روز اخیر»: the profile's audit-log actions in five equal spans ending today (Tehran),
+    each labelled with its last Jalali day; the bar height is relative to the busiest span."""
+    from .templatetags.core_extras import jalali_date
+
+    span = days // bars
+    end = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    starts = [end - timedelta(days=span * (bars - index)) for index in range(bars)]
+    moments = [erd_datetime(row['created_at']) for row in erd_rows(
+        'SELECT created_at FROM activity_audit_log WHERE actor_id = %s AND created_at >= %s', [profile_id, starts[0]],
+    )] if erd_table_columns('activity_audit_log') else []
+    counts = [sum(1 for moment in moments if moment and start <= moment < start + timedelta(days=span)) for start in starts]
+    top = max(counts) or 1
+    return [{'label': jalali_date(start + timedelta(days=span - 1)), 'value': round(count * 100 / top), 'count': count}
+            for start, count in zip(starts, counts)]
+
+
+def _teacher_profile_timeline(teacher_id, limit=3) -> list:
+    """The teacher's latest real events: exams held / scheduled and questions edited, newest first, Tehran time."""
+    now = timezone.now()
+    events = []
+    for row in erd_rows(
+        'SELECT title, start_at FROM exams WHERE teacher_id = %s AND start_at IS NOT NULL '
+        'AND COALESCE(is_cancelled, false) = false ORDER BY start_at DESC LIMIT %s', [teacher_id, limit],
+    ):
+        moment = erd_datetime(row['start_at'])
+        events.append((moment, f"آزمون «{row['title']}» {'برگزار شد' if moment <= now else 'برنامه‌ریزی شد'}"))
+    if erd_has_column('questions', 'updated_at'):
+        for row in erd_rows(
+            'SELECT text, updated_at FROM questions WHERE teacher_id = %s AND updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 1',
+            [teacher_id],
+        ):
+            events.append((erd_datetime(row['updated_at']), f"سؤال «{strip_tags(row['text'] or '')[:40]}» در بانک سؤال ویرایش شد"))
+    events.sort(key=lambda event: event[0], reverse=True)
+    return [{'title': title, 'meta': _to_jalali(moment)} for moment, title in events[:limit]]
+
+
+def _student_profile_activity(student_id) -> list:
+    """«تاریخچه فعالیت‌ها» from real records (last login, exam entries and submissions), newest first."""
+    from .templatetags.core_extras import fa_digits
+
+    items = []
+    profile = erd_row('SELECT last_login_at FROM profiles WHERE id = %s', [student_id]) or {}
+    if profile.get('last_login_at'):
+        items.append({'moment': erd_datetime(profile['last_login_at']), 'title': 'ورود موفق به سامانه', 'type': 'ورود', 'tone': 'active', 'meta': 'آخرین ورود'})
+    for row in erd_rows(
+        """
+        SELECT e.title, ea.started_at, ea.submitted_at, ea.score, ea.max_score, COALESCE(ea.is_graded, false) AS is_graded
+        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
+        WHERE ea.student_id = %s ORDER BY ea.started_at DESC NULLS LAST LIMIT 50
+        """,
+        [student_id],
+    ):
+        if row['submitted_at']:
+            score = (fa_digits(f"نمره {float(row['score'] or 0):g} از {float(row['max_score'] or 0):g}")
+                     if row['is_graded'] else 'در انتظار تصحیح')
+            items.append({'moment': erd_datetime(row['submitted_at']), 'title': f"ارسال پاسخ‌های آزمون {row['title']}",
+                          'type': 'آزمون', 'tone': 'violet', 'meta': score})
+        if row['started_at']:
+            items.append({'moment': erd_datetime(row['started_at']), 'title': f"ورود به آزمون {row['title']}",
+                          'type': 'آزمون', 'tone': 'info', 'meta': 'شروع آزمون'})
+    items = [item for item in items if item['moment']]
+    items.sort(key=lambda item: item['moment'], reverse=True)
+    for item in items:
+        item['time'] = _to_jalali(item['moment'])
+    return items
+
+
+def _profile_recent_devices(username, days=30) -> int:
+    """Distinct devices (browser + IP) the account signed in from in the last 30 days."""
+    if not username:
+        return 0
+    records = UserLoginRecord.objects.filter(
+        user__username=username, was_successful=True, logged_in_at__gte=timezone.now() - timedelta(days=days),
+    ).values_list('user_agent', 'ip_address')
+    return len(set(records))
 
 
 @super_admin_required
@@ -2929,7 +3017,7 @@ def super_admin_teacher_profile_edit(request, user_id):
     teacher = erd_row(
         """
         SELECT p.id, p.full_name, p.first_name, p.last_name, p.username, p.email, p.phone,
-               p.national_id, p.identifier, p.avatar_url, p.status, p.last_login_at,
+               p.national_id, p.identifier, p.avatar_url, p.status, p.last_login_at, p.updated_at,
                tp.personnel_code, tp.department, tp.specialty, tp.approval_status, tp.org_unit_id
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
@@ -3030,6 +3118,7 @@ def super_admin_teacher_profile_edit(request, user_id):
 
     return render(request, 'super_admin/teacher_profile_edit.html', {
         'teacher': teacher,
+        'updated_label': relative_time_label(teacher.get('updated_at')) if teacher.get('updated_at') else 'ثبت نشده',
         'primary_label': primary_label,
         'saved': request.GET.get('saved') == '1',
         'back_url': reverse('core:super_admin_user_profile', args=['teacher', user_id]),
@@ -3161,6 +3250,7 @@ def super_admin_manager_profile_edit(request, user_id):
     primary_path = unit_path(primary_scope_id)
     return render(request, 'super_admin/manager_profile_edit.html', {
         'manager': manager,
+        'last_login_label': relative_time_label(manager.get('last_login_at')) if manager.get('last_login_at') else 'ثبت نشده',
         'role': manager.get('role') or 'academic_manager',
         'status': manager.get('status') or 'active',
         'org_units': org_units,
@@ -8545,6 +8635,101 @@ def super_admin_exam_wizard_edit(request, exam_id):
     )
 
 
+def _exam_needs_approval(row) -> bool:
+    """The «تأیید» button of the exam list shows for an exam that is neither approved nor cancelled."""
+    return not row.get('is_cancelled') and str(row.get('approval_status') or '') != 'approved'
+
+
+def _exam_status_with_approval(label, row) -> str:
+    """«تأیید شده · برنامه‌ریزی شده»: an approved exam shows its approval next to its time state, in one badge."""
+    if row.get('is_cancelled') or str(row.get('approval_status') or '') != 'approved' or label.startswith('تأیید شده'):
+        return label
+    return f'تأیید شده · {label}'
+
+
+def _admin_exam_state(row, now) -> tuple:
+    """(key, label) of an exam on the manager's exam list and exam page, from publish state and time window."""
+    start_at, end_at = erd_datetime(row.get('start_at')), erd_datetime(row.get('end_at'))
+    if row.get('is_cancelled'):
+        return 'cancelled', 'لغو شده'
+    if not row.get('is_published'):  # not visible to students yet, whatever its time
+        if row.get('lifecycle_status') == 'pending_approval':
+            return 'pending', 'در انتظار تأیید'
+        if row.get('lifecycle_status') == 'approved':
+            return 'scheduled', 'زمان‌بندی انتشار'
+        return 'draft', 'پیش‌نویس'
+    if start_at and start_at <= now and (not end_at or now <= end_at):
+        return 'running', 'در حال برگزاری'
+    if end_at and end_at < now:
+        return 'finished', 'پایان یافته'
+    return 'scheduled', 'برنامه‌ریزی شده'
+
+
+def _exam_approve_blocker(row) -> str:
+    """Why «تأیید» can't publish this exam yet ('' when it can)."""
+    if row.get('is_cancelled'):
+        return 'آزمون لغو شده است و قابل تأیید نیست.'
+    if not int(row.get('question_count') or 0):
+        return 'این آزمون هنوز سؤالی ندارد؛ پیش از تأیید، از «ویرایش» سؤال‌های آن را انتخاب کنید.'
+    return ''
+
+
+@erd_role_required('academic_manager', 'admin')
+def super_admin_exam_approve(request, exam_id):
+    """«تأیید» on the exam list: approves an exam (e.g. one a teacher sent for approval) without the edit page.
+
+    Same result as «انتشار مجدد» on the edit page: the exam is published and its students are told, except when a
+    future «زمان انتشار» is set, then it waits as approved and publish_due_exams() publishes it on time."""
+    back = request.POST.get('next') or ''
+    if not back.startswith(reverse('core:super_admin_exams')):
+        back = reverse('core:super_admin_exams')
+    wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    def answer(ok, text, status=200):
+        if wants_json:  # the list's confirm modal shows the message itself (page messages sit under the panel)
+            return JsonResponse({'ok': ok, 'message': text}, status=status)
+        (messages.success if ok else messages.error)(request, text)
+        return redirect(back)
+
+    if request.method != 'POST':
+        return redirect(back)
+    exam = erd_row(
+        'SELECT e.*, (SELECT COUNT(*) FROM exam_questions eq WHERE eq.exam_id = e.id) AS question_count FROM exams e WHERE e.id = %s',
+        [exam_id])
+    if not exam or not _erd_exam_in_manager_scope(request, exam_id):
+        if wants_json:
+            return answer(False, 'آزمون پیدا نشد.', 404)
+        raise Http404('آزمون پیدا نشد.')
+    if not _exam_needs_approval(exam) and not exam.get('is_cancelled'):
+        return answer(True, f"آزمون «{exam['title']}» پیش‌تر تأیید شده است.")
+    if blocker := _exam_approve_blocker(exam):
+        return answer(False, blocker, 400)
+
+    now = timezone.now()
+    publish_at = erd_datetime(exam.get('scheduled_publish_at')) if erd_has_column('exams', 'scheduled_publish_at') else None
+    was_published = bool(exam.get('is_published'))
+    waits = not was_published and publish_at and publish_at > now
+    profile = erd_profile_for_user(request.user)
+    erd_execute(
+        """
+        UPDATE exams
+        SET approval_status = 'approved', approved_by = %s, approved_at = %s, is_published = %s, lifecycle_status = %s
+        WHERE id = %s AND COALESCE(approval_status, '') <> 'approved'
+        """,
+        [profile.get('id') if profile else None, now, not waits,
+         'approved' if waits else ('published' if not was_published else exam.get('lifecycle_status') or 'published'),
+         exam_id],
+    )
+    notified = 0 if waits or was_published else announce_exam_published(exam_id)
+    log_activity(request.user, 'exam_approved', f"آزمون {exam['title']} از فهرست آزمون‌ها تأیید شد.", request, {'exam_id': str(exam_id)})
+    if exam.get('teacher_id'):
+        create_notification(exam['teacher_id'], 'تأیید آزمون', f"آزمون «{exam['title']}» توسط مدیر آموزشی تأیید شد.",
+                            link=reverse('core:teacher_exams'), notification_type='exam_update')
+    if waits:
+        return answer(True, f"آزمون «{exam['title']}» تأیید شد و در زمان انتشار تعیین‌شده منتشر می‌شود.")
+    return answer(True, f"آزمون «{exam['title']}» تأیید و منتشر شد" + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_exams(request):
     if request.method == 'POST' and request.POST.get('exam_action') == 'create':
@@ -8708,26 +8893,14 @@ def super_admin_exams(request):
 
     now = timezone.now()
 
+    for row in exams:
+        row['start_at'], row['end_at'] = erd_datetime(row.get('start_at')), erd_datetime(row.get('end_at'))
+        if row['start_at']:
+            local_start = timezone.localtime(row['start_at'])
+            row['start_date'], row['start_time'] = _to_jalali(local_start.date()), local_start.strftime('%H:%M')
+
     def exam_state(row):
-        start_at = erd_datetime(row.get('start_at'))
-        end_at = erd_datetime(row.get('end_at'))
-        row['start_at'] = start_at
-        row['end_at'] = end_at
-        if row['is_cancelled']:
-            return 'cancelled', 'لغو شده'
-        if not row['is_published']:  # not visible to students yet, whatever its time
-            if row.get('lifecycle_status') == 'pending_approval':
-                return 'pending', 'در انتظار تأیید'
-            if row.get('lifecycle_status') == 'approved':
-                return 'scheduled', 'زمان‌بندی انتشار'
-            return 'draft', 'پیش‌نویس'
-        if start_at and end_at and start_at <= now <= end_at:
-            return 'running', 'در حال برگزاری'
-        if end_at and end_at < now:
-            return 'finished', 'پایان یافته'
-        if row['is_published']:
-            return 'scheduled', 'برنامه‌ریزی شده'
-        return 'draft', 'پیش‌نویس'
+        return _admin_exam_state(row, now)
 
     # «شناسه رسید» in the search box finds the exam that attempt belongs to
     receipt_query = normalize_receipt_code(query) if query and erd_has_column('exam_attempts', 'receipt_code') else ''
@@ -8749,7 +8922,10 @@ def super_admin_exams(request):
         if date_filter == 'week' and (not row['start_at'] or row['start_at'].date() < timezone.localdate() or row['start_at'].date() > timezone.localdate() + timedelta(days=7)):
             continue
         row['status_key'] = status_key
-        row['status_label'] = status_label
+        row['status_label'] = _exam_status_with_approval(status_label, row)
+        row['is_approved'] = not row['is_cancelled'] and row['approval_status'] == 'approved'
+        row['can_approve'] = _exam_needs_approval(row)
+        row['approve_blocker'] = _exam_approve_blocker(row) if row['can_approve'] else ''
         rows.append(row)
 
     all_statuses = [exam_state(row)[0] for row in exams]
@@ -8761,7 +8937,9 @@ def super_admin_exams(request):
         'review': all_statuses.count('draft') + all_statuses.count('cancelled') + all_statuses.count('pending'),
     }
     teachers = sorted({row['teacher'] for row in exams if row['teacher'] and row['teacher'] != '-'})
-    upcoming = [row for row in exams if row['start_at'] and row['start_at'] >= now][:3]
+    # nearest first («exams» is newest first); only exams students can see
+    upcoming = sorted((row for row in exams if row['start_at'] and row['start_at'] >= now and row['is_published']
+                       and not row['is_cancelled']), key=lambda row: row['start_at'])[:3]
     warnings = [
         {'title': 'ظرفیت مشکوک', 'text': 'آزمون‌هایی که شرکت‌کننده یا سؤال ندارند را بررسی کنید.', 'tone': 'danger'},
         {'title': 'لغو اضطراری مشکوک', 'text': 'لغوهای ثبت‌شده نیازمند بازبینی مدیریتی هستند.', 'tone': 'warning'},
@@ -9706,18 +9884,10 @@ def super_admin_exam_detail(request, exam_id):
     if exam.get('end_at'):
         exam['end_time'] = timezone.localtime(exam['end_at']).strftime('%H:%M')
     now = timezone.now()
-    if exam.get('is_cancelled'):
-        status_key, status_label = 'cancelled', 'لغوشده'
-    elif exam.get('start_at') and exam.get('end_at') and exam['start_at'] <= now <= exam['end_at']:
-        status_key, status_label = 'running', 'در حال برگزاری'
-    elif exam.get('end_at') and exam['end_at'] < now:
-        status_key, status_label = 'finished', 'پایان‌یافته'
-    elif exam.get('is_published'):
-        status_key, status_label = 'published', 'منتشرشده'
-    else:
-        status_key, status_label = 'draft', 'پیش‌نویس'
+    status_key, status_label = _admin_exam_state(exam, now)  # same badge as on the exam list
     exam['status_key'] = status_key
-    exam['status_label'] = status_label
+    exam['status_label'] = _exam_status_with_approval(status_label, exam)
+    exam['is_approved'] = not exam.get('is_cancelled') and exam.get('approval_status') == 'approved'
 
     type_labels = {
         'single': 'چهارگزینه‌ای',
@@ -9871,12 +10041,6 @@ def super_admin_exam_detail(request, exam_id):
     })
 
 
-JALALI_MONTH_NAMES = {
-    1: 'فروردین', 2: 'اردیبهشت', 3: 'خرداد', 4: 'تیر', 5: 'مرداد', 6: 'شهریور',
-    7: 'مهر', 8: 'آبان', 9: 'آذر', 10: 'دی', 11: 'بهمن', 12: 'اسفند',
-}
-
-
 def _jalali_calendar_month(request) -> dict:
     """The Jalali month a calendar page shows (?year=&month=, else the current one), with its Gregorian range."""
     from .templatetags.core_extras import _gregorian_to_jalali, _jalali_month_length, _jalali_to_gregorian
@@ -9891,7 +10055,7 @@ def _jalali_calendar_month(request) -> dict:
     previous = (year, month - 1) if month > 1 else (year - 1, 12)
     following = (year, month + 1) if month < 12 else (year + 1, 1)
     return {
-        'year': year, 'month': month, 'title': f'{JALALI_MONTH_NAMES[month]} {year}', 'length': length,
+        'year': year, 'month': month, 'title': f'{JALALI_MONTH_NAMES[month - 1]} {year}', 'length': length,
         'first': first, 'end': first + timedelta(days=length),
         'leading_blanks': (first.weekday() + 2) % 7,  # Saturday is the first column
         'today': current, 'previous': previous, 'next': following,
@@ -10089,7 +10253,7 @@ def super_admin_calendar(request):
     for offset in range(7):
         day = today + timedelta(days=offset)
         jy, jm, jd, _time = _calendar_event_day(datetime(day.year, day.month, day.day, 12))
-        chart_days.append(f'{jd} {JALALI_MONTH_NAMES[jm]}')
+        chart_days.append(f'{jd} {JALALI_MONTH_NAMES[jm - 1]}')
         chart_series.append(sum(1 for event in normalized_events if (event['jalali_year'], event['jalali_month'], event['jalali_day']) == (jy, jm, jd)))
 
     return render(request, 'super_admin/calendar.html', {
@@ -11086,7 +11250,7 @@ def super_admin_settings(request):
             'key': 'date_format',
             'label': 'فرمت تاریخ',
             'type': 'text',
-            'default': '1403/03/27',
+            'default': 'هجری شمسی (سال/ماه/روز)',
             'group': 'basic',
         },
         {
@@ -11243,7 +11407,7 @@ def super_admin_settings(request):
         'system_logo': {'label': 'لوگو / هویت سامانه', 'default': '/static/img/metaquiz-favicon.svg'},
         'default_language': {'label': 'زبان پیش‌فرض', 'default': 'فارسی (ایران)'},
         'timezone': {'label': 'منطقه زمانی', 'default': 'تهران (UTC+03:30)'},
-        'date_format': {'label': 'فرمت تاریخ', 'default': '1403/03/27'},
+        'date_format': {'label': 'فرمت تاریخ', 'default': 'هجری شمسی (سال/ماه/روز)'},
         'session_timeout_minutes': {'label': 'زمان انقضای جلسه (دقیقه)'},
         'two_factor_required': {'label': 'احراز هویت دومرحله‌ای'},
         'password_policy': {'label': 'سیاست گذرواژه', 'default': 'قوی'},
@@ -12522,6 +12686,7 @@ def _super_admin_profile_view(request, page_context):
             if password_form.is_valid():
                 password_form.save()
                 update_session_auth_hash(request, password_form.user)
+                account_security.mark_password_set(password_form.user)
                 log_activity(request.user, 'password_changed', 'تغییر رمز عبور حساب', request)
                 messages.success(request, 'رمز عبور با موفقیت تغییر کرد.')
                 return redirect(f"{reverse('core:profile')}?section=security")
@@ -13573,7 +13738,7 @@ def _teacher_group_exam_rows(teacher_id, group, query=''):
     rows = erd_rows(
         """
         SELECT e.id, e.title, e.duration_minutes, e.start_at, e.end_at, COALESCE(e.lifecycle_status, '') AS lifecycle,
-               COALESCE(e.is_cancelled, false) AS is_cancelled,
+               COALESCE(e.is_cancelled, false) AS is_cancelled, COALESCE(e.approval_status, '') AS approval_status,
                (SELECT COUNT(DISTINCT ea.student_id) FROM exam_attempts ea
                  WHERE ea.exam_id = e.id AND ea.student_id IN (SELECT student_user_id FROM student_group_members WHERE group_id = %s)
                ) AS participants_count,
@@ -13591,7 +13756,8 @@ def _teacher_group_exam_rows(teacher_id, group, query=''):
     )
     now = timezone.now()
     for row in rows:
-        row['status_label'], row['status_class'] = _teacher_exam_status(row, now)
+        label, row['status_class'] = _teacher_exam_status(row, now)
+        row['status_label'] = _exam_status_with_approval(label, row)
         row['average_score'] = round(float(row['average_score']), 1) if row.get('average_score') is not None else None
     return rows
 
@@ -13746,7 +13912,7 @@ def _teacher_dashboard_data(teacher_id) -> dict:
     upcoming = erd_rows(
         f"""
         SELECT e.id, e.title, COALESCE(c.title, '-') AS course, e.start_at, e.duration_minutes,
-               {lifecycle} AS lifecycle
+               {lifecycle} AS lifecycle, COALESCE(e.approval_status, '') AS approval_status
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         WHERE e.teacher_id = %s AND {not_cancelled}
@@ -13770,7 +13936,8 @@ def _teacher_dashboard_data(teacher_id) -> dict:
         status_key = row['lifecycle']
         if status_key == 'published' and start_at and start_at <= now:
             status_key = 'in_progress'
-        row['status_label'], row['status_tone'] = TEACHER_DASHBOARD_EXAM_STATUS.get(status_key, ('پیش‌نویس', 'violet'))
+        label, row['status_tone'] = TEACHER_DASHBOARD_EXAM_STATUS.get(status_key, ('پیش‌نویس', 'violet'))
+        row['status_label'] = _exam_status_with_approval(label, row)
         row['date_label'] = _jalali_long_date(start_at)
         row['time_label'] = timezone.localtime(start_at).strftime('%H:%M') if start_at else ''
         row['participants'] = participants.get(str(row['id']))
@@ -13900,7 +14067,7 @@ def _teacher_exam_list(teacher_id, query: str, status: str, page_number) -> dict
         f"""
         SELECT e.id, e.title, COALESCE(c.title, '-') AS course, e.start_at, e.end_at, e.duration_minutes,
                {lifecycle} AS lifecycle, COALESCE(e.is_cancelled, false) AS is_cancelled,
-               COALESCE(e.is_published, false) AS is_published
+               COALESCE(e.is_published, false) AS is_published, COALESCE(e.approval_status, '') AS approval_status
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         WHERE {where_sql}
@@ -13959,6 +14126,7 @@ def _teacher_exam_list(teacher_id, query: str, status: str, page_number) -> dict
             (row['lifecycle'] or 'draft') in ('draft', 'pending_approval')
             and not row['is_published'] and not row['is_cancelled'] and not attempt_counts.get(exam_id)
         )
+        row['status_label'] = _exam_status_with_approval(row['status_label'], row)  # after the label checks above
     return {'rows': rows, 'page': page, 'total': total, 'query': query, 'status': status, 'filters': TEACHER_EXAM_LIST_FILTERS}
 
 
@@ -14477,7 +14645,59 @@ def teacher_panel(request):
 
 @erd_role_required('teacher')
 def teacher_announcements(request):
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'announcements'))
+    return render(request, 'teacher/modern.html', _teacher_modern_context(
+        request, 'announcements', **_teacher_announcements_context(request.erd_profile_id)))
+
+
+def relative_time_label(moment, now=None) -> str:
+    """«همین حالا» / «۵ دقیقه پیش» / «امروز، ۱۰:۱۵» / «دیروز، ۱۴:۳۰» / «۱۴۰۵/۰۸/۱۲ - ۰۹:۲۰», at Tehran time."""
+    from .templatetags.core_extras import fa_digits
+
+    moment = erd_datetime(moment)
+    if not moment:
+        return '-'
+    now = timezone.localtime(now or timezone.now())
+    local = timezone.localtime(moment)
+    seconds = (now - local).total_seconds()
+    if 0 <= seconds < 60:
+        return 'همین حالا'
+    if 0 <= seconds < 3600:
+        return fa_digits(f'{int(seconds // 60)} دقیقه پیش')
+    if local.date() == now.date():
+        return fa_digits(f"امروز، {local.strftime('%H:%M')}")
+    if local.date() == now.date() - timedelta(days=1):
+        return fa_digits(f"دیروز، {local.strftime('%H:%M')}")
+    return _to_jalali(local)
+
+
+def _teacher_announcements_context(teacher_id) -> dict:
+    """«اعلان‌ها و کارهای من»: the teacher's latest notifications and real counts of what waits for them."""
+    notifications = [
+        {'title': row['title'], 'message': row.get('message') or '', 'link': row.get('link') or '',
+         'is_read': bool(row.get('is_read')), 'time_label': relative_time_label(row.get('created_at'))}
+        for row in erd_rows(
+            'SELECT title, message, link, is_read, created_at FROM notifications WHERE user_id = %s '
+            'ORDER BY created_at DESC NULLS LAST LIMIT 10', [teacher_id])
+    ]
+    own_exam = '(e.teacher_id = %s OR e.id IN (SELECT es.exam_id FROM exam_staff es WHERE es.teacher_id = %s))'
+    week_end = timezone.now() + timedelta(days=7)
+    tasks = [
+        ('پاسخ‌های منتظر تصحیح', reverse('core:teacher_reviews'), erd_row(
+            f'SELECT COUNT(*) AS n FROM attempt_answers aa JOIN exam_attempts ea ON ea.id = aa.attempt_id '
+            f'JOIN exams e ON e.id = ea.exam_id WHERE COALESCE(aa.needs_manual_grading, false) = true AND {own_exam}',
+            [teacher_id, teacher_id])['n']),
+        ('اعتراض‌های بررسی‌نشده', reverse('core:teacher_objections'), erd_row(
+            "SELECT COUNT(*) AS n FROM objections o JOIN exams e ON e.id = o.exam_id "
+            f"WHERE o.status IN ('open', 'under_review', 'escalated') AND {own_exam}", [teacher_id, teacher_id])['n']),
+        ('آزمون‌های در انتظار تأیید', reverse('core:teacher_exams'), erd_row(
+            "SELECT COUNT(*) AS n FROM exams e WHERE e.teacher_id = %s AND e.lifecycle_status = 'pending_approval' "
+            'AND COALESCE(e.is_cancelled, false) = false', [teacher_id])['n']),
+        ('آزمون‌های ۷ روز آینده', reverse('core:teacher_calendar'), erd_row(
+            f'SELECT COUNT(*) AS n FROM exams e WHERE {own_exam} AND COALESCE(e.is_cancelled, false) = false '
+            'AND e.start_at >= %s AND e.start_at < %s', [teacher_id, teacher_id, timezone.now(), week_end])['n']),
+    ]
+    return {'announcements': notifications,
+            'announcement_tasks': [{'label': label, 'url': url, 'count': int(count or 0)} for label, url, count in tasks]}
 
 
 @erd_role_required('teacher')
@@ -15211,6 +15431,11 @@ def _question_builder_errors(payload, allowed_course_ids):
         errors.append(f'متن سؤال حداکثر {STEM_MAX} نویسه است.')
     if kind == 'essay':
         errors += _essay_errors(settings_data.get('essay') or {})
+    if kind in MANUAL_ANSWER_KINDS:
+        # Each rubric criterion is scored by the grader up to its «نمره»; without a positive one it cannot be scored.
+        for item in payload.get('rubric') or []:
+            if isinstance(item, dict) and item.get('criterion') and _sx_float(str(item.get('points') or '').translate(_FA_DIGITS_TO_LATIN).replace('٫', '.'), 0) <= 0:
+                errors.append(f'برای معیار روبریک «{item["criterion"]}» نمره‌ی مثبت وارد کنید.')
     if kind in {'single', 'true_false', 'multi'} and len(options) < 2:
         errors.append('حداقل دو گزینه وارد کنید.')
     if kind in {'single', 'true_false'} and len(correct) != 1:
@@ -16579,8 +16804,12 @@ def _em_group_exam_rows(course_id):
         [course_id],
     )
     status_labels = {'draft': 'پیش‌نویس', 'pending_approval': 'در انتظار تایید', 'scheduled': 'برنامه‌ریزی‌شده', 'published': 'منتشرشده', 'active': 'در حال برگزاری', 'completed': 'برگزارشده', 'archived': 'بایگانی'}
+    from .templatetags.core_extras import to_jalali
+
     for row in rows:
         row['status_label'] = status_labels.get(row.get('status'), row.get('status') or '-')
+        row['start_at'] = erd_datetime(row.get('start_at'))  # stored in UTC
+        row['start_label'] = to_jalali(row['start_at']) if row['start_at'] else '-'  # Jalali date - Tehran time
     return rows
 
 
@@ -17197,7 +17426,7 @@ def exam_manager_user_import(request, kind='students'):
 
 def logout_view(request):
     logout(request)
-    return redirect('core:login')
+    return redirect('core:home')
 
 
 def error_404(request, exception):
@@ -17827,8 +18056,7 @@ def _em_exam_attempt_rows(exam_id):
                COALESCE(ea.status, 'not_started') AS status,
                COALESCE(ea.score, 0) AS score,
                COALESCE(ea.max_score, 20) AS max_score,
-               COALESCE(substr(CAST(ea.started_at AS text), 12, 5), '-') AS started_time,
-               COALESCE(substr(CAST(ea.submitted_at AS text), 12, 5), '-') AS submitted_time
+               ea.started_at, ea.submitted_at
         FROM exam_attempts ea
         LEFT JOIN profiles p ON p.id = ea.student_id
         LEFT JOIN student_profiles sp ON sp.user_id = ea.student_id
@@ -17839,6 +18067,11 @@ def _em_exam_attempt_rows(exam_id):
         [exam_id],
     )
     for row in rows:
+        # stored in UTC: shown as Tehran «HH:MM»
+        for column, label in (('started_at', 'started_time'), ('submitted_at', 'submitted_time')):
+            moment = erd_datetime(row.get(column))
+            row[column] = moment
+            row[label] = timezone.localtime(moment).strftime('%H:%M') if moment else '-'
         max_score = float(row.get('max_score') or 20)
         score = float(row.get('score') or 0)
         row['percent'] = round(score * 100 / max(max_score, 1))
@@ -17978,14 +18211,40 @@ def exam_manager_exam_detail(request, exam_id):
         'present_count': present_count,
         'remaining_count': max(capacity - present_count, 0),
         'progress_percent': round(present_count * 100 / max(capacity, 1)),
-        'events': [
-            {'time': '10:42', 'title': 'دانشجو وارد آزمون شد', 'tone': 'ok'},
-            {'time': '10:41', 'title': 'اتصال دانشجو دوباره برقرار شد', 'tone': 'warn'},
-            {'time': '10:40', 'title': 'رفتار مشکوک در مرورگر ثبت شد', 'tone': 'bad'},
-            {'time': '10:39', 'title': 'پاسخ‌ها به صورت خودکار ذخیره شد', 'tone': 'blue'},
-        ],
+        'events': _em_exam_live_events(attempts),
+        'remaining_label': _em_exam_remaining_label(exam_id),
     })
     return render(request, 'exam_manager/exams.html', context)
+
+
+def _em_exam_live_events(attempts, limit=6) -> list:
+    """«رخدادهای زنده»: the latest real entries and submissions of the exam, newest first, at Tehran time."""
+    events = []
+    for item in attempts:
+        if item.get('started_at'):
+            events.append((item['started_at'], f"{item['full_name']} وارد آزمون شد", 'ok'))
+        if item.get('submitted_at'):
+            events.append((item['submitted_at'], f"{item['full_name']} پاسخ‌ها را ارسال کرد", 'blue'))
+    events.sort(key=lambda event: event[0], reverse=True)
+    return [{'time': timezone.localtime(moment).strftime('%H:%M'), 'title': title, 'tone': tone}
+            for moment, title, tone in events[:limit]]
+
+
+def _em_exam_remaining_label(exam_id) -> str:
+    """«زمان باقی‌مانده» (HH:MM:SS) until the exam ends; «شروع نشده» / «پایان یافته» outside its window."""
+    row = erd_row('SELECT start_at, end_at, duration_minutes FROM exams WHERE id = %s', [exam_id]) or {}
+    start, end = erd_datetime(row.get('start_at')), erd_datetime(row.get('end_at'))
+    if start and not end:
+        end = start + timedelta(minutes=_em_int(row.get('duration_minutes'), 90))
+    now = timezone.now()
+    if not start or not end:
+        return '-'
+    if now < start:
+        return 'شروع نشده'
+    if now >= end:
+        return 'پایان یافته'
+    seconds = int((end - now).total_seconds())
+    return f'{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}'
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -18942,7 +19201,7 @@ def _sx_save_attempt_answers(request, attempt_id):
 ANSWER_FILE_RULES = {
     'image': ({'jpg', 'jpeg', 'png', 'webp'}, 10 * 1024 * 1024),
     'audio': ({'webm', 'ogg', 'mp3', 'wav', 'm4a'}, 20 * 1024 * 1024),
-    'video': ({'mp4', 'webm'}, 100 * 1024 * 1024),
+    'video': ({'mp4', 'webm', 'mov'}, 100 * 1024 * 1024),  # mov: iPhone camera
     'file': ({'pdf', 'docx'}, 20 * 1024 * 1024),
 }
 ANSWER_FILES_MAX = 5
@@ -19027,6 +19286,17 @@ def student_exam_schedule(request):
     return render(request, 'student/exam_schedule.html', {
         'student': _sx_student_context(request),
         **student_exams_page_context(request, request.erd_profile_id),
+    })
+
+
+@erd_role_required('student')
+def student_calendar(request):
+    """«تقویم من»: the student's exams on a Jalali month at Tehran time."""
+    from .student_dashboard import student_calendar_context
+
+    return render(request, 'student/calendar.html', {
+        'student': _sx_student_context(request),
+        **student_calendar_context(request, request.erd_profile_id),
     })
 
 
@@ -19713,7 +19983,8 @@ def student_attempt_receipt(request, attempt_id):
     items = [
         {
             'index': index,
-            'answered': bool(_sx_answer_value(item.get('answer'))),
+            # A recording / uploaded file alone is an answer too.
+            'answered': bool(_sx_answer_value(item.get('answer'))) or bool(_sx_answer_files(item.get('answer_files'))),
             'marked': bool(item.get('marked')),
         }
         for index, item in enumerate(answer_rows, start=1)
@@ -20094,6 +20365,9 @@ def _sx_result_question_rows(attempt_id, student_id):
             'builder_note': str(notes.get('text') or '').strip(),
             'resource': question_resource(notes),
             'hotspot': _sx_result_hotspot(row, answers) if kind == 'hotspot' else None,
+            # Recorded / uploaded answer files (audio, video, image, document), playable on the report card.
+            'files': [{**item, 'url': reverse('core:attempt_answer_file', args=[attempt_id, item['id']])}
+                      for item in _sx_answer_files(row.get('answer_files'))],
         })
     return items
 
@@ -20216,3 +20490,142 @@ def profile_view(request):
     if role == 'teacher':
         return redirect(f'{reverse("core:teacher_settings")}?tab={"security" if section in ("security", "sessions") else "personal"}')
     return _legacy_profile_view(request)
+
+
+# --- Passwords: a super admin sets another account's password; forced change after a temporary one ---------------
+# Passwords are stored only as Django hashes, so nobody can see one. A super admin can give an account a new password
+# (generated and shown once, or typed) after confirming their own password; super admin accounts are excluded (each
+# changes their own from «پروفایل من»). Every session of that account is ended, and by default its owner must pick a
+# new password at the next sign-in (profiles.password_change_required, PasswordChangeRequiredMiddleware).
+
+ADMIN_PASSWORD_KINDS = {
+    # URL kind → (role the account must have, its edit page)
+    'teacher': ('teacher', 'core:super_admin_teacher_profile_edit'),
+    'student': ('student', 'core:super_admin_student_profile_edit'),
+    'manager': ('academic_manager', 'core:super_admin_manager_profile_edit'),
+}
+PASSWORD_REVEAL_SESSION_KEY = 'admin_password_reveal'
+
+
+def _admin_password_target(kind, user_id):
+    """(profile row, roles) of the account a super admin may set a password for, or Http404."""
+    if kind not in ADMIN_PASSWORD_KINDS:
+        raise Http404('نوع حساب نامعتبر است.')
+    profile = erd_row(
+        'SELECT id, username, full_name, status, password_changed_at, password_change_required FROM profiles WHERE id = %s',
+        [user_id],
+    )
+    roles = erd_roles_for_profile(profile['id']) if profile else []
+    if not profile or ADMIN_PASSWORD_KINDS[kind][0] not in roles:
+        raise Http404('حساب پیدا نشد.')
+    return profile, roles
+
+
+def admin_password_card_context(request, kind, user_id) -> dict:
+    """Context of the «رمز عبور» card on a user's edit page; pops the one-time display of a generated password."""
+    try:
+        profile, roles = _admin_password_target(kind, user_id)
+    except Http404:
+        return {'missing': True}  # e.g. a manager page opened for an account without that role: no card
+    reveal = None
+    pending = request.session.get(PASSWORD_REVEAL_SESSION_KEY)
+    if pending and pending.get('profile_id') == str(profile['id']):
+        reveal = request.session.pop(PASSWORD_REVEAL_SESSION_KEY).get('password')
+    return {
+        'action_url': reverse('core:super_admin_set_user_password', args=[kind, user_id]),
+        'changed_at': erd_datetime(profile.get('password_changed_at')),
+        'change_required': bool(profile.get('password_change_required')),
+        'username': profile.get('username') or '',
+        'is_admin': 'admin' in roles,
+        'reveal': reveal,
+    }
+
+
+@super_admin_required
+def super_admin_set_user_password(request, kind, user_id):
+    profile, roles = _admin_password_target(kind, user_id)
+    edit_url = f'{reverse(ADMIN_PASSWORD_KINDS[kind][1], args=[user_id])}#account-password'
+    if request.method != 'POST':
+        return redirect(edit_url)
+    username = (profile.get('username') or '').strip()
+    mode = 'manual' if request.POST.get('password_mode') == 'manual' else 'generate'
+    change_required = request.POST.get('change_required') == '1'
+    errors = []
+    if 'admin' in roles:
+        errors.append('رمز حساب مدیر کل را فقط خود او از «پروفایل من» تغییر می‌دهد.')
+    elif not username:
+        errors.append('این حساب نام کاربری ندارد؛ ابتدا نام کاربری را ثبت کنید.')
+    elif username == request.user.username:
+        errors.append('رمز حساب خودتان را از «پروفایل من» تغییر دهید.')
+    elif not request.user.check_password(request.POST.get('admin_password') or ''):
+        errors.append('رمز عبور فعلی شما نادرست است.')
+        log_activity(
+            request.user, 'password_reset_failed',
+            f'رمز نادرست هنگام تعیین رمز برای {profile.get("full_name") or username}', request,
+            {'profile_id': str(profile['id'])},
+        )
+    target = None
+    new_password = ''
+    if not errors:
+        target = User.objects.filter(username=username).first() or User(username=username, is_active=(profile.get('status') == 'active'))
+        if mode == 'manual':
+            new_password = request.POST.get('new_password1') or ''
+            if not new_password:
+                errors.append('رمز عبور جدید را وارد کنید.')
+            elif new_password != (request.POST.get('new_password2') or ''):
+                errors.append('تکرار رمز عبور جدید با خود آن یکسان نیست.')
+            else:
+                try:
+                    validate_password(new_password, user=target)
+                except ValidationError as exc:
+                    errors.extend(exc.messages)
+        else:
+            new_password = account_security.generate_temporary_password()
+    if errors:
+        for error in errors:
+            messages.error(request, error)
+        return redirect(edit_url)
+
+    with transaction.atomic():
+        target.set_password(new_password)
+        target.save()
+        account_security.mark_password_set(target, change_required=change_required)
+    account_security.end_all_sessions(target)
+    log_activity(
+        request.user, 'password_reset_by_admin',
+        f'تعیین رمز عبور جدید برای {profile.get("full_name") or username}', request,
+        {'profile_id': str(profile['id']), 'mode': mode, 'change_required': change_required},
+    )
+    if mode == 'generate':
+        request.session[PASSWORD_REVEAL_SESSION_KEY] = {'profile_id': str(profile['id']), 'password': new_password}
+    messages.success(request, 'رمز عبور جدید ثبت شد و همه‌ی نشست‌های باز این کاربر بسته شد.')
+    return redirect(edit_url)
+
+
+@login_required
+def password_change_required_view(request):
+    """The only page an account with a temporary password can open until its owner chooses a new password."""
+    profile = erd_profile_for_user(request.user)
+    next_url = request.POST.get('next') or request.GET.get('next') or ''
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = ''
+    if not (profile and profile.get('password_change_required')):
+        return redirect(next_url or 'core:dashboard')
+    form = SetPasswordForm(request.user, request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        if request.user.check_password(form.cleaned_data['new_password1']):
+            form.add_error('new_password1', 'رمز جدید باید با رمز موقت فرق داشته باشد.')
+        else:
+            form.save()
+            update_session_auth_hash(request, form.user)
+            account_security.mark_password_set(form.user)
+            account_security.end_other_sessions(form.user, request.session.session_key)
+            log_activity(request.user, 'password_changed', 'تعیین رمز عبور جدید به‌جای رمز موقت', request)
+            messages.success(request, 'رمز عبور جدید شما ثبت شد.')
+            return redirect(next_url or 'core:dashboard')
+    return render(request, 'account/password_change_required.html', {
+        'form': form,
+        'errors': [error for errors in form.errors.values() for error in errors] if form.is_bound else [],
+        'next': next_url,
+        'display_name': profile.get('full_name') or request.user.username,
+    })

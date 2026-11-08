@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load core_extras %}
+{% load core_extras account_tags %}
 
 {% block title %}ویرایش اطلاعات استاد | متاکوییز{% endblock %}
 
@@ -73,10 +73,9 @@
                     <span>ارسال اعلان‌ها</span>
                     <b></b>
                 </div>
-                <div class="teacher-edit-switch">
-                    <span>اجبار تغییر رمز در ورود بعدی</span>
-                    <b></b>
-                </div>
+                <a class="teacher-edit-switch" href="#account-password">
+                    <span>رمز عبور: تعیین رمز جدید (پایین صفحه)</span>
+                </a>
             </section>
 
             <section class="teacher-edit-card teacher-edit-org">
@@ -168,9 +167,10 @@
             </span>
             <small>
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                آخرین ویرایش: امروز، ۱۰:۴۲
+                آخرین ویرایش: {{ updated_label }}
             </small>
         </footer>
     </form>
+    {% admin_password_card 'teacher' teacher.id %}
 </section>
 {% endblock %}

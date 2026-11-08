@@ -12,15 +12,15 @@
   .sdb-tile{display:grid;width:64px;height:64px;flex:none;place-items:center;border-radius:18px;background:#eaf1ff;color:var(--blue)}.sdb-tile svg{width:30px;height:30px}
   .sdb-tile.pink{background:#fdeaf4;color:#db2777}.sdb-tile.purple{background:#f1eaff;color:#7c3aed}
   .sdb-grid{display:grid;grid-template-columns:minmax(0,37fr) minmax(0,63fr);gap:20px;align-items:start}
-  .sdb-col{display:grid;gap:20px;min-width:0}
+  .sdb-col{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;min-width:0}
   .sdb-panel{padding:20px}
   .sdb-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
   .sdb-head h2{display:flex;align-items:center;gap:10px;margin:0;font-size:1.15rem;font-weight:950}.sdb-head h2 svg{color:var(--blue);width:1.45rem;height:1.45rem}
   .sdb-more{color:var(--blue);font-size:.9rem;font-weight:900}
   .sdb-empty{margin:0;padding:18px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-weight:700;text-align:center}
-  .sdb-list{display:grid;gap:10px}
-  .sdb-item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 12px;border:1px solid var(--line);border-radius:14px}
-  .sdb-item>div{min-width:0;flex:1}.sdb-item strong{display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sdb-item small{display:block;color:var(--muted);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sdb-list{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+  .sdb-item{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;min-height:64px;padding:10px 12px;border:1px solid var(--line);border-radius:14px}
+  .sdb-item>div{min-width:0;flex:1 1 150px}.sdb-item strong{display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sdb-item small{display:block;color:var(--muted);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sdb-item .sdb-tile{width:44px;height:44px;border-radius:12px}.sdb-item .sdb-tile svg{width:22px;height:22px}
   .sdb-item .sdb-tile.green{background:#e3f8ee;color:#0f9f5c}
   .sdb-item>a.sdb-go{display:grid;width:30px;height:30px;place-items:center;border-radius:8px;color:#334155}.sdb-item>a.sdb-go:hover{background:#f1f5fb}
@@ -46,7 +46,7 @@
   .sdb-table td{padding:12px 14px;border-top:1px solid var(--line);font-weight:700;vertical-align:middle}
   .sdb-table td:first-child{font-weight:900}.sdb-table th:last-child,.sdb-table td:last-child{text-align:center}
   .sdb-when{display:flex;align-items:center;gap:10px}.sdb-when small{display:block;color:var(--muted)}.sdb-when svg{color:#64748b}
-  .sdb-table .sdb-btn{min-width:170px}
+  .sdb-table .sdb-btn{min-width:170px}.sdb-table.rt-cards .sdb-btn{min-width:0;max-width:100%}
   @media(max-width:1180px){.sdb-grid{grid-template-columns:minmax(0,1fr)}.sdb-grid>.sdb-col:first-child{order:2}}
   @media(max-width:860px){.sdb-kpis,.sdb-next,.sdb-facts{grid-template-columns:minmax(0,1fr)}.sdb-item{flex-wrap:wrap}}
 </style>

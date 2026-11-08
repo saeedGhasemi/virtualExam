@@ -1,5 +1,5 @@
 {% extends 'base_standalone.html' %}
-{% load static core_extras %}
+{% load static core_extras account_tags %}
 
 {% block title %}{{ title }} | متاکوییز{% endblock %}
 
@@ -125,6 +125,7 @@
   .sap-avatar-card{text-align:center;padding:1.1rem}
   .sap-avatar-card .sap-avatar{margin:0 auto .7rem}
   .sap-avatar-card small{display:block;margin-top:.6rem;color:var(--muted);font-weight:800;font-size:.75rem}
+  @media (max-width:640px){.sap-score-card{flex-wrap:wrap;gap:1rem;padding:1rem}.sap-score-status{flex:1 1 calc(100% - 4.6rem)}.sap-score-visual{flex:1 1 100%;justify-content:space-between}.sap-score-bar{flex:1;width:auto}}
   @media (max-width:1200px){.sap-security-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
   @media (max-width:980px){.sap-layout,.sap-layout.is-reverse,.sap-form-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
 /* Responsive */
@@ -158,8 +159,10 @@
         </section>
 
         <section class="sap-security-grid" style="margin-bottom:.9rem">
-            <article class="sap-card sap-pad">
+            <article class="sap-card sap-pad" id="sap-password">
                 <h2>رمز عبور</h2>
+                {% password_state as pw %}
+                <p style="margin:0 0 .8rem;color:var(--muted);font-weight:800;font-size:.85rem">آخرین تغییر: {% if pw.changed_at %}{{ pw.changed_at|to_jalali }}{% else %}ثبت نشده{% endif %}</p>
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="form" value="password">
@@ -272,6 +275,14 @@
                     <label class="sap-field">نام خانوادگی<input name="last_name" value="{{ profile.last_name|default:'' }}" maxlength="60" required></label>
                     <label class="sap-field is-locked">کد ملی<input value="{{ profile.national_id|default:'-'|fa_digits }}" readonly></label>
                     <label class="sap-field is-locked">نام کاربری (برای ورود)<input value="{{ request.user.username }}" dir="ltr" readonly></label>
+                    {% password_state as pw %}
+                    <div class="sap-field is-locked is-full">رمز عبور
+                        <div style="display:flex;gap:.6rem;align-items:center">
+                            <input value="••••••••" dir="ltr" readonly aria-label="رمز عبور (به‌صورت رمزنگاری‌شده ذخیره می‌شود و قابل نمایش نیست)" style="flex:1">
+                            <a class="sap-btn is-outline" href="?section=security#sap-password">تغییر رمز</a>
+                        </div>
+                        <small style="color:var(--muted);font-weight:700">آخرین تغییر: {% if pw.changed_at %}{{ pw.changed_at|to_jalali }}{% else %}ثبت نشده{% endif %} · رمز عبور به‌صورت رمزنگاری‌شده نگه‌داری می‌شود و برای هیچ‌کس، حتی مدیر سیستم، قابل مشاهده نیست.</small>
+                    </div>
                 </div>
                 <h2 style="margin-top:.4rem">اطلاعات تماس</h2>
                 <div class="sap-form-grid">

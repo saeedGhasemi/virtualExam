@@ -17,8 +17,31 @@ function clamp(value, min, max) {
 }
 
 function jalaaliWeekday(gy, gm, gd) {
-    const jsDay = new Date(gy, gm - 1, gd).getDay();
+    const jsDay = new Date(Date.UTC(gy, gm - 1, gd)).getUTCDay();
     return (jsDay + 1) % 7;
+}
+
+// The site's clock is Tehran's, whatever time zone the visitor's device is set to.
+const TEHRAN_PARTS = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+export function tehranParts(moment = new Date()) {
+    const parts = Object.fromEntries(TEHRAN_PARTS.formatToParts(moment).map((part) => [part.type, part.value]));
+    return { gy: +parts.year, gm: +parts.month, gd: +parts.day, hh: +parts.hour % 24, mm: +parts.minute };
+}
+
+// "YYYY-MM-DD[THH:MM]" without an offset is already Tehran wall time (what the server and this picker write);
+// with Z or an offset it is a moment, shown at Tehran time.
+export function wallParts(value) {
+    const text = String(value || '');
+    const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(text);
+    if (!match) return null;
+    if (/(Z|[+-]\d{2}:?\d{2})$/.test(text)) {
+        const moment = new Date(text);
+        return Number.isNaN(moment.getTime()) ? null : tehranParts(moment);
+    }
+    return { gy: +match[1], gm: +match[2], gd: +match[3], hh: +(match[4] || 0), mm: +(match[5] || 0) };
 }
 
 class JalaliDateTimeField {
@@ -41,10 +64,10 @@ class JalaliDateTimeField {
     }
 
     setFromIso(iso) {
-        const d = this.dateOnly ? new Date(`${iso.slice(0, 10)}T00:00`) : new Date(iso);
-        if (Number.isNaN(d.getTime())) return;
-        const j = toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
-        this.selected = { jy: j.jy, jm: j.jm, jd: j.jd, hh: d.getHours(), mm: d.getMinutes() };
+        const d = wallParts(this.dateOnly ? iso.slice(0, 10) : iso);
+        if (!d) return;
+        const j = toJalaali(d.gy, d.gm, d.gd);
+        this.selected = { jy: j.jy, jm: j.jm, jd: j.jd, hh: d.hh, mm: d.mm };
         this.updateDisplay();
     }
 
@@ -70,8 +93,8 @@ class JalaliDateTimeField {
 
     open() {
         if (this.popup) return;
-        const now = new Date();
-        const nowJ = toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        const now = tehranParts();
+        const nowJ = toJalaali(now.gy, now.gm, now.gd);
         this.viewJy = this.selected ? this.selected.jy : nowJ.jy;
         this.viewJm = this.selected ? this.selected.jm : nowJ.jm;
         this.popup = document.createElement('div');

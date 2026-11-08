@@ -16,7 +16,7 @@ from .student_dashboard import _course_icon
 from .views import (
     PRACTICE_EXAM_MODE, RESULT_CHOICE_KINDS, _grade_question, _jalali_long_date, _sx_accessible_exams,
     _sx_attempt_accepts_answers, _sx_dt, _sx_exam_mode_sql, _sx_exam_row, _sx_float, _sx_json, _sx_percent,
-    _sx_answer_value, _sx_media_fields, _sx_question_options, _sx_result_question_rows, _sx_result_topics,
+    _sx_answer_files, _sx_answer_value, _sx_media_fields, _sx_question_options, _sx_result_question_rows, _sx_result_topics,
     _sx_result_values, erd_execute, question_resource, erd_has_column, erd_row, erd_rows,
 )
 
@@ -442,6 +442,11 @@ def _short_text(text, size=90) -> str:
     return text if len(text) <= size else f'{text[:size].rstrip()}…'
 
 
+def _row_answered(row) -> bool:
+    """Text / choice answer, or a recording / uploaded file alone."""
+    return bool(_sx_answer_value(row.get('answer'))) or bool(_sx_answer_files(row.get('answer_files')))
+
+
 def review_context(attempt_id, rows) -> dict:
     """The «بازبینی» page before the final submission: every question with whether it is answered or marked."""
     items = []
@@ -449,7 +454,7 @@ def review_context(attempt_id, rows) -> dict:
         items.append({
             'index': index,
             'title': _short_text(row.get('text')),
-            'answered': bool(_sx_answer_value(row.get('answer'))),
+            'answered': _row_answered(row),
             'marked': bool(row.get('marked')),
             'url': f"{reverse('core:student_attempt', args=[attempt_id])}?q={index}",
         })
@@ -501,7 +506,7 @@ def tracking_code(attempt_id) -> str:
 def receipt_context(attempt_id, student_id, rows) -> dict:
     times = _attempt_times(attempt_id, student_id) or {}
     started, submitted = _sx_dt(times.get('started_at')), _sx_dt(times.get('submitted_at'))
-    answered = sum(1 for row in rows if _sx_answer_value(row.get('answer')))
+    answered = sum(1 for row in rows if _row_answered(row))
     return {
         'exam_title': times.get('title') or 'آزمون آزمایشی',
         'course_title': times.get('course_title') or '',

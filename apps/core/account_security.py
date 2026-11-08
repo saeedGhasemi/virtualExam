@@ -108,6 +108,31 @@ def end_all_sessions(user) -> int:
     return end_other_sessions(user, None)
 
 
+# --- Password state (profiles.password_changed_at / password_change_required, migration 0062) -----------------
+# Passwords are only ever stored as Django hashes; nobody (user, admin or us) can read one back. Pages show
+# «••••••••» plus when it was last changed, and offer a change form instead.
+
+# No 0/O/1/l/I so a temporary password can be read out or copied by hand.
+TEMPORARY_PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+
+def generate_temporary_password() -> str:
+    """A 12-character random password from a CSPRNG; it always has letters and digits, so it passes the validators."""
+    while True:
+        password = ''.join(secrets.choice(TEMPORARY_PASSWORD_ALPHABET) for _ in range(12))
+        if any(ch.isdigit() for ch in password) and any(ch.isalpha() for ch in password):
+            return password
+
+
+def mark_password_set(user, *, change_required: bool = False) -> None:
+    """Stamps when this login's password was set and whether its owner must replace it before using the site."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'UPDATE profiles SET password_changed_at = CURRENT_TIMESTAMP, password_change_required = %s WHERE username = %s',
+            [bool(change_required), user.username],
+        )
+
+
 # --- Two-step sign-in with an authenticator app (TOTP, RFC 6238 via pyotp) -----------------------------------
 
 TOTP_ISSUER = 'MetaQuiz'

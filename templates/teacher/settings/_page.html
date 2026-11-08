@@ -10,6 +10,7 @@
         <a class="{% if teacher_settings_tab == 'exam' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}?tab=exam"{% if teacher_settings_tab == 'exam' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="list" %}آزمون و ارزیابی</a>
         <a class="{% if teacher_settings_tab == 'security' %}is-active{% endif %}" href="{% url 'core:teacher_settings' %}?tab=security"{% if teacher_settings_tab == 'security' %} aria-current="page"{% endif %}>{% include "teacher/_qb_icon.html" with name="shield" %}امنیت و حریم خصوصی</a>
     </nav>
+    {% if request.GET.saved and not personal_errors %}<div class="tset-request-state is-ok" role="status"><div><b>تغییرات ذخیره شد.</b></div></div>{% endif %}
 
     {% if teacher_settings_tab == 'personal' %}
         {% include "teacher/settings/_personal.html" %}
@@ -65,8 +66,8 @@
                 <div class="tset-list">
                     <div class="tset-list-row is-wrap">
                         <span class="tset-switch-text"><b>{% include "teacher/_qb_icon.html" with name="lock" %}رمز عبور</b><small>رمز عبور خود را به‌طور منظم تغییر دهید.</small></span>
-                        <button type="button" class="tset-btn" onclick="var p=document.getElementById('tset-password-panel');p.hidden=!p.hidden;this.setAttribute('aria-expanded',String(!p.hidden))" aria-controls="tset-password-panel" aria-expanded="{% if security_failed_action == 'password_change' %}true{% else %}false{% endif %}">تغییر رمز عبور</button>
-                        <div class="tset-request-panel" id="tset-password-panel"{% if security_failed_action != 'password_change' %} hidden{% endif %} style="flex-basis:100%">
+                        <button type="button" class="tset-btn" onclick="var p=document.getElementById('tset-password-panel');p.hidden=!p.hidden;this.setAttribute('aria-expanded',String(!p.hidden))" aria-controls="tset-password-panel" aria-expanded="{% if security_failed_action == 'password_change' or request.GET.pw %}true{% else %}false{% endif %}">تغییر رمز عبور</button>
+                        <div class="tset-request-panel" id="tset-password-panel"{% if security_failed_action != 'password_change' and not request.GET.pw %} hidden{% endif %} style="flex-basis:100%">
                             <label class="tset-field"><span class="tset-label">رمز عبور فعلی</span><input class="tset-input" type="password" name="old_password" autocomplete="current-password" dir="ltr" form="tset-security-form"></label>
                             <div class="tset-row is-2">
                                 <label class="tset-field"><span class="tset-label">رمز عبور جدید</span><input class="tset-input" type="password" name="new_password1" autocomplete="new-password" dir="ltr" form="tset-security-form"></label>
@@ -239,7 +240,6 @@
     <footer class="tset-footer">
         <button class="tset-save" type="submit">{% include "teacher/_qb_icon.html" with name="save" %}ذخیره تغییرات</button>
         <button class="tset-cancel" type="reset">انصراف</button>
-        <span class="tset-status" data-tset-status{% if request.GET.saved %} data-saved{% endif %}><i aria-hidden="true"></i><span data-tset-status-text>{% if request.GET.saved %}تغییرات ذخیره شد.{% else %}تغییری ایجاد نشده است.{% endif %}</span></span>
     </footer>
 </form>
 {% if teacher_settings_tab == 'security' %}
@@ -266,27 +266,6 @@
     {# the change-request controls inside the personal tab post here (form="…"), apart from the personal-info save #}
     <form id="tset-academic-form" method="post" action="{% url 'core:teacher_settings' %}?tab=personal" hidden>{% csrf_token %}<input type="hidden" name="settings_tab" value="personal"></form>
 {% endif %}
-<script>
-(function () {
-    var form = document.querySelector('[data-tset-form]');
-    if (!form) return;
-    var status = form.querySelector('[data-tset-status]');
-    var text = form.querySelector('[data-tset-status-text]');
-    function markDirty() {
-        status.setAttribute('data-dirty', '');
-        status.removeAttribute('data-saved');
-        text.textContent = 'تغییرات ذخیره نشده است.';
-    }
-    var markIfOwn = function (event) { if (event.target.form === form) markDirty(); };  // the change-request controls post elsewhere
-    form.addEventListener('input', markIfOwn);
-    form.addEventListener('change', markIfOwn);
-    form.addEventListener('reset', function () {
-        status.removeAttribute('data-dirty');
-        text.textContent = 'تغییری ایجاد نشده است.';
-    });
-})();
-</script>
-
 <script>
 (() => {
   // «مرورگر»: turning it on asks the browser for permission to show notifications

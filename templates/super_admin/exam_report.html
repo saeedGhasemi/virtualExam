@@ -1,0 +1,800 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras static %}
+
+{% block title %}{{ title }} | متاکوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<style>
+    .exam-report{--blue:#315cff;--violet:#7447f5;--ink:#071936;--muted:#65728a;--line:#dbe4f1;direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif}
+    .exam-report *{box-sizing:border-box;letter-spacing:0}
+    .exam-report svg{width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+    .er-shell{max-width:1180px;margin:0 auto;padding-bottom:1.5rem}
+    .er-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+    .er-head h1{margin:0;font-size:1.35rem;font-weight:950}.er-head p{margin:.25rem 0 0;color:var(--muted);font-size:.84rem;font-weight:850}
+    .er-actions{display:flex;gap:.6rem;flex-wrap:wrap}
+    .er-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:2.6rem;padding:0 1rem;border:1px solid #cbd9ec;border-radius:.75rem;background:#fff;color:#1e3a6b;font:inherit;font-size:.86rem;font-weight:900;text-decoration:none;cursor:pointer}
+    .er-btn:hover{border-color:var(--blue);color:var(--blue)}
+    .er-btn.is-primary{border-color:transparent;background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;box-shadow:0 12px 26px rgba(49,92,255,.22)}.er-btn.is-primary:hover{color:#fff;filter:brightness(1.06)}
+    .er-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem;margin-bottom:1.1rem}
+    .er-tab{display:flex;min-height:3.6rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid #d6e1f0;border-radius:1.1rem;background:rgba(255,255,255,.72);color:#42506a;font:inherit;font-size:.9rem;font-weight:950;box-shadow:0 14px 34px rgba(30,55,95,.07);cursor:pointer;text-align:center;padding:.4rem .7rem}
+    .er-tab b{display:grid;width:2rem;height:2rem;flex-shrink:0;place-items:center;border-radius:50%;border:1px solid #d4deec;background:#fff}
+    .er-tab.is-active{background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;border-color:transparent}.er-tab.is-active b{color:var(--blue)}
+    .er-tab small{display:block;font-size:.7rem;font-weight:850;opacity:.75}
+    .er-pane[hidden]{display:none}
+    .er-soon{display:grid;place-items:center;gap:.5rem;min-height:16rem;border:1px dashed #c9d7ea;border-radius:1rem;background:rgba(255,255,255,.7);color:var(--muted);font-weight:900;text-align:center;padding:2rem}
+
+    /* the sheet: an A4-like page */
+    .er-sheet{max-width:1000px;margin:0 auto;border:1px solid var(--line);border-radius:1rem;background:#fff;padding:2rem 2.2rem;box-shadow:0 18px 42px rgba(30,55,95,.08)}
+    .er-sheet-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:1.2rem;padding-bottom:1.1rem;border-bottom:2px solid var(--ink)}
+    .er-logo{width:3.6rem;height:3.6rem;object-fit:contain}
+    .er-sheet-title small{display:block;color:var(--blue);font-size:.8rem;font-weight:950}
+    .er-sheet-title h2{margin:.2rem 0;font-size:1.35rem;font-weight:950;line-height:1.5}
+    .er-sheet-title p{margin:0;color:#3e4c66;font-size:.84rem;font-weight:850}
+    .er-sheet-meta{display:grid;gap:.35rem;text-align:left;font-size:.78rem;font-weight:850;color:#3e4c66;white-space:nowrap}
+    .er-sheet-meta strong{color:var(--ink);font-weight:950}
+    .er-code{direction:ltr;display:inline-block;padding:.12rem .5rem;border:1px solid #c7d5ee;border-radius:.45rem;background:#f3f6ff;color:var(--blue);font-family:Consolas,monospace;font-weight:900}
+    .er-status{display:inline-flex;align-items:center;justify-content:center;padding:.15rem .6rem;border-radius:.45rem;font-size:.74rem;font-weight:950}
+    .er-status.is-pending{background:#fff7ed;color:#c2410c}.er-status.is-scheduled{background:#e9efff;color:#315cff}.er-status.is-running{background:#e7f8ee;color:#15803d}.er-status.is-finished{background:#edf2f7;color:#475569}.er-status.is-draft{background:#eaf4ff;color:#0284c7}.er-status.is-cancelled{background:#fff1e7;color:#ea580c}
+
+    .er-section{margin-top:1.35rem;break-inside:avoid-page}
+    .er-section-title{display:flex;align-items:center;gap:.6rem;margin:0 0 .7rem;padding-bottom:.45rem;border-bottom:1px solid var(--line);color:var(--blue);font-size:1rem;font-weight:950}
+    .er-section-title b{display:grid;width:1.65rem;height:1.65rem;place-items:center;border-radius:50%;background:var(--blue);color:#fff;font-size:.8rem}
+    .er-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line);border-right:1px solid var(--line)}
+    .er-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .er-cell{min-width:0;padding:.55rem .75rem;border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
+    .er-cell.span-2{grid-column:span 2}.er-cell.span-all{grid-column:1/-1}
+    .er-cell span{display:block;color:#7a8597;font-size:.72rem;font-weight:900}
+    .er-cell strong{display:block;margin-top:.15rem;font-size:.86rem;font-weight:950;line-height:1.7;overflow-wrap:anywhere}
+    .er-cell strong.is-text{font-weight:850;white-space:pre-line}
+    .er-muted{color:#94a3b8!important;font-weight:850!important}
+    .er-flags{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem .9rem;margin-top:.7rem}
+    .er-flag{display:flex;align-items:center;gap:.45rem;font-size:.8rem;font-weight:900;color:#25344f}
+    .er-flag i{display:grid;width:1.15rem;height:1.15rem;flex:none;place-items:center;border-radius:.3rem;border:1.5px solid #15803d;background:#effaf4;color:#15803d;font-style:normal;font-size:.72rem;line-height:1}
+    .er-flag.is-off{color:#8a94a6}.er-flag.is-off i{border-color:#cbd5e1;background:#fff;color:#94a3b8}
+    .er-sub{margin:.9rem 0 .45rem;color:#34435f;font-size:.84rem;font-weight:950}
+    .er-table{width:100%;border-collapse:collapse;font-size:.8rem}
+    .er-table th,.er-table td{padding:.45rem .6rem;border:1px solid var(--line);text-align:right;vertical-align:top}
+    .er-table th{background:#f5f8fd;color:#4b5a74;font-size:.74rem;font-weight:950;white-space:nowrap}
+    .er-table td{font-weight:850}.er-table td.num{width:3rem;text-align:center;white-space:nowrap}.er-table td.nowrap{white-space:nowrap}
+    .er-table tfoot td{background:#f5f8fd;font-weight:950}
+    .er-tag{display:inline-block;margin:0 0 .2rem .25rem;padding:.05rem .45rem;border:1px solid #d4deec;border-radius:.4rem;background:#f7f9fd;font-size:.74rem;font-weight:900}
+    .er-pane-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;max-width:1000px;margin:0 auto .8rem;padding:.75rem 1rem;border:1px solid var(--line);border-radius:1rem;background:rgba(255,255,255,.8)}
+    .er-pane-bar strong{display:block;font-size:.98rem;font-weight:950}.er-pane-bar span{color:var(--muted);font-size:.78rem;font-weight:850}
+    .er-pane-tools{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+    .er-btn:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.5)}
+    .er-switch{display:inline-flex;align-items:center;gap:.5rem;color:#34435f;font-size:.82rem;font-weight:900;cursor:pointer;user-select:none}
+    .er-switch input{position:absolute;opacity:0;pointer-events:none}
+    .er-switch-ui{position:relative;width:2.5rem;height:1.4rem;border-radius:999px;background:#cbd5e1;transition:background .15s}
+    .er-switch-ui::after{content:"";position:absolute;top:.2rem;right:.2rem;width:1rem;height:1rem;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+    .er-switch input:checked+.er-switch-ui{background:var(--blue)}.er-switch input:checked+.er-switch-ui::after{transform:translateX(-1.1rem)}
+    .er-switch input:focus-visible+.er-switch-ui{outline:2px solid var(--blue);outline-offset:2px}
+    .er-questions{list-style:none;margin:0;padding:0;display:grid;gap:.8rem}
+    .er-q{border:1px solid var(--line);border-radius:.7rem;padding:.8rem 1rem;break-inside:avoid}
+    .er-q-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
+    .er-q-num{display:grid;min-width:1.8rem;height:1.8rem;place-items:center;border-radius:.45rem;background:var(--ink);color:#fff;font-size:.82rem}
+    .er-q-meta{color:#7a8597;font-size:.74rem;font-weight:900}
+    .er-q-points{margin-right:auto;padding:.1rem .55rem;border:1px solid #c7d5ee;border-radius:.45rem;background:#f3f6ff;color:var(--blue);font-size:.74rem;font-weight:950}
+    .er-q-stem{font-size:.92rem;font-weight:900;line-height:2}.er-q-stem p{margin:0}.er-q-stem img{max-width:100%}
+    .er-blank{display:inline-block;min-width:5.5rem;margin:0 .25rem;border-bottom:1.5px solid #34435f;color:#7a8597;font-size:.72rem;text-align:center}
+    .er-q-note{margin:.35rem 0 0;color:#65728a;font-size:.76rem;font-weight:850}
+    .er-q-figure{margin:.6rem 0 0;text-align:center}
+    .er-q-img{position:relative;display:inline-block;max-width:100%}.er-q-img img{display:block;max-width:100%;max-height:18rem;border:1px solid var(--line);border-radius:.5rem}
+    .er-marker{position:absolute;display:grid;width:1.4rem;height:1.4rem;place-items:center;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;background:var(--blue);color:#fff;font-size:.7rem;font-style:normal;font-weight:950;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+    .er-options{list-style:none;margin:.6rem 0 0;padding:0;display:grid;gap:.4rem}
+    .er-options.is-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .er-options li{display:flex;align-items:flex-start;gap:.5rem;padding:.35rem .5rem;border:1px solid transparent;border-radius:.5rem;font-size:.86rem;font-weight:850;line-height:1.8}
+    .er-opt-box{display:grid;flex:none;min-width:1.6rem;height:1.6rem;place-items:center;border:1.5px solid #94a3b8;border-radius:50%;font-size:.74rem;font-weight:950}
+    .er-opt-box.is-square{border-radius:.3rem}
+    .er-opt-text{min-width:0;overflow-wrap:anywhere}.er-opt-img{display:block;max-width:10rem;max-height:6rem;margin-top:.3rem;border-radius:.3rem}
+    .er-key-mark{margin-right:auto;flex:none;color:#15803d;font-size:.72rem;font-style:normal;font-weight:950}
+    .er-options li.is-correct{border-color:#bbe5cb;background:#effaf4}.er-options li.is-correct .er-opt-box{border-color:#15803d;background:#15803d;color:#fff}
+    .er-match{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.6rem}
+    .er-match ol,.er-order,.er-lines-list{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+    .er-match li,.er-order li,.er-lines-list li{display:flex;align-items:center;gap:.45rem;font-size:.84rem;font-weight:850}
+    .er-match b,.er-lines-list b{display:grid;flex:none;min-width:1.5rem;height:1.5rem;place-items:center;border-radius:.35rem;background:#eef3ff;color:var(--blue);font-size:.74rem}
+    .er-match-slot{margin-right:auto;color:#94a3b8;white-space:nowrap}
+    .er-order{margin-top:.6rem}.er-order-slot{flex:none;width:1.6rem;height:1.6rem;border:1.5px solid #94a3b8;border-radius:.3rem}
+    .er-matrix{margin-top:.6rem}.er-matrix td.num{width:auto}
+    .er-cell-box{display:inline-block;width:1rem;height:1rem;border:1.5px solid #94a3b8;border-radius:50%;vertical-align:middle}
+    .er-cell-box.is-correct{border-color:#15803d;background:#15803d}
+    .er-lines-list{margin-top:.6rem}.er-line{flex:1;height:1.4rem;border-bottom:1px dashed #94a3b8}
+    .er-answer-lines{position:relative;height:calc(var(--lines,2) * 1.9rem);margin-top:.5rem;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(1.9rem - 1px),#cbd5e1 calc(1.9rem - 1px),#cbd5e1 1.9rem)}
+    .er-unit{position:absolute;left:0;bottom:.2rem;color:#65728a;font-size:.78rem;font-weight:900}
+    .er-key{margin-top:.6rem;padding:.55rem .75rem;border-right:3px solid #15803d;border-radius:.4rem;background:#f3fbf6;font-size:.8rem;font-weight:850;line-height:1.9}
+    .er-key strong{display:block;color:#15803d;font-size:.76rem;font-weight:950}.er-key p{margin:0;white-space:pre-line}.er-key ul{margin:0;padding-right:1.1rem}.er-key-expl{color:#4b5a74}
+    [data-report-sheet].hide-answers .er-key,[data-report-sheet].hide-answers .er-key-mark{display:none!important}
+    [data-report-sheet].hide-answers .er-options li.is-correct{border-color:transparent;background:none}
+    [data-report-sheet].hide-answers .er-options li.is-correct .er-opt-box{border-color:#94a3b8;background:none;color:inherit}
+    [data-report-sheet].hide-answers .er-cell-box.is-correct{border-color:#94a3b8;background:none}
+    .pr-hero{display:grid;grid-template-columns:12rem minmax(0,1fr) 13rem;gap:1.3rem;align-items:center;padding:1.1rem;border-radius:.8rem;background:#f1f5fb}
+    .pr-cover{aspect-ratio:4/3;overflow:hidden;border-radius:.6rem;background:#fff;display:grid;place-items:center}.pr-cover img{width:100%;height:100%;object-fit:cover}.pr-cover img.is-logo{width:55%;height:auto;object-fit:contain}
+    .pr-info h2{margin:0 0 .5rem;font-size:1.15rem;font-weight:950}.pr-info h2 span{color:var(--blue)}
+    .pr-info ul{list-style:none;margin:0;padding:0;display:grid;gap:.28rem}
+    .pr-info li{position:relative;padding-right:1.4rem;color:#3e4c66;font-size:.8rem;font-weight:850;line-height:1.7}.pr-info li svg{position:absolute;right:0;top:.2rem;width:1rem;height:1rem;color:#65728a}.pr-info li b{color:#15803d;font-weight:900}
+    .pr-score{display:grid;justify-items:center;gap:.4rem;text-align:center}
+    .pr-score span{color:#3e4c66;font-size:.8rem;font-weight:900}.pr-score strong{font-size:2.4rem;font-weight:950;line-height:1.1}
+    .pr-score em{display:inline-flex;align-items:center;gap:.3rem;color:#15803d;font-size:.8rem;font-style:normal;font-weight:950}.pr-score em svg{width:1rem;height:1rem}
+    .pr-state{padding:.3rem .7rem;border-radius:.4rem;background:#e2e8f0;color:#334155;font-size:.74rem;font-weight:950}.pr-state.is-running{background:#e7f8ee;color:#15803d}.pr-state.is-finished{background:#edf2f7;color:#475569}.pr-state.is-cancelled{background:#fff1e7;color:#ea580c}
+    .pr-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.6rem;margin-top:1rem}
+    .pr-stats div{padding:.6rem .8rem;border:1px solid var(--line);border-radius:.6rem;text-align:center}.pr-stats span{display:block;color:#7a8597;font-size:.72rem;font-weight:900}.pr-stats strong{font-size:1.15rem;font-weight:950}
+    .pr-stats .is-ok{color:#15803d}.pr-stats .is-bad{color:#dc2626}.pr-stats .is-wait{color:#c2410c}
+    .pr-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:1.3rem 0 .7rem}
+    .pr-toolbar h3{margin:0;font-size:1.05rem;font-weight:950}
+    .pr-filters{display:flex;gap:.6rem;flex-wrap:wrap}
+    .pr-filters select,.pr-search input{height:2.5rem;border:1px solid #cbd9ec;border-radius:.6rem;background:#fff;padding:0 .7rem;font:inherit;font-size:.82rem;font-weight:850;color:var(--ink)}
+    .pr-search{position:relative;display:flex}.pr-search input{width:14rem;padding-left:2.2rem}.pr-search svg{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:#94a3b8}
+    .pr-table td{vertical-align:middle}
+    .pr-user{display:flex;align-items:center;gap:.55rem;min-width:10rem}.pr-user img,.pr-avatar{width:2.3rem;height:2.3rem;flex:none;border-radius:50%;object-fit:cover}
+    .pr-avatar{display:grid;place-items:center;background:#e0e7ff;color:var(--blue);font-weight:950}
+    .pr-user b{display:block;color:#15803d;font-weight:950}.pr-user small{color:#7a8597;font-size:.72rem}
+    .pr-session{text-align:center;white-space:nowrap}.pr-session small{display:block;color:#4b5a74;font-size:.7rem;font-weight:850;line-height:1.7}
+    .pr-table th.pr-sessions-cell,.pr-table td.pr-sessions-cell{width:62%}
+    .pr-sessions{display:grid;grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr));gap:.45rem}.pr-sessions .pr-session{padding:.4rem .5rem;border:1px solid var(--line);border-radius:.5rem;white-space:normal}
+    .pr-session-n{color:var(--blue)!important;font-weight:950!important}
+    .pr-chip{display:inline-block;margin-bottom:.2rem;padding:.1rem .55rem;border-radius:.35rem;background:#e5e7eb;color:#1f2937;font-size:.8rem;font-weight:950}
+    .pr-muted{color:#94a3b8;font-size:.76rem;font-weight:850}
+    .pr-final{white-space:nowrap}.pr-final small{display:block;margin-top:.2rem;color:#4b5a74;font-size:.72rem;font-weight:900}
+    .pr-badge{display:inline-block;min-width:3.4rem;padding:.3rem .5rem;border-radius:.4rem;background:#94a3b8;color:#fff;font-size:.86rem;font-weight:950;text-align:center}
+    .pr-badge.is-passed{background:#1fb991}.pr-badge.is-failed{background:#f4511e}.pr-badge.is-pending{background:#f59e0b}.pr-badge.is-absent{background:#cbd5e1;color:#475569}
+    .pr-empty{padding:1.2rem!important;color:#7a8597;text-align:center!important}
+    .er-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;max-width:1000px;margin:1rem auto 0;padding:1rem;border:1px solid var(--line);border-radius:1rem;background:rgba(255,255,255,.8);box-shadow:0 18px 42px rgba(30,55,95,.08)}
+    .er-nav-btn{display:inline-flex;height:3.1rem;align-items:center;justify-content:center;gap:.55rem;border:1px solid #cbd9ec;border-radius:.75rem;background:#fff;color:var(--blue);padding:0 1.3rem;font:inherit;font-weight:950;cursor:pointer}
+    .er-nav-btn span{display:grid;line-height:1.35;text-align:inherit}.er-nav-btn small{font-size:.7rem;font-weight:850;opacity:.8}
+    .er-nav-btn.is-next{margin-right:auto;border:0;background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;text-align:left}
+    .er-nav-btn:hover{filter:brightness(1.04);box-shadow:0 10px 22px rgba(49,92,255,.16)}.er-nav-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+    .er-nav-btn[hidden]{display:none}
+    .an-hero{grid-template-columns:12rem minmax(0,1fr)}
+    .an-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:.4rem 1.5rem}.an-cols ul{list-style:none;margin:0;padding:0;display:grid;gap:.28rem;align-content:start}
+    .an-empty{margin:1rem 0 0;padding:.8rem 1rem;border:1px dashed #c9d7ea;border-radius:.6rem;color:#65728a;font-size:.84rem;font-weight:850;text-align:center}
+    .an-list{display:grid;gap:1rem;margin-top:1.2rem}
+    .an-q{border:1px solid var(--line);border-radius:.7rem;background:#fff;overflow:hidden;break-inside:avoid}
+    .an-q-head{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;padding:.7rem 1rem .3rem}
+    .an-q-num{display:inline-flex;align-items:center;gap:.3rem;padding:.15rem .55rem;border-radius:.3rem;background:#e5e7eb;color:#1f2937;font-size:.8rem;font-weight:950}.an-q-num svg{width:.85rem;height:.85rem;fill:currentColor}
+    .an-tags{display:flex;gap:.3rem;flex-wrap:wrap}.an-tag{padding:.05rem .55rem;border:1px solid #c7d5ee;border-radius:999px;color:#3b6fb5;font-size:.7rem;font-weight:900}.an-tag.is-type{border-color:#d4d4d8;color:#52525b}
+    .an-stem{padding:.3rem 1rem .7rem;font-size:.9rem;font-weight:900;line-height:1.9}.an-stem p{margin:0}
+    .an-q .er-q-figure{margin:0 1rem .7rem}
+    .an-bars{list-style:none;margin:0;padding:0;border-top:1px solid #eef2f7}
+    .an-bars li{position:relative;display:flex;align-items:center;gap:.6rem;min-height:3.2rem;padding:.5rem 1rem;border-bottom:1px solid #eef2f7;font-size:.84rem;font-weight:850;isolation:isolate}
+    .an-bars li::before{content:"";position:absolute;inset:0 0 0 auto;width:max(var(--pct),.35rem);z-index:-1;background:#fbe3ea}
+    .an-bars li.is-correct::before{background:linear-gradient(to left,#b2dfdb,#e0f2f1 70%,rgba(224,242,241,.2))}
+    .an-bars li.is-partial::before{background:#fdecc8}.an-bars li.is-waiting::before{background:#e0e7ff}
+    .an-dot{flex:none;width:1.05rem;height:1.05rem;border:1.5px solid #cbd5e1;border-radius:50%;background:#fff}.an-dot.is-on{border-color:#4db6ac;background:#b2dfdb}
+    .an-label{min-width:0;overflow-wrap:anywhere}
+    .an-correct{display:inline-block;margin-right:.2rem;padding:0 .45rem;border:1.5px solid #26a69a;border-radius:999px;background:#80cbc4;color:#00695c;font-size:.7rem;font-style:normal;font-weight:950}
+    .an-pct{flex:none;padding:.15rem .45rem;border-radius:.3rem;background:rgba(229,231,235,.9);color:#374151;font-size:.8rem;font-weight:950}
+    .an-count{flex:none;margin-right:auto;color:#7a8597;font-size:.72rem;font-weight:850}
+    .an-key{margin:0;padding:.55rem 1rem;border-bottom:1px solid #eef2f7;color:#15803d;font-size:.8rem;font-weight:900}
+    .an-q-foot{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;padding:.6rem 1rem;background:#f6f7f9}
+    .an-meta{color:#4b5a74;font-size:.76rem;font-weight:850}.an-meta b{color:var(--ink)}
+    .an-points{display:inline-flex;gap:.35rem}.an-points span{padding:.15rem .5rem;border:1px solid #e5e7eb;border-radius:.3rem;background:#fff;font-size:.76rem;font-weight:950}
+    .an-points .is-plus{color:#15803d}.an-points .is-minus{color:#dc2626}
+    .at-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:1.2rem;padding:1.1rem 1.2rem;border-radius:.9rem;background:linear-gradient(135deg,#eef3ff,#f5f0ff)}
+    .at-title small{color:var(--blue);font-size:.78rem;font-weight:950}.at-title h2{margin:.15rem 0;font-size:1.25rem;font-weight:950}.at-title p{margin:0;color:#3e4c66;font-size:.82rem;font-weight:850}
+    .at-ring{display:grid;width:7.2rem;height:7.2rem;place-items:center;border-radius:50%;background:conic-gradient(#1fb991 0 var(--p1),#f59e0b var(--p1) var(--p2),#f4511e var(--p2) 100%)}
+    .at-ring>div{display:grid;width:5.4rem;height:5.4rem;place-content:center;border-radius:50%;background:#fff;text-align:center}.at-ring strong{font-size:1.35rem;font-weight:950;line-height:1.1}.at-ring span{color:#65728a;font-size:.72rem;font-weight:900}
+    .at-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin-top:1rem}
+    .at-stats>div{display:flex;align-items:center;gap:.7rem;padding:.75rem .9rem;border:1px solid var(--line);border-radius:.8rem}
+    .at-ico{display:grid;flex:none;width:2.4rem;height:2.4rem;place-items:center;border-radius:.7rem;background:#eef3ff;color:var(--blue)}.at-ico svg{width:1.2rem;height:1.2rem;stroke-width:2.6}
+    .at-stats strong{display:block;font-size:1.3rem;font-weight:950;line-height:1.2}.at-stats small{color:#65728a;font-size:.74rem;font-weight:900}
+    .at-stats .is-present .at-ico{background:#e7f8ee;color:#15803d}.at-stats .is-incomplete .at-ico{background:#fff7ed;color:#c2410c}.at-stats .is-absent .at-ico{background:#fef2f2;color:#dc2626}
+    .at-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;margin:1.2rem 0 .8rem}
+    .at-chips{display:flex;gap:.4rem;flex-wrap:wrap}
+    .at-chips button{display:inline-flex;align-items:center;gap:.35rem;height:2.3rem;padding:0 .85rem;border:1px solid #cbd9ec;border-radius:999px;background:#fff;color:#34435f;font:inherit;font-size:.8rem;font-weight:900;cursor:pointer}
+    .at-chips button b{display:grid;min-width:1.4rem;height:1.4rem;place-items:center;padding:0 .3rem;border-radius:999px;background:#eef2f7;font-size:.72rem}
+    .at-chips button.is-active{border-color:transparent;background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff}.at-chips button.is-active b{background:rgba(255,255,255,.25)}
+    .at-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(14.5rem,1fr));gap:.6rem}
+    .at-card{position:relative;display:flex;align-items:center;gap:.6rem;padding:.6rem .7rem;border:1px solid var(--line);border-right:4px solid #1fb991;border-radius:.7rem;background:#fff;break-inside:avoid}
+    .at-card[hidden]{display:none}
+    .at-card.is-incomplete{border-right-color:#f59e0b;background:#fffbf3}.at-card.is-absent{border-right-color:#f4511e;background:#fff6f4}
+    .at-num{position:absolute;top:.3rem;left:.45rem;color:#a3adbd;font-size:.66rem;font-weight:900}
+    .at-avatar{display:grid;flex:none;width:2.4rem;height:2.4rem;place-items:center;border-radius:50%;object-fit:cover;background:#e0e7ff;color:var(--blue);font-weight:950}
+    .at-card.is-absent .at-avatar{filter:grayscale(1);opacity:.75}
+    .at-who{min-width:0;flex:1}.at-who b{display:block;overflow:hidden;font-size:.84rem;font-weight:950;text-overflow:ellipsis;white-space:nowrap}
+    .at-who small{display:block;color:#7a8597;font-size:.7rem;font-weight:850}.at-who .at-time{color:#15803d}
+    .at-mark{display:grid;flex:none;justify-items:center;gap:.1rem;color:#15803d}.at-mark svg{width:1.3rem;height:1.3rem;stroke-width:3}.at-mark em{font-size:.66rem;font-style:normal;font-weight:950}
+    .at-card.is-incomplete .at-mark{color:#c2410c}.at-card.is-absent .at-mark{color:#dc2626}
+    .at-note{margin:.8rem 0 0;color:#65728a;font-size:.76rem;font-weight:850}
+    .er-q-stem[dir="ltr"],.an-stem[dir="ltr"]{text-align:left}
+    /* English questions: the site font draws 0-9 as Persian digits, so they use a font with Latin ones */
+    .exam-report [dir="ltr"][data-latin-digits]{font-family:"Segoe UI",Tahoma,Arial,sans-serif;letter-spacing:0}
+    .er-signs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.2rem;margin-top:2rem;break-inside:avoid}
+    .er-signs div{min-height:5rem;border:1px dashed #c9d7ea;border-radius:.6rem;padding:.6rem;color:#4b5a74;font-size:.78rem;font-weight:950;text-align:center}
+    .exam-report .visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    .er-foot{margin-top:1.1rem;color:#94a3b8;font-size:.72rem;font-weight:850;text-align:center}
+
+    @media (max-width:900px){.er-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.at-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.an-hero{grid-template-columns:9rem minmax(0,1fr)}.an-cols{grid-template-columns:minmax(0,1fr)}.pr-hero{grid-template-columns:9rem minmax(0,1fr)}.pr-score{grid-column:1/-1}.pr-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.er-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.er-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}.er-flags{grid-template-columns:repeat(2,minmax(0,1fr))}.er-sheet{padding:1.4rem}}
+    /* participants: cards instead of a table once the session columns no longer fit (the panel rail still takes room at 761–820px) */
+    @media screen and (max-width:820px){
+        .pr-table,.pr-table tbody{display:block}.pr-table thead{display:none}
+        .pr-table tr[data-pr-row]:not([hidden]){display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.5rem;align-items:center;margin-bottom:.7rem;padding:.7rem;border:1px solid var(--line);border-radius:.7rem}
+        .pr-table tr[data-pr-row] td{display:block;border:0;padding:0}
+        .pr-table td.pr-session,.pr-table td.pr-sessions-cell{grid-column:1/-1;width:auto;text-align:right;white-space:normal;padding-top:.5rem;border-top:1px dashed var(--line)}
+        .pr-table td.pr-session::before{content:attr(data-label);display:block;color:var(--blue);font-size:.72rem;font-weight:950}
+        .pr-table td.pr-final{grid-column:3;grid-row:1}
+        .pr-table tr[data-pr-empty] td{display:block}
+    }
+    @media (max-width:680px){
+        .at-head{grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center}.at-toolbar .pr-search,.at-toolbar .pr-search input{width:100%}
+        .an-hero{grid-template-columns:minmax(0,1fr)}.an-bars li{flex-wrap:wrap}.an-count{margin-right:0}
+        .er-footer{flex-direction:column-reverse;align-items:stretch}.er-nav-btn,.er-nav-btn.is-next{width:100%;margin:0}
+        .pr-hero{grid-template-columns:minmax(0,1fr)}.pr-cover{max-width:12rem}.pr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.pr-filters,.pr-search,.pr-search input{width:100%}
+        .pr-sessions{grid-template-columns:minmax(0,1fr)}
+        .er-options.is-grid,.er-match{grid-template-columns:minmax(0,1fr)}.er-pane-tools{width:100%}.er-pane-tools .er-btn{flex:1}
+        .er-tabs{grid-template-columns:1fr}.er-tab{min-height:3rem}
+        .er-sheet{padding:1rem;border-radius:.8rem}
+        .er-sheet-head{grid-template-columns:auto minmax(0,1fr)}.er-sheet-meta{grid-column:1/-1;text-align:right;white-space:normal}
+        .er-grid,.er-grid.three{grid-template-columns:minmax(0,1fr)}.er-cell.span-2{grid-column:auto}
+        .er-flags{grid-template-columns:minmax(0,1fr)}.er-signs{grid-template-columns:minmax(0,1fr)}
+        .er-actions{width:100%}.er-actions .er-btn{flex:1}
+    }
+
+    @media print{
+        @page{size:A4;margin:11mm}
+        html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+        body:has(.super-admin-workspace),body:has(.super-admin-chrome){height:auto!important;overflow:visible!important;background:#fff!important}
+        body:has(.super-admin-chrome) .app-shell,body:has(.super-admin-chrome) .app-main{display:block!important;height:auto!important;overflow:visible!important;padding:0!important;background:#fff!important}
+        .super-admin-chrome,.super-admin-rail,.er-head,.er-tabs,.er-pane-bar,.er-footer,.er-pane:not(.is-print){display:none!important}
+        .pr-hero{grid-template-columns:8rem minmax(0,1fr) 10rem!important}.pr-score{grid-column:auto!important}.pr-stats{grid-template-columns:repeat(5,minmax(0,1fr))!important}.pr-filters{display:none!important}.pr-table{display:table!important}.pr-sessions{grid-template-columns:repeat(3,minmax(0,1fr))!important}.pr-table thead{display:table-header-group!important}.pr-user img,.pr-avatar{width:1.8rem;height:1.8rem}
+        .an-hero{grid-template-columns:8rem minmax(0,1fr)!important}.an-cols{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)!important}.an-q{border-color:#cbd5e1}
+        .at-toolbar{display:none!important}.at-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important}.at-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:.35rem;margin-top:.9rem}.at-card{padding:.4rem .5rem}.at-avatar{width:1.8rem;height:1.8rem}.at-head{grid-template-columns:minmax(0,1fr) auto!important;text-align:right!important}
+        .er-q{border-color:#cbd5e1}.er-options.is-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.er-match{grid-template-columns:1fr 1fr!important}
+        body:has(.super-admin-chrome) .super-admin-chrome,body:has(.super-admin-chrome) .super-admin-topbar,body:has(.super-admin-chrome) .super-admin-rail{display:none!important}
+        body:has(.super-admin-workspace) .exam-report.super-admin-workspace{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;padding:0!important;background:#fff!important}
+        .er-shell{max-width:none;padding:0}
+        .er-sheet{max-width:none;border:0;border-radius:0;padding:0;box-shadow:none}
+        .exam-report{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        .er-section{margin-top:.9rem}
+        .er-table tr{break-inside:avoid}
+        .er-table thead{display:table-header-group}
+        .er-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}.er-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+        .er-flags{grid-template-columns:repeat(3,minmax(0,1fr))!important}.er-signs{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+        .er-cell.span-2{grid-column:span 2!important}
+    }
+</style>
+
+<section class="super-admin-page super-admin-workspace exam-report" dir="rtl" data-fixed-scroll-page>
+    <div class="er-shell">
+        <header class="er-head">
+            <div>
+                <h1>گزارش آزمون</h1>
+                <p>{{ exam.title }} · {{ exam.course_title }}</p>
+            </div>
+            <div class="er-actions">
+                <a class="er-btn" href="{{ back_url }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>بازگشت به آزمون‌ها</a>
+            </div>
+        </header>
+
+        <nav class="er-tabs" role="tablist" aria-label="بخش‌های گزارش آزمون">
+            <button type="button" class="er-tab is-active" role="tab" aria-selected="true" data-report-tab="info"><b>۱</b>مشخصات آزمون</button>
+            <button type="button" class="er-tab" role="tab" aria-selected="false" data-report-tab="participants"><b>۲</b>شرکت‌کنندگان و نتایج</button>
+            <button type="button" class="er-tab" role="tab" aria-selected="false" data-report-tab="analysis"><b>۳</b>تحلیل سوالات</button>
+            <button type="button" class="er-tab" role="tab" aria-selected="false" data-report-tab="attendance"><b>۴</b>حضور و غیاب</button>
+        </nav>
+
+        <div class="er-pane is-print" role="tabpanel" data-report-pane="info">
+            <div class="er-pane-bar">
+                <div><strong>مشخصات آزمون</strong><span>همه‌ی اطلاعات ثبت‌شده در ۷ مرحله‌ی ایجاد آزمون، همراه با متن کامل سوالات</span></div>
+                <div class="er-pane-tools">
+                    <label class="er-switch" title="برای چاپ برگه‌ی امتحان دانشجو، پاسخ‌ها را پنهان کنید"><input type="checkbox" checked data-toggle-answers><span class="er-switch-ui" aria-hidden="true"></span>نمایش پاسخ‌های صحیح</label>
+                    <button type="button" class="er-btn is-primary" data-report-print><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>چاپ این بخش</button>
+                </div>
+            </div>
+            <article class="er-sheet" data-report-sheet>
+                <header class="er-sheet-head">
+                    <img class="er-logo" src="{% static 'img/metaquiz-logo.png' %}" alt="متاکوییز">
+                    <div class="er-sheet-title">
+                        <small>شناسنامه و مشخصات آزمون</small>
+                        <h2>{{ exam.title }}</h2>
+                        <p>{{ exam.course_title }}{% if exam.course_code %} ({{ exam.course_code }}){% endif %} · استاد: {{ exam.teacher_name }}</p>
+                    </div>
+                    <div class="er-sheet-meta">
+                        <div>کد آزمون: <span class="er-code" data-latin-digits>{{ exam_code }}</span></div>
+                        <div>وضعیت: <span class="er-status is-{{ status_key }}">{{ status_label }}</span></div>
+                        <div>تاریخ گزارش: <strong>{{ printed_at|to_jalali }}</strong></div>
+                    </div>
+                </header>
+
+
+                <section class="er-section">
+                    <h3 class="er-section-title"><b>۱</b>مشخصات پایه</h3>
+                    <div class="er-grid">
+                        <div class="er-cell span-2"><span>عنوان آزمون</span><strong>{{ exam.title }}</strong></div>
+                        <div class="er-cell"><span>درس</span><strong>{{ exam.course_title }}</strong></div>
+                        <div class="er-cell"><span>استاد مسئول</span><strong>{{ exam.teacher_name }}</strong></div>
+                        <div class="er-cell"><span>نوع آزمون</span><strong>{{ exam_mode_label }}</strong></div>
+                        <div class="er-cell"><span>دوره / ترم</span><strong>{% if term_label %}{{ term_label|fa_digits }}{% else %}<span class="er-muted">-</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>قالب نمره‌دهی</span><strong>{% if grading_template_label %}{{ grading_template_label }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>گروه‌های هدف</span><strong>{{ groups|length|fa_digits }} گروه</strong></div>
+                        <div class="er-cell span-all"><span>تگ‌ها</span><strong>{% for tag in tags %}<span class="er-tag">{{ tag }}</span>{% empty %}<span class="er-muted">ندارد</span>{% endfor %}</strong></div>
+                        <div class="er-cell span-all"><span>توضیحات آزمون</span><strong class="is-text">{% if exam.description %}{{ exam.description }}{% else %}<span class="er-muted">ندارد</span>{% endif %}</strong></div>
+                    </div>
+                </section>
+
+                <section class="er-section">
+                    <h3 class="er-section-title"><b>۲</b>زمان‌بندی و قوانین</h3>
+                    <div class="er-grid">
+                        <div class="er-cell span-2"><span>تاریخ و ساعت شروع</span><strong>{% if exam.start_at %}{{ exam.start_at|jalali_long }} · ساعت {{ exam.start_at|time:"H:i"|fa_digits }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>مدت زمان</span><strong>{{ exam.duration_minutes|default:"-"|fa_digits }} دقیقه</strong></div>
+                        <div class="er-cell"><span>زمان پایان</span><strong>{% if exam.end_at %}{{ exam.end_at|to_jalali }}{% else %}<span class="er-muted">-</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>شروع دسترسی</span><strong>{% if exam.registration_start_at %}{{ exam.registration_start_at|to_jalali }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>آخرین زمان مجاز ورود</span><strong>{% if exam.last_entry_at %}{{ exam.last_entry_at|to_jalali }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>پایان دسترسی</span><strong>{% if exam.registration_end_at %}{{ exam.registration_end_at|to_jalali }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>تعداد تلاش مجاز</span><strong>{{ max_attempts_label|fa_digits }}</strong></div>
+                        {% for label, value in display_modes %}<div class="er-cell{% if forloop.last %} span-2{% endif %}"><span>{{ label }}</span><strong>{{ value }}</strong></div>{% endfor %}
+                    </div>
+                    <div class="er-flags">{% for item in rules %}<div class="er-flag{% if not item.on %} is-off{% endif %}"><i aria-hidden="true">{% if item.on %}✓{% else %}–{% endif %}</i>{{ item.label }}<span class="visually-hidden">: {% if item.on %}فعال{% else %}غیرفعال{% endif %}</span></div>{% endfor %}</div>
+                </section>
+
+                <section class="er-section">
+                    <h3 class="er-section-title"><b>۳</b>سوالات آزمون</h3>
+                    <div class="er-grid">
+                        <div class="er-cell"><span>تعداد کل سوالات</span><strong>{{ questions|length|fa_digits }} سؤال</strong></div>
+                        <div class="er-cell"><span>عینی (تستی)</span><strong>{{ objective_count|fa_digits }} سؤال</strong></div>
+                        <div class="er-cell"><span>تشریحی / سایر</span><strong>{{ subjective_count|fa_digits }} سؤال</strong></div>
+                        <div class="er-cell"><span>جمع بارم سوالات</span><strong>{{ question_total_points|default:0|fa_digits }} نمره</strong></div>
+                    </div>
+                    {% if type_rows %}
+                    <p class="er-sub">تفکیک بر اساس نوع سؤال</p>
+                    <table class="er-table">
+                        <thead><tr><th>نوع سؤال</th><th>تعداد</th><th>جمع نمره</th></tr></thead>
+                        <tbody>{% for row in type_rows %}<tr><td>{{ row.label }}</td><td class="num">{{ row.count|fa_digits }}</td><td class="num">{{ row.points|fa_digits }}</td></tr>{% endfor %}</tbody>
+                    </table>
+                    <p class="er-sub">متن کامل سوالات</p>
+                    <ol class="er-questions">
+                        {% for q in questions %}
+                        <li class="er-q">
+                            <div class="er-q-head">
+                                <b class="er-q-num">{{ q.index|fa_digits }}</b>
+                                <span class="er-q-meta">{{ q.type_label }} · {{ q.difficulty_label }}</span>
+                                <span class="er-q-points">{{ q.points|fa_digits }} نمره</span>
+                            </div>
+                            <div class="er-q-stem"{% if q.ltr %} dir="ltr" data-latin-digits{% endif %}>
+                                {% if q.segments %}{% for seg in q.segments %}{% if seg.kind == 'blank' %}<span class="er-blank">({{ seg.index|fa_digits }})</span>{% else %}{{ seg.value }}{% endif %}{% endfor %}
+                                {% elif q.stem_html %}{{ q.stem_html|safe }}
+                                {% else %}{{ q.text }}{% endif %}
+                            </div>
+                            {% if q.instructions %}<p class="er-q-note">{{ q.instructions }}</p>{% endif %}
+                            {% if q.has_audio or q.has_video %}<p class="er-q-note">این سؤال فایل {% if q.has_video %}ویدئویی{% else %}صوتی{% endif %} دارد که روی برگه چاپ نمی‌شود.</p>{% endif %}
+                            {% if q.image %}
+                            <figure class="er-q-figure"><span class="er-q-img">
+                                <img src="{{ q.image }}" alt="{{ q.image_alt }}">
+                                {% for m in q.markers %}<i class="er-marker" style="left:{{ m.x|stringformat:'.2f' }}%;top:{{ m.y|stringformat:'.2f' }}%">{{ m.marker|fa_digits }}</i>{% endfor %}
+                            </span></figure>
+                            {% endif %}
+
+                            {% if q.options %}
+                            <ul class="er-options{% if q.options|length > 2 %} is-grid{% endif %}">
+                                {% for option in q.options %}
+                                <li class="{% if option.correct %}is-correct{% endif %}"><span class="er-opt-box{% if q.multi %} is-square{% endif %}">{{ option.letter }}</span><span class="er-opt-text"{% if option.ltr %} dir="ltr" data-latin-digits{% endif %}>{{ option.label }}{% if option.media %}<img class="er-opt-img" src="{{ option.media }}" alt="">{% endif %}</span>{% if option.correct %}<em class="er-key-mark">✓ پاسخ صحیح</em>{% endif %}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+
+                            {% if q.left %}
+                            <div class="er-match">
+                                <ol>{% for e in q.left %}<li><b>{{ e.number|fa_digits }}</b>{{ e.label }}<span class="er-match-slot">(&nbsp;&nbsp;&nbsp;&nbsp;)</span></li>{% endfor %}</ol>
+                                <ol>{% for e in q.right %}<li><b>{{ e.letter }}</b>{{ e.label }}</li>{% endfor %}</ol>
+                            </div>
+                            {% endif %}
+
+                            {% if q.items %}
+                            <ul class="er-order">{% for e in q.items %}<li><span class="er-order-slot"></span><b>{{ e.letter }})</b>{{ e.label }}</li>{% endfor %}</ul>
+                            <p class="er-q-note">شماره‌ی ترتیب هر مورد را در کادر کنار آن بنویسید.</p>
+                            {% endif %}
+
+                            {% if q.matrix %}
+                            <table class="er-table er-matrix rt-off">
+                                <thead><tr><th></th>{% for c in q.matrix.columns %}<th>{{ c.text }}</th>{% endfor %}</tr></thead>
+                                <tbody>{% for r in q.matrix.rows %}<tr><td>{{ r.text }}</td>{% for cell in r.cells %}<td class="num"><span class="er-cell-box{% if cell %} is-correct{% endif %}"></span></td>{% endfor %}</tr>{% endfor %}</tbody>
+                            </table>
+                            {% endif %}
+
+                            {% if q.type == 'hotspot' %}<p class="er-q-note">{{ q.max_clicks|fa_digits }} ناحیه‌ی مورد نظر را روی تصویر علامت بزنید.</p>{% endif %}
+                            {% if q.markers %}<ul class="er-lines-list">{% for m in q.markers %}<li><b>{{ m.marker|fa_digits }}</b><span class="er-line"></span></li>{% endfor %}</ul>{% endif %}
+                            {% if q.answer_lines %}<div class="er-answer-lines" style="--lines:{{ q.answer_lines }}">{% if q.unit %}<span class="er-unit">{{ q.unit }}</span>{% endif %}</div>{% endif %}
+
+                            {% if q.key_lines or q.rubric or q.explanation %}
+                            <div class="er-key">
+                                <strong>پاسخ و راهنمای تصحیح</strong>
+                                {% for line in q.key_lines %}<p>{{ line }}</p>{% endfor %}
+                                {% if q.rubric %}<ul>{% for r in q.rubric %}<li>{{ r.criterion }}{% if r.points %} ({{ r.points|fa_digits }} نمره){% endif %}{% if r.description %}: {{ r.description }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+                                {% if q.explanation %}<p class="er-key-expl">توضیح: {{ q.explanation }}</p>{% endif %}
+                            </div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <p class="er-sub er-muted">هنوز سؤالی برای این آزمون انتخاب نشده است.</p>
+                    {% endif %}
+                </section>
+
+                <section class="er-section">
+                    <h3 class="er-section-title"><b>۴</b>مخاطبان و عوامل</h3>
+                    <div class="er-grid">
+                        <div class="er-cell"><span>مجموع دانشجویان مخاطب</span><strong>{{ audience_count|fa_digits }} نفر</strong></div>
+                        <div class="er-cell"><span>گروه‌های هدف</span><strong>{{ groups|length|fa_digits }} گروه</strong></div>
+                        <div class="er-cell"><span>دانشجویان افزوده‌شده جداگانه</span><strong>{{ individual_count|fa_digits }} نفر</strong></div>
+                        <div class="er-cell"><span>دانشجویان مستثنا</span><strong>{{ excluded_count|fa_digits }} نفر</strong></div>
+                    </div>
+                    {% if groups %}
+                    <p class="er-sub">گروه‌های هدف</p>
+                    <table class="er-table">
+                        <thead><tr><th>ردیف</th><th>درس</th><th>کد گروه</th><th>استاد گروه</th><th>تعداد اعضا</th></tr></thead>
+                        <tbody>{% for group in groups %}<tr><td class="num">{{ forloop.counter|fa_digits }}</td><td>{{ group.course }}</td><td class="nowrap">{{ group.group_code|default:"-"|fa_digits }}</td><td>{{ group.teacher }}</td><td class="num">{{ group.members|fa_digits }}</td></tr>{% endfor %}</tbody>
+                    </table>
+                    {% endif %}
+                    <p class="er-sub">عوامل آزمون</p>
+                    {% if staff %}
+                    <table class="er-table">
+                        <thead><tr><th>ردیف</th><th>نام و نام‌خانوادگی</th><th>نقش در آزمون</th></tr></thead>
+                        <tbody>{% for person in staff %}<tr><td class="num">{{ forloop.counter|fa_digits }}</td><td>{{ person.name }}</td><td>{{ person.role_label }}</td></tr>{% endfor %}</tbody>
+                    </table>
+                    {% else %}
+                    <p class="er-sub er-muted" style="margin-top:0">عاملی جز استاد مسئول ثبت نشده است.</p>
+                    {% endif %}
+                </section>
+
+                <section class="er-section">
+                    <h3 class="er-section-title"><b>۵</b>نمره‌دهی و تصحیح</h3>
+                    <div class="er-grid">
+                        <div class="er-cell"><span>مجموع نمرات کل آزمون</span><strong>{% if total_score %}{{ total_score|fa_digits }} نمره{% else %}<span class="er-muted">تعیین نشده (نمره‌ها از {{ score_scale|fa_digits }} گزارش می‌شوند)</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>نمره قبولی</span><strong>{{ passing_label|fa_digits }}</strong></div>
+                        <div class="er-cell"><span>مقدار جریمه پاسخ غلط</span><strong>{% if penalty %}{{ penalty|fa_digits }} برابر نمره‌ی سؤال (سوالات گزینه‌ای){% else %}<span class="er-muted">بدون جریمه‌ی کلی (طبق تنظیم هر سؤال)</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>روش نمره‌دهی کل</span><strong>{% if grading_method_label %}{{ grading_method_label }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>زمان اعلام نمره</span><strong>{% if correction_mode_label %}{{ correction_mode_label }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>مهلت نهایی انتشار نمرات</span><strong>{% if results_deadline_label %}{{ results_deadline_label }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell span-2"><span>روبریک تصحیح</span><strong>{% if settings_enforced %}{{ rubric_label|default:"بدون روبریک" }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell span-all"><span>دستورالعمل تصحیح</span><strong class="is-text">{% if exam.correction_instructions %}{{ exam.correction_instructions }}{% else %}<span class="er-muted">ندارد</span>{% endif %}</strong></div>
+                    </div>
+                    <div class="er-flags">{% for item in grading_flags %}<div class="er-flag{% if not item.on %} is-off{% endif %}"><i aria-hidden="true">{% if item.on %}✓{% else %}–{% endif %}</i>{{ item.label }}<span class="visually-hidden">: {% if item.on %}فعال{% else %}غیرفعال{% endif %}</span></div>{% endfor %}</div>
+                </section>
+
+                <section class="er-section">
+                    <h3 class="er-section-title"><b>۶</b>امنیت و برگزاری</h3>
+                    <div class="er-grid">
+                        <div class="er-cell"><span>سطح امنیت</span><strong>{% if security_level_label %}{{ security_level_label }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>حالت برگزاری</span><strong>{% if execution_mode_label %}{{ execution_mode_label }}{% else %}<span class="er-muted">تعیین نشده</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>قطع شدن اینترنت</span><strong>{{ internet_policy_label }}</strong></div>
+                        <div class="er-cell"><span>ذخیره خودکار پاسخ‌ها</span><strong>{% if autosave_label %}{{ autosave_label|fa_digits }}{% else %}<span class="er-muted">غیرفعال</span>{% endif %}</strong></div>
+                        {% if ip_range %}<div class="er-cell span-2"><span>محدوده IP مجاز</span><strong data-latin-digits dir="ltr" style="text-align:right">{{ ip_range }}</strong></div>{% endif %}
+                        <div class="er-cell span-2"><span>فایل راهنما</span><strong>{% if exam.guidance_file_url %}پیوست شده{% else %}<span class="er-muted">ندارد</span>{% endif %}</strong></div>
+                    </div>
+                    <div class="er-flags">{% for item in security_flags %}<div class="er-flag{% if not item.on %} is-off{% endif %}"><i aria-hidden="true">{% if item.on %}✓{% else %}–{% endif %}</i>{{ item.label }}<span class="visually-hidden">: {% if item.on %}فعال{% else %}غیرفعال{% endif %}</span></div>{% endfor %}</div>
+                </section>
+
+                <section class="er-section">
+                    <h3 class="er-section-title"><b>۷</b>انتشار</h3>
+                    <div class="er-grid">
+                        <div class="er-cell"><span>وضعیت آزمون</span><strong><span class="er-status is-{{ status_key }}">{{ status_label }}</span></strong></div>
+                        <div class="er-cell"><span>روش انتشار</span><strong>{{ publish_mode_label|default:"-" }}</strong></div>
+                        <div class="er-cell"><span>زمان انتشار برنامه‌ریزی‌شده</span><strong>{% if exam.scheduled_publish_at %}{{ exam.scheduled_publish_at|to_jalali }}{% else %}<span class="er-muted">-</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>وضعیت تأیید</span><strong>{{ approval_label }}</strong></div>
+                        <div class="er-cell"><span>تأییدکننده</span><strong>{% if exam.approved_by_name %}{{ exam.approved_by_name }}{% else %}<span class="er-muted">-</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>زمان تأیید</span><strong>{% if exam.approved_at %}{{ exam.approved_at|to_jalali }}{% else %}<span class="er-muted">-</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>تاریخ ایجاد</span><strong>{% if exam.created_at %}{{ exam.created_at|to_jalali }}{% else %}<span class="er-muted">-</span>{% endif %}</strong></div>
+                        <div class="er-cell"><span>آخرین ویرایش</span><strong>{% if exam.updated_at %}{{ exam.updated_at|to_jalali }}{% else %}<span class="er-muted">-</span>{% endif %}</strong></div>
+                    </div>
+                    <div class="er-flags">{% for item in notify_flags %}<div class="er-flag{% if not item.on %} is-off{% endif %}"><i aria-hidden="true">{% if item.on %}✓{% else %}–{% endif %}</i>{{ item.label }}<span class="visually-hidden">: {% if item.on %}فعال{% else %}غیرفعال{% endif %}</span></div>{% endfor %}</div>
+                </section>
+
+                <div class="er-signs">
+                    <div>امضای استاد مسئول</div>
+                    <div>امضای مدیر آموزشی</div>
+                    <div>مهر واحد آموزشی</div>
+                </div>
+                <p class="er-foot">این برگه توسط سامانه‌ی آزمون آنلاین متاکوییز تولید شده است · کد آزمون <span data-latin-digits>{{ exam_code }}</span></p>
+            </article>
+        </div>
+
+        {% with pr=participants %}
+        <div class="er-pane" role="tabpanel" data-report-pane="participants" hidden>
+            <div class="er-pane-bar">
+                <div><strong>شرکت‌کنندگان و نتایج</strong><span>نشست‌های هر دانشجو، نمره، زمان شروع و پایان، مصحح و نمره‌ی نهایی</span></div>
+                <div class="er-pane-tools"><button type="button" class="er-btn is-primary" data-report-print><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>چاپ این بخش</button></div>
+            </div>
+            <article class="er-sheet er-results">
+                <header class="pr-hero">
+                    <div class="pr-cover">{% if exam.cover_image_url %}<img src="{{ exam.cover_image_url }}" alt="">{% else %}<img class="is-logo" src="{% static 'img/metaquiz-logo.png' %}" alt="">{% endif %}</div>
+                    <div class="pr-info">
+                        <h2>گزارش آزمون: <span>{{ exam.title }}</span></h2>
+                        <ul>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>شروع آزمون: {% if exam.start_at %}{{ exam.start_at|jalali_date }} ساعت {{ exam.start_at|time:"H:i"|fa_digits }}{% else %}تعیین نشده{% endif %}</li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>پایان آزمون: {% if exam.end_at %}{{ exam.end_at|jalali_date }} ساعت {{ exam.end_at|time:"H:i"|fa_digits }}{% else %}تعیین نشده{% endif %}</li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>نمایش نتایج: {% if results_published_at %}منتشر شده در {{ results_published_at|jalali_date }} ساعت {{ results_published_at|time:"H:i"|fa_digits }}{% elif score_mode == 'immediate' %}بلافاصله پس از تصحیح{% else %}هنوز منتشر نشده{% endif %}</li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>وضعیت نمایش نتایج: <b>{% for label, value in display_modes %}{{ label }}: {{ value }}{% if not forloop.last %} · {% endif %}{% endfor %}</b></li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>مدت زمان آزمون: {{ exam.duration_minutes|default:"-"|fa_digits }} دقیقه</li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>تعداد مجاز حضور هر نفر: {{ max_attempts_label|fa_digits }}{% if max_attempts_label != 'نامحدود' %} بار{% endif %}</li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 20"/></svg>مخاطبان: {{ audience_count|fa_digits }} نفر | متصل شده: {{ pr.connected|fa_digits }} نفر | شرکت کرده: {{ pr.submitted|fa_digits }} نفر | غایب: {{ pr.absent|fa_digits }} نفر</li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>برچسب: {% if tags %}{{ tags|join:"، " }}{% else %}ندارد{% endif %}</li>
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>پنالتی (نمره منفی): {{ penalty|fa_digits }}</li>
+                        </ul>
+                    </div>
+                    <div class="pr-score">
+                        <span>میانگین نمره شرکت‌کنندگان از {{ pr.scale|fa_digits }}:</span>
+                        <strong>{% if pr.average is not None %}{{ pr.average|fa_digits }}{% else %}-{% endif %}</strong>
+                        <em><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>نمره قبولی آزمون: {{ pr.passing_score|fa_digits }}</em>
+                        <small class="pr-state is-{{ status_key }}">{% if status_key == 'running' %}آزمون در حال برگزاری است{% elif status_key == 'finished' %}آزمون پایان یافته است{% elif status_key == 'cancelled' %}آزمون لغو شده است{% else %}آزمون هنوز برگزار نشده است{% endif %}</small>
+                    </div>
+                </header>
+
+                <div class="pr-stats">
+                    <div><span>قبول</span><strong class="is-ok">{{ pr.passed|fa_digits }}</strong></div>
+                    <div><span>مردود</span><strong class="is-bad">{{ pr.failed|fa_digits }}</strong></div>
+                    <div><span>در انتظار تصحیح / ناتمام</span><strong class="is-wait">{{ pr.pending|fa_digits }}</strong></div>
+                    <div><span>بالاترین نمره</span><strong>{% if pr.highest is not None %}{{ pr.highest|fa_digits }}{% else %}-{% endif %}</strong></div>
+                    <div><span>پایین‌ترین نمره</span><strong>{% if pr.lowest is not None %}{{ pr.lowest|fa_digits }}{% else %}-{% endif %}</strong></div>
+                </div>
+
+                <div class="pr-toolbar">
+                    <h3>نتایج شرکت‌کنندگان</h3>
+                    <div class="pr-filters">
+                        <select data-pr-filter aria-label="نمایش">
+                            <option value="taken">شرکت‌کنندگان</option>
+                            <option value="all">همه‌ی مخاطبان (با غایبین)</option>
+                            <option value="passed">فقط قبول‌شده‌ها</option>
+                            <option value="failed">فقط مردودها</option>
+                            <option value="pending">در انتظار تصحیح / ناتمام</option>
+                            <option value="absent">فقط غایبین</option>
+                        </select>
+                        <label class="pr-search"><input type="search" placeholder="جستجو ..." data-pr-search aria-label="جستجوی نام یا شماره دانشجویی"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></label>
+                    </div>
+                </div>
+
+                <table class="er-table pr-table rt-off">
+                    <thead><tr><th class="num">ردیف</th><th>کاربر</th>{% if pr.wide %}<th class="pr-sessions-cell">نشست‌ها</th>{% else %}{% for n in pr.sessions %}<th>نشست {{ n|fa_digits }}</th>{% endfor %}{% endif %}<th class="num">نمره نهایی</th></tr></thead>
+                    <tbody>
+                        {% for st in pr.rows %}
+                        <tr data-pr-row data-status="{{ st.status }}" data-search="{{ st.name }} {{ st.student_number }}"{% if st.absent %} hidden{% endif %}>
+                            <td class="num" data-pr-index>{{ forloop.counter|fa_digits }}</td>
+                            <td><div class="pr-user">{% if st.avatar_url %}<img src="{{ st.avatar_url }}" alt="">{% else %}<span class="pr-avatar">{{ st.name|slice:":1" }}</span>{% endif %}<div><b>{{ st.name }}</b>{% if st.student_number %}<small data-latin-digits>{{ st.student_number }}</small>{% endif %}</div></div></td>
+                            {% if pr.wide %}
+                            <td class="pr-sessions-cell" data-label="نشست‌ها"><div class="pr-sessions">{% for a in st.attempts %}<div class="pr-session"><small class="pr-session-n">نشست {{ forloop.counter|fa_digits }}</small><span class="pr-chip">{% if a.graded %}{{ a.score|fa_digits }}{% else %}{{ a.state }}{% endif %}</span>
+                                <small>شروع: {% if a.started_at %}{{ a.started_at|to_jalali }}{% else %}-{% endif %}</small>
+                                <small>پایان: {% if a.submitted_at %}{{ a.submitted_at|to_jalali }}{% else %}-{% endif %}</small>
+                                {% if a.grader %}<small>{{ a.grader }}</small>{% endif %}</div>{% empty %}<span class="pr-muted">{% if st.absent %}در آزمون شرکت نکرده است{% else %}-{% endif %}</span>{% endfor %}</div></td>
+                            {% else %}
+                            {% for a in st.cells %}
+                            <td class="pr-session" data-label="نشست {{ forloop.counter|fa_digits }}">{% if a %}
+                                <span class="pr-chip">{% if a.graded %}{{ a.score|fa_digits }}{% else %}{{ a.state }}{% endif %}</span>
+                                <small>شروع: {% if a.started_at %}{{ a.started_at|to_jalali }}{% else %}-{% endif %}</small>
+                                <small>پایان: {% if a.submitted_at %}{{ a.submitted_at|to_jalali }}{% else %}-{% endif %}</small>
+                                {% if a.grader %}<small>{{ a.grader }}</small>{% endif %}
+                            {% elif st.absent and forloop.first %}<span class="pr-muted">در آزمون شرکت نکرده است</span>{% else %}<span class="pr-muted">-</span>{% endif %}</td>
+                            {% endfor %}
+                            {% endif %}
+                            <td class="num pr-final" data-label="نمره نهایی"><span class="pr-badge is-{{ st.status }}">{% if st.final is not None %}{{ st.final|fa_digits }}{% else %}-{% endif %}</span><small>{{ st.result }}</small></td>
+                        </tr>
+                        {% endfor %}
+                        <tr data-pr-empty{% if pr.connected %} hidden{% endif %}><td colspan="{% if pr.wide %}4{% else %}{{ pr.sessions|length|add:3 }}{% endif %}" class="pr-empty">موردی برای نمایش وجود ندارد.</td></tr>
+                    </tbody>
+                </table>
+                <p class="er-foot">گزارش شرکت‌کنندگان آزمون «{{ exam.title }}» · تاریخ گزارش {{ printed_at|to_jalali }} · کد آزمون <span data-latin-digits>{{ exam_code }}</span></p>
+            </article>
+        </div>
+        {% endwith %}
+        <div class="er-pane" role="tabpanel" data-report-pane="analysis" hidden>
+            <div class="er-pane-bar">
+                <div><strong>تحلیل سوالات</strong><span>درصد انتخاب هر گزینه و وضعیت پاسخ دانشجویان به هر سؤال</span></div>
+                <div class="er-pane-tools"><button type="button" class="er-btn is-primary" data-report-print><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>چاپ این بخش</button></div>
+            </div>
+            <article class="er-sheet er-analysis">
+                <header class="pr-hero an-hero">
+                    <div class="pr-cover">{% if exam.cover_image_url %}<img src="{{ exam.cover_image_url }}" alt="">{% else %}<img class="is-logo" src="{% static 'img/metaquiz-logo.png' %}" alt="">{% endif %}</div>
+                    <div class="pr-info">
+                        <h2>گزارش وضعیت پاسخ به سوال‌ها: <span>{{ exam.title }}</span></h2>
+                        <div class="an-cols">
+                            <ul>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>شروع آزمون: {% if exam.start_at %}{{ exam.start_at|jalali_date }} ساعت {{ exam.start_at|time:"H:i"|fa_digits }}{% else %}تعیین نشده{% endif %}</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>پایان آزمون: {% if exam.end_at %}{{ exam.end_at|jalali_date }} ساعت {{ exam.end_at|time:"H:i"|fa_digits }}{% else %}تعیین نشده{% endif %}</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>نمایش نتایج: {% if results_published_at %}منتشر شده در {{ results_published_at|jalali_date }} ساعت {{ results_published_at|time:"H:i"|fa_digits }}{% elif score_mode == 'immediate' %}بلافاصله پس از تصحیح{% else %}هنوز منتشر نشده{% endif %}</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>وضعیت نمایش نتایج: <b>{% for label, value in display_modes %}{{ label }}: {{ value }}{% if not forloop.last %} · {% endif %}{% endfor %}</b></li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>مدت زمان آزمون: {{ exam.duration_minutes|default:"-"|fa_digits }} دقیقه</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>تعداد مجاز حضور هر نفر: {{ max_attempts_label|fa_digits }}{% if max_attempts_label != 'نامحدود' %} بار{% endif %}</li>
+                            </ul>
+                            <ul>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/></svg>متصل شده: {{ participants.connected|fa_digits }} نفر</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>شرکت کننده: {{ participants.submitted|fa_digits }} نفر</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>برچسب: {% if tags %}{{ tags|join:"، " }}{% else %}ندارد{% endif %}</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>پنالتی (نمره منفی): {{ penalty|fa_digits }}</li>
+                                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>تعداد سوالات: {{ questions|length|fa_digits }} · جمع بارم: {{ question_total_points|default:0|fa_digits }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </header>
+
+                {% if not participants.submitted %}<p class="an-empty">هنوز هیچ دانشجویی پاسخ‌های خود را ارسال نکرده است؛ درصدها پس از ارسال پاسخ‌ها نمایش داده می‌شوند.</p>{% endif %}
+
+                <div class="an-list">
+                    {% for q in questions %}
+                    <section class="an-q">
+                        <div class="an-q-head">
+                            <span class="an-q-num"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21 12 16 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg>سؤال {{ q.index|fa_digits }}:</span>
+                            <span class="an-tags"><span class="an-tag is-type">{{ q.type_label }}</span>{% for tag in q.tags %}<span class="an-tag">{{ tag }}</span>{% endfor %}</span>
+                        </div>
+                        <div class="an-stem"{% if q.ltr %} dir="ltr" data-latin-digits{% endif %}>{% if q.stem_html %}{{ q.stem_html|safe }}{% else %}{{ q.text }}{% endif %}</div>
+                        {% if q.image %}<figure class="er-q-figure"><span class="er-q-img"><img src="{{ q.image }}" alt="{{ q.image_alt }}"></span></figure>{% endif %}
+
+                        {% if q.options %}
+                        <ul class="an-bars">
+                            {% for option in q.options %}
+                            <li class="{% if option.correct %}is-correct{% else %}is-wrong{% endif %}" style="--pct:{{ option.percent|default:0|stringformat:'.2f' }}%">
+                                <span class="an-dot{% if option.correct %} is-on{% endif %}" aria-hidden="true"></span>
+                                <span class="an-label"><bdi{% if option.ltr %} dir="ltr" data-latin-digits{% endif %}>{{ option.label }}</bdi>{% if option.correct %} <em class="an-correct">(پاسخ صحیح)</em>{% endif %}</span>
+                                <span class="an-pct" data-latin-digits dir="ltr">{{ option.percent|default:0|stringformat:'.2f' }}%</span>
+                                <small class="an-count">{{ option.count|default:0|fa_digits }} نفر</small>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <ul class="an-bars">
+                            {% for bar in q.stats.bars %}
+                            <li class="is-{{ bar.tone }}" style="--pct:{{ bar.percent|stringformat:'.2f' }}%">
+                                <span class="an-dot{% if bar.tone == 'correct' %} is-on{% endif %}" aria-hidden="true"></span>
+                                <span class="an-label">{{ bar.label }}</span>
+                                <span class="an-pct" data-latin-digits dir="ltr">{{ bar.percent|stringformat:'.2f' }}%</span>
+                                <small class="an-count">{{ bar.count|fa_digits }} نفر</small>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% if q.key_lines %}<p class="an-key">پاسخ صحیح: {{ q.key_lines|join:" · " }}</p>{% endif %}
+                        {% endif %}
+
+                        <div class="an-q-foot">
+                            <span class="an-meta">پاسخ داده: {{ q.stats.answered|fa_digits }} · بدون پاسخ: {{ q.stats.unanswered|fa_digits }} · درصد پاسخ صحیح: <b data-latin-digits dir="ltr">{{ q.stats.correct_percent|stringformat:'.2f' }}%</b></span>
+                            <span class="an-points"><span class="is-plus" title="نمره‌ی پاسخ صحیح">{{ q.points|fa_digits }} ✓</span><span class="is-minus" title="نمره‌ی منفی پاسخ نادرست">{{ q.negative|default:0|fa_digits }} ✗</span></span>
+                        </div>
+                    </section>
+                    {% empty %}
+                    <p class="an-empty">این آزمون سؤالی ندارد.</p>
+                    {% endfor %}
+                </div>
+                <p class="er-foot">تحلیل سوالات آزمون «{{ exam.title }}» · تاریخ گزارش {{ printed_at|to_jalali }} · کد آزمون <span data-latin-digits>{{ exam_code }}</span></p>
+            </article>
+        </div>
+
+        {% with at=participants.attendance %}
+        <div class="er-pane" role="tabpanel" data-report-pane="attendance" hidden>
+            <div class="er-pane-bar">
+                <div><strong>حضور و غیاب</strong><span>همه‌ی دانشجویانی که این آزمون برایشان تعیین شده، با وضعیت حضور</span></div>
+                <div class="er-pane-tools"><button type="button" class="er-btn is-primary" data-report-print><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>چاپ این بخش</button></div>
+            </div>
+            <article class="er-sheet er-attendance">
+                <header class="at-head">
+                    <div class="at-title">
+                        <small>برگه‌ی حضور و غیاب</small>
+                        <h2>{{ exam.title }}</h2>
+                        <p>{{ exam.course_title }} · استاد: {{ exam.teacher_name }} · {% if exam.start_at %}{{ exam.start_at|jalali_long }}، ساعت {{ exam.start_at|time:"H:i"|fa_digits }}{% else %}زمان برگزاری تعیین نشده{% endif %}</p>
+                    </div>
+                    <div class="at-ring" style="--p1:{{ at.ring_present|stringformat:'.1f' }}%;--p2:{{ at.ring_incomplete|stringformat:'.1f' }}%" role="img" aria-label="درصد حضور {{ at.present_percent }}">
+                        <div><strong>{{ at.present_percent|fa_digits }}٪</strong><span>حضور</span></div>
+                    </div>
+                </header>
+
+                <div class="at-stats">
+                    <div class="is-total"><span class="at-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 20"/></svg></span><div><strong>{{ at.total|fa_digits }}</strong><small>کل دانشجویان</small></div></div>
+                    <div class="is-present"><span class="at-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg></span><div><strong>{{ at.present|fa_digits }}</strong><small>حاضر (پاسخ ارسال شد)</small></div></div>
+                    <div class="is-incomplete"><span class="at-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><strong>{{ at.incomplete|fa_digits }}</strong><small>ورود بدون ارسال پاسخ</small></div></div>
+                    <div class="is-absent"><span class="at-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span><div><strong>{{ at.absent|fa_digits }}</strong><small>غایب</small></div></div>
+                </div>
+
+                <div class="at-toolbar">
+                    <div class="at-chips" role="group" aria-label="فیلتر وضعیت">
+                        <button type="button" class="is-active" data-at-filter="all">همه <b>{{ at.total|fa_digits }}</b></button>
+                        <button type="button" data-at-filter="present">حاضر <b>{{ at.present|fa_digits }}</b></button>
+                        <button type="button" data-at-filter="incomplete">ناتمام <b>{{ at.incomplete|fa_digits }}</b></button>
+                        <button type="button" data-at-filter="absent">غایب <b>{{ at.absent|fa_digits }}</b></button>
+                    </div>
+                    <label class="pr-search"><input type="search" placeholder="جستجوی نام یا شماره دانشجویی" data-at-search aria-label="جستجوی نام یا شماره دانشجویی"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></label>
+                </div>
+
+                <ol class="at-grid">
+                    {% for st in participants.rows %}
+                    <li class="at-card is-{{ st.attendance }}" data-at-card data-status="{{ st.attendance }}" data-search="{{ st.name }} {{ st.student_number }}">
+                        <span class="at-num" data-at-index>{{ forloop.counter|fa_digits }}</span>
+                        {% if st.avatar_url %}<img class="at-avatar" src="{{ st.avatar_url }}" alt="">{% else %}<span class="at-avatar">{{ st.name|slice:":1" }}</span>{% endif %}
+                        <div class="at-who">
+                            <b>{{ st.name }}</b>
+                            <small>{% if st.student_number %}<span data-latin-digits>{{ st.student_number }}</span>{% else %}بدون شماره دانشجویی{% endif %}{% if not st.in_audience %} · خارج از فهرست مخاطبان{% endif %}</small>
+                            {% if st.entered_at %}<small class="at-time">ورود: {{ st.entered_at|time:"H:i"|fa_digits }}</small>{% endif %}
+                        </div>
+                        <span class="at-mark" title="{% if st.attendance == 'present' %}حاضر{% elif st.attendance == 'incomplete' %}ورود بدون ارسال پاسخ{% else %}غایب{% endif %}">{% if st.attendance == 'present' %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>{% elif st.attendance == 'incomplete' %}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{% else %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>{% endif %}<em>{% if st.attendance == 'present' %}حاضر{% elif st.attendance == 'incomplete' %}ناتمام{% else %}غایب{% endif %}</em></span>
+                    </li>
+                    {% endfor %}
+                </ol>
+                <p class="an-empty" data-at-empty{% if at.total %} hidden{% endif %}>{% if at.total %}موردی با این فیلتر پیدا نشد.{% else %}هنوز دانشجویی برای این آزمون تعیین نشده است.{% endif %}</p>
+                {% if at.outside %}<p class="at-note">{{ at.outside|fa_digits }} نفر با کد آزمون وارد شده‌اند و در فهرست مخاطبان تعیین‌شده نبودند.</p>{% endif %}
+
+                <div class="er-signs at-signs">
+                    <div>نام و امضای مسئول جلسه</div>
+                    <div>نام و امضای ناظر</div>
+                    <div>تاریخ و ساعت</div>
+                </div>
+                <p class="er-foot">حضور و غیاب آزمون «{{ exam.title }}» · تاریخ گزارش {{ printed_at|to_jalali }} · کد آزمون <span data-latin-digits>{{ exam_code }}</span></p>
+            </article>
+        </div>
+        {% endwith %}
+
+        <footer class="er-footer">
+            <button type="button" class="er-nav-btn" data-report-prev><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span>مرحله قبل<small data-report-prev-name></small></span></button>
+            <button type="button" class="er-nav-btn is-next" data-report-next><span>مرحله بعد<small data-report-next-name></small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+        </footer>
+    </div>
+</section>
+
+<script>
+(() => {
+    const tabs = document.querySelectorAll('[data-report-tab]');
+    const panes = document.querySelectorAll('[data-report-pane]');
+    const tabList = [...tabs];
+    const prev = document.querySelector('[data-report-prev]');
+    const next = document.querySelector('[data-report-next]');
+    const tabName = (tab) => (tab?.querySelector('span')?.firstChild?.textContent || tab?.lastChild?.textContent || '').trim();
+    const activate = (tab, scroll) => {
+        tabs.forEach((item) => { item.classList.toggle('is-active', item === tab); item.setAttribute('aria-selected', String(item === tab)); });
+        panes.forEach((pane) => {
+            const active = pane.dataset.reportPane === tab.dataset.reportTab;
+            pane.hidden = !active;
+            pane.classList.toggle('is-print', active);  // «چاپ» prints the open tab only
+        });
+        // «مرحله قبل / بعد» as in the exam wizard: hidden on the first / last tab, with the neighbouring tab's name
+        const index = tabList.indexOf(tab);
+        prev.hidden = index === 0;
+        next.hidden = index === tabList.length - 1;
+        prev.querySelector('[data-report-prev-name]').textContent = tabName(tabList[index - 1]);
+        next.querySelector('[data-report-next-name]').textContent = tabName(tabList[index + 1]);
+        if (scroll) document.querySelector('.er-tabs')?.scrollIntoView({block: 'start', behavior: 'smooth'});
+    };
+    tabs.forEach((tab) => tab.addEventListener('click', () => activate(tab)));
+    prev.addEventListener('click', () => { const i = tabList.findIndex((t) => t.classList.contains('is-active')); if (i > 0) activate(tabList[i - 1], true); });
+    next.addEventListener('click', () => { const i = tabList.findIndex((t) => t.classList.contains('is-active')); if (i < tabList.length - 1) activate(tabList[i + 1], true); });
+    activate(tabList.find((t) => t.classList.contains('is-active')) || tabList[0]);
+    const prRows = [...document.querySelectorAll('[data-pr-row]')];
+    const prFilter = document.querySelector('[data-pr-filter]');
+    const prSearch = document.querySelector('[data-pr-search]');
+    const prEmpty = document.querySelector('[data-pr-empty]');
+    const applyPr = () => {
+        const mode = prFilter?.value || 'taken';
+        const q = (prSearch?.value || '').trim().toLowerCase();
+        let n = 0;
+        prRows.forEach((row) => {
+            const status = row.dataset.status;
+            const byMode = mode === 'all' || (mode === 'taken' ? status !== 'absent' : status === mode);
+            const show = byMode && (!q || row.dataset.search.toLowerCase().includes(q));
+            row.hidden = !show;
+            if (show) row.querySelector('[data-pr-index]').textContent = String(++n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+        });
+        if (prEmpty) prEmpty.hidden = n > 0;
+    };
+    prFilter?.addEventListener('change', applyPr);
+    prSearch?.addEventListener('input', applyPr);
+    const atCards = [...document.querySelectorAll('[data-at-card]')];
+    const atChips = [...document.querySelectorAll('[data-at-filter]')];
+    const atSearch = document.querySelector('[data-at-search]');
+    const atEmpty = document.querySelector('[data-at-empty]');
+    let atMode = 'all';
+    const applyAt = () => {
+        const q = (atSearch?.value || '').trim().toLowerCase();
+        let n = 0;
+        atCards.forEach((card) => {
+            const show = (atMode === 'all' || card.dataset.status === atMode) && (!q || card.dataset.search.toLowerCase().includes(q));
+            card.hidden = !show;
+            if (show) card.querySelector('[data-at-index]').textContent = String(++n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+        });
+        if (atEmpty && atCards.length) atEmpty.hidden = n > 0;
+    };
+    atChips.forEach((chip) => chip.addEventListener('click', () => {
+        atMode = chip.dataset.atFilter;
+        atChips.forEach((item) => item.classList.toggle('is-active', item === chip));
+        applyAt();
+    }));
+    atSearch?.addEventListener('input', applyAt);
+    document.querySelectorAll('[data-report-print]').forEach((button) => button.addEventListener('click', () => window.print()));
+    const sheet = document.querySelector('[data-report-sheet]');
+    document.querySelector('[data-toggle-answers]')?.addEventListener('change', (event) => {
+        sheet?.classList.toggle('hide-answers', !event.target.checked);  // printed as shown: unticked = a clean student copy
+    });
+})();
+</script>
+{% endblock %}

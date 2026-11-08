@@ -302,7 +302,7 @@
                                 <button type="submit">فعال‌سازی</button>
                             {% endif %}
                         </form>
-                        <a href="{{ edit_url }}">تغییر رمز عبور</a>
+                        <a href="{{ edit_url }}#account-password">تغییر رمز عبور</a>
                     </footer>
                 </section>
 
@@ -503,7 +503,7 @@
                         {% endfor %}
                     </div>
                     <footer>
-                        <span>نمایش ۱ تا {{ activity_items|length }} از ۱۲۸ فعالیت</span>
+                        <span>نمایش ۱ تا {{ activity_items|length }} از {{ activity_total }} فعالیت</span>
                         <div>
                             <a class="is-active" href="#">۱</a>
                             <a href="#">۲</a>

@@ -1,4 +1,4 @@
-{% load core_extras %}
+{% load core_extras account_tags %}
 {% if request.GET.saved and not errors %}<div class="sst-ok" role="status">اطلاعات فردی ذخیره شد.</div>{% endif %}
 <div class="sst-grid">
   <div class="sst-col">
@@ -10,6 +10,15 @@
         {% for item in personal_readonly %}
           <div class="sst-field{% if item.wide %} is-wide{% endif %}"><span class="sst-label">{{ item.label }}</span><span class="sst-box is-readonly" title="این اطلاعات را اداره آموزش ثبت می‌کند.">{% include 'teacher/_qb_icon.html' with name=item.icon %}<span>{{ item.value|default:'—'|fa_digits }}</span><svg class="sst-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></span></div>
         {% endfor %}
+        {% password_state as pw %}
+        <div class="sst-field is-wide" id="sst-account-password">
+          <span class="sst-label">رمز عبور</span>
+          <div class="sst-inline">
+            <span class="sst-box is-readonly" aria-label="رمز عبور (قابل نمایش نیست)">{% include 'teacher/_qb_icon.html' with name='lock' %}<span class="sst-ltr">••••••••</span></span>
+            <a class="sst-btn" href="?tab=security&amp;pw=1#sst-password-panel">{% include 'teacher/_qb_icon.html' with name='edit' %}تغییر رمز عبور</a>
+          </div>
+          <small style="color:#61708d;font-size:.82rem;font-weight:800">آخرین تغییر: {% if pw.changed_at %}{{ pw.changed_at|to_jalali }}{% else %}ثبت نشده{% endif %} · رمز عبور رمزنگاری‌شده نگه‌داری می‌شود و برای هیچ‌کس، حتی مدیر سیستم، قابل مشاهده نیست.</small>
+        </div>
       </div>
       <p class="sst-note">{% include 'teacher/_qb_icon.html' with name='info' %}اطلاعات تحصیلی را اداره آموزش ثبت می‌کند و از این صفحه قابل تغییر نیست.</p>
     </section>

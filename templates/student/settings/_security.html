@@ -28,8 +28,8 @@
     <div class="sst-rows is-boxed">
       <div class="sst-row is-wrap">
         <span class="sst-row-text">{% include 'teacher/_qb_icon.html' with name='lock' %}<span><b>رمز عبور</b><small>رمز عبور خود را به صورت دوره‌ای تغییر دهید.</small></span></span>
-        <button type="button" class="sst-btn" data-sst-panel="sst-password-panel" aria-controls="sst-password-panel" aria-expanded="{% if security_failed_action == 'password_change' %}true{% else %}false{% endif %}">{% include 'teacher/_qb_icon.html' with name='edit' %}تغییر رمز عبور</button>
-        <div class="sst-panel" id="sst-password-panel"{% if security_failed_action != 'password_change' %} hidden{% endif %}>
+        <button type="button" class="sst-btn" data-sst-panel="sst-password-panel" aria-controls="sst-password-panel" aria-expanded="{% if security_failed_action == 'password_change' or request.GET.pw %}true{% else %}false{% endif %}">{% include 'teacher/_qb_icon.html' with name='edit' %}تغییر رمز عبور</button>
+        <div class="sst-panel" id="sst-password-panel"{% if security_failed_action != 'password_change' and not request.GET.pw %} hidden{% endif %}>
           <div class="sst-fields">
             <label class="sst-field is-wide"><span class="sst-label">رمز عبور فعلی</span><span class="sst-box">{% include 'teacher/_qb_icon.html' with name='key' %}<input class="sst-ltr" type="password" name="old_password" autocomplete="current-password" form="sst-security-form" required></span></label>
             <label class="sst-field"><span class="sst-label">رمز عبور جدید</span><span class="sst-box">{% include 'teacher/_qb_icon.html' with name='lock' %}<input class="sst-ltr" type="password" name="new_password1" autocomplete="new-password" form="sst-security-form" required></span></label>

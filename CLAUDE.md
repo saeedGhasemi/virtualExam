@@ -19,15 +19,18 @@ Online exam system (Persian UI, RTL). Roles: student, teacher, academic_manager,
 - `apps/core/views.py` is ~18.5k lines and **some functions are defined more than once — only the last definition is live.** Grep for `^def name` and edit the last one. Never read the whole file.
 - Other modules: `teacher_preferences.py`, `grading_views.py`, `exam_schedule.py`, `student_dashboard.py`, `student_settings.py`, `teacher_question_bank.py`, `teacher_students.py`, `osce_views.py`.
 - Timestamp columns without time zone store UTC (see `_db_naive_datetime`). Display dates in Jalali via `templatetags/core_extras.py`.
+- Exam settings columns carry defaults for every exam; what applies is `_sx_exam_rules(exam_id)` (wizard values only when `settings_enforced`). Read effective settings from it, not from the raw columns.
 - A global JS converter in `base.html` / `base_standalone.html` turns digits Persian; mark codes/IDs with `data-latin-digits` (editors are excluded).
 - Keep the existing structure and templates; don't create new templates/patterns where an existing one fits.
 - When you change a static JS/CSS file, bump the `?v=` on its `{% static %}` include (locally `DEBUG=True` serves unhashed URLs without Cache-Control, so browsers keep the old file).
-- Schema changes go in a new migration in `apps/core/migrations/` (latest: `0061`).
+- Schema changes go in a new migration in `apps/core/migrations/` (latest: `0062`).
+- Passwords are never displayable (hashes only): show `••••••••` + last change, offer a change/reset form. Any code that sets a password calls `account_security.mark_password_set(user, change_required=…)`.
 
 ## Commands (PowerShell, from repo root)
 - Run: `.venv\Scripts\python manage.py runserver 8001` (port 8000 is used by another local project).
 - Tests, targeted: `.venv\Scripts\python manage.py test apps.core.tests.<ClassName>`
 - Tests, all (slow, run once at the end): `.venv\Scripts\python manage.py test apps.core`
+- Manual-test data (local DB only, never on the server): `manage.py seed_test_data` (re)creates 15 teachers / students / questions / exams in every state, all marked `mqtest_` / «[آزمایشی]» / `MQTEST-` (password `Test@12345`); `seed_test_data --purge` removes them and everything made with those accounts. Re-run it to refresh time-relative states.
 - Checks: `.venv\Scripts\python manage.py check` · `makemigrations --check --dry-run`
 
 ## Git

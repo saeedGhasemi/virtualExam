@@ -27,7 +27,7 @@
         th,td{padding:8px;border:1px solid #e2e8f0;text-align:right}
         th{background:#f8fafc;font-size:11px;color:#475569}
         .rc-foot{margin-top:24px;color:#94a3b8;font-size:11px;text-align:center}
-        @media (max-width:640px){.rc{margin:12px;padding:16px}.rc-head{flex-wrap:wrap}.rc-brand{text-align:right}.rc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rc table{display:block;overflow-x:auto}}
+        @media (max-width:640px){.rc{margin:12px;padding:16px}.rc-head{flex-wrap:wrap}.rc-brand{text-align:right}.rc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rc table thead{display:none}.rc table,.rc table tbody,.rc table tr,.rc table td{display:block;width:100%}.rc table tr{margin-bottom:10px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}.rc table td{display:flex;justify-content:space-between;gap:12px;border:0;border-bottom:1px solid #eef2f7;text-align:left}.rc table td:last-child{border-bottom:0}.rc table td[data-label]:before{content:attr(data-label);flex:none;color:#64748b;font-size:11px;font-weight:700;text-align:right}.rc table td:first-child{font-weight:800;background:#f8fafc}}
         @media print{
             body{background:#fff}
             .rc-bar{display:none}
@@ -62,7 +62,7 @@
             <thead><tr><th>آزمون</th><th>درس</th><th>تاریخ</th><th>تلاش</th><th>نمره خام</th><th>نمره از ۲۰</th><th>وضعیت</th></tr></thead>
             <tbody>
                 {% for row in rows %}
-                    <tr><td>{{ row.title }}</td><td>{{ row.course|default:"-" }}</td><td>{{ row.date_label }}</td><td>{% if row.attempt_no %}{{ row.attempt_no|fa_digits }}{% else %}-{% endif %}</td><td>{{ row.raw_label|fa_digits }}</td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{{ row.state_label }}</td></tr>
+                    <tr><td data-label="آزمون">{{ row.title }}</td><td data-label="درس">{{ row.course|default:"-" }}</td><td data-label="تاریخ">{{ row.date_label }}</td><td data-label="تلاش">{% if row.attempt_no %}{{ row.attempt_no|fa_digits }}{% else %}-{% endif %}</td><td data-label="نمره خام">{{ row.raw_label|fa_digits }}</td><td data-label="نمره از ۲۰">{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td data-label="وضعیت">{{ row.state_label }}</td></tr>
                 {% empty %}
                     <tr><td colspan="7">آزمونی ثبت نشده است.</td></tr>
                 {% endfor %}

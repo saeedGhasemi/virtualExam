@@ -179,6 +179,13 @@ def query_url(context, **overrides):
 
 
 @register.simple_tag
+def jalali_year():
+    """The current Jalali year at Tehran time («۱۴۰۵»)."""
+    today = timezone.localdate()
+    return fa_digits(_gregorian_to_jalali(today.year, today.month, today.day)[0])
+
+
+@register.simple_tag
 def jalali_today():
     today = timezone.localdate()
     jy, jm, jd = _gregorian_to_jalali(today.year, today.month, today.day)

@@ -985,6 +985,7 @@
       maxSeconds: Number(box.dataset.recordMax || 0),
       maxBytes: Number(slot.dataset.mediaLimit || 0) * 1024 * 1024,
       wavRate: 22050,
+      keepCompressed: false,  // question audio accepts WAV/MP3/OGG/M4A, not the browser's WebM: a too-long take is refused with a clear message
       onRecorded: async (file) => {
         if (!showMediaFile(slot, file)) return;
         slot.querySelector('[data-media-file]').value = '';

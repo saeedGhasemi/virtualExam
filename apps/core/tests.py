@@ -346,6 +346,128 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         self.assertEqual(self.client.get(reverse('core:super_admin_exam_detail', args=[self.exam_in_id])).status_code, 200)
         self.assertEqual(self.client.get(reverse('core:super_admin_exam_edit', args=[self.exam_in_id])).status_code, 200)
 
+    def _approve(self, exam_id, **extra):
+        return self.client.post(reverse('core:super_admin_exam_approve', args=[exam_id]), extra)
+
+    def test_direct_approve_publishes_and_shows_combined_status(self):
+        from .views import erd_execute, erd_row
+        erd_execute("UPDATE exams SET lifecycle_status = 'pending_approval', approval_status = 'pending', is_published = false WHERE id = %s", [self.exam_in_id])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, self.question_in_id, 1, 1])
+        self.client.force_login(self.manager_user)
+        before = {row['id']: row for row in self.client.get(reverse('core:super_admin_exams')).context['rows']}[self.exam_in_id]
+        self.assertTrue(before['can_approve'])
+        self.assertContains(self.client.get(reverse('core:super_admin_exams')), reverse('core:super_admin_exam_approve', args=[self.exam_in_id]))
+
+        response = self._approve(self.exam_in_id, next=reverse('core:super_admin_exams') + '?status=pending')
+        self.assertRedirects(response, reverse('core:super_admin_exams') + '?status=pending', fetch_redirect_response=False)
+        exam = erd_row('SELECT approval_status, lifecycle_status, is_published, approved_at FROM exams WHERE id = %s', [self.exam_in_id])
+        self.assertEqual((exam['approval_status'], exam['lifecycle_status'], bool(exam['is_published'])), ('approved', 'published', True))
+        self.assertIsNotNone(exam['approved_at'])
+        after = {row['id']: row for row in self.client.get(reverse('core:super_admin_exams')).context['rows']}[self.exam_in_id]
+        self.assertFalse(after['can_approve'])
+        self.assertTrue(after['status_label'].startswith('تأیید شده · '))
+
+    def test_direct_approve_rules(self):
+        from .views import erd_execute, erd_row
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self._approve(self.exam_out_id).status_code, 404)  # outside the manager's units
+        erd_execute("UPDATE exams SET approval_status = 'pending', is_published = false WHERE id = %s", [self.exam_in_id])
+        self._approve(self.exam_in_id, next='https://evil.example/')  # no questions yet: refused, and no open redirect
+        self.assertEqual(erd_row('SELECT approval_status FROM exams WHERE id = %s', [self.exam_in_id])['approval_status'], 'pending')
+        self.assertEqual(self._approve(self.exam_in_id, next='https://evil.example/')['Location'], reverse('core:super_admin_exams'))
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_approve', args=[self.exam_in_id])).status_code, 302)
+
+    def _pending_exam(self, title, questions=1, **columns):
+        exam_id = str(uuid.uuid4())
+        values = {'lifecycle_status': 'pending_approval', 'approval_status': 'pending', 'is_published': False, **columns}
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id'] + list(values),
+                [exam_id, title, self.teacher_in_id, self.course_in_id] + list(values.values()))
+        for index in range(questions):
+            _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                    [str(uuid.uuid4()), exam_id, (self.question_in_id, self.question_in2_id)[index % 2], 1, index + 1])
+        return exam_id
+
+    def _ajax_approve(self, exam_id):
+        return self.client.post(reverse('core:super_admin_exam_approve', args=[exam_id]), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+    def _state(self, exam_id):
+        from .views import erd_row
+        row = erd_row('SELECT approval_status, lifecycle_status, is_published FROM exams WHERE id = %s', [exam_id])
+        return row['approval_status'], row['lifecycle_status'], bool(row['is_published'])
+
+    def test_every_pending_exam_can_be_approved_one_after_another(self):
+        """The bug report: after the first approval the others must still get approved."""
+        ids = [self._pending_exam(f'آزمون پشت‌سرهم {n}') for n in range(3)]
+        self.client.force_login(self.manager_user)
+        for exam_id in ids:
+            response = self._ajax_approve(exam_id)
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.json()['ok'])
+            self.assertEqual(self._state(exam_id), ('approved', 'published', True))
+        rows = {row['id']: row for row in self.client.get(reverse('core:super_admin_exams')).context['rows']}
+        for exam_id in ids:
+            self.assertFalse(rows[exam_id]['can_approve'])
+            self.assertEqual(rows[exam_id]['status_label'], 'تأیید شده · برنامه‌ریزی شده')
+
+    def test_ajax_refusals_explain_why_and_change_nothing(self):
+        empty = self._pending_exam('آزمون بی‌سؤال', questions=0)
+        cancelled = self._pending_exam('آزمون لغوشده', is_cancelled=True)
+        self.client.force_login(self.manager_user)
+        rows = {row['id']: row for row in self.client.get(reverse('core:super_admin_exams')).context['rows']}
+        self.assertIn('سؤالی ندارد', rows[empty]['approve_blocker'])  # the modal says so before sending
+        self.assertFalse(rows[cancelled]['can_approve'])
+        for exam_id, reason in ((empty, 'سؤالی ندارد'), (cancelled, 'لغو شده')):
+            response = self._ajax_approve(exam_id)
+            self.assertEqual(response.status_code, 400)
+            self.assertFalse(response.json()['ok'])
+            self.assertIn(reason, response.json()['message'])
+            self.assertEqual(self._state(exam_id)[0], 'pending')
+        out = self._ajax_approve(self.exam_out_id)
+        self.assertEqual(out.status_code, 404)
+        self.assertFalse(out.json()['ok'])
+
+    def test_approving_twice_is_harmless(self):
+        exam_id = self._pending_exam('آزمون دوبار')
+        self.client.force_login(self.manager_user)
+        self.assertTrue(self._ajax_approve(exam_id).json()['ok'])
+        again = self._ajax_approve(exam_id)
+        self.assertTrue(again.json()['ok'])
+        self.assertIn('پیش‌تر تأیید شده', again.json()['message'])
+        self.assertEqual(self._state(exam_id), ('approved', 'published', True))
+
+    def test_future_publish_time_waits_as_approved(self):
+        from datetime import timedelta
+        exam_id = self._pending_exam('آزمون زمان‌دار', scheduled_publish_at=timezone.now() + timedelta(days=2))
+        self.client.force_login(self.manager_user)
+        self.assertTrue(self._ajax_approve(exam_id).json()['ok'])
+        self.assertEqual(self._state(exam_id), ('approved', 'approved', False))
+        row = {row['id']: row for row in self.client.get(reverse('core:super_admin_exams')).context['rows']}[exam_id]
+        self.assertEqual(row['status_label'], 'تأیید شده · زمان‌بندی انتشار')
+
+    def test_teacher_and_exam_page_see_the_approval(self):
+        from datetime import timedelta
+        start = timezone.now() + timedelta(days=1)
+        exam_id = self._pending_exam('آزمون دیده‌شده', start_at=start, end_at=start + timedelta(hours=1))
+        self.client.force_login(self.manager_user)
+        detail = reverse('core:super_admin_exam_detail', args=[exam_id])
+        self.assertEqual(self.client.get(detail).context['exam']['status_label'], 'در انتظار تأیید')
+        self._ajax_approve(exam_id)
+        self.assertEqual(self.client.get(detail).context['exam']['status_label'], 'تأیید شده · برنامه‌ریزی شده')
+        upcoming = self.client.get(reverse('core:super_admin_exams')).context['upcoming']
+        self.assertEqual(upcoming[0]['id'], exam_id)  # the nearest published exam, with its real time
+
+        teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='t_in2@example.com', password='x')
+        self.client.force_login(teacher_user)
+        rows = {row['title']: row for row in self.client.get(reverse('core:teacher_exams')).context['exam_list']['rows']}
+        self.assertEqual(rows['آزمون دیده‌شده']['status_label'], 'تأیید شده · برنامه‌ریزی شده')
+        from .views import erd_count
+        self.assertEqual(erd_count('notifications', "user_id = %s AND title = 'تأیید آزمون'", [self.teacher_in_id]), 1)
+
+    def test_list_has_no_fake_countdown(self):
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:super_admin_exams')).content.decode()
+        self.assertNotIn('۲ ساعت و ۳۵ دقیقه', page)
+
     def test_manager_blocked_from_creating_exam_with_out_of_scope_group(self):
         self.client.force_login(self.manager_user)
         response = self.client.post(reverse('core:super_admin_exams'), {
@@ -2385,7 +2507,7 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
         file_url = reverse('core:attempt_answer_file', args=[attempt_id, files[0]['id']])
         ranged = self.client.get(file_url, HTTP_RANGE='bytes=0-3')
         self.assertEqual(ranged.status_code, 206)
-        self.assertEqual(ranged.content, b'RIFF')
+        self.assertEqual(b''.join(ranged.streaming_content), b'RIFF')  # streamed, never read whole into memory
         self.assertEqual(ranged['Content-Range'], f'bytes 0-3/{len(self.WAV)}')
         self.assertEqual(ranged['Content-Type'], 'audio/wav')
         self.assertEqual(self.client.get(file_url, HTTP_RANGE=f'bytes={len(self.WAV) + 5}-').status_code, 416)
@@ -2423,6 +2545,82 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
                 cursor.execute('SELECT status, is_graded FROM exam_attempts WHERE id = %s', [attempt_id])
                 status, graded = cursor.fetchone()
             self.assertEqual((bool(pending), float(points or 0), status, bool(graded)), (False, 0.0, 'graded', True), kind)
+
+    def _submit_media_answer(self, question_columns, upload_name, content):
+        """A student answers with one file only, submits; returns (attempt_id, question_id, answer_id)."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        question_id, attempt_id = self._attempt(question_columns)
+        self.client.force_login(self.student_user)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        kind = 'video' if upload_name.endswith(('.mov', '.mp4')) else 'audio'
+        self.client.post(url, {f'upload_{question_id}_{kind}': SimpleUploadedFile(upload_name, content)})
+        self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]), {f'answer_{question_id}': ''})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, question_id])
+            answer_id = str(cursor.fetchone()[0])
+        return attempt_id, question_id, answer_id
+
+    def test_rubric_criteria_without_points_do_not_block_grading(self):
+        # A criterion with no positive «نمره» used to cap every score at 0 (the teacher could only give 0).
+        attempt_id, _question_id, answer_id = self._submit_media_answer(
+            {'type': 'media_response', 'question_media': {'audio': '/media/question-media/a.mp3'},
+             'rubric': [{'criterion': 'تلفظ', 'points': ''}, {'criterion': 'محتوا', 'points': 'abc'}],
+             'scoring_settings': {'essay': {'answer_formats': ['audio']}, 'media_response': {'max_record_seconds': 60}}},
+            'take.wav', self.WAV)
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_grading_detail', args=[answer_id])
+        page = self.client.get(url).content.decode()
+        self.assertNotIn('name="score_0"', page)
+        self.assertIn('name="score"', page)  # falls back to one score for the answer
+        self.client.post(url, {'score': '1.5', 'feedback': 'خوب'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT points_awarded, needs_manual_grading FROM attempt_answers WHERE id = %s', [answer_id])
+            points, pending = cursor.fetchone()
+            cursor.execute('SELECT score, status FROM exam_attempts WHERE id = %s', [attempt_id])
+            score, status = cursor.fetchone()
+        self.assertEqual((float(points), bool(pending), float(score), status), (1.5, False, 1.5, 'graded'))
+
+    def test_builder_requires_positive_points_for_each_rubric_criterion(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.teacher_user)
+        response = self._create('media_response', {
+            'text': 'روبریک بدون نمره', 'answer_formats': ['audio'], 'media_max_record_seconds': '60',
+            'media_rubric_criterion': ['تلفظ'], 'media_rubric_description': [''], 'media_rubric_points': [''],
+            'question_audio_file': SimpleUploadedFile('stem.mp3', self.MP3),
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'برای معیار روبریک «تلفظ» نمره‌ی مثبت وارد کنید.')
+        self.assertIsNone(self._row('روبریک بدون نمره'))
+
+    def test_first_grader_reopening_sees_own_score_and_student_report_plays_the_recording(self):
+        attempt_id, question_id, answer_id = self._submit_media_answer(
+            {'type': 'media_response', 'question_media': {'audio': '/media/question-media/a.mp3'},
+             'scoring_settings': {'essay': {'answer_formats': ['audio'], 'second_grader': True}, 'media_response': {'max_record_seconds': 60}}},
+            'take.wav', self.WAV)
+        receipt = self.client.get(reverse('core:student_attempt_receipt', args=[attempt_id])).content.decode()
+        self.assertIn('۱ از ۱', receipt)  # a recording alone counts as answered on the receipt
+        self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_grading_detail', args=[answer_id])
+        self.client.post(url, {'score': '1.25'})
+        self.assertIn('value="1.25"', self.client.get(url).content.decode())  # own first grade, not yet final
+
+        from apps.core.views import _sx_result_question_rows
+        items = _sx_result_question_rows(attempt_id, self.student_in_id)
+        self.assertEqual([item['name'] for item in items[0]['files']], ['take.wav'])
+        self.assertIn(f'/attempts/{attempt_id}/files/', items[0]['files'][0]['url'])
+
+    def test_iphone_mov_video_answer_is_accepted_and_served_playable(self):
+        mov = b'\x00\x00\x00\x14ftypqt  ' + b'\x00' * 40
+        attempt_id, question_id, _answer_id = self._submit_media_answer(
+            {'type': 'media_response', 'question_media': {'video': '/media/question-media/v.mp4'},
+             'scoring_settings': {'essay': {'answer_formats': ['video']}, 'media_response': {'max_record_seconds': 60}}},
+            'IMG_0001.mov', mov)
+        files = self._answer_files(attempt_id, question_id)
+        self.assertEqual([(item['kind'], item['ext']) for item in files], [('video', 'mov')])
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('core:attempt_answer_file', args=[attempt_id, files[0]['id']]), HTTP_RANGE='bytes=0-')
+        self.assertEqual((response.status_code, response['Content-Type']), (206, 'video/mp4'))
+        self.assertEqual(b''.join(response.streaming_content), mov)
 
 
     # ----- image hotspot («انتخاب ناحیه روی تصویر») -----
@@ -2892,6 +3090,14 @@ class TeacherExamListTests(_ScopedOrgFixture):
         self.assertEqual(titles(self._get(q='فیزیولوژی')), {'پیش‌نویس فیزیولوژی', 'ارسالی فیزیولوژی'})
         self.assertEqual(titles(self._get(status='bogus', q='قلب')), {'لغوشده قلب'})  # unknown filter falls back to all
         self.assertIn('آزمونی با این جستجو یا وضعیت پیدا نشد', self._get(q='ناموجود').content.decode())
+
+    def test_approved_exam_shows_combined_status(self):
+        from datetime import timedelta
+        self._exam('تأییدشده قلب', lifecycle_status='published', approval_status='approved', is_published=True,
+                   start_at=timezone.now() + timedelta(days=1))
+        self._exam('ارسالی قلب', lifecycle_status='pending_approval', approval_status='pending')
+        labels = {row['title']: row['status_label'] for row in self._get(q='قلب').context['exam_list']['rows']}
+        self.assertEqual(labels, {'تأییدشده قلب': 'تأیید شده · برنامه‌ریزی شده', 'ارسالی قلب': 'در انتظار تأیید'})
 
     def test_pagination(self):
         for index in range(24):
@@ -7119,6 +7325,77 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         self.client.post(toggle, {'action': 'activate'})
         self.assertEqual(self._rows('SELECT status FROM profiles WHERE id = %s', [student_id]), [('active',)])
 
+    def _sign_up(self, **fields):
+        """Posts only the fields the real sign-up page has (no username field there)."""
+        from django.core.cache import cache
+        cache.clear()
+        data = {'full_name': 'علی رضایی', 'student_number': '', 'email': 'ali@example.com', 'password': 'Strong#Pass99', 'role': 'student'}
+        return self.client.post(reverse('core:register'), {**data, **fields})
+
+    def _login_as(self, typed, password='Strong#Pass99'):
+        from django.core.cache import cache
+        cache.clear()
+        self.client.logout()
+        response = self.client.post(reverse('core:login'), {'username': typed, 'password': password})
+        return response.status_code == 302, ' '.join(response.context['form'].errors.get('__all__', [])) if response.status_code == 200 else ''
+
+    def test_sign_up_page_fields_then_login_by_email_or_number(self):
+        response = self._sign_up(email='Ali.Rezaei@Example.com', student_number='۴۰۱۱۲۳۴۵')
+        self.assertRedirects(response, reverse('core:login'), fetch_redirect_response=False)
+        notice = self.client.get(reverse('core:login'))
+        self.assertContains(notice, 'ali.rezaei@example.com')  # tells how to sign in, shown as a notice, not an error
+        self.assertContains(notice, 'auth-code-alert')
+        user = get_user_model().objects.get(email='ali.rezaei@example.com')
+        self.assertEqual((user.username, user.is_active), ('40112345', False))
+        self.assertEqual(self._rows("SELECT status, email, password_changed_at IS NOT NULL, password_change_required FROM profiles "
+                                    "WHERE username = '40112345'", []), [('pending', 'ali.rezaei@example.com', True, False)])
+        self.assertEqual(self._rows("SELECT student_number FROM student_profiles sp JOIN profiles p ON p.id = sp.user_id "
+                                    "WHERE p.username = '40112345'", []), [('40112345',)])
+        admin_id = self._rows("SELECT id FROM profiles WHERE username = 'admin_test'", [])[0][0]
+        self.assertEqual(self._rows("SELECT link FROM notifications WHERE user_id = %s AND title = 'ثبت‌نام جدید دانشجو'", [admin_id]),
+                         [('/super-admin/users/?tab=students&status=pending',)])
+        for typed in ('40112345', '۴۰۱۱۲۳۴۵', 'ALI.REZAEI@example.com'):
+            ok, error = self._login_as(typed)
+            self.assertFalse(ok, typed)
+            self.assertIn('هنوز توسط مدیر سیستم بررسی نشده', error, typed)
+
+        self.client.force_login(self.admin_user)
+        self.assertContains(self.client.get(reverse('core:dashboard')), 'درخواست‌های ثبت‌نام')
+        student_id = self._profile_id('40112345')
+        self.client.post(reverse('core:super_admin_toggle_account_status', args=['student', student_id]),
+                         {'action': 'activate', 'next': 'https://evil.example/'})
+        for typed in ('40112345', 'ali.rezaei@example.com'):
+            self.assertEqual(self._login_as(typed), (True, ''), typed)
+        self.assertFalse(self._login_as('ali.rezaei@example.com', 'wrong-pass')[0])
+        self.client.force_login(user)
+        self.assertRedirects(self.client.get(reverse('core:register')), reverse('core:dashboard'), fetch_redirect_response=False)
+
+    def test_sign_up_rejects_bad_input_without_crashing(self):
+        self._sign_up(email='taken@example.com', student_number='40100001')
+        self._sign_up(email='teacher@example.com', student_number='P-77', role='teacher')
+        cases = (
+            ({'email': 'TAKEN@example.com'}, 'email'),             # same e-mail, other letter case
+            ({'email': 'n1@example.com', 'student_number': '۴۰۱۰۰۰۰۱'}, 'student_number'),  # same number, Persian digits
+            ({'email': 'n2@example.com', 'student_number': 'P-77', 'role': 'teacher'}, 'student_number'),  # personnel code
+            ({'email': 'n3@example.com', 'password': '12345678'}, 'password'),
+            ({'email': 'n4@example.com', 'password': 'password1'}, 'password'),
+            ({'email': 'n5@example.com', 'full_name': 'ا' * 170}, 'full_name'),  # was a database error (500)
+            ({'email': 'n6@example.com', 'full_name': ' .. '}, 'full_name'),
+            ({'email': 'n7@example.com', 'role': 'admin'}, 'role'),
+        )
+        for fields, field in cases:
+            response = self._sign_up(**fields)
+            self.assertEqual(response.status_code, 200, fields)
+            self.assertIn(field, response.context['form'].errors, fields)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._sign_up(email='n8@example.com', student_number='P-77').status_code, 302)  # a teacher's code is no student number
+        self.assertEqual(self._rows("SELECT count(*) FROM profiles WHERE email LIKE 'n%%@example.com'", []), [(1,)])
+
+    def test_dashboard_card_opens_the_tab_with_waiting_teachers(self):
+        self._sign_up(email='only-teacher@example.com', role='teacher')
+        self.client.force_login(self.admin_user)
+        self.assertContains(self.client.get(reverse('core:dashboard')), '?tab=teachers&amp;status=pending')
+
 
 class EditableTextKeepsItsDigitsTests(TestCase):
     """The page shows 0-9 as Persian digits, but never inside an editor: the question editor's text (and anything
@@ -7299,3 +7576,469 @@ class QuestionImportWordTests(_EnforcedExamFixture):
         self.assertIn('docx', self._upload(b'x', name='q.doc').context['import_error'])
         self.assertIn('Word', self._upload(b'not a zip').context['import_error'])
         self.assertIn('سؤالی پیدا نشد', self._upload(build_docx([''])).context['import_error'])
+
+
+class ExamReportTests(_ScopedOrgFixture):
+    """«گزارش آزمون»: برگه‌ی فقط‌خواندنی مشخصات آزمون برای استاد صاحب آزمون و مدیر آموزشیِ همان واحد."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+
+    def setUp(self):
+        self.client.force_login(self.teacher_user)
+        self.client.post(reverse('core:teacher_exam_create'), {
+            'title': 'آزمون گزارش', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
+            'question_ids': [self.question_in_id, self.question_in2_id], 'duration_minutes': '75',
+            'start_at': '2026-11-10T09:00', 'tags': 'قلب، عروق', 'publish_choice': 'submit',
+            'description': 'توضیح آزمون گزارش', 'correction_instructions': 'دستور تصحیح نمونه', 'fullscreen_required': 'on',
+        })
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM exams WHERE title = 'آزمون گزارش'")
+            self.exam_id = str(cursor.fetchone()[0])
+
+    def test_teacher_sees_every_wizard_step_in_the_report(self):
+        response = self.client.get(reverse('core:teacher_exam_report', args=[self.exam_id]))
+        self.assertEqual(response.status_code, 200)
+        page = response.content.decode()
+        for text in ('مشخصات آزمون', 'آزمون گزارش', 'توضیح آزمون گزارش', 'دستور تصحیح نمونه', 'قلب', 'عروق',
+                     'مشخصات پایه', 'زمان‌بندی و قوانین', 'سوالات آزمون', 'مخاطبان و عوامل', 'نمره‌دهی و تصحیح',
+                     'امنیت و برگزاری', 'انتشار', 'در انتظار تأیید', 'نمایش پاسخ‌های صحیح',
+                     'سوال داخل محدوده', 'آ - سوال دوم داخل محدوده'):
+            self.assertIn(text, page)
+        self.assertEqual(len(response.context['questions']), 2)
+        self.assertEqual(len(response.context['groups']), 1)
+        self.assertTrue(next(f for f in response.context['security_flags'] if f['label'] == 'اجبار تمام‌صفحه')['on'])
+        self.assertEqual(page.count('چاپ این بخش'), 4)  # one print button per tab
+        self.assertIn('data-report-prev', page)  # «مرحله قبل / بعد» between the tabs, as in the exam wizard
+        self.assertIn('data-report-next', page)
+
+    def test_exam_lists_link_to_the_report(self):
+        report = reverse('core:teacher_exam_report', args=[self.exam_id])
+        self.assertIn(report, self.client.get(reverse('core:teacher_exams')).content.decode())
+        self.client.force_login(self.manager_user)
+        self.assertIn(reverse('core:super_admin_exam_report', args=[self.exam_id]),
+                      self.client.get(reverse('core:super_admin_exams')).content.decode())
+
+    def test_report_access_is_scoped(self):
+        self.assertEqual(self.client.get(reverse('core:teacher_exam_report', args=[self.exam_out_id])).status_code, 404)
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_report', args=[self.exam_id])).status_code, 200)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_report', args=[self.exam_out_id])).status_code, 404)
+        self.client.force_login(self.admin_user)
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_report', args=[self.exam_out_id])).status_code, 200)
+
+    def test_each_question_type_prints_its_items_and_answer_key(self):
+        order = iter(range(10, 30))
+
+        def add(kind, **columns):
+            question_id = str(uuid.uuid4())
+            names = ['id', 'teacher_id', 'course_id', 'text', 'type', 'default_points', *columns]
+            values = [question_id, self.teacher_in_id, self.course_in_id, f'متن سؤال {kind}', kind, 1,
+                      *[json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v for v in columns.values()]]
+            _insert('questions', names, values)
+            _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                    [str(uuid.uuid4()), self.exam_id, question_id, 1, next(order)])
+
+        add('single', options=[{'id': 'a', 'text': 'گزینه‌ی غلط'}, {'id': 'b', 'text': 'گزینه‌ی درست'}], correct_answer=json.dumps('b'))
+        add('matching', matching_pairs=[{'left': 'قلب', 'right': 'پمپ خون'}, {'left': 'ریه', 'right': 'تبادل گاز'}])
+        add('ordering', ordering_items=[{'text': 'مرحله‌ی اول', 'order': 1}, {'text': 'مرحله‌ی دوم', 'order': 2}])
+        add('fill_blank', accepted_answers=[{'answers': ['آئورت']}])
+        add('short_answer', accepted_answers=[{'answer': 'هموگلوبین', 'match_mode': 'exact'}])
+        add('essay')
+        page = self.client.get(reverse('core:teacher_exam_report', args=[self.exam_id])).content.decode()
+        for text in ('گزینه‌ی درست', '✓ پاسخ صحیح', 'پمپ خون', 'تبادل گاز', 'قلب ← ', 'ترتیب صحیح:', 'مرحله‌ی دوم',
+                     'جای خالی 1: آئورت', 'هموگلوبین', 'متن سؤال essay', 'پاسخ و راهنمای تصحیح'):
+            self.assertIn(text, page)
+        self.assertIn('er-answer-lines', page)  # space to write on for short-answer and essay questions
+
+    def test_participants_tab_lists_attempts_final_score_and_absentees(self):
+        url = reverse('core:teacher_exam_report', args=[self.exam_id])
+        _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), self.exam_id, self.student_in_id])
+        absent = self.client.get(url).context['participants']
+        self.assertEqual([(r['name'], r['status']) for r in absent['rows']], [('دانشجوی داخل محدوده', 'absent')])
+        self.assertEqual((absent['connected'], absent['absent']), (0, 1))
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET passing_percent = %s WHERE id = %s', [60, self.exam_id])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'score', 'max_score', 'is_graded', 'status'],
+                [str(uuid.uuid4()), self.exam_id, self.student_in_id, timezone.now(), timezone.now(), 4, 5, True, 'graded'])
+        response = self.client.get(url)
+        report = response.context['participants']
+        row = report['rows'][0]
+        self.assertEqual((row['final'], row['result'], row['status']), (16, 'قبول', 'passed'))  # 4 of 5 → 16 of 20
+        self.assertEqual(row['attempts'][0]['grader'], 'مصحح سیستمی')
+        self.assertEqual((report['connected'], report['submitted'], report['absent'], report['average'], report['passing_score']), (1, 1, 0, 16, 12))
+        page = response.content.decode()
+        for text in ('شرکت‌کنندگان و نتایج', 'نتایج شرکت‌کنندگان', 'نشست ۱', 'نمره نهایی', 'میانگین نمره شرکت‌کنندگان از', 'مصحح سیستمی'):
+            self.assertIn(text, page)
+        self.assertEqual(page.count('data-report-print>'), 4)  # one print button in each tab
+
+    def test_analysis_tab_counts_each_option(self):
+        question_id = str(uuid.uuid4())
+        _insert('questions', ['id', 'teacher_id', 'course_id', 'text', 'type', 'default_points', 'options', 'correct_answer', 'tags'],
+                [question_id, self.teacher_in_id, self.course_in_id, 'سؤال تحلیلی', 'single', 1,
+                 json.dumps([{'id': '1', 'text': 'گزینه یک'}, {'id': '2', 'text': 'گزینه دو'}]), json.dumps('2'), 'اعصاب، فیزیوپاتولوژی'])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_id, question_id, 1, 50])
+        third_student = self._make_profile('student_third', 'دانشجوی سوم')
+        for student_id, picked in ((self.student_in_id, '2'), (self.student_out_id, '2'), (third_student, '1')):
+            attempt_id = str(uuid.uuid4())
+            _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'is_graded', 'status'],
+                    [attempt_id, self.exam_id, student_id, timezone.now(), timezone.now(), True, 'graded'])
+            _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer', 'is_correct'],
+                    [str(uuid.uuid4()), attempt_id, question_id, json.dumps({'value': picked}), picked == '2'])
+        response = self.client.get(reverse('core:teacher_exam_report', args=[self.exam_id]))
+        question = next(q for q in response.context['questions'] if q['id'] == question_id)
+        self.assertEqual([(o['label'], o['count'], o['percent'], o['correct']) for o in question['options']],
+                         [('گزینه یک', 1, 33.33, False), ('گزینه دو', 2, 66.67, True)])
+        self.assertEqual(question['tags'], ['اعصاب', 'فیزیوپاتولوژی'])
+        self.assertEqual((question['stats']['answered'], question['stats']['correct_percent']), (3, 66.67))
+        page = response.content.decode()
+        for text in ('تحلیل سوالات', 'گزارش وضعیت پاسخ به سوال‌ها', '66.67%', '(پاسخ صحیح)'):
+            self.assertIn(text, page)
+
+    def test_attendance_tab_marks_present_and_absent(self):
+        for student_id in (self.student_in_id, self.student_out_id):
+            _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), self.exam_id, student_id])
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'submitted_at', 'score', 'max_score', 'is_graded', 'status'],
+                [str(uuid.uuid4()), self.exam_id, self.student_in_id, timezone.now(), timezone.now(), 4, 5, True, 'graded'])
+        response = self.client.get(reverse('core:teacher_exam_report', args=[self.exam_id]))
+        report = response.context['participants']
+        self.assertEqual(sorted((r['name'], r['attendance']) for r in report['rows']),
+                         [('دانشجوی خارج محدوده', 'absent'), ('دانشجوی داخل محدوده', 'present')])
+        attendance = report['attendance']
+        self.assertEqual((attendance['total'], attendance['present'], attendance['absent'], attendance['present_percent']), (2, 1, 1, 50))
+        page = response.content.decode()
+        for text in ('حضور و غیاب', 'برگه‌ی حضور و غیاب', 'نام و امضای مسئول جلسه', 'data-at-card'):
+            self.assertIn(text, page)
+
+    def test_report_shows_what_the_system_applies(self):
+        # an exam not saved through the wizard: its settings columns are not applied, so the report says so
+        page = self.client.get(reverse('core:teacher_exam_report', args=[self.exam_in_id]))
+        self.assertFalse(page.context['settings_enforced'])
+        self.assertIsNone(page.context['security_level_label'])
+        self.assertNotContains(page, 'er-notice')  # all exams are made with the wizard for now: no notice about it
+        # the wizard exam's «نمره منفی» reaches choice questions as grading applies it (a share of each question's points)
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exams SET negative_marking = %s, negative_factor = %s, passing_percent = %s WHERE id = %s',
+                           [True, 0.25, 50, self.exam_id])
+        context = self.client.get(reverse('core:teacher_exam_report', args=[self.exam_id])).context
+        self.assertTrue(context['settings_enforced'])
+        self.assertEqual([q['negative'] for q in context['questions']], [0.5, 0.75])  # 2 and 3 points × 0.25
+        self.assertEqual((context['penalty'], context['passing_label']), (0.25, '50٪'))
+
+
+class JalaliCalendarTests(_ScopedOrgFixture):
+    """تقویم‌ها ماه شمسی واقعی را به وقت تهران نشان می‌دهند؛ «تقویم من» دانشجو فقط آزمون‌های خودش را در روز تهرانی‌اش."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.student_user = get_user_model().objects.create_user(username='student_in_scope', email='s_cal@example.com', password='x')
+        TeacherStudentScopeTests._member(cls.group_in_id, cls.student_in_id)
+        TeacherStudentScopeTests._member(cls.group_out_id, cls.student_out_id)
+        now, day, exam = timezone.now(), timedelta(days=1), TeacherStudentScopeTests._exam
+        graded = exam('آزمون نمره‌دار', cls.teacher_in_id, now - 9 * day, now - 8 * day, cls.group_in_id)
+        TeacherStudentScopeTests._attempt(graded, cls.student_in_id, now - 9 * day, 'graded', 17, 20)
+        exam('آزمون غیبت', cls.teacher_in_id, now - 4 * day, now - 3 * day, cls.group_in_id)
+        exam('آزمون پیش‌نویس صفحه', cls.teacher_in_id, now + day, now + 2 * day, cls.group_in_id, published=False)
+        exam('آزمون کلاس دیگر', cls.teacher_out_id, now - day, now + day, cls.group_out_id)
+        cls.teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='t_cal@example.com', password='x')
+        # 21:00 UTC on 7 Nov 2026 is 00:30 on 8 Nov in Tehran = 17 Aban 1405, not 16 Aban
+        from datetime import datetime, timezone as dt_timezone
+        start = datetime(2026, 11, 7, 21, 0, tzinfo=dt_timezone.utc)
+        cls.midnight_exam = TeacherStudentScopeTests._exam('آزمون نیمه‌شب', cls.teacher_in_id, start, start + timedelta(hours=1), cls.group_in_id)
+
+    def _student_calendar(self, **params):
+        self.client.force_login(self.student_user)
+        response = self.client.get(reverse('core:student_calendar'), params)
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def test_month_titles_use_the_real_jalali_month(self):
+        from apps.core.templatetags.core_extras import _gregorian_to_jalali
+        from apps.core.views import JALALI_MONTH_NAMES
+        today = timezone.localdate()
+        jy, jm, _jd = _gregorian_to_jalali(today.year, today.month, today.day)
+        self.assertEqual(self._student_calendar().context['calendar_month']['title'], f'{JALALI_MONTH_NAMES[jm - 1]} {jy}')
+        self.client.force_login(self.teacher_user)
+        for month, title, length in ((8, 'آبان 1405', 30), (12, 'اسفند 1405', 29), (1, 'فروردین 1406', 31)):
+            year = 1406 if month == 1 else 1405
+            for url_name in ('core:teacher_calendar', 'core:student_calendar'):
+                if url_name == 'core:student_calendar':
+                    self.client.force_login(self.student_user)
+                response = self.client.get(reverse(url_name), {'year': year, 'month': month})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual((response.context['calendar_month']['title'], response.context['calendar_month']['length']), (title, length))
+                self.client.force_login(self.teacher_user)
+
+    def test_student_calendar_places_exams_on_their_tehran_day(self):
+        days = {cell['day']: cell['events'] for cell in self._student_calendar(year=1405, month=8).context['calendar_days'] if cell['day']}
+        self.assertEqual([(event['title'], event['time']) for event in days[17] if event['title'] == 'آزمون نیمه‌شب'], [('آزمون نیمه‌شب', '00:30')])
+        self.assertFalse(any(event['title'] == 'آزمون نیمه‌شب' for event in days[16]))
+        # 1 Aban 1405 is a Friday: six blank cells before it (Saturday is the first column)
+        cells = self._student_calendar(year=1405, month=8).context['calendar_days']
+        self.assertEqual(next(index for index, cell in enumerate(cells) if cell['day']), 6)
+
+    def test_student_calendar_shows_only_own_published_exams_with_their_state(self):
+        from apps.core.templatetags.core_extras import _gregorian_to_jalali
+        rows = []
+        for months_back in range(0, 3):
+            today = timezone.localdate() - timedelta(days=30 * months_back)
+            jy, jm, _jd = _gregorian_to_jalali(today.year, today.month, today.day)
+            rows += self._student_calendar(year=jy, month=jm).context['calendar_rows']
+        titles = {row['title']: row['label'] for row in rows}
+        self.assertEqual(titles.get('آزمون نمره‌دار'), 'نتیجه منتشر شده')
+        self.assertEqual(titles.get('آزمون غیبت'), 'غایب')
+        self.assertNotIn('آزمون پیش‌نویس صفحه', titles)
+        self.assertNotIn('آزمون کلاس دیگر', titles)
+        response = self._student_calendar()
+        self.assertContains(response, reverse('core:student_calendar'))  # the menu link
+
+
+class AccountPasswordTests(_ScopedOrgFixture):
+    """رمز عبور در «اطلاعات شخصی»: فقط ••••••••، تاریخ آخرین تغییر و فرم تغییر؛ تعیین رمز جدید توسط مدیر کل و اجبار تغییر رمز موقت."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', password='Teach#Old123')
+        cls.student_user = User.objects.create_user(username='student_in_scope', password='Stud#Old123')
+        cls.admin_user.set_password('Admin#Pass123')
+        cls.admin_user.save()
+        cls.manager_user.set_password('Mgr#Pass123')
+        cls.manager_user.save()
+
+    def _state(self, profile_id):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT password_changed_at, password_change_required FROM profiles WHERE id = %s', [profile_id])
+            return cursor.fetchone()
+
+    def _set(self, kind, profile_id, **data):
+        payload = {'admin_password': 'Admin#Pass123', 'password_mode': 'generate', 'change_required': '1', **data}
+        return self.client.post(reverse('core:super_admin_set_user_password', args=[kind, profile_id]), payload)
+
+    def test_personal_tabs_show_a_masked_password_with_a_change_link(self):
+        self.client.force_login(self.student_user)
+        page = self.client.get(reverse('core:student_settings'), {'tab': 'personal'})
+        self.assertContains(page, 'id="sst-account-password"')
+        self.assertContains(page, '••••••••')
+        self.assertContains(page, '?tab=security&amp;pw=1')
+        self.assertNotContains(page, 'Stud#Old123')
+        security = self.client.get(reverse('core:student_settings'), {'tab': 'security', 'pw': '1'})
+        self.assertRegex(security.content.decode(), r'id="sst-password-panel"\s*>')  # opened, not hidden
+
+        self.client.force_login(self.teacher_user)
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'personal'})
+        self.assertContains(page, 'id="tset-account-password"')
+        self.assertContains(page, 'ثبت نشده')  # never changed yet
+
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:profile'), {'section': 'edit'})
+        self.assertContains(page, '••••••••')
+        self.assertContains(page, '?section=security#sap-password')
+
+    def test_own_change_stamps_the_date(self):
+        self.client.force_login(self.student_user)
+        self.assertIsNone(self._state(self.student_in_id)[0])
+        self.client.post(reverse('core:student_settings'), {
+            'settings_tab': 'security', 'security_action': 'password_change',
+            'old_password': 'Stud#Old123', 'new_password1': 'N3w-pass-Strong!', 'new_password2': 'N3w-pass-Strong!',
+        })
+        changed_at, required = self._state(self.student_in_id)
+        self.assertIsNotNone(changed_at)
+        self.assertFalse(required)
+
+    def test_super_admin_generates_a_temporary_password_shown_once(self):
+        target = self.client_class()
+        target.force_login(self.teacher_user)
+        self.client.force_login(self.admin_user)
+        edit_url = reverse('core:super_admin_teacher_profile_edit', args=[self.teacher_in_id])
+        self.assertContains(self.client.get(edit_url), 'id="account-password"')
+        response = self._set('teacher', self.teacher_in_id)
+        self.assertRedirects(response, f'{edit_url}#account-password', fetch_redirect_response=False)
+        page = self.client.get(edit_url)
+        temporary = page.context['reveal']
+        self.assertEqual(len(temporary), 12)
+        self.assertContains(page, temporary)
+        self.assertNotContains(self.client.get(edit_url), temporary)  # only once
+        self.teacher_user.refresh_from_db()
+        self.assertTrue(self.teacher_user.check_password(temporary))
+        changed_at, required = self._state(self.teacher_in_id)
+        self.assertIsNotNone(changed_at)
+        self.assertTrue(required)
+        # the teacher's open session was ended
+        self.assertNotEqual(target.get(reverse('core:teacher_settings')).status_code, 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM activity_audit_log WHERE action = 'password_reset_by_admin'")
+            self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_super_admin_needs_own_password_and_a_valid_manual_password(self):
+        self.client.force_login(self.admin_user)
+        self._set('student', self.student_in_id, admin_password='wrong')
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.check_password('Stud#Old123'))
+        self._set('student', self.student_in_id, password_mode='manual', new_password1='12345678', new_password2='12345678')
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.check_password('Stud#Old123'))
+        self._set('student', self.student_in_id, password_mode='manual', new_password1='Brand#New456', new_password2='Brand#New457')
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.check_password('Stud#Old123'))
+        self._set('student', self.student_in_id, password_mode='manual', new_password1='Brand#New456', new_password2='Brand#New456', change_required='')
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.check_password('Brand#New456'))
+        self.assertFalse(self._state(self.student_in_id)[1])
+        self.assertIsNone(self.client.get(reverse('core:super_admin_student_profile_edit', args=[self.student_in_id])).context.get('reveal'))
+
+    def test_only_super_admin_and_never_for_a_super_admin_account(self):
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self._set('teacher', self.teacher_in_id, admin_password='Mgr#Pass123').status_code, 403)
+        self.client.force_login(self.teacher_user)
+        self.assertEqual(self._set('student', self.student_in_id, admin_password='Teach#Old123').status_code, 403)
+        self.teacher_user.refresh_from_db()
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.check_password('Stud#Old123'))
+
+        self.client.force_login(self.admin_user)
+        self.assertEqual(self._set('teacher', self.student_in_id).status_code, 404)  # wrong kind for that account
+        manager_edit = reverse('core:super_admin_manager_profile_edit', args=[self.manager_id])
+        self.assertContains(self.client.get(manager_edit), 'name="admin_password"')
+        _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), self.manager_id, 'admin'])
+        self._set('manager', self.manager_id)
+        self.assertNotContains(self.client.get(manager_edit), 'name="admin_password"')  # a super admin account: no form
+        self.manager_user.refresh_from_db()
+        self.assertTrue(self.manager_user.check_password('Mgr#Pass123'))
+
+    def test_temporary_password_must_be_replaced_before_using_the_site(self):
+        self.client.force_login(self.admin_user)
+        self._set('student', self.student_in_id, password_mode='manual', new_password1='Temp#Pass789', new_password2='Temp#Pass789')
+        self.client.logout()
+        self.assertTrue(self.client.login(username='student_in_scope', password='Temp#Pass789'))
+        change_url = reverse('core:password_change_required')
+        response = self.client.get(reverse('core:student_settings'))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response['Location'].startswith(f'{change_url}?next='))
+        self.assertEqual(self.client.get(change_url).status_code, 200)
+        same = self.client.post(change_url, {'new_password1': 'Temp#Pass789', 'new_password2': 'Temp#Pass789'})
+        self.assertEqual(same.status_code, 200)
+        self.assertTrue(same.context['errors'])
+        done = self.client.post(change_url, {'new_password1': 'Mine#Pass321', 'new_password2': 'Mine#Pass321', 'next': reverse('core:student_settings')})
+        self.assertRedirects(done, reverse('core:student_settings'), fetch_redirect_response=False)
+        self.assertFalse(self._state(self.student_in_id)[1])
+        self.assertEqual(self.client.get(reverse('core:student_settings')).status_code, 200)
+        self.assertRedirects(self.client.get(change_url), reverse('core:dashboard'), fetch_redirect_response=False)
+
+
+class SettingsSaveRowTests(_ScopedOrgFixture):
+    """تنظیمات استاد و دانشجو: ذخیره / انصراف یک ردیف ساده در انتهای فرم است (بدون نوار شناور و متن وضعیت)؛ «ذخیره شد» بالای صفحه."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', password='x')
+        cls.student_user = User.objects.create_user(username='student_in_scope', password='x')
+
+    def test_plain_save_row_and_saved_notice(self):
+        self.client.force_login(self.teacher_user)
+        page = self.client.get(reverse('core:teacher_settings'), {'tab': 'account'})
+        self.assertContains(page, 'class="tset-save"')
+        self.assertNotContains(page, 'data-tset-status')
+        self.assertNotContains(page, 'تغییری ایجاد نشده است')
+        self.assertContains(self.client.get(reverse('core:teacher_settings'), {'tab': 'account', 'saved': '1'}), 'تغییرات ذخیره شد.')
+        self.client.force_login(self.student_user)
+        page = self.client.get(reverse('core:student_settings'), {'tab': 'workspace'})
+        self.assertContains(page, '<footer class="sst-footer">')
+        self.assertNotContains(page, 'data-sst-status')
+
+
+class UserDirectoryTests(_ScopedOrgFixture):
+    """«فهرست اطلاعات کاربران»: مدیر آموزشی فقط اساتید و دانشجویان واحد خود را می‌بیند (بدون تب مدیران)؛ مدیر سامانه همه را؛ فیلتر، چاپ و اکسل."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE profiles SET first_name = 'مریم', last_name = 'احمدی', national_id = '2297763360', phone = '09171129552' WHERE id = %s",
+                [cls.teacher_in_id],
+            )
+            cursor.execute("UPDATE teacher_profiles SET academic_rank = 'استادیار', personnel_code = '110280' WHERE user_id = %s", [cls.teacher_in_id])
+            cursor.execute("UPDATE profiles SET status = 'inactive' WHERE id = %s", [cls.student_out_id])
+
+    def test_manager_sees_only_own_units_and_no_managers_tab(self):
+        self.client.force_login(self.manager_user)
+        url = reverse('core:super_admin_user_directory')
+        page = self.client.get(url, {'tab': 'teachers'})
+        self.assertContains(page, 'فهرست اطلاعات اساتید')
+        self.assertContains(page, 'استادیار')
+        self.assertContains(page, '2297763360')
+        self.assertContains(page, '110280')
+        self.assertNotContains(page, 'استاد خارج محدوده')
+        self.assertNotContains(page, '?tab=managers')
+        students = self.client.get(url, {'tab': 'students'})
+        self.assertContains(students, 'دانشجوی داخل محدوده'.split()[0])
+        self.assertNotContains(students, 'خارج محدوده')
+        staff = self.client.get(url, {'tab': 'managers'})  # not allowed → students
+        self.assertContains(staff, 'فهرست اطلاعات دانشجویان')
+        self.assertNotContains(staff, 'مدیر سیستم تست')
+
+    def test_admin_sees_everyone_managers_tab_and_filters(self):
+        self.client.force_login(self.admin_user)
+        url = reverse('core:super_admin_user_directory')
+        teachers = self.client.get(url, {'tab': 'teachers'})
+        self.assertContains(teachers, 'استاد خارج محدوده'.split()[0])
+        self.assertContains(teachers, 'خارج')
+        staff = self.client.get(url, {'tab': 'managers'})
+        self.assertContains(staff, 'فهرست اطلاعات مدیران')
+        self.assertContains(staff, 'مدیر سیستم')
+        self.assertContains(staff, 'مدیر آموزشی')
+        only_unit = self.client.get(url, {'tab': 'students', 'unit': self.ou_scoped})
+        self.assertNotContains(only_unit, 'خارج محدوده')
+        inactive = self.client.get(url, {'tab': 'students', 'status': 'inactive'})
+        self.assertContains(inactive, 'خارج')
+        self.assertNotContains(inactive, 'داخل محدوده')
+        found = self.client.get(url, {'tab': 'teachers', 'q': '2297763360'})
+        self.assertContains(found, 'احمدی')
+        self.assertNotContains(found, 'خارج محدوده')
+        self.assertContains(self.client.get(reverse('core:super_admin_users'), {'tab': 'teachers'}), url)
+
+    def test_excel_export_keeps_rows_and_chosen_columns(self):
+        from io import BytesIO
+        from openpyxl import load_workbook
+
+        self.client.force_login(self.manager_user)
+        response = self.client.get(reverse('core:super_admin_user_directory'),
+                                   {'tab': 'teachers', 'export': 'xlsx', 'hide': 'email,landline'})
+        self.assertEqual(response.status_code, 200)
+        sheet = load_workbook(BytesIO(response.content)).active
+        headers = [cell.value for cell in sheet[1]]
+        self.assertEqual(headers[:3], ['ردیف', 'نام', 'نام خانوادگی'])
+        self.assertIn('کد ملی', headers)
+        self.assertNotIn('ایمیل', headers)
+        self.assertNotIn('تلفن ثابت', headers)
+        values = [[cell.value for cell in row] for row in sheet.iter_rows(min_row=2)]
+        self.assertEqual(len(values), 1)
+        self.assertIn('2297763360', values[0])
+        self.assertIn('09171129552', values[0])  # leading zero kept
+
+    def test_codes_kept_in_identifier_and_group_units_are_shown(self):
+        group_unit = str(uuid.uuid4())
+        _insert('org_units', ['id', 'name', 'type', 'parent_id'], [group_unit, 'گروه ایمونولوژی', 'group', self.ou_scoped])
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE profiles SET identifier = 'STU-778' WHERE id = %s", [self.student_in_id])
+            cursor.execute("UPDATE student_profiles SET student_number = NULL WHERE user_id = %s", [self.student_in_id])
+            cursor.execute("UPDATE profiles SET identifier = 'P-4412' WHERE id = %s", [self.teacher_out_id])
+            cursor.execute("UPDATE teacher_profiles SET personnel_code = NULL, org_unit_id = %s WHERE user_id = %s", [group_unit, self.teacher_out_id])
+        self.client.force_login(self.admin_user)
+        url = reverse('core:super_admin_user_directory')
+        self.assertContains(self.client.get(url, {'tab': 'students'}), 'STU-778')
+        teachers = self.client.get(url, {'tab': 'teachers'})
+        self.assertContains(teachers, 'P-4412')
+        self.assertContains(teachers, 'گروه ایمونولوژی')
+
+    def test_teacher_and_student_cannot_open_it(self):
+        User = get_user_model()
+        self.client.force_login(User.objects.create_user(username='teacher_in_scope', password='x'))
+        self.assertEqual(self.client.get(reverse('core:super_admin_user_directory')).status_code, 403)

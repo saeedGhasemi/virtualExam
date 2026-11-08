@@ -1,5 +1,5 @@
 {% extends 'base_standalone.html' %}
-{% load static %}
+{% load static account_tags %}
 
 {% block title %}ویرایش اطلاعات دانشجو | متاکوییز{% endblock %}
 
@@ -163,7 +163,7 @@
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg>
                     فیلدهای قفل‌شده فقط با دسترسی مدیر سیستم قابل تغییر هستند.
                 </p>
-                <small>نام کاربری و رمز عبور از طریق بخش تنظیمات امنیتی مدیریت می‌شوند و امکان ویرایش در این بخش وجود ندارد.</small>
+                <small>رمز عبور قابل مشاهده نیست؛ برای تعیین رمز جدید از بخش «رمز عبور» پایین همین صفحه استفاده کنید.</small>
             </div>
         </section>
 
@@ -179,5 +179,6 @@
             </button>
         </footer>
     </form>
+    {% admin_password_card 'student' student.id %}
 </section>
 {% endblock %}

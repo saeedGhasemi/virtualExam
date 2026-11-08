@@ -40,6 +40,13 @@ from .models import (
 
 User = get_user_model()
 
+_LATIN_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
+
+
+def latin_digits(value):
+    """Persian/Arabic digits typed on a Persian keyboard → 0-9 (student numbers, codes, usernames)."""
+    return str(value or '').translate(_LATIN_DIGITS)
+
 
 class StyledAuthenticationForm(AuthenticationForm):
     lock_minutes = 15
@@ -62,13 +69,31 @@ class StyledAuthenticationForm(AuthenticationForm):
             raise forms.ValidationError(
                 f'حساب به دلیل تلاش‌های ناموفق زیاد، به مدت {self.lock_minutes} دقیقه قفل شده است.'
             )
+        if self.cleaned_data.get('username'):
+            self.cleaned_data['username'] = self.resolve_username(self.cleaned_data['username'])
         return super().clean()
+
+    @staticmethod
+    def resolve_username(typed):
+        """The login field takes the username, the e-mail or (for self-registered accounts) the student number, typed
+        with any letter case or Persian digits; returns the stored username it points to (or the input unchanged)."""
+        typed = latin_digits(typed).strip()
+        if User.objects.filter(username=typed).exists():
+            return typed
+        for lookup in ({'email__iexact': typed} if '@' in typed else {}, {'username__iexact': typed}):
+            if not lookup:
+                continue
+            matches = list(User.objects.filter(**lookup).values_list('username', flat=True)[:2])
+            if len(matches) == 1:
+                return matches[0]
+        return typed
 
     def confirm_login_allowed(self, user):
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT status FROM profiles WHERE username = %s OR email = %s LIMIT 1",
-                [user.username, user.email or ''],
+                "SELECT status FROM profiles WHERE username = %s OR (email <> '' AND lower(email) = lower(%s)) "
+                "ORDER BY CASE WHEN username = %s THEN 0 ELSE 1 END LIMIT 1",
+                [user.username, user.email or '', user.username],
             )
             row = cursor.fetchone()
         status = row[0] if row else 'active'
@@ -115,11 +140,11 @@ class StyledAuthenticationForm(AuthenticationForm):
 
 
 class PublicRegistrationForm(forms.Form):
-    full_name = forms.CharField(label='نام و نام خانوادگی', max_length=180)
+    full_name = forms.CharField(label='نام و نام خانوادگی', max_length=150)  # auth_user.first_name holds 150
     username = forms.CharField(label='نام کاربری', max_length=150, required=False)
-    student_number = forms.CharField(label='شماره دانشجویی', max_length=50, required=False)
-    email = forms.EmailField(label='ایمیل')
-    password = forms.CharField(label='رمز عبور', min_length=8, widget=forms.PasswordInput)
+    student_number = forms.CharField(label='شماره دانشجویی / کد پرسنلی', max_length=50, required=False)
+    email = forms.EmailField(label='ایمیل', max_length=254)
+    password = forms.CharField(label='رمز عبور', min_length=8, max_length=128, widget=forms.PasswordInput)
     role = forms.ChoiceField(
         label='نوع حساب',
         choices=(
@@ -128,32 +153,59 @@ class PublicRegistrationForm(forms.Form):
         ),
     )
 
+    def clean_full_name(self):
+        full_name = ' '.join(self.cleaned_data.get('full_name', '').split())
+        if len(full_name) < 3 or not any(char.isalpha() for char in full_name):
+            raise forms.ValidationError('نام و نام خانوادگی را کامل وارد کنید.')
+        return full_name
+
     def clean_username(self):
-        username = self.cleaned_data.get('username', '').strip()
+        username = latin_digits(self.cleaned_data.get('username', '')).strip()
         if not username:
             return ''
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError('این نام کاربری قبلا ثبت شده است.')
         return username
 
     def clean_student_number(self):
-        student_number = self.cleaned_data.get('student_number', '').strip()
-        if student_number:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1 FROM student_profiles WHERE student_number = %s LIMIT 1", [student_number])
-                exists = cursor.fetchone()
-            if exists:
-                raise forms.ValidationError('این شماره دانشجویی قبلا ثبت شده است.')
-        return student_number
-        if student_number and UserProfile.objects.filter(student_number=student_number).exists():
-            raise forms.ValidationError('این شماره دانشجویی قبلا ثبت شده است.')
-        return student_number
+        return latin_digits(self.cleaned_data.get('student_number', '')).strip()
 
     def clean_email(self):
-        email = self.cleaned_data.get('email', '').strip()
-        if email and User.objects.filter(email=email).exists():
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if not email:
+            return email
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM profiles WHERE lower(email) = %s LIMIT 1", [email])
+            in_profiles = cursor.fetchone()
+        if in_profiles or User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError('این ایمیل قبلا ثبت شده است.')
         return email
+
+    def clean(self):
+        cleaned = super().clean()
+        number = cleaned.get('student_number')
+        role = cleaned.get('role')
+        if number and role:
+            # a student number is unique among students, a personnel code among teachers
+            sql = ("SELECT 1 FROM student_profiles WHERE student_number = %s LIMIT 1" if role == SystemRole.RoleCode.STUDENT
+                   else "SELECT 1 FROM teacher_profiles WHERE personnel_code = %s LIMIT 1")
+            with connection.cursor() as cursor:
+                cursor.execute(sql, [number])
+                exists = cursor.fetchone()
+            if exists:
+                self.add_error('student_number', 'این شماره دانشجویی قبلا ثبت شده است.' if role == SystemRole.RoleCode.STUDENT
+                               else 'این کد پرسنلی قبلا ثبت شده است.')
+        password = cleaned.get('password')
+        if password:
+            from django.contrib.auth.password_validation import validate_password
+
+            probe = User(username=cleaned.get('username') or number or (cleaned.get('email') or '').split('@')[0],
+                         email=cleaned.get('email') or '', first_name=cleaned.get('full_name') or '')
+            try:
+                validate_password(password, probe)
+            except forms.ValidationError as error:
+                self.add_error('password', error)
+        return cleaned
 
 
 class TwoFactorCodeForm(forms.Form):

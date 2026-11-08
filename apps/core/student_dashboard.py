@@ -203,6 +203,55 @@ def _page(items: list, page_number, size: int):
     return Paginator(items, size).get_page(page_number)
 
 
+CALENDAR_WEEKDAYS = ('شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه')
+
+
+def student_calendar_context(request, student_id) -> dict:
+    """«تقویم من»: the student's exams on a Jalali month (Tehran time), each in its state's colour and linked to the
+    page that fits it, plus the month's exams as a list (readable on phones). An exam open for several days is shown
+    on every day of its window that falls in the month."""
+    from .templatetags.core_extras import _gregorian_to_jalali
+    from .views import _calendar_event_day, _jalali_calendar_month
+
+    shown = _jalali_calendar_month(request)
+    by_day, month_rows = {}, []
+    for row in (student_exam_rows(student_id) if student_id else []):
+        starts, ends = row['starts_at'], row['ends_at']
+        start_day = _calendar_event_day(starts)
+        end_day = _calendar_event_day(ends)
+        event = {
+            'id': row['id'], 'title': row['title'], 'course': row['course'], 'time': start_day[3],
+            'tone': row['page_tone'], 'label': row['page_label'], 'url': row['page_action']['url'],
+            'date_label': row['date_label'],
+            'until_label': (f"{_jalali_long_date(ends, with_weekday=False)} ساعت {end_day[3]}"
+                            if end_day[:3] != start_day[:3] else end_day[3]),
+        }
+        in_month = False
+        day = timezone.localtime(starts).date()
+        last = timezone.localtime(ends).date()
+        while day <= last and (last - day).days < 62:  # long windows (training exams): every day they are open
+            jy, jm, jd = _gregorian_to_jalali(day.year, day.month, day.day)  # a Tehran calendar day
+            if (jy, jm) == (shown['year'], shown['month']):
+                by_day.setdefault(jd, []).append({**event, 'continues': day != timezone.localtime(starts).date()})
+                in_month = True
+            day += timedelta(days=1)
+        if in_month:
+            month_rows.append({**event, 'starts_at': starts})
+    month_rows.sort(key=lambda item: item['starts_at'])
+    days = [{'day': None, 'events': []} for _ in range(shown['leading_blanks'])]
+    days += [{'day': day, 'events': sorted(by_day.get(day, []), key=lambda item: (item['continues'], item['time'])),
+              'is_today': (shown['year'], shown['month'], day) == shown['today']}
+             for day in range(1, shown['length'] + 1)]
+    days += [{'day': None, 'events': []} for _ in range(-len(days) % 7)]
+    return {
+        'calendar_month': shown,
+        'calendar_days': days,
+        'calendar_weekdays': CALENDAR_WEEKDAYS,
+        'calendar_rows': month_rows,
+        'calendar_legend': [(label, tone) for _key, (label, tone, _tab) in EXAM_PAGE_STATES.items()],
+    }
+
+
 def student_exams_page_context(request, student_id) -> dict:
     """Context for the "my exams" page: tabs, the exam open for entry, filters and one page of the table."""
     rows = _ordered_rows(student_exam_rows(student_id)) if student_id else []

@@ -6,6 +6,18 @@
 {% block content %}
 {% include 'partials/super_admin_chrome.html' %}
 <section class="super-admin-page super-admin-workspace users-hub-page" dir="rtl" data-fixed-scroll-page>
+    <style>
+        .users-table-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem 1rem;flex-wrap:wrap;padding:.85rem 1.25rem;border-bottom:1px solid #d9e2f2;background:#fbfcff;direction:rtl}
+        .users-table-head-text{min-width:0}
+        .users-table-head-text strong{display:block;color:#07152f;font-size:14px;font-weight:900;line-height:1.6}
+        .users-table-head-text span{display:block;color:#62708a;font-size:12px;font-weight:700;line-height:1.7}
+        .users-table-head .users-dir-link{height:3.1rem;padding:0 1.4rem;font-size:14px;gap:.55rem}
+        .users-table-head .users-dir-link svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        @media (max-width:640px){.users-table-head{padding:.8rem .9rem}.users-table-head .users-dir-link{width:100%}}
+        /* Compact centered pill: exactly one column per visible tab (2 for academic managers, 3 for admins), no empty slot. */
+        .users-role-tabs.users-role-tabs--fit{grid-template-columns:repeat(var(--tabs,2),minmax(0,1fr));width:calc(var(--tabs,2) * 11.5rem + 1rem);max-width:100%}
+        @media (max-width:640px){.users-role-tabs.users-role-tabs--fit{width:100%}}
+    </style>
     <div class="users-hub-top">
         <div class="users-hub-actions">
             {% if active_tab == "managers" %}
@@ -38,19 +50,17 @@
             {% endif %}
         </div>
 
-        <nav class="users-role-tabs" aria-label="تب‌های کاربران">
-            <a class="{% if active_tab == 'students' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=students">
-                دانشجویان
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+        {# Centered pill, one column per tab (academic managers: students + teachers; admins also managers). #}
+        <nav class="users-role-tabs users-role-tabs--fit" style="--tabs: {% if is_super_admin_shell %}3{% else %}2{% endif %}" aria-label="تب‌های کاربران">
+            <a class="{% if active_tab == 'students' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=students"{% if active_tab == 'students' %} aria-current="page"{% endif %}>
+                دانشجویان <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
             </a>
-            <a class="{% if active_tab == 'teachers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=teachers">
-                اساتید
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+            <a class="{% if active_tab == 'teachers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=teachers"{% if active_tab == 'teachers' %} aria-current="page"{% endif %}>
+                اساتید <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
             </a>
             {% if is_super_admin_shell %}
-            <a class="{% if active_tab == 'managers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=managers">
-                مدیران
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <a class="{% if active_tab == 'managers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=managers"{% if active_tab == 'managers' %} aria-current="page"{% endif %}>
+                مدیران <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </a>
             {% endif %}
         </nav>
@@ -123,6 +133,16 @@
         </form>
 
         <section class="users-table-card" aria-label="لیست مدیران">
+            <div class="users-table-head">
+                <div class="users-table-head-text">
+                    <strong>فهرست مدیران</strong>
+                    <span>نمای کامل این فهرست (کد ملی، ایمیل، تلفن، کد پرسنلی و محدوده‌ی هر مدیر) در یک جدول، قابل چاپ و خروجی اکسل</span>
+                </div>
+                <a class="users-primary-action users-dir-link" href="{% url 'core:super_admin_user_directory' %}?tab=managers&role={{ manager_type_filter|urlencode }}&q={{ query|urlencode }}&unit={{ unit_filter|urlencode }}&status={{ status_filter|urlencode }}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+                    مشاهده کامل اطلاعات و چاپ
+                </a>
+            </div>
             <div class="users-table-wrap">
                 <table class="users-table users-table--managers">
                     <colgroup>
@@ -351,6 +371,16 @@
         </form>
 
         <section class="users-table-card" aria-label="لیست دانشجویان">
+            <div class="users-table-head">
+                <div class="users-table-head-text">
+                    <strong>فهرست دانشجویان</strong>
+                    <span>نمای کامل این فهرست (کد ملی، ایمیل، تلفن، شماره دانشجویی، رشته و مقطع هر دانشجو) در یک جدول، قابل چاپ و خروجی اکسل</span>
+                </div>
+                <a class="users-primary-action users-dir-link" href="{% url 'core:super_admin_user_directory' %}?tab=students&q={{ query|urlencode }}&unit={{ unit_filter|urlencode }}&status={{ status_filter|urlencode }}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+                    مشاهده کامل اطلاعات و چاپ
+                </a>
+            </div>
             <div class="users-table-wrap">
                 <table class="users-table users-table--students">
                     <colgroup>
@@ -569,6 +599,16 @@
         </form>
 
         <section class="users-table-card" aria-label="لیست اساتید">
+            <div class="users-table-head">
+                <div class="users-table-head-text">
+                    <strong>فهرست اساتید</strong>
+                    <span>نمای کامل این فهرست (کد ملی، ایمیل، تلفن، کد پرسنلی و مرتبه علمی هر استاد) در یک جدول، قابل چاپ و خروجی اکسل</span>
+                </div>
+                <a class="users-primary-action users-dir-link" href="{% url 'core:super_admin_user_directory' %}?tab=teachers&q={{ query|urlencode }}&unit={{ unit_filter|urlencode }}&status={{ status_filter|urlencode }}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+                    مشاهده کامل اطلاعات و چاپ
+                </a>
+            </div>
             <div class="users-table-wrap">
                 <table class="users-table users-table--teachers">
                     <colgroup>

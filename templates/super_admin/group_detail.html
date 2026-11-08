@@ -186,7 +186,7 @@
                             {% for exam in exams %}
                                 <tr>
                                     <td>{{ exam.title|fa_digits }}</td>
-                                    <td>{{ exam.start_at|default:"-"|fa_digits }}</td>
+                                    <td>{{ exam.start_label }}</td>
                                     <td>{{ exam.duration_minutes|default:"-"|fa_digits }} دقیقه</td>
                                     <td><span class="exam-status">{{ exam.status_label|fa_digits }}</span></td>
                                 </tr>

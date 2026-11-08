@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -106,7 +106,7 @@ def teacher_reviews(request):
         f"""
         SELECT aa.id, aa.points_awarded, aa.needs_manual_grading, aa.graded_at, ea.submitted_at,
                e.title AS exam_title, p.full_name AS student_name, q.text AS question_text, q.scoring_settings,
-               {_first_grade_sql()}, COALESCE(eq.points, q.default_points) AS max_points
+               {_first_grade_sql()}, COALESCE(eq.points, q.default_points, 1) AS max_points
         {_SCOPED_FROM}{_filter_sql(status)}
         ORDER BY ea.submitted_at, aa.id
         LIMIT {PAGE_SIZE} OFFSET {(page.number - 1) * PAGE_SIZE}
@@ -133,7 +133,7 @@ def _grading_answer(teacher_id, answer_id):
         SELECT aa.id, aa.attempt_id, aa.answer, aa.answer_files, aa.points_awarded, aa.needs_manual_grading,
                aa.rubric_scores, aa.grader_feedback, aa.graded_at, ea.submitted_at, ea.status AS attempt_status,
                e.title AS exam_title, p.full_name AS student_name, q.id AS question_id, q.text AS question_text,
-               q.type AS question_type, q.accepted_answers, q.rubric, q.scoring_settings, q.question_media, COALESCE(eq.points, q.default_points) AS max_points,
+               q.type AS question_type, q.accepted_answers, q.rubric, q.scoring_settings, q.question_media, COALESCE(eq.points, q.default_points, 1) AS max_points,
                e.correction_instructions AS exam_correction_instructions, e.rubric_template AS exam_rubric_template,
                e.settings_enforced AS exam_settings_enforced, {_first_grade_sql()}
         {_SCOPED_FROM} AND aa.id = %s
@@ -215,7 +215,10 @@ def teacher_grading_detail(request, answer_id):
     from .teacher_preferences import grading_rules
 
     rules = grading_rules(teacher_id)  # the grading teacher's «تصحیح و بازخورد» settings
-    rubric = [item for item in (_sx_json(row.get('rubric'), []) or []) if isinstance(item, dict) and item.get('criterion')]
+    # Criteria without a positive «نمره» cannot be scored (their limit would be 0, and a rubric of such criteria only
+    # would make every grade 0); they are left out, and a rubric with none left falls back to a single score.
+    rubric = [item for item in (_sx_json(row.get('rubric'), []) or [])
+              if isinstance(item, dict) and item.get('criterion') and (_decimal(item.get('points')) or Decimal(0)) > 0]
     if not rules['use_rubric']:  # «نحوه تصحیح سؤالات تشریحی: دستی»: one score for the answer
         rubric = []
     max_points = _decimal(row.get('max_points')) or Decimal(0)
@@ -322,6 +325,9 @@ def teacher_grading_detail(request, answer_id):
             if isinstance(item, dict) and item.get('answer')
         ],
         grading_rubric=[{**item, 'index': index, 'previous': previous.get(item.get('criterion'), '')} for index, item in enumerate(rubric)],
+        # The single score field: the final grade, or the first grader's own (not yet final) grade when they reopen it.
+        grading_score_value=(f"{_sx_float(row.get('points_awarded'), 0):g}" if row.get('graded_at')
+                             else f"{_sx_float(first.get('points'), 0):g}" if own_first and first else ''),
         grading_rules=rules, grading_locked=locked, grading_score_step='1' if rules['integer_scores'] else '0.25',
         grading_rubric_total=sum((_decimal(item.get('points')) or Decimal(0) for item in rubric), Decimal(0)).normalize(),
     ))
@@ -329,7 +335,10 @@ def teacher_grading_detail(request, answer_id):
 
 # Audio answers recorded in Chrome/Firefox are WebM/Ogg containers; serve them as audio so <audio> plays them.
 AUDIO_CONTENT_TYPES = {'webm': 'audio/webm', 'ogg': 'audio/ogg', 'mp4': 'audio/mp4'}
+# iPhone .mov (H.264 in QuickTime) plays in <video> in Chrome/Edge/Firefox when served as MP4; «video/quicktime» does not.
+VIDEO_CONTENT_TYPES = {'mov': 'video/mp4'}
 _RANGE_RE = re.compile(r'bytes=(\d*)-(\d*)$')
+RANGE_CHUNK = 256 * 1024
 
 
 def _ranged_file_response(request, path, content_type):
@@ -347,12 +356,23 @@ def _ranged_file_response(request, path, content_type):
         response = HttpResponse(status=416)
         response['Content-Range'] = f'bytes */{size}'
         return response
-    with open(path, 'rb') as handle:
-        handle.seek(start)
-        body = handle.read(end - start + 1)
-    response = HttpResponse(body, status=206, content_type=content_type)
+    length = end - start + 1
+
+    def chunks():
+        # Streamed: players open videos with «bytes=0-», which must not read a 100MB answer into memory.
+        with open(path, 'rb') as handle:
+            handle.seek(start)
+            left = length
+            while left > 0:
+                block = handle.read(min(RANGE_CHUNK, left))
+                if not block:
+                    break
+                left -= len(block)
+                yield block
+
+    response = StreamingHttpResponse(chunks(), status=206, content_type=content_type)
     response['Content-Range'] = f'bytes {start}-{end}/{size}'
-    response['Content-Length'] = str(len(body))
+    response['Content-Length'] = str(length)
     return response
 
 
@@ -384,7 +404,9 @@ def attempt_answer_file(request, attempt_id, file_id):
             if not allowed or not path:
                 raise Http404
             extension = item.get('ext')
-            content_type = (AUDIO_CONTENT_TYPES.get(extension) if item.get('kind') == 'audio' else None)                 or CONTENT_TYPES.get(extension, 'application/octet-stream')
+            content_type = ((AUDIO_CONTENT_TYPES.get(extension) if item.get('kind') == 'audio'
+                             else VIDEO_CONTENT_TYPES.get(extension) if item.get('kind') == 'video' else None)
+                            or CONTENT_TYPES.get(extension, 'application/octet-stream'))
             response = None if item.get('kind') == 'file' else _ranged_file_response(request, path, content_type)
             if response is None:
                 response = FileResponse(

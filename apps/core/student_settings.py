@@ -11,6 +11,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db import transaction
 
+from . import account_security
 from .views import (
     _clean_phone,
     _handle_teacher_security_action,  # shared with the teacher's settings page
@@ -180,6 +181,7 @@ def _change_password(request) -> list:
         return [error for errors in form.errors.values() for error in errors]
     form.save()
     update_session_auth_hash(request, form.user)  # keeps this session; every other one is signed out by the new hash
+    account_security.mark_password_set(form.user)
     log_activity(request.user, 'password_changed', 'تغییر رمز عبور حساب', request)
     return []
 

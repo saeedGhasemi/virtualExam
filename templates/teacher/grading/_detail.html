@@ -132,13 +132,15 @@
                 <div class="gd-total"><span>جمع روبریک: <b data-rubric-sum>۰</b> از {{ grading_rubric_total|fa_digits }}</span><span>نمره سؤال: <b data-awarded>۰</b></span></div>
                 <p class="gd-empty" style="margin:.4rem 0 0">نمره سؤال به نسبت جمع روبریک از بارم این سؤال در آزمون محاسبه می‌شود.</p>
             {% else %}
-                <label class="gd-field">نمره<input class="gd-score" type="number" name="score" min="0" max="{{ grading_max_points }}" step="{{ grading_score_step|default:'0.25' }}" required value="{% if grading.graded_at %}{{ grading.points_awarded|floatformat:'-2' }}{% endif %}"></label>
+                <label class="gd-field">نمره<input class="gd-score" type="number" name="score" min="0" max="{{ grading_max_points }}" step="{{ grading_score_step|default:'0.25' }}" required value="{{ grading_score_value }}"></label>
             {% endif %}
             {% if grading_rules.feedback is not False %}<label class="gd-field">بازخورد برای دانشجو (اختیاری)<textarea name="feedback" maxlength="2000">{{ grading.grader_feedback|default:'' }}</textarea></label>{% endif %}
+            {% if not grading_locked %}
             <div class="gd-actions">
                 <button class="gd-btn is-primary" type="submit" name="next" value="1">ثبت و پاسخ بعدی</button>
                 <button class="gd-btn" type="submit">ثبت نمره</button>
             </div>
+            {% endif %}
         </form>
     </div>
 </div>

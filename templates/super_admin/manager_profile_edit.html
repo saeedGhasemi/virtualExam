@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static account_tags %}
 
 {% block title %}ویرایش اطلاعات مدیر | متاکوییز{% endblock %}
 
@@ -48,19 +48,14 @@
                         <span></span>
                         <b>حساب فعال</b>
                     </label>
-                    <label class="manager-edit-toggle">
-                        <input type="checkbox" name="force_password_change" value="1">
-                        <span></span>
-                        <b>الزام تغییر رمز در ورود بعدی</b>
-                    </label>
                     <dl>
-                        <div><dt>آخرین ورود:</dt><dd>{{ manager.last_login_at|default:"امروز، ۱۰:۳۵" }}</dd></div>
+                        <div><dt>آخرین ورود:</dt><dd>{{ last_login_label }}</dd></div>
                         <div><dt>تایید دومرحله‌ای:</dt><dd class="is-active">فعال</dd></div>
                     </dl>
-                    <button class="manager-edit-outline" type="button">
+                    <a class="manager-edit-outline" href="#account-password">
                         <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78Zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                        ارسال لینک بازنشانی رمز
-                    </button>
+                        تعیین رمز جدید
+                    </a>
                 </section>
 
                 <section class="manager-edit-card manager-edit-note">
@@ -160,5 +155,6 @@
             <a class="manager-edit-btn is-ghost" href="{{ back_url }}">انصراف</a>
         </footer>
     </form>
+    {% admin_password_card 'manager' manager.id %}
 </section>
 {% endblock %}
