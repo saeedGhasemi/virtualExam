@@ -30,7 +30,7 @@ Online exam system (Persian UI, RTL). Roles: student, teacher, academic_manager,
 - Run: `.venv\Scripts\python manage.py runserver 8001` (port 8000 is used by another local project).
 - Tests, targeted: `.venv\Scripts\python manage.py test apps.core.tests.<ClassName>`
 - Tests, all (slow, run once at the end): `.venv\Scripts\python manage.py test apps.core`
-- Manual-test data (local DB only, never on the server): `manage.py seed_test_data` (re)creates 15 teachers / students / questions / exams in every state, all marked `mqtest_` / «[آزمایشی]» / `MQTEST-` (password `Test@12345`); `seed_test_data --purge` removes them and everything made with those accounts. Re-run it to refresh time-relative states.
+- Manual-test data (local DB; also on production since 2026-11-08 at the user's request — remove there with `--purge` when asked): `manage.py seed_test_data` (re)creates 15 teachers / students / questions / exams in every state, all marked `mqtest_` / «[آزمایشی]» / `MQTEST-` (password `Test@12345`); `seed_test_data --purge` removes them and everything made with those accounts. Re-run it to refresh time-relative states.
 - Checks: `.venv\Scripts\python manage.py check` · `makemigrations --check --dry-run`
 
 ## Git
