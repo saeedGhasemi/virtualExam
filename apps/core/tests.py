@@ -5663,6 +5663,50 @@ class ManagerDashboardCardsTests(_ScopedOrgFixture):
         self.assertIn('در حال برگزاری', cards['آزمون‌های منتشرشده']['hint'])
 
 
+class SubordinateOverviewTests(_ScopedOrgFixture):
+    """«زیرمجموعه من»: each account sees how many people are under it, limited to its access."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.group_in_id, cls.student_in_id, 'دانشجوی داخل محدوده', '0000000001', 'S-IN'])
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'], [str(uuid.uuid4()), cls.group_out_id, cls.student_out_id, 'دانشجوی خارج محدوده', '0000000002', 'S-OUT'])
+        cls.teacher_user = get_user_model().objects.create_user(username='teacher_in_scope', email='teacher_in@example.com', password='x')
+
+    @staticmethod
+    def _tiles(data):
+        return {tile['label']: tile['value'] for tile in data['tiles']}
+
+    def test_teacher_sees_only_the_students_of_own_groups(self):
+        self.client.force_login(self.teacher_user)
+        page = self.client.get(reverse('core:teacher_panel'))
+        self.assertContains(page, 'زیرمجموعه من')
+        data = page.context['subordinates']
+        self.assertEqual(self._tiles(data)['دانشجویان'], 1)
+        self.assertEqual(self._tiles(data)['کلاس‌ها'], 1)
+        self.assertEqual([row['total'] for row in data['rows']], [1])
+        self.assertIn(f'group={self.group_in_id}', data['rows'][0]['counts'][0]['url'])
+
+    def test_manager_counts_stay_inside_the_managed_units(self):
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:exam_manager_dashboard'))
+        data = page.context['subordinates']
+        tiles = self._tiles(data)
+        self.assertEqual((tiles['اساتید'], tiles['دانشجویان'], tiles['درس‌ها']), (1, 1, 1))
+        self.assertEqual([row['label'] for row in data['rows']], ['واحد تحت مدیریت'])
+        cards = {card['label']: card for card in page.context['dashboard_stats']}
+        self.assertEqual(cards['اساتید']['value'], 1)
+
+    def test_admin_sees_the_whole_system(self):
+        self.client.force_login(self.admin_user)
+        page = self.client.get(reverse('core:dashboard'))
+        data = page.context['role_panel']['subordinates']
+        tiles = self._tiles(data)
+        self.assertEqual((tiles['مدیران آموزشی'], tiles['اساتید'], tiles['دانشجویان']), (1, 2, 2))
+        self.assertEqual({row['label'] for row in data['rows']}, {'واحد تحت مدیریت', 'واحد دیگر'})
+        self.assertContains(page, 'subs-panel')
+
+
 class DashboardChartsRealDataTests(_ScopedOrgFixture):
     """نمودارها و وضعیت سلامت داشبوردهای مدیر از داده‌ی واقعی؛ قبلاً روند از «تعداد تلاش + ۴، + ۸…» با تاریخ‌های ثابت اردیبهشت،
     سلامت همیشه «سالم»، مشارکت ۷۲/۱۸/۱۰ ثابت و اقدامات نیازمند توجه چهار برچسب ثابت بود."""

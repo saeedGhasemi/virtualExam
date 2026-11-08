@@ -9,6 +9,11 @@ _Last updated: 2026-11-08. Every chat updates this file before it ends (see `CLA
 - Old packages (scripts renamed `apply-update.sh.SUPERSEDED-…`): `~/metaquizy-backup-20261107-0608`, `-20261107-0446`, `-20261107-0353`, `-20261107-0248`, `-20261104-*`, `-20261105-0025`.
 - The SSH user has no sudo (checked). Local `main` is ahead of `origin/main` (not pushed, by choice).
 
+## «زیرمجموعه من» panel (2026-11-08), uncommitted, not deployed
+- New `apps/core/subordinates.py` (`subordinate_overview(role, profile_id)`, called via `views._subordinate_overview`) + shared `templates/partials/subordinates_panel.html` + `static/css/subordinates.css` (linked from the partial). Shown on the teacher dashboard (under the KPIs), the academic-manager dashboard (under the stat cards) and the admin dashboard (under `sys-stats`). Students get nothing.
+- Teacher: distinct students of own groups (owner/co-teacher, not archived), classes, courses; per-class rows → `teacher/students/?group=`. Manager: teachers/students by the same scope conditions as access checks (`_erd_teacher/student_scope_condition`), courses, groups, units; per-unit rows (people registered directly in the unit) → users page `?tab=…&unit=`. Admin: academic managers, teachers, students, courses; per-unit rows. The manager's «اساتید» stat card now uses the same counts.
+- Checked: Edge screenshots at 390/900/1180/1440 for the 3 roles (no overflow). Tests: new `SubordinateOverviewTests` (3); full suite 437 OK. Deploy: 1 new static file (`collectstatic`), no migrations.
+
 ## Responsive + scroll work (2026-11-05 → 07), committed in `22a5ccf` and the commit after it
 - `static/css/responsive.css` (new, linked after `dist/styles.css` in `base.html`, `base_standalone.html`, `login.html`, `register.html`) holds all phone/tablet fixes; page-local fixes in `super_admin/profile.html`, `teacher/students/report.html`; panel chrome in `partials/super_admin_chrome.html`.
 - Chrome: burger dropdown with «پروفایل»/«خروج» on phones; the dropdown no longer wraps «خروج» into a side column (no sideways scroll). ≤760px the page scrolls (shell unlocked); tablet/desktop `.app-shell` is a flex column so `.app-main` fills the rest.

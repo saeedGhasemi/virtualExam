@@ -13041,6 +13041,7 @@ def dashboard(request):
             {'title': 'آزمون‌های فعال', 'url': reverse('core:super_admin_active_exams')},
         ]
         role_panel = erd_admin_dashboard_panel()
+        role_panel['subordinates'] = _subordinate_overview('admin', None)
     dashboard_data = {
         **ROLE_DASHBOARDS.get(role_code, ROLE_DASHBOARDS['student']),
         'task_groups': ROLE_TASK_GROUPS.get(role_code, []),
@@ -14506,6 +14507,7 @@ def _teacher_modern_context(request, page, **extra):
         'teacher_stats': {'questions': erd_count('questions', 'teacher_id = %s AND archived_at IS NULL', [teacher_id])} if page == 'dashboard' and teacher_id else {},
         **course_detail,
         'dashboard': _teacher_dashboard_data(teacher_id) if page == 'dashboard' and teacher_id else None,
+        'subordinates': _subordinate_overview('teacher', teacher_id) if page == 'dashboard' and teacher_id else None,
         **question_bank,
         **extra,
     }
@@ -18311,8 +18313,9 @@ def exam_manager_dashboard(request):
         'e.start_at >= %s AND e.start_at < %s AND COALESCE(e.is_cancelled, false) = false', [today.isoformat(), tomorrow.isoformat()],
     )
     pending_exams = scoped_exam_count("COALESCE(e.lifecycle_status, '') = 'pending_approval' AND COALESCE(e.is_cancelled, false) = false")
-    teacher_count = _erd_scoped_count(request, 'teachers')
-    student_count = _erd_scoped_count(request, 'students')
+    subordinates = _subordinate_overview('admin' if _erd_is_admin_request(request) else 'academic_manager', request.erd_profile_id)
+    # the «اساتید» card shows the same numbers as the «زیرمجموعه من» panel below it
+    teacher_count, student_count = (next((t['value'] for t in subordinates['tiles'] if t['icon'] == key), 0) for key in ('teachers', 'students'))
     attempts = erd_row(
         f"""
         {cte}
@@ -18376,6 +18379,7 @@ def exam_manager_dashboard(request):
         'trend_points': trend['activity_secondary_points'],
         'trend_labels': trend['trend_labels'],
         'trend_submitted_total': trend['trend_submitted_total'],
+        'subordinates': subordinates,
     }
     return render(request, 'exam_manager/dashboard.html', context)
 
@@ -20629,3 +20633,10 @@ def password_change_required_view(request):
         'next': next_url,
         'display_name': profile.get('full_name') or request.user.username,
     })
+
+
+def _subordinate_overview(role, profile_id):
+    """The «زیرمجموعه من» dashboard panel (apps/core/subordinates.py; imported here lazily, it imports from this module)."""
+    from .subordinates import subordinate_overview
+
+    return subordinate_overview(role, profile_id)

@@ -52,6 +52,7 @@
     .sys-stat small{display:block;color:#59677f;font-weight:900}
     .sys-stat strong{display:block;margin-top:1.05rem;font-size:1.68rem;line-height:1;font-weight:950}
     .sys-stat em{display:block;margin-top:.78rem;color:#16a34a;font-size:.72rem;font-style:normal;font-weight:900}.sys-stat.is-red em{color:#ef4444}.sys-stat.is-orange em{color:#f59e0b}
+    .sys-subs{margin-bottom:.85rem}
     .sys-grid{display:grid;grid-template-columns:.95fr .95fr 1.55fr .95fr;gap:.85rem;margin-bottom:.85rem}
     .sys-card{position:relative;min-height:218px;padding:1rem;border-radius:1.08rem;overflow:hidden}
     .sys-card h2{font-size:1.02rem;font-weight:950}
@@ -148,6 +149,7 @@
                     {% if card.url %}</a>{% else %}</article>{% endif %}
                 {% endfor %}
             </section>
+            <div class="sys-subs">{% include 'partials/subordinates_panel.html' with subordinates=role_panel.subordinates %}</div>
             <section class="sys-grid">
                 <article class="sys-card">
                     <h2>وضعیت سلامت سامانه</h2>

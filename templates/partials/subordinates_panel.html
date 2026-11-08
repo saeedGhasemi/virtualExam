@@ -1,0 +1,58 @@
+{% load static core_extras %}
+{% if subordinates %}
+<link rel="stylesheet" href="{% static 'css/subordinates.css' %}?v=subordinates-20261108c">
+<section class="subs-panel" dir="rtl" aria-labelledby="subs-panel-title">
+    <header class="subs-head">
+        <div>
+            <h2 id="subs-panel-title"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5V12M5 16.5V14a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2.5"/></svg>{{ subordinates.title }}</h2>
+            <p>{{ subordinates.subtitle }}</p>
+        </div>
+        {% if subordinates.more_url %}<a class="subs-more" href="{{ subordinates.more_url }}">{{ subordinates.more_label }} <span aria-hidden="true">←</span></a>{% endif %}
+    </header>
+
+    <div class="subs-body">
+        <ul class="subs-tiles" data-count="{{ subordinates.tiles|length }}">
+            {% for tile in subordinates.tiles %}
+                <li>
+                    {% if tile.url %}<a class="subs-tile is-{{ tile.tone }}" href="{{ tile.url }}">{% else %}<div class="subs-tile is-{{ tile.tone }}">{% endif %}
+                        <i aria-hidden="true">
+                            {% if tile.icon == 'students' %}<svg viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+                            {% elif tile.icon == 'teachers' %}<svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="M17 3h5v6h-5M19.5 9v3"/></svg>
+                            {% elif tile.icon == 'managers' %}<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 16a4 4 0 0 1 7 0"/></svg>
+                            {% elif tile.icon == 'groups' %}<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            {% else %}<svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg>{% endif %}
+                        </i>
+                        <span class="subs-tile-text">
+                            <small>{{ tile.label }}</small>
+                            <strong>{{ tile.value|fa_digits }}</strong>
+                            {% if tile.hint %}<em>{{ tile.hint|fa_digits }}</em>{% endif %}
+                        </span>
+                    {% if tile.url %}</a>{% else %}</div>{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+
+        <div class="subs-breakdown">
+            <h3>{{ subordinates.breakdown_title }}</h3>
+            {% if subordinates.rows %}
+                <ol class="subs-rows">
+                    {% for row in subordinates.rows %}
+                        <li>
+                            <div class="subs-row-head">
+                                <span class="subs-row-name"><b>{{ row.label }}</b><small>{{ row.meta|fa_digits }}</small></span>
+                                <span class="subs-row-counts">
+                                    {% for count in row.counts %}<a href="{{ count.url }}"><b>{{ count.value|fa_digits }}</b> {{ count.label }}</a>{% endfor %}
+                                </span>
+                            </div>
+                            <span class="subs-bar" aria-hidden="true"><span style="width: {{ row.share }}%"></span></span>
+                        </li>
+                    {% endfor %}
+                </ol>
+                {% if subordinates.rows_more %}<p class="subs-note">و {{ subordinates.rows_more|fa_digits }} مورد دیگر — <a href="{{ subordinates.more_url }}">مشاهده همه</a></p>{% endif %}
+            {% else %}
+                <p class="subs-empty">{{ subordinates.empty }}</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
