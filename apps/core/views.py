@@ -43,6 +43,9 @@ from django.utils.safestring import mark_safe
 
 from . import account_security, question_import_word, question_kinds
 from .rich_text import clean_delta, delta_length, delta_text, delta_to_html
+from .appearance import (
+    APPEARANCE_DEFAULTS, COLOR_PRESETS, FONT_SIZE_CHOICES, THEME_CHOICES, clean_appearance_value,
+)
 from .uploads import delete_private, file_extension, image_ok, signature_ok, store_private
 from .forms import (
     AssistantDescriptiveReviewForm,
@@ -1283,7 +1286,6 @@ def erd_profile_page_context(user):
             ('اصلی', [
                 ('داشبورد', reverse('core:dashboard'), '▦'),
                 ('آزمون‌ها', reverse('core:student_exam_schedule'), '▤'),
-                ('آزمون آزمایشی', reverse('core:student_practice_exam'), '✦'),
                 ('پروفایل', reverse('core:profile'), '♙'),
             ]),
         ],
@@ -7057,15 +7059,14 @@ def super_admin_group_create(request):
         if not student.get('field_of_study'):
             student['field_of_study'] = '-'
     terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms ORDER BY year DESC, semester LIMIT 100')
-    years = sorted(
-        {term.get('year') for term in terms if term.get('year')} |
-        {str(row.get('academic_year')) for row in erd_rows('SELECT DISTINCT academic_year FROM student_groups WHERE academic_year IS NOT NULL') if row.get('academic_year')},
-        reverse=True,
-    ) or ['1405-1406', '1403-1404']
+    years = _academic_year_options(terms) or ['1405-1406']
+    current_term = _current_academic_term()
     student_fields = sorted({s.get('field_of_study') for s in students if s.get('field_of_study') and s.get('field_of_study') != '-'})
     student_entry_years = sorted({s.get('entry_year') for s in students if s.get('entry_year')}, reverse=True)
     student_statuses = sorted({s.get('status') for s in students if s.get('status')})
-    current_year = years[0]
+    current_year = current_term['year_norm'] if current_term else years[0]
+    if current_year not in years:
+        years.insert(0, current_year)
     current_course = courses[0] if courses else {}
     current_teacher = teachers[0] if teachers else {}
 
@@ -7076,7 +7077,7 @@ def super_admin_group_create(request):
         course_name = (course or {}).get('title') or request.POST.get('course_name', '').strip() or 'گروه درسی جدید'
         group_id = str(uuid.uuid4())
         group_code = request.POST.get('group_code', '').strip() or '01'
-        academic_year = request.POST.get('academic_year', '').strip() or current_year
+        academic_year = _norm_academic_year(request.POST.get('academic_year', '')) or current_year
         semester = normalize_semester_value(request.POST.get('semester'))
         selected_students = [item for item in request.POST.getlist('student_ids') if item]
         if not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
@@ -7141,6 +7142,7 @@ def super_admin_group_create(request):
         'students': students,
         'years': years,
         'current_year': current_year,
+        'default_semester': current_term['group_semester'] if current_term else '',
         'current_course': current_course,
         'current_teacher': current_teacher,
         'student_fields': student_fields,
@@ -7268,7 +7270,7 @@ def super_admin_group_edit(request, group_id):
             ('teacher_id', teacher_id),
             ('course_id', course_id),
             ('course_name', (course or {}).get('title') or request.POST.get('course_name', '').strip() or group.get('course_name') or 'Course group'),
-            ('academic_year', request.POST.get('academic_year', '').strip() or group.get('academic_year') or '1403-1404'),
+            ('academic_year', _norm_academic_year(request.POST.get('academic_year', '')) or group.get('academic_year') or '1403-1404'),
             ('semester', normalize_semester_value(request.POST.get('semester'))),
             ('group_code', request.POST.get('group_code', '').strip() or '01'),
             ('description', request.POST.get('description', '').strip()),
@@ -7330,11 +7332,7 @@ def super_admin_group_edit(request, group_id):
         if not student.get('field_of_study'):
             student['field_of_study'] = '-'
     terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms ORDER BY year DESC, semester LIMIT 100')
-    years = sorted(
-        {term.get('year') for term in terms if term.get('year')} |
-        {str(row.get('academic_year')) for row in erd_rows('SELECT DISTINCT academic_year FROM student_groups WHERE academic_year IS NOT NULL') if row.get('academic_year')},
-        reverse=True,
-    ) or ['1405-1406', '1403-1404']
+    years = _academic_year_options(terms) or ['1405-1406']
     student_fields = sorted({s.get('field_of_study') for s in students if s.get('field_of_study') and s.get('field_of_study') != '-'})
     student_entry_years = sorted({s.get('entry_year') for s in students if s.get('entry_year')}, reverse=True)
     student_statuses = sorted({s.get('status') for s in students if s.get('status')})
@@ -7350,7 +7348,7 @@ def super_admin_group_edit(request, group_id):
         'teachers': teachers,
         'students': students,
         'years': years,
-        'current_year': group.get('academic_year') or (years[0] if years else '1403-1404'),
+        'current_year': _norm_academic_year(group.get('academic_year')) or (years[0] if years else '1403-1404'),
         'current_course': current_course,
         'current_teacher': current_teacher,
         'group': group,
@@ -7619,7 +7617,7 @@ def super_admin_groups(request):
             course = erd_row('SELECT title FROM courses WHERE id = %s', [course_id])
             course_title = course_title or (course or {}).get('title') or ''
         course_title = course_title or 'گروه جدید'
-        academic_year = request.POST.get('academic_year', '').strip() or '1403-1404'
+        academic_year = _norm_academic_year(request.POST.get('academic_year', '')) or '1403-1404'
         semester = normalize_semester(request.POST.get('semester'))
         group_code = request.POST.get('group_code', '').strip() or None
         description = request.POST.get('description', '').strip() or None
@@ -7686,11 +7684,7 @@ def super_admin_groups(request):
     terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms ORDER BY year DESC, semester LIMIT 100')
     for term in terms:
         term['value'] = f"{term.get('year') or ''}|{term.get('semester') or ''}"
-    years = sorted(
-        {term.get('year') for term in terms if term.get('year')} |
-        {str(row.get('academic_year')) for row in erd_rows('SELECT DISTINCT academic_year FROM student_groups WHERE academic_year IS NOT NULL') if row.get('academic_year')},
-        reverse=True,
-    )
+    years = _academic_year_options(terms)
     order_sql = 'sg.academic_year DESC, sg.course_name'
     if sort == 'oldest':
         order_sql = 'sg.academic_year ASC, sg.course_name'
@@ -7750,8 +7744,16 @@ def super_admin_groups(request):
         teachers_by_group.setdefault(str(link['group_id']), []).append(str(link['teacher_id']))
     for link in student_links:
         students_by_group.setdefault(str(link['group_id']), []).append(link)
-    current_years = {term.get('year') for term in terms if term.get('is_current')}
-    current_term = next((term for term in terms if term.get('is_current')), terms[0] if terms else None)
+    current_term = _current_academic_term()
+
+    def in_current_term(group):
+        # A group is in the current term when its year (any spelling) and semester match the marked term.
+        if not current_term:
+            return False
+        if _norm_academic_year(group.get('academic_year')) != current_term['year_norm']:
+            return False
+        return not current_term['kind'] or _semester_kind(group.get('semester')) in (current_term['kind'], '')
+
     rows = []
     for group in groups:
         primary = unit_path(group.get('course_org_unit_id'))
@@ -7762,11 +7764,11 @@ def super_admin_groups(request):
         status_value = group.get('status') or 'active'
         if group.get('is_archived'):
             continue
-        if tab == 'current' and group.get('academic_year') not in current_years:
+        if tab == 'current' and not in_current_term(group):
             continue
-        if tab == 'archive' and group.get('academic_year') in current_years:
+        if tab == 'archive' and in_current_term(group):
             continue
-        if year_filter and group.get('academic_year') != year_filter:
+        if year_filter and _norm_academic_year(group.get('academic_year')) != _norm_academic_year(year_filter):
             continue
         if semester_filter and normalize_semester(group.get('semester')) != normalize_semester(semester_filter):
             continue
@@ -7801,8 +7803,8 @@ def super_admin_groups(request):
         'students': sum(int(row.get('members_count') or 0) for row in rows),
         'courses': len({str(row.get('course_id') or row.get('course_name') or '') for row in rows if row.get('course_id') or row.get('course_name')}),
         'active_courses': len({str(row.get('course_id') or row.get('course_name') or '') for row in rows if (row.get('course_id') or row.get('course_name')) and row.get('is_active')}),
-        'current_year': (next(iter(current_years), None) or (years[0] if years else '1403-1404')),
-        'current_term_label': (current_term or {}).get('label') or (next(iter(current_years), None) or (years[0] if years else '1403-1404')),
+        'current_year': current_term['year_norm'] if current_term else '',
+        'current_term_label': current_term['display'] if current_term else 'تعریف نشده',
         'active_groups': sum(1 for row in rows if row.get('is_active')),
         'capacity': sum(int(row.get('capacity') or 0) for row in rows),
         'remaining_capacity': sum(max(int(row.get('capacity') or 0) - int(row.get('members_count') or 0), 0) for row in rows),
@@ -11039,6 +11041,59 @@ def super_admin_academic_managers(request):
     })
 
 
+_TERM_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
+
+
+def _norm_academic_year(value) -> str:
+    """One spelling for an academic year: '۱۴۰۵' / '1405 - 1406' -> '1405-1406'. Other text is returned trimmed."""
+    text = str(value or '').strip().translate(_TERM_DIGITS)
+    match = re.fullmatch(r'(\d{4})\s*[-/–]\s*(\d{4})', text)
+    if match:
+        return f'{match[1]}-{match[2]}'
+    if re.fullmatch(r'\d{4}', text):
+        return f'{text}-{int(text) + 1}'
+    return text
+
+
+def _semester_kind(value) -> str:
+    """'first' / 'second' / 'summer' for any stored spelling ('اول', 'نیمسال دوم', 'summer', '2' ...); '' if unknown."""
+    text = str(value or '').strip()
+    if 'دوم' in text or 'second' in text or text == '2':
+        return 'second'
+    if 'تابستان' in text or 'summer' in text:
+        return 'summer'
+    if 'اول' in text or 'first' in text or text == '1':
+        return 'first'
+    return ''
+
+
+def _current_academic_term():
+    """The term the admin marked «ترم جاری / پیش‌فرض» in «سال تحصیلی و ترم»; None when none is marked (no guessing)."""
+    term = erd_row(
+        'SELECT id, year, semester, label, start_date, end_date FROM academic_terms WHERE is_current = %s ORDER BY year DESC LIMIT 1',
+        [True],
+    )
+    if not term:
+        return None
+    term = dict(term)
+    term['year_norm'] = _norm_academic_year(term.get('year'))
+    term['kind'] = _semester_kind(term.get('semester'))
+    term['group_semester'] = {'first': 'اول', 'second': 'دوم', 'summer': 'تابستان'}.get(term['kind'], '')
+    term['display'] = term.get('label') or f"{term.get('semester') or ''} {term['year_norm']}".strip()
+    return term
+
+
+def _academic_year_options(terms) -> list:
+    """Years for group forms/filters: defined terms plus years already on groups, one spelling each, newest first."""
+    years = {_norm_academic_year(term.get('year')) for term in terms if term.get('year')}
+    years |= {
+        _norm_academic_year(row.get('academic_year'))
+        for row in erd_rows('SELECT DISTINCT academic_year FROM student_groups WHERE academic_year IS NOT NULL')
+        if row.get('academic_year')
+    }
+    return sorted((year for year in years if year), reverse=True)
+
+
 @super_admin_required
 def super_admin_academic_terms(request):
     if request.method == 'POST':
@@ -11050,9 +11105,12 @@ def super_admin_academic_terms(request):
                 messages.success(request, 'ترم حذف شد.')
             return redirect('core:super_admin_academic_terms')
 
-        year = request.POST.get('year', '').strip()
+        year = _norm_academic_year(request.POST.get('year', ''))
         semester = request.POST.get('semester', '').strip()
         label = request.POST.get('label', '').strip()
+        if year and not re.fullmatch(r'\d{4}-\d{4}', year):
+            messages.error(request, 'سال تحصیلی را به شکل ۱۴۰۵-۱۴۰۶ (یا فقط ۱۴۰۵) وارد کنید.')
+            return redirect('core:super_admin_academic_terms')
         start_date = request.POST.get('start_date', '').strip()
         end_date = request.POST.get('end_date', '').strip()
         description = request.POST.get('description', '').strip()
@@ -11114,7 +11172,7 @@ def super_admin_academic_terms(request):
             term['semester_value'] = 'summer'
         else:
             term['semester_value'] = 'first'
-    current_term = next((term for term in terms if term.get('is_current')), terms[0] if terms else None)
+    current_term = next((term for term in terms if term.get('is_current')), None)
     return render(request, 'super_admin/academic_terms.html', {
         'title': 'سال تحصیلی و ترم‌ها',
         'description': 'تعریف سال‌های تحصیلی و نیم‌سال‌ها',
@@ -11217,6 +11275,9 @@ def super_admin_account_deletion_review(request, request_id):
 
 @super_admin_required
 def super_admin_settings(request):
+    # The first tab of system settings is the org structure: opening the page without a tab lands there.
+    if request.method != 'POST' and not request.GET.get('tab'):
+        return redirect('core:super_admin_org_units')
     settings_schema = [
         {
             'key': 'site_name',
@@ -11345,13 +11406,6 @@ def super_admin_settings(request):
             'group': 'appearance',
         },
         {
-            'key': 'display_density',
-            'label': 'تراکم نمایش',
-            'type': 'text',
-            'default': 'استاندارد',
-            'group': 'appearance',
-        },
-        {
             'key': 'auto_backup',
             'label': 'پشتیبان‌گیری خودکار',
             'type': 'boolean',
@@ -11421,7 +11475,6 @@ def super_admin_settings(request):
         'theme_mode': {'label': 'حالت نمایش', 'default': 'روشن'},
         'primary_color': {'label': 'رنگ اصلی سامانه', 'default': '#2563EB'},
         'font_size': {'label': 'اندازه فونت', 'default': 'متوسط'},
-        'display_density': {'label': 'تراکم نمایش', 'default': 'استاندارد'},
         'auto_backup': {'label': 'پشتیبان‌گیری خودکار'},
         'backup_frequency': {'label': 'تناوب پشتیبان‌گیری', 'default': 'روزانه'},
         'backup_retention_days': {'label': 'مدت نگهداری نسخه‌ها'},
@@ -11486,6 +11539,8 @@ def super_admin_settings(request):
         )
 
     def cleaned_setting_value(setting_meta, raw_value):
+        if setting_meta['key'] in APPEARANCE_DEFAULTS:
+            return clean_appearance_value(setting_meta['key'], raw_value)
         if setting_meta['type'] == 'boolean':
             return raw_value == 'on'
         if setting_meta['type'] == 'number':
@@ -11561,6 +11616,9 @@ def super_admin_settings(request):
         for row in rows
         if row.get('key') in setting_keys
     }
+    for key in APPEARANCE_DEFAULTS:
+        if key in stored_values:
+            stored_values[key] = clean_appearance_value(key, stored_values[key])
     settings_items = [
         {**item, 'value': stored_values.get(item['key'], item['default'])}
         for item in settings_schema
@@ -11593,8 +11651,8 @@ def super_admin_settings(request):
         active = term.get('is_active')
         decorated_terms.append({
             **term,
-            'start_date': term.get('start_date') or fallback_start_date,
-            'end_date': term.get('end_date') or fallback_end_date,
+            'start_date': term.get('start_date') or '',
+            'end_date': term.get('end_date') or '',
             'status_label': '\u0641\u0639\u0627\u0644' if term.get('is_current') else '\u0628\u0627\u06cc\u06af\u0627\u0646\u06cc\u200c\u0634\u062f\u0647',
             'status_tone': 'green' if active else 'slate',
             'is_default_label': '\u0628\u0644\u0647' if term.get('is_current') else '\u062e\u06cc\u0631',
@@ -11605,7 +11663,7 @@ def super_admin_settings(request):
         term['status_label'] = '\u0641\u0639\u0627\u0644' if term.get('is_active') else '\u0628\u0627\u06cc\u06af\u0627\u0646\u06cc\u200c\u0634\u062f\u0647'
         term['status_tone'] = 'green' if term.get('is_active') else 'slate'
 
-    current_term = next((term for term in decorated_terms if term.get('is_current')), decorated_terms[0] if decorated_terms else None)
+    current_term = next((term for term in decorated_terms if term.get('is_current')), None)
     settings_tab = request.GET.get('tab', 'other')
     if settings_tab not in ('terms', 'other'):
         settings_tab = 'other'
@@ -11615,6 +11673,12 @@ def super_admin_settings(request):
         'settings_lookup': settings_lookup,
         'settings_groups': settings_groups,
         'settings_active_tab': settings_tab,
+        'appearance_options': {
+            'theme': THEME_CHOICES,
+            'font': FONT_SIZE_CHOICES,
+            'colors': COLOR_PRESETS,
+            'color_preset_values': [hex_value for hex_value, _ in COLOR_PRESETS],
+        },
         'terms': decorated_terms,
         'current_term': current_term,
         'settings_summary': {
@@ -15896,6 +15960,16 @@ def _attach_question_draft(request, context, key, question_type):
     return context
 
 
+def question_for_editor(request, question_id):
+    """The question row the signed-in user may open and edit: any question their bank lists (own; + managed units'
+    for an academic manager; every one for the system admin; teacher_question_bank.bank_owner). None when not allowed."""
+    if getattr(request, 'erd_role', None) in ('admin', 'academic_manager'):
+        from .teacher_question_bank import _owner, bank_owner
+        owner_sql, owner_params = _owner(bank_owner(request))
+        return erd_row(f'SELECT q.* FROM questions q WHERE q.id = %s AND {owner_sql}', [str(question_id), *owner_params])
+    return erd_row('SELECT * FROM questions WHERE id = %s AND teacher_id = %s', [str(question_id), request.erd_profile_id])
+
+
 @erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
 def teacher_question_autosave(request):
     """Store the in-progress builder form as a private server-side draft (never as a question row)."""
@@ -15905,7 +15979,7 @@ def teacher_question_autosave(request):
     question_id = (request.POST.get('question_id') or '').strip() or None
     question_type = request.POST.get('type') or ''
     if question_id:
-        row = erd_row('SELECT type FROM questions WHERE id = %s AND teacher_id = %s', [question_id, teacher_id])
+        row = question_for_editor(request, question_id)
         if not row:
             return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
         question_type = row['type']
@@ -16329,10 +16403,14 @@ def teacher_question_bulk_import(request):
 @erd_role_required('teacher', 'academic_manager', 'admin')  # admins and managers keep a question bank too
 def teacher_question_edit(request, question_id):
     teacher_id = request.erd_profile_id
-    row = erd_row('SELECT * FROM questions WHERE id = %s AND teacher_id = %s', [question_id, teacher_id])
+    row = question_for_editor(request, question_id)
     if not row:
         raise Http404('سؤال پیدا نشد.')
+    owner_id = str(row['teacher_id'])  # an admin/manager editing a teacher's question saves it under that teacher
     course_options = _question_course_options(request)
+    if row.get('course_id') and str(row['course_id']) not in {str(option['id']) for option in course_options}:
+        # a manager may edit a unit teacher's question whose course lies outside their units: keep that course selectable
+        course_options = [*course_options, *erd_rows('SELECT id, title FROM courses WHERE id = %s', [row['course_id']])]
     editable = (row.get('type') in INDEPENDENT_QUESTION_TYPES) and (row.get('structure') or 'independent') == 'independent'
     if not editable:
         context = _teacher_modern_context(request, 'question_edit')
@@ -16346,7 +16424,7 @@ def teacher_question_edit(request, question_id):
         errors = _apply_question_uploads(payload, request.FILES, request.POST)
         errors += _question_builder_errors(payload, _question_allowed_course_ids(request, course_options))
         if not errors:
-            _save_question_payload(payload, teacher_id, question_id)
+            _save_question_payload(payload, owner_id, question_id)
             _delete_question_draft(_question_draft_key(teacher_id, question_id))
             messages.success(request, 'تغییرات سؤال ذخیره شد.')
             return redirect('core:teacher_questions')

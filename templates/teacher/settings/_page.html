@@ -1,4 +1,5 @@
 {% load core_extras %}
+<div id="teacher-settings" data-live-region="contents" data-live-scripts>
 <form class="tset" method="post" enctype="multipart/form-data" action="{% url 'core:teacher_settings' %}?tab={{ teacher_settings_tab }}" data-tset-form>
     {% csrf_token %}
     <input type="hidden" name="settings_tab" value="{{ teacher_settings_tab }}">
@@ -285,3 +286,4 @@
   show();
 })();
 </script>
+</div>

@@ -53,7 +53,7 @@
                 <div class="terms-form-grid">
                     <label>
                         <span>سال تحصیلی</span>
-                        <input name="year" placeholder="مثلا 1403-1404" required>
+                        <input name="year" placeholder="مثلا 1405-1406" required data-latin-digits>
                     </label>
                     <label>
                         <span>نوع ترم</span>
@@ -272,6 +272,9 @@
         });
 
         resetButton?.addEventListener('click', setAddMode);
+        // «ویرایش» in settings → «سال تحصیلی و ترم» links here with ?edit=<term id>: open that term in the form.
+        const editId = new URLSearchParams(window.location.search).get('edit');
+        if (editId) document.querySelector(`[data-edit-term][data-id="${CSS.escape(editId)}"]`)?.click();
 
         document.querySelectorAll('body:has(.academic-terms-screen) > section:has(.alert-message)').forEach((toast) => {
             window.setTimeout(() => {

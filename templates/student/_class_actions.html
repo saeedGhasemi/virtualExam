@@ -1,0 +1,10 @@
+{% load core_extras %}{# A class's quick links on «کلاس‌های من» (card and list view): each one only when the class really has something there. #}
+{% if card.exam_count or card.practice_count %}
+  <div class="smc-actions">
+    {% if card.exam_count %}<a class="sx-btn primary" href="{% url 'core:student_exam_schedule' %}?class={{ card.id }}">{% include 'teacher/_qb_icon.html' with name='essay' %}آزمون‌ها<b>{{ card.exam_count|fa_digits }}</b></a>{% endif %}
+    {% if card.result_count %}<a class="sx-btn" href="{% url 'core:student_exam_schedule' %}?class={{ card.id }}&amp;tab=finished">{% include 'teacher/_qb_icon.html' with name='chart' %}نتایج<b>{{ card.result_count|fa_digits }}</b></a>{% endif %}
+    {% if card.practice_count %}<a class="sx-btn" href="{% url 'core:student_practice_exam' %}?class={{ card.id }}">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی<b>{{ card.practice_count|fa_digits }}</b></a>{% endif %}
+  </div>
+{% else %}
+  <p class="smc-no-exam">هنوز آزمونی برای این کلاس تعریف نشده است.</p>
+{% endif %}

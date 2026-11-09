@@ -10,7 +10,7 @@
   <div class="qx-wrap">
     {# No navigation links during an exam: the student must not leave the attempt from here. #}
     <header class="qx-card qx-topbar">
-      <img class="qx-logo" src="{% static 'img/metaquiz-logo.png' %}?v=logo-mark-fix-20260829" alt="متاکوییز">
+      {% include "partials/brand_logo.html" with size="1.15rem" %}
       <span class="qx-conn" data-connection role="status" aria-live="polite"><i></i><span data-connection-text>اتصال برقرار است</span></span>
       {% if practice %}<span class="qx-practice-tag"><span class="qx-practice-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>این آزمون در نمره‌ی درسی شما محاسبه نمی‌شود</span><span class="qx-practice-badge">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی</span></span>{% endif %}
       <div class="qx-user">

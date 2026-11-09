@@ -11,7 +11,7 @@
     <header id="site-header" class="landing-nav">
         <div class="landing-nav-inner">
             <a href="#home" class="landing-brand">
-                <img class="landing-brand-full-logo" src="{% static 'img/metaquiz-logo.png' %}?v=logo-mark-fix-20260829" alt="متاکوییز">
+                {% include "partials/brand_logo.html" with size="1.55rem" tagline=1 extra="landing-brand-logo-live" %}
             </a>
 
             <nav class="landing-nav-links" aria-label="ناوبری صفحه اصلی">
@@ -87,7 +87,7 @@
                 <button type="submit" class="cursor-pointer">جست‌وجو</button>
             </form>
 
-            <div class="landing-hero-stats">
+            <div class="landing-hero-stats" data-no-count>
                 <div><strong data-counter="500" data-counter-prefix="+">+۵۰۰</strong><span>آزمون برگزار شده</span></div>
                 <div><strong data-counter="50" data-counter-prefix="+">+۵۰</strong><span>استاد و مدرس</span></div>
                 <div><strong data-counter="100" data-counter-suffix="٪">۱۰۰٪</strong><span>رضایت کاربران</span></div>
@@ -341,7 +341,7 @@
                     </div>
                 </div>
                 <div class="landing-support-foot">
-                    <div class="landing-support-foot-stats">
+                    <div class="landing-support-foot-stats" data-no-count>
                         <div><strong data-counter="50" data-counter-prefix="+">+۵۰</strong><span>استاد و مدرس</span></div>
                         <div><strong data-counter="500" data-counter-prefix="+">+۵۰۰</strong><span>آزمون برگزار شده</span></div>
                     </div>
@@ -547,7 +547,7 @@
 
     <footer class="landing-footer">
         <div>
-            <strong>متاکوییز</strong>
+            <strong>{% include "partials/brand_logo.html" with size="1.4rem" %}</strong>
             <p>سامانه‌ای برای طراحی، برگزاری و مدیریت آزمون‌های آنلاین دانشگاهی.</p>
             <div class="landing-footer-social">
                 <a href="#" aria-label="اینستاگرام"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3.75" y="3.75" width="16.5" height="16.5" rx="4.5" /><circle cx="12" cy="12" r="3.75" /><circle cx="17.25" cy="6.75" r=".2" /></svg></a>

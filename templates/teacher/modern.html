@@ -2,7 +2,7 @@
 {% load core_extras %}
 
 {% block title %}
-{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'students' %}دانشجویان{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'osce_builder' %}سازنده ایستگاه OSCE{% elif page == 'osce_list' %}آزمون‌های OSCE{% elif page == 'osce_preview' %}پیش‌نمایش آزمون OSCE{% elif page == 'grading_detail' %}تصحیح پاسخ تشریحی{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
+{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'students' %}دانشجویان{% elif page == 'students_directory' %}فهرست اطلاعات دانشجویان{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'osce_builder' %}سازنده ایستگاه OSCE{% elif page == 'osce_list' %}آزمون‌های OSCE{% elif page == 'osce_preview' %}پیش‌نمایش آزمون OSCE{% elif page == 'grading_detail' %}تصحیح پاسخ تشریحی{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
 {% endblock %}
 
 {% block public_header %}{% endblock %}
@@ -10,7 +10,7 @@
 {% block content %}
 <section class="super-admin-page teacher-console" dir="rtl">
         <main class="teacher-content">
-    {% if page != 'dashboard' and page != 'osce_builder' and page != 'osce_list' and page != 'osce_preview' and page != 'reviews' and page != 'grading_detail' and page != 'questions' and page != 'question_type' and page != 'question_create' and page != 'question_edit' and page != 'question_import' and page != 'courses' and page != 'course_detail' and page != 'students' and page != 'student_profile' and page != 'teacher_settings' %}
+    {% if page != 'dashboard' and page != 'osce_builder' and page != 'osce_list' and page != 'osce_preview' and page != 'reviews' and page != 'grading_detail' and page != 'questions' and page != 'question_type' and page != 'question_create' and page != 'question_edit' and page != 'question_import' and page != 'courses' and page != 'course_detail' and page != 'students' and page != 'students_directory' and page != 'student_profile' and page != 'teacher_settings' %}
     <div class="teacher-console-head">
         <div>
             <small>سامانه آزمون آنلاین</small>
@@ -37,6 +37,7 @@
         {% if page != 'dashboard' %}
             <div class="teacher-head-actions">
                 <a href="{% url 'core:teacher_question_create' %}">+ سؤال جدید</a>
+                {% if page == 'exams' %}<a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a>{% endif %}
                 <a class="is-primary" href="{% url 'core:teacher_exam_create' %}">+ آزمون جدید</a>
             </div>
         {% endif %}
@@ -69,7 +70,7 @@
     {% elif page == 'courses' %}
         {% include 'teacher/_classes.html' %}
     {% elif page == 'course_detail' %}
-        <section class="class-reference-page class-detail-page">
+        <section class="class-reference-page class-detail-page" id="teacher-course-detail" data-live-region>
             <div class="class-action-row">
                 <a class="class-btn is-primary" href="{% url 'core:teacher_exam_create' %}">+ آزمون جدید</a>
                 <span class="class-btn" aria-disabled="true" title="اطلاعات گروه را مدیر آموزشی ویرایش می‌کند" style="opacity:.6;cursor:not-allowed">ویرایش اطلاعات (با مدیر آموزشی)</span>
@@ -105,8 +106,8 @@
             {% elif course_detail_tab == 'exams' %}
                 <form class="class-filter-card is-compact" method="get">
                     <input type="hidden" name="tab" value="exams">
-                    <label class="class-search"><input name="exam_q" value="{{ course_exam_filters.q }}" placeholder="جستجو در آزمون‌ها..."></label>
-                    <select name="exam_status" onchange="this.form.submit()">{% for value, label in course_exam_status_choices %}<option value="{{ value }}"{% if course_exam_filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                    <label class="class-search"><input name="exam_q" data-live-input value="{{ course_exam_filters.q }}" placeholder="جستجو در آزمون‌ها..."></label>
+                    <select name="exam_status" onchange="this.form.requestSubmit()">{% for value, label in course_exam_status_choices %}<option value="{{ value }}"{% if course_exam_filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
                     <noscript><button type="submit">اعمال</button></noscript>
                 </form>
                 <section class="class-table-card">
@@ -149,11 +150,14 @@
         </section>
     {% elif page == 'students' %}
         {% include 'teacher/students/_list.html' %}
+    {% elif page == 'students_directory' %}
+        {% include 'teacher/students/_directory.html' %}
     {% elif page == 'student_profile' %}
         {% include 'teacher/students/_profile.html' %}
     {% elif page == 'questions' %}
+        <div id="teacher-questions-page" data-live-region="contents">
         <div class="question-studio-head question-studio-head--bank">
-            <div><p>بانک سؤال من</p><h1>{% if question_view == 'banks' %}بانک‌های سؤال{% elif question_view == 'drafts' %}پیش‌نویس‌ها{% elif question_view == 'shared' %}سؤال‌های اشتراکی{% elif question_view == 'archive' %}آرشیو سؤال‌ها{% elif question_view == 'tags' %}دسته‌بندی‌ها و برچسب‌ها{% else %}همه سؤال‌ها{% endif %}</h1></div>
+            <div><p>{{ question_scope_title }}</p><h1>{% if question_view == 'banks' %}بانک‌های سؤال{% elif question_view == 'drafts' %}پیش‌نویس‌ها{% elif question_view == 'shared' %}سؤال‌های اشتراکی{% elif question_view == 'archive' %}آرشیو سؤال‌ها{% elif question_view == 'tags' %}دسته‌بندی‌ها و برچسب‌ها{% else %}همه سؤال‌ها{% endif %}</h1></div>
             <a href="{% url 'core:teacher_question_bulk_import' %}">ورود گروهی</a>
             <a class="teacher-primary" href="{% url 'core:teacher_question_type' %}">+ سؤال جدید</a>
         </div>
@@ -201,25 +205,25 @@
             <table class="teacher-table question-bank-table"><thead><tr><th>متن</th><th>نوع</th><th>وضعیت</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for draft in autosaved_drafts %}<tr><td>{{ draft.title|default:'بدون متن'|truncatechars:70 }}</td><td>{{ draft.type_label }}</td><td>{{ draft.kind }}</td><td>{{ draft.saved_at|fa_digits }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{{ draft.resume_url }}">ادامه</a><a href="{{ draft.discard_url }}">حذف</a></span></td></tr>{% endfor %}</tbody></table>
         </section>
         {% endif %}
-        <section class="question-bank-panel">
+        <section class="question-bank-panel" id="teacher-question-drafts" data-live-region>
             <header class="question-section-title"><h2>سؤال‌های منتشرنشده</h2></header>
-            <table class="teacher-table question-bank-table"><thead><tr><th>متن سؤال</th><th>نوع / ساختار</th><th>وضعیت</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|default:'بدون متن'|truncatechars:70 }}</td><td>{{ q.type_label }} / {{ q.structure_label }}</td><td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span></td><td>{{ q.updated_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{% url 'core:teacher_question_edit' q.id %}">ادامه</a><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">پیش‌نمایش</a></span></td></tr>{% empty %}<tr><td colspan="5">پیش‌نویسی وجود ندارد.</td></tr>{% endfor %}</tbody></table>
+            <table class="teacher-table question-bank-table"><thead><tr><th>متن سؤال</th>{% if question_scope_all %}<th>طراح</th>{% endif %}<th>نوع / ساختار</th><th>وضعیت</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|default:'بدون متن'|truncatechars:70 }}</td>{% if question_scope_all %}<td>{{ q.author }}</td>{% endif %}<td>{{ q.type_label }} / {{ q.structure_label }}</td><td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span></td><td>{{ q.updated_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{% url 'core:teacher_question_edit' q.id %}">ادامه</a><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">پیش‌نمایش</a></span></td></tr>{% empty %}<tr><td colspan="{% if question_scope_all %}6{% else %}5{% endif %}">پیش‌نویسی وجود ندارد.</td></tr>{% endfor %}</tbody></table>
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% elif question_view == 'shared' %}
         <section class="question-info-strip">سؤال‌هایی که اساتید درس‌های شما به اشتراک گذاشته‌اند. «افزودن به بانک من» یک نسخه‌ی پیش‌نویس از سؤال در بانک شما می‌سازد که می‌توانید ویرایش و منتشر کنید.</section>
-        <section class="question-bank-panel">
-            <table class="teacher-table question-bank-table"><thead><tr><th>سؤال</th><th>استاد</th><th>درس</th><th>نوع</th><th>ساختار</th><th>تاریخ اشتراک</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:78 }}</td><td>{{ q.author }}</td><td>{{ q.course }}</td><td>{{ q.type_label }}</td><td>{{ q.structure_label }}</td><td>{{ q.shared_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><form method="post" action="{% url 'core:teacher_shared_question_copy' q.id %}">{% csrf_token %}<button class="teacher-primary" type="submit">افزودن به بانک من</button></form></span></td></tr>{% empty %}<tr><td colspan="7">هنوز سؤالی از اساتید درس‌های شما به اشتراک گذاشته نشده است.</td></tr>{% endfor %}</tbody></table>
+        <section class="question-bank-panel" id="teacher-question-shared" data-live-region>
+            <table class="teacher-table question-bank-table"><thead><tr><th>سؤال</th><th>استاد</th><th>درس</th><th>نوع</th><th>ساختار</th><th>تاریخ اشتراک</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:78 }}</td><td>{{ q.author }}</td><td>{{ q.course }}</td><td>{{ q.type_label }}</td><td>{{ q.structure_label }}</td><td>{{ q.shared_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions">{% if question_can_share %}<form method="post" action="{% url 'core:teacher_shared_question_copy' q.id %}">{% csrf_token %}<button class="teacher-primary" type="submit">افزودن به بانک من</button></form>{% else %}<a href="{% url 'core:teacher_question_edit' q.id %}?step=review">جزئیات</a>{% endif %}</span></td></tr>{% empty %}<tr><td colspan="7">{% if question_scope_all %}هیچ سؤالی به اشتراک گذاشته نشده است.{% else %}هنوز سؤالی از اساتید درس‌های شما به اشتراک گذاشته نشده است.{% endif %}</td></tr>{% endfor %}</tbody></table>
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% elif question_view == 'archive' %}
         <section class="question-info-strip">سؤال‌های آرشیوی در فهرست و در انتخاب سؤال آزمون‌های جدید نمایش داده نمی‌شوند؛ آزمون‌هایی که قبلاً از آن‌ها استفاده کرده‌اند تغییری نمی‌کنند و هر زمان می‌توانید سؤال را بازیابی کنید.</section>
-        <section class="question-bank-panel">
-            <table class="teacher-table question-bank-table"><thead><tr><th>متن سؤال</th><th>درس</th><th>نوع</th><th>تاریخ آرشیو</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:82 }}</td><td>{{ q.course }}</td><td>{{ q.type_label }}</td><td>{{ q.archived_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">پیش‌نمایش</a><form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button class="teacher-primary" type="submit" name="action" value="restore">بازیابی</button></form></span></td></tr>{% empty %}<tr><td colspan="5">سؤال آرشیوشده‌ای ندارید.</td></tr>{% endfor %}</tbody></table>
+        <section class="question-bank-panel" id="teacher-question-archive" data-live-region>
+            <table class="teacher-table question-bank-table"><thead><tr><th>متن سؤال</th>{% if question_scope_all %}<th>طراح</th>{% endif %}<th>درس</th><th>نوع</th><th>تاریخ آرشیو</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:82 }}</td>{% if question_scope_all %}<td>{{ q.author }}</td>{% endif %}<td>{{ q.course }}</td><td>{{ q.type_label }}</td><td>{{ q.archived_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">پیش‌نمایش</a><form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button class="teacher-primary" type="submit" name="action" value="restore">بازیابی</button></form></span></td></tr>{% empty %}<tr><td colspan="{% if question_scope_all %}6{% else %}5{% endif %}">{% if question_scope_all %}سؤال آرشیوشده‌ای وجود ندارد.{% else %}سؤال آرشیوشده‌ای ندارید.{% endif %}</td></tr>{% endfor %}</tbody></table>
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% else %}
-        <section class="question-bank-panel">
+        <section class="question-bank-panel" id="teacher-question-list" data-live-region>
             <form class="question-bank-filters" method="get">
                 <label><input name="q" value="{{ question_filters.q }}" placeholder="جستجو در متن سؤال یا کد..."><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
                 <select name="difficulty"><option value="all">همه دشواری‌ها</option><option value="easy" {% if question_filters.difficulty == 'easy' %}selected{% endif %}>آسان</option><option value="medium" {% if question_filters.difficulty == 'medium' %}selected{% endif %}>متوسط</option><option value="hard" {% if question_filters.difficulty == 'hard' %}selected{% endif %}>سخت</option></select>
@@ -255,22 +259,23 @@
             </nav>
             {% endwith %}{% endwith %}
             <table class="teacher-table question-bank-table">
-                <thead><tr><th>کد</th><th>متن سؤال</th><th>ساختار</th><th>نوع</th><th>درس</th><th>دشواری</th><th>استفاده در آزمون</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                <thead><tr><th>کد</th><th>متن سؤال</th>{% if question_scope_all %}<th>طراح</th>{% endif %}<th>ساختار</th><th>نوع</th><th>درس</th><th>دشواری</th><th>استفاده در آزمون</th><th>وضعیت</th><th>عملیات</th></tr></thead>
                 <tbody>
                     {% for q in questions %}
                         <tr>
                             <td>{{ q.code }}</td>
                             <td>{{ q.text|truncatechars:74 }}</td>
+                            {% if question_scope_all %}<td>{{ q.author }}</td>{% endif %}
                             <td>{{ q.structure_label }}</td>
                             <td>{{ q.type_label }}</td>
                             <td>{{ q.course }}</td>
                             <td><span class="teacher-badge {{ q.difficulty_class }}">{{ q.difficulty_label }}</span></td>
                             <td>{% if q.usage_count %}{{ q.usage_count|fa_digits }} آزمون<small style="display:block;color:#64748b">آخرین: {{ q.last_exam_title|truncatechars:30|fa_digits }}{% if q.last_exam_at %} — {{ q.last_exam_at|to_jalali }}{% endif %}</small>{% else %}<span style="color:#94a3b8">هنوز استفاده نشده</span>{% endif %}</td>
                             <td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span>{% if q.shared_at %} <span class="teacher-badge is-ok">اشتراکی</span>{% endif %}</td>
-                            <td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">جزئیات</a><form method="post" action="{% url 'core:teacher_question_share' q.id %}">{% csrf_token %}{% if q.shared_at %}<button type="submit" name="action" value="unshare">لغو اشتراک</button>{% elif q.status_key == 'active' and q.course != '-' %}<button type="submit" name="action" value="share">اشتراک با هم‌درس‌ها</button>{% endif %}</form><form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button type="submit" name="action" value="archive">آرشیو</button></form></span></td>
+                            <td><span class="question-row-actions"><a href="{% url 'core:teacher_question_edit' q.id %}?step=review">ویرایش</a>{% if question_can_share %}<form method="post" action="{% url 'core:teacher_question_share' q.id %}">{% csrf_token %}{% if q.shared_at %}<button type="submit" name="action" value="unshare">لغو اشتراک</button>{% elif q.status_key == 'active' and q.course != '-' %}<button type="submit" name="action" value="share">اشتراک با هم‌درس‌ها</button>{% endif %}</form>{% endif %}<form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button type="submit" name="action" value="archive">آرشیو</button></form></span></td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="9">سؤالی با این فیلترها پیدا نشد.</td></tr>
+                        <tr><td colspan="{% if question_scope_all %}10{% else %}9{% endif %}">سؤالی با این فیلترها پیدا نشد.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -286,17 +291,18 @@
         <section class="question-bank-panel">
             <header class="question-section-title"><h2>فعالیت‌های اخیر</h2></header>
             <table class="teacher-table">
-                <thead><tr><th>عنوان سؤال</th><th>بانک / درس</th><th>وضعیت</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead>
+                <thead><tr><th>عنوان سؤال</th>{% if question_scope_all %}<th>طراح</th>{% endif %}<th>بانک / درس</th><th>وضعیت</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead>
                 <tbody>
                     {% for q in recent_questions %}
-                        <tr><td>{{ q.text|truncatechars:70 }}</td><td>{{ q.course }}</td><td>{% if q.archived_at %}<span class="teacher-badge is-muted">آرشیو</span>{% else %}<span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span>{% endif %}</td><td>{{ q.updated_at|to_jalali|default:'-' }}</td><td><a href="{% url 'core:teacher_question_edit' q.id %}">مشاهده</a></td></tr>
+                        <tr><td>{{ q.text|truncatechars:70 }}</td>{% if question_scope_all %}<td>{{ q.author }}</td>{% endif %}<td>{{ q.course }}</td><td>{% if q.archived_at %}<span class="teacher-badge is-muted">آرشیو</span>{% else %}<span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span>{% endif %}</td><td>{{ q.updated_at|to_jalali|default:'-' }}</td><td><a href="{% url 'core:teacher_question_edit' q.id %}">ویرایش</a></td></tr>
                     {% empty %}
-                        <tr><td colspan="5">هنوز تغییری از زمان ثبت تاریخ‌ها ذخیره نشده است.</td></tr>
+                        <tr><td colspan="{% if question_scope_all %}6{% else %}5{% endif %}">هنوز تغییری از زمان ثبت تاریخ‌ها ذخیره نشده است.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </section>
         {% endif %}
+        </div>
     {% elif page == 'question_type' %}
         {% include 'teacher/_question_structure.html' %}
     {% elif page == 'osce_builder' %}
@@ -583,10 +589,14 @@
             .texams-panel .teacher-table td{vertical-align:middle}
             .texams-panel .teacher-table th:nth-child(n+5),.texams-panel .teacher-table td:nth-child(n+5){text-align:center}
             .texams-panel .teacher-table td.texams-title{min-width:11rem;padding-top:.65rem;padding-bottom:.65rem;line-height:1.6}
-            .texams-code-pill{display:flex;align-items:center;gap:.35rem;width:fit-content;margin-top:.4rem;padding:.12rem .15rem .12rem .5rem;border:1px solid #c7d7fe;border-radius:.5rem;background:#f5f8ff;white-space:nowrap}
+            .texams-title-row{display:flex;align-items:center;gap:.65rem}
+            .texams-title-text{min-width:0;font-weight:900}
+            .texams-code-pill{display:flex;flex:none;align-items:center;gap:.3rem;width:fit-content;padding:.15rem .5rem .15rem .2rem;border:1px solid #c7d7fe;border-radius:.55rem;background:#f5f8ff;white-space:nowrap;direction:ltr}
             .texams-code-pill small{font-size:.66rem;font-weight:800;color:#64748b}
-            .texams-code-pill b{min-width:6.6rem;font-size:.82rem;font-weight:900;letter-spacing:.04em;color:#1e3a8a;text-align:left;direction:ltr;unicode-bidi:isolate;user-select:all}
-            .texams-code-pill button{flex:none;min-height:0;height:auto;line-height:1.45;border:0;border-radius:.4rem;background:#1d4ed8;color:#fff;font:inherit;font-size:.68rem;font-weight:900;padding:.16rem .5rem;cursor:pointer;transition:background .15s}
+            .texams-code-pill b{min-width:6.1rem;font-size:.8rem;font-weight:900;letter-spacing:.04em;color:#1e3a8a;text-align:left;direction:ltr;unicode-bidi:isolate;user-select:all}
+            .texams-code-pill button{display:grid;flex:none;width:1.6rem;height:1.6rem;min-height:0;place-items:center;border:0;border-radius:.4rem;background:#1d4ed8;color:#fff;padding:0;cursor:pointer;transition:background .15s}
+            .texams-code-pill button svg{width:.9rem;height:.9rem;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+            .texams-code-pill button .is-check,.texams-code-pill button.is-done .is-copy{display:none}.texams-code-pill button.is-done .is-check{display:block}
             .texams-code-pill button:hover{background:#1e40af}
             .texams-code-pill button.is-done,.texams-saved button.is-done{background:#15803d}
             td.texams-actions{white-space:nowrap}
@@ -602,6 +612,17 @@
             .texams-saved-code b{font-size:2rem;font-weight:950;letter-spacing:.1em;color:#1e3a8a;user-select:all}
             .texams-saved button{font-size:.95rem;padding:.6rem 1.2rem}
             .texams-panel .teacher-table td,.texams-panel .teacher-table th{padding-inline:.45rem}
+            /* exams filter bar (search sends while typing, status on change): fixed standard widths from the right, result count at the far left */
+            .texams-filter{flex-direction:row;flex-wrap:wrap;align-items:center}
+            .texams-filter > .texams-filter-q{flex:0 1 22rem;min-width:0}
+            .texams-filter > .texams-filter-status{flex:0 1 13rem;min-width:0}
+            .texams-filter input,.texams-filter select{width:100%;min-width:0}
+            .texams-filter-q{position:relative}
+            .texams-filter-q > svg{position:absolute;inset-inline-start:.85rem;top:50%;transform:translateY(-50%);width:1.05rem;height:1.05rem;color:#94a3b8;pointer-events:none}
+            .texams-filter-q input{padding-inline-start:2.5rem}
+            .texams-filter-q:focus-within > svg{color:#2563eb}
+            .texams-filter-count{margin-inline-start:auto;display:inline-flex;align-items:center;height:2.75rem;padding:0 1rem;border-radius:.6rem;background:#eff6ff;color:#1d4ed8;font-size:.82rem;font-weight:900;white-space:nowrap}
+            @media (max-width:760px){.texams-filter > .texams-filter-q{flex:1 1 100%}.texams-filter > .texams-filter-status{flex:1 1 0}.texams-filter > .texams-filter-count{flex:none;max-width:none}}
         </style>
         {% if saved_exam %}
             <section class="texams-saved" role="status">
@@ -609,12 +630,12 @@
                 <div class="texams-saved-code"><b dir="ltr" data-latin-digits>{{ saved_exam.code }}</b><button type="button" data-copy-code="{{ saved_exam.code }}">کپی کد</button></div>
             </section>
         {% endif %}
-        <form class="teacher-toolbar texams-toolbar" method="get" action="{% url 'core:teacher_exams' %}">
-            <a class="teacher-primary" href="{% url 'core:teacher_exam_create' %}">+ ایجاد آزمون جدید</a>
-            <a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a>
-            <label><span class="sr-only">جستجو</span><input type="search" name="q" value="{{ el.query }}" maxlength="100" placeholder="جستجو بر عنوان آزمون..."></label>
-            <label><span class="sr-only">وضعیت</span><select name="status" onchange="this.form.submit()">{% for key, label in el.filters.items %}<option value="{{ key }}"{% if key == el.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-            <button type="submit">جستجو</button>
+        <div id="teacher-exams-list" data-live-region>
+        <form class="teacher-toolbar texams-toolbar texams-filter" method="get" action="{% url 'core:teacher_exams' %}">
+            <label class="texams-filter-q"><span class="sr-only">جستجو</span><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ el.query }}" maxlength="100" placeholder="جستجو بر عنوان آزمون..."></label>
+            <label class="texams-filter-status"><span class="sr-only">وضعیت</span><select name="status" onchange="this.form.requestSubmit()">{% for key, label in el.filters.items %}<option value="{{ key }}"{% if key == el.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <noscript><button type="submit">جستجو</button></noscript>
+            <span class="texams-filter-count" aria-live="polite">{{ el.total|fa_digits }} آزمون</span>
         </form>
         <section class="teacher-panel texams-panel">
             {% if el.rows %}
@@ -624,7 +645,7 @@
                         <tbody>
                             {% for exam in el.rows %}
                                 <tr>
-                                    <td class="texams-title">{{ exam.title }}<span class="texams-code-pill" title="دانشجویان با این کد از صفحه‌ی اول سایت وارد آزمون می‌شوند"><small>کد</small><b dir="ltr" data-latin-digits>{{ exam.id|exam_code }}</b><button type="button" data-copy-code="{{ exam.id|exam_code }}" aria-label="کپی کد آزمون {{ exam.id|exam_code }}">کپی</button></span></td>
+                                    <td class="texams-title"><div class="texams-title-row"><span class="texams-code-pill" title="دانشجویان با این کد از صفحه‌ی اول سایت وارد آزمون می‌شوند"><b dir="ltr" data-latin-digits>{{ exam.id|exam_code }}</b><button type="button" data-copy-code="{{ exam.id|exam_code }}" data-copy-icon title="کپی کد" aria-label="کپی کد آزمون {{ exam.id|exam_code }}"><svg class="is-copy" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="is-check" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg></button></span><span class="texams-title-text">{{ exam.title }}</span></div></td>
                                     <td>{{ exam.course }}</td>
                                     <td>{% if exam.groups_label %}{{ exam.groups_label|fa_digits }}{% elif exam.assigned %}دانشجویان منتخب{% else %}<span class="texams-muted">بدون تخصیص</span>{% endif %}</td>
                                     <td>{% if exam.date_label %}{{ exam.date_label }}<small class="texams-time">{{ exam.time_label|fa_digits }}</small>{% else %}<span class="texams-muted">تعیین نشده</span>{% endif %}</td>
@@ -654,13 +675,15 @@
                 <p class="texams-empty">هنوز آزمونی نساخته‌اید. <a href="{% url 'core:teacher_exam_create' %}">ایجاد اولین آزمون</a></p>
             {% endif %}
         </section>
+        </div>
         {% endwith %}
     {% elif page == 'monitoring' %}
         {% if not report_exam %}
             <section class="teacher-panel"><p class="texams-empty">هنوز آزمونی ندارید که پایش شود. <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون</a></p></section>
         {% else %}
+            <div id="teacher-monitoring" data-live-region>
             <form class="teacher-toolbar texams-toolbar" method="get">
-                <label><span class="sr-only">آزمون</span><select name="exam" onchange="this.form.submit()">
+                <label><span class="sr-only">آزمون</span><select name="exam" onchange="this.form.requestSubmit()">
                     {% for option in report_exam_options %}<option value="{{ option.id }}"{% if option.id|stringformat:"s" == report_exam.id|stringformat:"s" %} selected{% endif %}>{{ option.title }}{% if option.date_label %} — {{ option.date_label }}{% endif %}</option>{% endfor %}
                 </select></label>
                 <noscript><button type="submit">نمایش</button></noscript>
@@ -693,21 +716,29 @@
                 {% endif %}
                 <footer class="texams-footer"><span>اطلاعات هنگام باز کردن صفحه دریافت شده است.</span><a href="">به‌روزرسانی</a></footer>
             </section>
+            </div>
             <script>
                 (function () {
-                    var el = document.querySelector('[data-remaining]');
-                    if (!el) return;
-                    var left = parseInt(el.getAttribute('data-remaining'), 10);
                     var digits = '۰۱۲۳۴۵۶۷۸۹';
                     var fa = function (s) { return String(s).replace(/\d/g, function (d) { return digits[d]; }); };
                     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-                    var tick = function () {
-                        if (left < 0) left = 0;
-                        el.textContent = fa(pad(Math.floor(left / 3600)) + ':' + pad(Math.floor(left % 3600 / 60)) + ':' + pad(left % 60));
-                        left -= 1;
+                    var timer = null;
+                    var start = function () {
+                        clearInterval(timer);
+                        var el = document.querySelector('[data-remaining]');
+                        if (!el) return;
+                        var left = parseInt(el.getAttribute('data-remaining'), 10);
+                        var tick = function () {
+                            if (left < 0) left = 0;
+                            el.textContent = fa(pad(Math.floor(left / 3600)) + ':' + pad(Math.floor(left % 3600 / 60)) + ':' + pad(left % 60));
+                            left -= 1;
+                        };
+                        tick();
+                        timer = setInterval(tick, 1000);
                     };
-                    tick();
-                    setInterval(tick, 1000);
+                    start();
+                    // another exam picked: the panel is swapped in place by live-region.js
+                    document.addEventListener('mq:live-load', function (event) { if (event.target.id === 'teacher-monitoring') start(); });
                 })();
             </script>
         {% endif %}
@@ -719,14 +750,15 @@
         {% if not report_exam %}
             <section class="teacher-panel"><p class="texams-empty">هنوز آزمونی ندارید. <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون</a></p></section>
         {% else %}
+            <div id="teacher-results" data-live-region>
             <form class="teacher-toolbar texams-toolbar" method="get">
-                <label><span class="sr-only">آزمون</span><select name="exam" onchange="this.form.submit()">
+                <label><span class="sr-only">آزمون</span><select name="exam" onchange="this.form.requestSubmit()">
                     {% for option in report_exam_options %}<option value="{{ option.id }}"{% if option.id|stringformat:"s" == report_exam.id|stringformat:"s" %} selected{% endif %}>{{ option.title }}{% if option.date_label %} — {{ option.date_label }}{% endif %}</option>{% endfor %}
                 </select></label>
                 <noscript><button type="submit">نمایش</button></noscript>
             </form>
             <form class="teacher-toolbar texams-toolbar" method="get">
-                <label><span class="sr-only">شناسه رسید</span><input type="search" name="receipt" value="{{ receipt_query }}" maxlength="40" dir="ltr" autocomplete="off" placeholder="جستجوی شناسه رسید (مثلاً MQ-1A2B3C-7KQ4RZ)"></label>
+                <label><span class="sr-only">شناسه رسید</span><input type="search" name="receipt" data-live-skip value="{{ receipt_query }}" maxlength="40" dir="ltr" autocomplete="off" placeholder="جستجوی شناسه رسید (مثلاً MQ-1A2B3C-7KQ4RZ)"></label>
                 <button type="submit">جستجوی رسید</button>
                 {% if receipt_code %}<a href="{% url 'core:teacher_results' %}?exam={{ report_exam.id }}">نمایش همه پاسخ‌نامه‌ها</a>{% endif %}
             </form>
@@ -797,6 +829,7 @@
                     <p class="texams-empty">هنوز پاسخ‌نامه‌ای برای این آزمون تحویل نشده است.</p>
                 {% endif %}
             </section>
+            </div>
         {% endif %}
     {% elif page == 'objections' %}
         <section class="teacher-panel">
@@ -812,7 +845,7 @@
             .teacher-calendar-grid a{text-decoration:none}
             .teacher-calendar-grid b.is-draft{background:#f3e8ff;color:#7c3aed}
         </style>
-        <div class="teacher-calendar">
+        <div class="teacher-calendar" id="teacher-calendar" data-live-region>
             <header><a class="teacher-calendar-nav" href="?year={{ calendar_month.previous.0 }}&month={{ calendar_month.previous.1 }}" aria-label="ماه قبل">‹</a><h2>{{ calendar_month.title|fa_digits }}</h2><a class="teacher-calendar-nav" href="?year={{ calendar_month.next.0 }}&month={{ calendar_month.next.1 }}" aria-label="ماه بعد">›</a></header>
             <div class="teacher-calendar-grid">
                 {% for name in calendar_weekdays %}<span class="teacher-calendar-weekday">{{ name }}</span>{% endfor %}
@@ -1132,12 +1165,14 @@
 
 <script>
 (() => {
-  // «کپی» next to every exam code
+  // copy button next to every exam code (icon-only ones carry data-copy-icon)
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-copy-code]');
     if (!button) return;
     const code = button.dataset.copyCode;
-    const done = () => { const text = button.textContent; button.textContent = 'کپی شد ✓'; button.classList.add('is-done'); setTimeout(() => { button.textContent = text; button.classList.remove('is-done'); }, 1800); };
+    const done = button.hasAttribute('data-copy-icon')
+      ? () => { const label = button.title; button.title = 'کپی شد'; button.classList.add('is-done'); setTimeout(() => { button.title = label; button.classList.remove('is-done'); }, 1800); }
+      : () => { const text = button.textContent; button.textContent = 'کپی شد ✓'; button.classList.add('is-done'); setTimeout(() => { button.textContent = text; button.classList.remove('is-done'); }, 1800); };
     if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(code).then(done).catch(() => {}); return; }
     const area = document.createElement('textarea');  // http (not https) pages have no clipboard API
     area.value = code; area.style.position = 'fixed'; area.style.opacity = '0';

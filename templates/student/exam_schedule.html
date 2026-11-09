@@ -29,6 +29,11 @@
   .sme-when{display:inline-block;unicode-bidi:isolate;white-space:nowrap}.sme-when small{display:block;color:#6b7a94}
   .sx-chip.blue{background:#e8f0ff;color:#075fff}.sx-chip.violet{background:#f0e9ff;color:#7c3aed}.sx-chip.red{background:#ffe7e7;color:#e11d48}
   .sme-action{min-height:40px;padding:0 16px;white-space:nowrap}
+  .sme-go{position:relative;display:grid;width:40px;height:40px;flex:none;place-items:center;border-radius:12px;border:1px solid #d6e2f5;background:#fff;color:#075fff;transition:transform .15s,box-shadow .15s,background .15s}.sme-go svg{width:1.2rem;height:1.2rem}
+  .sme-go:hover,.sme-go:focus-visible{background:#e8f0ff;transform:translateY(-1px)}
+  .sme-go.is-primary{border-color:transparent;background:linear-gradient(135deg,#2f7bff,#075fff);color:#fff;box-shadow:0 8px 18px rgba(7,95,255,.28)}.sme-go.is-primary svg{color:#fff}
+  .sme-go.is-primary:hover,.sme-go.is-primary:focus-visible{color:#fff;background:linear-gradient(135deg,#2f7bff,#075fff);box-shadow:0 10px 22px rgba(7,95,255,.36)}
+  .sme-actions{justify-content:center}
   .sme-actions{display:flex;align-items:center;gap:8px}.sme-result{display:grid;width:40px;height:40px;flex:none;place-items:center;border-radius:12px;border:1px solid #d6e2f5;background:#fff;color:#075fff}.sme-result svg{width:1.2rem;height:1.2rem}a.sme-result:hover{background:#e8f0ff}.sme-result.is-disabled{color:#b3bfd3;background:#f4f7fb;cursor:not-allowed}
   .sme-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid #e6edf6;color:#61708d;font-weight:900}
   .sme-pages{display:flex;gap:6px}.sme-pages a,.sme-pages span{display:grid;min-width:38px;height:38px;place-items:center;padding:0 10px;border:1px solid #dbe6f4;border-radius:10px;background:#fff;color:#30415f;font-weight:950}.sme-pages .is-current{background:#075fff;border-color:#075fff;color:#fff}.sme-pages .is-disabled{color:#b3bdcd}
@@ -36,7 +41,7 @@
   @media(max-width:1180px){.sme-toolbar{grid-template-columns:1fr 1fr}.sme-note{grid-column:1/-1}}
   @media(max-width:760px){.sme-tabs{flex-wrap:wrap}.sme-toolbar{grid-template-columns:1fr}.sme-featured{grid-template-columns:1fr}.sme-featured-icon{display:none}.sme-head h1{font-size:1.45rem}}
 </style>
-<div class="sme">
+<div class="sme" id="student-exam-schedule" data-live-region>
   <header class="sme-head">
     <span class="sme-head-icon">{% include 'teacher/_qb_icon.html' with name='essay' %}</span>
     <div><h1>آزمون‌های من</h1><p>همه‌ی آزمون‌هایی که به شما اختصاص داده شده و وضعیت هر کدام</p></div>
@@ -72,8 +77,8 @@
     {% if selected_class %}<input type="hidden" name="class" value="{{ selected_class.id }}">{% endif %}
     <div class="sme-note">{% include 'teacher/_qb_icon.html' with name='info' %}ورود به آزمون فقط در بازه‌ی تعیین‌شده امکان‌پذیر است.</div>
     <label class="sme-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ query }}" placeholder="جستجوی عنوان آزمون یا درس..." aria-label="جستجو"></label>
-    <label class="sme-select"><select name="course" aria-label="درس" onchange="this.form.submit()"><option value="">همه درس‌ها</option>{% for course_id, course_title in courses %}<option value="{{ course_id }}"{% if course_id == course %} selected{% endif %}>{{ course_title }}</option>{% endfor %}</select></label>
-    <label class="sme-select"><select name="term" aria-label="نیمسال" onchange="this.form.submit()"><option value="">همه نیمسال‌ها</option>{% for item in terms %}<option value="{{ item }}"{% if item == term %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+    <label class="sme-select"><select name="course" aria-label="درس" onchange="this.form.requestSubmit()"><option value="">همه درس‌ها</option>{% for course_id, course_title in courses %}<option value="{{ course_id }}"{% if course_id == course %} selected{% endif %}>{{ course_title }}</option>{% endfor %}</select></label>
+    <label class="sme-select"><select name="term" aria-label="نیمسال" onchange="this.form.requestSubmit()"><option value="">همه نیمسال‌ها</option>{% for item in terms %}<option value="{{ item }}"{% if item == term %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
     <button class="sx-btn sme-filter-btn" type="submit">جستجو</button>
   </form>
 
@@ -94,7 +99,7 @@
                 <td>{{ row.question_count|fa_digits }} سؤال</td>
                 <td>{{ row.duration|fa_digits }} دقیقه</td>
                 <td><span class="sx-chip {{ row.page_tone }}">{{ row.page_label }}</span></td>
-                <td><div class="sme-actions"><a class="sx-btn sme-action{% if row.page_action.primary %} primary{% endif %}" href="{{ row.page_action.url }}">{{ row.page_action.label }}</a>{% if row.result_url %}<a class="sme-result" href="{{ row.result_url }}" title="نتایج" aria-label="نتایج {{ row.title }}">{% include 'teacher/_qb_icon.html' with name='chart' %}</a>{% else %}<span class="sme-result is-disabled" title="هنوز نتیجه‌ای برای این آزمون ثبت نشده" aria-disabled="true">{% include 'teacher/_qb_icon.html' with name='chart' %}</span>{% endif %}</div></td>
+                <td><div class="sme-actions"><a class="sme-go{% if row.page_action.primary %} is-primary{% endif %}" href="{{ row.page_action.url }}" title="{{ row.page_action.label }}" aria-label="{{ row.page_action.label }} — {{ row.title }}">{% include 'teacher/_qb_icon.html' with name=row.page_action.icon %}</a>{% if row.result_url %}<a class="sme-result" href="{{ row.result_url }}" title="نتایج" aria-label="نتایج {{ row.title }}">{% include 'teacher/_qb_icon.html' with name='chart' %}</a>{% else %}<span class="sme-result is-disabled" title="هنوز نتیجه‌ای برای این آزمون ثبت نشده" aria-disabled="true">{% include 'teacher/_qb_icon.html' with name='chart' %}</span>{% endif %}</div></td>
               </tr>
             {% endfor %}
           </tbody>

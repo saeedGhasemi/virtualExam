@@ -38,7 +38,7 @@
 <section class="qx qx--exam">
   <div class="qx-wrap">
     <header class="qx-card qx-topbar">
-      <img class="qx-logo" src="{% static 'img/metaquiz-logo.png' %}?v=logo-mark-fix-20260829" alt="متاکوییز">
+      {% include "partials/brand_logo.html" with size="1.15rem" %}
       <div class="qx-user">
         <span class="qx-avatar">{% if panel_avatar_url %}<img src="{{ panel_avatar_url }}" alt="">{% else %}{{ panel_display_name|default:"د"|slice:":1" }}{% endif %}</span>
         <span><strong>{{ panel_display_name|default:"دانشجو" }}</strong><small>دانشجو</small></span>

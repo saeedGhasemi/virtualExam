@@ -1,0 +1,75 @@
+{% comment %}Shared «فهرست اطلاعات» sheet: column chooser (kept per dir_key in localStorage), Excel link, print, table→cards fit.{% endcomment %}
+<script>
+(() => {
+    // #user-directory is swapped in place by live-region.js (filters, search, tabs, paging),
+    // so elements are looked up when needed and listeners are delegated from document.
+    const q = (selector) => document.querySelector(selector);
+    // the tab can change without a reload, so the key follows the rendered column chooser (data-dir-cols="<dir_key>")
+    const storeKey = () => `mq-user-dir-cols-${((q('[data-dir-cols]') || {}).dataset || {}).dirCols || 'default'}`;
+    const boxes = () => { const panel = q('[data-dir-cols]'); return panel ? [...panel.querySelectorAll('input[type=checkbox]')] : []; };
+
+    const read = () => { try { return JSON.parse(localStorage.getItem(storeKey()) || 'null'); } catch (e) { return null; } };
+    const write = (hidden) => { try { localStorage.setItem(storeKey(), JSON.stringify(hidden)); } catch (e) { /* private mode */ } };
+    const hiddenCols = () => boxes().filter((box) => !box.checked).map((box) => box.value);
+
+    const fit = () => {
+        const table = q('[data-dir-table]');
+        const wrap = q('[data-dir-wrap]');
+        if (!table || !wrap) return;
+        table.classList.remove('is-cards');
+        if (table.offsetWidth > wrap.clientWidth + 2) table.classList.add('is-cards');
+    };
+    const apply = () => {
+        const hidden = new Set(hiddenCols());
+        const table = q('[data-dir-table]');
+        if (table) table.querySelectorAll('[data-col]').forEach((cell) => cell.classList.toggle('is-col-hidden', hidden.has(cell.dataset.col)));
+        fit();
+    };
+    const restore = () => {
+        const all = boxes();
+        const saved = read();
+        if (Array.isArray(saved)) all.forEach((box) => { box.checked = !saved.includes(box.value); });
+        if (all.length && all.every((box) => !box.checked)) all.forEach((box) => { box.checked = box.dataset.default === '1'; });
+        apply();
+    };
+
+    document.addEventListener('change', (event) => {
+        const box = event.target.closest && event.target.closest('[data-dir-cols] input[type=checkbox]');
+        if (!box) return;
+        if (boxes().every((item) => !item.checked)) box.checked = true; // keep at least one column
+        write(hiddenCols());
+        apply();
+    });
+    document.addEventListener('click', (event) => {
+        const panel = q('[data-dir-cols]');
+        if (panel && panel.open && !panel.contains(event.target)) panel.open = false;
+        if (event.target.closest('[data-dir-cols-reset]')) {
+            boxes().forEach((box) => { box.checked = box.dataset.default === '1'; });
+            write(hiddenCols());
+            apply();
+        }
+        const exportLink = event.target.closest('[data-dir-export]');
+        if (exportLink) {
+            if (exportLink.getAttribute('aria-disabled') === 'true') { event.preventDefault(); return; }
+            const url = new URL(window.location.href);
+            url.searchParams.set('export', 'xlsx');
+            url.searchParams.set('hide', hiddenCols().join(','));
+            exportLink.href = url.toString();
+        }
+    });
+    document.addEventListener('keydown', (event) => { const panel = q('[data-dir-cols]'); if (event.key === 'Escape' && panel) panel.open = false; });
+
+    // search as you type is handled by live-region.js (name="q")
+    const search = q('[data-dir-search]');
+    if (search && search.value) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+
+    // print always uses the table layout
+    window.addEventListener('beforeprint', () => { const table = q('[data-dir-table]'); if (table) table.classList.remove('is-cards'); });
+    window.addEventListener('afterprint', fit);
+    let resizeTimer = null;
+    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(fit, 120); });
+    restore();
+    window.addEventListener('load', fit);
+    document.addEventListener('mq:live-load', (event) => { if (event.target.id === 'user-directory') restore(); });
+})();
+</script>

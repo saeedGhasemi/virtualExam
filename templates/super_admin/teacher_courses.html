@@ -59,7 +59,7 @@
         {% endfor %}
     </div>
 
-    <section class="teacher-course-panel">
+    <section class="teacher-course-panel" id="teacher-course-panel" data-live-region>
         <header>
             <h2>درس‌های منتسب به استاد</h2>
             <form method="get" class="teacher-course-filters">
@@ -69,14 +69,14 @@
                 </label>
                 <label>
                     <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
-                    <select name="term">
+                    <select name="term" onchange="this.form.requestSubmit()">
                         <option value="">ترم: نیمسال اول ۱۴۰۵-۱۴۰۶</option>
                         <option value="نیمسال اول" {% if term == 'نیمسال اول' %}selected{% endif %}>نیمسال اول</option>
                         <option value="نیمسال دوم" {% if term == 'نیمسال دوم' %}selected{% endif %}>نیمسال دوم</option>
                     </select>
                 </label>
                 <label>
-                    <select name="status">
+                    <select name="status" onchange="this.form.requestSubmit()">
                         <option value="">وضعیت: همه</option>
                         <option value="active" {% if status_filter == 'active' %}selected{% endif %}>فعال</option>
                         <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>بایگانی‌شده</option>

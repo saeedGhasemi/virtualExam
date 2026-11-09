@@ -1,6 +1,13 @@
 """The teacher's question bank page: the question list with its filters, the counts and the other tabs.
 
 Filtering, counting and paging happen in the database, and nothing here runs for the other teacher pages.
+Who sees what (bank_owner):
+- teacher: the questions they own (+ the «اشتراکی» tab: co-teachers' shared questions of their courses);
+- academic manager: their own questions and those of their managed units (subunits included): a question whose course
+  belongs to one, or whose author is a teacher of one (ManagerScope), with a «طراح» column;
+- system admin («مدیر کل»): every question in the system (owner None).
+Managers and the admin may open, edit (saved under the original author) and archive what they see
+(views.question_for_editor), as a department head / site manager can in common LMSs.
 """
 import json
 import uuid
@@ -58,14 +65,55 @@ def _filters(request) -> dict:
     }
 
 
+class ManagerScope:
+    """An academic manager's bank: their own questions + those of their managed units (unit ids include subunits)."""
+
+    def __init__(self, profile_id, unit_ids):
+        self.profile_id = profile_id
+        self.unit_ids = sorted(str(unit_id) for unit_id in unit_ids or ())
+
+    def __str__(self):  # drafts and other per-user keys stay the manager's own
+        return str(self.profile_id)
+
+    def sql(self) -> tuple:
+        if not self.unit_ids:
+            return 'q.teacher_id = %s', [self.profile_id]
+        units = ', '.join(['%s'] * len(self.unit_ids))
+        return (
+            f'(q.teacher_id = %s OR (q.teacher_id IS NOT NULL AND ('
+            f'q.course_id IN (SELECT id FROM courses WHERE org_unit_id IN ({units})) '
+            f'OR q.teacher_id IN (SELECT user_id FROM teacher_profiles WHERE org_unit_id IN ({units})))))',
+            [self.profile_id, *self.unit_ids, *self.unit_ids],
+        )
+
+
+def _owner(owner_id) -> tuple:
+    """SQL condition + params limiting questions to one owner (or a ManagerScope); None (system admin) = every question."""
+    if isinstance(owner_id, ManagerScope):
+        return owner_id.sql()
+    return ('q.teacher_id = %s', [owner_id]) if owner_id else ('q.teacher_id IS NOT NULL', [])
+
+
+def bank_owner(request):
+    """Whose questions the bank lists: None (all) for the system admin, a ManagerScope for an academic manager,
+    otherwise the signed-in profile."""
+    role = getattr(request, 'erd_role', None)
+    if role == 'admin':
+        return None
+    if role == 'academic_manager':
+        from .views import _erd_managed_unit_ids
+        return ManagerScope(request.erd_profile_id, _erd_managed_unit_ids(request))
+    return request.erd_profile_id
+
+
 def _like(text: str) -> str:
     escaped = text.lower().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
     return f'%{escaped}%'
 
 
 def _where(teacher_id, filters, archived=False) -> tuple:
-    clauses = ['q.teacher_id = %s', f"q.archived_at IS {'NOT ' if archived else ''}NULL"]
-    params = [teacher_id]
+    owner_sql, params = _owner(teacher_id)
+    clauses = [owner_sql, f"q.archived_at IS {'NOT ' if archived else ''}NULL"]
     if filters['q']:
         clauses.append(
             "(LOWER(COALESCE(q.text, '')) LIKE %s ESCAPE '\\' OR LOWER(COALESCE(c.title, '')) LIKE %s ESCAPE '\\'"
@@ -122,14 +170,14 @@ def question_page(request, teacher_id, archived=False, status=None):
     if status:
         filters['status'] = status
     where, params = _where(teacher_id, filters, archived)
-    joins = 'FROM questions q LEFT JOIN courses c ON c.id = q.course_id'
+    joins = 'FROM questions q LEFT JOIN courses c ON c.id = q.course_id LEFT JOIN profiles p ON p.id = q.teacher_id'
     total = int((erd_row(f'SELECT COUNT(*) AS n {joins} WHERE {where}', params) or {}).get('n') or 0)
     page = Paginator(range(total), PAGE_SIZE).get_page(request.GET.get('page'))
     structure = 'q.structure' if 'structure' in erd_table_columns('questions') else "'independent' AS structure"
     rows = erd_rows(
         f"""
         SELECT q.id, q.text, q.type, q.difficulty, {structure}, COALESCE(c.title, '-') AS course, {STATUS_SQL} AS status_key,
-               q.updated_at, q.archived_at, q.shared_at,
+               q.updated_at, q.archived_at, q.shared_at, COALESCE(p.full_name, '-') AS author,
                (SELECT COUNT(*) FROM exam_questions eq JOIN exams e ON e.id = eq.exam_id
                 WHERE eq.question_id = q.id AND COALESCE(e.is_cancelled, false) = false) AS usage_count,
                (SELECT e.title FROM exam_questions eq JOIN exams e ON e.id = eq.exam_id
@@ -158,15 +206,18 @@ def question_stats(teacher_id) -> dict:
                COUNT(DISTINCT CASE WHEN q.archived_at IS NULL THEN q.course_id END)
                  + MAX(CASE WHEN q.archived_at IS NULL AND q.course_id IS NULL THEN 1 ELSE 0 END) AS banks
         FROM questions q
-        WHERE q.teacher_id = %s
+        WHERE {_owner(teacher_id)[0]}
         """,
-        [teacher_id],
+        _owner(teacher_id)[1],
     ) or {}
     return {key: int(row.get(key) or 0) for key in ('total', 'active', 'draft', 'needs_review', 'archived', 'banks')}
 
 
-def autosaved_drafts(teacher_id) -> list:
-    """Builder forms autosaved but never saved as a question (new questions and unsaved edits), newest first."""
+def autosaved_drafts(teacher_id, owner_id=False) -> list:
+    """Builder forms autosaved but never saved as a question (new questions and unsaved edits), newest first.
+
+    Drafts are always the signed-in user's own; owner_id None (system admin) lets an edit draft be of anyone's question."""
+    owner_sql, owner_params = _owner(teacher_id if owner_id is False else owner_id)
     prefix = f'question_draft.{teacher_id}.'
     rows = erd_rows('SELECT key, value FROM system_settings WHERE key LIKE %s', [f'{prefix}%'])
     drafts = []
@@ -185,7 +236,7 @@ def autosaved_drafts(teacher_id) -> list:
                 'resume_url': f'{create}?type={kind}&draft=restore', 'discard_url': f'{create}?type={kind}&draft=discard',
             })
             continue
-        question = erd_row('SELECT id, text, type FROM questions WHERE id = %s AND teacher_id = %s', [target, teacher_id])
+        question = erd_row(f'SELECT q.id, q.text, q.type FROM questions q WHERE q.id = %s AND {owner_sql}', [target, *owner_params])
         if question:
             edit = reverse('core:teacher_question_edit', args=[question['id']])
             drafts.append({
@@ -201,9 +252,9 @@ def stale_draft_count(teacher_id, days=14) -> int:
     row = erd_row(
         f"""
         SELECT COUNT(*) AS n FROM questions q
-        WHERE q.teacher_id = %s AND q.archived_at IS NULL AND {STATUS_SQL} != 'active' AND q.updated_at < %s
+        WHERE {_owner(teacher_id)[0]} AND q.archived_at IS NULL AND {STATUS_SQL} != 'active' AND q.updated_at < %s
         """,
-        [teacher_id, timezone.now() - timedelta(days=days)],
+        [*_owner(teacher_id)[1], timezone.now() - timedelta(days=days)],
     ) or {}
     return int(row.get('n') or 0)
 
@@ -227,11 +278,11 @@ def course_banks(teacher_id) -> list:
                SUM(CASE WHEN q.shared_at IS NOT NULL AND q.archived_at IS NULL THEN 1 ELSE 0 END) AS shared,
                MAX(q.updated_at) AS last_update
         FROM questions q LEFT JOIN courses c ON c.id = q.course_id
-        WHERE q.teacher_id = %s
+        WHERE {_owner(teacher_id)[0]}
         GROUP BY q.course_id, c.title
         ORDER BY COUNT(*) DESC, c.title
         """,
-        [teacher_id],
+        _owner(teacher_id)[1],
     )
     url = reverse('core:teacher_questions')
     return [
@@ -247,18 +298,19 @@ def course_banks(teacher_id) -> list:
 def categories(teacher_id) -> dict:
     """Subjects («مبحث») and tags of the teacher's questions, with how many questions carry each."""
     url = reverse('core:teacher_questions')
+    owner_sql, owner_params = _owner(teacher_id)
     subjects = erd_rows(
-        """
+        f"""
         SELECT TRIM(q.subject) AS title, COUNT(*) AS count
         FROM questions q
-        WHERE q.teacher_id = %s AND q.archived_at IS NULL AND COALESCE(TRIM(q.subject), '') != ''
+        WHERE {owner_sql} AND q.archived_at IS NULL AND COALESCE(TRIM(q.subject), '') != ''
         GROUP BY TRIM(q.subject)
         ORDER BY COUNT(*) DESC, TRIM(q.subject)
         """,
-        [teacher_id],
+        owner_params,
     )
     tag_counts = {}
-    for row in erd_rows("SELECT q.tags FROM questions q WHERE q.teacher_id = %s AND q.archived_at IS NULL AND COALESCE(q.tags, '') != ''", [teacher_id]):
+    for row in erd_rows(f"SELECT q.tags FROM questions q WHERE {owner_sql} AND q.archived_at IS NULL AND COALESCE(q.tags, '') != ''", owner_params):
         for tag in {part.strip() for part in str(row['tags']).replace('،', ',').split(',') if part.strip()}:
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
     palette = ['is-red', 'is-orange', 'is-blue', 'is-purple', 'is-green', 'is-yellow']
@@ -277,13 +329,13 @@ def recent_questions(teacher_id, limit=5) -> list:
     rows = erd_rows(
         f"""
         SELECT q.id, q.text, q.type, q.difficulty, q.structure, COALESCE(c.title, '-') AS course,
-               {STATUS_SQL} AS status_key, q.updated_at, q.archived_at
-        FROM questions q LEFT JOIN courses c ON c.id = q.course_id
-        WHERE q.teacher_id = %s AND q.updated_at IS NOT NULL
+               {STATUS_SQL} AS status_key, q.updated_at, q.archived_at, COALESCE(p.full_name, '-') AS author
+        FROM questions q LEFT JOIN courses c ON c.id = q.course_id LEFT JOIN profiles p ON p.id = q.teacher_id
+        WHERE {_owner(teacher_id)[0]} AND q.updated_at IS NOT NULL
         ORDER BY q.updated_at DESC
         LIMIT {int(limit)}
         """,
-        [teacher_id],
+        _owner(teacher_id)[1],
     )
     return [_row(row) for row in rows]
 
@@ -301,9 +353,16 @@ SHARED_WITH_SQL = f"""
 
 
 def shared_page(request, teacher_id):
-    """Other teachers' shared questions of the courses this teacher teaches, newest share first, paged."""
-    params = [teacher_id, teacher_id, teacher_id]
-    total = int((erd_row(f'SELECT COUNT(*) AS n FROM questions q WHERE {SHARED_WITH_SQL}', params) or {}).get('n') or 0)
+    """Other teachers' shared questions of the courses this teacher teaches, newest share first, paged.
+    teacher_id None (system admin): every shared question; a ManagerScope: the shared questions within it."""
+    if isinstance(teacher_id, ManagerScope):
+        scope_sql, params = teacher_id.sql()
+        shared_sql = f'q.shared_at IS NOT NULL AND q.archived_at IS NULL AND {scope_sql}'
+    elif teacher_id:
+        shared_sql, params = SHARED_WITH_SQL, [teacher_id, teacher_id, teacher_id]
+    else:
+        shared_sql, params = 'q.shared_at IS NOT NULL AND q.archived_at IS NULL', []
+    total = int((erd_row(f'SELECT COUNT(*) AS n FROM questions q WHERE {shared_sql}', params) or {}).get('n') or 0)
     page = Paginator(range(total), PAGE_SIZE).get_page(request.GET.get('page'))
     rows = erd_rows(
         f"""
@@ -312,7 +371,7 @@ def shared_page(request, teacher_id):
         FROM questions q
         LEFT JOIN courses c ON c.id = q.course_id
         LEFT JOIN profiles p ON p.id = q.teacher_id
-        WHERE {SHARED_WITH_SQL}
+        WHERE {shared_sql}
         ORDER BY q.shared_at DESC, q.id
         LIMIT {PAGE_SIZE} OFFSET {(page.number - 1) * PAGE_SIZE}
         """,
@@ -322,29 +381,38 @@ def shared_page(request, teacher_id):
 
 
 def question_bank_context(request, teacher_id) -> dict:
+    owner = bank_owner(request)
     view = request.GET.get('view') if request.GET.get('view') in VIEWS else 'all'
     if view == 'shared':
-        questions, page = shared_page(request, teacher_id)
+        questions, page = shared_page(request, owner)
     else:
         questions, page = question_page(
-            request, teacher_id, archived=view == 'archive', status='unpublished' if view == 'drafts' else None,
+            request, owner, archived=view == 'archive', status='unpublished' if view == 'drafts' else None,
         )
     filters = _filters(request)
-    banks = course_banks(teacher_id) if view in ('all', 'banks') else []
+    banks = course_banks(owner) if view in ('all', 'banks') else []
     return {
         'questions': questions,
         'question_page': page,
         'question_page_query': _query_without_page(request),
-        'question_stats': question_stats(teacher_id),
+        'question_stats': question_stats(owner),
+        # admin / manager banks hold other teachers' questions too: «طراح» column + their own heading
+        'question_scope_all': owner is None or isinstance(owner, ManagerScope),
+        'question_scope_title': (
+            'بانک سؤال سامانه (سؤال‌های همه اساتید)' if owner is None
+            else 'بانک سؤال واحدهای زیرمجموعه (سؤال‌های من و اساتید واحدها)' if isinstance(owner, ManagerScope)
+            else 'بانک سؤال من'
+        ),
+        'question_can_share': getattr(request, 'erd_role', None) == 'teacher',  # share/copy views are teacher-only
         'question_view': view,
         'question_filters': filters,
         'question_type_base': '?' + urlencode({key: value for key, value in filters.items() if key != 'type' and value}) + '&type=',
         'question_filter_course': _course_title(filters['course']),
         'question_banks': banks,
-        'question_categories': categories(teacher_id) if view == 'tags' else {},
-        'recent_questions': recent_questions(teacher_id) if view == 'all' else [],
-        'autosaved_drafts': autosaved_drafts(teacher_id) if view == 'drafts' else [],
-        'stale_drafts': stale_draft_count(teacher_id) if view == 'drafts' else 0,
+        'question_categories': categories(owner) if view == 'tags' else {},
+        'recent_questions': recent_questions(owner) if view == 'all' else [],
+        'autosaved_drafts': autosaved_drafts(teacher_id, owner) if view == 'drafts' else [],
+        'stale_drafts': stale_draft_count(owner) if view == 'drafts' else 0,
     }
 
 
@@ -354,16 +422,15 @@ def teacher_question_archive(request, question_id):
     if request.method != 'POST':
         return redirect('core:teacher_questions')
     archive = request.POST.get('action') != 'restore'
+    owner_sql, owner_params = _owner(bank_owner(request))
     with transaction.atomic():
-        row = erd_row(
-            'SELECT id, text FROM questions WHERE id = %s AND teacher_id = %s', [str(question_id), request.erd_profile_id]
-        )
+        row = erd_row(f'SELECT q.id, q.text FROM questions q WHERE q.id = %s AND {owner_sql}', [str(question_id), *owner_params])
         if not row:
             raise Http404('سؤال پیدا نشد.')
         now = timezone.now()
         erd_execute(
-            'UPDATE questions SET archived_at = %s, updated_at = %s WHERE id = %s AND teacher_id = %s',
-            [now if archive else None, now, row['id'], request.erd_profile_id],
+            'UPDATE questions SET archived_at = %s, updated_at = %s WHERE id = %s',
+            [now if archive else None, now, row['id']],
         )
     log_activity(request.user, 'question_archived' if archive else 'question_restored',
                  'سؤال آرشیو شد.' if archive else 'سؤال از آرشیو بازیابی شد.', request, {'question_id': str(row['id'])})

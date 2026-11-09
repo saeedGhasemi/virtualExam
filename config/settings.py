@@ -71,6 +71,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'apps.core.navigation.app_shell',
                 'apps.core.context_processors.panel_user',
+                'apps.core.appearance.appearance_context',
             ],
         },
     },

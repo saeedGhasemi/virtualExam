@@ -16,14 +16,32 @@
   .smc-search input,.smc-select select{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#07183b;font-weight:900}
   .smc-filter-btn{height:50px;min-height:50px;padding:0 18px}
   .smc-views{display:flex;padding:.25rem;gap:.25rem;border:1px solid #dbe6f4;border-radius:12px;background:rgba(255,255,255,.82)}.smc-views a{display:grid;width:42px;height:40px;place-items:center;border-radius:9px;color:#54617a}.smc-views a.is-active{background:#e8f0ff;color:#075fff}
-  .smc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
-  .smc-card{display:grid;gap:14px;padding:20px}
-  .smc-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .smc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:stretch}
+  .smc-card{display:flex;flex-direction:column;gap:14px;padding:18px}
+  .smc-card-head{display:flex;align-items:flex-start;gap:12px}
   .smc-course-icon{display:grid;width:52px;height:52px;flex:none;place-items:center;border-radius:14px;background:#e8f0ff;color:#075fff}.smc-course-icon svg{width:1.5rem;height:1.5rem}
-  .smc-card h2{margin:0;font-size:1.12rem;font-weight:950}.smc-card .smc-teacher{margin:.15rem 0 0;color:#61708d;font-weight:850}
-  .smc-meta{display:flex;flex-wrap:wrap;gap:8px}.smc-meta span{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;border-radius:9px;background:rgba(244,248,253,.95);color:#40506e;font-size:.84rem;font-weight:900}.smc-meta svg{width:1rem;height:1rem;color:#7a88a3}
-  .smc-next{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px dashed #cfdcf0;border-radius:10px;color:#30415f;font-size:.88rem;font-weight:900}.smc-next svg{color:#075fff}.smc-next b{font-weight:950}.smc-next.is-empty{color:#8592a8}
-  .smc-card .sx-btn{min-height:42px}
+  .smc-card-title{flex:1;min-width:0}
+  .smc-card h2{margin:0;font-size:1.08rem;font-weight:950;line-height:1.6;overflow-wrap:anywhere}
+  .smc-teacher{margin:.1rem 0 0;color:#61708d;font-weight:850;font-size:.9rem}
+  .smc-card-head .sx-chip{flex:none;white-space:nowrap}
+  .smc-bio{margin:0;color:#61708d;font-size:.86rem;font-weight:700;line-height:1.8;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .smc-mail{margin:0;font-size:.84rem;font-weight:800;overflow-wrap:anywhere}
+  .smc-facts{display:grid;margin:0;padding:0;list-style:none;border:1px solid #e6edf6;border-radius:12px;background:rgba(248,251,255,.9)}
+  .smc-facts li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px;padding:6px 12px}
+  .smc-facts li+li{border-top:1px solid #e6edf6}
+  .smc-facts .k{display:inline-flex;align-items:center;gap:7px;flex:none;color:#7a88a3;font-size:.84rem;font-weight:850}.smc-facts .k svg{width:1rem;height:1rem}
+  .smc-facts .v{min-width:0;color:#1f2f4d;font-size:.88rem;font-weight:950;text-align:end}
+  .smc-next{display:grid;gap:4px;padding:10px 12px;border:1px dashed #cfdcf0;border-radius:12px;background:#fbfdff}
+  .smc-next-top{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#61708d;font-size:.8rem;font-weight:900}
+  .smc-next-top>span:first-child{display:inline-flex;align-items:center;gap:6px}.smc-next svg{width:1rem;height:1rem;color:#075fff}
+  .smc-next-top .smc-when{padding:2px 8px;border-radius:999px;background:#e8f0ff;color:#075fff;white-space:nowrap}
+  .smc-next b{color:#1f2f4d;font-size:.92rem;font-weight:950;line-height:1.7;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .smc-next.is-empty{display:flex;align-items:center;gap:6px;color:#8592a8;font-size:.86rem;font-weight:900}.smc-next.is-empty svg{color:#a3afc3}
+  .smc-next b a{color:inherit}.smc-next.is-open{border-style:solid;border-color:#bbf7d0;background:#f3fdf6}.smc-next.is-open .smc-when{background:#dcfce7;color:#15803d}.smc-next.is-open svg{color:#16a34a}
+  .smc-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}.smc-actions .sx-btn{flex:1 1 0;min-width:max-content;min-height:42px;padding:0 12px}
+  .smc-actions b{display:inline-grid;min-width:1.4rem;height:1.4rem;place-items:center;padding:0 .3rem;border-radius:999px;background:rgba(7,95,255,.1);font-size:.75rem}.smc-actions .primary b{background:rgba(255,255,255,.25)}
+  .smc-no-exam{margin-top:auto;padding:10px 12px;border-radius:12px;background:#f6f8fb;color:#8592a8;font-size:.86rem;font-weight:900;text-align:center}
+  .smc-head-link{margin-inline-start:auto;min-height:42px}
   .smc-list{overflow:hidden}.smc-list-wrap{overflow-x:auto}.smc-table{width:100%;border-collapse:collapse;min-width:820px}.smc-table th{padding:14px 18px;background:rgba(244,248,253,.9);color:#53627e;font-size:.86rem;font-weight:950;text-align:start;white-space:nowrap}.smc-table td{padding:14px 18px;border-top:1px solid #e6edf6;font-weight:850;vertical-align:middle}
   .smc-row-course{display:flex;align-items:center;gap:12px}.smc-row-course .smc-course-icon{width:44px;height:44px}
   .smc-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 4px;color:#61708d;font-weight:900}
@@ -33,10 +51,11 @@
   @media(max-width:900px){.smc-toolbar{grid-template-columns:1fr 1fr}.smc-search{grid-column:1/-1}}
   @media(max-width:760px){.smc-tabs{flex-wrap:wrap}.smc-head h1{font-size:1.45rem}.smc-grid{grid-template-columns:1fr}}
 </style>
-<div class="smc">
+<div class="smc" id="student-classes" data-live-region>
   <header class="smc-head">
     <span class="smc-head-icon">{% include 'teacher/_qb_icon.html' with name='cap' %}</span>
-    <div><h1>کلاس‌های من</h1><p>کلاس‌هایی که در آن‌ها عضو هستید و آزمون‌های هر کلاس</p></div>
+    <div><h1>کلاس‌های من</h1><p>کلاس‌هایی که در آن‌ها عضو هستید، با آزمون‌ها، نتایج و آزمون‌های آزمایشی هر کلاس</p></div>
+    {% if has_practice %}<a class="sx-btn smc-head-link" href="{% url 'core:student_practice_exam' %}">{% include 'teacher/_qb_icon.html' with name='flask' %}همه‌ی آزمون‌های آزمایشی</a>{% endif %}
   </header>
 
   <nav class="smc-tabs" aria-label="کلاس‌ها">
@@ -48,7 +67,7 @@
     {% if tab == 'past' %}<input type="hidden" name="tab" value="past">{% endif %}
     {% if view == 'list' %}<input type="hidden" name="view" value="list">{% endif %}
     <label class="smc-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ query }}" placeholder="جستجوی نام درس یا استاد..." aria-label="جستجو"></label>
-    <label class="smc-select"><select name="term" aria-label="نیمسال" onchange="this.form.submit()"><option value="">همه نیمسال‌ها</option>{% for item in terms %}<option value="{{ item }}"{% if item == term %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+    <label class="smc-select"><select name="term" aria-label="نیمسال" onchange="this.form.requestSubmit()"><option value="">همه نیمسال‌ها</option>{% for item in terms %}<option value="{{ item }}"{% if item == term %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
     <button class="sx-btn smc-filter-btn" type="submit">جستجو</button>
     <div class="smc-views" aria-label="نوع نمایش">
       <a class="{% if view == 'grid' %}is-active{% endif %}" href="{% query_url view='' %}" title="نمای کارتی"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></a>
@@ -61,16 +80,16 @@
       <section class="sx-card smc-list">
         <div class="smc-list-wrap">
           <table class="smc-table">
-            <thead><tr><th>درس</th><th>استاد</th><th>نیمسال</th><th>آزمون‌ها</th><th>آزمون بعدی</th><th>عملیات</th></tr></thead>
+            <thead><tr><th>درس</th><th>استاد</th><th>نیمسال</th><th>آزمون‌ها</th><th>آزمون بعدی</th><th>دسترسی سریع</th></tr></thead>
             <tbody>
               {% for card in page_obj %}
                 <tr>
                   <td><div class="smc-row-course"><span class="smc-course-icon">{% include 'teacher/_qb_icon.html' with name=card.icon %}</span><div><strong>{{ card.course_title }}</strong>{% if card.group_code %}<div class="smc-teacher">کد گروه {{ card.group_code|fa_digits }}</div>{% endif %}</div></div></td>
                   <td>{{ card.teacher_name|default:'—' }}</td>
                   <td>{{ card.term|default:'—' }}</td>
-                  <td>{{ card.exam_count|fa_digits }} آزمون</td>
-                  <td>{% if card.next_exam %}{{ card.next_exam.title }}<div class="smc-teacher"><span class="smc-when">{{ card.next_exam.date_label }}</span></div>{% else %}—{% endif %}</td>
-                  <td><a class="sx-btn" href="{% url 'core:student_exam_schedule' %}?class={{ card.id }}">آزمون‌ها</a></td>
+                  <td>{% if card.exam_count %}{{ card.exam_count|fa_digits }} آزمون{% if card.result_count %}<div class="smc-teacher">{{ card.result_count|fa_digits }} نتیجه‌ی اعلام‌شده</div>{% endif %}{% else %}—{% endif %}</td>
+                  <td>{% if card.next_exam %}<a href="{{ card.next_exam.page_action.url }}">{{ card.next_exam.title }}</a><div class="smc-teacher">{% if card.next_exam.is_open %}در حال برگزاری · {% endif %}<span class="smc-when">{{ card.next_exam.when_label }}</span></div>{% else %}—{% endif %}</td>
+                  <td>{% include 'student/_class_actions.html' %}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -81,27 +100,31 @@
       <div class="smc-grid">
         {% for card in page_obj %}
           <article class="sx-card smc-card">
-            <div class="smc-card-top">
+            <header class="smc-card-head">
               <span class="smc-course-icon">{% include 'teacher/_qb_icon.html' with name=card.icon %}</span>
+              <div class="smc-card-title">
+                <h2>{{ card.course_title }}</h2>
+                <p class="smc-teacher">{{ card.teacher_name|default:'استاد تعیین نشده' }}</p>
+              </div>
               <span class="sx-chip {% if card.is_current %}green{% else %}gray{% endif %}">{% if card.is_current %}عضو کلاس{% else %}پایان‌یافته{% endif %}</span>
-            </div>
-            <div>
-              <h2>{{ card.course_title }}</h2>
-              <p class="smc-teacher">{{ card.teacher_name|default:'استاد تعیین نشده' }}</p>
-              {% if card.teacher_bio %}<p class="smc-teacher" style="font-weight:700;line-height:1.8">{{ card.teacher_bio|truncatechars:160 }}</p>{% endif %}
-              {% if card.teacher_email %}<p class="smc-teacher"><bdi dir="ltr"><a href="mailto:{{ card.teacher_email }}">{{ card.teacher_email }}</a></bdi></p>{% endif %}
-            </div>
-            <div class="smc-meta">
-              {% if card.group_code %}<span>{% include 'teacher/_qb_icon.html' with name='users' %}کد گروه {{ card.group_code|fa_digits }}</span>{% endif %}
-              {% if card.term %}<span>{% include 'teacher/_qb_icon.html' with name='calendar' %}{{ card.term }}</span>{% endif %}
-              <span>{% include 'teacher/_qb_icon.html' with name='essay' %}{{ card.exam_count|fa_digits }} آزمون</span>
-            </div>
+            </header>
+            {% if card.teacher_bio %}<p class="smc-bio" title="{{ card.teacher_bio }}">{{ card.teacher_bio }}</p>{% endif %}
+            {% if card.teacher_email %}<p class="smc-mail"><bdi dir="ltr" data-latin-digits><a href="mailto:{{ card.teacher_email }}">{{ card.teacher_email }}</a></bdi></p>{% endif %}
+            <ul class="smc-facts">
+              {% if card.group_code %}<li><span class="k">{% include 'teacher/_qb_icon.html' with name='users' %}کد گروه</span><bdi class="v" dir="ltr" data-latin-digits>{{ card.group_code }}</bdi></li>{% endif %}
+              {% if card.term %}<li><span class="k">{% include 'teacher/_qb_icon.html' with name='calendar' %}نیمسال</span><span class="v">{{ card.term }}</span></li>{% endif %}
+              <li><span class="k">{% include 'teacher/_qb_icon.html' with name='essay' %}آزمون‌ها</span><span class="v">{% if card.exam_count %}{{ card.exam_count|fa_digits }} آزمون{% else %}هنوز آزمونی ندارد{% endif %}</span></li>
+              {% if card.result_count %}<li><span class="k">{% include 'teacher/_qb_icon.html' with name='chart' %}نتایج اعلام‌شده</span><span class="v">{{ card.result_count|fa_digits }} نتیجه</span></li>{% endif %}
+            </ul>
             {% if card.next_exam %}
-              <div class="smc-next">{% include 'teacher/_qb_icon.html' with name='clock' %}آزمون بعدی: <b>{{ card.next_exam.title }}</b> <span class="smc-when">{{ card.next_exam.date_label }}</span></div>
-            {% else %}
+              <div class="smc-next{% if card.next_exam.is_open %} is-open{% endif %}">
+                <div class="smc-next-top"><span>{% include 'teacher/_qb_icon.html' with name='clock' %}{% if card.next_exam.is_open %}در حال برگزاری{% else %}آزمون بعدی{% endif %}</span><span class="smc-when">{{ card.next_exam.when_label }}</span></div>
+                <b title="{{ card.next_exam.title }}"><a href="{{ card.next_exam.page_action.url }}">{{ card.next_exam.title }}</a></b>
+              </div>
+            {% elif card.exam_count %}
               <div class="smc-next is-empty">{% include 'teacher/_qb_icon.html' with name='clock' %}آزمون پیش رویی ندارد</div>
             {% endif %}
-            <a class="sx-btn" href="{% url 'core:student_exam_schedule' %}?class={{ card.id }}">آزمون‌ها{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
+            {% include 'student/_class_actions.html' %}
           </article>
         {% endfor %}
       </div>

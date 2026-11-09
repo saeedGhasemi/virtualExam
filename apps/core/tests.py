@@ -311,6 +311,49 @@ class SuperAdminGroupsUnificationTests(_ScopedOrgFixture):
         self.assertTrue(response.json()['ok'])
 
 
+class AcademicTermCurrentTests(_ScopedOrgFixture):
+    """«ترم جاری» comes only from the term marked current in «سال تحصیلی و ترم»; year spellings are unified."""
+
+    def test_year_spellings_normalise(self):
+        from apps.core.views import _norm_academic_year, _semester_kind
+        self.assertEqual(_norm_academic_year('۱۴۰۵'), '1405-1406')
+        self.assertEqual(_norm_academic_year('1405 - 1406'), '1405-1406')
+        self.assertEqual(_norm_academic_year('۱۴۰۳-۱۴۰۴'), '1403-1404')
+        self.assertEqual(_semester_kind('نیمسال دوم'), 'second')
+        self.assertEqual(_semester_kind('اول'), 'first')
+
+    def test_groups_page_without_current_term_does_not_guess(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse('core:super_admin_groups'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['stats']['current_term_label'], 'تعریف نشده')
+
+    def test_current_term_drives_groups_stat_tabs_and_wizard_default(self):
+        _insert('academic_terms', ['id', 'year', 'semester', 'label', 'is_current'],
+                [str(uuid.uuid4()), '1403-1404', 'نیم‌سال اول', '', True])
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse('core:super_admin_groups'))
+        self.assertEqual(response.context['stats']['current_term_label'], 'نیم‌سال اول 1403-1404')
+        # fixture groups are stored as '1403' (no semester): they belong to the current term
+        current = self.client.get(reverse('core:super_admin_groups'), {'tab': 'current'})
+        self.assertIn(self.group_in_id, {row['id'] for row in current.context['rows']})
+        archive = self.client.get(reverse('core:super_admin_groups'), {'tab': 'archive'})
+        self.assertNotIn(self.group_in_id, {row['id'] for row in archive.context['rows']})
+        wizard = self.client.get(reverse('core:super_admin_group_create'))
+        self.assertEqual(wizard.context['current_year'], '1403-1404')
+        self.assertEqual(wizard.context['default_semester'], 'اول')
+        self.assertNotIn('1403', wizard.context['years'])
+
+    def test_term_year_is_normalised_on_save_and_bad_year_rejected(self):
+        self.client.force_login(self.admin_user)
+        url = reverse('core:super_admin_academic_terms')
+        self.client.post(url, {'term_action': 'save', 'year': '۱۴۰۵', 'semester': 'first', 'is_current': 'on'})
+        self.client.post(url, {'term_action': 'save', 'year': 'سال بعد', 'semester': 'second'})
+        from apps.core.views import erd_rows
+        years = [row['year'] for row in erd_rows('SELECT year FROM academic_terms')]
+        self.assertEqual(years, ['1405-1406'])
+
+
 class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
     """
     صفحه‌ی آزمون‌های مدیر آموزشی و مدیر سیستم هم اکنون یک صفحه‌ی مشترک
@@ -503,6 +546,62 @@ class SuperAdminCalendarUnificationTests(_ScopedOrgFixture):
         event_ids = {event['id'] for event in response.context['events']}
         self.assertIn(self.exam_in_id, event_ids)
         self.assertIn(self.exam_out_id, event_ids)
+
+
+class SuperAdminSettingsDefaultTabTests(_ScopedOrgFixture):
+    """«تنظیمات سامانه» بدون تب، روی تب اول یعنی ساختار سازمانی باز می‌شود."""
+
+    def test_settings_without_tab_opens_org_structure(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse('core:super_admin_settings'))
+        self.assertRedirects(response, reverse('core:super_admin_org_units'), fetch_redirect_response=False)
+        for tab in ('other', 'terms'):
+            response = self.client.get(reverse('core:super_admin_settings'), {'tab': tab})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.context['settings_active_tab'], tab)
+
+
+class SystemAppearanceTests(_ScopedOrgFixture):
+    """«تنظیمات ظاهری»: saved values are validated and reach <html> of every page."""
+
+    def _save(self, **values):
+        self.client.force_login(self.admin_user)
+        data = {'settings_action': 'bulk_save'}
+        data.update({f'settings_{key}': value for key, value in values.items()})
+        return self.client.post(reverse('core:super_admin_settings'), data)
+
+    def test_clean_values(self):
+        from .appearance import clean_appearance_value, normalize_color
+
+        self.assertEqual(normalize_color('8b5cf6'), '#8B5CF6')
+        self.assertEqual(normalize_color('#۲۲c'), '#2222CC')
+        self.assertIsNone(normalize_color('red'))
+        self.assertEqual(clean_appearance_value('primary_color', 'javascript:'), '#2563EB')
+        self.assertEqual(clean_appearance_value('font_size', 'large'), 'بزرگ')
+        self.assertEqual(clean_appearance_value('font_size', 'خیلی بزرگ'), 'متوسط')
+        self.assertEqual(clean_appearance_value('theme_mode', 'تیره'), 'تیره')
+
+    def test_saved_values_apply_to_every_page(self):
+        response = self._save(theme_mode='تیره', primary_color='#22c55e', font_size='بزرگ')
+        self.assertEqual(response.status_code, 302)
+        self.client.logout()
+        login = self.client.get(reverse('core:login'))
+        self.assertContains(login, 'data-mq-theme="dark" data-mq-font="large" data-mq-accent="#22C55E"')
+        self.assertContains(login, 'js/appearance.')
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:super_admin_calendar'))
+        self.assertContains(page, 'data-mq-accent="#22C55E"')
+
+    def test_invalid_values_fall_back_to_defaults(self):
+        self._save(theme_mode='<b>', primary_color='url(x)', font_size='huge')
+        page = self.client.get(f"{reverse('core:super_admin_settings')}?tab=other")
+        self.assertContains(page, 'data-mq-theme="light" data-mq-font="medium">')
+        lookup = page.context['settings_lookup']
+        self.assertEqual(
+            [lookup[key]['value'] for key in ('theme_mode', 'primary_color', 'font_size')],
+            ['روشن', '#2563EB', 'متوسط'],
+        )
+        self.assertContains(page, 'name="settings_font_size" value="متوسط" data-ap="font" data-code="medium" checked')
 
 
 class SuperAdminExamBulkImportScopeTests(_ScopedOrgFixture):
@@ -3363,6 +3462,42 @@ class TeacherStudentScopeTests(_ScopedOrgFixture):
         self._post(reverse('core:teacher_student_note_delete', args=[self.student_in_id, str(notes[0][0])]), {})
         self.assertEqual([row[3] for row in self._notes()], ['ب: آفرین', 'ج: خصوصی استاد دیگر'])
 
+    # -- «فهرست اطلاعات دانشجویان» (printable sheet, same model as the admin user directory)
+    def test_directory_lists_own_filtered_students_and_exports_them(self):
+        url = reverse('core:teacher_students_directory')
+        page = self._get(url)
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'فهرست اطلاعات دانشجویان')
+        self.assertContains(page, 'دانشجوی دوم')
+        self.assertContains(page, 'دانشجوی داخل محدوده')
+        self.assertNotContains(page, 'سارا احمدی')
+        self.assertNotContains(page, 'دانشجوی خارج محدوده')
+        self.assertContains(page, 'data-dir-cols="teacher-students"')
+        self.assertEqual(page.context['shown_count'], 3)
+
+        absent = self._get(url, {'tab': 'absent'})
+        self.assertEqual(absent.context['shown_count'], 1)
+        self.assertNotContains(absent, 'دانشجوی داخل محدوده')
+
+        from openpyxl import load_workbook
+        response = self._get(url, {'tab': 'absent', 'export': 'xlsx', 'hide': 'email,groups'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('attachment;', response['Content-Disposition'])
+        sheet = load_workbook(io.BytesIO(response.content)).active
+        header = [cell.value for cell in sheet[1]]
+        self.assertIn('شماره دانشجویی', header)
+        self.assertNotIn('ایمیل', header)
+        self.assertNotIn('کلاس‌ها', header)
+        text = ' '.join(str(cell.value) for row in sheet.iter_rows() for cell in row)
+        self.assertIn('دانشجوی دوم', text)
+        self.assertNotIn('دانشجوی داخل محدوده', text)
+
+    def test_list_page_has_directory_link_view_switch_and_stats(self):
+        page = self._get(reverse('core:teacher_students'))
+        self.assertContains(page, reverse('core:teacher_students_directory'))
+        self.assertContains(page, 'data-rt-switch="teacher-students"')
+        self.assertEqual(page.context['sl']['status_counts']['total'], 3)
+
     # -- export
     def test_export_contains_only_filtered_own_students(self):
         response = self._get(reverse('core:teacher_students_export'), {'tab': 'absent'})
@@ -4537,6 +4672,79 @@ class QuestionBankForAdminsTests(_ScopedOrgFixture):
         self.assertEqual(self._create('سؤال داخل واحد', self.course_in_id).status_code, 302)
         self.assertEqual(self._owner('سؤال داخل واحد'), self.manager_id)
 
+    def test_admin_bank_lists_every_teachers_questions(self):
+        """بانک مدیر کل خالی بود چون فقط سؤال‌های خود مدیر را می‌آورد؛ حالا سؤال همه اساتید با نام طراح دیده می‌شود."""
+        self.client.force_login(self.admin_user)
+        page = self.client.get(reverse('core:teacher_questions'))
+        self.assertContains(page, 'سوال داخل محدوده')
+        self.assertContains(page, 'سوال خارج محدوده')
+        self.assertContains(page, 'استاد خارج محدوده')  # «طراح» column
+        self.assertEqual(page.context['question_stats']['total'], 3)
+        self.assertNotContains(page, reverse('core:teacher_question_share', args=[self.question_in_id]))  # teacher-only action
+        for view in ('banks', 'tags', 'drafts', 'shared', 'archive'):
+            self.assertEqual(self.client.get(reverse('core:teacher_questions'), {'view': view}).status_code, 200, view)
+        self.assertContains(self.client.get(reverse('core:teacher_questions'), {'q': 'خارج'}), 'سوال خارج محدوده')
+
+    def test_manager_bank_lists_questions_of_managed_units(self):
+        """بانک مدیر آموزشی خالی بود چون فقط سؤال‌های خودش را می‌آورد؛ حالا سؤال‌های اساتید/درس‌های واحدهای زیرمجموعه هم هست."""
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:teacher_questions'))
+        self.assertContains(page, 'سوال داخل محدوده')
+        self.assertContains(page, 'استاد داخل محدوده')  # «طراح» column
+        self.assertContains(page, 'بانک سؤال واحدهای زیرمجموعه')
+        self.assertNotContains(page, 'سوال خارج محدوده')
+        self.assertEqual(page.context['question_stats']['total'], 2)
+        self.assertNotContains(page, reverse('core:teacher_question_share', args=[self.question_in_id]))  # teacher-only action
+        for view in ('banks', 'tags', 'drafts', 'shared', 'archive'):
+            self.assertEqual(self.client.get(reverse('core:teacher_questions'), {'view': view}).status_code, 200, view)
+        # A question of an out-of-scope teacher in a managed unit's course is in scope too.
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE questions SET course_id = %s WHERE id = %s', [self.course_in_id, self.question_out_id])
+        self.assertContains(self.client.get(reverse('core:teacher_questions')), 'سوال خارج محدوده')
+
+    def test_manager_edits_and_archives_only_in_scope_questions(self):
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE questions SET type = 'single' WHERE id IN (%s, %s)", [self.question_in_id, self.question_out_id])
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:teacher_question_edit', args=[self.question_out_id])).status_code, 404)
+        self.client.post(reverse('core:teacher_question_archive', args=[self.question_out_id]), {'action': 'archive'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT archived_at FROM questions WHERE id = %s', [self.question_out_id])
+            self.assertIsNone(cursor.fetchone()[0])
+        edit_url = reverse('core:teacher_question_edit', args=[self.question_in_id])
+        self.assertEqual(self.client.get(edit_url).status_code, 200)
+        response = self.client.post(edit_url, {
+            'structure': 'independent', 'text': 'سوال ویرایش‌شده توسط مدیر آموزشی', 'course_id': self.course_in_id, 'default_points': '1',
+            'option_text': ['الف', 'ب'], 'correct_options': '1', 'is_published': '1'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._owner('سوال ویرایش‌شده توسط مدیر آموزشی'), self.teacher_in_id)
+        self.client.post(reverse('core:teacher_question_archive', args=[self.question_in_id]), {'action': 'archive'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT archived_at FROM questions WHERE id = %s', [self.question_in_id])
+            self.assertIsNotNone(cursor.fetchone()[0])
+
+    def test_admin_edits_and_archives_a_teachers_question_keeping_its_owner(self):
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE questions SET type = 'single' WHERE id = %s", [self.question_out_id])
+        self.client.force_login(self.admin_user)
+        edit_url = reverse('core:teacher_question_edit', args=[self.question_out_id])
+        self.assertEqual(self.client.get(edit_url).status_code, 200)
+        response = self.client.post(edit_url, {
+            'structure': 'independent', 'text': 'سوال ویرایش‌شده توسط مدیر', 'course_id': self.course_out_id, 'default_points': '1',
+            'option_text': ['الف', 'ب'], 'correct_options': '1', 'is_published': '1'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._owner('سوال ویرایش‌شده توسط مدیر'), self.teacher_out_id)
+        self.client.post(reverse('core:teacher_question_archive', args=[self.question_out_id]), {'action': 'archive'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT archived_at, teacher_id FROM questions WHERE id = %s', [self.question_out_id])
+            archived_at, owner = cursor.fetchone()
+        self.assertIsNotNone(archived_at)
+        self.assertEqual(str(owner), self.teacher_out_id)
+        self.assertContains(self.client.get(reverse('core:teacher_questions'), {'view': 'archive'}), 'سوال ویرایش‌شده توسط مدیر')
+        # A manager still cannot open another teacher's question.
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(edit_url).status_code, 404)
+
 
 class ExamManagerUserImportPageTests(_ScopedOrgFixture):
     """ورود گروهی مدیر آموزشی همان ورود گروهی مدیر سیستم است، فقط در واحدهای خود او؛ قبلاً صفحه‌ای نمایشی بود که چیزی ثبت نمی‌کرد."""
@@ -4874,6 +5082,9 @@ class StudentExamsAndClassesPagesTests(_ScopedOrgFixture):
         attempt(cls.running_exam, cls.student_in_id, now - timedelta(minutes=10), 'in_progress')
         cls.upcoming_exam = exam('آزمون آینده', cls.teacher_in_id, now + 3 * day, now + 4 * day, cls.group_in_id)
         cls.graded_exam = exam('آزمون نمره‌دار', cls.teacher_in_id, now - 9 * day, now - 8 * day, cls.group_in_id)
+        from .views import erd_execute, erd_has_column
+        if erd_has_column('exams', 'results_published_at'):  # the teacher has released this exam's results
+            erd_execute('UPDATE exams SET results_published_at = %s WHERE id = %s', [now - 7 * day, cls.graded_exam])
         attempt(cls.graded_exam, cls.student_in_id, now - 9 * day, 'graded', 17, 20)
         cls.pending_exam = exam('آزمون در صف تصحیح', cls.teacher_in_id, now - 6 * day, now - 5 * day, cls.group_in_id)
         cls.pending_attempt = str(uuid.uuid4())
@@ -4906,6 +5117,20 @@ class StudentExamsAndClassesPagesTests(_ScopedOrgFixture):
         self.assertContains(response, reverse('core:student_attempt_receipt', args=[self.pending_attempt]))
         for hidden in ('آزمون پیش‌نویس صفحه', 'آزمون کلاس دیگر', 'ارزیابی اولیه وضعیت سالمند', 'مرداد ۱۴۰۵'):
             self.assertNotContains(response, hidden)
+
+    def test_graded_but_unreleased_result_is_not_called_published(self):
+        """The list must agree with the result page: graded but held back until the teacher publishes it."""
+        from .views import erd_execute, erd_has_column
+        columns = [c for c in ('score_display_mode', 'results_published_at', 'exam_mode') if erd_has_column('exams', c)]
+        if 'score_display_mode' not in columns:
+            self.skipTest('no score_display_mode column')
+        erd_execute("UPDATE exams SET score_display_mode = 'after_publish' WHERE id = %s", [self.graded_exam])
+        if 'results_published_at' in columns:
+            erd_execute('UPDATE exams SET results_published_at = NULL WHERE id = %s', [self.graded_exam])
+        rows = {row['title']: row for row in self._get('core:student_exam_schedule').context['page_obj']}
+        row = rows['آزمون نمره‌دار']
+        self.assertEqual((row['page_label'], row['page_action']['label']), ('در انتظار انتشار نتیجه', 'رسید تحویل'))
+        self.assertEqual(row['page_tab'], 'finished')
 
     def test_results_icon_only_links_submitted_attempts(self):
         response = self._get('core:student_exam_schedule')
@@ -4952,6 +5177,43 @@ class StudentExamsAndClassesPagesTests(_ScopedOrgFixture):
         self.assertNotContains(response, 'درس خارج محدوده')
         past = self._get('core:student_classes', tab='past', view='list').context
         self.assertEqual([card['id'] for card in past['page_obj']], [archived])
+
+    def test_class_card_links_only_what_the_class_really_has(self):
+        now, day = timezone.now(), timedelta(days=1)
+        exam = TeacherStudentScopeTests._exam
+        other_course = exam('آزمون درس دیگر', self.teacher_in_id, now - day, now + day, self.group_in_id)
+        practice = exam('تمرین کلاس', self.teacher_in_id, now - day, now + day, self.group_in_id)
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE student_groups SET course_id = %s WHERE id = %s', [self.course_in_id, self.group_in_id])
+            cursor.execute('UPDATE exams SET course_id = %s WHERE id = %s', [self.course_out_id, other_course])
+            cursor.execute("UPDATE exams SET exam_mode = 'practice' WHERE id = %s", [practice])
+        response = self._get('core:student_classes')
+        card, = response.context['page_obj']
+        # an exam of another course assigned to the group is not this class's exam (it stays on «آزمون‌های من»)
+        self.assertEqual((card['exam_count'], card['result_count'], card['practice_count']), (6, 1, 1))
+        self.assertIn('آزمون درس دیگر', [row['title'] for row in self._get('core:student_exam_schedule').context['page_obj']])
+        self.assertTrue(card['next_exam']['is_open'])
+        self.assertTrue(card['next_exam']['when_label'].startswith('تا '))
+        practice_url = f'{reverse("core:student_practice_exam")}?class={self.group_in_id}'
+        self.assertContains(response, f'href="{practice_url}"')
+        self.assertContains(response, f'href="{reverse("core:student_exam_schedule")}?class={self.group_in_id}&amp;tab=finished"')
+        listed = self._get('core:student_practice_exam', **{'class': self.group_in_id}).context
+        self.assertEqual([item['title'] for item in listed['page_obj']], ['تمرین کلاس'])
+        self.assertEqual(listed['selected_class']['id'], self.group_in_id)
+        # practice exams are reached from the class cards, not from the top menu
+        self.assertNotContains(response, 'آزمون آزمایشی</a>')
+        self.assertNotContains(response, 'title="آزمون آزمایشی"')
+
+    def test_class_without_exams_has_no_exam_buttons(self):
+        empty = str(uuid.uuid4())
+        _insert('student_groups', ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year'], [empty, self.teacher_in_id, self.course_in_id, 'کلاس بی‌آزمون', '1405'])
+        TeacherStudentScopeTests._member(empty, self.student_in_id)
+        response = self._get('core:student_classes', view='list')
+        cards = {card['id']: card for card in response.context['page_obj']}
+        self.assertEqual((cards[empty]['exam_count'], cards[empty]['practice_count']), (0, 0))
+        self.assertEqual(cards[self.group_in_id]['exam_count'], 6)
+        self.assertNotContains(response, f'?class={empty}')
+        self.assertContains(response, 'هنوز آزمونی برای این کلاس تعریف نشده است.')
 
     def test_student_without_exams_or_classes_sees_empty_states(self):
         loner_id = self._make_profile('student_loner', 'دانشجوی بی‌کلاس')
@@ -7784,6 +8046,9 @@ class JalaliCalendarTests(_ScopedOrgFixture):
         now, day, exam = timezone.now(), timedelta(days=1), TeacherStudentScopeTests._exam
         graded = exam('آزمون نمره‌دار', cls.teacher_in_id, now - 9 * day, now - 8 * day, cls.group_in_id)
         TeacherStudentScopeTests._attempt(graded, cls.student_in_id, now - 9 * day, 'graded', 17, 20)
+        from .views import erd_execute, erd_has_column
+        if erd_has_column('exams', 'results_published_at'):  # results released, so the calendar says «منتشر شده»
+            erd_execute('UPDATE exams SET results_published_at = %s WHERE id = %s', [now - 7 * day, graded])
         exam('آزمون غیبت', cls.teacher_in_id, now - 4 * day, now - 3 * day, cls.group_in_id)
         exam('آزمون پیش‌نویس صفحه', cls.teacher_in_id, now + day, now + 2 * day, cls.group_in_id, published=False)
         exam('آزمون کلاس دیگر', cls.teacher_out_id, now - day, now + day, cls.group_out_id)

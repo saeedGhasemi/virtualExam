@@ -201,3 +201,5 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+// date fields inside parts of the page swapped in by live-region.js
+document.addEventListener('mq:live-load', init);

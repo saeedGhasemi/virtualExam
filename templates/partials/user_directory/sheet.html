@@ -1,0 +1,60 @@
+{% comment %}Shared «فهرست اطلاعات» sheet: summary + printable sheet. Needs: sheet_title, scope_label, filter_notes, printed_at, shown_count, total_count, active_label/active_count, truncated/row_limit, columns, rows (url + cells), dir_key, is_filtered.{% endcomment %}
+{% load core_extras %}
+        <div class="ud-summary">
+            <span><strong>{{ shown_count }}</strong> نفر{% if shown_count != total_count %} از {{ total_count }}{% endif %}</span>
+            <span>{{ active_label|default:"فعال" }}: <strong>{{ active_count }}</strong></span>
+            {% for note in filter_notes %}<span class="ud-chip">{{ note }}</span>{% endfor %}
+        </div>
+        {% if truncated %}
+            <p class="ud-warn">فقط {{ row_limit }} ردیف اول نمایش داده می‌شود؛ برای دیدن بقیه، فهرست را با واحد یا جست‌وجو محدود کنید.</p>
+        {% endif %}
+
+        <article class="ud-sheet">
+            <header class="ud-sheet-head">
+                {% include "partials/brand_logo.html" with size="1.2rem" tagline=1 %}
+                <div class="ud-sheet-title">
+                    <small>سامانه آزمون متاکوییز</small>
+                    <h2>{{ sheet_title }}</h2>
+                    <p>{{ scope_label }}{% for note in filter_notes %} · {{ note }}{% endfor %}</p>
+                </div>
+                <div class="ud-sheet-meta">
+                    <div>تاریخ تهیه: <strong>{{ printed_at|to_jalali }}</strong></div>
+                    <div>تعداد: <strong>{{ shown_count }} نفر</strong></div>
+                </div>
+            </header>
+
+            {% if rows %}
+                <div class="ud-wrap" data-dir-wrap>
+                    <table class="ud-table rt-off" data-dir-table>
+                        <thead>
+                            <tr>
+                                <th scope="col">ردیف</th>
+                                {% for col in columns %}<th scope="col" data-col="{{ col.key }}"{% if not col.default %} class="is-col-hidden"{% endif %}>{{ col.label }}</th>{% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                                <tr>
+                                    <td class="ud-num" data-label="ردیف">{{ forloop.counter }}</td>
+                                    {% for cell in row.cells %}
+                                        <td data-col="{{ cell.key }}" data-label="{{ cell.label }}" data-style="{{ cell.style }}"{% if cell.key == 'unit' %} data-wide{% endif %}{% if not cell.default %} class="is-col-hidden"{% endif %}>
+                                            {% if not cell.text %}<span class="ud-dash">—</span>
+                                            {% elif cell.tone %}<span class="ud-pill is-{{ cell.tone }}">{{ cell.text }}</span>
+                                            {% elif 'name' in cell.style and row.url %}<a href="{{ row.url }}">{{ cell.text }}</a>
+                                            {% elif cell.key == 'email' %}<a class="ud-v" href="mailto:{{ cell.text }}" data-latin-digits>{{ cell.text }}</a>
+                                            {% elif 'latin' in cell.style or cell.latin %}<span class="ud-v" data-latin-digits>{{ cell.text }}</span>
+                                            {% else %}<span class="ud-v">{{ cell.text }}</span>{% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="ud-empty">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5M22 8l-5 5"/></svg>
+                    {% if is_filtered %}{{ empty_filtered_text|default:"کاربری با این فیلترها پیدا نشد." }}{% else %}{{ empty_text|default:"هنوز کاربری در این بخش ثبت نشده است." }}{% endif %}
+                </div>
+            {% endif %}
+        </article>

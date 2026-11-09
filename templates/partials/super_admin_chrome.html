@@ -2,7 +2,7 @@
 <style>
     html:has(.super-admin-chrome),body:has(.super-admin-chrome){margin:0!important;padding:0!important}
     body:has(.super-admin-chrome){font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif!important}
-    .super-admin-chrome{--blue:#315cff;--ink:#071936;--muted:#65728a;--line:#dbe4f1;direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif;font-size:15px;height:82px}
+    .super-admin-chrome{--blue:#315cff;--ink:#071936;--muted:#65728a;--line:#dbe4f1;direction:rtl;color:var(--ink);font-family:"B Yekan",BYekan,"B Yekan+",Vazirmatn,Tahoma,Arial,sans-serif;font-size:15px;height:82px;flex-shrink:0}
     .super-admin-chrome *{letter-spacing:0}
     .super-admin-topbar{position:fixed;top:-1px;right:0;left:0;z-index:90;display:grid;grid-template-columns:320px minmax(0,1fr) 320px;align-items:center;gap:1rem;height:83px;margin:0;padding:0 1.55rem 0 1.35rem;border:0;border-top:0;background:linear-gradient(90deg,#e8f7f8 0%,#eef7ff 44%,#eaf2ff 100%);backdrop-filter:blur(42px) saturate(190%);-webkit-backdrop-filter:blur(42px) saturate(190%);box-shadow:none;outline:0}
     .super-admin-brand{display:flex;align-items:center;gap:.8rem;justify-self:stretch;color:#2450f5;text-decoration:none;font-weight:950;font-size:1.55rem}
@@ -85,12 +85,27 @@
     /* Phones: the page itself scrolls (app-main is height:auto there), so the shell must not be locked to the viewport */
     @media (max-width:760px){body:has(.super-admin-chrome) .app-shell{height:auto!important;min-height:100dvh;overflow:visible!important}}
     @media (max-width:760px){.super-admin-brand{padding-inline-start:3.1rem}.super-admin-brand-logo{height:2.5rem}.super-admin-menu-btn{right:.85rem}.super-admin-nav{right:.75rem;left:.75rem;width:auto;gap:.15rem;max-height:calc(100dvh - 96px)}.super-admin-nav a{height:2.75rem!important;flex:0 0 auto}.super-admin-nav-mobile{display:inline-flex!important}.super-admin-nav-mobile:not(.is-danger){margin-top:.35rem;border-top:1px solid #e9eef6;border-radius:0 0 .85rem .85rem}.super-admin-nav a.is-danger{color:#dc2626}}
+    /* Today's date lives in the top bar on every panel page (it used to sit in each page's content and slid under the fixed bar when zoomed) */
+    .super-admin-today{display:inline-flex;align-items:center;gap:.45rem;flex:0 0 auto;height:2.65rem;margin-right:1.15rem;padding:0 1rem;border:1px solid rgba(49,92,255,.22);border-radius:999px;background:linear-gradient(135deg,rgba(255,255,255,.78),rgba(226,236,255,.7));color:#315cff;direction:rtl;white-space:nowrap;font-size:.86rem;font-weight:850;box-shadow:0 12px 26px rgba(49,92,255,.10),inset 0 1px 0 rgba(255,255,255,.85)}
+    a.super-admin-today{text-decoration:none;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+    a.super-admin-today:hover{transform:translateY(-1px);background:linear-gradient(135deg,#fff,rgba(214,228,255,.9));box-shadow:0 14px 30px rgba(49,92,255,.18),inset 0 1px 0 #fff}
+    .super-admin-today svg{width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .super-admin-today-label{color:#536386}
+    .super-admin-today b{color:#071936;font-size:1.02rem;font-weight:950}
+    .super-admin-userbar button:last-of-type{margin-right:0}
+    .super-admin-topbar{grid-template-columns:minmax(320px,auto) minmax(0,1fr) minmax(320px,auto)}
+    @media (max-width:1680px){.super-admin-today-label{display:none}.super-admin-today{margin-right:.5rem;padding:0 .8rem}}
+    @media (min-width:1321px) and (max-width:1680px){.super-admin-topbar{grid-template-columns:auto minmax(0,1fr) auto}}
+    @media (max-width:1320px){.super-admin-topbar{grid-template-columns:auto minmax(0,1fr)}}
+    /* Phones: the userbar is hidden, only the date stays */
+    @media (max-width:760px){.super-admin-topbar{grid-template-columns:1fr auto}.super-admin-userbar{display:flex!important}.super-admin-userbar>:not(.super-admin-today){display:none!important}.super-admin-today{margin:0;height:2.3rem;padding:0 .7rem;font-size:.8rem}.super-admin-today b{font-size:.9rem}}
+    @media (max-width:380px){.super-admin-today svg{display:none}}
 </style>
 <div class="super-admin-chrome" dir="rtl">
     <input type="checkbox" id="super-admin-menu-toggle" class="super-admin-menu-toggle">
     <header class="super-admin-topbar">
         <a class="super-admin-brand" href="{{ panel_home_url|default:'/dashboard/' }}">
-            <img class="super-admin-brand-logo" src="{% static 'img/metaquiz-logo.png' %}?v=logo-mark-fix-20260829" alt="متاکوییز">
+            {% include "partials/brand_logo.html" with size="1.5rem" tagline=1 %}
         </a>
         <label for="super-admin-menu-toggle" class="super-admin-menu-btn" aria-label="باز کردن منو">
             <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>
@@ -122,6 +137,7 @@
             </a>
             <button class="has-dot" type="button" aria-label="اعلان‌ها"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
             <button type="button" aria-label="جستجو"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+            {% if panel_calendar_url %}<a class="super-admin-today" href="{{ panel_calendar_url }}" title="تاریخ امروز — رفتن به تقویم" aria-label="تاریخ امروز، رفتن به تقویم">{% else %}<span class="super-admin-today" title="تاریخ امروز">{% endif %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg><span class="super-admin-today-label">امروز</span><b>{% jalali_today %}</b>{% if panel_calendar_url %}</a>{% else %}</span>{% endif %}
         </div>
     </header>
     <aside class="super-admin-rail" aria-label="میانبرهای پنل">

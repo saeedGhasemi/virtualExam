@@ -1,4 +1,4 @@
-"""Test data for trying every part of the site by hand: 15 teachers, 15 students, 15 questions, 15 exams.
+"""Test data for trying every part of the site by hand: 15 teachers, 15 students, 15 questions, 17 exams (two of them practice exams).
 
 Everything it makes is marked so it can be found and removed:
   * usernames start with `mqtest_` (password of every account: Test@12345), e-mails end with @mqtest.local
@@ -566,6 +566,17 @@ class Command(BaseCommand):
                    semester='نیمسال دوم', academic_year='1404-1405')
         add_questions(e15, [('q03', 5), ('q09', 5), ('q01', 10)])
         assign(e15, ['G2'])
+        # «آزمون آزمایشی» (exam_mode practice): reached from each class card on the student's «کلاس‌های من»
+        e16 = exam('e16', 'آزمون آزمایشی فصل ۱ (تمرین آزاد)', start=now - 3 * days, end=now + 30 * days, minutes=20,
+                   is_published=True, lifecycle_status='published', publish_mode='immediate', exam_mode='practice',
+                   max_attempts=0, show_results_immediately=True)
+        add_questions(e16, auto[:5])
+        assign(e16, ['G1'])
+        e17 = exam('e17', 'آزمون آزمایشی زیست (۲ بار شرکت)', owner='t03', course=courses[1], start=now - 3 * days,
+                   end=now + 30 * days, minutes=15, is_published=True, lifecycle_status='published', publish_mode='immediate',
+                   exam_mode='practice', max_attempts=2, show_results_immediately=True)
+        add_questions(e17, [('q03', 5), ('q09', 5)])
+        assign(e17, ['G2'])
 
         self.insert('exam_staff', {'id': sid('staff:e11:t02'), 'exam_id': e11, 'teacher_id': teacher['t02'], 'role': 'co_grader'})
         self.insert('exam_staff', {'id': sid('staff:e12:t02'), 'exam_id': e12, 'teacher_id': teacher['t02'], 'role': 'co_grader'})

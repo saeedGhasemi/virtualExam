@@ -87,26 +87,26 @@
             </div>
         </header>
 
-        <section class="groups-card groups-filter-card">
+        <section class="groups-card groups-filter-card" id="admin-groups-filters" data-live-region>
             <form method="get" class="group-filters">
                 <input type="hidden" name="tab" value="{{ tab }}">
                 <a class="group-clear-btn" href="{% url 'core:super_admin_groups' %}"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m10 11 4 4"/><path d="m14 11-4 4"/><path d="M6 6l1 15h10l1-15"/></svg>پاک کردن فیلترها</a>
-                <label class="group-filter"><select name="status" onchange="this.form.submit()"><option value="">همه وضعیت‌ها</option><option value="active" {% if status_filter == 'active' %}selected{% endif %}>فعال</option><option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>پیش‌نویس</option></select></label>
-                <label class="group-filter"><select name="term" onchange="this.form.submit()"><option value="">همه ترم‌ها</option>{% for term in terms %}<option value="{{ term.value }}" {% if term_filter == term.value %}selected{% endif %}>{{ term.label|default:term.year|fa_digits }}</option>{% endfor %}</select></label>
-                <label class="group-filter"><select name="fill" onchange="this.form.submit()"><option value="">همه ظرفیت‌ها</option><option value="low" {% if fill_filter == 'low' %}selected{% endif %}>ظرفیت خالی (زیر ۵۰٪)</option><option value="mid" {% if fill_filter == 'mid' %}selected{% endif %}>رو به تکمیل (۵۰ تا ۹۰٪)</option><option value="full" {% if fill_filter == 'full' %}selected{% endif %}>تکمیل ظرفیت (بالای ۹۰٪)</option></select></label>
-                <label class="group-filter"><select name="teacher" onchange="this.form.submit()"><option value="">همه اساتید</option>{% for teacher in teachers %}<option value="{{ teacher.id }}" {% if teacher_filter == teacher.id|stringformat:'s' %}selected{% endif %}>{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
+                <label class="group-filter"><select name="status" onchange="this.form.requestSubmit()"><option value="">همه وضعیت‌ها</option><option value="active" {% if status_filter == 'active' %}selected{% endif %}>فعال</option><option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>پیش‌نویس</option></select></label>
+                <label class="group-filter"><select name="term" onchange="this.form.requestSubmit()"><option value="">همه ترم‌ها</option>{% for term in terms %}<option value="{{ term.value }}" {% if term_filter == term.value %}selected{% endif %}>{{ term.label|default:term.year|fa_digits }}</option>{% endfor %}</select></label>
+                <label class="group-filter"><select name="fill" onchange="this.form.requestSubmit()"><option value="">همه ظرفیت‌ها</option><option value="low" {% if fill_filter == 'low' %}selected{% endif %}>ظرفیت خالی (زیر ۵۰٪)</option><option value="mid" {% if fill_filter == 'mid' %}selected{% endif %}>رو به تکمیل (۵۰ تا ۹۰٪)</option><option value="full" {% if fill_filter == 'full' %}selected{% endif %}>تکمیل ظرفیت (بالای ۹۰٪)</option></select></label>
+                <label class="group-filter"><select name="teacher" onchange="this.form.requestSubmit()"><option value="">همه اساتید</option>{% for teacher in teachers %}<option value="{{ teacher.id }}" {% if teacher_filter == teacher.id|stringformat:'s' %}selected{% endif %}>{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
                 <label class="group-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="q" value="{{ query }}" placeholder="جستجو در نام گروه، درس، استاد..."><button type="submit" aria-label="جستجو"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 6"/></svg></button></label>
             </form>
         </section>
 
         <section class="groups-stat-grid">
-            <article class="groups-card stat-card"><div><small>ترم جاری</small><strong>{{ stats.current_term_label|fa_digits }}</strong></div><span class="stat-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg></span></article>
+            <article class="groups-card stat-card"><div><small>ترم جاری</small><strong>{% if stats.current_year %}{{ stats.current_term_label|fa_digits }}{% elif request.resolver_match.url_name == "super_admin_groups" %}<a href="{% url 'core:super_admin_academic_terms' %}" data-live-skip title="در «سال تحصیلی و ترم» یک ترم را «ترم جاری» کنید">تعریف نشده</a>{% else %}تعریف نشده{% endif %}</strong></div><span class="stat-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg></span></article>
             <article class="groups-card stat-card"><div><small>دروس فعال</small><strong>{{ stats.active_courses|fa_digits }}</strong></div><span class="stat-icon is-orange"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg></span></article>
             <article class="groups-card stat-card"><div><small>کل دانشجویان</small><strong>{{ stats.students|fa_digits }}</strong></div><span class="stat-icon is-green"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span></article>
             <article class="groups-card stat-card"><div><small>کل گروه‌ها</small><strong>{{ stats.groups|fa_digits }}</strong></div><span class="stat-icon is-violet"><svg viewBox="0 0 24 24"><path d="M18 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="11" cy="7" r="4"/><path d="M4 8H2"/><path d="M22 8h-2"/></svg></span></article>
         </section>
 
-        <main class="groups-content">
+        <main class="groups-content" id="admin-groups-list" data-live-region>
             <section class="groups-card groups-table-card">
                 <div class="groups-table-head">
                     <div>
@@ -169,7 +169,7 @@
                 <footer class="groups-pagination">
                     <div class="page-size">
                         <span>تعداد در صفحه:</span>
-                        <select onchange="const u=new URL(location.href);u.searchParams.set('page_size',this.value);u.searchParams.set('page','1');location.href=u.toString();">
+                        <select onchange="const u=new window.URL(location.href);u.searchParams.set('page_size',this.value);u.searchParams.set('page','1');if(window.mqLive){mqLive.load(u.toString())}else{location.href=u.toString()}">
                             <option value="10" {% if page_size == 10 %}selected{% endif %}>۱۰</option>
                             <option value="25" {% if page_size == 25 %}selected{% endif %}>۲۵</option>
                             <option value="50" {% if page_size == 50 %}selected{% endif %}>۵۰</option>

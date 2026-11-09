@@ -3,7 +3,7 @@
 {% block title %}گزارش کل سامانه | متاکوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page" dir="rtl">
+<section class="super-admin-page" id="system-report" dir="rtl" data-live-region>
     <div class="super-admin-heading">
         <span class="super-admin-kicker">سناریو گزارش‌های کل سامانه</span>
         <h1>گزارش آماری بر اساس بازه زمانی و مؤسسه</h1>
@@ -25,7 +25,7 @@
         <article><span>مشکلات فنی</span><strong>{{ stats.technical_issues }}</strong></article>
     </div>
 
-    <div class="super-admin-actions">
+    <div class="super-admin-actions" data-live-skip>
         <a href="?{{ request.GET.urlencode }}&export=excel">دریافت Excel</a>
         <a href="?{{ request.GET.urlencode }}&export=pdf">دریافت PDF</a>
     </div>

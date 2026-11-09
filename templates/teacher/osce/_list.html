@@ -17,7 +17,7 @@
     .ol-pages{display:flex;justify-content:center;gap:.4rem;margin-top:1rem}
     .ol-pages a,.ol-pages span{padding:.4rem .8rem;border:1px solid #e3e9f4;border-radius:.5rem;background:#fff;color:#334155;font-size:.8rem;font-weight:800;text-decoration:none}
 </style>
-<div class="ol">
+<div class="ol" id="teacher-osce-list" data-live-region>
     <div class="ol-head">
         <div><h1>آزمون‌های OSCE من</h1><p>مجموعه‌های ایستگاهی که ساخته‌اید.</p></div>
         <a class="ol-new" href="{% url 'core:teacher_osce_create' %}">{% include "teacher/_qb_icon.html" with name="plus" %}آزمون OSCE جدید</a>

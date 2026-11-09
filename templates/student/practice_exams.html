@@ -42,9 +42,10 @@
   .spl-percent.green{background:#dcf8ea;color:#10a461}.spl-percent.blue{background:#e8f0ff;color:#075fff}.spl-percent.red{background:#ffe7e7;color:#e11d48}
   .spl-row-action{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 14px;border:1px solid #b7caff;border-radius:9px;background:#fff;color:#075fff;font-weight:950;font-size:.85rem}.spl-row-action svg{width:1.1rem;height:1.1rem}
   @media(max-width:1180px){.spl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.spl-top{grid-template-columns:1fr}.spl-toolbar{grid-template-columns:1fr 1fr}.spl-search{grid-column:1/-1}}
+  .spl-class{display:flex;flex-wrap:wrap;align-items:center;gap:10px;color:#30415f;font-weight:900}.spl-class a{color:#075fff}
   @media(max-width:760px){.spl-grid,.spl-toolbar{grid-template-columns:1fr}.spl-top h1{font-size:1.5rem}}
 </style>
-<div class="spl">
+<div class="spl" id="student-practice-exams" data-live-region>
   <header class="spl-top">
     <div>
       <h1>آزمون‌های آزمایشی</h1>
@@ -55,11 +56,15 @@
 
   {% if has_exams %}
     <form class="spl-toolbar" method="get">
+      {% if selected_class %}<input type="hidden" name="class" value="{{ selected_class.id }}">{% endif %}
       <label class="spl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ query }}" placeholder="جستجوی نام درس یا عنوان آزمون..." aria-label="جستجو"></label>
-      <label class="spl-select">{% include 'teacher/_qb_icon.html' with name='book' %}<select name="course" aria-label="درس" onchange="this.form.submit()"><option value="">همه درس‌ها</option>{% for course_id, course_title in courses %}<option value="{{ course_id }}"{% if course_id == course %} selected{% endif %}>{{ course_title }}</option>{% endfor %}</select></label>
-      <label class="spl-select">{% include 'teacher/_qb_icon.html' with name='pin' %}<select name="tag" aria-label="برچسب" onchange="this.form.submit()"><option value="">همه برچسب‌ها</option>{% for item in tags %}<option value="{{ item }}"{% if item == tag %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+      <label class="spl-select">{% include 'teacher/_qb_icon.html' with name='book' %}<select name="course" aria-label="درس" onchange="this.form.requestSubmit()"><option value="">همه درس‌ها</option>{% for course_id, course_title in courses %}<option value="{{ course_id }}"{% if course_id == course %} selected{% endif %}>{{ course_title }}</option>{% endfor %}</select></label>
+      <label class="spl-select">{% include 'teacher/_qb_icon.html' with name='pin' %}<select name="tag" aria-label="برچسب" onchange="this.form.requestSubmit()"><option value="">همه برچسب‌ها</option>{% for item in tags %}<option value="{{ item }}"{% if item == tag %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
       <button class="sx-btn" type="submit">جستجو</button>
     </form>
+  {% endif %}
+  {% if selected_class %}
+    <div class="spl-class">آزمون‌های آزمایشی کلاس «{{ selected_class.course_title }}»{% if selected_class.group_code %} - گروه <bdi dir="ltr" data-latin-digits>{{ selected_class.group_code }}</bdi>{% endif %}<a href="{% query_url class='' page='' %}">نمایش همه‌ی آزمون‌های آزمایشی</a><a href="{% url 'core:student_classes' %}">بازگشت به کلاس‌های من</a></div>
   {% endif %}
 
   {% if page_obj.object_list %}

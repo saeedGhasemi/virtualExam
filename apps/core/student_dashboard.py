@@ -9,7 +9,10 @@ from django.core.paginator import Paginator
 from django.urls import reverse
 from django.utils import timezone
 
-from .views import _jalali_long_date, _sx_accessible_exams, _sx_dt, _sx_result_rows, erd_rows
+from .views import (
+    _exam_result_columns, _exam_result_visibility, _jalali_long_date, _sx_accessible_exams, _sx_dt, _sx_result_rows,
+    erd_rows,
+)
 
 NEW_RESULT_DAYS = 14
 EXAM_TABLE_SIZE = 5
@@ -32,6 +35,7 @@ EXAM_PAGE_STATES = {
     'upcoming': ('برگزار نشده', 'orange', 'upcoming'),
     'in_progress': ('در حال انجام', 'blue', 'in_progress'),
     'pending': ('در انتظار تصحیح', 'violet', 'finished'),
+    'awaiting_release': ('در انتظار انتشار نتیجه', 'orange', 'finished'),
     'graded': ('نتیجه منتشر شده', 'green', 'finished'),
     'absent': ('غایب', 'red', 'finished'),
 }
@@ -43,17 +47,25 @@ COURSE_ICONS = ('book', 'calculator', 'globe', 'chart', 'database', 'monitor')
 
 
 def _latest_attempts(student_id) -> dict:
-    """exam_id -> the student's latest attempt (ordered so the newest overwrites older ones)."""
+    """exam_id -> the student's latest attempt (ordered so the newest overwrites older ones).
+
+    result_visible: the attempt is graded and its score may be shown (released, or shown immediately),
+    the same rule as the result page."""
+    release_select, _ = _exam_result_columns()
     attempts = {}
     for row in erd_rows(
-        """
-        SELECT id, exam_id, status, score, is_graded, submitted_at
-        FROM exam_attempts
-        WHERE student_id = %s
-        ORDER BY started_at ASC NULLS FIRST
+        f"""
+        SELECT ea.id, ea.exam_id, ea.status, ea.score, ea.is_graded, ea.submitted_at, {release_select}
+        FROM exam_attempts ea
+        JOIN exams e ON e.id = ea.exam_id
+        WHERE ea.student_id = %s
+        ORDER BY ea.started_at ASC NULLS FIRST
         """,
         [student_id],
     ):
+        graded = bool(row.get('is_graded')) and row.get('score') is not None
+        row['result_graded'] = graded
+        row['result_visible'] = graded and _exam_result_visibility(row)['score']
         attempts[str(row['exam_id'])] = row
     return attempts
 
@@ -73,9 +85,8 @@ def _exam_action(exam: dict, attempt: dict, state: str) -> dict:
     if state == 'ready':
         return {'label': 'مشاهده جزئیات و ورود', 'url': detail_url, 'primary': True, 'icon': 'arrow'}
     if state == 'done':
-        graded = bool(attempt.get('is_graded')) and attempt.get('score') is not None
         return {
-            'label': 'مشاهده کارنامه' if graded else 'در انتظار نتیجه',
+            'label': 'مشاهده کارنامه' if attempt.get('result_visible') else 'در انتظار نتیجه',
             'url': reverse('core:student_result_detail', args=[attempt['id']]),
             'primary': False,
             'icon': 'chart',
@@ -85,8 +96,9 @@ def _exam_action(exam: dict, attempt: dict, state: str) -> dict:
 
 def _exam_page_state(exam: dict, attempt: dict, now) -> str:
     if attempt.get('submitted_at'):
-        graded = bool(attempt.get('is_graded')) and attempt.get('score') is not None
-        return 'graded' if graded else 'pending'
+        if attempt.get('result_visible'):
+            return 'graded'
+        return 'awaiting_release' if attempt.get('result_graded') else 'pending'
     if exam['starts_at'] > now:
         return 'upcoming'
     if exam['ends_at'] >= now:
@@ -96,14 +108,14 @@ def _exam_page_state(exam: dict, attempt: dict, now) -> str:
 
 def _exam_page_action(exam: dict, attempt: dict, state: str) -> dict:
     if state == 'ready':
-        return {'label': 'جزئیات و ورود', 'url': reverse('core:student_exam_detail', args=[exam['id']]), 'primary': True}
+        return {'label': 'جزئیات و ورود', 'url': reverse('core:student_exam_detail', args=[exam['id']]), 'primary': True, 'icon': 'play'}
     if state == 'in_progress':
-        return {'label': 'ادامه آزمون', 'url': reverse('core:student_attempt', args=[attempt['id']]), 'primary': True}
+        return {'label': 'ادامه آزمون', 'url': reverse('core:student_attempt', args=[attempt['id']]), 'primary': True, 'icon': 'arrow'}
     if state == 'graded':
-        return {'label': 'مشاهده کارنامه', 'url': reverse('core:student_result_detail', args=[attempt['id']]), 'primary': False}
-    if state == 'pending':
-        return {'label': 'رسید تحویل', 'url': reverse('core:student_attempt_receipt', args=[attempt['id']]), 'primary': False}
-    return {'label': 'مشاهده جزئیات', 'url': reverse('core:student_exam_detail', args=[exam['id']]), 'primary': False}
+        return {'label': 'مشاهده کارنامه', 'url': reverse('core:student_result_detail', args=[attempt['id']]), 'primary': False, 'icon': 'idcard'}
+    if state in ('pending', 'awaiting_release'):
+        return {'label': 'رسید تحویل', 'url': reverse('core:student_attempt_receipt', args=[attempt['id']]), 'primary': False, 'icon': 'check'}
+    return {'label': 'مشاهده جزئیات', 'url': reverse('core:student_exam_detail', args=[exam['id']]), 'primary': False, 'icon': 'eye'}
 
 
 def _term_label(academic_year, semester) -> str:
@@ -186,13 +198,23 @@ def student_classes(student_id, include_archived=False) -> list:
 
 
 def _group_exam_ids(group_ids) -> dict:
-    """group_id -> ids of the exams assigned to that group (callers intersect with the student's accessible exams)."""
+    """group_id -> ids of the class's exams (callers intersect with the student's accessible exams).
+
+    An exam belongs to a class when it is assigned to the group and is an exam of the group's course; an exam of
+    another course assigned to the group still reaches the student (on «آزمون‌های من»), just not under this class."""
     if not group_ids:
         return {}
     placeholders = ', '.join(['%s'] * len(group_ids))
     by_group = {}
     for row in erd_rows(
-        f'SELECT exam_id, group_id FROM exam_assignments WHERE group_id IN ({placeholders})',
+        f"""
+        SELECT ea.exam_id, ea.group_id
+        FROM exam_assignments ea
+        JOIN student_groups sg ON sg.id = ea.group_id
+        JOIN exams e ON e.id = ea.exam_id
+        WHERE ea.group_id IN ({placeholders})
+          AND (e.course_id IS NULL OR sg.course_id IS NULL OR e.course_id = sg.course_id)
+        """,
         list(group_ids),
     ):
         by_group.setdefault(str(row['group_id']), set()).add(str(row['exam_id']))
@@ -305,9 +327,18 @@ def student_exams_page_context(request, student_id) -> dict:
     }
 
 
-def _class_card(group: dict, exam_ids: set, rows_by_id: dict) -> dict:
+def _class_card(group: dict, exam_ids: set, rows_by_id: dict, practice_ids: set) -> dict:
+    """A class card: only the class's own exams (see ``_group_exam_ids``) that the student can actually see."""
     class_rows = [rows_by_id[exam_id] for exam_id in exam_ids if exam_id in rows_by_id]
-    upcoming = sorted((row for row in class_rows if row['state'] in ('ready', 'upcoming')), key=lambda row: row['starts_at'])
+    open_now = sorted((row for row in class_rows if row['state'] == 'ready'), key=lambda row: row['ends_at'])
+    upcoming = sorted((row for row in class_rows if row['state'] == 'upcoming'), key=lambda row: row['starts_at'])
+    # an exam that is already open is shown with its closing date (its start date is in the past)
+    current = open_now[0] if open_now else (upcoming[0] if upcoming else None)
+    if current:
+        is_open = current['state'] == 'ready'
+        current = {**current, 'is_open': is_open,
+                   'when_label': (f"تا {_jalali_long_date(current['ends_at'], with_weekday=False)}" if is_open
+                                  else current['date_label'])}
     return {
         **group,
         'id': str(group['id']),
@@ -315,7 +346,9 @@ def _class_card(group: dict, exam_ids: set, rows_by_id: dict) -> dict:
         'icon': _course_icon(group['course_title']),
         'is_current': bool(group['is_active']) and not group['is_archived'],
         'exam_count': len(class_rows),
-        'next_exam': upcoming[0] if upcoming else None,
+        'result_count': sum(1 for row in class_rows if row['page_state'] == 'graded'),
+        'practice_count': len(exam_ids & practice_ids),
+        'next_exam': current,
     }
 
 
@@ -323,8 +356,10 @@ def student_classes_page_context(request, student_id) -> dict:
     """Context for the "my classes" page: the student's own groups, current or past, with their exams."""
     groups = student_classes(student_id, include_archived=True) if student_id else []
     rows_by_id = {str(row['id']): row for row in student_exam_rows(student_id)} if groups else {}
+    # practice exams («آزمون آزمایشی») have no menu item of their own: each class card links to its class's ones
+    practice_ids = {str(exam['id']) for exam in _sx_accessible_exams(student_id, practice=True)} if student_id else set()
     exams_by_group = _group_exam_ids([str(group['id']) for group in groups])
-    cards = [_class_card(group, exams_by_group.get(str(group['id']), set()), rows_by_id) for group in groups]
+    cards = [_class_card(group, exams_by_group.get(str(group['id']), set()), rows_by_id, practice_ids) for group in groups]
     from .teacher_preferences import public_teacher_cards
 
     # the teacher as they chose to be shown: display name, and bio / e-mail only when their privacy settings allow
@@ -361,6 +396,7 @@ def student_classes_page_context(request, student_id) -> dict:
         'query': query,
         'term': term,
         'terms': terms,
+        'has_practice': bool(practice_ids),
     }
 
 

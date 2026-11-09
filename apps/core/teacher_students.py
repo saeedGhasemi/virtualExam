@@ -268,6 +268,8 @@ def student_list_rows(teacher_id, group_id=None) -> list:
         SELECT p.id, COALESCE(NULLIF(p.full_name, ''), p.username, 'دانشجو') AS name,
                COALESCE(NULLIF(sp.student_number, ''), p.identifier, '') AS code,
                COALESCE(p.email, '') AS email, {STUDENT_AVATAR_SQL} AS avatar_url,
+               COALESCE(p.phone, '') AS phone, COALESCE(sp.field_of_study, '') AS field_of_study,
+               COALESCE(sp.degree, '') AS degree, COALESCE(CAST(sp.entry_year AS TEXT), '') AS entry_year,
                (SELECT COUNT(*) FROM audience au JOIN teacher_exams te ON te.id = au.exam_id
                  WHERE au.student_id = m.student_id) AS assigned_count,
                (SELECT COUNT(*) FROM audience au JOIN teacher_exams te ON te.id = au.exam_id
@@ -393,12 +395,18 @@ def _list_filters(request, groups) -> dict:
     }
 
 
-def filtered_students(teacher_id, filters) -> tuple:
-    """(rows matching search/group/status, rows matching those and the tab, count per tab)."""
+def filtered_students(teacher_id, filters, status_counts=None) -> tuple:
+    """(rows matching search/group/status, rows matching those and the tab, count per tab).
+
+    Pass a dict as `status_counts` to get, per student status, the count before the status filter (stat cards)."""
     rows = student_list_rows(teacher_id, filters['group'] or None)
     query = filters['q'].lower()
     if query:
         rows = [row for row in rows if query in row['name'].lower() or query in row['code'].lower() or query in row['email'].lower()]
+    if status_counts is not None:
+        status_counts['total'] = len(rows)
+        for key in STUDENT_STATUSES:
+            status_counts[key] = sum(1 for row in rows if row['status'] == key)
     if filters['status']:
         rows = [row for row in rows if row['status'] == filters['status']]
     tab_counts = {tab: sum(1 for row in rows if _in_tab(row, tab)) for tab in LIST_TABS}
@@ -810,7 +818,8 @@ def teacher_students(request):
     teacher_id = request.erd_profile_id
     groups = own_groups(teacher_id)
     filters = _list_filters(request, groups)
-    rows, tab_rows, tab_counts = filtered_students(teacher_id, filters)
+    status_counts = {}
+    rows, tab_rows, tab_counts = filtered_students(teacher_id, filters, status_counts)
     page = Paginator(tab_rows, filters['per_page']).get_page(request.GET.get('page'))
     return render(request, 'teacher/modern.html', _teacher_modern_context(
         request, 'students',
@@ -819,8 +828,115 @@ def teacher_students(request):
             'page_range': list(page.paginator.get_elided_page_range(page.number, on_each_side=1, on_ends=1)),
             'ellipsis': Paginator.ELLIPSIS,
             'filters': filters, 'tabs': LIST_TABS, 'tab_counts': tab_counts, 'statuses': STUDENT_STATUSES,
+            'status_counts': status_counts,
             'page_sizes': LIST_PAGE_SIZES, 'is_filtered': bool(filters['q'] or filters['group'] or filters['status']),
         },
+    ))
+
+
+# «فهرست اطلاعات دانشجویان»: the same printable sheet as the admin «فهرست اطلاعات کاربران» (user_directory.py),
+# for this teacher's students: columns to choose, print (A4 landscape), Excel with the same rows and columns.
+# key, header, shown by default, cell style (name / ltr = codes, e-mails, phones / latin / status)
+DIRECTORY_COLUMNS = [
+    ('name', 'نام و نام خانوادگی', True, 'name'),
+    ('code', 'شماره دانشجویی', True, 'ltr'),
+    ('field_of_study', 'رشته', True, ''),
+    ('degree', 'مقطع', False, ''),
+    ('entry_year', 'ورودی', False, ''),
+    ('groups', 'کلاس‌ها', True, ''),
+    ('email', 'ایمیل', True, 'ltr latin'),
+    ('phone', 'تلفن همراه', False, 'ltr'),
+    ('assigned', 'آزمون‌های اختصاص‌یافته', False, ''),
+    ('attended', 'شرکت‌کرده', True, ''),
+    ('absent', 'غیبت', True, ''),
+    ('unfinished', 'ناتمام', False, ''),
+    ('average', 'میانگین (از ۲۰)', True, ''),
+    ('last_exam', 'آخرین آزمون', True, ''),
+    ('last_score', 'نمره آخرین آزمون', False, ''),
+    ('status', 'وضعیت', True, 'status'),
+]
+DIRECTORY_TONES = {'is-ok': 'ok', 'is-warn': 'wait', 'is-danger': 'bad', 'is-muted': 'off', 'is-blue': 'info'}
+
+
+def _directory_values(row) -> dict:
+    last = row.get('last_exam') or {}
+    if last.get('score_20') is not None:
+        last_score = f"{_num(last['score_20'])} / 20"
+    elif last.get('state') == 'grading':
+        last_score = 'در انتظار تصحیح'
+    else:
+        last_score = ''
+    return {
+        'name': row['name'], 'code': row['code'], 'field_of_study': row.get('field_of_study') or '',
+        'degree': row.get('degree') or '', 'entry_year': row.get('entry_year') or '',
+        'groups': '، '.join(group['label'] for group in row['groups']),
+        'email': row['email'], 'phone': row.get('phone') or '',
+        'assigned': str(row['assigned_count']), 'attended': str(row['attended_count']),
+        'absent': str(row['absent_count']), 'unfinished': str(row['unfinished_count']),
+        'average': _num(row['average']) if row['average'] is not None else '',
+        'last_exam': last.get('title') or '', 'last_score': last_score,
+        'status': (row['status_label'], DIRECTORY_TONES.get(row['status_tone'], 'off')),
+    }
+
+
+@erd_role_required('teacher')
+def teacher_students_directory(request):
+    from .user_directory import _cell_text, _export_xlsx as directory_xlsx
+
+    teacher_id = request.erd_profile_id
+    groups = own_groups(teacher_id)
+    filters = _list_filters(request, groups)
+    status_counts = {}
+    _rows, rows, tab_counts = filtered_students(teacher_id, filters, status_counts)
+    values = [_directory_values(row) for row in rows]
+
+    if request.GET.get('export') == 'xlsx':
+        hidden = set(filter(None, request.GET.get('hide', '').split(',')))
+        shown = [col for col in DIRECTORY_COLUMNS if col[0] not in hidden] or DIRECTORY_COLUMNS
+        stamp = timezone.localtime().strftime('%Y%m%d-%H%M')
+        log_activity(request.user, 'teacher_students_export', f'خروجی اکسل {len(rows)} دانشجو گرفته شد.', request, {'count': len(rows)})
+        response = HttpResponse(
+            directory_xlsx('دانشجویان', shown, values),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="metaquizy-students-{stamp}.xlsx"'
+        return response
+
+    table_rows = [{
+        'url': reverse('core:teacher_student_profile', args=[row['id']]),
+        'cells': [{
+            'key': key, 'label': label, 'default': default, 'style': style,
+            'text': _cell_text(value[key]),
+            'tone': value[key][1] if isinstance(value[key], tuple) else '',
+            'latin': 'ltr' in style and any('a' <= ch.lower() <= 'z' for ch in _cell_text(value[key])),
+        } for key, label, default, style in DIRECTORY_COLUMNS],
+    } for row, value in zip(rows, values)]
+
+    group = next((item for item in groups if item['id'] == filters['group']), None)
+    filter_notes = [note for note in [
+        f"فهرست: {LIST_TABS[filters['tab']]}" if filters['tab'] != 'all' else '',
+        f"کلاس: {group['label']}" if group else '',
+        f"وضعیت: {STUDENT_STATUSES[filters['status']][0]}" if filters['status'] else '',
+        f"جست‌وجو: «{filters['q']}»" if filters['q'] else '',
+    ] if note]
+    return render(request, 'teacher/modern.html', _teacher_modern_context(
+        request, 'students_directory',
+        sd={
+            'filters': filters, 'groups': groups, 'tabs': LIST_TABS, 'tab_counts': tab_counts,
+            'statuses': STUDENT_STATUSES,
+            'is_filtered': bool(filters['q'] or filters['group'] or filters['status']),
+        },
+        dir_key='teacher-students',
+        sheet_title='فهرست اطلاعات دانشجویان',
+        scope_label='دانشجویان کلاس‌های شما',
+        columns=[{'key': key, 'label': label, 'default': default, 'style': style} for key, label, default, style in DIRECTORY_COLUMNS],
+        rows=table_rows,
+        total_count=status_counts['total'],
+        shown_count=len(table_rows),
+        active_label='فعال',
+        active_count=sum(1 for row in rows if row['status'] == 'ok'),
+        filter_notes=filter_notes,
+        printed_at=timezone.now(),
     ))
 
 

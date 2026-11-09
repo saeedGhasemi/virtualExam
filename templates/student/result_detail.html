@@ -152,7 +152,7 @@
       <div><small class="srd-muted">رتبه شما</small><h2>{% if rank %}{{ rank|fa_digits }} از {{ rank_total|fa_digits }}{% else %}-{% endif %}</h2></div>
       <div><small class="srd-muted">وضعیت</small><p><span class="srd-chip {{ result.status_tone }}">{{ result.status_label }}</span></p></div>
     </article>
-    <section class="srd-main-grid">
+    <section class="srd-main-grid" id="result-detail-main" data-live-region>
       <article class="sx-card srd-card">
         <h2 style="margin:0 0 14px">خلاصه عملکرد</h2>
         <div class="srd-stat-row">

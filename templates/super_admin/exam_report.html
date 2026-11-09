@@ -282,7 +282,7 @@
             </div>
             <article class="er-sheet" data-report-sheet>
                 <header class="er-sheet-head">
-                    <img class="er-logo" src="{% static 'img/metaquiz-logo.png' %}" alt="متاکوییز">
+                    {% include "partials/brand_logo.html" with size="1.2rem" tagline=1 %}
                     <div class="er-sheet-title">
                         <small>شناسنامه و مشخصات آزمون</small>
                         <h2>{{ exam.title }}</h2>

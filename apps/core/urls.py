@@ -10,6 +10,7 @@ from .teacher_students import (
     teacher_student_profile,
     teacher_student_report,
     teacher_students,
+    teacher_students_directory,
     teacher_students_export,
     teacher_students_message,
 )
@@ -310,6 +311,7 @@ urlpatterns = [
     path('teacher/courses/<str:group_id>/activity/', teacher_group_students, name='teacher_group_activity'),
     path('teacher/students/', teacher_students, name='teacher_students'),
     path('teacher/students/export/', teacher_students_export, name='teacher_students_export'),
+    path('teacher/students/directory/', teacher_students_directory, name='teacher_students_directory'),
     path('teacher/students/message/', teacher_students_message, name='teacher_students_message'),
     path('teacher/students/<str:student_id>/', teacher_student_profile, name='teacher_student_profile'),
     path('teacher/students/<str:student_id>/report/', teacher_student_report, name='teacher_student_report'),

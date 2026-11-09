@@ -1,5 +1,6 @@
 {% load core_extras static %}
 {% with p=profile s=profile.student sm=profile.summary %}
+<div id="teacher-student-profile" data-live-region="contents">
 <div class="tstu tstu-profile">
     <nav class="tstu-breadcrumb" aria-label="مسیر"><a href="{% url 'core:teacher_students' %}">دانشجویان</a><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>پروفایل دانشجو</span></nav>
 
@@ -93,14 +94,15 @@
 
     {% elif p.tab == 'exams' %}
         <section class="tstu-card tstu-section-card">
-            <form class="tstu-filters is-flat" method="get">
+            <form class="tstu-filters is-flat" method="get" data-live>
                 <input type="hidden" name="tab" value="exams">
-                <label class="tstu-select"><span class="sr-only">کلاس</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg><select name="group" onchange="this.form.submit()"><option value="">همه درس‌ها</option>{% for group in p.groups %}<option value="{{ group.id }}"{% if group.id == p.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}</select></label>
-                <label class="tstu-select"><span class="sr-only">وضعیت</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4Z"/></svg><select name="state" onchange="this.form.submit()"><option value="">همه وضعیت‌ها</option>{% for key, state in p.states.items %}<option value="{{ key }}"{% if key == p.filters.state %} selected{% endif %}>{{ state.0 }}</option>{% endfor %}</select></label>
+                <label class="tstu-select"><span class="sr-only">کلاس</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg><select name="group" onchange="this.form.requestSubmit()"><option value="">همه درس‌ها</option>{% for group in p.groups %}<option value="{{ group.id }}"{% if group.id == p.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}</select></label>
+                <label class="tstu-select"><span class="sr-only">وضعیت</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4Z"/></svg><select name="state" onchange="this.form.requestSubmit()"><option value="">همه وضعیت‌ها</option>{% for key, state in p.states.items %}<option value="{{ key }}"{% if key == p.filters.state %} selected{% endif %}>{{ state.0 }}</option>{% endfor %}</select></label>
                 {% include 'teacher/students/_date_range.html' %}
                 <button type="submit" class="tstu-btn">اعمال</button>
-                {% if p.is_filtered %}<a class="tstu-btn is-ghost" href="?tab=exams"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>پاک‌سازی فیلترها</a>{% endif %}
+                {% if p.is_filtered %}<a class="tstu-btn is-ghost" href="?tab=exams" data-live-skip><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>پاک‌سازی فیلترها</a>{% endif %}
             </form>
+            <div id="teacher-student-exams" data-live-region>
             {% if p.exam_rows %}
                 <div class="tstu-table-wrap">
                     <table class="tstu-table">
@@ -131,7 +133,7 @@
                     </table>
                 </div>
             {% elif p.is_filtered %}
-                <p class="tstu-empty is-flat">آزمونی با این فیلترها پیدا نشد. <a href="?tab=exams">نمایش همه آزمون‌ها</a></p>
+                <p class="tstu-empty is-flat">آزمونی با این فیلترها پیدا نشد. <a href="?tab=exams" data-live-skip>نمایش همه آزمون‌ها</a></p>
             {% else %}
                 <p class="tstu-empty is-flat">هنوز آزمونی از شما برای این دانشجو منتشر نشده است.</p>
             {% endif %}
@@ -152,19 +154,21 @@
                     <button type="button" class="tstu-btn is-primary" disabled title="در حال توسعه">ثبت فرصت مجدد<small>در حال توسعه</small></button>
                 </div>
             </footer>
+            </div>
         </section>
 
     {% elif p.tab == 'analytics' %}
         {% with a=p.analytics %}
         <section class="tstu-analytics" data-analytics>
-            <form class="tstu-card tstu-filters" method="get">
+            <form class="tstu-card tstu-filters" method="get" data-live>
                 <input type="hidden" name="tab" value="analytics">
-                <label class="tstu-select"><span class="sr-only">درس</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg><select name="group" onchange="this.form.submit()"><option value="">همه درس‌ها</option>{% for group in p.groups %}<option value="{{ group.id }}"{% if group.id == p.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}</select></label>
+                <label class="tstu-select"><span class="sr-only">درس</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg><select name="group" onchange="this.form.requestSubmit()"><option value="">همه درس‌ها</option>{% for group in p.groups %}<option value="{{ group.id }}"{% if group.id == p.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}</select></label>
                 {% include 'teacher/students/_date_range.html' %}
                 <button type="submit" class="tstu-btn">اعمال</button>
                 <label class="tstu-toggle"><input type="checkbox" checked data-compare-toggle><span aria-hidden="true"></span>مقایسه با میانگین کلاس</label>
                 <a class="tstu-btn is-outline" href="{% url 'core:teacher_student_report' s.id %}{% if p.filters.group %}?group={{ p.filters.group }}{% endif %}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>دانلود گزارش</a>
             </form>
+            <div id="teacher-student-analytics" data-live-region>
             {% if a.has_data %}
                 <div class="tstu-analytics-grid">
                     <article class="tstu-card tstu-chart">
@@ -231,15 +235,8 @@
             {% else %}
                 <p class="tstu-empty">هنوز آزمون ارسال‌شده‌ای از این دانشجو در آزمون‌های شما{% if p.filters.group or p.filters.from or p.filters.to %} با این فیلترها{% endif %} وجود ندارد.</p>
             {% endif %}
+            </div>
         </section>
-        <script>
-        (() => {
-          const root = document.querySelector('[data-analytics]');
-          root?.querySelector('[data-compare-toggle]')?.addEventListener('change', (event) => {
-            root.classList.toggle('is-hide-class', !event.target.checked);
-          });
-        })();
-        </script>
         {% endwith %}
 
     {% elif p.tab == 'notes' %}
@@ -315,5 +312,25 @@
         </div>
     {% endif %}
 </div>
+</div>
 {% include 'teacher/students/_message_dialog.html' %}
+{# tabs are swapped in place by live-region.js: page-wide helpers live outside #teacher-student-profile #}
+<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108l"></script>
+<script>
+(() => {
+  if (window.__tstuProfileJs) return;
+  window.__tstuProfileJs = true;
+  document.addEventListener('change', (event) => {
+    const toggle = event.target.closest && event.target.closest('[data-compare-toggle]');
+    if (toggle) toggle.closest('[data-analytics]')?.classList.toggle('is-hide-class', !toggle.checked);
+  });
+  // note form (_note_form.html) character counter
+  const faDigits = (value) => String(value).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  document.addEventListener('input', (event) => {
+    const body = event.target.closest && event.target.closest('[data-note-body]');
+    const counter = body && body.form && body.form.querySelector('[data-note-counter]');
+    if (counter) counter.textContent = `${faDigits(body.value.length)}/${faDigits(body.maxLength)}`;
+  });
+})();
+</script>
 {% endwith %}

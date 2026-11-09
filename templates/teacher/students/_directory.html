@@ -1,0 +1,55 @@
+{% load core_extras %}
+{% comment %}«فهرست اطلاعات دانشجویان»: same sheet as the admin «فهرست اطلاعات کاربران» (partials/user_directory/*).{% endcomment %}
+{% include "partials/user_directory/style.html" %}
+
+<section class="user-dir" id="user-directory" dir="rtl" data-live-region>
+    <div class="ud-shell">
+        <header class="ud-head">
+            <div>
+                <h1>فهرست اطلاعات دانشجویان</h1>
+                <p>اطلاعات کامل دانشجویان · {{ scope_label }}</p>
+            </div>
+            <a class="ud-btn" href="{% url 'core:teacher_students' %}{% query_url export='' hide='' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>بازگشت به دانشجویان
+            </a>
+        </header>
+
+        <nav class="ud-tabs" style="--tabs: {{ sd.tabs|length }}" aria-label="دسته‌بندی دانشجویان">
+            {% for key, label in sd.tabs.items %}
+                <a class="ud-tab{% if key == sd.filters.tab %} is-active{% endif %}" href="{% query_url tab=key export='' hide='' %}"{% if key == sd.filters.tab %} aria-current="page"{% endif %}>
+                    <b>{{ sd.tab_counts|get_item:key|fa_digits }}</b>
+                    {{ label }}
+                </a>
+            {% endfor %}
+        </nav>
+
+        <div class="ud-bar">
+            <form method="get" class="ud-filters" action="{% url 'core:teacher_students_directory' %}" data-dir-filters>
+                <input type="hidden" name="tab" value="{{ sd.filters.tab }}">
+                <label class="ud-search">
+                    <span class="ud-sr">جست‌وجو</span>
+                    <input type="search" name="q" value="{{ sd.filters.q }}" maxlength="100" placeholder="جست‌وجوی نام، شماره دانشجویی یا ایمیل..." autocomplete="off" data-dir-search>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                </label>
+                <select name="group" aria-label="کلاس" onchange="this.form.requestSubmit()">
+                    <option value="">همه‌ی کلاس‌ها</option>
+                    {% for group in sd.groups %}<option value="{{ group.id }}"{% if group.id == sd.filters.group %} selected{% endif %}>{{ group.label }}</option>{% endfor %}
+                </select>
+                <select name="status" aria-label="وضعیت" onchange="this.form.requestSubmit()">
+                    <option value="">همه‌ی وضعیت‌ها</option>
+                    {% for key, status in sd.statuses.items %}<option value="{{ key }}"{% if key == sd.filters.status %} selected{% endif %}>{{ status.0 }}</option>{% endfor %}
+                </select>
+                {% if sd.is_filtered %}
+                    <a class="ud-clear" href="?tab={{ sd.filters.tab }}">پاک کردن فیلترها</a>
+                {% endif %}
+            </form>
+            {% include "partials/user_directory/tools.html" %}
+        </div>
+
+        {% with is_filtered=sd.is_filtered empty_filtered_text="دانشجویی با این جست‌وجو یا فیلتر پیدا نشد." empty_text="هنوز دانشجویی در کلاس‌های شما ثبت نشده است." %}
+            {% include "partials/user_directory/sheet.html" %}
+        {% endwith %}
+    </div>
+</section>
+
+{% include "partials/user_directory/script.html" %}

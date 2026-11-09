@@ -64,7 +64,6 @@ ROLE_NAV = {
         ('اصلی', [
             ('داشبورد', 'core:dashboard', 'layout'),
             ('آزمون ها', 'core:student_exam_schedule', 'clipboard'),
-            ('آزمون آزمایشی', 'core:student_practice_exam', 'spark'),
         ]),
     ],
 }
@@ -129,6 +128,14 @@ def _profile_sidebar_groups(role_code):
 
 
 PANEL_CHROME_ROLES = {'super_admin', 'exam_manager', 'teacher', 'student'}
+
+# where the top bar's date chip leads, per role
+PANEL_CALENDAR_URL = {
+    'super_admin': 'core:super_admin_calendar',
+    'exam_manager': 'core:exam_manager_calendar',
+    'teacher': 'core:teacher_calendar',
+    'student': 'core:student_calendar',
+}
 
 PANEL_HOME_URL = {
     'super_admin': 'core:dashboard',
@@ -219,6 +226,7 @@ def app_shell(request):
         'is_super_admin_shell': role_code == 'super_admin',
         'use_panel_chrome': role_code in PANEL_CHROME_ROLES,
         'panel_home_url': _safe_reverse(PANEL_HOME_URL.get(role_code, 'core:dashboard')),
+        'panel_calendar_url': _safe_reverse(PANEL_CALENDAR_URL[role_code]) if role_code in PANEL_CALENDAR_URL else '',
         'app_is_shell_page': (
             request.user.is_authenticated
             and request.resolver_match

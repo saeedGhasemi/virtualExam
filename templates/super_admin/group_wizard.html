@@ -76,7 +76,7 @@
                         <h2>مشخصات ارائه</h2>
                         <div class="form-grid">
                             <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>سال تحصیلی *</span><select name="academic_year" data-summary-source="term">{% for year in years %}<option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year|fa_digits }}</option>{% endfor %}</select></label>
-                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>ترم *</span><select name="semester" data-summary-source="semester"><option value="اول" {% if group.semester == "اول" %}selected{% endif %}>نیمسال اول</option><option value="دوم" {% if group.semester == "دوم" %}selected{% endif %}>نیمسال دوم</option><option value="تابستان" {% if group.semester == "تابستان" %}selected{% endif %}>تابستان</option></select></label>
+                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>ترم *</span><select name="semester" data-summary-source="semester"><option value="اول" {% if group.semester|default:default_semester == "اول" %}selected{% endif %}>نیمسال اول</option><option value="دوم" {% if group.semester|default:default_semester == "دوم" %}selected{% endif %}>نیمسال دوم</option><option value="تابستان" {% if group.semester|default:default_semester == "تابستان" %}selected{% endif %}>تابستان</option></select></label>
                             <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>درس *</span><select name="course_id" data-course-select required>{% for course in courses %}<option value="{{ course.id }}" data-code="{{ course.code|default:'' }}" data-units="{{ course.credit_units|default:'3' }}" {% if current_course.id == course.id %}selected{% endif %}>{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
                             <div class="unit-box">
                                 <div><svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l3.59-3.59a2 2 0 0 0 0-2.59Z"/><circle cx="8.5" cy="8.5" r="1"/></svg><div><span>کد درس:</span><strong data-course-code-text>{{ current_course.code|default:"-"|fa_digits }}</strong></div></div>
@@ -483,5 +483,5 @@
     setStep(1);
 })();
 </script>
-<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108"></script>
+<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108l"></script>
 {% endblock %}

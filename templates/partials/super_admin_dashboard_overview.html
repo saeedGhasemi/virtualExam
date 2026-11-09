@@ -90,8 +90,7 @@
 <section class="sys-overview" dir="rtl" data-fixed-scroll-page>
     <header class="sys-top">
         <a class="sys-brand" href="{% url 'core:dashboard' %}">
-            <span>متاکوییز</span>
-            <span class="sys-brand-mark" aria-hidden="true"><img src="{% static 'img/metaquiz-favicon.svg' %}?v=logo-mark-fix-20260829" alt=""></span>
+            {% include "partials/brand_logo.html" with size="1.45rem" tagline=1 %}
         </a>
         <nav class="sys-nav" aria-label="ناوبری مدیر سیستم">
             <a class="is-active" href="{% url 'core:dashboard' %}">داشبورد</a>
@@ -124,7 +123,6 @@
             <a href="{% url 'core:logout' %}" title="خروج"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></a>
         </aside>
         <main class="sys-main">
-            <span class="sys-content-date">تاریخ امروز: {% jalali_today %}</span>
             <section class="sys-stats" aria-label="آمار اصلی">
                 {% for card in role_panel.dashboard_cards %}
                     {% if card.url %}<a class="sys-stat is-{{ card.tone }}" href="{{ card.url }}">{% else %}<article class="sys-stat is-{{ card.tone }}">{% endif %}

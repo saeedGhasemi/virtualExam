@@ -413,6 +413,15 @@ def practice_list_context(request, student_id) -> dict:
     course = request.GET.get('course', '').strip()
     tag = request.GET.get('tag', '').strip()
     filtered = cards
+    # «آزمون آزمایشی» of one class, opened from its card on «کلاس‌های من»
+    from .student_dashboard import _group_exam_ids, student_classes
+
+    class_id = request.GET.get('class', '').strip()
+    selected_class = next((group for group in student_classes(student_id, include_archived=True)
+                           if str(group['id']) == class_id), None) if class_id else None
+    if selected_class:
+        class_exam_ids = _group_exam_ids([class_id]).get(class_id, set())
+        filtered = [card for card in filtered if card['id'] in class_exam_ids]
     if query:
         needle = query.casefold()
         filtered = [card for card in filtered if needle in card['title'].casefold() or needle in card['course'].casefold()]
@@ -427,6 +436,7 @@ def practice_list_context(request, student_id) -> dict:
         'query': query,
         'course': course,
         'tag': tag,
+        'selected_class': selected_class,
         'courses': sorted({(card['course_id'], card['course']) for card in cards if card['course_id']}, key=lambda item: item[1]),
         'tags': sorted({item for card in cards for item in card['tags']}),
         'recent_attempts': recent_attempts(student_id),

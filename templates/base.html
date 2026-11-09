@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-mq-theme="{{ mq_appearance.theme }}" data-mq-font="{{ mq_appearance.font }}"{% if mq_appearance.accent %} data-mq-accent="{{ mq_appearance.accent }}"{% endif %}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,11 +10,13 @@
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=teacher-security-20261028">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261108r">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261109o">
+    <link rel="stylesheet" href="{% static 'css/brand.css' %}?v=brand-20261109">
+    {% comment %}Many pages put their style block after the markup: until it is parsed, SVG icons without a width attribute
+    would paint full-width and black for a moment. This zero-specificity fallback keeps them icon-sized only while the page loads.{% endcomment %}
+    <script>document.addEventListener('DOMContentLoaded',()=>document.documentElement.classList.add('mq-ready'));</script>
     <style>
-        @font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
-        @font-face{font-family:'B Yekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
-        @font-face{font-family:'BYekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+        :where(html:not(.mq-ready)) :where(svg:not([width])){width:1.25em;height:1.25em;max-width:100%}
         html,body,button,input,select,textarea{font-family:'Vazirmatn','B Yekan',BYekan,Tahoma,Arial,sans-serif!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
         .app-shell,.app-main,.profile-sidebar,.super-admin-chrome,.sys-overview,.edu-dashboard{font-family:'Vazirmatn','B Yekan',BYekan,Tahoma,Arial,sans-serif!important}
         .app-shell{direction:ltr;grid-template-columns:minmax(0,1fr) 250px;height:100dvh;overflow:hidden}
@@ -88,6 +90,7 @@
         .profile-sidebar.is-collapsed .profile-nav a:focus-visible:after{content:attr(data-tooltip);position:absolute;z-index:50;inset-inline-end:calc(100% + .65rem);top:50%;transform:translateY(-50%);width:max-content;max-width:12rem;border:1px solid #dbe3ef;border-radius:.65rem;background:#fff;padding:.45rem .7rem;color:#071936;font-size:.78rem;font-weight:850;box-shadow:0 14px 32px rgba(15,23,42,.14);pointer-events:none;white-space:nowrap}
         @media (max-width:720px){.app-shell{direction:rtl;grid-template-columns:1fr;height:auto;min-height:100vh;overflow:visible}.app-shell>.profile-sidebar{grid-column:1;grid-row:1;height:auto;overflow:visible;border-left:0;border-bottom:1px solid #dce3ef}.app-shell>.app-main{grid-column:1;grid-row:2;height:auto;overflow:visible}}
     </style>
+    {% include "partials/appearance_head.html" %}
 </head>
 <body class="min-h-screen bg-page text-ink antialiased">
     {% if app_is_shell_page %}
@@ -102,8 +105,7 @@
             <aside class="legacy-app-sidebar" hidden>
                 <div class="app-brand-row">
                     <a href="{% url 'core:dashboard' %}" class="app-brand" aria-label="داشبورد متاکوییز">
-                        <span class="app-brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}?v=logo-mark-fix-20260829" alt=""></span>
-                        <span>متاکوییز</span>
+                        {% include "partials/brand_logo.html" with size="1.2rem" %}
                     </a>
                     <label class="app-sidebar-close" for="app-menu-toggle" aria-label="بستن منو">×</label>
                 </div>
@@ -147,8 +149,7 @@
                 <header class="app-topbar">
                     <label class="app-menu-button" for="app-menu-toggle" aria-label="باز کردن منو">☰</label>
                     <a href="{% url 'core:dashboard' %}" class="app-topbar-brand">
-                        <span class="app-brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}?v=logo-mark-fix-20260829" alt=""></span>
-                        <strong>متاکوییز</strong>
+                        {% include "partials/brand_logo.html" with size="1.15rem" %}
                     </a>
                     <a class="app-topbar-link" href="{% url 'core:logout' %}">خروج</a>
                 </header>
@@ -167,8 +168,7 @@
             {% block public_header %}
             <header class="site-header">
                 <a href="{% url 'core:home' %}" class="brand-lockup" aria-label="صفحه اصلی متاکوییز">
-                    <span class="brand-mark"><img src="{% static 'img/metaquiz-favicon.svg' %}?v=logo-mark-fix-20260829" alt=""></span>
-                    <span>متاکوییز</span>
+                    {% include "partials/brand_logo.html" with size="1.35rem" tagline=1 %}
                 </a>
 
                 <nav class="site-nav" aria-label="ناوبری اصلی">
@@ -229,8 +229,8 @@
         (() => {
             const map = {'0':'\u06f0','1':'\u06f1','2':'\u06f2','3':'\u06f3','4':'\u06f4','5':'\u06f5','6':'\u06f6','7':'\u06f7','8':'\u06f8','9':'\u06f9'};
             const toFa = (value) => value.replace(/[0-9]/g, (digit) => map[digit]);
-            const convertDigits = () => {
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+            const convertDigits = (root = document.body) => {
+                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
                     acceptNode(node) {
                         const parent = node.parentElement;
                         // data-latin-digits: text typed back by the user exactly (keys, recovery codes) keeps 0-9
@@ -263,10 +263,15 @@
                     window.setTimeout(callback, 16);
                 }
             };
-            schedule(convertDigits);
+            schedule(() => convertDigits());
+            // parts of the page swapped in by live-region.js
+            document.addEventListener('mq:live-load', (event) => convertDigits(event.target));
         })();
     </script>
-<script src="{% static 'js/responsive-tables.js' %}?v=20261107" defer></script>
+<script src="{% static 'js/responsive-tables.js' %}?v=20261109i" defer></script>
+<script src="{% static 'js/balanced-rows.js' %}?v=20261109b" defer></script>
 <script src="{% static 'js/password-toggle.js' %}?v=20261108" defer></script>
+<script src="{% static 'js/count-up.js' %}?v=20261109" defer></script>
+<script src="{% static 'js/live-region.js' %}?v=20261109" defer></script>
 </body>
 </html>

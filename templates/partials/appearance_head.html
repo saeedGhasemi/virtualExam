@@ -1,0 +1,28 @@
+{% load static %}{# «تنظیمات ظاهری» of the system (apps/core/appearance.py): keep right before </head>, after every stylesheet. #}
+{% comment %}No flash on load / hard refresh: the fonts are preloaded and use font-display:block (no Tahoma→Vazirmatn swap), and
+the page stays transparent (still laid out, focusable) until the HTML is parsed — the page <style> blocks after the markup
+applied, responsive-tables.js has turned tables into cards/icon buttons — and Vazirmatn is ready. The fade-in animation is
+a failsafe: the page shows after 2.5s even if a script fails. Without JS the class is never set, nothing is hidden.{% endcomment %}
+<link rel="preload" href="{% static 'fonts/Vazirmatn.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{% static 'fonts/Lalezar.woff2' %}" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:block}
+@font-face{font-family:'B Yekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:block}
+@font-face{font-family:'BYekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:block}
+html.mq-loading body{opacity:0;animation:mq-reveal 0s 2.5s forwards}
+@keyframes mq-reveal{to{opacity:1}}
+</style>
+<script>
+(() => {
+  const root = document.documentElement;
+  root.classList.add('mq-loading');
+  const show = () => root.classList.remove('mq-loading');
+  setTimeout(show, 2500);
+  document.addEventListener('DOMContentLoaded', () => {
+    const font = document.fonts && document.fonts.load ? document.fonts.load('400 1em Vazirmatn').catch(() => {}) : null;
+    Promise.race([font, new Promise((r) => setTimeout(r, 1200))]).then(() => requestAnimationFrame(show));
+  });
+})();
+</script>
+<link rel="stylesheet" href="{% static 'css/appearance.css' %}?v=20261108b">
+<script src="{% static 'js/appearance.js' %}?v=20261108d"></script>

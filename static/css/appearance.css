@@ -1,0 +1,21 @@
+/* «تنظیمات ظاهری» (admin → تنظیمات سامانه → تنظیمات عمومی), applied to every page via <html data-mq-…>
+   (apps/core/appearance.py). The colour is done by static/js/appearance.js. */
+
+/* ---------- text size: rem-based sizes follow the root size; px font sizes are scaled by appearance.js via --mq-fs ---------- */
+html[data-mq-font="small"] { font-size: 90%; --mq-fs: .9; }
+html[data-mq-font="medium"] { --mq-fs: 1; }
+html[data-mq-font="large"] { font-size: 110%; --mq-fs: 1.1; }
+
+/* ---------- dark theme (same technique as the teacher's own «نمایش پوسته»; a teacher's personal dark theme
+   sets data-teacher-theme instead, so the two never invert twice) ---------- */
+html[data-mq-theme="dark"]:not([data-teacher-theme]) {
+  filter: invert(.9) hue-rotate(180deg);
+  background: #fff;
+}
+html[data-mq-theme="dark"]:not([data-teacher-theme]) :is(img, video, canvas, iframe, picture, .tset-totp-qr) {
+  filter: invert(1) hue-rotate(180deg);
+}
+@media print {
+  html[data-mq-theme="dark"]:not([data-teacher-theme]) { filter: none; }
+  html[data-mq-theme="dark"]:not([data-teacher-theme]) :is(img, video, canvas, iframe, picture, .tset-totp-qr) { filter: none; }
+}

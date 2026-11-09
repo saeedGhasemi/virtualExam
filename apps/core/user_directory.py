@@ -8,6 +8,7 @@ from io import BytesIO
 
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 
 from .views import (
@@ -349,7 +350,8 @@ def super_admin_user_directory(request):
 
     table_rows = [{
         'id': row['id'], 'kind': row['kind'],
-        'link': not (row['kind'] == 'manager' and (row.get('is_admin') or not is_admin)),
+        'url': '' if row['kind'] == 'manager' and (row.get('is_admin') or not is_admin)
+        else reverse('core:super_admin_user_profile', args=[row['kind'], row['id']]),
         'cells': [{
             'key': key, 'label': label, 'default': default, 'style': style,
             'text': _cell_text(row.get(key)),
@@ -369,6 +371,9 @@ def super_admin_user_directory(request):
     return render(request, 'super_admin/user_directory.html', {
         'tab': tab,
         'tab_label': TAB_LABELS[tab],
+        'dir_key': tab,  # column choices are remembered per tab (localStorage mq-user-dir-cols-<tab>)
+        'sheet_title': f'فهرست اطلاعات {TAB_LABELS[tab]}',
+        'is_filtered': bool(query or unit or status or role),
         'tabs': [{'key': key, 'label': TAB_LABELS[key]} for key in tabs],
         'columns': [{'key': key, 'label': label, 'default': default, 'style': style} for key, label, default, style in columns],
         'rows': table_rows,

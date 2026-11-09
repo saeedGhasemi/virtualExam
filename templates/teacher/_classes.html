@@ -1,6 +1,6 @@
 {% load core_extras %}
 {% with cl=class_list %}
-<div class="tclass">
+<div class="tclass" id="teacher-classes-list" data-live-region>
     <header class="tclass-head">
         <div class="tclass-title">
             <i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg></i>
@@ -19,8 +19,8 @@
     <form class="tclass-filters" method="get" action="{% url 'core:teacher_courses' %}">
         <input type="hidden" name="view" value="{{ cl.view }}">
         <label class="tclass-search"><span class="sr-only">جستجو</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ cl.query }}" maxlength="100" placeholder="جستجوی نام درس یا کد کلاس ..."></label>
-        <label class="tclass-select"><span class="sr-only">نیمسال</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><select name="term" onchange="this.form.submit()"><option value="">همه نیمسال‌ها</option>{% for term in cl.terms %}<option value="{{ term.value }}"{% if term.value == cl.term %} selected{% endif %}>{{ term.label }}</option>{% endfor %}</select></label>
-        <label class="tclass-select"><span class="sr-only">وضعیت</span><select name="status" onchange="this.form.submit()">{% for key, label in cl.filters.items %}<option value="{{ key }}"{% if key == cl.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="tclass-select"><span class="sr-only">نیمسال</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><select name="term" onchange="this.form.requestSubmit()"><option value="">همه نیمسال‌ها</option>{% for term in cl.terms %}<option value="{{ term.value }}"{% if term.value == cl.term %} selected{% endif %}>{{ term.label }}</option>{% endfor %}</select></label>
+        <label class="tclass-select"><span class="sr-only">وضعیت</span><select name="status" onchange="this.form.requestSubmit()">{% for key, label in cl.filters.items %}<option value="{{ key }}"{% if key == cl.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
         <nav class="tclass-view-toggle" aria-label="نحوه نمایش">
             <a href="{% query_url view='list' page='' %}" class="{% if cl.view == 'list' %}is-active{% endif %}" aria-label="نمایش فهرستی" title="نمایش فهرستی"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></a>
             <a href="{% query_url view='grid' page='' %}" class="{% if cl.view == 'grid' %}is-active{% endif %}" aria-label="نمایش کارتی" title="نمایش کارتی"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></a>

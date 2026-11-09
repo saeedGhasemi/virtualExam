@@ -86,6 +86,7 @@
   @media(max-width:1100px){.sst-grid,.sst-split{grid-template-columns:1fr}}
   @media(max-width:760px){.sst-fields{grid-template-columns:1fr}.sst-tabs a{flex:none}.sst-head h1{font-size:1.45rem}.sst-footer > .sst-btn{flex:1 1 9rem}}
 </style>
+<div id="student-settings" data-live-region="contents" data-live-scripts>
 <form class="sst" method="post" enctype="multipart/form-data" action="{% url 'core:student_settings' %}?tab={{ tab }}" data-sst-form>
   {% csrf_token %}
   <input type="hidden" name="settings_tab" value="{{ tab }}">
@@ -160,5 +161,6 @@
   });
 })();
 </script>
+</div>
 {% include 'student/_exam_shell_foot.html' %}
 {% endblock %}

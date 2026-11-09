@@ -1,0 +1,8 @@
+{% with view=default|default:"cards" %}<div class="rt-view-switch" data-rt-switch="{{ key }}" data-rt-default="{{ view }}"{% if target %} data-rt-target="{{ target }}"{% endif %} role="group" aria-label="نوع نمایش">
+    <button type="button" data-rt-view="table" aria-pressed="{% if view == 'table' %}true{% else %}false{% endif %}"{% if view == 'table' %} class="is-active"{% endif %} title="نمایش جدولی" aria-label="نمایش جدولی">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    </button>
+    <button type="button" data-rt-view="cards" aria-pressed="{% if view == 'cards' %}true{% else %}false{% endif %}"{% if view == 'cards' %} class="is-active"{% endif %} title="نمایش کارتی" aria-label="نمایش کارتی">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    </button>
+</div>{% endwith %}

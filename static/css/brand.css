@@ -1,0 +1,19 @@
+/* Shared MetaQuizy logo: templates/partials/brand_logo.html. Sizes scale with the root's font-size.
+   Wordmark font: Lalezar (Borna Izadpanah, SIL Open Font License 1.1), static/fonts/Lalezar.woff2.
+   Every selector carries :not(#mq-x) so older page rules such as `.profile-brand span{…}` can't restyle it. */
+@font-face{font-family:"MQ Lalezar";src:url("../fonts/Lalezar.woff2") format("woff2");font-weight:400;font-style:normal;font-display:block}
+.mq-brand:not(#mq-x){display:inline-flex;align-items:center;gap:.5em;width:auto;height:auto;padding:0;margin:0;border-radius:0;background:none;box-shadow:none;direction:rtl;line-height:1;text-decoration:none;white-space:nowrap;vertical-align:middle}
+.mq-brand span:not(#mq-x){width:auto;height:auto;padding:0;margin:0;border-radius:0;background:none;box-shadow:none;place-items:normal;font-size:inherit;letter-spacing:0}
+.mq-brand .mq-brand-mark:not(#mq-x){position:relative;flex:0 0 auto;display:grid;place-items:center;width:1.85em;height:1.85em;border-radius:.56em;background:linear-gradient(140deg,#4f8bff 0%,#2563eb 48%,#3b3fd8 100%);box-shadow:0 .35em .8em -.3em rgba(37,99,235,.55),inset 0 1px 0 rgba(255,255,255,.35);transition:transform .18s ease}
+.mq-brand .mq-brand-mark:not(#mq-x):after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,0) 55%);pointer-events:none}
+.mq-brand .mq-brand-mark svg:not(#mq-x){position:relative;z-index:1;width:62%;height:62%;display:block}
+.mq-brand .mq-brand-text:not(#mq-x){display:flex;flex-direction:column;justify-content:center;gap:.18em;min-width:0}
+.mq-brand .mq-brand-name:not(#mq-x){display:block;font-family:"MQ Lalezar",Vazirmatn,Tahoma,sans-serif;font-weight:400;font-size:1.22em;line-height:1;color:#0b1a3a;padding-top:.08em}
+.mq-brand .mq-brand-tagline:not(#mq-x){display:block;font-family:Vazirmatn,"B Yekan",BYekan,Tahoma,sans-serif;font-weight:600;font-size:.44em;line-height:1;color:#6b7891}
+/* On dark/coloured surfaces add extra="mq-brand--light" */
+.mq-brand--light .mq-brand-name:not(#mq-x){color:#fff}
+.mq-brand--light .mq-brand-tagline:not(#mq-x){color:rgba(255,255,255,.75)}
+a:hover .mq-brand .mq-brand-mark:not(#mq-x){transform:translateY(-1px)}
+/* A collapsed side menu hides the text (label_class="profile-sidebar-label") */
+.profile-sidebar.is-collapsed .mq-brand .mq-brand-text:not(#mq-x){display:none}
+@media print{.mq-brand .mq-brand-mark:not(#mq-x){-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:none}}

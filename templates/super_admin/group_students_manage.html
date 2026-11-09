@@ -62,11 +62,11 @@
             </div>
         </section>
 
-        <section class="gc-card">
+        <section class="gc-card" id="group-students-list" data-live-region>
             <form class="gs-toolbar" method="get">
                 <input type="text" name="q" value="{{ query }}" placeholder="جستجو بر اساس نام یا شماره دانشجویی...">
-                <select name="field" onchange="this.form.submit()"><option value="">همه رشته‌ها</option>{% for f in fields %}<option value="{{ f }}" {% if field_filter == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select>
-                <select name="entry" onchange="this.form.submit()"><option value="">همه ورودی‌ها</option>{% for y in entry_years %}<option value="{{ y }}" {% if entry_filter == y %}selected{% endif %}>{{ y|fa_digits }}</option>{% endfor %}</select>
+                <select name="field" onchange="this.form.requestSubmit()"><option value="">همه رشته‌ها</option>{% for f in fields %}<option value="{{ f }}" {% if field_filter == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select>
+                <select name="entry" onchange="this.form.requestSubmit()"><option value="">همه ورودی‌ها</option>{% for y in entry_years %}<option value="{{ y }}" {% if entry_filter == y %}selected{% endif %}>{{ y|fa_digits }}</option>{% endfor %}</select>
                 <button type="submit" class="btn-secondary"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>جستجو</button>
                 <a class="btn-secondary" href="{{ request.path }}">پاک کردن فیلترها</a>
             </form>
@@ -121,22 +121,31 @@
 
 <script>
 (() => {
-    const form = document.querySelector('[data-remove-form]');
-    const selectAll = document.querySelector('[data-select-all]');
+    // delegated: the list is swapped in place by live-region.js when filters change
+    const form = () => document.querySelector('[data-remove-form]');
     const rowChecks = () => [...document.querySelectorAll('[data-row-check]')];
-    const bulkBtn = document.querySelector('[data-bulk-remove]');
-    const updateBulkBtn = () => { bulkBtn.disabled = !rowChecks().some((c) => c.checked); };
-    selectAll?.addEventListener('change', () => { rowChecks().forEach((c) => c.checked = selectAll.checked); updateBulkBtn(); });
-    rowChecks().forEach((c) => c.addEventListener('change', updateBulkBtn));
-    document.querySelectorAll('[data-remove-one]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            if (!confirm('این دانشجو از گروه حذف شود؟')) return;
-            rowChecks().forEach((c) => c.checked = c.value === btn.dataset.removeOne);
-            form.submit();
-        });
+    const updateBulkBtn = () => {
+        const bulkBtn = document.querySelector('[data-bulk-remove]');
+        if (bulkBtn) bulkBtn.disabled = !rowChecks().some((c) => c.checked);
+    };
+    document.addEventListener('change', (event) => {
+        if (event.target.matches('[data-select-all]')) {
+            rowChecks().forEach((c) => c.checked = event.target.checked);
+            updateBulkBtn();
+        } else if (event.target.matches('[data-row-check]')) {
+            updateBulkBtn();
+        }
     });
-    form.addEventListener('submit', (event) => {
-        if (event.submitter?.dataset.bulkRemove !== undefined || event.submitter === bulkBtn) {
+    document.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-remove-one]');
+        if (!btn) return;
+        if (!confirm('این دانشجو از گروه حذف شود؟')) return;
+        rowChecks().forEach((c) => c.checked = c.value === btn.dataset.removeOne);
+        form().submit();
+    });
+    document.addEventListener('submit', (event) => {
+        if (!event.target.matches('[data-remove-form]')) return;
+        if (event.submitter?.dataset.bulkRemove !== undefined) {
             if (!rowChecks().some((c) => c.checked)) { event.preventDefault(); return; }
             if (!confirm('دانشجویان انتخاب‌شده از گروه حذف شوند؟')) event.preventDefault();
         }

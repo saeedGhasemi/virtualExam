@@ -3,7 +3,7 @@
 {% block title %}{{ title }} | متاکوییز{% endblock %}
 
 {% block content %}
-<section class="super-admin-page" dir="rtl">
+<section class="super-admin-page" id="admin-collection" dir="rtl" data-live-region>
     <div class="super-admin-heading">
         <span class="super-admin-kicker">{{ kicker }}</span>
         <h1>{{ title }}</h1>
@@ -26,7 +26,7 @@
         </div>
     {% endif %}
 
-    <div class="super-admin-card">
+    <div class="super-admin-card" id="collection-list">
         <h2>فهرست</h2>
         <div class="super-admin-list-grid">
             {% for row in rows %}
