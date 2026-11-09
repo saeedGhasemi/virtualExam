@@ -34,7 +34,7 @@
         <div class="sx-form-errors">ورود به این آزمون از {{ access_starts_at|to_jalali }} باز می‌شود.</div>
       {% elif can_start %}
         {% if can_enter %}
-          <form class="sx-start" method="post" action="{% url 'core:student_exam_start' exam.pk %}">{% csrf_token %}<button class="sx-btn primary" style="min-width:320px">شروع آزمون</button></form>
+          <form class="sx-start" method="post" action="{% url 'core:student_exam_start' exam.pk %}">{% csrf_token %}<button class="sx-btn primary" style="min-width:min(320px,100%)">شروع آزمون</button></form>
         {% else %}
           <div class="sx-form-errors">{% if entry_expired %}زمان ورود به این آزمون به پایان رسیده است.{% else %}آزمون هنوز شروع نشده است؛ این صفحه در زمان شروع به‌روز می‌شود.{% endif %}</div>
         {% endif %}
@@ -46,7 +46,7 @@
           {% endif %}
           <label class="sx-accept"><input type="checkbox" name="accept_rules" required> قوانین را می‌پذیرم و متعهد می‌شوم آزمون را منصفانه انجام دهم.</label>
           {% if entry_error %}<div class="sx-form-errors">{{ entry_error }}</div>{% endif %}
-          <div class="sx-start"><button class="sx-btn primary" style="min-width:320px">{% if needs_identity %}تأیید هویت{% else %}ثبت تأیید{% endif %}</button></div>
+          <div class="sx-start"><button class="sx-btn primary" style="min-width:min(320px,100%)">{% if needs_identity %}تأیید هویت{% else %}ثبت تأیید{% endif %}</button></div>
         </form>
       {% endif %}
     </article>

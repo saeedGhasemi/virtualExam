@@ -99,7 +99,11 @@
     @media (max-width:1320px){.super-admin-topbar{grid-template-columns:auto minmax(0,1fr)}}
     /* Phones: the userbar is hidden, only the date stays */
     @media (max-width:760px){.super-admin-topbar{grid-template-columns:1fr auto}.super-admin-userbar{display:flex!important}.super-admin-userbar>:not(.super-admin-today){display:none!important}.super-admin-today{margin:0;height:2.3rem;padding:0 .7rem;font-size:.8rem}.super-admin-today b{font-size:.9rem}}
-    @media (max-width:380px){.super-admin-today svg{display:none}}
+    @media (max-width:380px){.super-admin-today svg{display:none}.super-admin-topbar{padding:0 .75rem}.super-admin-menu-btn{right:.6rem}.super-admin-brand{padding-inline-start:2.9rem;min-width:0}.super-admin-brand .mq-brand-tagline:not(#mq-x){display:none}}
+    /* Very narrow phones: logo mark only, so the brand never runs under the date chip */
+    @media (max-width:350px){.super-admin-brand .mq-brand-text:not(#mq-x){display:none}.super-admin-today{padding:0 .6rem}}
+    /* Very narrow phones: page gutter 10px instead of 16px so content keeps its width */
+    @media (max-width:360px){body:has(.super-admin-chrome) .app-main,body:has(.super-admin-chrome) .sys-shell,body:has(.super-admin-workspace) .super-admin-workspace{padding:.625rem!important}.settings-glass:has(.super-admin-chrome) .settings-hero,.settings-glass:has(.super-admin-chrome) .settings-layout{padding:.625rem}}
 </style>
 <div class="super-admin-chrome" dir="rtl">
     <input type="checkbox" id="super-admin-menu-toggle" class="super-admin-menu-toggle">

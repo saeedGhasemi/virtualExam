@@ -77,3 +77,12 @@ a.subs-tile:hover, a.subs-tile:focus-visible { border-color: #c7d4f5; box-shadow
   .subs-row-head { flex-direction: column; align-items: stretch; gap: .45rem; }
   .subs-row-counts { justify-content: flex-start; }
 }
+
+/* Very narrow phones: one tile per row (icon beside the numbers), notes may wrap instead of being cut. */
+@media (max-width: 360px) {
+  .subs-panel { padding: .8rem; }
+  .subs-tiles { grid-template-columns: minmax(0, 1fr); }
+  .subs-tile { flex-direction: row; align-items: center; }
+  .subs-tile em { white-space: normal; }
+  .subs-more { white-space: normal; }
+}

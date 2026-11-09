@@ -89,7 +89,7 @@
             <div class="exam-actions">
                 <a class="users-primary-action" href="{% url 'core:super_admin_exam_create' %}"><span>+</span>ایجاد آزمون جدید</a>
             </div>
-            <nav class="exam-tabs" id="admin-exams-tabs" data-live-region aria-label="فیلتر وضعیت آزمون">
+            <nav class="exam-tabs" id="admin-exams-tabs" data-live-region data-balance-rows aria-label="فیلتر وضعیت آزمون">
                 <a class="{% if not status_filter %}is-active{% endif %}" href="{% url 'core:super_admin_exams' %}">همه آزمون‌ها</a>
                 <a class="{% if status_filter == 'scheduled' %}is-active{% endif %}" href="?status=scheduled">پیش‌رو</a>
                 <a class="{% if status_filter == 'running' %}is-active{% endif %}" href="?status=running">در حال برگزاری</a>

@@ -252,14 +252,17 @@
       if (!box || !box.clientWidth) return;
       if (table.dataset.rtView === 'cards') { table.classList.add('rt-cards'); return; }
       leadWidths(table);
+      // room = the box's content width (clientWidth includes its padding, so a table could still stick out by the padding)
+      const bs = getComputedStyle(box);
+      const room = box.clientWidth - (parseFloat(bs.paddingLeft) || 0) - (parseFloat(bs.paddingRight) || 0);
       const natural = table.offsetWidth;
-      if (natural <= box.clientWidth + 2 && !spills(table)) return;
+      if (natural <= room + 2 && !spills(table)) return;
       // a little too wide: let long text wrap before giving up the table (much too wide would squeeze every column)
-      if (natural <= box.clientWidth * 1.35) {
+      if (natural <= room * 1.35) {
         table.classList.add('rt-fit');
-        if (table.offsetWidth <= box.clientWidth + 2 && !squeezed(table) && !spills(table)) return;
+        if (table.offsetWidth <= room + 2 && !squeezed(table) && !spills(table)) return;
         table.classList.add('rt-fit-act'); // then let action buttons wrap onto a second line
-        if (table.offsetWidth <= box.clientWidth + 2 && !squeezed(table) && !spills(table)) return;
+        if (table.offsetWidth <= room + 2 && !squeezed(table) && !spills(table)) return;
         table.classList.remove('rt-fit', 'rt-fit-act');
       }
       table.classList.add('rt-cards');
