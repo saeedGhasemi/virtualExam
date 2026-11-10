@@ -10,13 +10,13 @@
   .sap *{box-sizing:border-box}
   .sap a{text-decoration:none;color:inherit}
   .sap svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .sap-breadcrumb{margin:0 0 .3rem;font-size:.82rem;font-weight:800;color:var(--muted)}
-  .sap-head{margin:0 0 1.1rem;font-size:1.85rem;font-weight:950;color:var(--ink)}
+  .sap-breadcrumb{margin:0 0 .3rem;font-size:.82rem;font-weight:600;color:var(--muted)}
+  .sap-head{margin:0 0 1.1rem;font-size:1.85rem;font-weight:800;color:var(--ink)}
   .sap-tabs{display:flex;flex-direction:row-reverse;width:100%;margin:0 0 1rem;padding:.3rem;gap:.4rem;background:rgba(244,248,253,.9);border:1px solid var(--line);border-radius:1rem}
-  .sap-tabs a{display:flex;flex:1;align-items:center;justify-content:center;gap:.5rem;height:3rem;padding:0 1rem;border:1px solid transparent;border-radius:.75rem;background:transparent;color:#54617a;font-weight:900;font-size:.88rem;white-space:nowrap}
+  .sap-tabs a{display:flex;flex:1;align-items:center;justify-content:center;gap:.5rem;height:3rem;padding:0 1rem;border:1px solid transparent;border-radius:.75rem;background:transparent;color:#54617a;font-weight:700;font-size:.88rem;white-space:nowrap}
   .sap-tabs a.is-active{background:#fff;color:var(--blue);border-color:#bfdbfe;box-shadow:0 6px 16px rgba(37,99,235,.14)}
   .sap-card{border:1px solid var(--line);border-radius:1rem;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.05)}
-  .sap-card h2{margin:0 0 .75rem;font-size:.95rem;font-weight:950;color:var(--ink)}
+  .sap-card h2{margin:0 0 .75rem;font-size:.95rem;font-weight:800;color:var(--ink)}
   .sap-pad{padding:1rem}
   .sap-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:.9rem}
   .sap-stat{display:flex;align-items:center;gap:.75rem;padding:.9rem 1rem;border-bottom:3px solid transparent}
@@ -30,13 +30,13 @@
   .sap-stat.tone-purple b{background:#ede9fe;color:#7c3aed}
   .sap-stat.tone-teal{border-bottom-color:#0d9488}
   .sap-stat.tone-teal b{background:#ccfbf1;color:#0d9488}
-  .sap-stat strong{display:block;font-size:1.5rem;font-weight:950;color:var(--ink)}
-  .sap-stat span{color:var(--muted);font-weight:800;font-size:.82rem}
+  .sap-stat strong{display:block;font-size:1.5rem;font-weight:800;color:var(--ink)}
+  .sap-stat span{color:var(--muted);font-weight:600;font-size:.82rem}
   .sap-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:.9rem;align-items:start}
   .sap-layout.is-reverse{grid-template-columns:340px minmax(0,1fr)}
   .sap-side{display:grid;gap:.9rem}
   .sap-list{display:grid;gap:.15rem}
-  .sap-row{display:flex;align-items:center;justify-content:space-between;min-height:2.5rem;border-bottom:1px solid #f1f4f9;font-weight:850;font-size:.9rem}
+  .sap-row{display:flex;align-items:center;justify-content:space-between;min-height:2.5rem;border-bottom:1px solid #f1f4f9;font-weight:600;font-size:.9rem}
   .sap-row:last-child{border-bottom:0}
   .sap-row span{color:var(--muted);display:flex;align-items:center;gap:.5rem}
   .sap-row span svg{width:1rem;height:1rem;flex-shrink:0}
@@ -46,9 +46,9 @@
   .sap-row-icon svg{width:1rem;height:1rem}
   .sap-card h2{display:flex;align-items:center;gap:.4rem}
   .sap-card h2 svg{width:1.05rem;height:1.05rem;color:var(--blue)}
-  .sap-more{display:block;margin-top:.7rem;color:var(--blue);font-weight:900;font-size:.85rem}
+  .sap-more{display:block;margin-top:.7rem;color:var(--blue);font-weight:700;font-size:.85rem}
   .sap-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
-  .sap-shortcuts a{display:flex;align-items:center;justify-content:space-between;min-height:3.5rem;border:1px solid var(--line);border-radius:.75rem;padding:0 1rem;color:var(--ink);font-weight:900;transition:border-color .15s,background .15s}
+  .sap-shortcuts a{display:flex;align-items:center;justify-content:space-between;min-height:3.5rem;border:1px solid var(--line);border-radius:.75rem;padding:0 1rem;color:var(--ink);font-weight:700;transition:border-color .15s,background .15s}
   .sap-shortcuts a:hover{border-color:var(--blue);background:#f5f8ff}
   .sap-shortcut-main{display:flex;align-items:center;gap:.65rem}
   .sap-shortcut-icon{display:grid;width:2.3rem;height:2.3rem;flex-shrink:0;place-items:center;border-radius:.65rem;background:#eef2f7;color:var(--blue)}
@@ -61,25 +61,25 @@
   .sap-activity-icon.tone-red{background:#fee2e2;color:#ef4444}
   .sap-activity-icon.tone-blue{background:#dbeafe;color:#2563eb}
   .sap-activity-icon.tone-purple{background:#ede9fe;color:#7c3aed}
-  .sap-activity time{display:block;color:var(--muted);font-size:.78rem;font-weight:800}
-  .sap-activity strong{display:block;font-weight:900}
-  .sap-chip{display:inline-flex;align-items:center;gap:.35rem;height:1.7rem;border-radius:999px;padding:0 .7rem;font-weight:900;font-size:.78rem}
+  .sap-activity time{display:block;color:var(--muted);font-size:.78rem;font-weight:600}
+  .sap-activity strong{display:block;font-weight:700}
+  .sap-chip{display:inline-flex;align-items:center;gap:.35rem;height:1.7rem;border-radius:999px;padding:0 .7rem;font-weight:700;font-size:.78rem}
   .sap-chip.green{background:#dcfce7;color:#16a34a}
   .sap-chip.blue{background:#dbeafe;color:#2563eb}
   .sap-chip.gray{background:#eef2f7;color:#5a6a85}
   .sap-hero{padding:1.15rem}
   .sap-hero-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.4rem}
-  .sap-avatar{position:relative;display:grid;width:5.2rem;height:5.2rem;place-items:center;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#5d16ef,#0b65ff);color:#fff;font-size:1.8rem;font-weight:950}
+  .sap-avatar{position:relative;display:grid;width:5.2rem;height:5.2rem;place-items:center;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#5d16ef,#0b65ff);color:#fff;font-size:1.8rem;font-weight:800}
   .sap-avatar img{width:100%;height:100%;object-fit:cover}
-  .sap-hero-top h3{margin:.15rem 0 0;font-size:1.1rem;font-weight:950;color:var(--ink)}
+  .sap-hero-top h3{margin:.15rem 0 0;font-size:1.1rem;font-weight:800;color:var(--ink)}
   .sap-hero-chips{display:flex;gap:.4rem}
   .sap-detail{display:grid;gap:.1rem;margin-top:.85rem}
-  .sap-detail-row{display:flex;align-items:center;justify-content:space-between;min-height:2.3rem;border-bottom:1px solid #f1f4f9;font-weight:850;font-size:.85rem}
+  .sap-detail-row{display:flex;align-items:center;justify-content:space-between;min-height:2.3rem;border-bottom:1px solid #f1f4f9;font-weight:600;font-size:.85rem}
   .sap-detail-row:last-child{border-bottom:0}
   .sap-detail-row span{color:var(--muted);display:flex;align-items:center;gap:.4rem}
   .sap-detail-row span svg{width:.95rem;height:.95rem}
   .sap-progress-wrap{margin-top:.85rem}
-  .sap-progress-head{display:flex;justify-content:space-between;font-weight:900;font-size:.82rem;color:var(--muted);margin-bottom:.4rem}
+  .sap-progress-head{display:flex;justify-content:space-between;font-weight:700;font-size:.82rem;color:var(--muted);margin-bottom:.4rem}
   .sap-progress{height:.5rem;border-radius:99px;background:#eef2f7;overflow:hidden}
   .sap-progress i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#5d16ef,#315cff)}
   .sap-score-card{display:flex;align-items:center;gap:1.5rem;padding:1.15rem 1.5rem}
@@ -88,24 +88,24 @@
   .sap-score-status{flex:1;min-width:0}
   .sap-score-visual{display:flex;align-items:center;gap:1rem}
   .sap-ring{display:grid;width:5.5rem;height:5.5rem;flex-shrink:0;place-items:center;border-radius:50%;background:conic-gradient(#16a34a calc(var(--score)*1%),#eef2f7 0)}
-  .sap-ring span{display:grid;width:4.2rem;height:4.2rem;place-items:center;border-radius:50%;background:#fff;font-size:1.05rem;font-weight:950;color:#16a34a}
+  .sap-ring span{display:grid;width:4.2rem;height:4.2rem;place-items:center;border-radius:50%;background:#fff;font-size:1.05rem;font-weight:800;color:#16a34a}
   .sap-score-bar{width:9rem}
   .sap-score-bar .sap-progress{height:.55rem}
-  .sap-score-bar span{display:block;margin-top:.4rem;font-size:.75rem;font-weight:850;color:var(--muted)}
+  .sap-score-bar span{display:block;margin-top:.4rem;font-size:.75rem;font-weight:600;color:var(--muted)}
   .sap-security-grid{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:.9rem;align-items:start}
-  .sap-field{display:grid;gap:.35rem;font-weight:900;font-size:.85rem;margin-bottom:.7rem}
-  .sap-field input,.sap-field select,.sap-field textarea{width:100%;height:2.8rem;border:1px solid var(--line);border-radius:.6rem;background:#fff;padding:0 .9rem;text-align:right;outline:0;font-weight:800;color:var(--ink)}
+  .sap-field{display:grid;gap:.35rem;font-weight:700;font-size:.85rem;margin-bottom:.7rem}
+  .sap-field input,.sap-field select,.sap-field textarea{width:100%;height:2.8rem;border:1px solid var(--line);border-radius:.6rem;background:#fff;padding:0 .9rem;text-align:right;outline:0;font-weight:600;color:var(--ink)}
   .sap-field textarea{height:5rem;padding-top:.6rem;resize:vertical}
   .sap-field.is-locked input{background:#f4f6fa;color:var(--muted)}
-  .sap-btn{display:inline-flex;height:2.6rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.65rem;padding:0 1.1rem;border:0;background:linear-gradient(135deg,#5d16ef,#315cff);color:#fff;font-weight:900;cursor:pointer}
+  .sap-btn{display:inline-flex;height:2.6rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.65rem;padding:0 1.1rem;border:0;background:linear-gradient(135deg,#5d16ef,#315cff);color:#fff;font-weight:700;cursor:pointer}
   .sap-btn.is-outline{background:#fff;border:1px solid var(--line);color:var(--ink)}
   .sap-btn.is-danger{background:#fff;border:1px solid #fecaca;color:#ef4444}
   .sap-btn.is-block{width:100%}
   .sap-btn:disabled{opacity:.55;cursor:not-allowed}
-  .sap-soon{display:inline-flex;align-items:center;height:1.5rem;border-radius:999px;padding:0 .55rem;background:#fff7ed;color:#c2760f;font-size:.72rem;font-weight:900}
+  .sap-soon{display:inline-flex;align-items:center;height:1.5rem;border-radius:999px;padding:0 .55rem;background:#fff7ed;color:#c2760f;font-size:.72rem;font-weight:700}
   table.sap-table{width:100%;border-collapse:collapse;font-size:.85rem}
-  table.sap-table th{color:var(--muted);font-weight:850;text-align:right;padding:.5rem .3rem;border-bottom:1px solid var(--line)}
-  table.sap-table td{padding:.65rem .3rem;border-bottom:1px solid #f1f4f9;font-weight:800}
+  table.sap-table th{color:var(--muted);font-weight:600;text-align:right;padding:.5rem .3rem;border-bottom:1px solid var(--line)}
+  table.sap-table td{padding:.65rem .3rem;border-bottom:1px solid #f1f4f9;font-weight:600}
   .sap-toggle-row{display:flex;align-items:center;justify-content:space-between;min-height:2.9rem;border-bottom:1px solid #f1f4f9}
   .sap-toggle-row:last-child{border-bottom:0}
   .sap-toggle{position:relative;display:inline-flex;width:2.7rem;height:1.5rem;border-radius:999px;background:#d7dee9;flex-shrink:0}
@@ -114,17 +114,17 @@
   .sap-toggle input:checked + i{right:1.38rem;background:#fff}
   .sap-toggle:has(input:checked){background:var(--blue)}
   .sap-danger-note{border:1px solid #fecaca;background:#fff5f5;border-radius:1rem;padding:1rem}
-  .sap-danger-note p{margin:0 0 .75rem;color:#b91c1c;font-weight:850;font-size:.85rem}
+  .sap-danger-note p{margin:0 0 .75rem;color:#b91c1c;font-weight:600;font-size:.85rem}
   .sap-session-current{display:flex;align-items:center;gap:.75rem;padding:.85rem;border:1px solid var(--line);border-radius:.8rem}
   .sap-session-current b{display:grid;width:2.6rem;height:2.6rem;flex-shrink:0;place-items:center;border-radius:.7rem;background:#eef2f7;color:var(--blue)}
   .sap-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1.4rem}
   .sap-form-grid .sap-field.is-full{grid-column:1/-1}
-  .sap-note{margin:0 0 1rem;padding:.75rem 1rem;border-radius:.6rem;background:#eef2f7;color:var(--muted);font-weight:800;font-size:.8rem}
+  .sap-note{margin:0 0 1rem;padding:.75rem 1rem;border-radius:.6rem;background:#eef2f7;color:var(--muted);font-weight:600;font-size:.8rem}
   .sap-save-row{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:.4rem;padding-top:1.1rem}
-  .sap-save-row span{color:var(--muted);font-weight:800;font-size:.8rem}
+  .sap-save-row span{color:var(--muted);font-weight:600;font-size:.8rem}
   .sap-avatar-card{text-align:center;padding:1.1rem}
   .sap-avatar-card .sap-avatar{margin:0 auto .7rem}
-  .sap-avatar-card small{display:block;margin-top:.6rem;color:var(--muted);font-weight:800;font-size:.75rem}
+  .sap-avatar-card small{display:block;margin-top:.6rem;color:var(--muted);font-weight:600;font-size:.75rem}
   @media (max-width:640px){.sap-score-card{flex-wrap:wrap;gap:1rem;padding:1rem}.sap-score-status{flex:1 1 calc(100% - 4.6rem)}.sap-score-visual{flex:1 1 100%;justify-content:space-between}.sap-score-bar{flex:1;width:auto}}
   @media (max-width:1200px){.sap-security-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
   @media (max-width:980px){.sap-layout,.sap-layout.is-reverse,.sap-form-grid{grid-template-columns:1fr}.sap-stats{grid-template-columns:1fr 1fr}}
@@ -150,7 +150,7 @@
             <div class="sap-score-status">
                 <h2>وضعیت امنیت حساب</h2>
                 <span class="sap-chip {% if security_score >= 80 %}green{% else %}blue{% endif %}">{% if security_score >= 80 %}مناسب{% else %}قابل بهبود{% endif %}</span>
-                <p style="margin:.7rem 0 0;color:var(--muted);font-weight:800;font-size:.85rem">{% if not two_factor.enabled %}برای امنیت بیشتر، ورود دومرحله‌ای را فعال کنید{% if not profile.phone %} و شماره همراه را ثبت کنید{% endif %}.{% elif not profile.phone %}شماره همراه خود را برای بازیابی حساب ثبت کنید.{% else %}حساب شما با رمز عبور و ورود دومرحله‌ای محافظت می‌شود.{% endif %}</p>
+                <p style="margin:.7rem 0 0;color:var(--muted);font-weight:600;font-size:.85rem">{% if not two_factor.enabled %}برای امنیت بیشتر، ورود دومرحله‌ای را فعال کنید{% if not profile.phone %} و شماره همراه را ثبت کنید{% endif %}.{% elif not profile.phone %}شماره همراه خود را برای بازیابی حساب ثبت کنید.{% else %}حساب شما با رمز عبور و ورود دومرحله‌ای محافظت می‌شود.{% endif %}</p>
             </div>
             <div class="sap-score-visual">
                 <div class="sap-score-bar"><div class="sap-progress"><i style="width:{{ security_score }}%"></i></div><span>امتیاز امنیتی</span></div>
@@ -162,7 +162,7 @@
             <article class="sap-card sap-pad" id="sap-password">
                 <h2>رمز عبور</h2>
                 {% password_state as pw %}
-                <p style="margin:0 0 .8rem;color:var(--muted);font-weight:800;font-size:.85rem">آخرین تغییر: {% if pw.changed_at %}{{ pw.changed_at|to_jalali }}{% else %}ثبت نشده{% endif %}</p>
+                <p style="margin:0 0 .8rem;color:var(--muted);font-weight:600;font-size:.85rem">آخرین تغییر: {% if pw.changed_at %}{{ pw.changed_at|to_jalali }}{% else %}ثبت نشده{% endif %}</p>
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="form" value="password">
@@ -183,9 +183,9 @@
                     </div>
                 {% endif %}
                 {% if not two_factor.available %}
-                    <p style="color:var(--muted);font-weight:800;font-size:.85rem">کتابخانه‌های ورود دومرحله‌ای روی سرور نصب نیست.</p>
+                    <p style="color:var(--muted);font-weight:600;font-size:.85rem">کتابخانه‌های ورود دومرحله‌ای روی سرور نصب نیست.</p>
                 {% elif two_factor.enabled %}
-                    <p style="color:var(--muted);font-weight:800;font-size:.85rem;margin-bottom:.6rem">هنگام ورود، کد برنامه‌ی Authenticator خواسته می‌شود · {{ two_factor.recovery_left|fa_digits }} کد بازیابی باقی مانده</p>
+                    <p style="color:var(--muted);font-weight:600;font-size:.85rem;margin-bottom:.6rem">هنگام ورود، کد برنامه‌ی Authenticator خواسته می‌شود · {{ two_factor.recovery_left|fa_digits }} کد بازیابی باقی مانده</p>
                     <label class="sap-field">رمز عبور فعلی<input type="password" name="security_password" autocomplete="current-password" form="sap-security-form"></label>
                     <label class="sap-field">کد Authenticator (فقط برای غیرفعال‌سازی)<input name="totp_code" autocomplete="one-time-code" maxlength="12" dir="ltr" form="sap-security-form"></label>
                     <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -195,13 +195,13 @@
                 {% elif two_factor.setup_secret %}
                     <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start">
                         <div style="width:140px" aria-label="کد QR برای برنامه‌ی Authenticator">{{ two_factor.setup_qr }}</div>
-                        <p style="margin:0;color:var(--muted);font-weight:800;font-size:.82rem;line-height:1.9">کد QR را با برنامه‌ی Authenticator اسکن کنید، یا این کلید را دستی وارد کنید: <bdi dir="ltr">{{ two_factor.setup_secret }}</bdi></p>
+                        <p style="margin:0;color:var(--muted);font-weight:600;font-size:.82rem;line-height:1.9">کد QR را با برنامه‌ی Authenticator اسکن کنید، یا این کلید را دستی وارد کنید: <bdi dir="ltr">{{ two_factor.setup_secret }}</bdi></p>
                     </div>
                     <label class="sap-field">کد ۶ رقمی برنامه<input name="totp_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" form="sap-security-form"></label>
                     <label class="sap-field">رمز عبور فعلی<input type="password" name="security_password" autocomplete="current-password" form="sap-security-form"></label>
                     <button class="sap-btn is-block" type="submit" form="sap-security-form" name="security_action" value="totp_confirm">تأیید و فعال‌سازی</button>
                 {% else %}
-                    <p style="color:var(--muted);font-weight:800;font-size:.85rem;margin-bottom:1rem">با فعال‌سازی، هنگام ورود علاوه بر رمز عبور، کد برنامه‌ی Authenticator (مثل Google Authenticator) هم خواسته می‌شود.</p>
+                    <p style="color:var(--muted);font-weight:600;font-size:.85rem;margin-bottom:1rem">با فعال‌سازی، هنگام ورود علاوه بر رمز عبور، کد برنامه‌ی Authenticator (مثل Google Authenticator) هم خواسته می‌شود.</p>
                     <button class="sap-btn is-block" type="submit" form="sap-security-form" name="security_action" value="totp_start">فعال‌سازی ورود دومرحله‌ای</button>
                 {% endif %}
             </article>
@@ -213,13 +213,13 @@
                         <b><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4"/></svg></b>
                         <div>
                             <strong>{{ item.device }}</strong>
-                            <small style="color:var(--muted);font-weight:800">IP: <bdi dir="ltr">{{ item.ip }}</bdi> · ورود {{ item.created_label }}</small>
+                            <small style="color:var(--muted);font-weight:600">IP: <bdi dir="ltr">{{ item.ip }}</bdi> · ورود {{ item.created_label }}</small>
                         </div>
                         {% if item.is_current %}<span class="sap-chip green" style="margin-right:auto">این دستگاه</span>
                         {% else %}<button class="sap-btn is-outline" style="margin-right:auto" type="submit" form="sap-security-form" name="security_action" value="end_session:{{ item.key }}">خروج</button>{% endif %}
                     </div>
                 {% empty %}
-                    <p style="color:var(--muted);font-weight:800">نشستی یافت نشد.</p>
+                    <p style="color:var(--muted);font-weight:600">نشستی یافت نشد.</p>
                 {% endfor %}
                 <form method="post" style="margin-top:1rem">
                     {% csrf_token %}
@@ -248,7 +248,7 @@
                     </table>
                 </div>
             {% else %}
-                <p style="color:var(--muted);font-weight:800">هنوز ورودی برای این حساب ثبت نشده است.</p>
+                <p style="color:var(--muted);font-weight:600">هنوز ورودی برای این حساب ثبت نشده است.</p>
             {% endif %}
         </section>
 
@@ -281,7 +281,7 @@
                             <input value="••••••••" dir="ltr" readonly aria-label="رمز عبور (به‌صورت رمزنگاری‌شده ذخیره می‌شود و قابل نمایش نیست)" style="flex:1">
                             <a class="sap-btn is-outline" href="?section=security#sap-password">تغییر رمز</a>
                         </div>
-                        <small style="color:var(--muted);font-weight:700">آخرین تغییر: {% if pw.changed_at %}{{ pw.changed_at|to_jalali }}{% else %}ثبت نشده{% endif %} · رمز عبور به‌صورت رمزنگاری‌شده نگه‌داری می‌شود و برای هیچ‌کس، حتی مدیر سیستم، قابل مشاهده نیست.</small>
+                        <small style="color:var(--muted);font-weight:600">آخرین تغییر: {% if pw.changed_at %}{{ pw.changed_at|to_jalali }}{% else %}ثبت نشده{% endif %} · رمز عبور به‌صورت رمزنگاری‌شده نگه‌داری می‌شود و برای هیچ‌کس، حتی مدیر سیستم، قابل مشاهده نیست.</small>
                     </div>
                 </div>
                 <h2 style="margin-top:.4rem">اطلاعات تماس</h2>
@@ -420,7 +420,7 @@
                                 <div><strong>{{ item.label }}</strong><time>{{ item.created_at|to_jalali|default:item.created_at|fa_digits }}</time></div>
                             </div>
                         {% empty %}
-                            <p style="color:var(--muted);font-weight:800">هنوز فعالیتی برای این حساب ثبت نشده است.</p>
+                            <p style="color:var(--muted);font-weight:600">هنوز فعالیتی برای این حساب ثبت نشده است.</p>
                         {% endfor %}
                     </article>
 

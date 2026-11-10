@@ -217,21 +217,21 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
 <style>
     .qb2-grid2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;align-items:start}
     .qb2-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;align-items:start}
-    .qb2-subhead{margin:1rem 0 .5rem;font-size:.85rem;font-weight:900;color:#1e293b}
-    .qb2-note{margin:.75rem 0 0;padding:.65rem .85rem;border-radius:.7rem;background:#eef4ff;color:#1e3a8a;font-size:.78rem;font-weight:800}
+    .qb2-subhead{margin:1rem 0 .5rem;font-size:.85rem;font-weight:700;color:#1e293b}
+    .qb2-note{margin:.75rem 0 0;padding:.65rem .85rem;border-radius:.7rem;background:#eef4ff;color:#1e3a8a;font-size:.78rem;font-weight:600}
     .qb2-note:empty{display:none}
     .qb2-inline{flex-direction:row;align-items:center;gap:.6rem;margin:0;font-size:.75rem}
     .qb2-narrow{max-width:14rem;margin-top:.8rem}
     .qb2-actions{display:flex;flex-wrap:wrap;gap:.6rem}
     .qb2-table-wrap{overflow-x:auto}
     .qb2-matrix{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--qb-line);border-radius:.8rem;overflow:hidden;font-size:.8rem}
-    .qb2-matrix th{padding:.5rem;background:#f8fafc;color:#475569;font-size:.72rem;font-weight:900;text-align:center}
+    .qb2-matrix th{padding:.5rem;background:#f8fafc;color:#475569;font-size:.72rem;font-weight:700;text-align:center}
     .qb2-matrix td{padding:.4rem;border-top:1px solid var(--qb-line);text-align:center;vertical-align:middle}
     .qb2-matrix td input[type=text],.qb2-matrix th input[type=text]{height:2.3rem;font-size:.78rem}
     .qb2-matrix th .qb2-col{display:flex;gap:.3rem;align-items:center;min-width:8rem}
     .qb2-matrix select{height:2.3rem;min-width:4.5rem}
     .qb2-matrix tr.is-selected td{background:#eef4ff}
-    .qb2-num{display:inline-grid;place-items:center;width:1.9rem;height:1.9rem;border-radius:999px;background:#dbeafe;color:var(--qb-blue);font-weight:900}
+    .qb2-num{display:inline-grid;place-items:center;width:1.9rem;height:1.9rem;border-radius:999px;background:#dbeafe;color:var(--qb-blue);font-weight:700}
     .qb2-label-editor{display:grid;grid-template-columns:1fr auto;gap:.8rem}
     .qb2-label-canvas{position:relative;min-height:16rem;border:1px solid var(--qb-line);border-radius:.9rem;background:#f8fafc;overflow:hidden;user-select:none}
     .qb2-label-canvas img{display:block;width:100%;height:auto;cursor:crosshair}
@@ -241,11 +241,11 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
     /* With an image the canvas is exactly the image, so marker percentages match the student view. */
     .qb2-label-canvas:has(img:not([hidden])){min-height:0;align-self:start}
     .qb2-label-empty svg{width:2.2rem;height:2.2rem}
-    .qb2-pin{position:absolute;transform:translate(50%,-50%);display:grid;place-items:center;width:2rem;height:2rem;border:2px solid #fff;border-radius:999px;background:var(--qb-blue);color:#fff;font-size:.82rem;font-weight:900;box-shadow:0 4px 12px rgba(37,99,235,.35);cursor:pointer;padding:0}
+    .qb2-pin{position:absolute;transform:translate(50%,-50%);display:grid;place-items:center;width:2rem;height:2rem;border:2px solid #fff;border-radius:999px;background:var(--qb-blue);color:#fff;font-size:.82rem;font-weight:700;box-shadow:0 4px 12px rgba(37,99,235,.35);cursor:pointer;padding:0}
     .qb2-pin.is-selected{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.3)}
     .qb2-label-canvas.is-move .qb2-pin{cursor:grab}
     .qb2-label-tools{display:flex;flex-direction:column;gap:.45rem;width:6.5rem}
-    .qb2-label-tools button{display:grid;justify-items:center;gap:.2rem;padding:.55rem .3rem;border:1px solid var(--qb-line);border-radius:.75rem;background:#fff;color:#475569;font-size:.7rem;font-weight:900;cursor:pointer}
+    .qb2-label-tools button{display:grid;justify-items:center;gap:.2rem;padding:.55rem .3rem;border:1px solid var(--qb-line);border-radius:.75rem;background:#fff;color:#475569;font-size:.7rem;font-weight:700;cursor:pointer}
     .qb2-label-tools button.is-active{border-color:#bfdbfe;background:var(--qb-blue-soft);color:var(--qb-blue)}
     .qb2-label-tools button:disabled{cursor:not-allowed;opacity:.6}
     .qb2-label-tools .qb-dev-badge{margin:0}
@@ -254,7 +254,7 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
     .qb2-attach{display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;font-size:.78rem}
     .qb2-attach img{width:3rem;height:3rem;border-radius:.5rem;object-fit:cover}
     .qb2-label-tools svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:1.7}
-    .qb2-text{position:absolute;transform:translate(-50%,-50%);padding:.1rem .45rem;border:1px dashed #94a3b8;border-radius:.4rem;background:rgba(255,255,255,.92);color:#0f172a;font-size:.78rem;font-weight:900;white-space:nowrap;cursor:pointer}
+    .qb2-text{position:absolute;transform:translate(-50%,-50%);padding:.1rem .45rem;border:1px dashed #94a3b8;border-radius:.4rem;background:rgba(255,255,255,.92);color:#0f172a;font-size:.78rem;font-weight:700;white-space:nowrap;cursor:pointer}
     .qb2-text.is-selected{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.3)}
     .qb2-label-canvas.is-text img{cursor:text}
     .qb2-text-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
@@ -268,12 +268,12 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
     /* image hotspot editor */
     .qb2-hot-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.7rem}
     .qb2-hot-shapes{display:flex;gap:.45rem}
-    .qb2-hot-shapes button{display:grid;justify-items:center;gap:.15rem;min-width:5.4rem;padding:.45rem .6rem;border:1px solid var(--qb-line);border-radius:.7rem;background:#fff;color:#475569;font-size:.72rem;font-weight:900;cursor:pointer}
+    .qb2-hot-shapes button{display:grid;justify-items:center;gap:.15rem;min-width:5.4rem;padding:.45rem .6rem;border:1px solid var(--qb-line);border-radius:.7rem;background:#fff;color:#475569;font-size:.72rem;font-weight:700;cursor:pointer}
     .qb2-hot-shapes button.is-active{border-color:#93c5fd;background:var(--qb-blue-soft);color:var(--qb-blue)}
     .qb2-hot-shapes svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
     .qb2-hot-zoom{display:flex;align-items:center;gap:.3rem;direction:ltr}
-    .qb2-hot-zoom button{display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-width:2.2rem;height:2.2rem;padding:0 .5rem;border:1px solid var(--qb-line);border-radius:.55rem;background:#fff;color:#334155;font:inherit;font-size:.85rem;font-weight:900;cursor:pointer}
-    .qb2-hot-zoom output{min-width:3.2rem;text-align:center;font-size:.78rem;font-weight:900;color:#334155}
+    .qb2-hot-zoom button{display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-width:2.2rem;height:2.2rem;padding:0 .5rem;border:1px solid var(--qb-line);border-radius:.55rem;background:#fff;color:#334155;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+    .qb2-hot-zoom output{min-width:3.2rem;text-align:center;font-size:.78rem;font-weight:700;color:#334155}
     .qb2-hot-reset{direction:rtl}
     .qb2-hot-reset svg{width:1rem;height:1rem}
     .qb2-hot-viewport{max-height:34rem;overflow:auto;border:1px solid var(--qb-line);border-radius:.9rem;background:#f8fafc}
@@ -285,13 +285,13 @@ as JSON in matrix_json / label_markers_json; every other field is a plain named 
     .qb2-hot-svg .hs-shape.is-selected{fill:rgba(37,99,235,.3);stroke:#1d4ed8;stroke-dasharray:6 4}
     .qb2-hot-svg .hs-draft{fill:rgba(79,70,229,.12);stroke:#4f46e5;stroke-width:2;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;pointer-events:none}
     .qb2-hot-handle{position:absolute;width:.9rem;height:.9rem;margin:-.45rem 0 0 -.45rem;border:2px solid #4f46e5;border-radius:999px;background:#fff;cursor:move;padding:0}
-    .qb2-hot-badge{position:absolute;display:grid;place-items:center;width:1.6rem;height:1.6rem;margin:-.8rem 0 0 -.8rem;border:2px solid #fff;border-radius:999px;background:#2563eb;color:#fff;font-size:.72rem;font-weight:900;pointer-events:none;box-shadow:0 3px 8px rgba(37,99,235,.35)}
-    .qb2-hot-file{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.6rem;color:#64748b;font-size:.75rem;font-weight:800}
+    .qb2-hot-badge{position:absolute;display:grid;place-items:center;width:1.6rem;height:1.6rem;margin:-.8rem 0 0 -.8rem;border:2px solid #fff;border-radius:999px;background:#2563eb;color:#fff;font-size:.72rem;font-weight:700;pointer-events:none;box-shadow:0 3px 8px rgba(37,99,235,.35)}
+    .qb2-hot-file{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.6rem;color:#64748b;font-size:.75rem;font-weight:600}
     .qb2-hot-file[hidden]{display:none}
-    .qb2-shape-cell{display:inline-flex;align-items:center;gap:.35rem;font-weight:800}
+    .qb2-shape-cell{display:inline-flex;align-items:center;gap:.35rem;font-weight:600}
     .qb2-shape-cell svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:1.7}
     .qb2-row-actions{display:inline-flex;gap:.35rem}
-    .qb2-row-actions button{display:inline-flex;align-items:center;gap:.25rem;height:2rem;padding:0 .6rem;border:1px solid #bfdbfe;border-radius:.5rem;background:#fff;color:var(--qb-blue);font:inherit;font-size:.72rem;font-weight:900;cursor:pointer}
+    .qb2-row-actions button{display:inline-flex;align-items:center;gap:.25rem;height:2rem;padding:0 .6rem;border:1px solid #bfdbfe;border-radius:.5rem;background:#fff;color:var(--qb-blue);font:inherit;font-size:.72rem;font-weight:700;cursor:pointer}
     .qb2-row-actions button.is-danger{border-color:#fecaca;color:#dc2626}
     @media (max-width:900px){.qb2-grid2,.qb2-grid3{grid-template-columns:1fr}.qb2-label-editor{grid-template-columns:1fr}.qb2-label-tools{flex-direction:row;flex-wrap:wrap;width:auto}}
 </style>

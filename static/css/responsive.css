@@ -351,7 +351,7 @@ pre { max-width: 100%; overflow-x: auto; }
   .qb-card .qb-blank .qf-media-buttons { justify-content: flex-start; flex-wrap: wrap; }
 }
 @media (max-width: 1279px) {
-  .qb-blank label[title] { justify-content: flex-start; align-items: center; gap: .4rem; color: #475569; font-size: .72rem; font-weight: 800; }
+  .qb-blank label[title] { justify-content: flex-start; align-items: center; gap: .4rem; color: #475569; font-size: .72rem; font-weight: 600; }
   .qb-blank label[title]::after { content: attr(title); }
 }
 @media (min-width: 1280px), (min-width: 901px) and (max-width: 1100px) {
@@ -370,7 +370,7 @@ pre { max-width: 100%; overflow-x: auto; }
   .qb-essay-rubric .qb-rubric tbody tr:first-child { border-top: 0; }
   .qb-essay-rubric .qb-rubric tbody td { display: block; padding: 0; border: 0; min-width: 0; }
   .qb-essay-rubric .qb-rubric tbody td:first-child { grid-column: 1 / -1; }
-  .qb-essay-rubric .qb-rubric tbody td::before { display: block; margin-bottom: .2rem; color: #475569; font-size: .68rem; font-weight: 900; }
+  .qb-essay-rubric .qb-rubric tbody td::before { display: block; margin-bottom: .2rem; color: #475569; font-size: .68rem; font-weight: 700; }
   .qb-essay-rubric .qb-rubric tbody td:nth-child(1)::before { content: "معیار"; }
   .qb-essay-rubric .qb-rubric tbody td:nth-child(2)::before { content: "عملکرد ضعیف"; }
   .qb-essay-rubric .qb-rubric tbody td:nth-child(3)::before { content: "عملکرد متوسط"; }
@@ -556,7 +556,7 @@ table td.rt-act .rt-ico.rt-ico.rt-ico.is-ghost { border-color: transparent; back
 table td.rt-act .rt-ico.rt-ico.rt-ico.is-ghost:hover, table td.rt-act .rt-ico.rt-ico.rt-ico.is-ghost:focus-visible { background: #eef3ff; box-shadow: none; }
 table td.rt-act .rt-ico.rt-ico.rt-ico:is([disabled], [aria-disabled="true"]) { border-color: #e2e8f0; background: #f8fafc; color: #94a3b8; box-shadow: none; cursor: not-allowed; transform: none; }
 .rt-ico .rt-ico-label { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.rt-ico .rt-ico-badge { position: absolute; top: -.45rem; inset-inline-end: -.45rem; min-width: 1.15rem; height: 1.15rem; padding: 0 .25rem; border: 2px solid #fff; border-radius: 999px; background: #f59e0b; color: #fff; font-size: .62rem; font-weight: 900; line-height: .8rem; text-align: center; }
+.rt-ico .rt-ico-badge { position: absolute; top: -.45rem; inset-inline-end: -.45rem; min-width: 1.15rem; height: 1.15rem; padding: 0 .25rem; border: 2px solid #fff; border-radius: 999px; background: #f59e0b; color: #fff; font-size: .62rem; font-weight: 700; line-height: .8rem; text-align: center; }
 table td.rt-act > :is(div, nav, span):has(> .rt-ico), table td.rt-act:has(> .rt-ico) { gap: .4rem; }
 table.rt-fit.rt-fit.rt-fit > :is(thead, tbody) > tr > :is(th, td) { width: auto !important; }
 table.rt-fit.rt-fit.rt-fit > :is(thead, tbody) > tr > :is(th, td):not(.rt-head) { min-width: 0 !important; }
@@ -567,7 +567,7 @@ table.rt-fit-act > tbody > tr > td.rt-act { white-space: normal !important; }
 table.rt-fit-act > tbody > tr > td.rt-act :is(a, button) { white-space: nowrap !important; }
 /* table/card view switch (users hub); phones always show cards */
 .rt-view-switch { display: inline-flex; align-items: center; gap: .2rem; padding: .25rem; border: 1px solid #dbe3f0; border-radius: .8rem; background: #fff; flex: none; }
-.rt-view-switch button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; height: 2.25rem; width: 2.4rem; padding: 0; border: 0; border-radius: .6rem; background: transparent; color: #64748b; font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; transition: background .15s, color .15s; }
+.rt-view-switch button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; height: 2.25rem; width: 2.4rem; padding: 0; border: 0; border-radius: .6rem; background: transparent; color: #64748b; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
 .rt-view-switch button:hover { color: #1d4ed8; background: #f1f5ff; }
 .rt-view-switch button.is-active { background: #2563eb; color: #fff; box-shadow: 0 6px 14px rgba(37, 99, 235, .25); }
 .rt-view-switch svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -594,13 +594,13 @@ table.rt-fit-act > tbody > tr > td.rt-act :is(a, button) { white-space: nowrap !
   table.rt-cards > tbody > tr > td:last-child { border-bottom: 0 !important; }
   table.rt-cards.rt-cards > tbody > tr > td { height: auto !important; } /* page rules fix cell heights (44px) that cut multi-line card rows */
   :has(> table.rt-cards) { overflow: visible !important; max-height: none !important; } /* card tables need no scrolling wrapper: the page scrolls */
-  table.rt-cards > tbody > tr > td::before { content: attr(data-label); flex: 0 0 auto; max-width: 42%; color: #64748b; font-size: .78rem; font-weight: 800; text-align: right; white-space: normal; }
+  table.rt-cards > tbody > tr > td::before { content: attr(data-label); flex: 0 0 auto; max-width: 42%; color: #64748b; font-size: .78rem; font-weight: 600; text-align: right; white-space: normal; }
   table.rt-cards > tbody > tr > td[data-label=""]::before, table.rt-cards > tbody > tr > td:not([data-label])::before { display: none; }
   table.rt-cards > tbody > tr > td:is([data-label=""], :not([data-label])) { justify-content: flex-start; }
   table.rt-cards > tbody > tr > td > * { max-width: 100%; }
   table.rt-cards > tbody > tr > td:not([data-label]) { display: block; text-align: center; }
   /* card title (the main column) on top, actions at the bottom */
-  table.rt-cards > tbody > tr > td.rt-head { order: -1; justify-content: flex-start; padding: .7rem 0 .65rem !important; border-bottom: 1px solid #e7edf6 !important; color: #0f172a; font-size: .95rem; font-weight: 800; text-align: start; }
+  table.rt-cards > tbody > tr > td.rt-head { order: -1; justify-content: flex-start; padding: .7rem 0 .65rem !important; border-bottom: 1px solid #e7edf6 !important; color: #0f172a; font-size: .95rem; font-weight: 600; text-align: start; }
   table.rt-cards > tbody > tr > td.rt-head::before { display: none; }
   table.rt-cards > tbody > tr > td.rt-head { flex-wrap: wrap; row-gap: .45rem; }
   table.rt-cards > tbody > tr > td.rt-head > * { flex: 0 1 auto; }
@@ -704,7 +704,7 @@ form.sst > *, .sst-split > *, .sst-split.sst-split { min-width: 0; }
   [data-media-rubric] .qb-rubric tbody td { display: block; padding: 0; border: 0; min-width: 0; }
   [data-media-rubric] .qb-rubric tbody td:nth-child(1), [data-media-rubric] .qb-rubric tbody td:nth-child(2) { grid-column: 1 / -1; }
   [data-media-rubric] .qb-rubric tbody td:nth-child(5) { align-self: end; }
-  [data-media-rubric] .qb-rubric tbody td::before { display: block; margin-bottom: .2rem; color: #475569; font-size: .68rem; font-weight: 900; }
+  [data-media-rubric] .qb-rubric tbody td::before { display: block; margin-bottom: .2rem; color: #475569; font-size: .68rem; font-weight: 700; }
   [data-media-rubric] .qb-rubric tbody td:nth-child(1)::before { content: "معیار"; }
   [data-media-rubric] .qb-rubric tbody td:nth-child(2)::before { content: "توضیحات"; }
   [data-media-rubric] .qb-rubric tbody td:nth-child(3)::before { content: "حداکثر نمره"; }
@@ -724,7 +724,7 @@ form.sst > *, .sst-split > *, .sst-split.sst-split { min-width: 0; }
 }
 .qb .qb-option > .qb-option-text { flex: 1 1 auto; min-width: 0; }
 /* the study-source link field had no input style at any size */
-.qb input[type=url] { width: 100%; min-width: 0; height: 2.6rem; padding: 0 .8rem; border: 1px solid #d9e2f0; border-radius: .7rem; background: #fff; font-size: .86rem; font-weight: 700; outline: 0; }
+.qb input[type=url] { width: 100%; min-width: 0; height: 2.6rem; padding: 0 .8rem; border: 1px solid #d9e2f0; border-radius: .7rem; background: #fff; font-size: .86rem; font-weight: 600; outline: 0; }
 .qb input[type=url]:focus { border-color: #3159ff; box-shadow: 0 0 0 3px rgba(49, 89, 255, .12); }
 
 /* exam page: an option keeps letter, text and radio on one row (it used to wrap into three rows on phones) */
@@ -836,13 +836,13 @@ a.sap-btn.sap-btn:not(.is-outline):not(.is-danger) { color: #fff; }
    tab count (--tabs) and link-based paging in the footer. */
 .users-table-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem 1rem;flex-wrap:wrap;padding:.85rem 1.25rem;border-bottom:1px solid #d9e2f2;background:#fbfcff;direction:rtl}
 .users-table-head-text{min-width:0}
-.users-table-head-text strong{display:block;color:#07152f;font-size:14px;font-weight:900;line-height:1.6}
-.users-table-head-text span{display:block;color:#62708a;font-size:12px;font-weight:700;line-height:1.7}
+.users-table-head-text strong{display:block;color:#07152f;font-size:14px;font-weight:700;line-height:1.6}
+.users-table-head-text span{display:block;color:#62708a;font-size:12px;font-weight:600;line-height:1.7}
 .users-table-head .users-dir-link{height:3.1rem;padding:0 1.4rem;font-size:14px;gap:.55rem}
 .users-table-head .users-dir-link svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .users-table-tools{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
 .users-role-tabs.users-role-tabs--fit{grid-template-columns:repeat(var(--tabs,2),minmax(0,1fr));width:calc(var(--tabs,2) * 11.5rem + 1rem);max-width:100%}
-.users-pagination a,.users-pagination .is-gap{display:inline-flex;height:2.25rem;min-width:2.25rem;align-items:center;justify-content:center;border:1px solid #d9e2f2;border-radius:.5rem;background:#fff;padding:0 .75rem;color:#3159ff;font-size:12px;font-weight:900;text-decoration:none}
+.users-pagination a,.users-pagination .is-gap{display:inline-flex;height:2.25rem;min-width:2.25rem;align-items:center;justify-content:center;border:1px solid #d9e2f2;border-radius:.5rem;background:#fff;padding:0 .75rem;color:#3159ff;font-size:12px;font-weight:700;text-decoration:none}
 .users-pagination a:hover{border-color:#3159ff}
 .users-pagination .is-gap{border-color:transparent;background:transparent;color:#94a3b8}
 @media (max-width:640px){.users-table-head{padding:.8rem .9rem}.users-table-tools{width:100%}.users-table-head .users-dir-link{width:100%}.users-role-tabs.users-role-tabs--fit{width:100%}}
@@ -963,11 +963,11 @@ a.sap-btn.sap-btn:not(.is-outline):not(.is-danger) { color: #fff; }
 @media (max-width: 560px) {
   .teacher-calendar .teacher-calendar-grid { display: flex; flex-direction: column; gap: .5rem; border: 0; background: transparent; }
   .teacher-calendar .teacher-calendar-grid > span.teacher-calendar-weekday, .teacher-calendar .teacher-calendar-grid > span:not(:has(a)) { display: none; }
-  .teacher-calendar .teacher-calendar-grid > span:has(a) { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); align-items: start; gap: .35rem .5rem; min-height: 0; padding: .6rem .7rem; border: 1px solid #e2e8f0; border-radius: .8rem; background: #fff; font-size: 1rem; font-weight: 900; color: #0f172a; }
+  .teacher-calendar .teacher-calendar-grid > span:has(a) { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); align-items: start; gap: .35rem .5rem; min-height: 0; padding: .6rem .7rem; border: 1px solid #e2e8f0; border-radius: .8rem; background: #fff; font-size: 1rem; font-weight: 700; color: #0f172a; }
   .teacher-calendar .teacher-calendar-grid > span.is-today:has(a) { border-color: #c4b5fd; background: #f5f3ff; }
   .teacher-calendar .teacher-calendar-grid > span > a { grid-column: 2; min-width: 0; }
   .teacher-calendar .teacher-calendar-grid > span > a b { display: block; margin: 0; padding: .35rem .55rem; white-space: normal; overflow: visible; text-overflow: clip; font-size: .78rem; line-height: 1.5; }
-  .teacher-calendar .teacher-calendar-grid:not(:has(a))::after { content: "در این ماه آزمونی ثبت نشده است."; padding: 1rem; border: 1px dashed #cbd5e1; border-radius: .8rem; color: #64748b; font-size: .85rem; font-weight: 800; text-align: center; }
+  .teacher-calendar .teacher-calendar-grid:not(:has(a))::after { content: "در این ماه آزمونی ثبت نشده است."; padding: 1rem; border: 1px dashed #cbd5e1; border-radius: .8rem; color: #64748b; font-size: .85rem; font-weight: 600; text-align: center; }
 }
 @media (max-width: 360px) {
   .teacher-console-head.teacher-console-head h1 { font-size: 1.3rem; line-height: 1.45; }

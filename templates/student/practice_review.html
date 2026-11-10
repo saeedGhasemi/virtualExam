@@ -2,35 +2,35 @@
 {% load static core_extras %}
 {% block title %}بازبینی آزمون آزمایشی | متاکوییز{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/exam-view.css' %}?v=media-20261107e">
+<link rel="stylesheet" href="{% static 'css/exam-view.css' %}?v=media-20261110fw">
 {% include 'student/_practice_attempt_styles.html' %}
 <style>
   .prv-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:1.2rem;align-items:start}
   .prv-main{padding:1.4rem 1.5rem}
   .prv-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:1rem}
-  .prv-head h1{margin:0;font-size:1.8rem;font-weight:950}.prv-head p{margin:.4rem 0 0;color:#475569;font-weight:850;font-size:.9rem}
+  .prv-head h1{margin:0;font-size:1.8rem;font-weight:800}.prv-head p{margin:.4rem 0 0;color:#475569;font-weight:600;font-size:.9rem}
   .prv-table{width:100%;margin-top:1.2rem;border-collapse:separate;border-spacing:0;border:1px solid #e1e8f5;border-radius:.9rem;overflow:hidden}
-  .prv-table th{padding:.8rem 1rem;background:#f4f7fc;color:#334155;font-size:.88rem;font-weight:950;text-align:start}
-  .prv-table td{padding:.75rem 1rem;border-top:1px solid #e8eef7;font-weight:850}
+  .prv-table th{padding:.8rem 1rem;background:#f4f7fc;color:#334155;font-size:.88rem;font-weight:800;text-align:start}
+  .prv-table td{padding:.75rem 1rem;border-top:1px solid #e8eef7;font-weight:600}
   .prv-table tr.is-open td{background:#f6f8fd}
-  .prv-num{display:inline-grid;min-width:2.3rem;height:2.1rem;place-items:center;border-radius:.55rem;background:#eef2f8;font-weight:950}
+  .prv-num{display:inline-grid;min-width:2.3rem;height:2.1rem;place-items:center;border-radius:.55rem;background:#eef2f8;font-weight:800}
   .prv-go{display:inline-grid;width:2rem;height:2rem;place-items:center;border-radius:.5rem;color:#2563eb}.prv-go:hover{background:#eef4ff}.prv-go svg{width:1.1rem;height:1.1rem}
   .prv-state{display:inline-flex;flex-wrap:wrap;align-items:center;gap:.5rem;color:#475569}
   .prv-state.is-done{color:#0f8a4f}.prv-state svg{width:1.4rem;height:1.4rem}
   .prv-mark{display:inline-flex;align-items:center;gap:.3rem;color:#334155}.prv-mark svg{width:1.1rem;height:1.1rem;color:#e11d48;fill:#e11d48}
   .prv-side{padding:1.3rem;display:grid;gap:1rem}
-  .prv-side h2{display:flex;align-items:center;gap:.6rem;margin:0;font-size:1.25rem;font-weight:950}.prv-side h2 svg{width:1.4rem;height:1.4rem;color:#2563eb}
+  .prv-side h2{display:flex;align-items:center;gap:.6rem;margin:0;font-size:1.25rem;font-weight:800}.prv-side h2 svg{width:1.4rem;height:1.4rem;color:#2563eb}
   .prv-score{display:flex;align-items:center;justify-content:space-between;gap:1rem}
-  .prv-score strong{display:block;font-size:1.7rem;font-weight:950}.prv-score small{color:#475569;font-weight:850}
+  .prv-score strong{display:block;font-size:1.7rem;font-weight:800}.prv-score small{color:#475569;font-weight:600}
   .prv-ring{--p:0;display:grid;width:7.5rem;height:7.5rem;flex:none;place-items:center;border-radius:50%;background:conic-gradient(#2563eb calc(var(--p)*1%),#e5ebf5 0)}
-  .prv-ring span{display:grid;width:5.6rem;height:5.6rem;place-items:center;border-radius:50%;background:#fff;font-size:1.5rem;font-weight:950}
-  .prv-legend{display:grid;gap:.7rem;margin:0;padding:0;list-style:none;font-weight:900}
+  .prv-ring span{display:grid;width:5.6rem;height:5.6rem;place-items:center;border-radius:50%;background:#fff;font-size:1.5rem;font-weight:800}
+  .prv-legend{display:grid;gap:.7rem;margin:0;padding:0;list-style:none;font-weight:700}
   .prv-legend li{display:flex;align-items:center;gap:.6rem}.prv-legend b{margin-inline-start:auto}
   .prv-legend i{width:1rem;height:1rem;border-radius:50%;background:#cbd5e1}.prv-legend i.is-done{background:#16a34a}
   .prv-legend svg{width:1.05rem;height:1.05rem;color:#e11d48;fill:#e11d48}
   .prv-warn{display:grid;gap:.6rem;padding:1rem;border:1px solid #fde3b0;border-radius:.9rem;background:#fff8ea}
-  .prv-warn strong{display:flex;align-items:center;gap:.5rem;color:#b45309;font-weight:950}.prv-warn strong svg{width:1.5rem;height:1.5rem}
-  .prv-warn p{margin:0;color:#475569;font-weight:800;font-size:.88rem;line-height:1.9}
+  .prv-warn strong{display:flex;align-items:center;gap:.5rem;color:#b45309;font-weight:800}.prv-warn strong svg{width:1.5rem;height:1.5rem}
+  .prv-warn p{margin:0;color:#475569;font-weight:600;font-size:.88rem;line-height:1.9}
   .prv-side .qx-btn{justify-content:center;width:100%;min-height:3.2rem;font-size:1rem}
   @media(max-width:1100px){.prv-grid{grid-template-columns:1fr}}
   @media(max-width:700px){.prv-table th:nth-child(2),.prv-table td:nth-child(2){display:none}}

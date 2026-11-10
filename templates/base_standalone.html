@@ -10,7 +10,7 @@
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=manager-bulk-final-swap-20260831">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261110c">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261110fw">
     <link rel="stylesheet" href="{% static 'css/brand.css' %}?v=brand-20261109">
     {% comment %}Many pages put their style block after the markup: until it is parsed, SVG icons without a width attribute
     would paint full-width and black for a moment. This zero-specificity fallback keeps them icon-sized only while the page loads.{% endcomment %}
@@ -59,7 +59,7 @@
         .profile-sidebar.is-collapsed .profile-user{width:2.9rem;grid-template-columns:1fr;justify-items:center;padding:.35rem!important}
         .profile-sidebar.is-collapsed .profile-user b{width:2.2rem;height:2.2rem}
         .profile-sidebar.is-collapsed .profile-nav a:hover:after,
-        .profile-sidebar.is-collapsed .profile-nav a:focus-visible:after{content:attr(data-tooltip);position:absolute;z-index:50;inset-inline-end:calc(100% + .65rem);top:50%;transform:translateY(-50%);width:max-content;max-width:12rem;border:1px solid #dbe3ef;border-radius:.65rem;background:#fff;padding:.45rem .7rem;color:#071936;font-size:.78rem;font-weight:850;box-shadow:0 14px 32px rgba(15,23,42,.14);pointer-events:none;white-space:nowrap}
+        .profile-sidebar.is-collapsed .profile-nav a:focus-visible:after{content:attr(data-tooltip);position:absolute;z-index:50;inset-inline-end:calc(100% + .65rem);top:50%;transform:translateY(-50%);width:max-content;max-width:12rem;border:1px solid #dbe3ef;border-radius:.65rem;background:#fff;padding:.45rem .7rem;color:#071936;font-size:.78rem;font-weight:600;box-shadow:0 14px 32px rgba(15,23,42,.14);pointer-events:none;white-space:nowrap}
         body:has([data-fixed-scroll-page]){height:100dvh;overflow:hidden}
     </style>
     {% include "partials/appearance_head.html" %}
