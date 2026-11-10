@@ -7610,14 +7610,13 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
                 [str(uuid.uuid4()), exam_id, self.student_in_id, timezone.now(), 'in_progress'])
         self.client.force_login(self.admin_user)
+        # «فقط حذف دانشجو» (the default): the account goes, its exam history stays without a name
         response = self.client.post(reverse('core:super_admin_delete_account', args=['student', self.student_in_id]), follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'سابقه دارد')
-        self.assertEqual(self._rows('SELECT count(*) FROM profiles WHERE id = %s', [self.student_in_id]), [(1,)])
-        self.assertTrue(get_user_model().objects.filter(username='student_in_scope').exists())
-        response = self.client.post(reverse('core:super_admin_delete_account', args=['teacher', self.teacher_in_id]), follow=True)
-        self.assertContains(response, 'سابقه دارد')  # owns questions
-        self.assertEqual(self._rows('SELECT count(*) FROM teacher_profiles WHERE user_id = %s', [self.teacher_in_id]), [(1,)])
+        self.assertContains(response, 'حذف شد')
+        self.assertEqual(self._rows('SELECT count(*) FROM profiles WHERE id = %s', [self.student_in_id]), [(0,)])
+        self.assertEqual(self._rows('SELECT count(*), count(student_id) FROM exam_attempts WHERE exam_id = %s', [exam_id]), [(1, 0)])
+        self.assertFalse(get_user_model().objects.filter(username='student_in_scope').exists())
 
     def test_manager_sees_only_students_of_their_units(self):
         self._register('student', 'unitstudent')
@@ -8351,3 +8350,276 @@ class UserDirectoryTests(_ScopedOrgFixture):
         User = get_user_model()
         self.client.force_login(User.objects.create_user(username='teacher_in_scope', password='x'))
         self.assertEqual(self.client.get(reverse('core:super_admin_user_directory')).status_code, 403)
+
+class DatabaseBackupTabTests(_ScopedOrgFixture):
+    """«تنظیمات سامانه» → «پشتیبان‌گیری و بازیابی»: only the system admin who is a superuser; restore needs every confirmation."""
+
+    def setUp(self):
+        self.admin_user.is_superuser = True
+        self.admin_user.set_password('Admin@123')
+        self.admin_user.save()
+        self.url = reverse('core:super_admin_settings')
+
+    def _restore(self, content=b'PGDMP fake', name='db.dump', **overrides):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.db import connection as db
+        data = {'settings_action': 'db_restore', 'confirm_name': db.settings_dict['NAME'],
+                'confirm_understand': 'on', 'current_password': 'Admin@123',
+                'backup_file': SimpleUploadedFile(name, content)}
+        data.update(overrides)
+        return self.client.post(self.url, data)
+
+    def test_tab_renders_with_both_sections(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(self.url, {'tab': 'backup'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['settings_active_tab'], 'backup')
+        self.assertContains(response, 'value="db_backup"')
+        self.assertContains(response, 'value="db_restore"')
+        self.assertContains(response, 'همه داده‌های فعلی را جایگزین می‌کند')
+        for page in (self.client.get(self.url, {'tab': 'other'}), self.client.get(reverse('core:super_admin_org_units'))):
+            self.assertContains(page, '?tab=backup')
+
+    def test_admin_without_superuser_and_other_roles_are_refused(self):
+        self.admin_user.is_superuser = False
+        self.admin_user.save()
+        self.client.force_login(self.admin_user)
+        page = self.client.get(self.url, {'tab': 'backup'})
+        self.assertContains(page, 'دسترسی محدود')
+        self.assertNotContains(page, 'value="db_restore"')
+        self.assertEqual(self.client.post(self.url, {'settings_action': 'db_backup'}).status_code, 403)
+        with mock.patch('apps.core.db_backup.restore_from') as restore:
+            self.assertEqual(self._restore().status_code, 403)
+            restore.assert_not_called()
+        self.manager_user.is_superuser = True
+        self.manager_user.save()
+        self.client.force_login(self.manager_user)  # a superuser flag alone is not the system admin role
+        self.assertEqual(self.client.post(self.url, {'settings_action': 'db_backup'}).status_code, 403)
+
+    def test_restore_is_refused_without_every_confirmation(self):
+        self.client.force_login(self.admin_user)
+        with mock.patch('apps.core.db_backup.restore_from') as restore, \
+                mock.patch('apps.core.db_backup.write_safety_backup') as safety:
+            for response in (
+                self._restore(confirm_name='wrong'),
+                self._restore(confirm_understand=''),
+                self._restore(current_password='nope'),
+                self._restore(name='db.sql'),
+                self._restore(content=b'-- plain sql'),
+            ):
+                self.assertRedirects(response, f'{self.url}?tab=backup', fetch_redirect_response=False)
+            restore.assert_not_called()
+            safety.assert_not_called()
+
+    def test_restore_runs_after_a_safety_backup(self):
+        self.client.force_login(self.admin_user)
+        calls = []
+        with mock.patch('apps.core.db_backup.check_dump_file', side_effect=lambda path: calls.append('check')), \
+                mock.patch('apps.core.db_backup.write_safety_backup', side_effect=lambda: calls.append('safety') or 'safe.dump'), \
+                mock.patch('apps.core.db_backup.restore_from', side_effect=lambda path: calls.append('restore')):
+            response = self._restore()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(calls, ['check', 'safety', 'restore'])
+
+    @skipUnless(connection.vendor == 'postgresql', 'pg_dump needs PostgreSQL')
+    def test_backup_downloads_a_real_dump_that_pg_restore_accepts(self):
+        from pathlib import Path
+        from apps.core import db_backup
+        if not (db_backup.tool_path('pg_dump') and db_backup.tool_path('pg_restore')):
+            self.skipTest('pg_dump / pg_restore not installed')
+        self.client.force_login(self.admin_user)
+        response = self.client.post(self.url, {'settings_action': 'db_backup'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('attachment', response['Content-Disposition'])
+        content = b''.join(response.streaming_content)
+        self.assertTrue(content.startswith(b'PGDMP'))
+        with tempfile.NamedTemporaryFile(suffix='.dump', delete=False) as handle:
+            handle.write(content)
+        try:
+            db_backup.check_dump_file(handle.name)
+        finally:
+            Path(handle.name).unlink()
+
+
+class DeleteChoicesTests(_ScopedOrgFixture):
+    """«حذف» درس / دانشجو / استاد با دو گزینه: فقط خودِ مورد، یا همراه با همه‌ی سوابق و وابستگی‌ها."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.student_user = User.objects.create_user(username='student_in_scope', password='pass-1234')
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', password='pass-1234')
+        now = timezone.now()
+        cls.attempt_id = str(uuid.uuid4())
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [cls.attempt_id, cls.exam_in_id, cls.student_in_id, now, 'submitted'])
+        cls.answer_id = str(uuid.uuid4())
+        _insert('attempt_answers', ['id', 'attempt_id', 'question_id', 'answer'], [cls.answer_id, cls.attempt_id, cls.question_in_id, json.dumps('پاسخ')])
+        cls.objection_id = str(uuid.uuid4())
+        _insert('objections', ['id', 'exam_id', 'student_id', 'attempt_id', 'subject', 'message'],
+                [cls.objection_id, cls.exam_in_id, cls.student_in_id, cls.attempt_id, 'اعتراض', 'متن'])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id'], [str(uuid.uuid4()), cls.exam_in_id, cls.question_in_id])
+        _insert('student_course_enrollments', ['id', 'course_id', 'student_user_id'], [str(uuid.uuid4()), cls.course_in_id, cls.student_in_id])
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), cls.group_in_id, cls.student_in_id, 'دانشجوی داخل محدوده', '0011223344', '4001'])
+        cls.log_id = str(uuid.uuid4())
+        _insert('activity_audit_log', ['id', 'actor_id', 'action', 'entity_type'], [cls.log_id, cls.student_in_id, 'login', 'system'])
+        cls.other_attempt_id = str(uuid.uuid4())  # another student on another course: never touched
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [cls.other_attempt_id, cls.exam_out_id, cls.student_out_id, now, 'submitted'])
+
+    def _one(self, sql, params=()):
+        with connection.cursor() as cursor:
+            cursor.execute(sql, list(params))
+            row = cursor.fetchone()
+        return row[0] if row else None
+
+    def _exists(self, table, row_id):
+        return bool(self._one(f'SELECT COUNT(*) FROM {table} WHERE id = %s', [row_id]))
+
+    def _course_delete(self, mode, course_id=None):
+        return self.client.post(reverse('core:super_admin_course_delete', args=[course_id or self.course_in_id]), {'mode': mode})
+
+    def _account_delete(self, kind, user_id, mode):
+        return self.client.post(reverse('core:super_admin_delete_account', args=[kind, user_id]), {'mode': mode})
+
+    def _untouched_outside(self):
+        for table, row_id in (('courses', self.course_out_id), ('exams', self.exam_out_id), ('exam_attempts', self.other_attempt_id),
+                              ('student_groups', self.group_out_id), ('profiles', self.student_out_id), ('questions', self.question_out_id)):
+            self.assertTrue(self._exists(table, row_id), table)
+
+    # courses -------------------------------------------------------------------------------------------------
+    def test_dialog_offers_both_choices_with_counts_and_changes_nothing(self):
+        self.client.force_login(self.admin_user)
+        dialog = self.client.get(reverse('core:super_admin_course_delete', args=[self.course_in_id]))
+        self.assertEqual(dialog.status_code, 200)
+        self.assertContains(dialog, 'name="mode" value="only"')
+        self.assertContains(dialog, 'name="mode" value="all"')
+        items = {item['label']: item['count'] for item in dialog.context['all_items']}
+        self.assertEqual(items['آزمون'], 1)
+        self.assertEqual(items['شرکت در آزمون (برگه و نمره)'], 1)
+        self.assertEqual(items['گروه / کلاس'], 1)
+        for table, row_id in (('courses', self.course_in_id), ('exams', self.exam_in_id), ('exam_attempts', self.attempt_id)):
+            self.assertTrue(self._exists(table, row_id), table)
+
+    def test_delete_course_only_keeps_exams_groups_and_questions(self):
+        self.client.force_login(self.admin_user)
+        response = self._course_delete('only')
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(self._exists('courses', self.course_in_id))
+        for table, row_id in (('exams', self.exam_in_id), ('exam_attempts', self.attempt_id), ('attempt_answers', self.answer_id),
+                              ('student_groups', self.group_in_id), ('questions', self.question_in_id)):
+            self.assertTrue(self._exists(table, row_id), table)
+        self.assertIsNone(self._one('SELECT course_id FROM exams WHERE id = %s', [self.exam_in_id]))
+        self.assertIsNone(self._one('SELECT course_id FROM student_groups WHERE id = %s', [self.group_in_id]))
+        self.assertIsNone(self._one('SELECT course_id FROM questions WHERE id = %s', [self.question_in_id]))
+        self.assertEqual(self._one('SELECT COUNT(*) FROM student_course_enrollments WHERE course_id = %s', [self.course_in_id]), 0)
+        self._untouched_outside()
+        listing = self.client.get(reverse('core:super_admin_courses'))
+        self.assertContains(listing, 'حذف شد')
+        self.assertNotIn(self.course_in_id, {str(row['id']) for row in listing.context['rows']})
+
+    def test_delete_course_with_everything(self):
+        self.client.force_login(self.admin_user)
+        self._course_delete('all')
+        for table, row_id in (('courses', self.course_in_id), ('exams', self.exam_in_id), ('exam_attempts', self.attempt_id),
+                              ('attempt_answers', self.answer_id), ('objections', self.objection_id), ('student_groups', self.group_in_id)):
+            self.assertFalse(self._exists(table, row_id), table)
+        self.assertEqual(self._one('SELECT COUNT(*) FROM student_group_members WHERE group_id = %s', [self.group_in_id]), 0)
+        self.assertTrue(self._exists('questions', self.question_in_id))  # the question bank keeps its questions
+        self.assertTrue(self._exists('profiles', self.student_in_id))
+        self._untouched_outside()
+
+    def test_old_json_delete_removes_the_course_only(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.post(reverse('core:super_admin_courses'), {'course_action': 'delete', 'course_id': self.course_in_id})
+        self.assertTrue(response.json()['ok'])
+        self.assertFalse(self._exists('courses', self.course_in_id))
+        self.assertTrue(self._exists('exams', self.exam_in_id))
+
+    def test_manager_scope(self):
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:super_admin_course_delete', args=[self.course_out_id])).status_code, 403)
+        self.assertEqual(self._course_delete('all', self.course_out_id).status_code, 403)
+        self.assertTrue(self._exists('courses', self.course_out_id))
+        self.assertEqual(self._account_delete('student', self.student_out_id, 'all').status_code, 403)
+        self.assertTrue(self._exists('profiles', self.student_out_id))
+        self._course_delete('only')  # inside the manager's units
+        self.assertFalse(self._exists('courses', self.course_in_id))
+
+    def test_delete_is_all_or_nothing(self):
+        from unittest import mock
+        from . import deletion
+        real = deletion.Plan.remove
+
+        def failing(plan, table, column, values, depth=0):
+            if table == 'student_groups':
+                raise RuntimeError('boom')
+            return real(plan, table, column, values, depth)
+
+        with mock.patch.object(deletion.Plan, 'remove', failing), self.assertRaises(RuntimeError):
+            deletion.run('courses', self.course_in_id, 'all')
+        for table, row_id in (('courses', self.course_in_id), ('exams', self.exam_in_id), ('exam_attempts', self.attempt_id)):
+            self.assertTrue(self._exists(table, row_id), table)
+
+    # accounts ------------------------------------------------------------------------------------------------
+    def test_delete_student_only_keeps_records_without_name(self):
+        self.client.force_login(self.admin_user)
+        self.assertContains(self.client.get(reverse('core:super_admin_delete_account', args=['student', self.student_in_id])), 'value="all"')
+        self._account_delete('student', self.student_in_id, 'only')
+        self.assertFalse(self._exists('profiles', self.student_in_id))
+        self.assertFalse(get_user_model().objects.filter(username='student_in_scope').exists())
+        self.assertTrue(self._exists('exam_attempts', self.attempt_id))
+        self.assertIsNone(self._one('SELECT student_id FROM exam_attempts WHERE id = %s', [self.attempt_id]))
+        self.assertEqual(self._one('SELECT COUNT(*) FROM student_group_members WHERE student_user_id = %s', [self.student_in_id]), 0)
+        self.assertTrue(self._exists('activity_audit_log', self.log_id))
+        self._untouched_outside()
+
+    def test_delete_student_with_everything(self):
+        self.client.force_login(self.admin_user)
+        self._account_delete('student', self.student_in_id, 'all')
+        for table, row_id in (('profiles', self.student_in_id), ('exam_attempts', self.attempt_id), ('attempt_answers', self.answer_id),
+                              ('objections', self.objection_id)):
+            self.assertFalse(self._exists(table, row_id), table)
+        self.assertIsNone(self._one('SELECT actor_id FROM activity_audit_log WHERE id = %s', [self.log_id]))
+        for table, row_id in (('exams', self.exam_in_id), ('courses', self.course_in_id), ('student_groups', self.group_in_id)):
+            self.assertTrue(self._exists(table, row_id), table)
+        self._untouched_outside()
+
+    def test_delete_teacher_only_keeps_exams_and_questions(self):
+        self.client.force_login(self.admin_user)
+        self._account_delete('teacher', self.teacher_in_id, 'only')
+        self.assertFalse(self._exists('profiles', self.teacher_in_id))
+        self.assertTrue(self._exists('exams', self.exam_in_id))
+        self.assertTrue(self._exists('questions', self.question_in_id))
+        self.assertIsNone(self._one('SELECT teacher_id FROM exams WHERE id = %s', [self.exam_in_id]))
+        self.assertFalse(get_user_model().objects.filter(username='teacher_in_scope').exists())
+
+    def test_delete_teacher_with_everything(self):
+        self.client.force_login(self.admin_user)
+        self._account_delete('teacher', self.teacher_in_id, 'all')
+        for table, row_id in (('profiles', self.teacher_in_id), ('exams', self.exam_in_id), ('questions', self.question_in_id),
+                              ('student_groups', self.group_in_id), ('exam_attempts', self.attempt_id)):
+            self.assertFalse(self._exists(table, row_id), table)
+        self.assertTrue(self._exists('courses', self.course_in_id))
+        self.assertTrue(self._exists('profiles', self.student_in_id))
+        self._untouched_outside()
+
+    def test_account_with_another_role_is_not_deleted(self):
+        _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), self.student_in_id, 'teacher'])
+        self.client.force_login(self.admin_user)
+        dialog = self.client.get(reverse('core:super_admin_delete_account', args=['student', self.student_in_id]))
+        self.assertNotContains(dialog, 'value="all"')
+        self._account_delete('student', self.student_in_id, 'all')
+        self.assertTrue(self._exists('profiles', self.student_in_id))
+
+    def test_pages_have_the_dialog(self):
+        self.client.force_login(self.admin_user)
+        courses = self.client.get(reverse('core:super_admin_courses'))
+        self.assertContains(courses, reverse('core:super_admin_course_delete', args=[self.course_in_id]))
+        self.assertContains(courses, 'data-delete-dialog')
+        for tab, profile_id, kind in (('students', self.student_in_id, 'student'), ('teachers', self.teacher_in_id, 'teacher')):
+            users = self.client.get(reverse('core:super_admin_users'), {'tab': tab})
+            self.assertContains(users, reverse('core:super_admin_delete_account', args=[kind, profile_id]))
+            self.assertContains(users, 'data-delete-dialog')

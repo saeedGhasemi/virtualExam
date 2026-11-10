@@ -1,0 +1,29 @@
+{% comment %}
+Django messages as a floating toast at the top centre that closes by itself (4.5s; errors/warnings 8s; click closes it at once),
+Used by base.html and base_standalone.html (every page).
+{% endcomment %}
+{% if messages %}
+    <section class="app-messages mq-flash" aria-live="polite" data-mq-flash>
+        {% for message in messages %}
+            <div class="alert-message{% if message.tags %} is-{{ message.tags }}{% endif %}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>
+        {% endfor %}
+    </section>
+    <style>
+        .mq-flash.mq-flash{position:fixed;left:50%;top:1rem;z-index:1200;display:grid;gap:.5rem;width:min(520px,calc(100vw - 2rem));max-width:none;margin:0;padding:0;transform:translateX(-50%);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+        .mq-flash.mq-flash.is-hiding{opacity:0;transform:translate(-50%,-1rem)}
+        .mq-flash .alert-message{margin:0;cursor:pointer;pointer-events:auto;text-align:center;box-shadow:0 18px 44px rgba(15,23,42,.18)}
+        .mq-flash .alert-message.is-success{border-color:#bbf7d0;background:rgba(240,253,244,.97);color:#14532d}
+        .mq-flash .alert-message.is-error{border-color:#fecaca;background:rgba(254,242,242,.97);color:#7f1d1d}
+        .mq-flash .alert-message.is-warning{border-color:#fde68a;background:rgba(255,251,235,.97);color:#78350f}
+        @media (prefers-reduced-motion:reduce){.mq-flash.mq-flash{transition:none}}
+    </style>
+    <script>
+        (() => {
+            const flash = document.querySelector('[data-mq-flash]');
+            if (!flash) return;
+            const hide = () => { flash.classList.add('is-hiding'); window.setTimeout(() => flash.remove(), 400); };
+            flash.addEventListener('click', hide);
+            window.setTimeout(hide, flash.querySelector('.is-error, .is-warning') ? 8000 : 4500);
+        })();
+    </script>
+{% endif %}

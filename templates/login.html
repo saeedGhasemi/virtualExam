@@ -10,7 +10,7 @@
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=auth-card-mask-fix-20260827c">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261109p">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261110b">
     <link rel="stylesheet" href="{% static 'css/brand.css' %}?v=brand-20261109">
     {% include "partials/appearance_head.html" %}
 </head>
@@ -58,6 +58,7 @@
 
                 <button type="submit" class="auth-submit">ورود به سامانه</button>
 
+                {% if show_demo_logins %}{# demo accounts: local development only (DEBUG), never on the live site — Hack.md #}
                 <section class="auth-quick-login" aria-label="دسترسی سریع نقش‌ها">
                     <nav>
                         <a href="#" data-username="education_manager" data-password="Edu@12345" title="مدیر آموزشی" aria-label="ورود سریع مدیر آموزشی">
@@ -78,6 +79,7 @@
                         </a>
                     </nav>
                 </section>
+                {% endif %}
 
                 <p class="auth-register">
                     حساب کاربری ندارید؟<br>

@@ -261,6 +261,7 @@
                 <p>{{ exam.title }} · {{ exam.course_title }}</p>
             </div>
             <div class="er-actions">
+                <a class="er-btn" href="{% url 'core:exam_preview' exam.id %}?new=1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>پیش‌نمایش آزمون</a>
                 <a class="er-btn" href="{{ back_url }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>بازگشت به آزمون‌ها</a>
             </div>
         </header>

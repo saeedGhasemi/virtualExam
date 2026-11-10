@@ -83,28 +83,14 @@
             <section class="overview-grid" style="margin-top:.9rem;grid-template-columns:1fr 1fr 1fr">
                 <article class="panel glass"><h2>پیشرفت شرکت‌کنندگان</h2><div class="progress-donut"><span>{{ stats.total_participants|fa_digits }}</span></div><div class="setting-list"><div><span>تکمیل‌شده</span><b>{{ stats.submitted|fa_digits }} نفر</b></div><div><span>در حال انجام</span><b>{{ stats.online|fa_digits }} نفر</b></div><div><span>شروع نکرده</span><b>۳۳ نفر</b></div></div></article>
                 <article class="panel glass"><h2>هشدار</h2><p style="line-height:2;color:#9a5b00;font-weight:900">ویرایش سوالات پس از شروع آزمون قفل شده است. برای اعمال تغییرات، ابتدا آزمون را لغو کرده و نسخه جدیدی منتشر کنید.</p></article>
-                <article class="panel glass"><h2>عملیات</h2><div class="action-bar" style="padding:0;margin:0;justify-content:stretch;flex-direction:column"><a class="btn primary" href="?tab=preview">پیش‌نمایش</a><a class="btn" href="?tab=session">نظارت زنده</a><a class="btn danger" href="{% url 'core:super_admin_emergency_stop' exam.id %}">لغو آزمون</a></div></article>
+                <article class="panel glass"><h2>عملیات</h2><div class="action-bar" style="padding:0;margin:0;justify-content:stretch;flex-direction:column"><a class="btn primary" href="{% url 'core:exam_preview' exam.id %}?new=1">پیش‌نمایش</a><a class="btn" href="?tab=session">نظارت زنده</a><a class="btn danger" href="{% url 'core:super_admin_emergency_stop' exam.id %}">لغو آزمون</a></div></article>
             </section>
         {% elif tab == 'preview' %}
-            <section class="two-col">
-                <article class="exam-paper glass">
-                    <div class="paper-meta"><span>سوال {{ sample_question.number|default:12|fa_digits }} از {{ stats.total_questions|fa_digits }}</span><span>زمان باقی‌مانده: {{ exam.duration_minutes|default:0|fa_digits }}:۰۰</span><span>{{ exam.title|fa_digits }}</span></div>
-                    <p class="question-text">{{ sample_question.text|fa_digits }}</p>
-                    <div class="option-list">
-                        {% for option in sample_options %}
-                            <label class="{% if forloop.first %}is-selected{% endif %}"><input type="radio" {% if forloop.first %}checked{% endif %}>{{ option }}</label>
-                        {% endfor %}
-                    </div>
-                    <div class="action-bar"><button class="btn primary" type="button">سوال بعد</button><button class="btn" type="button">علامت‌گذاری</button><button class="btn" type="button">سوال قبل</button></div>
-                </article>
-                <aside class="palette glass">
-                    <h2>پالت سوالات</h2>
-                    <div class="palette-grid">
-                        {% for question in questions|slice:":40" %}<span class="{% if forloop.counter == 12 %}active{% elif forloop.counter|divisibleby:3 %}done{% elif forloop.counter|divisibleby:7 %}flag{% endif %}">{{ forloop.counter|fa_digits }}</span>{% empty %}
-                            {% for n in "1234567890123456789012345678901234567890" %}<span class="{% if forloop.counter == 12 %}active{% elif forloop.counter|divisibleby:3 %}done{% endif %}">{{ forloop.counter|fa_digits }}</span>{% endfor %}
-                        {% endfor %}
-                    </div>
-                </aside>
+            {# The real preview runs on the student exam page (apps/core/exam_preview.py); this tab only opens it. #}
+            <section class="panel glass">
+                <h2>پیش‌نمایش آزمون</h2>
+                <p style="margin:0 0 1rem;color:#51617d;font-weight:850;line-height:1.9">آزمون دقیقاً همان‌طور که دانشجو می‌بیند باز می‌شود: سؤال‌های واقعی به ترتیب آزمون، زمان‌سنج، فهرست سؤالات و همه‌ی قوانین آزمون. پاسخ‌های پیش‌نمایش در جایی ثبت نمی‌شوند.</p>
+                <div class="action-bar" style="padding:0;margin:0;justify-content:flex-start;flex-wrap:wrap"><a class="btn primary" href="{% url 'core:exam_preview' exam.id %}?new=1">باز کردن پیش‌نمایش</a><span class="btn" style="pointer-events:none">{{ stats.total_questions|fa_digits }} سؤال · {{ exam.duration_minutes|default:90|fa_digits }} دقیقه</span></div>
             </section>
         {% elif tab == 'session' %}
             <section class="metric-grid">

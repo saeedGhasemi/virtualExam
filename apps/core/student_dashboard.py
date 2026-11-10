@@ -155,6 +155,8 @@ def student_exam_rows(student_id) -> list:
             'page_tab': page_tab,
             'page_action': _exam_page_action(exam, attempt, page_state),
             'result_url': reverse('core:student_result_detail', args=[attempt['id']]) if attempt.get('submitted_at') else '',
+            # «پیش‌نمایش» with sample questions (exam_preview.py): the exam page, rules and structure, never its questions.
+            'preview_url': f"{reverse('core:exam_preview', args=[exam['id']])}?new=1",
             'starts_at': exam['starts_at'],
             'date_label': _jalali_long_date(exam['starts_at'], with_weekday=False),
             'time_label': timezone.localtime(exam['starts_at']).strftime('%H:%M'),

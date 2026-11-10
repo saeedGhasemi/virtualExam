@@ -1,0 +1,99 @@
+# Auth.md — احراز هویت، نشست‌ها و جلوگیری از Brute Force
+
+اسناد مرتبط: [Security.md](Security.md)، [Data.md](Data.md)، [Hack.md](Hack.md).
+
+## ۱. مسیر ورود
+
+تنها صفحه‌ی ورود `/login/` است (`SecureLoginView` در `apps/core/views.py`، فرم `StyledAuthenticationForm` در
+`apps/core/forms.py`). `/admin/login/` جنگو به همین صفحه هدایت می‌شود (`config/urls.py`) تا هیچ مسیری از
+محدودسازی و ثبت رویداد عبور نکند.
+
+1. کاربر نام کاربری، ایمیل یا شماره‌ی دانشجویی را وارد می‌کند؛ `resolve_username` آن را به نام کاربری ذخیره‌شده
+   تبدیل می‌کند (پس قفل حساب با عوض‌کردن حروف بزرگ/کوچک یا ایمیل دور زده نمی‌شود).
+2. **پیش از بررسی رمز**، `auth_guard.lock_reason` قفل حساب و محدودیت IP را بررسی می‌کند (بخش ۳).
+3. رمز با `authenticate()` و هش ذخیره‌شده مقایسه می‌شود (الگوریتم‌ها: [Security.md](Security.md)).
+4. وضعیت حساب در `profiles.status` بررسی می‌شود: `pending` / `rejected` / `blocked` / `inactive` اجازه‌ی ورود ندارند.
+5. اگر ورود دومرحله‌ای فعال باشد: شناسه‌ی نشست عوض می‌شود (`cycle_key`)، کاربر به `/login/verify/` می‌رود و فقط با
+   کد ۶ رقمی TOTP یا یک کد بازیابی یک‌بارمصرف وارد می‌شود (حداکثر ۵ تلاش و ۵ دقیقه برای هر بار؛ کدهای نادرست در
+   شمارنده‌ی قفل هم حساب می‌شوند).
+6. `auth_login` نشست را می‌سازد؛ جنگو شناسه‌ی نشست را عوض می‌کند (جلوگیری از Session Fixation).
+7. اگر مدیر رمز موقت داده باشد، تا تعیین رمز جدید همه‌ی صفحه‌ها به «تغییر رمز» هدایت می‌شوند
+   (`PasswordChangeRequiredMiddleware`).
+
+## ۲. ثبت رویدادها (زمان ورود، خروج، IP)
+
+جدول `auth_events` (migration `0063`، کد `apps/core/auth_guard.py`) — یک ردیف برای هر رویداد:
+
+| ستون | محتوا |
+|---|---|
+| `event` | `login_success`، `login_failed`، `login_blocked`، `password_ok`، `two_factor_failed`، `logout` |
+| `username` | نام کاربری (حروف کوچک) — برای تلاش با نام ناموجود هم ثبت می‌شود |
+| `user_id` | شناسه‌ی `auth_user` (در ورود موفق و خروج) |
+| `ip_address` | IP واقعی کاربر (بخش ۴) |
+| `user_agent` | مرورگر/دستگاه (۳۰۰ نویسه) |
+| `created_at` | زمان دقیق (UTC، `timestamptz`) |
+
+- **ورود**: سیگنال `user_logged_in` ← `login_success` (هم ورود عادی، هم پس از کد دومرحله‌ای).
+- **خروج**: سیگنال `user_logged_out` ← `logout` (دکمه‌ی «خروج»، باز کردن صفحه‌ی اول، حذف حساب).
+- **پایان نشست بدون خروج** (بستن مرورگر، انقضای ۸ ساعته، «خروج از نشست‌های دیگر») ردیف `logout` ندارد؛ زمان
+  پایانش برابر `expire_date` نشست است یا در `activity_audit_log` (`sessions_terminated`) ثبت می‌شود.
+- علاوه بر این، `activity_audit_log` رویدادهای `login_success` / `login_failed` / `logout` /
+  `two_factor_*` را برای صفحه‌ی «فعالیت‌های من» و گزارش‌های مدیر نگه می‌دارد.
+- `user_sessions` (migration `0045`) نشست‌های فعال هر کاربر را با IP و دستگاه نگه می‌دارد؛ کاربر در تنظیمات
+  می‌تواند هر نشست را ببندد یا از همه‌ی نشست‌های دیگر خارج شود (`account_security.end_session` / `end_other_sessions`).
+
+نمونه‌ی گزارش (روی سرور با `psql`):
+
+```sql
+-- ورود و خروج‌های یک کاربر در ۷ روز اخیر، به وقت تهران
+SELECT event, ip_address, created_at AT TIME ZONE 'Asia/Tehran' AS at
+FROM auth_events WHERE username = 'mqtest_s01' AND created_at > now() - interval '7 days' ORDER BY id;
+
+-- IPهایی که در یک ساعت گذشته بیشترین تلاش ناموفق را داشته‌اند
+SELECT ip_address, COUNT(*) FROM auth_events
+WHERE event = 'login_failed' AND created_at > now() - interval '1 hour' GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
+```
+
+## ۳. محدودسازی تلاش‌های ناموفق (Rate Limiting)
+
+شمارش از روی `auth_events` در پایگاه‌داده انجام می‌شود، پس بین همه‌ی workerهای gunicorn مشترک است و با
+راه‌اندازی مجدد سرویس صفر نمی‌شود (شمارنده‌ی قبلی در کش حافظه‌ی هر worker بود و دور زده می‌شد).
+
+| قاعده | پیش‌فرض | تنظیم در `.env` |
+|---|---|---|
+| قفل حساب: رمز نادرست برای یک حساب در پنجره‌ی زمانی | ۵ بار | `LOGIN_MAX_FAILED_PER_USER` |
+| قفل حساب: کد دومرحله‌ای نادرست (رمز درست آن را صفر نمی‌کند) | ۲ × مقدار بالا = ۱۰ | — |
+| محدودیت IP: تلاش ناموفق از یک IP (با هر نام کاربری) | ۱۰۰ بار | `LOGIN_MAX_FAILED_PER_IP` |
+| طول پنجره / مدت قفل | ۱۵ دقیقه | `LOGIN_LOCK_MINUTES` |
+
+- در زمان قفل، **حتی رمز درست** پذیرفته نمی‌شود و پیام «حساب … قفل شده است» نمایش داده می‌شود.
+- تلاش‌های رد‌شده به‌خاطر قفل با `login_blocked` ثبت می‌شوند و قفل را تمدید **نمی‌کنند** (مهاجم نمی‌تواند حساب
+  دیگری را برای همیشه قفل نگه دارد).
+- قفل خودکار پس از خروج قدیمی‌ترین تلاش ناموفق از پنجره‌ی ۱۵ دقیقه‌ای باز می‌شود. ورود موفق یا رمز درست شمارنده‌ی
+  رمز را صفر می‌کند.
+- سقف IP عمداً بالاست چون همه‌ی دانشجویان یک دانشگاه ممکن است پشت یک IP (NAT) باشند.
+- اگر پایگاه‌داده قابل خواندن نباشد، بررسی قفل «باز» رد می‌شود (ورود همه متوقف نمی‌شود) و خطا لاگ می‌شود.
+- باز کردن دستی قفل یک حساب (در صورت نیاز):
+  `INSERT INTO auth_events (event, username) VALUES ('password_ok', '<username>');`
+
+## ۴. IP واقعی کاربر
+
+`client_ip` (`apps/core/views.py`) فقط به آن بخش از `X-Forwarded-For` اعتماد می‌کند که پراکسی خودمان اضافه کرده
+(`TRUSTED_PROXY_COUNT`، پیش‌فرض ۱ = nginx). مقدار سمت چپ هدر را خود کاربر می‌تواند جعل کند، پس برای دور زدن
+محدودیت IP یا گمراه کردن لاگ قابل استفاده نیست. اگر پراکسی/CDN دیگری جلوی nginx اضافه شد، این عدد را زیاد کنید.
+
+## ۵. نشست‌ها و کوکی‌ها
+
+| تنظیم | مقدار | دلیل |
+|---|---|---|
+| `SESSION_ENGINE` | `cached_db` | نشست در پایگاه‌داده؛ قابل ابطال |
+| `SESSION_COOKIE_AGE` | ۸ ساعت | پایان خودکار نشست |
+| `SESSION_COOKIE_HTTPONLY` / `CSRF_COOKIE_HTTPONLY` | `True` | جاوااسکریپت (و XSS) کوکی را نمی‌خواند |
+| `SESSION_COOKIE_SECURE` / `CSRF_COOKIE_SECURE` | `True` وقتی `DEBUG=False` | فقط روی HTTPS ارسال می‌شود |
+| `SESSION_COOKIE_SAMESITE` / `CSRF_COOKIE_SAMESITE` | `Lax` | در درخواست‌های POST بین‌سایتی ارسال نمی‌شود |
+| `Cache-Control` صفحه‌های کاربر واردشده | `private, no-store` | پس از خروج، دکمه‌ی Back صفحه‌ی خصوصی را برنمی‌گرداند |
+
+## ۶. تست‌ها
+
+`apps/core/tests_security.py`: `LoginThrottleTests` (قفل حساب، پایان قفل، ایمیل/حروف بزرگ، صفر شدن، محدودیت IP،
+ثبت ورود/خروج با زمان و IP)، `ClientIpTests`، `CookieAndHeaderTests`، و `TwoFactorTests` در `apps/core/tests.py`.

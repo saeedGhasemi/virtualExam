@@ -1,0 +1,60 @@
+{% comment %}
+«حذف» dialog with two choices (apps/core/deletion.py). Include once per page, outside live regions; any element with
+data-delete-url opens it and loads the choices from that URL.
+{% endcomment %}
+<dialog class="mq-del-dialog" data-delete-dialog aria-label="حذف">
+    <div class="mq-del-panel" data-delete-body></div>
+</dialog>
+<style>
+    .mq-del-dialog { width: min(480px, calc(100vw - 16px)); margin: auto; padding: 0; border: 0; border-radius: 14px; background: transparent; }
+    .mq-del-dialog::backdrop { background: rgba(15, 23, 42, .5); }
+    .mq-del-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px; border-radius: 14px; background: #fff; color: #1e293b; direction: rtl; text-align: right; font-size: 13.5px; line-height: 1.8; }
+    .mq-del-lead { margin: 0; font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+    .mq-del-note { margin: 0; padding: 8px 12px; border-radius: 10px; background: #fffbeb; color: #92400e; }
+    .mq-del-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .mq-del-option { display: grid; gap: 2px; width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; color: #1e293b; font: inherit; text-align: right; cursor: pointer; }
+    .mq-del-option:hover { border-color: #64748b; }
+    .mq-del-option span { color: #475569; font-size: 12.5px; overflow-wrap: anywhere; }
+    .mq-del-option.is-danger { border-color: #fecaca; background: #fef2f2; }
+    .mq-del-option.is-danger strong { color: #b91c1c; }
+    .mq-del-option.is-danger:hover { border-color: #ef4444; }
+    .mq-del-actions { display: flex; justify-content: flex-start; }
+    .mq-del-cancel { min-height: 38px; padding: 0 18px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #334155; font: inherit; font-weight: 700; cursor: pointer; }
+</style>
+<script>
+(() => {
+    if (window.__mqDeleteDialog) return;
+    window.__mqDeleteDialog = true;
+    const dialog = document.querySelector('[data-delete-dialog]');
+    if (!dialog) return;
+    const body = dialog.querySelector('[data-delete-body]');
+    const say = (text) => { body.textContent = ''; const p = document.createElement('p'); p.className = 'mq-del-lead'; p.textContent = text; body.appendChild(p); };
+    let request = 0;
+    document.addEventListener('click', async (event) => {
+        const trigger = event.target.closest('[data-delete-url]');
+        if (!trigger) return;
+        event.preventDefault();
+        const mine = ++request;
+        say('در حال بررسی…');
+        if (typeof dialog.showModal === 'function') { if (!dialog.open) dialog.showModal(); } else dialog.setAttribute('open', '');
+        try {
+            const response = await fetch(trigger.getAttribute('data-delete-url'), {credentials: 'same-origin', headers: {Accept: 'text/html'}});
+            if (mine !== request) return;
+            if (!response.ok) { say(response.status === 403 ? 'اجازه‌ی حذف این مورد را ندارید.' : 'بررسی انجام نشد؛ صفحه را دوباره بارگذاری کنید.'); return; }
+            body.innerHTML = await response.text();
+        } catch (error) {
+            if (mine === request) say('ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید.');
+        }
+    });
+    dialog.addEventListener('click', (event) => {
+        if (event.target === dialog || event.target.closest('[data-delete-close]')) dialog.close();
+    });
+    dialog.addEventListener('submit', (event) => {
+        const chosen = event.submitter;
+        // keep the chosen mode (disabled buttons are not submitted)
+        const form = event.target;
+        if (chosen) { const keep = document.createElement('input'); keep.type = 'hidden'; keep.name = 'mode'; keep.value = chosen.value; form.appendChild(keep); }
+        form.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+    });
+})();
+</script>

@@ -101,6 +101,7 @@
         {% else %}
           <button class="sx-btn primary" type="submit">{% include 'teacher/_qb_icon.html' with name='play' %}شروع آزمون</button>
         {% endif %}
+        <a class="sx-btn" href="{% url 'core:exam_preview' exam.id %}?new=1" title="آشنایی با صفحه‌ی آزمون با سؤال‌های نمونه">{% include 'teacher/_qb_icon.html' with name='eye' %}پیش‌نمایش آزمون</a>
         <a class="sx-btn" href="{% url 'core:student_practice_exam' %}">بازگشت{% include 'teacher/_qb_icon.html' with name='arrow' %}</a>
       </div>
     </form>

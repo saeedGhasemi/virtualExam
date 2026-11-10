@@ -1,0 +1,63 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras %}
+{% block title %}پایان پیش‌نمایش | متاکوییز{% endblock %}
+{% block content %}
+{# End of an exam / question preview (apps/core/exam_preview.py): what the student's «پایان آزمون» step shows, nothing is submitted. #}
+<style>
+  .pvf{direction:rtl;min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:linear-gradient(180deg,#eef4fb,#dfe8f4);font-family:"B Yekan",BYekan,Vazirmatn,Tahoma,Arial,sans-serif;color:#07183b}
+  .pvf-card{display:grid;gap:18px;width:min(720px,100%);min-width:0;border:1px solid #dbe5f3;border-radius:18px;background:#fff;padding:30px 32px;text-align:center;box-shadow:0 30px 70px rgba(15,23,42,.16)}
+  .pvf-badge{justify-self:center;display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:#d97706;color:#fff;font-size:.82rem;font-weight:950}
+  .pvf-badge svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .pvf h1{margin:0;font-size:1.5rem;font-weight:950;line-height:1.6}
+  .pvf-sub{margin:-8px 0 0;color:#51617d;font-weight:850;overflow-wrap:anywhere}
+  .pvf-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:12px}
+  .pvf-stat{border:1px solid #dbe5f3;border-radius:12px;background:#f8fbff;padding:14px;font-weight:850}
+  .pvf-stat strong{display:block;margin-top:4px;font-size:1.6rem}
+  .pvf-stat.green{background:#edfdf4;border-color:#bbf7d0;color:#15803d}
+  .pvf-stat.orange{background:#fff7ed;border-color:#fed7aa;color:#c2410c}
+  .pvf-note{margin:0;padding:12px 14px;border:1px solid #fde68a;border-radius:12px;background:#fffbeb;color:#78350f;font-size:.86rem;font-weight:850;line-height:1.9;text-align:start}
+  .pvf-map{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:0;padding:0;list-style:none;text-align:start}
+  .pvf-map li{display:grid;gap:2px;min-width:0;padding:8px 10px;border:1px solid #e1e8f3;border-radius:10px;font-size:.8rem;font-weight:850;color:#3e4c66}
+  .pvf-map li b{color:#07183b}
+  .pvf-map li.is-answered{border-color:#bbf7d0;background:#f0fdf4}
+  .pvf-map li.is-marked{border-color:#fed7aa;background:#fff7ed}
+  .pvf-map small{color:#64748b;font-weight:800}
+  .pvf-total{margin:0;color:#51617d;font-size:.86rem;font-weight:850}
+  .pvf-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr));gap:10px}
+  .pvf-actions form{display:contents}
+  .pvf-btn{display:flex;min-height:50px;align-items:center;justify-content:center;padding:0 14px;border:1px solid #075fff;border-radius:10px;background:#fff;color:#075fff;font:inherit;font-size:.98rem;font-weight:950;text-decoration:none;cursor:pointer}
+  .pvf-btn.primary{border:0;background:linear-gradient(135deg,#075fff,#1267ff);color:#fff}
+  @media (max-width:420px){.pvf-card{padding:22px 14px}.pvf h1{font-size:1.25rem}.pvf-map{grid-template-columns:minmax(0,1fr)}}
+</style>
+<section class="pvf">
+  <article class="pvf-card">
+    <span class="pvf-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>{% if kind == 'question' %}پیش‌نمایش سؤال{% elif sample %}پیش‌نمایش آزمون (نمونه){% else %}پیش‌نمایش آزمون{% endif %}</span>
+    {% if empty %}
+      <h1>این آزمون هنوز سؤالی ندارد</h1>
+      <p class="pvf-sub">{{ title }}</p>
+      <p class="pvf-note">پس از افزودن سؤال به آزمون، پیش‌نمایش آن در همین بخش در دسترس است.</p>
+      <div class="pvf-actions"><a class="pvf-btn primary" href="{{ back_url }}">خروج از پیش‌نمایش</a></div>
+    {% else %}
+      <h1>{% if time_up %}زمان آزمون به پایان رسید{% else %}پایان پیش‌نمایش{% endif %}</h1>
+      <p class="pvf-sub">{{ title }}</p>
+      <div class="pvf-stats">
+        <div class="pvf-stat green">پاسخ‌داده‌شده<strong>{{ answered_count|fa_digits }}</strong></div>
+        <div class="pvf-stat">بدون پاسخ<strong>{{ unanswered_count|fa_digits }}</strong></div>
+        <div class="pvf-stat orange">علامت‌گذاری‌شده<strong>{{ marked_count|fa_digits }}</strong></div>
+      </div>
+      <p class="pvf-note">{% if time_up %}در آزمون واقعی با پایان زمان، پاسخ‌های ذخیره‌شده طبق قوانین آزمون ارسال می‌شوند.{% else %}در آزمون واقعی، دانشجو در این مرحله «تأیید و ثبت نهایی» را می‌زند و پس از آن پاسخ‌ها قابل تغییر نیست.{% endif %} در پیش‌نمایش چیزی ثبت یا تصحیح نمی‌شود.</p>
+      <ol class="pvf-map" aria-label="وضعیت سؤال‌ها">
+        {% for question in questions %}
+          <li class="{% if question.marked %}is-marked{% elif question.answered %}is-answered{% endif %}"><b>سؤال {{ question.index|fa_digits }}</b><span>{{ question.type_label }}</span>{% if question.points %}<span>{{ question.points|stringformat:"g"|fa_digits }} نمره</span>{% endif %}<small>{% if question.answered %}پاسخ داده‌شده{% else %}بدون پاسخ{% endif %}{% if question.marked %}، علامت‌گذاری‌شده{% endif %}</small></li>
+        {% endfor %}
+      </ol>
+      {% if total_points %}<p class="pvf-total">مجموع نمره‌ی سؤال‌ها: {{ total_points|stringformat:"g"|fa_digits }}</p>{% endif %}
+      <div class="pvf-actions">
+        {% if not time_up %}<a class="pvf-btn primary" href="{{ preview_url }}">بازگشت به پیش‌نمایش</a>{% endif %}
+        <form method="post" action="{{ preview_url }}">{% csrf_token %}<button type="submit" class="pvf-btn{% if time_up %} primary{% endif %}" name="action" value="restart">شروع دوباره</button></form>
+        <a class="pvf-btn" href="{{ back_url }}">خروج از پیش‌نمایش</a>
+      </div>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}

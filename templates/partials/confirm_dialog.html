@@ -1,0 +1,73 @@
+{% comment %}
+In-app confirmation popup instead of the browser's confirm() (included by base.html and base_standalone.html).
+- JS: window.mqConfirm('متن', {ok: 'ادامه', danger: true}).then((yes) => { … })
+- HTML: <form data-confirm="متن" [data-confirm-ok="حذف"] [data-confirm-danger]> (or on a submit button): asks before
+  submitting; the submit goes ahead (same submit button) only on «تأیید».
+{% endcomment %}
+<dialog class="mq-confirm" data-mq-confirm aria-labelledby="mqConfirmText">
+    <div class="mq-confirm-panel">
+        <p class="mq-confirm-text" id="mqConfirmText" data-mq-confirm-text></p>
+        <div class="mq-confirm-actions">
+            <button type="button" class="mq-confirm-ok" data-mq-confirm-ok>تأیید</button>
+            <button type="button" class="mq-confirm-cancel" data-mq-confirm-cancel>انصراف</button>
+        </div>
+    </div>
+</dialog>
+<style>
+    .mq-confirm{width:min(440px,calc(100vw - 16px));margin:auto;padding:0;border:0;border-radius:14px;background:transparent}
+    .mq-confirm::backdrop{background:rgba(15,23,42,.5)}
+    .mq-confirm-panel{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding:18px;border-radius:14px;background:#fff;color:#1e293b;direction:rtl;text-align:right;box-shadow:0 24px 60px rgba(15,23,42,.28)}
+    .mq-confirm-text{margin:0;font-size:14px;font-weight:700;line-height:1.9;white-space:pre-line;overflow-wrap:anywhere}
+    .mq-confirm-actions{display:flex;flex-wrap:wrap;gap:8px}
+    .mq-confirm-actions button{flex:1 1 120px;min-height:40px;padding:0 16px;border-radius:10px;font:inherit;font-weight:800;cursor:pointer}
+    .mq-confirm-ok{border:0;background:#2563eb;color:#fff}
+    .mq-confirm.is-danger .mq-confirm-ok{background:#dc2626}
+    .mq-confirm-cancel{border:1px solid #cbd5e1;background:#fff;color:#334155}
+</style>
+<script>
+(() => {
+    if (window.mqConfirm) return;
+    const dialog = document.querySelector('[data-mq-confirm]');
+    if (!dialog || typeof dialog.showModal !== 'function') {
+        window.mqConfirm = (message) => Promise.resolve(window.confirm(message));  // very old browsers
+    } else {
+        const text = dialog.querySelector('[data-mq-confirm-text]');
+        const ok = dialog.querySelector('[data-mq-confirm-ok]');
+        let settle = null;
+        const finish = (value) => { if (settle) { const done = settle; settle = null; done(value); } if (dialog.open) dialog.close(); };
+        ok.addEventListener('click', () => finish(true));
+        dialog.querySelector('[data-mq-confirm-cancel]').addEventListener('click', () => finish(false));
+        dialog.addEventListener('click', (event) => { if (event.target === dialog) finish(false); });
+        dialog.addEventListener('close', () => finish(false));  // Esc
+        window.mqConfirm = (message, options = {}) => new Promise((resolve) => {
+            finish(false);
+            settle = resolve;
+            text.textContent = message || 'ادامه می‌دهید؟';
+            ok.textContent = options.ok || 'تأیید';
+            dialog.classList.toggle('is-danger', !!options.danger);
+            dialog.showModal();
+            ok.focus();
+        });
+    }
+    // Declarative: <form data-confirm="…"> or a submit button with data-confirm.
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        const button = event.submitter;
+        const source = (button && button.hasAttribute('data-confirm')) ? button : form;
+        if (!source.hasAttribute || !source.hasAttribute('data-confirm') || form.__mqConfirmed) {
+            form.__mqConfirmed = false;
+            return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        window.mqConfirm(source.getAttribute('data-confirm'), {
+            ok: source.getAttribute('data-confirm-ok') || undefined,
+            danger: source.hasAttribute('data-confirm-danger'),
+        }).then((yes) => {
+            if (!yes) return;
+            form.__mqConfirmed = true;
+            if (form.requestSubmit) form.requestSubmit(button || undefined); else form.submit();
+        });
+    }, true);
+})();
+</script>

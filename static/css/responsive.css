@@ -249,6 +249,11 @@ pre { max-width: 100%; overflow-x: auto; }
   .qx-foot.qx-foot > * { width: 100%; min-width: 0; margin: 0 !important; justify-content: center; }
   .qx-foot.qx-foot > .qx-btn--primary { grid-column: 1 / -1; order: 3; }
 }
+/* Narrow phones: «ذخیره پاسخ و سؤال بعدی» / «سؤال قبلی» no longer fit side by side; one per row, text may wrap. */
+@media (max-width: 400px) {
+  .qx-foot.qx-foot { grid-template-columns: minmax(0, 1fr); }
+  .qx-foot.qx-foot > .qx-btn { white-space: normal; text-align: center; padding-inline: .8rem; }
+}
 
 /* ---------- Small phones (≤420px) ---------- */
 .gc-layout > *, .group-filters > *, .users-feature-strip > * { min-width: 0; }
@@ -377,10 +382,20 @@ pre { max-width: 100%; overflow-x: auto; }
   .qb-essay-rubric .qb-rubric tfoot td:first-child { flex: 1; }
 }
 /* settings tab bar (settings / org units / academic terms): a fixed 52px, overflow-hidden box, so on phones the
-   tabs stacked into one column and only the first was visible → 3 compact columns, icon over label */
+   tabs stacked into one column and only the first was visible → 4 compact columns, icon over label */
 @media (max-width: 1100px) {
-  body .settings-tabs.settings-tabs { height: auto !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: .35rem !important; }
+  body .settings-tabs.settings-tabs { height: auto !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: .35rem !important; }
   body .settings-tabs.settings-tabs > * { min-width: 0; }
+}
+/* 4 tabs: 2 × 2 on phones so the labels don't break into a letter per line. The bar is direction:ltr with the
+   DOM order «پشتیبان‌گیری، عمومی، ترم، ساختار» (read right to left on one row: ساختار … پشتیبان‌گیری last);
+   `order` keeps that reading order over two rows. */
+@media (max-width: 560px) {
+  body .settings-tabs.settings-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body .settings-tabs.settings-tabs > :nth-child(1) { order: 3; }
+  body .settings-tabs.settings-tabs > :nth-child(2) { order: 4; }
+  body .settings-tabs.settings-tabs > :nth-child(3) { order: 1; }
+  body .settings-tabs.settings-tabs > :nth-child(4) { order: 2; }
 }
 @media (max-width: 760px) {
   body .settings-tabs.settings-tabs a { flex-direction: column; gap: .2rem !important; min-height: 3.6rem !important; padding: .35rem .25rem; font-size: .74rem !important; line-height: 1.35; text-align: center; white-space: normal; }

@@ -53,14 +53,14 @@
         <h2>انتشار آزمون</h2>
         {% if osce.status == 'published' %}
             <p class="op-ready">این آزمون منتشر شده و ویرایش آن قفل است.</p>
-            <form method="post" action="{% url 'core:teacher_osce_publish' osce.id %}" onsubmit="return confirm('آزمون به پیش‌نویس برگردد؟')">{% csrf_token %}<input type="hidden" name="action" value="unpublish"><button class="op-btn is-danger" type="submit">بازگشت به پیش‌نویس برای ویرایش</button></form>
+            <form method="post" action="{% url 'core:teacher_osce_publish' osce.id %}" data-confirm="آزمون به پیش‌نویس برگردد؟">{% csrf_token %}<input type="hidden" name="action" value="unpublish"><button class="op-btn is-danger" type="submit">بازگشت به پیش‌نویس برای ویرایش</button></form>
         {% elif osce_issues %}
             <p class="op-empty" style="margin-top:0">پیش از انتشار این موارد را کامل کنید:</p>
             <ul class="op-issues">{% for issue in osce_issues %}<li>{{ issue }}</li>{% endfor %}</ul>
             <button class="op-btn is-primary" type="button" disabled style="margin-top:.6rem">انتشار آزمون</button>
         {% else %}
             <p class="op-ready">همه بخش‌ها کامل است و آزمون آماده انتشار است.</p>
-            <form method="post" action="{% url 'core:teacher_osce_publish' osce.id %}" onsubmit="return confirm('آزمون منتشر شود؟ پس از انتشار، ویرایش قفل می‌شود.')">{% csrf_token %}<input type="hidden" name="action" value="publish"><button class="op-btn is-primary" type="submit">انتشار آزمون</button></form>
+            <form method="post" action="{% url 'core:teacher_osce_publish' osce.id %}" data-confirm="آزمون منتشر شود؟ پس از انتشار، ویرایش قفل می‌شود.">{% csrf_token %}<input type="hidden" name="action" value="publish"><button class="op-btn is-primary" type="submit">انتشار آزمون</button></form>
         {% endif %}
     </section>
 

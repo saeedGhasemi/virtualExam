@@ -60,3 +60,31 @@ class PasswordChangeRequiredMiddleware:
         except DatabaseError:
             return False
         return bool(profile and profile.get('password_change_required'))
+
+
+class SecurityHeadersMiddleware:
+    """Response headers Django's SecurityMiddleware does not set (Hack.md → «هدرها»):
+
+    - Content-Security-Policy limited to what cannot break the inline scripts the templates use: no <base> hijack, no
+      plugins, no framing by other sites, forms post only back to this site;
+    - Permissions-Policy: camera/microphone/fullscreen only for this site (exam proctoring), the rest off;
+    - pages for a signed-in user are not stored by the browser or a shared cache (`no-store`), so after «خروج» the
+      Back button or another person on the same computer cannot bring a private page (answers, grades) back.
+    """
+
+    CSP = "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'"
+    PERMISSIONS = 'camera=(self), microphone=(self), fullscreen=(self), display-capture=(), geolocation=(), payment=(), usb=()'
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response.headers.setdefault('Content-Security-Policy', self.CSP)
+        response.headers.setdefault('Permissions-Policy', self.PERMISSIONS)
+        user = getattr(request, 'user', None)
+        static_prefix = settings.STATIC_URL or '/static/'
+        if (user is not None and user.is_authenticated and 'Cache-Control' not in response.headers
+                and not request.path.startswith(static_prefix)):
+            response.headers['Cache-Control'] = 'private, no-store'
+        return response

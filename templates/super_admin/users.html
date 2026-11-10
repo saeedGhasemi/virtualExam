@@ -471,10 +471,7 @@
                                                 <button type="submit" class="is-success" title="فعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
                                             {% endif %}
                                         </form>
-                                        <form method="post" action="{% url 'core:super_admin_delete_account' 'student' row.id %}" onsubmit="return confirm('این دانشجو برای همیشه حذف شود؟');">
-                                            {% csrf_token %}
-                                            <button type="submit" class="is-danger" title="حذف دانشجو"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
-                                        </form>
+                                        <button type="button" class="is-danger" title="حذف دانشجو" data-delete-url="{% url 'core:super_admin_delete_account' 'student' row.id %}?next={{ request.get_full_path|urlencode }}"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
                                     </div>
                                 </td>
                             </tr>
@@ -678,10 +675,7 @@
                                                 <button type="submit" class="is-success" title="فعال کردن حساب"><svg viewBox="0 0 24 24"><path d="M5.636 5.636a9 9 0 1 0 12.728 0"/><path d="M12 3v9"/></svg></button>
                                             {% endif %}
                                         </form>
-                                        <form method="post" action="{% url 'core:super_admin_delete_account' 'teacher' row.id %}" onsubmit="return confirm('این استاد برای همیشه حذف شود؟');">
-                                            {% csrf_token %}
-                                            <button type="submit" class="is-danger" title="حذف استاد"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
-                                        </form>
+                                        <button type="button" class="is-danger" title="حذف استاد" data-delete-url="{% url 'core:super_admin_delete_account' 'teacher' row.id %}?next={{ request.get_full_path|urlencode }}"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
                                     </div>
                                 </td>
                             </tr>
@@ -735,6 +729,12 @@
         {% endif %}
     {% endif %}
 </section>
+
+{% include "partials/delete_dialog.html" %}
+<style>
+    .users-row-actions > button.is-danger[data-delete-url] { color: #e11d48; }
+    .users-table--teachers .users-row-actions > button[data-delete-url] { width: 2rem; height: 2rem; border-radius: .5rem; }
+</style>
 
 <div class="users-modal" id="managerChoiceModal" aria-hidden="true">
     <div class="users-modal-backdrop" data-close-users-modal></div>

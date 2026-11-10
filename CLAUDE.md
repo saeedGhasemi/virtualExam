@@ -18,6 +18,7 @@ Online exam system (Persian UI, RTL). Roles: student, teacher, academic_manager,
 - Most data access is raw SQL through `erd_rows` / `erd_row` / `erd_execute` / `erd_has_column` (`apps/core/views.py` ~line 625), not the ORM. Tables are ERD tables (`profiles`, `exams`, `exam_attempts`, `questions`, …); Django models are mostly legacy.
 - `apps/core/views.py` is ~18.5k lines and **some functions are defined more than once — only the last definition is live.** Grep for `^def name` and edit the last one. Never read the whole file.
 - Other modules: `teacher_preferences.py`, `grading_views.py`, `exam_schedule.py`, `student_dashboard.py`, `student_settings.py`, `teacher_question_bank.py`, `teacher_students.py`, `osce_views.py`.
+- «پیش‌نمایش» of any exam/question is `exam_preview.py` on the real `student/attempt.html` (students get sample questions, nothing is saved). Link new exam/question pages to `core:exam_preview` / `core:question_preview` with `?new=1`; a change to the attempt page must keep its `preview` branches working.
 - Timestamp columns without time zone store UTC (see `_db_naive_datetime`). Display dates in Jalali via `templatetags/core_extras.py`.
 - Exam settings columns carry defaults for every exam; what applies is `_sx_exam_rules(exam_id)` (wizard values only when `settings_enforced`). Read effective settings from it, not from the raw columns.
 - A global JS converter in `base.html` / `base_standalone.html` turns digits Persian; mark codes/IDs with `data-latin-digits` (editors are excluded).
@@ -28,8 +29,11 @@ Online exam system (Persian UI, RTL). Roles: student, teacher, academic_manager,
 - Every page must work down to **240px** wide (user's requirement; audit with Playwright at 240/320/390/768/1024/1440). Single-column grids use `grid-template-columns:minmax(0,1fr)` (a bare grid or `1fr` grows to its widest child and cuts the page). Page `<style>` blocks load after `responsive.css`, so overrides there need a doubled class (`.a.a`) or `!important`.
 - Keep the existing structure and templates; don't create new templates/patterns where an existing one fits.
 - When you change a static JS/CSS file, bump the `?v=` on its `{% static %}` include (locally `DEBUG=True` serves unhashed URLs without Cache-Control, so browsers keep the old file).
-- Schema changes go in a new migration in `apps/core/migrations/` (latest: `0062`).
+- Schema changes go in a new migration in `apps/core/migrations/` (latest: `0063`).
+- Deleting a course or a student/teacher account goes through `apps/core/deletion.py` (dialog: item only / with all records); don't hand-write `DELETE FROM courses|profiles` elsewhere.
+- Messages and confirmations: Django `messages` show as the shared top toast (`partials/flash_messages.html`); ask with `window.mqConfirm()` / `data-confirm` (`partials/confirm_dialog.html`), never the browser's `confirm()`.
 - Passwords are never displayable (hashes only): show `••••••••` + last change, offer a change/reset form. Any code that sets a password calls `account_security.mark_password_set(user, change_required=…)`.
+- Security docs: `Security.md` (secrets/.env, hashing), `Auth.md` (login, `auth_events`, throttle), `Data.md` (personal data, retention, `purge_expired_data`), `Hack.md` (attacks/defences). Every new view needs a role decorator (`student_required` / `teacher_required` / `exam_manager_required` / `super_admin_required` / `erd_role_required`): `apps/core/tests_security.py` sweeps all routes anonymously and as student/teacher. All sign-ins go through `SecureLoginView` (throttle in `auth_guard.py`); client IP only via `client_ip()`. No secret in code; demo passwords only behind `DEBUG`.
 
 ## Commands (PowerShell, from repo root)
 - Run: `.venv\Scripts\python manage.py runserver 8001` (port 8000 is used by another local project).

@@ -1,0 +1,173 @@
+{% load core_extras %}
+{# «تنظیمات سامانه» → «پشتیبان‌گیری و بازیابی» (apps/core/db_backup.py). Only the system admin who is also a superuser can act. #}
+<div class="bk-board">
+    {% if not backup_info.can_manage %}
+        <div class="bk-callout bk-callout-info" role="note">
+            <b>دسترسی محدود</b>
+            <p>پشتیبان‌گیری و بازیابی پایگاه داده فقط برای حساب مدیر کل با دسترسی کامل (superuser) فعال است.</p>
+        </div>
+    {% elif not backup_info.is_postgres %}
+        <div class="bk-callout bk-callout-info" role="note">
+            <b>پایگاه داده پشتیبانی نمی‌شود</b>
+            <p>این بخش فقط برای PostgreSQL کار می‌کند؛ سامانه اکنون به پایگاه داده دیگری متصل است.</p>
+        </div>
+    {% else %}
+        <section class="settings-panel bk-panel" aria-labelledby="bk-backup-title">
+            <h2 id="bk-backup-title"><span><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>پشتیبان‌گیری</span></h2>
+            <p class="bk-text">یک نسخه کامل از پایگاه داده (همه کاربران، آزمون‌ها، پاسخ‌ها و تنظیمات) با ابزار <span dir="ltr">pg_dump</span> تهیه و به صورت یک فایل <span dir="ltr">.dump</span> دانلود می‌شود. فایل‌های آپلودشده (تصاویر و پاسخ‌های فایلی) جزو این نسخه نیستند.</p>
+            <ul class="bk-facts">
+                <li><span>پایگاه داده</span><b dir="ltr" data-latin-digits>{{ backup_info.name }}</b></li>
+                <li><span>حجم فعلی</span><b dir="ltr">{{ backup_info.size|default:"-" }}</b></li>
+                <li><span>ابزار pg_dump</span>{% if backup_info.pg_dump %}<b class="bk-ok" dir="ltr">{{ backup_info.pg_dump }}</b>{% else %}<b class="bk-bad">پیدا نشد</b>{% endif %}</li>
+            </ul>
+            <div class="bk-callout bk-callout-note" role="note">
+                <p>فایل پشتیبان شامل اطلاعات شخصی و هش گذرواژه‌هاست؛ آن را در جای امن نگه دارید و برای کسی نفرستید.</p>
+            </div>
+            <form method="post" class="bk-actions" data-live-skip data-bk-backup>
+                {% csrf_token %}
+                <input type="hidden" name="settings_action" value="db_backup">
+                <button type="submit" class="primary-action"{% if not backup_info.pg_dump %} disabled{% endif %}>
+                    <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+                    <span data-bk-label>دریافت فایل پشتیبان</span>
+                </button>
+            </form>
+        </section>
+
+        <section class="settings-panel bk-panel bk-panel-danger" aria-labelledby="bk-restore-title">
+            <h2 id="bk-restore-title"><span><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>بازیابی از فایل پشتیبان</span></h2>
+            <div class="bk-callout bk-callout-danger" role="alert">
+                <b><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>هشدار: این عمل همه داده‌های فعلی را جایگزین می‌کند</b>
+                <ul>
+                    <li>همه اطلاعات کنونی سامانه پاک و با محتوای فایل جایگزین می‌شود؛ هر چه پس از تهیه آن فایل ثبت شده از بین می‌رود.</li>
+                    <li>پیش از بازیابی، سامانه خودکار یک نسخه پشتیبان ایمنی از وضعیت فعلی روی سرور می‌سازد؛ با این حال بهتر است ابتدا خودتان «دریافت فایل پشتیبان» را بزنید.</li>
+                    <li>بازیابی در یک تراکنش انجام می‌شود: اگر خطایی رخ دهد، هیچ تغییری اعمال نمی‌شود.</li>
+                    <li>بهتر است در زمانی انجام شود که آزمونی در حال برگزاری نیست؛ ممکن است پس از آن لازم باشد دوباره وارد شوید.</li>
+                </ul>
+            </div>
+            <form method="post" enctype="multipart/form-data" class="bk-restore-form" data-live-skip data-bk-restore>
+                {% csrf_token %}
+                <input type="hidden" name="settings_action" value="db_restore">
+                <label class="bk-field">
+                    <span>فایل پشتیبان (<span dir="ltr">.dump</span>، خروجی همین صفحه)</span>
+                    <input type="file" name="backup_file" accept=".dump,.backup" required data-bk-file>
+                </label>
+                <label class="bk-field">
+                    <span>برای تأیید، نام پایگاه داده را بنویسید: <b dir="ltr" data-latin-digits>{{ backup_info.name }}</b></span>
+                    <input type="text" name="confirm_name" autocomplete="off" spellcheck="false" dir="ltr" required data-latin-digits data-bk-name data-expected="{{ backup_info.name }}">
+                </label>
+                <label class="bk-field">
+                    <span>گذرواژه فعلی شما</span>
+                    <input type="password" name="current_password" autocomplete="current-password" required>
+                </label>
+                <label class="bk-check">
+                    <input type="checkbox" name="confirm_understand" value="on" required data-bk-check>
+                    <span>آگاهم که همه داده‌های فعلی حذف و با محتوای این فایل جایگزین می‌شود.</span>
+                </label>
+                <div class="bk-actions">
+                    <button type="submit" class="bk-danger-action" disabled data-bk-submit{% if not backup_info.pg_restore %} data-bk-blocked{% endif %}>
+                        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>
+                        <span data-bk-label>بازیابی پایگاه داده</span>
+                    </button>
+                    {% if not backup_info.pg_restore %}<small class="bk-bad">ابزار pg_restore روی سرور پیدا نشد.</small>{% endif %}
+                </div>
+            </form>
+        </section>
+    {% endif %}
+</div>
+
+<style>
+    .bk-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,21rem),1fr));gap:.85rem;margin-top:.2rem}
+    .bk-board>*{min-width:0}
+    .bk-board>.bk-callout{grid-column:1/-1}
+    .bk-panel.bk-panel{display:flex;flex-direction:column;gap:.75rem;min-height:0}
+    .bk-panel h2>span{display:inline-flex;align-items:center;gap:.5rem;min-width:0}
+    .bk-panel h2 svg{flex:none}
+    .bk-panel-danger h2 svg{stroke:#dc2626!important}
+    .bk-text{margin:0;color:#54657f;font-size:.86rem;font-weight:700;line-height:1.9}
+    .bk-facts{display:grid;gap:.45rem;margin:0;padding:0;list-style:none}
+    .bk-facts li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.25rem .75rem;padding:.55rem .75rem;border:1px solid rgba(211,222,239,.6);border-radius:.75rem;background:rgba(255,255,255,.4);font-size:.84rem}
+    .bk-facts span{color:#64748b;font-weight:850}
+    .bk-facts b{min-width:0;overflow-wrap:anywhere;font-weight:950;color:#13223f}
+    .bk-ok{color:#059669!important}
+    .bk-bad{color:#dc2626!important;font-weight:900}
+    .bk-callout{padding:.8rem .9rem;border-radius:.9rem;border:1px solid;font-size:.84rem;line-height:1.9}
+    .bk-callout b{display:flex;align-items:center;gap:.45rem;font-weight:950}
+    .bk-callout b svg{flex:none;width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .bk-callout p{margin:0;font-weight:750}
+    .bk-callout ul{margin:.4rem 0 0;padding-inline-start:1.1rem;font-weight:750}
+    .bk-callout li+li{margin-top:.2rem}
+    .bk-callout-info{border-color:#bfdbfe;background:rgba(239,246,255,.75);color:#1e3a8a}
+    .bk-callout-note{border-color:#fde68a;background:rgba(255,251,235,.8);color:#92400e}
+    .bk-callout-danger{border-color:#fecaca;background:rgba(254,242,242,.85);color:#991b1b}
+    .bk-restore-form{display:grid;grid-template-columns:minmax(0,1fr);gap:.7rem}
+    .bk-field{display:grid;gap:.35rem;margin:0;min-width:0}
+    .bk-field>span{color:#54657f;font-size:.84rem;font-weight:900;overflow-wrap:anywhere}
+    .bk-field>span b{color:#13223f}
+    .bk-field input{width:100%;min-width:0;height:2.6rem;box-sizing:border-box;border:1px solid #d8e2ef;border-radius:.72rem;background:rgba(255,255,255,.6);padding:0 .8rem;color:#13223f;font:inherit;font-weight:800}
+    .bk-field input[type=file]{height:auto;padding:.5rem .6rem;font-size:.8rem}
+    .bk-field input:focus{outline:2px solid rgba(37,99,235,.35);outline-offset:1px}
+    .bk-check{display:flex;align-items:flex-start;gap:.55rem;margin:0;color:#7f1d1d;font-size:.84rem;font-weight:900;line-height:1.8;cursor:pointer}
+    .bk-check input{flex:none;width:1.05rem;height:1.05rem;margin-top:.3rem;accent-color:#dc2626}
+    .bk-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem;margin-top:auto}
+    .bk-actions .primary-action{justify-content:center;cursor:pointer}
+    .bk-actions .primary-action[disabled]{opacity:.55;cursor:not-allowed}
+    .bk-danger-action{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.85rem;padding:0 1rem;border:0;border-radius:.9rem;background:#dc2626;color:#fff;font:inherit;font-size:.88rem;font-weight:950;box-shadow:0 14px 28px rgba(220,38,38,.22);cursor:pointer}
+    .bk-danger-action svg,.bk-actions .primary-action svg{flex:none;width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .bk-danger-action[disabled]{background:#f3a5a5;box-shadow:none;cursor:not-allowed}
+    .bk-danger-action:focus-visible,.bk-actions .primary-action:focus-visible{outline:2px solid #0f172a;outline-offset:2px}
+    @media (max-width:420px){
+        .bk-panel.bk-panel{padding:.8rem}
+        .bk-actions>button{width:100%}
+        .bk-callout{padding:.7rem .75rem}
+    }
+</style>
+
+<script>
+(() => {
+    // Inside the page's data-live-scripts region: runs again after each tab swap and binds only to this tab's elements.
+    const backup = document.querySelector('[data-bk-backup]');
+    if (backup && !backup.dataset.bkBound) {
+        backup.dataset.bkBound = '1';
+        backup.addEventListener('submit', () => {
+            const label = backup.querySelector('[data-bk-label]');
+            const button = backup.querySelector('button[type=submit]');
+            if (label) label.textContent = 'در حال آماده‌سازی فایل…';
+            // The download keeps the page; re-enable after a moment so a second copy can be taken.
+            setTimeout(() => { if (button) button.disabled = true; }, 0);
+            setTimeout(() => { if (button) button.disabled = false; if (label) label.textContent = 'دریافت فایل پشتیبان'; }, 8000);
+        });
+    }
+    const form = document.querySelector('[data-bk-restore]');
+    if (!form || form.dataset.bkBound) return;
+    form.dataset.bkBound = '1';
+    const file = form.querySelector('[data-bk-file]');
+    const name = form.querySelector('[data-bk-name]');
+    const check = form.querySelector('[data-bk-check]');
+    const submit = form.querySelector('[data-bk-submit]');
+    const ready = () => !submit.hasAttribute('data-bk-blocked') && file.files.length > 0
+        && name.value.trim() === name.dataset.expected && check.checked;
+    const refresh = () => { submit.disabled = !ready(); };
+    [file, name, check].forEach((el) => { el.addEventListener('input', refresh); el.addEventListener('change', refresh); });
+    form.addEventListener('submit', (event) => {
+        if (!ready()) {
+            event.preventDefault();
+            return;
+        }
+        if (!form.__bkConfirmed) {  // in-app popup (partials/confirm_dialog.html), not the browser's confirm()
+            event.preventDefault();
+            window.mqConfirm('همه‌ی داده‌های فعلی سامانه با محتوای این فایل جایگزین می‌شود. ادامه می‌دهید؟',
+                             {ok: 'بله، بازیابی کن', danger: true}).then((yes) => {
+                if (!yes) return;
+                form.__bkConfirmed = true;
+                form.requestSubmit(submit);
+            });
+            return;
+        }
+        form.__bkConfirmed = false;
+        const label = submit.querySelector('[data-bk-label]');
+        if (label) label.textContent = 'در حال بازیابی… صفحه را نبندید';
+        setTimeout(() => { submit.disabled = true; }, 0);
+    });
+    refresh();
+})();
+</script>

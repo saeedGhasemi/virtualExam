@@ -497,10 +497,15 @@ ROLE_TASK_GROUPS = {
 
 
 def client_ip(request):
-    forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if forwarded_for:
-        return forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
+    """The visitor's IP. X-Forwarded-For is only trusted for the hops our own proxies added (TRUSTED_PROXY_COUNT,
+    1 = nginx in front of gunicorn): entries further left are typed by the client and could be forged to dodge the
+    login throttle or fake the audit log."""
+    remote = request.META.get('REMOTE_ADDR')
+    proxies = int(getattr(settings, 'TRUSTED_PROXY_COUNT', 1) or 0)
+    forwarded = [part.strip() for part in (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',') if part.strip()]
+    if proxies <= 0 or not forwarded:
+        return remote
+    return forwarded[-min(proxies, len(forwarded))]
 
 
 def describe_user_agent(user_agent):
@@ -1564,6 +1569,10 @@ class SecureLoginView(LoginView):
     template_name = 'login.html'
     authentication_form = StyledAuthenticationForm
 
+    def get_context_data(self, **kwargs):
+        # the quick-login buttons carry demo passwords: shown only while developing locally
+        return {**super().get_context_data(**kwargs), 'show_demo_logins': settings.DEBUG}
+
     def get_success_url(self):
         next_url = self.get_redirect_url()
         if next_url:
@@ -1578,12 +1587,20 @@ class SecureLoginView(LoginView):
         return role_redirects.get(role, super().get_success_url())
 
     def form_invalid(self, form):
-        username = self.request.POST.get('username', '')
-        attempts = StyledAuthenticationForm.record_failed_attempt(username)
+        from . import auth_guard
+
+        username = StyledAuthenticationForm.resolve_username(self.request.POST.get('username', ''))
+        if getattr(form, 'lock_reason', ''):
+            # refused before the password was checked: logged, but it does not extend the lock
+            auth_guard.record('login_blocked', self.request, username=username)
+            for error in form.non_field_errors():
+                messages.error(self.request, error)
+            return super().form_invalid(form)
+        attempts = StyledAuthenticationForm.record_failed_attempt(username, self.request)
         failed_user = User.objects.filter(username=username).first()
         if failed_user:
             log_activity(failed_user, 'login_failed', 'تلاش ناموفق برای ورود', self.request)
-        if attempts >= StyledAuthenticationForm.max_attempts:
+        if attempts >= auth_guard.max_failed_per_user():
             messages.error(self.request, 'تعداد تلاش ناموفق زیاد است. حساب به‌صورت موقت قفل شد.')
         else:
             messages.error(self.request, 'نام کاربری یا رمز عبور درست نیست.')
@@ -1591,9 +1608,10 @@ class SecureLoginView(LoginView):
 
     def form_valid(self, form):
         user = form.get_user()
-        StyledAuthenticationForm.clear_failed_attempts(user.get_username())
+        StyledAuthenticationForm.clear_failed_attempts(user.get_username(), self.request)
         if account_security.two_factor_enabled(user):
             # password was right; the session only signs in after the authenticator code (login_2fa)
+            self.request.session.cycle_key()  # the pre-2FA session gets a fresh id (no fixation of a half-signed session)
             self.request.session['pending_2fa_user_id'] = user.pk
             self.request.session['pending_2fa_started'] = timezone.now().timestamp()
             self.request.session['pending_2fa_attempts'] = 0
@@ -1708,6 +1726,9 @@ def login_2fa(request):
         attempts = request.session.get('pending_2fa_attempts', 0) + 1
         request.session['pending_2fa_attempts'] = attempts
         log_activity(user, 'two_factor_failed', 'کد تأیید نادرست وارد شد.', request)
+        from . import auth_guard
+
+        auth_guard.record('two_factor_failed', request, user=user)
         if attempts >= LOGIN_2FA_MAX_ATTEMPTS:
             _clear_pending_2fa(request.session)
             messages.error(request, 'تعداد تلاش نادرست زیاد بود؛ دوباره با رمز عبور وارد شوید.')
@@ -2180,47 +2201,10 @@ def super_admin_toggle_account_status(request, kind, user_id):
 
 @erd_role_required('academic_manager', 'admin')
 def super_admin_delete_account(request, kind, user_id):
-    if request.method != 'POST':
-        raise Http404
-    if kind not in {'teacher', 'student'}:
-        raise Http404
-    if not _erd_is_admin_request(request) and not _erd_profile_in_manager_scope(request, user_id, kind):
-        return HttpResponseForbidden('این کاربر خارج از محدوده‌ی دسترسی شماست.')
+    """GET: the «حذف» dialog (only the account / with all its records); POST mode=only|all deletes (deletion.py)."""
+    from .deletion import account_delete_view
 
-    profile = erd_row("SELECT full_name, username FROM profiles WHERE id = %s", [user_id])
-    if not profile:
-        raise Http404('کاربر پیدا نشد.')
-
-    tab = {'teacher': 'teachers', 'student': 'students'}[kind]
-    next_url = request.POST.get('next') or ''
-    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
-        next_url = f'{reverse("core:super_admin_users")}?tab={tab}'
-    try:
-        with transaction.atomic():
-            if kind == 'teacher':
-                erd_execute("DELETE FROM teacher_profiles WHERE user_id = %s", [user_id])
-            else:
-                erd_execute("DELETE FROM student_course_enrollments WHERE student_user_id = %s", [user_id])
-                erd_execute("DELETE FROM student_group_members WHERE student_user_id = %s", [user_id])
-                erd_execute("DELETE FROM student_profiles WHERE user_id = %s", [user_id])
-            erd_execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [user_id, kind])
-            erd_execute("DELETE FROM notifications WHERE user_id = %s", [user_id])
-            erd_execute("DELETE FROM activity_audit_log WHERE actor_id = %s", [user_id])
-            erd_execute("DELETE FROM account_deletion_requests WHERE profile_id = %s", [user_id])
-            erd_execute("UPDATE system_settings SET updated_by = NULL WHERE updated_by = %s", [user_id])
-            erd_execute("DELETE FROM profiles WHERE id = %s", [user_id])
-            if profile.get('username'):
-                User.objects.filter(username=profile['username']).delete()
-    except IntegrityError:
-        # The account has a record others depend on (exam attempts, questions, exams, grades, objections): deleting
-        # it would break that history, so it is kept; switching it off stops the sign-in instead.
-        messages.error(request, f"حساب «{profile['full_name']}» در سامانه سابقه دارد (آزمون، سؤال، نمره یا کلاس) و حذف آن "
-                                'سوابق را از بین می‌برد؛ به‌جای حذف، آن را با دکمه‌ی «غیرفعال‌سازی» غیرفعال کنید.')
-        return redirect(next_url)
-
-    log_activity(request.user, 'account_deleted', f"حساب {profile['full_name']} حذف شد.", request, {'profile_id': user_id, 'kind': kind})
-    messages.success(request, f"حساب «{profile['full_name']}» حذف شد.")
-    return redirect(next_url)
+    return account_delete_view(request, kind, user_id)
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -3904,7 +3888,9 @@ def super_admin_courses(request):
                     existing = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [course_id])
                     if not existing or str(existing.get('org_unit_id') or '') not in managed_unit_ids:
                         return JsonResponse({'ok': False, 'error': 'این درس خارج از محدوده‌ی دسترسی شماست.'}, status=403)
-                erd_execute('DELETE FROM courses WHERE id = %s', [course_id])
+                from .deletion import delete_course_only
+
+                delete_course_only(course_id)  # the course only; its exams/groups/questions stay (deletion.py)
                 return JsonResponse({'ok': True})
         if action == 'save':
             course_id = request.POST.get('course_id') or str(uuid.uuid4())
@@ -8634,6 +8620,7 @@ def super_admin_exam_wizard_edit(request, exam_id):
         request, resources,
         title='ویرایش کامل آزمون',
         wizard_initial=_exam_wizard_initial(exam),
+        saved_exam_id=exam['id'],  # «پیش‌نمایش نسخه‌ی ذخیره‌شده» in the preview dialog
     )
 
 
@@ -11553,6 +11540,9 @@ def super_admin_settings(request):
     if request.method == 'POST':
         actor = erd_profile_for_user(request.user)
         settings_action = request.POST.get('settings_action')
+        if settings_action in ('db_backup', 'db_restore'):
+            from apps.core import db_backup
+            return db_backup.handle_post(request, settings_action)
         if settings_action == 'export':
             rows = erd_rows('SELECT key, value, description FROM system_settings ORDER BY key')
             payload = {
@@ -11665,14 +11655,20 @@ def super_admin_settings(request):
 
     current_term = next((term for term in decorated_terms if term.get('is_current')), None)
     settings_tab = request.GET.get('tab', 'other')
-    if settings_tab not in ('terms', 'other'):
+    if settings_tab not in ('terms', 'other', 'backup'):
         settings_tab = 'other'
+    backup_info = None
+    if settings_tab == 'backup':
+        from apps.core import db_backup
+        backup_info = db_backup.overview()
+        backup_info['can_manage'] = db_backup.can_manage(request.user)
 
     return render(request, 'super_admin/settings.html', {
         'settings_items': settings_items,
         'settings_lookup': settings_lookup,
         'settings_groups': settings_groups,
         'settings_active_tab': settings_tab,
+        'backup_info': backup_info,
         'appearance_options': {
             'theme': THEME_CHOICES,
             'font': FONT_SIZE_CHOICES,
@@ -12237,11 +12233,13 @@ def teacher_educational_question_answer(request, question_id):
     return render(request, 'teacher/educational_question_answer.html', {'teacher': teacher, 'item': item})
 
 
-@teacher_required
+@erd_role_required('teacher')
 def teacher_exam_preview(request, exam_id):
-    teacher = request.teacher_profile
-    if not str(exam_id).isdigit():  # legacy ORM exams only; ERD exam ids are UUIDs
-        raise Http404('آزمون پیدا نشد.')
+    if not str(exam_id).isdigit():  # ERD exams (UUID ids): the real preview on the exam page (exam_preview.py)
+        return redirect(f"{reverse('core:exam_preview', args=[exam_id])}?new=1")
+    teacher = get_teacher_profile(request.user)  # legacy ORM exams (numeric ids)
+    if not teacher:
+        return HttpResponseForbidden('دسترسی فقط برای استاد یا طراح آزمون مجاز است.')
     exam = get_object_or_404(Exam.objects.prefetch_related('exam_questions__question'), pk=exam_id, designer=teacher)
     if request.method == 'POST':
         log_activity(request.user, 'teacher_exam_finalized', f'نسخه نهایی آزمون {exam.title} ثبت شد.', request, {'exam_id': exam.pk})
@@ -16600,6 +16598,7 @@ def _teacher_exam_wizard(request, exam=None):
         title='ویرایش آزمون' if exam else 'ایجاد آزمون',
         # a new exam starts from the teacher's «پیش‌فرض آزمون» (every value still changeable in the wizard)
         wizard_initial=_exam_wizard_initial(exam) if exam else {'fields': wizard_defaults(request.erd_profile_id)},
+        saved_exam_id=exam['id'] if exam else None,
     )
 
 
@@ -17505,7 +17504,9 @@ def exam_manager_user_import(request, kind='students'):
 
 
 def logout_view(request):
-    logout(request)
+    if request.user.is_authenticated:
+        log_activity(request.user, 'logout', 'خروج از سامانه', request)
+    logout(request)  # also writes the sign-out row in auth_events (auth_guard)
     return redirect('core:home')
 
 
@@ -19745,82 +19746,10 @@ def student_exam_start(request, exam_id):
     return redirect('core:student_attempt', attempt_id=attempt['id'])
 
 
-@never_cache
-@erd_role_required('student')
-def student_attempt(request, attempt_id):
-    rows = _sx_attempt_rows(attempt_id, request.erd_profile_id)
-    if not rows:
-        raise Http404('تلاش آزمون پیدا نشد.')
-    current_index = min(max(1, _em_int(request.GET.get('q'), 1)), len(rows))
-    is_xhr = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-    finished = rows[0].get('submitted_at') or (rows[0].get('status') or 'in_progress') not in ('in_progress', '')
-    if finished and request.method == 'GET' and not is_xhr:
-        return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
-    rules = _sx_attempt_page_rules(attempt_id, request.erd_profile_id, rows[0]['exam_id'])
-    if not rows[0].get('submitted_at') and not _sx_ip_allowed(request, rules):
-        if is_xhr:
-            return JsonResponse({'ok': False, 'error': 'شرکت در این آزمون از این شبکه مجاز نیست.'}, status=403)
-        return render(request, 'student/attempt_device.html', {
-            'exam_title': rows[0].get('exam_title') or 'آزمون', 'ip_blocked': True}, status=403)
-    if not rows[0].get('submitted_at'):
-        if request.method == 'POST' and request.POST.get('action') == 'take_over':
-            _sx_take_over_attempt(request, attempt_id)
-            return redirect('core:student_attempt', attempt_id=attempt_id)
-        if _sx_attempt_device(request, attempt_id) == 'other':
-            if is_xhr:  # the page reloads on 423 and shows the take-over screen
-                return JsonResponse({'ok': False, 'error': 'این آزمون روی دستگاه دیگری باز است.'}, status=423)
-            if request.method == 'POST':
-                messages.error(request, 'این آزمون روی دستگاه دیگری باز است؛ پاسخ ذخیره نشد.')
-                return redirect('core:student_attempt', attempt_id=attempt_id)
-            return render(request, 'student/attempt_device.html', {'exam_title': rows[0].get('exam_title') or 'آزمون'})
-    if request.method == 'POST':
-        if not _sx_attempt_accepts_answers(attempt_id):
-            if is_xhr:
-                return JsonResponse({'ok': False, 'error': 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است.'}, status=409)
-            messages.error(request, 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است؛ پاسخ جدید ذخیره نشد.')
-            return redirect('core:student_attempt_submit', attempt_id=attempt_id)
-        _sx_save_attempt_answers(request, attempt_id)
-        for error in _sx_save_answer_files(request, attempt_id, rows):
-            messages.error(request, error)
-        if is_xhr:
-            return JsonResponse({'ok': True})
-        action = request.POST.get('action') or ('goto' if request.POST.get('goto') else None)
-        if action == 'feedback':
-            from . import student_practice as practice
+def _sx_attempt_items(rows, attempt_id, locked_ids):
+    """The exam page's question items built from _sx_attempt_rows-shaped rows (also used by exam_preview).
 
-            if practice.attempt_practice_mode(attempt_id, request.erd_profile_id) == 'tutorial':
-                error = practice.show_feedback(attempt_id, rows[current_index - 1]['question_id'])
-                if error:
-                    messages.error(request, error)
-        if action == 'finish':
-            # «پایان آزمون» submits the answer form, so the answer on screen is saved before the confirmation page.
-            if not rules['allow_answer_changes']:
-                _sx_lock_answers(attempt_id, [rows[current_index - 1]['question_id']])
-            return redirect('core:student_attempt_submit', attempt_id=attempt_id)
-        target = current_index
-        if action == 'previous':
-            target = max(1, current_index - 1)
-        elif action == 'next':
-            target = min(len(rows), current_index + 1)
-        elif action == 'goto':  # a «فهرست سؤالات» cell: saved first, then opened
-            target = min(max(1, _em_int(request.POST.get('goto'), current_index)), len(rows))
-        if target != current_index and not rules['allow_answer_changes']:
-            _sx_lock_answers(attempt_id, [rows[current_index - 1]['question_id']])  # leaving an answered question
-        if not rules['review_answers_enabled']:
-            # «امکان بازگشت به سوال قبلی» off: only forward, one question at a time.
-            furthest = _sx_furthest_question(attempt_id)
-            target = furthest + 1 if action == 'next' and current_index >= furthest else furthest
-            target = min(max(target, 1), len(rows))
-            _sx_set_furthest_question(attempt_id, target)
-        return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={target}")
-    if not rules['review_answers_enabled'] and not rows[0].get('submitted_at'):
-        furthest = min(max(_sx_furthest_question(attempt_id), 1), len(rows))
-        if current_index != furthest:
-            return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={furthest}")
-    if not rules['allow_answer_changes'] and rules['one_question_per_page'] and not rows[0].get('submitted_at'):
-        # Answered questions other than the one on screen were left behind (e.g. through the question list).
-        _sx_lock_answers(attempt_id, [row['question_id'] for index, row in enumerate(rows, start=1) if index != current_index])
-    locked_ids = _sx_locked_question_ids(attempt_id) if not rules['allow_answer_changes'] else set()
+    attempt_id seeds the per-attempt option/item order and the ordering/matching tokens; never carries correct answers."""
     items = []
     for index, row in enumerate(rows, start=1):
         kind = row.get('type') or 'single'
@@ -19898,6 +19827,86 @@ def student_attempt(request, attempt_id):
             }
         item['locked'] = str(row['question_id']) in locked_ids  # «امکان تغییر پاسخ» off and already left
         items.append(item)
+    return items
+
+
+@never_cache
+@erd_role_required('student')
+def student_attempt(request, attempt_id):
+    rows = _sx_attempt_rows(attempt_id, request.erd_profile_id)
+    if not rows:
+        raise Http404('تلاش آزمون پیدا نشد.')
+    current_index = min(max(1, _em_int(request.GET.get('q'), 1)), len(rows))
+    is_xhr = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    finished = rows[0].get('submitted_at') or (rows[0].get('status') or 'in_progress') not in ('in_progress', '')
+    if finished and request.method == 'GET' and not is_xhr:
+        return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
+    rules = _sx_attempt_page_rules(attempt_id, request.erd_profile_id, rows[0]['exam_id'])
+    if not rows[0].get('submitted_at') and not _sx_ip_allowed(request, rules):
+        if is_xhr:
+            return JsonResponse({'ok': False, 'error': 'شرکت در این آزمون از این شبکه مجاز نیست.'}, status=403)
+        return render(request, 'student/attempt_device.html', {
+            'exam_title': rows[0].get('exam_title') or 'آزمون', 'ip_blocked': True}, status=403)
+    if not rows[0].get('submitted_at'):
+        if request.method == 'POST' and request.POST.get('action') == 'take_over':
+            _sx_take_over_attempt(request, attempt_id)
+            return redirect('core:student_attempt', attempt_id=attempt_id)
+        if _sx_attempt_device(request, attempt_id) == 'other':
+            if is_xhr:  # the page reloads on 423 and shows the take-over screen
+                return JsonResponse({'ok': False, 'error': 'این آزمون روی دستگاه دیگری باز است.'}, status=423)
+            if request.method == 'POST':
+                messages.error(request, 'این آزمون روی دستگاه دیگری باز است؛ پاسخ ذخیره نشد.')
+                return redirect('core:student_attempt', attempt_id=attempt_id)
+            return render(request, 'student/attempt_device.html', {'exam_title': rows[0].get('exam_title') or 'آزمون'})
+    if request.method == 'POST':
+        if not _sx_attempt_accepts_answers(attempt_id):
+            if is_xhr:
+                return JsonResponse({'ok': False, 'error': 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است.'}, status=409)
+            messages.error(request, 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است؛ پاسخ جدید ذخیره نشد.')
+            return redirect('core:student_attempt_submit', attempt_id=attempt_id)
+        _sx_save_attempt_answers(request, attempt_id)
+        for error in _sx_save_answer_files(request, attempt_id, rows):
+            messages.error(request, error)
+        if is_xhr:
+            return JsonResponse({'ok': True})
+        action = request.POST.get('action') or ('goto' if request.POST.get('goto') else None)
+        if action == 'feedback':
+            from . import student_practice as practice
+
+            if practice.attempt_practice_mode(attempt_id, request.erd_profile_id) == 'tutorial':
+                error = practice.show_feedback(attempt_id, rows[current_index - 1]['question_id'])
+                if error:
+                    messages.error(request, error)
+        if action == 'finish':
+            # «پایان آزمون» submits the answer form, so the answer on screen is saved before the confirmation page.
+            if not rules['allow_answer_changes']:
+                _sx_lock_answers(attempt_id, [rows[current_index - 1]['question_id']])
+            return redirect('core:student_attempt_submit', attempt_id=attempt_id)
+        target = current_index
+        if action == 'previous':
+            target = max(1, current_index - 1)
+        elif action == 'next':
+            target = min(len(rows), current_index + 1)
+        elif action == 'goto':  # a «فهرست سؤالات» cell: saved first, then opened
+            target = min(max(1, _em_int(request.POST.get('goto'), current_index)), len(rows))
+        if target != current_index and not rules['allow_answer_changes']:
+            _sx_lock_answers(attempt_id, [rows[current_index - 1]['question_id']])  # leaving an answered question
+        if not rules['review_answers_enabled']:
+            # «امکان بازگشت به سوال قبلی» off: only forward, one question at a time.
+            furthest = _sx_furthest_question(attempt_id)
+            target = furthest + 1 if action == 'next' and current_index >= furthest else furthest
+            target = min(max(target, 1), len(rows))
+            _sx_set_furthest_question(attempt_id, target)
+        return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={target}")
+    if not rules['review_answers_enabled'] and not rows[0].get('submitted_at'):
+        furthest = min(max(_sx_furthest_question(attempt_id), 1), len(rows))
+        if current_index != furthest:
+            return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={furthest}")
+    if not rules['allow_answer_changes'] and rules['one_question_per_page'] and not rows[0].get('submitted_at'):
+        # Answered questions other than the one on screen were left behind (e.g. through the question list).
+        _sx_lock_answers(attempt_id, [row['question_id'] for index, row in enumerate(rows, start=1) if index != current_index])
+    locked_ids = _sx_locked_question_ids(attempt_id) if not rules['allow_answer_changes'] else set()
+    items = _sx_attempt_items(rows, attempt_id, locked_ids)
     current_answer = items[current_index - 1]
     first = rows[0]
     started_at = _sx_dt(first.get('started_at')) or timezone.now()

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" role="img" aria-label="تصویر نمونه">
+  <rect width="800" height="500" fill="#f1f5fb"/>
+  <rect x="24" y="24" width="752" height="452" rx="22" fill="#ffffff" stroke="#d6e0ee" stroke-width="3"/>
+  <circle cx="176" cy="150" r="78" fill="#dbeafe" stroke="#3b82f6" stroke-width="5"/>
+  <rect x="470" y="78" width="200" height="130" rx="18" fill="#dcfce7" stroke="#22c55e" stroke-width="5"/>
+  <path d="M384 248 L470 392 L298 392 Z" fill="#fef3c7" stroke="#f59e0b" stroke-width="5" stroke-linejoin="round"/>
+  <ellipse cx="160" cy="390" rx="92" ry="46" fill="#fce7f3" stroke="#ec4899" stroke-width="5"/>
+  <rect x="560" y="320" width="150" height="110" rx="55" fill="#ede9fe" stroke="#8b5cf6" stroke-width="5"/>
+  <path d="M176 228 C 250 300, 300 300, 340 330" fill="none" stroke="#94a3b8" stroke-width="4" stroke-dasharray="10 10"/>
+  <path d="M470 208 C 450 250, 420 260, 400 280" fill="none" stroke="#94a3b8" stroke-width="4" stroke-dasharray="10 10"/>
+  <text x="400" y="470" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="22" fill="#64748b">تصویر نمونه</text>
+</svg>

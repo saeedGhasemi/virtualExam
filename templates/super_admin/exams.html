@@ -147,11 +147,12 @@
                             <td>
                                 <div class="row-actions">
                                     {% if row.can_approve %}
-                                        <button type="button" class="row-approve" data-approve-url="{% url 'core:super_admin_exam_approve' row.id %}" data-approve-title="{{ row.title }}" data-approve-blocker="{{ row.approve_blocker }}" data-edit-url="{% url 'core:super_admin_exam_edit' row.id %}" title="در انتظار تأیید — برای تأیید آزمون کلیک کنید" aria-label="تأیید آزمون" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.3 7.5 9.5 4.4-1.2 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.3-4.6"/></svg></button>
+                                        <button type="button" class="row-approve" data-approve-url="{% url 'core:super_admin_exam_approve' row.id %}" data-preview-url="{% url 'core:exam_preview' row.id %}?new=1" data-approve-title="{{ row.title }}" data-approve-blocker="{{ row.approve_blocker }}" data-edit-url="{% url 'core:super_admin_exam_edit' row.id %}" title="در انتظار تأیید — برای تأیید آزمون کلیک کنید" aria-label="تأیید آزمون" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.3 7.5 9.5 4.4-1.2 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.3-4.6"/></svg></button>
                                     {% else %}
                                         <span class="row-approve is-done{% if row.is_cancelled %} is-cancelled{% endif %}" role="img" title="{% if row.is_cancelled %}آزمون لغو شده است{% else %}تأیید شده{% endif %}" aria-label="{% if row.is_cancelled %}آزمون لغو شده است{% else %}تأیید شده{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true">{% if row.is_cancelled %}<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>{% else %}<path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.3 7.5 9.5 4.4-1.2 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m8.8 12.2 2.2 2.2 4.3-4.6"/>{% endif %}</svg></span>
                                     {% endif %}
                                     <a href="{% url 'core:super_admin_exam_edit' row.id %}" title="ویرایش"><svg viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5L16 3Z"/></svg></a>
+                                    <a href="{% url 'core:exam_preview' row.id %}?new=1" title="پیش‌نمایش آزمون" aria-label="پیش‌نمایش آزمون {{ row.title }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8.5 4 2.5-4 2.5Z"/><path d="M8 21h8M12 17v4"/></svg></a>
                                     <a href="{% url 'core:super_admin_exam_report' row.id %}" title="گزارش آزمون" aria-label="گزارش آزمون"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></a>
                                     <a href="{% url 'core:super_admin_exam_detail' row.id %}" title="مشاهده"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg></a>
                                 </div>
@@ -190,6 +191,7 @@
             <h2 id="examApproveTitle">تأیید آزمون</h2>
             <p id="examApproveText" data-approve-question>آیا از تأیید آزمون «<b data-approve-name></b>» مطمئن هستید؟ پس از تأیید، آزمون برای دانشجویان منتشر می‌شود (یا اگر زمان انتشار تعیین شده باشد، در همان زمان منتشر خواهد شد).</p>
             <p class="exam-approve-error" role="alert" data-approve-error hidden></p>
+            <p style="margin:0"><a href="#" data-approve-preview style="font-weight:900">پیش از تأیید، پیش‌نمایش آزمون را ببینید ←</a></p>
             <footer>
                 <button type="button" class="users-secondary-action" data-close-approve>انصراف</button>
                 <button type="submit" class="users-primary-action" data-approve-submit>تأیید آزمون</button>
@@ -348,6 +350,8 @@
         approveOpener = item;
         approveForm.action = item.dataset.approveUrl;
         approveForm.querySelector('[data-approve-name]').textContent = item.dataset.approveTitle || '';
+        const approvePreview = approveForm.querySelector('[data-approve-preview]');
+        if (approvePreview) { approvePreview.href = item.dataset.previewUrl || '#'; approvePreview.parentElement.hidden = !item.dataset.previewUrl; }
         approveSubmit.disabled = false;
         approveSubmit.textContent = 'تأیید آزمون';
         // an exam that can't be published yet (e.g. no questions) says why and offers «ویرایش آزمون» instead

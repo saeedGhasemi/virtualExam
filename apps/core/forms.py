@@ -2,7 +2,6 @@
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
-from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.db import connection
 
@@ -49,9 +48,6 @@ def latin_digits(value):
 
 
 class StyledAuthenticationForm(AuthenticationForm):
-    lock_minutes = 15
-    max_attempts = 5
-
     def __init__(self, request=None, *args, **kwargs):
         super().__init__(request, *args, **kwargs)
         self.fields['username'].widget.attrs.update({
@@ -64,13 +60,18 @@ class StyledAuthenticationForm(AuthenticationForm):
         })
 
     def clean(self):
-        username = self.cleaned_data.get('username', '').strip().lower()
-        if username and cache.get(self.lock_key(username)):
-            raise forms.ValidationError(
-                f'حساب به دلیل تلاش‌های ناموفق زیاد، به مدت {self.lock_minutes} دقیقه قفل شده است.'
-            )
+        from . import auth_guard
+
         if self.cleaned_data.get('username'):
             self.cleaned_data['username'] = self.resolve_username(self.cleaned_data['username'])
+        reason = auth_guard.lock_reason(self.cleaned_data.get('username', ''), self.request)
+        if reason:
+            self.lock_reason = reason
+            minutes = auth_guard.lock_minutes()
+            raise forms.ValidationError(
+                f'حساب به دلیل تلاش‌های ناموفق زیاد، به مدت {minutes} دقیقه قفل شده است.' if reason == 'user'
+                else f'تلاش‌های ناموفق زیادی از این نشانی انجام شده است؛ {minutes} دقیقه دیگر دوباره امتحان کنید.'
+            )
         return super().clean()
 
     @staticmethod
@@ -114,29 +115,21 @@ class StyledAuthenticationForm(AuthenticationForm):
             raise forms.ValidationError('حساب شما غیرفعال است. با مدیر سامانه تماس بگیرید.')
 
     @classmethod
-    def attempts_key(cls, username):
-        return f'login-attempts:{username}'
+    def record_failed_attempt(cls, username, request=None):
+        """Logs a failed password (auth_events) and returns the account's failed count in the lock window."""
+        from . import auth_guard
 
-    @classmethod
-    def lock_key(cls, username):
-        return f'login-lock:{username}'
-
-    @classmethod
-    def record_failed_attempt(cls, username):
-        username = (username or '').strip().lower()
-        if not username:
+        if not auth_guard.normalize_username(username):
             return 0
-        attempts = cache.get(cls.attempts_key(username), 0) + 1
-        cache.set(cls.attempts_key(username), attempts, cls.lock_minutes * 60)
-        if attempts >= cls.max_attempts:
-            cache.set(cls.lock_key(username), True, cls.lock_minutes * 60)
-        return attempts
+        auth_guard.record('login_failed', request, username=username)
+        return auth_guard.failed_for_user(username)
 
     @classmethod
-    def clear_failed_attempts(cls, username):
-        username = (username or '').strip().lower()
-        cache.delete(cls.attempts_key(username))
-        cache.delete(cls.lock_key(username))
+    def clear_failed_attempts(cls, username, request=None):
+        """A correct password: the account's failed-attempt count starts again."""
+        from . import auth_guard
+
+        auth_guard.record('password_ok', request, username=username)
 
 
 class PublicRegistrationForm(forms.Form):

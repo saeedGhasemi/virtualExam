@@ -1,6 +1,8 @@
 from django.urls import path
+from .exam_preview import exam_preview, exam_preview_finish, question_preview, question_preview_finish
 from .exam_report import super_admin_exam_report, teacher_exam_report
 from .user_directory import super_admin_user_directory
+from .deletion import super_admin_course_delete
 from .grading_views import attempt_answer_file, teacher_grading_detail, teacher_reviews
 from .teacher_question_bank import teacher_question_archive, teacher_question_share, teacher_shared_question_copy
 from .teacher_students import (
@@ -209,6 +211,7 @@ urlpatterns = [
     path('super-admin/courses/', super_admin_courses, name='super_admin_courses'),
     path('super-admin/courses/new/', super_admin_course_form, name='super_admin_course_new'),
     path('super-admin/courses/<str:course_id>/edit/', super_admin_course_form, name='super_admin_course_edit'),
+    path('super-admin/courses/<str:course_id>/delete/', super_admin_course_delete, name='super_admin_course_delete'),
     path('super-admin/teachers/', super_admin_teachers, name='super_admin_teachers'),
     path('super-admin/teachers/new/', super_admin_teacher_create, name='super_admin_teacher_create'),
     path('super-admin/teachers/bulk/', super_admin_teacher_bulk_import, name='super_admin_teacher_bulk_import'),
@@ -390,4 +393,9 @@ urlpatterns = [
     path('student/attempts/<str:attempt_id>/submit/', student_attempt_submit, name='student_attempt_submit'),
     path('student/attempts/<str:attempt_id>/receipt/', student_attempt_receipt, name='student_attempt_receipt'),
     path('student/results/<str:attempt_id>/', student_result_detail, name='student_result_detail'),
+    # «پیش‌نمایش» of an exam / a question on the real exam page (apps/core/exam_preview.py), for every role.
+    path('preview/exam/<str:exam_id>/', exam_preview, name='exam_preview'),
+    path('preview/exam/<str:exam_id>/finish/', exam_preview_finish, name='exam_preview_finish'),
+    path('preview/question/<str:question_id>/', question_preview, name='question_preview'),
+    path('preview/question/<str:question_id>/finish/', question_preview_finish, name='question_preview_finish'),
 ]

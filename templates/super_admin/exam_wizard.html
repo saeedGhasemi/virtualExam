@@ -840,6 +840,7 @@
                 <div><span>مدت زمان</span><strong data-preview-exam-duration>-</strong></div>
                 <div><span>تعداد سوال</span><strong data-preview-exam-count>۰</strong></div>
             </div>
+            {% if saved_exam_id %}<p class="exam-preview-note" style="margin:0 0 1rem">این خلاصه، فرم فعلی را (با پاسخ‌های درست) نشان می‌دهد. برای دیدن آخرین نسخه‌ی ذخیره‌شده دقیقاً همان‌طور که دانشجو می‌بیند: <a href="{% url 'core:exam_preview' saved_exam_id %}?new=1" target="_blank" rel="noopener" style="font-weight:950">پیش‌نمایش در صفحه‌ی آزمون</a></p>{% else %}<p class="exam-preview-note" style="margin:0 0 1rem">این خلاصه، فرم فعلی را (با پاسخ‌های درست) نشان می‌دهد. پس از ذخیره، پیش‌نمایش کامل آزمون در صفحه‌ی آزمون دانشجو از فهرست آزمون‌ها در دسترس است.</p>{% endif %}
             <div class="exam-preview-questions" data-exam-preview-questions></div>
         </div>
     </div>

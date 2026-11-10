@@ -116,7 +116,7 @@
                                 <div class="course-actions">
                                     <button type="button" data-course-view title="مشاهده"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg></button>
                                     <a href="{% url 'core:super_admin_course_edit' row.id %}" data-course-edit title="ویرایش"><svg viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5L16 3Z"/></svg></a>
-                                    <button type="button" data-course-delete title="حذف"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+                                    <button type="button" data-course-delete data-delete-url="{% url 'core:super_admin_course_delete' row.id %}?next={{ request.get_full_path|urlencode }}" title="حذف"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
                                 </div>
                             </td>
                         </tr>
@@ -132,15 +132,15 @@
         </footer>
     </section>
 
-    <form hidden data-course-delete-token>{% csrf_token %}</form>
     <div class="course-toast" data-course-toast hidden></div>
 </section>
+
+{% include "partials/delete_dialog.html" %}
 
 <script>
 (() => {
     const rows = [...document.querySelectorAll('[data-course-row]')];
     const toast = document.querySelector('[data-course-toast]');
-    const csrf = document.querySelector('[data-course-delete-token] [name=csrfmiddlewaretoken]').value;
     const showToast = (message) => {
         toast.textContent = message;
         toast.hidden = false;
@@ -150,17 +150,6 @@
     rows.forEach((row) => {
         row.querySelector('[data-course-view]').addEventListener('click', () => {
             showToast(`${row.dataset.title || 'درس'} | ${row.dataset.code || '-'} | ${row.children[5].textContent.trim()}`);
-        });
-        row.querySelector('[data-course-delete]').addEventListener('click', async () => {
-            if (!confirm(`درس «${row.dataset.title || ''}» حذف شود؟`)) return;
-            const body = new FormData();
-            body.append('course_action', 'delete');
-            body.append('course_id', row.dataset.id);
-            const response = await fetch(location.href, {method: 'POST', headers: {'X-CSRFToken': csrf}, body});
-            if (response.ok) {
-                row.remove();
-                showToast('درس حذف شد.');
-            }
         });
     });
     const search = document.querySelector('[data-course-search]');

@@ -253,7 +253,7 @@
                         <footer>
                             <small>{{ note.date_label }} - {{ note.time_label|fa_digits }}</small>
                             {% if note.is_shared %}<span class="tstu-badge is-blue">ارسال‌شده برای دانشجو</span>{% else %}<span class="tstu-badge is-muted">خصوصی</span>{% endif %}
-                            <form method="post" action="{% url 'core:teacher_student_note_delete' s.id note.id %}" onsubmit="return confirm('این یادداشت حذف شود؟');">{% csrf_token %}<button type="submit" class="tstu-link is-danger">حذف</button></form>
+                            <form method="post" action="{% url 'core:teacher_student_note_delete' s.id note.id %}" data-confirm="این یادداشت حذف شود؟">{% csrf_token %}<button type="submit" class="tstu-link is-danger">حذف</button></form>
                         </footer>
                     </div>
                 {% empty %}

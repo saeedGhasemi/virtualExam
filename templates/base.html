@@ -10,7 +10,7 @@
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=teacher-security-20261028">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261109p">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261110c">
     <link rel="stylesheet" href="{% static 'css/brand.css' %}?v=brand-20261109">
     {% comment %}Many pages put their style block after the markup: until it is parsed, SVG icons without a width attribute
     would paint full-width and black for a moment. This zero-specificity fallback keeps them icon-sized only while the page loads.{% endcomment %}
@@ -154,13 +154,7 @@
                     <a class="app-topbar-link" href="{% url 'core:logout' %}">خروج</a>
                 </header>
 
-                {% if messages %}
-                    <section class="app-messages">
-                        {% for message in messages %}
-                            <div class="alert-message">{{ message }}</div>
-                        {% endfor %}
-                    </section>
-                {% endif %}
+                {% include "partials/flash_messages.html" %}
 
                 <main class="app-content">
     {% else %}
@@ -185,13 +179,7 @@
             </header>
             {% endblock %}
 
-            {% if messages %}
-                <section class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
-                    {% for message in messages %}
-                        <div class="alert-message">{{ message }}</div>
-                    {% endfor %}
-                </section>
-            {% endif %}
+            {% include "partials/flash_messages.html" %}
 
             <main>
     {% endif %}
@@ -273,5 +261,6 @@
 <script src="{% static 'js/password-toggle.js' %}?v=20261108" defer></script>
 <script src="{% static 'js/count-up.js' %}?v=20261109" defer></script>
 <script src="{% static 'js/live-region.js' %}?v=20261109" defer></script>
+{% include "partials/confirm_dialog.html" %}
 </body>
 </html>

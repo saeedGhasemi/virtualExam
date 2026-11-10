@@ -42,6 +42,7 @@
         {% else %}
           <span class="sx-chip orange">تا شروع آزمون <span data-countdown="{{ seconds_until_start }}">-</span> باقی مانده</span>
         {% endif %}
+        <a class="sx-btn" href="{% url 'core:exam_preview' exam.pk %}?new=1" title="آشنایی با صفحه‌ی آزمون و قوانین آن با سؤال‌های نمونه">پیش‌نمایش آزمون (نمونه)</a>
         {% if exam.guidance_file_url %}<a class="sx-btn" href="{{ exam.guidance_file_url }}" target="_blank" rel="noopener">دانلود راهنمای آزمون</a>{% endif %}
       </div>
       {% if attempts_limit != 1 %}<p style="margin:16px 0 0;text-align:center;color:#64748b;font-weight:850">دفعات شرکت: {{ attempts_used|fa_digits }}{% if attempts_limit %} از {{ attempts_limit|fa_digits }}{% else %} (نامحدود){% endif %}</p>{% endif %}

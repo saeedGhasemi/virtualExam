@@ -10,7 +10,7 @@
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
     <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=manager-bulk-final-swap-20260831">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261109p">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261110c">
     <link rel="stylesheet" href="{% static 'css/brand.css' %}?v=brand-20261109">
     {% comment %}Many pages put their style block after the markup: until it is parsed, SVG icons without a width attribute
     would paint full-width and black for a moment. This zero-specificity fallback keeps them icon-sized only while the page loads.{% endcomment %}
@@ -61,32 +61,11 @@
         .profile-sidebar.is-collapsed .profile-nav a:hover:after,
         .profile-sidebar.is-collapsed .profile-nav a:focus-visible:after{content:attr(data-tooltip);position:absolute;z-index:50;inset-inline-end:calc(100% + .65rem);top:50%;transform:translateY(-50%);width:max-content;max-width:12rem;border:1px solid #dbe3ef;border-radius:.65rem;background:#fff;padding:.45rem .7rem;color:#071936;font-size:.78rem;font-weight:850;box-shadow:0 14px 32px rgba(15,23,42,.14);pointer-events:none;white-space:nowrap}
         body:has([data-fixed-scroll-page]){height:100dvh;overflow:hidden}
-        .mq-flash{position:fixed;left:50%;bottom:1.4rem;z-index:1200;display:grid;gap:.5rem;width:min(520px,calc(100vw - 2rem));transform:translateX(-50%);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
-        .mq-flash.is-hiding{opacity:0;transform:translate(-50%,1rem)}
-        .mq-flash .alert-message{margin:0;cursor:pointer;pointer-events:auto;text-align:center}
-        .mq-flash .alert-message.is-error{border-color:#fecaca;background:rgba(254,242,242,.97);color:#7f1d1d}
-        .mq-flash .alert-message.is-warning{border-color:#fde68a;background:rgba(255,251,235,.97);color:#78350f}
     </style>
     {% include "partials/appearance_head.html" %}
 </head>
 <body class="min-h-screen bg-page text-ink antialiased">
-    {% if messages %}
-        {# Flash messages float as a toast: in the page flow they hid under fixed top bars and left an empty gap. #}
-        <section class="mq-flash" aria-live="polite" data-mq-flash>
-            {% for message in messages %}
-                <div class="alert-message{% if message.tags %} is-{{ message.tags }}{% endif %}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>
-            {% endfor %}
-        </section>
-        <script>
-            (() => {
-                const flash = document.querySelector('[data-mq-flash]');
-                if (!flash) return;
-                const hide = () => { flash.classList.add('is-hiding'); window.setTimeout(() => flash.remove(), 400); };
-                flash.addEventListener('click', hide);
-                window.setTimeout(hide, flash.querySelector('.is-error, .is-warning') ? 8000 : 4500);
-            })();
-        </script>
-    {% endif %}
+    {% include "partials/flash_messages.html" %}{# floating toast at the top, closes by itself #}
     {% block content %}{% endblock %}
     <script>
         (() => {
@@ -139,5 +118,6 @@
 <script src="{% static 'js/password-toggle.js' %}?v=20261108" defer></script>
 <script src="{% static 'js/count-up.js' %}?v=20261109" defer></script>
 <script src="{% static 'js/live-region.js' %}?v=20261109" defer></script>
+{% include "partials/confirm_dialog.html" %}
 </body>
 </html>

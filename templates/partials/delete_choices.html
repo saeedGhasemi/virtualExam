@@ -1,0 +1,25 @@
+{% load core_extras %}
+{% comment %}Body of the «حذف» dialog (partials/delete_dialog.html), from apps/core/deletion.py on GET.{% endcomment %}
+<p class="mq-del-lead">{{ kind_label }} «<strong>{{ name }}</strong>» حذف شود؟</p>
+{% if reason %}
+    <p class="mq-del-note">{{ reason }}</p>
+    <div class="mq-del-actions"><button type="button" class="mq-del-cancel" data-delete-close>بستن</button></div>
+{% else %}
+    <form method="post" action="{{ action_url }}" class="mq-del-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" name="mode" value="only" class="mq-del-option">
+            <strong>فقط حذف {{ kind_label }}</strong>
+            <span>{% if kind_label == 'درس' %}آزمون‌ها، گروه‌ها و سؤال‌های آن باقی می‌مانند و فقط از این درس جدا می‌شوند.{% else %}سوابق او (مثل آزمون‌ها و نمره‌ها) بدون نام باقی می‌مانند.{% endif %}</span>
+        </button>
+        <button type="submit" name="mode" value="all" class="mq-del-option is-danger">
+            <strong>حذف {{ kind_label }} با همه‌ی سوابق و وابستگی‌ها</strong>
+            {% if all_items %}
+                <span>این موارد هم پاک می‌شوند: {% for item in all_items %}{{ item.count|fa_digits }} {{ item.label }}{% if not forloop.last %}، {% endif %}{% endfor %}.{% if kind_label == 'درس' %} سؤال‌های بانک سؤال باقی می‌مانند.{% endif %}</span>
+            {% else %}
+                <span>سابقه‌ی وابسته‌ای ندارد.</span>
+            {% endif %}
+        </button>
+        <div class="mq-del-actions"><button type="button" class="mq-del-cancel" data-delete-close>انصراف</button></div>
+    </form>
+{% endif %}

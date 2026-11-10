@@ -8,3 +8,5 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         from . import account_security  # noqa: F401  (connects the login/logout session signals)
+        from . import auth_guard  # noqa: F401  (sign-in / sign-out audit rows in auth_events)
+        from . import checks  # noqa: F401  (deployment security checks)

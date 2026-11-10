@@ -7,7 +7,9 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env', override=True)
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
+# Every secret (SECRET_KEY, database/e-mail passwords) comes only from the environment / .env, never from the code
+# (Security.md). With DEBUG off, `manage.py check` fails on a missing or placeholder SECRET_KEY (apps/core/checks.py).
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-local-development-only')
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,37.32.4.207').split(',') if host.strip()]
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME', '').strip()
@@ -51,6 +53,7 @@ MIDDLEWARE = [
     'apps.core.middleware.MalformedIdNotFoundMiddleware',
     'apps.core.exam_schedule.ScheduledPublishMiddleware',
     'apps.core.middleware.PasswordChangeRequiredMiddleware',
+    'apps.core.middleware.SecurityHeadersMiddleware',
 ]
 
 if HAS_WHITENOISE:
@@ -151,15 +154,41 @@ CACHES = {
 SESSION_ENGINE = os.getenv('SESSION_ENGINE', 'django.contrib.sessions.backends.cached_db')
 SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', str(60 * 60 * 8)))
 
+# Brute-force protection of the sign-in page (apps/core/auth_guard.py, Auth.md). Counted in auth_events, so the limit
+# is shared by all gunicorn workers.
+LOGIN_MAX_FAILED_PER_USER = int(os.getenv('LOGIN_MAX_FAILED_PER_USER', '5'))
+LOGIN_MAX_FAILED_PER_IP = int(os.getenv('LOGIN_MAX_FAILED_PER_IP', '100'))
+LOGIN_LOCK_MINUTES = int(os.getenv('LOGIN_LOCK_MINUTES', '15'))
+# How long sign-in audit rows are kept before `manage.py purge_expired_data` removes them (Data.md).
+AUTH_EVENTS_RETENTION_DAYS = int(os.getenv('AUTH_EVENTS_RETENTION_DAYS', '365'))
+# Proxies in front of gunicorn that append to X-Forwarded-For (nginx = 1). Only those hops are trusted for the
+# client IP; 0 ignores the header (gunicorn reached directly).
+TRUSTED_PROXY_COUNT = int(os.getenv('TRUSTED_PROXY_COUNT', '1'))
+
 EXAM_MAX_CONCURRENT_STUDENTS = int(os.getenv('EXAM_MAX_CONCURRENT_STUDENTS', '1500'))
 EXAM_MAX_CONCURRENT_TEACHERS = int(os.getenv('EXAM_MAX_CONCURRENT_TEACHERS', '300'))
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+# Passwords are stored only as salted, slow hashes (Security.md). PBKDF2-SHA256 (Django's default, 870k+ iterations)
+# signs new passwords; Argon2id becomes the primary hasher when PASSWORD_HASHER=argon2 and argon2-cffi is installed.
+# The later entries only verify older hashes, which are upgraded to the primary one at the next sign-in.
+_ARGON2 = 'django.contrib.auth.hashers.Argon2PasswordHasher'
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.ScryptPasswordHasher',
+]
+if importlib.util.find_spec('argon2') is not None:
+    if os.getenv('PASSWORD_HASHER', '').strip().lower() == 'argon2':
+        PASSWORD_HASHERS.insert(0, _ARGON2)
+    else:
+        PASSWORD_HASHERS.append(_ARGON2)
 
 LANGUAGE_CODE = 'fa-ir'
 TIME_ZONE = 'Asia/Tehran'
@@ -201,11 +230,22 @@ LOGOUT_REDIRECT_URL = '/'
 # تأیید مدیر سیستم / رد شده / مسدود) نشان دهد، نه پیام عمومی «ورود نامعتبر» جنگو.
 AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.AllowAllUsersModelBackend']
 
+# --- Transport, cookies and headers (Security.md, Hack.md) ---------------------------------------------------
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Cookies: never readable by page scripts (HttpOnly), only sent over HTTPS when DEBUG is off (Secure), and not sent on
+# cross-site sub-requests or POSTs (SameSite=Lax), so a stolen-session XSS or a cross-site form cannot use them.
 SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
 CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True  # the pages send the token from the form field ({% csrf_token %}), never from the cookie
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'false').lower() == 'true'
-SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
+# HSTS: production sets SECURE_HSTS_SECONDS in .env; with DEBUG off and nothing set, one day.
+SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0' if DEBUG else '86400'))
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
 # مرورگر هدر COOP را فقط روی HTTPS/localhost می‌پذیرد؛ روی استقرار HTTP (مثلاً با IP)
 # مقدار خالی بدهید تا هدر ارسال نشود و خطای کنسول ایجاد نکند.
 SECURE_CROSS_ORIGIN_OPENER_POLICY = os.getenv('SECURE_CROSS_ORIGIN_OPENER_POLICY', 'same-origin').strip() or None

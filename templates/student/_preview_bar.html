@@ -1,0 +1,44 @@
+{% load core_extras %}{# «پیش‌نمایش» bar above the exam page (apps/core/exam_preview.py); preview = the view's preview dict. #}
+<style>
+  .qx-pv{display:grid;gap:.7rem;padding:.9rem 1rem;border:1px solid #fcd34d;background:#fffbeb;color:#78350f}
+  .qx-pv-head{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .9rem}
+  .qx-pv-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;border-radius:999px;background:#d97706;color:#fff;font-weight:950;font-size:.84rem;white-space:nowrap}
+  .qx-pv-badge svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .qx-pv-text{flex:1 1 18rem;min-width:0;margin:0;font-size:.86rem;font-weight:850;line-height:1.9}
+  .qx-pv-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+  .qx-pv-actions form{display:contents}
+  .qx-pv-btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;min-height:2.4rem;padding:0 .9rem;border:1px solid #f59e0b;border-radius:.6rem;background:#fff;color:#92400e;font:inherit;font-size:.84rem;font-weight:900;text-decoration:none;cursor:pointer}
+  .qx-pv-btn:hover{background:#fef3c7}
+  .qx-pv-btn--exit{border-color:#92400e;background:#92400e;color:#fff}.qx-pv-btn--exit:hover{background:#78350f}
+  .qx-pv-rules{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:0;padding:0;list-style:none;font-size:.78rem;font-weight:850}
+  .qx-pv-rules li{padding:.2rem .65rem;border:1px solid #fde68a;border-radius:999px;background:#fef3c7}
+  .qx-pv-rules li.qx-pv-rules-title{padding:0;border:0;background:none;font-weight:950}
+  .qx-pv-note{margin:0;font-size:.76rem;font-weight:800;color:#92400e}
+  @media (max-width:460px){.qx-pv-actions{display:grid;grid-template-columns:minmax(0,1fr);width:100%}}
+</style>
+<section class="qx-card qx-pv" role="note" aria-label="حالت پیش‌نمایش" data-preview-bar>
+  <div class="qx-pv-head">
+    <span class="qx-pv-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>{% if preview.kind == 'question' %}پیش‌نمایش سؤال{% elif preview.sample %}پیش‌نمایش آزمون (نمونه){% else %}پیش‌نمایش آزمون{% endif %}</span>
+    <p class="qx-pv-text">
+      {% if preview.sample %}
+        سؤال‌های این صفحه نمونه‌اند و هیچ سؤال واقعی آزمون نمایش داده نمی‌شود؛ تعداد، ترتیب، نوع و نمره‌ی سؤال‌ها، مدت آزمون ({{ preview.duration_minutes|fa_digits }} دقیقه) و قوانین آن مطابق آزمون واقعی است. پاسخ‌ها در جایی ثبت نمی‌شوند.
+      {% elif preview.kind == 'question' %}
+        سؤال همان‌طور که دانشجو در صفحه‌ی آزمون می‌بیند. می‌توانید به آن پاسخ دهید؛ پاسخ فقط در همین پیش‌نمایش نگه داشته می‌شود و در جایی ثبت نمی‌شود.
+      {% else %}
+        این همان صفحه‌ای است که دانشجو در آزمون می‌بیند، با سؤال‌ها و قوانین واقعی آزمون. پاسخ‌ها فقط در همین پیش‌نمایش نگه داشته می‌شوند و در جایی ثبت نمی‌شوند؛ زمان از لحظه‌ی شروع پیش‌نمایش شمرده می‌شود.
+      {% endif %}
+    </p>
+    <div class="qx-pv-actions">
+      <form method="post" action="{{ preview.url }}">{% csrf_token %}<button type="submit" class="qx-pv-btn" name="action" value="restart">شروع دوباره</button></form>
+      <a class="qx-pv-btn qx-pv-btn--exit" href="{{ preview.back_url }}">خروج از پیش‌نمایش</a>
+    </div>
+  </div>
+  {% if preview.rules or preview.practice %}
+    <ul class="qx-pv-rules">
+      <li class="qx-pv-rules-title">قوانین این آزمون:</li>
+      {% if preview.practice %}<li>آزمون آزمایشی</li>{% endif %}
+      {% for label in preview.rules %}<li>{{ label }}</li>{% endfor %}
+    </ul>
+    {% if preview.idle_rules %}<p class="qx-pv-note">در پیش‌نمایش اجرا نمی‌شود و فقط در آزمون واقعی فعال است: {{ preview.idle_rules }}.</p>{% endif %}
+  {% endif %}
+</section>

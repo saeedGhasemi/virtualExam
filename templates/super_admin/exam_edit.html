@@ -38,7 +38,7 @@
             </div>
             <div class="hero-actions">
                 <a class="btn" href="{% url 'core:super_admin_exams' %}">انصراف</a>
-                <a class="btn soft" href="{% url 'core:super_admin_exam_detail' exam.id %}">پیش‌نمایش</a>
+                <a class="btn soft" href="{% url 'core:exam_preview' exam.id %}?new=1">پیش‌نمایش</a>
                 {% if not stats.started_count %}<a class="btn soft" href="{% url 'core:super_admin_exam_wizard_edit' exam.id %}" title="همه‌ی تنظیمات ویزارد (امنیت، نمره‌دهی، قوانین، پس از انتشار)">ویرایش کامل در ویزارد</a>{% endif %}
                 {% if view == 'edit' or view == 'republish' %}
                     <button class="btn primary" form="examEditForm" type="submit">ذخیره تغییرات</button>
