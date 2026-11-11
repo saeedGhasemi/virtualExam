@@ -19,7 +19,8 @@
  * ones are swapped, so a tab may render different inner regions than the one before it.
  * Opt out with data-live-skip on a form, link, submit button or input (or an ancestor).
  * After a swap each new region fires a bubbling "mq:live-load" event; global helpers
- * (Persian digits, responsive tables) listen to it. Page scripts that bind listeners to
+ * (Persian digits, responsive tables) listen to it. While a load runs the site-wide loader shows
+ * (static/js/page-loader.js). Page scripts that bind listeners to
  * elements inside a region must use event delegation or rebind on that event.
  * Inline <script> tags inside a region are not executed after a swap, unless the region has
  * data-live-scripts (only for scripts that bind to elements inside the region).
@@ -60,7 +61,10 @@
     let controller = null;
     let busyTimer = null;
 
-    const fullNavigation = (url) => { window.location.assign(url); };
+    const fullNavigation = (url) => {
+        if (window.mqLoader) window.mqLoader.nav();
+        window.location.assign(url);
+    };
 
     const setBusy = (on) => {
         clearTimeout(busyTimer);
@@ -144,8 +148,11 @@
         controller = new AbortController();
         const mine = controller;
         setBusy(true);
+        // the site-wide loader (static/js/page-loader.js) runs from the request until the new content is in place
+        const task = window.mqLoader ? window.mqLoader.start() : 0;
         try {
             const response = await fetch(url, {
+                mqBackground: true,
                 credentials: 'same-origin',
                 headers: {'X-Requested-With': 'live-region', Accept: 'text/html'},
                 signal: mine.signal,
@@ -180,6 +187,7 @@
             if (error && error.name === 'AbortError') return;
             fullNavigation(url);
         } finally {
+            if (task) window.mqLoader.stop(task);
             if (mine === controller) {
                 controller = null;
                 setBusy(false);

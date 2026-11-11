@@ -131,7 +131,8 @@
 /* Responsive */
 .sap-layout>*,.sap-side>*{min-width:0}.sap-row{gap:.75rem}.sap-row>:last-child{min-width:0;overflow-wrap:anywhere;text-align:left}
 @media (max-width:420px){.sap-tabs svg{display:none}}
-@media (max-width:640px){.sap .sap-layout[style],.sap-shortcuts{grid-template-columns:minmax(0,1fr)!important}.sap-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));direction:ltr;gap:.25rem}.sap-tabs>*{direction:rtl;justify-content:center;min-width:0;padding-inline:.35rem;font-size:.76rem;white-space:nowrap}.sap-stats{grid-template-columns:1fr}}
+.sap-appearance{max-width:52rem}
+@media (max-width:640px){.sap .sap-layout[style],.sap-shortcuts{grid-template-columns:minmax(0,1fr)!important}.sap-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));direction:rtl;gap:.25rem}.sap-tabs>:nth-child(1){order:4}.sap-tabs>:nth-child(2){order:3}.sap-tabs>:nth-child(3){order:2}.sap-tabs>:nth-child(4){order:1}.sap-tabs>*{direction:rtl;justify-content:center;min-width:0;padding-inline:.35rem;font-size:.76rem;white-space:nowrap}.sap-stats{grid-template-columns:1fr}}
 </style>
 
 <section class="super-admin-page super-admin-workspace sap" dir="rtl" id="admin-profile" data-live-region>
@@ -139,12 +140,16 @@
     <h1 class="sap-head">پروفایل من</h1>
 
     <nav class="sap-tabs">
+        <a class="{% if section == 'appearance' %}is-active{% endif %}" href="?section=appearance"><svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 9.8C22 5.5 17.5 2 12 2Z"/></svg>ظاهر من</a>
         <a class="{% if section == 'edit' %}is-active{% endif %}" href="?section=edit"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>ویرایش اطلاعات</a>
         <a class="{% if section == 'security' %}is-active{% endif %}" href="?section=security"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5Z"/></svg>امنیت حساب</a>
         <a class="{% if section == 'overview' %}is-active{% endif %}" href="?section=overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>نمای کلی</a>
     </nav>
 
-    {% if section == 'security' %}
+    {% if section == 'appearance' %}
+        {% include "partials/my_appearance.html" with card_class="sap-card sap-pad sap-appearance" own_form=True %}
+
+    {% elif section == 'security' %}
         <section class="sap-card sap-score-card" style="margin-bottom:.9rem">
             <span class="sap-score-badge"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg></span>
             <div class="sap-score-status">

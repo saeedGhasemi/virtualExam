@@ -38,7 +38,7 @@
   const PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
 
   const decodePeaks = async (src) => {
-    const response = await fetch(src);
+    const response = await fetch(src, {mqBackground: true});
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength > MAX_DECODE_BYTES) return null;
     audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();

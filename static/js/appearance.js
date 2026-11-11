@@ -8,8 +8,8 @@
    (header gradient, page washes) take the chosen hue too. px font sizes become calc(Npx * var(--mq-fs)) so the text-size
    setting reaches them too (rem sizes follow the root size set in appearance.css).
 
-   Loaded synchronously in <head> right after the stylesheets: it runs only when <html data-mq-accent> is set or the
-   font isn't "medium" (otherwise it does nothing until MQAppearance.preview() is called by the settings page). Content
+   Loaded synchronously in <head> right after the stylesheets: it runs when <html data-mq-accent> or data-mq-font is set
+   (pages without them stay as designed until MQAppearance.preview() is called by the settings page). Content
    added later (live-region swaps, scripts) is handled by a MutationObserver. Inline colours inside [data-mq-keep] are
    left alone. */
 (() => {
@@ -277,8 +277,8 @@
     elements.forEach((el) => { if (el.isConnected) writeAttrs(el); else elements.delete(el); });
   }
 
-  const font = root.dataset.mqFont;
-  if (root.dataset.mqAccent || (font && font !== 'medium')) {
+  // every text size (medium too, 15px) scales px font sizes, so this runs whenever a size is set
+  if (root.dataset.mqAccent || root.dataset.mqFont) {
     activate();
     setColor(root.dataset.mqAccent);
   }
@@ -292,7 +292,7 @@
       if (v.color !== undefined) {
         activate();
         setColor(v.color);
-      } else if (v.font && v.font !== 'medium') {
+      } else if (v.font) {
         activate();
       }
     },

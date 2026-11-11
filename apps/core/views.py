@@ -44,7 +44,7 @@ from django.utils.safestring import mark_safe
 from . import account_security, question_import_word, question_kinds
 from .rich_text import clean_delta, delta_length, delta_text, delta_to_html
 from .appearance import (
-    APPEARANCE_DEFAULTS, COLOR_PRESETS, FONT_SIZE_CHOICES, THEME_CHOICES, clean_appearance_value,
+    APPEARANCE_DEFAULTS, COLOR_PRESETS, FONT_SIZE_CHOICES, THEME_CHOICES, clean_appearance_value, save_posted_appearance,
 )
 from .uploads import delete_private, file_extension, image_ok, signature_ok, store_private
 from .forms import (
@@ -1158,6 +1158,11 @@ def _system_health_items() -> list:
         items.append({'label': 'ذخیره‌سازی', 'status': f'{free}٪ فضای آزاد', 'tone': 'ok' if free >= 10 else 'bad'})
     except OSError:
         items.append({'label': 'ذخیره‌سازی', 'status': 'نامشخص', 'tone': 'warn'})
+    from apps.core import auto_backup
+    automatic = auto_backup.health()  # while scheduled backups are on, their own status is what counts
+    if automatic:
+        items.append({'label': 'پشتیبان‌گیری', **automatic})
+        return items
     backup_dir = Path(settings.BACKUP_DIR) if getattr(settings, 'BACKUP_DIR', '') else None
     if not backup_dir:
         items.append({'label': 'پشتیبان‌گیری', 'status': 'پایش نشده', 'tone': 'warn'})
@@ -11392,27 +11397,7 @@ def super_admin_settings(request):
             'default': 'متوسط',
             'group': 'appearance',
         },
-        {
-            'key': 'auto_backup',
-            'label': 'پشتیبان‌گیری خودکار',
-            'type': 'boolean',
-            'default': True,
-            'group': 'backup',
-        },
-        {
-            'key': 'backup_frequency',
-            'label': 'تناوب پشتیبان‌گیری',
-            'type': 'text',
-            'default': 'روزانه',
-            'group': 'backup',
-        },
-        {
-            'key': 'backup_retention_days',
-            'label': 'مدت نگهداری نسخه‌ها',
-            'type': 'number',
-            'default': 30,
-            'group': 'backup',
-        },
+        # The automatic backup schedule is not a plain setting: auto_backup.py (the «پشتیبان‌گیری و بازیابی» tab).
         {
             'key': 'default_exam_duration',
             'label': 'مدت پیش‌فرض آزمون (دقیقه)',
@@ -11462,9 +11447,6 @@ def super_admin_settings(request):
         'theme_mode': {'label': 'حالت نمایش', 'default': 'روشن'},
         'primary_color': {'label': 'رنگ اصلی سامانه', 'default': '#2563EB'},
         'font_size': {'label': 'اندازه فونت', 'default': 'متوسط'},
-        'auto_backup': {'label': 'پشتیبان‌گیری خودکار'},
-        'backup_frequency': {'label': 'تناوب پشتیبان‌گیری', 'default': 'روزانه'},
-        'backup_retention_days': {'label': 'مدت نگهداری نسخه‌ها'},
         'default_exam_duration': {'label': 'مدت پیش‌فرض آزمون (دقیقه)'},
         'max_upload_mb': {'label': 'حداکثر حجم آپلود (مگابایت)'},
         'registration_open': {'label': 'فعال بودن ثبت‌نام عمومی'},
@@ -11543,6 +11525,9 @@ def super_admin_settings(request):
         if settings_action in ('db_backup', 'db_restore'):
             from apps.core import db_backup
             return db_backup.handle_post(request, settings_action)
+        from apps.core import auto_backup
+        if settings_action in auto_backup.POST_ACTIONS:
+            return auto_backup.handle_post(request, settings_action)
         if settings_action == 'export':
             rows = erd_rows('SELECT key, value, description FROM system_settings ORDER BY key')
             payload = {
@@ -11658,10 +11643,13 @@ def super_admin_settings(request):
     if settings_tab not in ('terms', 'other', 'backup'):
         settings_tab = 'other'
     backup_info = None
+    from apps.core import auto_backup, db_backup
+    auto_backup_config = auto_backup.load_config()
     if settings_tab == 'backup':
-        from apps.core import db_backup
         backup_info = db_backup.overview()
         backup_info['can_manage'] = db_backup.can_manage(request.user)
+        if backup_info['can_manage'] and backup_info['is_postgres']:
+            backup_info['auto'] = auto_backup.overview()
 
     return render(request, 'super_admin/settings.html', {
         'settings_items': settings_items,
@@ -11669,6 +11657,7 @@ def super_admin_settings(request):
         'settings_groups': settings_groups,
         'settings_active_tab': settings_tab,
         'backup_info': backup_info,
+        'auto_backup_summary': auto_backup.schedule_text(auto_backup_config) if auto_backup_config['enabled'] else '',
         'appearance_options': {
             'theme': THEME_CHOICES,
             'font': FONT_SIZE_CHOICES,
@@ -12526,14 +12515,17 @@ ATTEMPT_EVENTS = {  # what the exam page reports -> (activity log action, descri
     'screenshot': ('exam_screenshot', 'تلاش برای گرفتن تصویر یا چاپ صفحه‌ی آزمون ثبت شد.'),
     'camera_off': ('exam_camera_off', 'دوربین دانشجو در حین آزمون قطع یا غیرفعال شد.'),
     'mic_off': ('exam_mic_off', 'میکروفون دانشجو در حین آزمون قطع یا غیرفعال شد.'),
+    'navigation': ('exam_navigation_attempt', 'دانشجو در حین آزمون تلاش کرد با دکمه‌ی بازگشت، تغییر نشانی یا بستن صفحه از آزمون خارج شود.'),
+    'devtools': ('exam_devtools', 'تلاش برای باز کردن ابزار توسعه‌دهنده (Inspect) یا دیدن کد صفحه در حین آزمون ثبت شد.'),
 }
 # log action -> the «رویدادهای مراقبت» counter it adds to on the teacher's pages
 ATTEMPT_EVENT_FLAGS = {
     'exam_tab_hidden': 'tab', 'exam_fullscreen_exit': 'fullscreen', 'exam_copy': 'copy_paste', 'exam_paste': 'copy_paste',
     'exam_disconnected': 'disconnect', 'attempt_device_takeover': 'device',
     'exam_screenshot': 'screenshot', 'exam_camera_off': 'camera', 'exam_mic_off': 'camera',
+    'exam_navigation_attempt': 'navigation', 'exam_devtools': 'devtools',
 }
-ATTEMPT_FLAG_KEYS = ('tab', 'fullscreen', 'copy_paste', 'disconnect', 'device', 'screenshot', 'camera')
+ATTEMPT_FLAG_KEYS = ('tab', 'fullscreen', 'copy_paste', 'disconnect', 'device', 'screenshot', 'camera', 'navigation', 'devtools')
 ATTEMPT_EVENT_LIMIT = 500  # per attempt; a page (or a script) cannot flood the log beyond this
 
 
@@ -12714,7 +12706,7 @@ def _super_admin_profile_view(request, page_context):
             return []
 
     section = request.GET.get('section') or 'overview'
-    if section not in {'overview', 'security', 'edit'}:
+    if section not in {'overview', 'security', 'edit', 'appearance'}:  # appearance: «ظاهر من»
         section = 'overview'
 
     if request.method == 'POST':
@@ -15188,6 +15180,7 @@ def teacher_settings(request):
         if not personal_errors:
             return redirect(f'{reverse("core:teacher_settings")}?tab=personal&saved=1')
     elif request.method == 'POST' and not security_errors:
+        save_posted_appearance(teacher_id, request.POST)  # «تنظیمات ظاهری» card (tab account)
         payload, errors = _teacher_settings_from_post(request.POST, _teacher_settings_payload(teacher_id), active_tab)
         for error in errors:
             messages.error(request, error)
@@ -15387,11 +15380,8 @@ SHORT_ANSWER_MAX_CHARS = 2000
 def _apply_independent_settings(payload, post):
     """Read the per-type scoring settings of an independent question from the builder form."""
     kind = payload['stored_type']
-    negative_value = abs(_form_number(post, 'negative_value', 0.25))
+    # «نمره منفی» and «تصادفی‌سازی گزینه‌ها» are exam settings (_sx_exam_rules), not question ones.
     settings_data = {
-        'negative_marking': bool(post.get('negative_marking')),
-        'negative_value': negative_value,
-        'shuffle_options': bool(post.get('shuffle_options')),
         'scoring_mode': post.get('scoring_mode') if post.get('scoring_mode') in {'partial', 'all_or_nothing'} else 'partial',
     }
     if kind == 'multi':
@@ -15414,7 +15404,7 @@ def _apply_independent_settings(payload, post):
         if stem:
             payload['text'] = stem
     payload['scoring_settings'] = settings_data
-    payload['negative_points'] = str(-negative_value if settings_data['negative_marking'] else 0)
+    payload['negative_points'] = '0'
 
     if kind == 'short_answer':
         accepted = []
@@ -16019,6 +16009,95 @@ def teacher_question_media_upload(request):
     if error:
         return JsonResponse({'ok': False, 'error': error}, status=400)
     return JsonResponse({'ok': True, 'url': url, 'kind': stored_kind, 'name': uploaded.name[:150], 'size': uploaded.size})
+
+
+# media/question-media/library/: images placed on the server by hand, offered to every question author.
+QUESTION_MEDIA_LIBRARY_DIR = 'library'
+QUESTION_MEDIA_LIBRARY_LIMIT = 600
+_QUESTION_IMAGE_URL_RE = re.compile(
+    re.escape(f'{settings.MEDIA_URL}question-media/') + r'([A-Za-z0-9_\-./]+?\.(?:jpe?g|png|webp|gif))(?=["\s?#]|$)',
+    re.IGNORECASE,
+)
+
+
+def _question_media_file(relative):
+    """The file under MEDIA_ROOT/question-media for a URL tail, or None when it is outside it or missing."""
+    if not relative or '..' in relative or relative.startswith('/'):
+        return None
+    root = (Path(settings.MEDIA_ROOT) / 'question-media').resolve()
+    path = (root / relative).resolve()
+    if root not in path.parents or not path.is_file():
+        return None
+    return path
+
+
+@erd_role_required('teacher', 'academic_manager', 'admin')
+def teacher_question_media_library(request):
+    """Images already on the server that a builder image slot can reuse (the «انتخاب از سرور» dialog).
+
+    Teachers: images of their own questions + questions shared with them + the shared library folder.
+    Academic managers: their bank scope + the library. System admin: every image in question-media.
+    Picking one only fills the slot's «existing» field; _apply_question_uploads accepts any question-media URL."""
+    from .teacher_question_bank import SHARED_WITH_SQL, _owner, bank_owner
+
+    owner = bank_owner(request)
+    owner_sql, params = _owner(owner)
+    if owner is not None and not hasattr(owner, 'sql'):
+        owner_sql = f'(({owner_sql}) OR ({SHARED_WITH_SQL}))'
+        params = [*params, owner, owner, owner]
+    media_columns = " || ' ' || ".join(
+        f"COALESCE(CAST(q.{column} AS TEXT), '')"
+        for column in ('media_url', 'question_media', 'options', 'feedback', 'accepted_answers', 'matching_pairs', 'ordering_items', 'scenario_data', 'answer_media')
+    )
+    rows = erd_rows(
+        f"""
+        SELECT q.id, q.text, q.teacher_id, {media_columns} AS media_blob
+        FROM questions q
+        WHERE {owner_sql} AND q.archived_at IS NULL AND ({media_columns}) LIKE %s
+        ORDER BY q.updated_at DESC NULLS LAST
+        LIMIT 3000
+        """,
+        [*params, f'%{settings.MEDIA_URL}question-media/%'],
+    )
+    items = {}
+
+    def add(relative, path, source, question=''):
+        url = f'{settings.MEDIA_URL}question-media/{relative}'
+        if url in items:
+            items[url]['uses'] += 1 if question else 0
+            return
+        stat = path.stat()
+        items[url] = {
+            'url': url, 'name': path.name, 'size': stat.st_size, 'modified': int(stat.st_mtime),
+            'source': source, 'question': question, 'uses': 1 if question else 0,
+        }
+
+    own_id = str(request.erd_profile_id)
+    for row in rows:
+        snippet = _sx_question_snippet({'text': strip_tags(str(row.get('text') or ''))})
+        source = 'mine' if str(row.get('teacher_id')) == own_id else 'shared'
+        for relative in _QUESTION_IMAGE_URL_RE.findall(row.get('media_blob') or ''):
+            path = _question_media_file(relative)
+            if path:
+                add(relative, path, source, snippet)
+    root = Path(settings.MEDIA_ROOT) / 'question-media'
+    folders = [root] if owner is None else [root / QUESTION_MEDIA_LIBRARY_DIR]
+    image_extensions = QUESTION_MEDIA_RULES['image'][0]
+    for folder in folders:
+        if not folder.is_dir():
+            continue
+        for path in folder.rglob('*'):
+            if path.is_file() and file_extension(path.name) in image_extensions:
+                relative = path.relative_to(root).as_posix()
+                if _QUESTION_IMAGE_URL_RE.fullmatch(f'{settings.MEDIA_URL}question-media/{relative}') and _question_media_file(relative):
+                    add(relative, path, 'server')
+    ordered = sorted(items.values(), key=lambda item: item['modified'], reverse=True)
+    return JsonResponse({
+        'ok': True,
+        'items': ordered[:QUESTION_MEDIA_LIBRARY_LIMIT],
+        'total': len(ordered),
+        'library_folder': f'media/question-media/{QUESTION_MEDIA_LIBRARY_DIR}/',
+    })
 
 
 # Question structures whose builders are not real yet; teachers cannot open or save them.
@@ -17658,18 +17737,19 @@ def _grade_question(row, answer, max_points):
             return full
         if not partial:
             return wrong()
-        # Partial credit uses each option's «امتیاز انتخاب» as its weight and «جریمه انتخاب نادرست» as the
-        # penalty for picking a wrong option, both on the same scale as the correct options' weights.
-        weights, penalties = {}, {}
+        # Partial credit: each option's «وزن» (default 1, all equal). The points are split between the correct
+        # options by weight (e.g. weights 2,2,1,1 → 2/6, 2/6, 1/6, 1/6), and the wrong options split one full
+        # deduction the same way, so ticking every option never earns credit.
+        weights = {}
         for index, option in enumerate(_sx_json(row.get('options'), []) or [], start=1):
             if isinstance(option, dict):
-                option_id = str(option.get('id') or index)
-                weights[option_id] = max(_sx_float(option.get('points'), 1), 0)
-                penalties[option_id] = abs(_sx_float(option.get('negative_points'), 0))
-        correct_weight = sum(weights.get(option_id, 1) for option_id in correct) or len(correct)
-        gained = sum(weights.get(option_id, 1) for option_id in submitted & correct)
-        lost = sum(penalties.get(option_id, 0) for option_id in submitted - correct)
-        ratio = (gained - lost) / correct_weight
+                weights[str(option.get('id') or index)] = max(_sx_float(option.get('points'), 1), 0)
+        weight = lambda option_id: weights.get(option_id, 1)
+        correct_weight = sum(weight(option_id) for option_id in correct) or len(correct)
+        wrong_weight = sum(weight(option_id) for option_id in set(weights) - correct)
+        ratio = sum(weight(option_id) for option_id in submitted & correct) / correct_weight
+        if wrong_weight:
+            ratio -= sum(weight(option_id) for option_id in submitted - correct) / wrong_weight
         if settings_data.get('floor_zero', True):
             ratio = max(ratio, 0)
         return round(max_points * ratio, 4), False, False
@@ -17735,12 +17815,12 @@ EXAM_NEGATIVE_KINDS = {'single', 'true_false', 'multi'}  # the wizard's «نمر
 def _with_exam_grading_rules(row, rules):
     """The question row as the exam's grading settings say it is graded.
 
-    «اعطای نمره جزئی» off makes partial-credit questions all-or-nothing. «نمره منفی (جریمه)» on takes
-    «مقدار جریمه» (a share of the question's points) off a wrong choice, unless the question sets its own penalty.
-    Exams that do not set these (NULL) keep each question's own settings."""
+    «اعطای نمره جزئی» off makes partial-credit questions all-or-nothing. «نمره منفی» is an exam setting only:
+    a penalty a question carries from older forms is ignored, and the exam's «نمره منفی (جریمه)» takes
+    «مقدار جریمه» (a share of the question's points) off a wrong choice."""
     settings_data = _sx_json(row.get('scoring_settings'), {}) or {}
     settings_data = dict(settings_data) if isinstance(settings_data, dict) else {}
-    changed = False
+    changed = bool(settings_data.pop('negative_marking', False))
     if rules.get('allow_partial') in (False, 0):
         if settings_data.get('scoring_mode') == 'partial':
             settings_data['scoring_mode'] = 'all_or_nothing'
@@ -17749,8 +17829,7 @@ def _with_exam_grading_rules(row, rules):
             settings_data['ordering_mode'] = 'exact'
             changed = True
     factor = abs(_sx_float(rules.get('negative_factor'), 0))
-    if rules.get('negative_marking') in (True, 1) and factor and (row.get('type') or 'single') in EXAM_NEGATIVE_KINDS \
-            and not settings_data.get('negative_marking'):
+    if rules.get('negative_marking') in (True, 1) and factor and (row.get('type') or 'single') in EXAM_NEGATIVE_KINDS:
         settings_data.update(negative_marking=True, negative_value=factor)
         changed = True
     return {**row, 'scoring_settings': settings_data} if changed else row
@@ -17761,6 +17840,19 @@ MANUAL_ANSWER_KINDS = {'essay', 'descriptive', 'media_response'}  # answered wit
 
 def _answer_given(answer):
     return any(str(value).strip() for value in answer) if isinstance(answer, list) else bool(str(answer or '').strip())
+
+
+def attempt_grading_rules(attempt_id) -> dict:
+    """The exam's «نمره منفی» / «نمره جزئی» for an attempt, when the wizard saved them (see _sx_exam_rules)."""
+    if not erd_has_column('exams', 'settings_enforced'):
+        return {}
+    return erd_row(
+        """
+        SELECT e.negative_marking, e.negative_factor, e.allow_partial
+        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id WHERE ea.id = %s AND e.settings_enforced = true
+        """,
+        [attempt_id],
+    ) or {}
 
 
 def grade_attempt(attempt_id):
@@ -17780,15 +17872,7 @@ def grade_attempt(attempt_id):
         """,
         [attempt_id],
     )
-    # The exam's «نمره منفی» / «نمره جزئی» apply when the wizard saved them (see _sx_exam_rules).
-    rules = erd_row(
-        """
-        SELECT e.negative_marking, e.negative_factor, e.allow_partial
-        FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id WHERE ea.id = %s AND e.settings_enforced = true
-        """,
-        [attempt_id],
-    ) if erd_has_column('exams', 'settings_enforced') else None
-    rules = rules or {}
+    rules = attempt_grading_rules(attempt_id)
     total_score = 0
     max_score = 0
     needs_manual = False
@@ -19074,6 +19158,18 @@ def _sx_set_furthest_question(attempt_id, index) -> None:
                     [index, attempt_id, index])
 
 
+QUESTION_SNIPPET_CHARS = 40
+
+
+def _sx_question_snippet(item):
+    """The start of a question's text for the exam page's question list (blank markers [n] shown as «…»)."""
+    text = re.sub(r'\[\d+\]', '…', str(item.get('text') or ''))
+    text = ' '.join(text.split())
+    if len(text) > QUESTION_SNIPPET_CHARS:
+        text = text[:QUESTION_SNIPPET_CHARS].rstrip() + '…'
+    return text or item.get('type_label') or ''
+
+
 def _sx_answer_dashboard(items, current_index):
     total = len(items)
     answered = sum(1 for item in items if item.get('answered'))
@@ -19084,6 +19180,8 @@ def _sx_answer_dashboard(items, current_index):
                 'answered': item.get('answered'),
                 'marked': item.get('marked'),
                 'current': item['index'] == current_index,
+                'snippet': _sx_question_snippet(item),
+                'type_label': item.get('type_label'),
             }
             for item in items
         ],
@@ -19166,6 +19264,34 @@ def _sx_locked_question_ids(attempt_id) -> set:
         str(row['question_id'])
         for row in erd_rows(f"SELECT question_id FROM attempt_answers WHERE attempt_id = %s AND ({' OR '.join(conditions)})", [attempt_id])
     }
+
+
+def _sx_clear_attempt_answers(attempt_id) -> int:
+    """«پاک کردن همه‌ی پاسخ‌ها» on the exam page: every answer, answer file and review mark of the attempt is cleared,
+    except answers that no longer change (_sx_locked_question_ids). The exam time is not touched. Returns the count."""
+    locked = _sx_locked_question_ids(attempt_id)
+    has_files = erd_has_column('attempt_answers', 'answer_files')
+    has_mark = erd_has_column('attempt_answers', 'marked_for_review')
+    rows = erd_rows(
+        f"SELECT id, question_id{', answer_files' if has_files else ''} FROM attempt_answers WHERE attempt_id = %s",
+        [attempt_id],
+    )
+    cleared = 0
+    for row in rows:
+        if str(row['question_id']) in locked:
+            continue
+        sets, params = ['answer = %s'], [json.dumps({'value': ''})]
+        if has_files:
+            for item in _sx_answer_files(row.get('answer_files')):
+                if item.get('path'):
+                    delete_private(item['path'])
+            sets.append('answer_files = %s')
+            params.append('[]')
+        if has_mark:
+            sets.append('marked_for_review = false')
+        erd_execute(f"UPDATE attempt_answers SET {', '.join(sets)} WHERE id = %s", [*params, row['id']])
+        cleared += 1
+    return cleared
 
 
 def _sx_lock_answers(attempt_id, question_ids) -> None:
@@ -19407,6 +19533,7 @@ def student_settings(request):
             return redirect(f'{reverse("core:student_settings")}?tab=personal&saved=1')
     elif request.method == 'POST' and tab == 'workspace':
         page.save_workspace(request, student_id)
+        save_posted_appearance(student_id, request.POST)  # «تنظیمات ظاهری» card
         return redirect(f'{reverse("core:student_settings")}?tab=workspace&saved=1')
     elif request.method == 'POST' and tab == 'security':
         action = request.POST.get('security_action', '').partition(':')[0]
@@ -19778,7 +19905,7 @@ def _sx_attempt_items(rows, attempt_id, locked_ids):
             'points': _sx_float(row.get('question_points'), 0),
             'suggested_seconds': int(_sx_float(row.get('suggested_time_seconds'), 0)),
         }
-        if kind in ('single', 'multi') and (settings_data.get('shuffle_options') or row.get('exam_shuffle_options')):
+        if kind in ('single', 'multi') and row.get('exam_shuffle_options'):  # an exam setting, not a question one
             # Stable per attempt so the order does not change between page loads.
             random.Random(f"{attempt_id}-{row['question_id']}").shuffle(item['options'])
         if kind == 'multi':
@@ -19864,6 +19991,13 @@ def student_attempt(request, attempt_id):
                 return JsonResponse({'ok': False, 'error': 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است.'}, status=409)
             messages.error(request, 'زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است؛ پاسخ جدید ذخیره نشد.')
             return redirect('core:student_attempt_submit', attempt_id=attempt_id)
+        if request.POST.get('action') == 'clear_all' and not is_xhr:
+            # «پاک کردن همه‌ی پاسخ‌ها»: only where answers may still change; the time keeps running.
+            if rules['allow_answer_changes']:
+                _sx_clear_attempt_answers(attempt_id)
+                messages.success(request, 'همه‌ی پاسخ‌ها و علامت‌ها پاک شد؛ زمان آزمون همچنان ادامه دارد.')
+            first_question = 1 if rules['review_answers_enabled'] else min(max(_sx_furthest_question(attempt_id), 1), len(rows))
+            return redirect(f"{reverse('core:student_attempt', args=[attempt_id])}?q={first_question}")
         _sx_save_attempt_answers(request, attempt_id)
         for error in _sx_save_answer_files(request, attempt_id, rows):
             messages.error(request, error)
@@ -19919,6 +20053,12 @@ def student_attempt(request, attempt_id):
         'exam': {'title': first.get('exam_title') or 'آزمون'},
     }
     practice_context = _sx_practice_attempt_context(attempt_id, request.erd_profile_id, current_answer)
+    from . import exam_lock
+
+    if practice_context or first.get('submitted_at') or remaining_seconds <= 0:
+        exam_lock.unlock(request, attempt_id)
+    else:  # a course exam in progress: other pages of the site bring the student back here (exam_lock.py)
+        exam_lock.lock(request, attempt_id)
     return render(request, 'student/attempt.html', {
         'attempt': attempt,
         'current_answer': current_answer,
@@ -19989,6 +20129,9 @@ def student_attempt_submit(request, attempt_id):
         erd_execute("UPDATE exam_attempts SET status = 'expired' WHERE id = %s AND submitted_at IS NULL", [attempt_id])
         rows[0]['status'] = 'expired'
     if rows[0].get('status') == 'expired' and not rows[0].get('submitted_at'):
+        from . import exam_lock
+
+        exam_lock.unlock(request, attempt_id)
         messages.error(request, 'زمان آزمون به پایان رسید و چون آزمون پیش از آن ارسال نشد، پاسخ‌ها ثبت نشد (ارسال خودکار در این آزمون غیرفعال است).')
         return redirect('core:student_exam_detail', exam_id=rows[0]['exam_id'])
     if request.method == 'POST' and open_attempt and not _sx_ip_allowed(request, rules):
@@ -20006,6 +20149,9 @@ def student_attempt_submit(request, attempt_id):
                 erd_execute('UPDATE exam_attempts SET submitted_at = %s, status = %s WHERE id = %s', [timezone.now(), 'submitted', attempt_id])
                 attempt_receipt_code(attempt_id)
             log_activity(request.user, 'exam_submitted', 'دانشجو آزمون را ارسال کرد.', request, {'attempt_id': attempt_id, **result})
+        from . import exam_lock
+
+        exam_lock.unlock(request, attempt_id)
         return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
     from . import student_practice as practice
 
@@ -20054,6 +20200,9 @@ def student_attempt_receipt(request, attempt_id):
 
     if not row.get('submitted_at'):  # attempts are graded on submission; never close one ungraded here
         return redirect('core:student_attempt_submit', attempt_id=attempt_id)
+    from . import exam_lock
+
+    exam_lock.unlock(request, attempt_id)
     if practice.attempt_practice_mode(attempt_id, request.erd_profile_id):
         result = next((item for item in _sx_result_rows(request.erd_profile_id, practice=True) if str(item['id']) == str(attempt_id)), None)
         return render(request, 'student/practice_receipt.html', {

@@ -1,4 +1,5 @@
 from django.urls import path
+from .appearance_views import my_appearance_save
 from .exam_preview import exam_preview, exam_preview_finish, question_preview, question_preview_finish
 from .exam_report import super_admin_exam_report, teacher_exam_report
 from .user_directory import super_admin_user_directory
@@ -183,6 +184,7 @@ from .views import (
     teacher_publish_result,
     teacher_question_autosave,
     teacher_question_media_upload,
+    teacher_question_media_library,
     teacher_question_bulk_import,
     teacher_question_create,
     teacher_question_edit,
@@ -201,6 +203,7 @@ urlpatterns = [
     path('', home, name='home'),
     path('dashboard/', dashboard, name='dashboard'),
     path('profile/', profile_view, name='profile'),
+    path('account/appearance/', my_appearance_save, name='my_appearance'),
     path('logout/', logout_view, name='logout'),
     path('account/password/change/', password_change_required_view, name='password_change_required'),
     path('login/', SecureLoginView.as_view(), name='login'),
@@ -349,6 +352,7 @@ urlpatterns = [
     path('teacher/osce/<uuid:osce_id>/stations/<uuid:station_id>/delete/', teacher_osce_station_delete, name='teacher_osce_station_delete'),
     path('teacher/questions/autosave/', teacher_question_autosave, name='teacher_question_autosave'),
     path('teacher/questions/media/', teacher_question_media_upload, name='teacher_question_media_upload'),
+    path('teacher/questions/media/library/', teacher_question_media_library, name='teacher_question_media_library'),
     path('teacher/questions/import/', teacher_question_bulk_import, name='teacher_question_bulk_import'),
     path('teacher/questions/<str:question_id>/edit/', teacher_question_edit, name='teacher_question_edit'),
     path('teacher/questions/<str:question_id>/archive/', teacher_question_archive, name='teacher_question_archive'),

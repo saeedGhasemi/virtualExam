@@ -118,9 +118,10 @@
     .staff-tabs-row{display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
     .staff-scroll-btn{flex-shrink:0;width:2.2rem;height:2.2rem;border:1px solid #cbd9ec;border-radius:.6rem;background:#fff;color:#315cff;display:grid;place-items:center;cursor:pointer}
     .staff-scroll-btn svg{width:1.05rem;height:1.05rem}
-    .new-question-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;height:6.4rem;border:0;border-radius:.9rem;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;padding:.6rem;text-decoration:none;text-align:center}.new-question-icon{display:grid;width:2.2rem;height:2.2rem;flex-shrink:0;place-items:center;border-radius:50%;background:rgba(255,255,255,.22)}.new-question-icon svg{width:1.1rem;height:1.1rem}.new-question-card span:last-child{display:grid;font-size:.82rem;font-weight:800}.new-question-card small{font-size:.68rem;font-weight:600;opacity:.85}
-    .type-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:.5rem;margin-bottom:1rem}.type-card{cursor:pointer}.type-card{height:6.4rem;border:1px solid #e1e8f3;border-radius:.9rem;background:#fff;color:#23314d;font-weight:800;font-size:.8rem;display:grid;place-items:center;text-align:center}.type-card span{display:grid;width:2.4rem;height:2.4rem;margin:0 auto .4rem;place-items:center;border-radius:.7rem;background:#eef4ff;color:#315cff}.type-card.is-active{border-color:#6b7cff;background:#f1f0ff;color:#315cff}.type-card.is-active span{background:#315cff;color:#fff}
-    .q-filter-row{display:grid;grid-template-columns:1fr 1fr 1fr 1.6fr;gap:.7rem;margin-bottom:.85rem}.q-filter-row input,.q-filter-row select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.65rem;padding:0 .8rem;outline:0;background:#fff}
+    .q-filter-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.6fr);gap:.7rem;margin-bottom:.85rem}.q-filter-row input,.q-filter-row select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.65rem;padding:0 .8rem;outline:0;background:#fff}
+    .new-question-btn{display:inline-flex;align-items:center;gap:.35rem;padding:.5rem .95rem;border-radius:.65rem;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;font-size:.85rem;font-weight:600;text-decoration:none;white-space:nowrap}.new-question-btn svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2.2}.section-title:has(.new-question-btn){flex-wrap:wrap;gap:.6rem}.section-title{gap:.6rem}.section-tools{display:inline-flex;align-items:center;gap:.6rem}
+    tbody tr:has(input[type=checkbox]){cursor:pointer}
+    @media(max-width:1180px){.q-filter-row.q-filter-row{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.q-filter-row.q-filter-row{grid-template-columns:minmax(0,1fr)}}
     .tag-search-row{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}.tag-search-row>span{color:#53617b;font-weight:700;font-size:.86rem;white-space:nowrap}
     .clear-tags-btn{display:inline-flex;align-items:center;gap:.35rem;height:2.4rem;padding:0 .85rem;border:1px solid #fecaca;border-radius:.6rem;background:#fef2f2;color:#dc2626;font-weight:800;font-size:.78rem;white-space:nowrap;flex-shrink:0}.clear-tags-btn svg{width:1rem;height:1rem}
     .tag-mode-toggle{display:flex;border:1px solid #cbd9ec;border-radius:.6rem;overflow:hidden;flex-shrink:0}.tag-mode-toggle button{height:2.4rem;padding:0 .9rem;border:0;background:#fff;color:#65728a;font-weight:800;font-size:.78rem}.tag-mode-toggle button.is-active{background:#315cff;color:#fff}
@@ -179,7 +180,7 @@
     .primary{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.outline{border:1px solid #cbd9ec;background:#fff;color:#315cff}
     .question-row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:.8rem;align-items:center;border-bottom:1px solid #edf2f7;padding:.75rem}.badge{display:inline-flex;border-radius:.5rem;padding:.25rem .55rem;font-size:.73rem;font-weight:800}.badge.easy{background:#dcfce7;color:#15803d}.badge.medium{background:#fff7d6;color:#ca8a04}.badge.hard{background:#fee2e2;color:#dc2626}.badge.type{background:#eef4ff;color:#315cff}
     .composition{padding:1rem}.composition-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}.composition-stats div{border:1px solid #e1e8f3;border-radius:.75rem;background:#fbfdff;text-align:center;padding:.85rem}.composition-stats strong{display:block;font-size:1.45rem;color:#315cff}.dist-list{display:grid;gap:.55rem;margin-top:1rem}.dist-list div{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.6rem;font-size:.82rem;font-weight:600}.dist-list i{display:block;height:.22rem;border-radius:99px;background:#5b6cff}
-    .type-count-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:.6rem;margin:1rem 0}.type-count-grid .stepper{border:1px solid #e1e8f3;border-radius:.75rem;background:#fff;padding:.7rem;text-align:center}.type-count-grid .stepper span{display:block;font-size:.72rem;color:#65728a;font-weight:600;margin-bottom:.35rem}.type-count-grid .stepper-controls{display:flex;align-items:center;justify-content:center;gap:.5rem}.type-count-grid button{width:1.9rem;height:1.9rem;border-radius:.5rem;border:1px solid #cbd9ec;background:#f8faff;color:#315cff;font-weight:800}.type-count-grid strong{min-width:1.6rem;display:inline-block}
+    
     .rules-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr);gap:1rem}.rule-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem}.rule-grid.six{grid-template-columns:repeat(6,1fr)}.rule-grid.six .toggle-row{flex-direction:column;text-align:center;align-items:center;gap:.6rem;padding:0}.rule-grid.six .toggle-row strong{font-size:.82rem}.rule-grid.six .toggle-row p{font-size:.72rem}.rule-grid.six .rule-info{width:1rem;height:1rem;color:#9aa7bd}.rule-box{border:1px solid #e1e8f3;border-radius:.85rem;background:#fff;padding:1rem}.rule-box strong{display:block;margin-bottom:.4rem}.rule-box p{margin:0;color:#65728a;font-size:.78rem;line-height:1.8}
     .security-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem;margin-bottom:1rem}.security-card{border:1px solid #e1e8f3;border-radius:.9rem;background:#fff;padding:1rem 1.2rem;display:grid;gap:.5rem;text-align:center;cursor:pointer}.security-card input{display:none}.security-card span{display:grid;width:2.6rem;height:2.6rem;margin:0 auto;place-items:center;border-radius:50%;background:#eef4ff;color:#315cff}.security-card:has(input:checked){border-color:#6b7cff;background:#f7f8ff}
     .security-columns{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-bottom:1.2rem}
@@ -265,8 +266,8 @@
     @media(max-width:1180px){.review-cards-row{grid-template-columns:repeat(2,minmax(0,1fr))}.step7-columns{grid-template-columns:1fr}}
     @media(max-width:700px){.review-cards-row{grid-template-columns:minmax(0,1fr)}}
     .wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.wizard-footer div{display:flex;gap:.8rem}.nav-btn,.save-btn,.publish-btn{display:inline-flex;height:3.1rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.75rem;padding:0 1.3rem;font-weight:800}.nav-btn,.save-btn{border:1px solid #cbd9ec;background:#fff;color:#315cff}.publish-btn{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.nav-btn[hidden],.save-btn[hidden],.publish-btn[hidden]{display:none}
-    @media(max-width:1180px){.wizard-layout,.selector-grid,.rules-layout{grid-template-columns:1fr}.wizard-steps{grid-template-columns:repeat(4,1fr)}.form-grid,.form-grid.four,.form-grid.five,.rule-grid,.rule-grid.six,.review-grid,.type-grid,.security-grid,.import-summary,.type-count-grid,.subgrid.three,.grading-channel-row{grid-template-columns:1fr 1fr}.summary-card{position:static}}
-    @media(max-width:700px){.wizard-steps,.form-grid,.form-grid.two,.form-grid.four,.form-grid.five,.subgrid,.subgrid.three,.selection-toolbar,.type-grid,.rule-grid,.rule-grid.six,.review-grid,.security-grid,.import-summary,.type-count-grid,.grading-toggle-row,.grading-channel-row,.audience-tabs,.audience-banners{grid-template-columns:1fr}.grading-toggle-row{display:flex}.wizard-footer{align-items:stretch;flex-direction:column}.wizard-footer div{flex-direction:column}.nav-btn,.save-btn,.publish-btn{width:100%}}
+    @media(max-width:1180px){.wizard-layout,.selector-grid,.rules-layout{grid-template-columns:1fr}.wizard-steps{grid-template-columns:repeat(4,1fr)}.form-grid,.form-grid.four,.form-grid.five,.rule-grid,.rule-grid.six,.review-grid,.security-grid,.import-summary,.subgrid.three,.grading-channel-row{grid-template-columns:1fr 1fr}.summary-card{position:static}}
+    @media(max-width:700px){.wizard-steps,.form-grid,.form-grid.two,.form-grid.four,.form-grid.five,.subgrid,.subgrid.three,.selection-toolbar,.rule-grid,.rule-grid.six,.review-grid,.security-grid,.import-summary,.grading-toggle-row,.grading-channel-row,.audience-tabs,.audience-banners{grid-template-columns:1fr}.grading-toggle-row{display:flex}.wizard-footer{align-items:stretch;flex-direction:column}.wizard-footer div{flex-direction:column}.nav-btn,.save-btn,.publish-btn{width:100%}}
     .security-card.is-disabled{opacity:.55;cursor:not-allowed}
     .q-points-input{width:4.6rem;height:2.2rem;border:1px solid #cbd9ec;border-radius:.55rem;padding:0 .45rem;font:inherit;font-weight:600;color:#071936;background:#fff}.q-points-input:disabled{background:#f1f5fb;color:#65728a}
 </style>
@@ -380,15 +381,10 @@
                 </section>
 
                 <section class="wizard-pane" data-pane="3">
-                    <div class="section-title"><h2>انتخاب و چینش سوالات</h2></div>
-                    <div class="section-title"><h2>انواع سوالات</h2></div>
-                    <div class="type-grid">
-                        <a class="new-question-card" href="{% url 'core:teacher_question_create' %}" target="_blank" rel="noopener"><span class="new-question-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span>سؤال جدید<small>ایجاد سؤال مستقل</small></span></a>
-                        <button type="button" class="type-card is-active" data-type-card=""><span><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>تمام سوالات</button>
-                        {% for item in question_type_cards %}<button type="button" class="type-card" data-type-card="{{ item.key }}"><span>{% if item.icon == "list" %}<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>{% elif item.icon == "checks" %}<svg viewBox="0 0 24 24"><path d="m3 7 2 2 3-3"/><path d="M11 7h10"/><path d="m3 17 2 2 3-3"/><path d="M11 17h10"/></svg>{% elif item.icon == "check" %}<svg viewBox="0 0 24 24"><circle cx="7" cy="12" r="5"/><path d="m5 12 1.5 1.5L10 10"/><circle cx="17" cy="12" r="5"/><path d="m14.8 9.8 4.4 4.4M19.2 9.8l-4.4 4.4"/></svg>{% elif item.icon == "text" %}<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/></svg>{% elif item.icon == "lines" %}<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h11M4 18h14"/></svg>{% elif item.icon == "dash" %}<svg viewBox="0 0 24 24"><path d="M5 12h2.5M11 12h2.5M17 12h2"/></svg>{% elif item.icon == "nodes" %}<svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="2"/><circle cx="6" cy="17" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="18" cy="17" r="2"/><path d="m8 7 8 10M8 17l8-10"/></svg>{% elif item.icon == "order" %}<svg viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.4-2-1"/></svg>{% elif item.icon == "image" %}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>{% elif item.icon == "calculator" %}<svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01"/></svg>{% endif %}</span>{{ item.label }}</button>{% endfor %}
-                    </div>
+                    <div class="section-title"><h2>انتخاب و چینش سوالات</h2><span class="section-tools">{% include "partials/rt_view_switch.html" with key="wizard-bank" target=".q-bank-table" %}<a class="new-question-btn" href="{% url 'core:teacher_question_create' %}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>سؤال جدید</a></span></div>
 
                     <div class="q-filter-row">
+                        {% include "partials/type_multiselect.html" with items=question_type_cards %}
                         <select data-filter-select="source"><option value="">همه منابع</option><option value="own">فقط سوالات استاد اصلی</option></select>
                         <select data-filter-select="difficulty"><option value="">همه سطوح دشواری</option><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">سخت</option></select>
                         <select data-filter-select="course"><option value="">همه درس‌ها</option>{% for course in courses %}<option value="{{ course.title|fa_digits }}">{{ course.title|fa_digits }}</option>{% endfor %}</select>
@@ -429,10 +425,7 @@
                         </table>
                     </div>
 
-                    <div class="section-title"><h2>تعداد کل سوالات آزمون</h2></div>
-                    <div class="type-count-grid">{% for item in question_type_cards %}<div class="stepper"><span>{{ item.label }}</span><div class="stepper-controls"><button type="button" data-count-down="{{ item.key }}">−</button><strong data-count-value="{{ item.key }}">۰</strong><button type="button" data-count-up="{{ item.key }}">+</button><input type="hidden" name="type_target_{{ item.key }}" value="0" data-count-input="{{ item.key }}"></div></div>{% endfor %}</div>
-
-                    <div class="section-title"><h2>سؤالات منتخب (<span data-selected-questions-count>۰</span> سؤال)</h2></div>
+                    <div class="section-title"><h2>سؤالات منتخب (<span data-selected-questions-count>۰</span> سؤال)</h2>{% include "partials/rt_view_switch.html" with key="wizard-selected" target=".selected-q-table" %}</div>
                     <div class="wizard-card" style="overflow:auto">
                         <table class="table selected-q-table">
                             <thead><tr><th>ردیف</th><th>متن سؤال</th><th>نوع سؤال</th><th>تگ‌ها</th><th>درس</th><th>نمره</th><th>سطح دشواری</th><th>استاد طراح</th><th>عملیات</th></tr></thead>
@@ -930,16 +923,6 @@
             [form.querySelectorAll('[name="question_ids"]').length > 0, 'حداقل یک سوال انتخاب شده است.'],
             [!!form.elements.duration_minutes.value, 'مدت زمان آزمون تعیین شده است.'],
         ];
-        // «تعداد کل سوالات آزمون»: each type with a target must have exactly that many selected questions.
-        const selectedByType = {};
-        form.querySelectorAll('[name="question_ids"]').forEach((el) => { selectedByType[el.dataset.type] = (selectedByType[el.dataset.type] || 0) + 1; });
-        form.querySelectorAll('[data-count-input]').forEach((input) => {
-            const target = Number(input.value || 0);
-            if (!target) return;
-            const type = input.dataset.countInput;
-            const have = selectedByType[type] || 0;
-            checks.push([have === target, `${TYPE_LABELS[type] || type}: ${fa(have)} از ${fa(target)} سؤال هدف انتخاب شده است.`]);
-        });
         list.innerHTML = checks.map(([ok, label]) => `<div>${label} <b class="${ok ? '' : 'is-bad'}">${ok ? '✓' : '!'}</b></div>`).join('');
     };
 
@@ -1111,23 +1094,9 @@
         essay: { label: 'سوالات تشریحی', color: '#22c55e', types: ['essay'] },
         kfp_osce: { label: 'سوالات KFP/OSCE', color: '#a855f7', types: ['kfp', 'osce'] },
     };
-    const TYPE_TARGET_KEYS = ['single', 'multi', 'true_false', 'short_answer', 'essay', 'fill_blank', 'matching', 'ordering', 'numeric', 'matrix', 'image_label', 'hotspot', 'media_response'];
     const updateScoreAllocation = () => {
         const body = document.querySelector('[data-score-allocation-body]');
         if (!body) return;
-
-        const bankPointsByType = {};
-        document.querySelectorAll('[data-question-row]').forEach((row) => {
-            const type = row.dataset.type || 'single';
-            const points = Number(row.dataset.points || 1);
-            const bucket = bankPointsByType[type] || (bankPointsByType[type] = { sum: 0, count: 0 });
-            bucket.sum += points;
-            bucket.count += 1;
-        });
-        const bankAveragePoints = (type) => {
-            const bucket = bankPointsByType[type];
-            return bucket && bucket.count ? bucket.sum / bucket.count : 1;
-        };
 
         const explicitByType = {};
         form.querySelectorAll('[name="question_ids"]').forEach((el) => {
@@ -1138,16 +1107,9 @@
             bucket.score += points;
         });
 
-        // هر سوال انتخاب‌شده مشخص، با نمره واقعی خودش لحاظ می‌شود؛ برای انواعی که فقط از طریق
-        // «تعداد کل سوالات آزمون» هدف‌گذاری شده‌اند (بدون انتخاب سوال مشخص)، تعداد هدف واقعی با
-        // میانگین واقعی نمره‌ی همان نوع سوال در بانک سوال ضرب می‌شود.
+        // هر سوال انتخاب‌شده با نمره واقعی خودش لحاظ می‌شود.
         const rows = { objective: { count: 0, score: 0 }, essay: { count: 0, score: 0 }, kfp_osce: { count: 0, score: 0 } };
-        new Set([...TYPE_TARGET_KEYS, ...Object.keys(explicitByType)]).forEach((type) => {
-            const explicit = explicitByType[type];
-            const targetInput = form.querySelector(`[data-count-input="${type}"]`);
-            const targetCount = targetInput ? Number(targetInput.value || 0) : 0;
-            const count = explicit && explicit.count > 0 ? explicit.count : targetCount;
-            const score = explicit && explicit.count > 0 ? explicit.score : targetCount * bankAveragePoints(type);
+        Object.entries(explicitByType).forEach(([type, { count, score }]) => {
             if (!count) return;
             const bucketKey = Object.keys(SCORE_TYPE_BUCKETS).find((key) => SCORE_TYPE_BUCKETS[key].types.includes(type)) || 'objective';
             rows[bucketKey].count += count;
@@ -1245,7 +1207,7 @@
     const rowTags = (row) => (row.dataset.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
     const activeTagChips = [];
     let tagMode = 'and';
-    let activeTypeFilter = '';
+    let activeTypeFilter = new Set();
 
     const syncCourseFilter = () => {
         const courseFilterSelect = document.querySelector('[data-filter-select="course"]');
@@ -1268,7 +1230,7 @@
             const examCourseOk = !examCourseTitle || row.dataset.course === examCourseTitle;
             const difficultyOk = !difficultyFilter || row.dataset.difficulty === difficultyFilter;
             const tags = rowTags(row);
-            const typeOk = !activeTypeFilter || row.dataset.type === activeTypeFilter;
+            const typeOk = !activeTypeFilter.size || activeTypeFilter.has(row.dataset.type);
             const teacherScopeOk = teacherIds.size === 0 || teacherIds.has(row.dataset.teacher);
             const sourceOk = sourceFilter !== 'own' || row.dataset.teacher === selectedTeacherId;
             const tagChipsOk = !activeTagChips.length || (
@@ -1606,32 +1568,12 @@
     otherStudentsPager.render();
     staffPager.render();
 
-    const typeCards = document.querySelectorAll('[data-type-card]');
-    typeCards.forEach((card) => card.addEventListener('click', () => {
-        const key = card.dataset.typeCard;
-        activeTypeFilter = !key ? '' : (card.classList.contains('is-active') ? '' : key);
-        typeCards.forEach((c) => c.classList.toggle('is-active', c.dataset.typeCard === activeTypeFilter));
-        applyQuestionFilters();
-    }));
+    document.querySelector('[data-type-ms]')?.addEventListener('mq:type-ms-change', (event) => { activeTypeFilter = event.detail.keys; applyQuestionFilters(); });
     document.querySelector('[data-clear-tag-chips]')?.addEventListener('click', () => {
         activeTagChips.length = 0;
         tagChipsField.querySelectorAll('.chip').forEach((chip) => chip.remove());
         applyQuestionFilters();
     });
-    document.querySelectorAll('[data-count-up]').forEach((btn) => btn.addEventListener('click', () => {
-        const key = btn.dataset.countUp;
-        const input = document.querySelector(`[data-count-input="${key}"]`);
-        input.value = Number(input.value) + 1;
-        document.querySelector(`[data-count-value="${key}"]`).textContent = fa(input.value);
-        updateScoreAllocation(); updateReadiness();
-    }));
-    document.querySelectorAll('[data-count-down]').forEach((btn) => btn.addEventListener('click', () => {
-        const key = btn.dataset.countDown;
-        const input = document.querySelector(`[data-count-input="${key}"]`);
-        input.value = Math.max(0, Number(input.value) - 1);
-        document.querySelector(`[data-count-value="${key}"]`).textContent = fa(input.value);
-        updateScoreAllocation(); updateReadiness();
-    }));
 
     const chipsField = document.querySelector('[data-chips="group"]');
     if (chipsField) {
@@ -2213,4 +2155,6 @@ window.formatJalaliDateTime = (isoString) => {
 };
 window.dispatchEvent(new Event('jalali-helpers-ready'));
 </script>
+<script>/* Clicking anywhere on a list row ticks its checkbox (not only the small box itself); question-bank rows open the question detail instead. */document.addEventListener('click', (e) => {  const row = e.target.closest('tbody tr');  if (!row || row.matches('[data-question-row]') || e.target.closest('input,a,button,label,select,textarea,summary,details,[contenteditable]')) return;  const boxes = row.querySelectorAll('input[type=checkbox]');  if (boxes.length !== 1 || boxes[0].disabled) return;  boxes[0].click();});</script>
+<link rel="stylesheet" href="{% static 'css/type-multiselect.css' %}?v=20261111b"><script src="{% static 'js/type-multiselect.js' %}?v=20261111d" defer></script>
 {% endblock %}

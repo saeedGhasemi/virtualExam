@@ -1,10 +1,12 @@
 /* «تنظیمات ظاهری» (admin → تنظیمات سامانه → تنظیمات عمومی), applied to every page via <html data-mq-…>
    (apps/core/appearance.py). The colour is done by static/js/appearance.js. */
 
-/* ---------- text size: rem-based sizes follow the root size; px font sizes are scaled by appearance.js via --mq-fs ---------- */
-html[data-mq-font="small"] { font-size: 90%; --mq-fs: .9; }
-html[data-mq-font="medium"] { --mq-fs: 1; }
-html[data-mq-font="large"] { font-size: 110%; --mq-fs: 1.1; }
+/* ---------- text size: rem-based sizes follow the root size; px font sizes are scaled by appearance.js via --mq-fs.
+   «متوسط» (the default) is 15px — one step more compact than the browser's 16px (user's choice, 2026-11-11);
+   small / large stay ±10% around it. */
+html[data-mq-font="small"] { font-size: 84.375%; --mq-fs: .84375; }
+html[data-mq-font="medium"] { font-size: 93.75%; --mq-fs: .9375; }
+html[data-mq-font="large"] { font-size: 103.125%; --mq-fs: 1.03125; }
 
 /* ---------- dark theme (same technique as the teacher's own «نمایش پوسته»; a teacher's personal dark theme
    sets data-teacher-theme instead, so the two never invert twice) ---------- */

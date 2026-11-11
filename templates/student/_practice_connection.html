@@ -84,8 +84,8 @@
       const body = new FormData();
       entries.forEach(([name, value]) => body.append(name, value));
       body.set('csrfmiddlewaretoken', csrf);
-      const response = await fetch(attemptUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body });
-      if (response.status === 423) { window.location.reload(); return; }  // taken over on another device
+      const response = await fetch(attemptUrl, { mqBackground: true, method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body });
+      if (response.status === 423) { window.mqAllowLeave?.(); window.location.reload(); return; }  // taken over on another device
       if (response.status === 409) refused = true;
       else if (!response.ok) throw new Error('save failed');
       delete copies[questionId];
@@ -107,7 +107,7 @@
   window.addEventListener('offline', () => { if (timeup.hidden) showOffline(); });
   window.addEventListener('online', () => { if (!timeup.hidden) finish(); else if (!offline.hidden) tryReconnect(); });
   offline.querySelector('[data-offline-retry]').addEventListener('click', tryReconnect);
-  offline.querySelector('[data-offline-reload]').addEventListener('click', () => { if (navigator.onLine) window.location.reload(); else tryReconnect(); });
+  offline.querySelector('[data-offline-reload]').addEventListener('click', () => { if (navigator.onLine) { window.mqAllowLeave?.(); window.location.reload(); } else tryReconnect(); });
   offline.querySelector('[data-offline-close]').addEventListener('click', () => { offline.hidden = true; });
   // Leaving the question needs the server; while offline, keep the student here with the answer saved locally.
   form.addEventListener('submit', (event) => {
@@ -137,6 +137,7 @@
       await sendCopies();
       progress.classList.add('is-done');
       timeup.querySelector('[data-timeup-label]').textContent = refused ? 'زمان پاسخ‌دهی گذشته بود؛ پاسخ‌های ذخیره‌شده‌ی قبلی ثبت می‌شوند.' : 'پاسخ‌ها ارسال شد؛ در حال ثبت نهایی...';
+      window.mqAllowLeave?.();
       document.getElementById('auto-submit-form').submit();
     } catch (error) {
       progress.classList.add('is-failed');

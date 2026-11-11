@@ -35,6 +35,9 @@
             @page{size:A4;margin:14mm}
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/page-loader.css' %}?v=20261111d">
+    <script src="{% static 'js/page-loader.js' %}?v=20261111e"></script>{# site-wide loader (this page has no appearance_head) #}
+    <script>window.addEventListener('DOMContentLoaded', () => window.mqLoader && window.mqLoader.bootDone());</script>
 </head>
 <body>
     <div class="rc-bar">

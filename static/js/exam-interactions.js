@@ -12,7 +12,8 @@
  *   ExamInteractions.limitChoices(root, max)
  *     multi-answer: once `max` checkboxes inside root are checked, the others are disabled (0 = no limit).
  *   ExamInteractions.voiceInput(button, target)
- *     speech-to-text into a text input (fa-IR); the button stays hidden where the browser lacks SpeechRecognition.
+ *     speech-to-text into a text input (fa-IR), live words, tap again / Esc / a pause to stop; a [data-voice-status]
+ *     line after the button's box says what is happening or why it failed. Hidden without SpeechRecognition or https.
  *   ExamInteractions.matrix(root, answerInput)
  *     matrix question: the checked [data-matrix-cell] inputs (value "row:column") go to answerInput as "r1:c2,...".
  *   ExamInteractions.imageLabel(root)
@@ -142,30 +143,101 @@
     enforce();
   };
 
+  // Speech-to-text, the usual dictation flow: tap → the browser asks for the microphone → «در حال شنیدن» with the
+  // words appearing live in the field (added after what is already typed) → tap again, Esc, or a pause ends it.
+  // Every failure says why under the field (blocked permission, no microphone, speech service unreachable, …);
+  // the browser's speech service needs internet, so typing always stays possible.
   const voiceInput = (button, target) => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!button || !target || !SpeechRecognitionImpl) return;
+    if (!button || !target || !SpeechRecognitionImpl || !window.isSecureContext) return;
     button.hidden = false;
-    const recognizer = new SpeechRecognitionImpl();
-    recognizer.lang = 'fa-IR';
-    recognizer.interimResults = false;
-    recognizer.maxAlternatives = 1;
-    let isRecording = false;
-    const stopped = () => { isRecording = false; button.classList.remove('is-recording'); };
-    recognizer.addEventListener('result', (event) => {
-      const transcript = Array.from(event.results).map((result) => result[0].transcript).join(' ').trim();
-      if (!transcript) return;
-      target.value = target.value ? `${target.value} ${transcript}` : transcript;
+    button.setAttribute('aria-pressed', 'false');
+    button.title = 'پاسخ را بگویید (تبدیل گفتار به متن)';
+    let status = button.parentElement.nextElementSibling;
+    if (!status?.matches('[data-voice-status]')) {
+      status = document.createElement('small');
+      status.className = 'qx-voice-status';
+      status.dataset.voiceStatus = '';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      status.hidden = true;
+      button.parentElement.after(status);
+    }
+    const say = (text, kind = '') => {
+      status.textContent = text;
+      status.hidden = !text;
+      status.classList.toggle('is-error', kind === 'error');
+      status.classList.toggle('is-live', kind === 'live');
+    };
+    const reasons = {
+      'not-allowed': 'دسترسی به میکروفون مجاز نیست. از نماد قفل کنار نشانی سایت، «میکروفون» را روی «اجازه» بگذارید و دوباره بزنید.',
+      'service-not-allowed': 'مرورگر اجازه‌ی تبدیل گفتار به متن را نمی‌دهد. پاسخ را تایپ کنید.',
+      'audio-capture': 'میکروفونی پیدا نشد یا در برنامه‌ی دیگری باز است.',
+      network: 'سرویس تبدیل گفتار به متن مرورگر در دسترس نیست (به اینترنت آزاد نیاز دارد). پاسخ را تایپ کنید.',
+      'no-speech': 'صدایی شنیده نشد؛ دوباره بزنید و صحبت کنید.',
+      'language-not-supported': 'این مرورگر گفتار فارسی را پشتیبانی نمی‌کند. پاسخ را تایپ کنید.',
+    };
+    let recognizer = null;
+    let base = '';
+    let finals = '';
+    let failed = false;
+    const write = (interim) => {
+      const spoken = `${finals} ${interim}`.replace(/\s+/g, ' ').trim();
+      let value = [base, spoken].filter(Boolean).join(' ');
+      if (target.maxLength > 0) value = value.slice(0, target.maxLength);
+      target.value = value;
+    };
+    const setListening = (on) => {
+      button.classList.toggle('is-recording', on);
+      button.setAttribute('aria-pressed', String(on));
+      button.setAttribute('aria-label', on ? 'پایان گفتار' : 'ورودی صوتی');
+    };
+    const finish = () => {
+      setListening(false);
+      write('');
       notify(target);
-    });
-    recognizer.addEventListener('end', stopped);
-    recognizer.addEventListener('error', stopped);
-    button.addEventListener('click', () => {
-      if (isRecording) { recognizer.stop(); return; }
-      isRecording = true;
-      button.classList.add('is-recording');
-      recognizer.start();
-    });
+      if (!failed) say(finals ? 'گفتار به پاسخ اضافه شد؛ در صورت نیاز آن را ویرایش کنید.' : '');
+      recognizer = null;
+    };
+    const start = () => {
+      if (target.disabled || target.readOnly) return;
+      if (target.maxLength > 0 && target.value.length >= target.maxLength) { say('به حداکثر تعداد نویسه رسیده‌اید.', 'error'); return; }
+      base = target.value.trim();
+      finals = '';
+      failed = false;
+      recognizer = new SpeechRecognitionImpl();
+      recognizer.lang = 'fa-IR';
+      recognizer.continuous = true;
+      recognizer.interimResults = true;
+      recognizer.maxAlternatives = 1;
+      recognizer.addEventListener('start', () => { setListening(true); say('در حال شنیدن… صحبت کنید؛ برای پایان دوباره بزنید.', 'live'); });
+      recognizer.addEventListener('result', (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const piece = event.results[i][0].transcript.trim();
+          if (event.results[i].isFinal) finals = `${finals} ${piece}`.trim();
+          else interim = `${interim} ${piece}`;
+        }
+        write(interim);
+        if (!interim) notify(target);
+      });
+      recognizer.addEventListener('error', (event) => {
+        if (event.error === 'aborted') return;
+        failed = true;
+        say(reasons[event.error] || 'تبدیل گفتار به متن انجام نشد؛ دوباره امتحان کنید یا پاسخ را تایپ کنید.', 'error');
+      });
+      recognizer.addEventListener('end', finish);
+      say('در حال آماده‌سازی میکروفون…', 'live');
+      try { recognizer.start(); } catch (error) { failed = true; say('شروع گفتار ممکن نشد؛ دوباره بزنید.', 'error'); recognizer = null; }
+    };
+    const stop = () => { if (recognizer) recognizer.stop(); };
+    button.addEventListener('click', () => (recognizer ? stop() : start()));
+    target.addEventListener('keydown', (event) => { if (event.key === 'Escape' && recognizer) stop(); });
+    // Typing while listening keeps the typed text: later speech is added after it.
+    target.addEventListener('input', (event) => { if (recognizer && event.isTrusted) { base = target.value.trim(); finals = ''; } });
+    // Leaving the question (submit, another page) ends dictation; what was heard is already in the field.
+    target.form?.addEventListener('submit', () => { if (recognizer) recognizer.abort(); });
+    window.addEventListener('pagehide', () => { if (recognizer) recognizer.abort(); });
   };
 
   const matrix = (root, answerInput) => {

@@ -139,7 +139,7 @@
                         <div class="summary-tile">
                             <span class="summary-icon cyan"><svg viewBox="0 0 24 24"><path d="M20 17.6A4.5 4.5 0 0 0 17 10a6 6 0 0 0-11.4 2A3.5 3.5 0 0 0 6.5 19H18"/></svg></span>
                             <small>ذخیره خودکار</small>
-                            <strong>{% if settings_lookup.auto_backup.value %}هر ۵ دقیقه{% else %}غیرفعال{% endif %}</strong>
+                            <strong>{{ auto_backup_summary|default:"غیرفعال" }}</strong>
                         </div>
                     </section>
 
@@ -233,19 +233,11 @@
 
                             <section class="settings-panel backup-panel">
                                 <h2><svg viewBox="0 0 24 24"><path d="M20 17.6A4.5 4.5 0 0 0 17 10a6 6 0 0 0-11.4 2A3.5 3.5 0 0 0 6.5 19H18"/></svg>ذخیره‌سازی و پشتیبان‌گیری</h2>
-                                {% for item in settings_groups.backup %}
-                                    <div class="compact-setting-row">
-                                        <label>{{ item.label }}</label>
-                                        {% if item.type == 'boolean' %}
-                                            <input type="hidden" name="settings_{{ item.key }}" value="{% if item.value %}on{% else %}off{% endif %}" data-boolean-value>
-                                            <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}"><span></span></button>
-                                        {% elif item.type == 'number' %}
-                                            <input type="number" name="settings_{{ item.key }}" value="{{ item.value }}" min="1" inputmode="numeric">
-                                        {% else %}
-                                            <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
-                                        {% endif %}
-                                    </div>
-                                {% endfor %}
+                                <div class="compact-setting-row">
+                                    <label>پشتیبان‌گیری خودکار</label>
+                                    <strong>{{ auto_backup_summary|default:"غیرفعال" }}</strong>
+                                </div>
+                                <a class="export-button" href="{% url 'core:super_admin_settings' %}?tab=backup"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>تنظیم زمان‌بندی و نسخه‌ها</a>
                                 <button type="submit" class="export-button" name="settings_action" value="export"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>خروجی فایل</button>
                             </section>
 
@@ -422,10 +414,10 @@
     .settings-userbar{justify-content:flex-start;justify-self:start;direction:ltr;gap:.65rem}.settings-user{direction:ltr}.settings-user>div{direction:rtl}.settings-user>span{width:2.75rem;height:2.75rem}.settings-user b{max-width:7.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem}.settings-user small{font-size:.72rem}
     .settings-userbar button{width:2.65rem;height:2.65rem;border:1px solid rgba(255,255,255,.66);background:rgba(255,255,255,.34);backdrop-filter:blur(22px) saturate(170%);box-shadow:0 12px 26px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.72)}
     .settings-rail{top:94px;right:1.3rem;bottom:auto;width:72px;height:calc(100dvh - 112px);gap:.55rem;padding:.6rem;border-radius:1.35rem;background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.45));box-shadow:0 22px 55px rgba(30,55,95,.09),inset 0 1px 0 rgba(255,255,255,.88)}.settings-rail a{width:2.85rem;height:2.85rem;border-radius:.95rem}.settings-rail a.is-active{background:#eef4ff;box-shadow:0 10px 22px rgba(49,92,255,.1)}
-    .settings-hero{display:grid;margin:0 0 .85rem;padding:1rem 6.6rem 0 1.3rem}.settings-hero h1{font-size:1.7rem;line-height:1.55}.settings-hero p{font-size:.84rem}.date-pill{height:2rem;margin:0 0 .6rem;padding:0 .75rem;background:rgba(255,255,255,.25);font-size:.72rem}
+    .settings-hero{display:grid;margin:0 0 .85rem;padding:1rem calc(2.6rem + 72px) 0 1.3rem}.settings-hero h1{font-size:1.7rem;line-height:1.55}.settings-hero p{font-size:.84rem}.date-pill{height:2rem;margin:0 0 .6rem;padding:0 .75rem;background:rgba(255,255,255,.25);font-size:.72rem}
     .settings-glass .date-pill,.settings-glass .hero-icon{display:none!important}
     .settings-glass .settings-hero{grid-template-columns:1fr!important;padding-top:.7rem!important;margin-bottom:.35rem!important}
-    .settings-layout{grid-template-columns:280px minmax(0,1fr);gap:1.15rem;padding:1rem 6.6rem 1.5rem 1.3rem}.settings-side-card,.settings-main-card,.settings-stats article,.glass-setting-row{border:1px solid rgba(255,255,255,.48);background:linear-gradient(145deg,rgba(255,255,255,.42),rgba(255,255,255,.18));backdrop-filter:blur(34px) saturate(170%);box-shadow:0 24px 58px rgba(30,55,95,.055),inset 0 1px 0 rgba(255,255,255,.62)}
+    .settings-layout{grid-template-columns:280px minmax(0,1fr);gap:1.15rem;padding:1rem calc(2.6rem + 72px) 1.5rem 1.3rem}.settings-side-card,.settings-main-card,.settings-stats article,.glass-setting-row{border:1px solid rgba(255,255,255,.48);background:linear-gradient(145deg,rgba(255,255,255,.42),rgba(255,255,255,.18));backdrop-filter:blur(34px) saturate(170%);box-shadow:0 24px 58px rgba(30,55,95,.055),inset 0 1px 0 rgba(255,255,255,.62)}
     .settings-side-card,.settings-main-card{border-radius:1.35rem}.settings-main-card{padding:.85rem}.settings-side-card h2,.settings-side-card h3,.settings-table h2{font-size:1.02rem}.settings-tabs{gap:.5rem;padding:.55rem}.settings-tabs a{min-height:3.45rem;border-radius:1rem;font-size:.9rem}
     .settings-stats{gap:.85rem}.settings-stats article{min-height:122px;border-radius:1.08rem;padding:1rem}.settings-stats span{width:2.65rem;height:2.65rem;border-radius:.95rem}.settings-stats small{font-size:.78rem}.settings-stats strong{font-size:1rem}
     .settings-filters{gap:.8rem}.settings-filters button,.settings-filters label,.term-create-panel input,.term-create-panel select,.settings-filters input,.glass-setting-row input{height:2.85rem;border-radius:.85rem;font-size:.82rem}.settings-table th{font-size:.75rem}.settings-table td{font-size:.8rem;padding:.78rem .7rem}.status-pill{font-size:.72rem}.primary-action,.term-create-panel button,.glass-setting-row button{height:3.45rem;border-radius:1rem;padding:0 .9rem;font-size:.88rem}
@@ -440,7 +432,7 @@
     .settings-screen .settings-topbar,.settings-screen .settings-rail{display:none!important}
     body:has(.settings-screen),html:has(body .settings-screen){min-height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:none!important;-ms-overflow-style:none!important}
     body:has(.settings-screen) .app-shell{height:100dvh!important;overflow:hidden!important}
-    body:has(.settings-screen) .app-main{height:calc(100dvh - 82px)!important;min-height:calc(100dvh - 82px)!important;overflow:auto!important;padding:1rem 6.6rem 1.5rem 1.3rem!important;scrollbar-width:none!important;-ms-overflow-style:none!important}
+    body:has(.settings-screen) .app-main{height:calc(100dvh - 82px)!important;min-height:calc(100dvh - 82px)!important;overflow:auto!important;padding:1rem calc(2.6rem + 72px) 1.5rem 1.3rem!important;scrollbar-width:none!important;-ms-overflow-style:none!important}
     body:has(.settings-screen)::-webkit-scrollbar,html:has(body .settings-screen)::-webkit-scrollbar,body:has(.settings-screen) .app-main::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
     .settings-screen.settings-glass{min-height:calc(100dvh - 82px)!important;height:auto!important;padding:0!important;overflow:visible;background:transparent!important}
     .settings-screen .settings-hero{display:block!important;margin:0!important;padding:1.05rem 8.1rem .8rem 1.75rem!important;text-align:right!important}

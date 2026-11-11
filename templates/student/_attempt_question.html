@@ -1,25 +1,31 @@
 {% load core_extras %}{# One question of the exam page: q is an item of student_attempt's items. Used once (one question per page) or for every question. #}
         <div class="qx-qhead">
-          <h3>سؤال {{ q.index|fa_digits }} — {{ q.type_label }}</h3>
-          {% if inline_mark and page_rules.flagging %}<label class="qx-mark qx-mark--inline"><input type="checkbox" name="mark_{{ q.question_id }}" form="answer-form" {% if q.marked %}checked{% endif %}><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>علامت‌گذاری برای مرور</label>{% endif %}
-          <div>
+          <div class="qx-qhead-title">
+            <span class="qx-qnum" aria-hidden="true">{{ q.index|fa_digits }}</span>
+            <h3>سؤال {{ q.index|fa_digits }} — {{ q.type_label }}</h3>
+          </div>
+          <div class="qx-qhead-tools">
             {% if q.points %}<span class="qx-chip"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>{{ q.points|stringformat:"g"|fa_digits }} نمره</span>{% endif %}
             {% with seconds=q.suggested_seconds %}{% if seconds %}<span class="qx-chip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>زمان پیشنهادی: {% if seconds|divisibleby:60 %}{% widthratio seconds 60 1 as minutes %}{{ minutes|fa_digits }} دقیقه{% else %}{{ seconds|fa_digits }} ثانیه{% endif %}</span>{% endif %}{% endwith %}
+            {% if with_autosave_state %}<span class="qx-state{% if q.answered %} is-answered{% endif %}" data-answer-state><i></i><span data-answer-state-text>{% if q.answered %}پاسخ داده‌شده{% else %}بدون پاسخ{% endif %}</span></span>{% endif %}
+            {# «علامت‌گذاری برای مرور»: part of the answer form; the question list shows it as an amber dot. #}
+            {% if page_rules.flagging %}<label class="qx-flag" title="علامت‌گذاری برای مرور"><input type="checkbox" name="mark_{{ q.question_id }}" form="answer-form" data-mark-toggle="{{ q.index }}" {% if q.marked %}checked{% endif %}><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>علامت‌گذاری برای مرور</span></label>{% endif %}
           </div>
         </div>
         {% if q.text_html %}
           {# Built server-side from the stored Quill Delta with every text fragment escaped (apps/core/rich_text.py). #}
-          <div class="qx-qtext">{{ q.text_html|safe }}</div>
+          <div class="qx-qtext" dir="{{ q.text|text_dir }}">{{ q.text_html|safe }}</div>
         {% elif q.type != 'fill_blank' %}
-          <div class="qx-qtext"><p>{{ q.text }}</p></div>
+          <div class="qx-qtext" dir="{{ q.text|text_dir }}"><p>{{ q.text }}</p></div>
         {% endif %}
         {% if q.student_instructions %}<p class="qx-instructions">{{ q.student_instructions }}</p>{% endif %}
         {% with media=q.media %}
           {% if media %}
-            <div class="qx-media">
-              {% if media.image and q.type != 'image_label' and q.type != 'hotspot' %}<figure class="qx-figure"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><figcaption><span>{{ media.image_alt }}</span><button type="button" class="qx-zoom" data-zoom><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>بزرگ‌نمایی تصویر</button></figcaption></figure>{% endif %}
-              {% if media.video %}<figure class="qx-figure"><video src="{{ media.video }}" controls preload="metadata"{% if q.playback %} data-playback{% endif %}>{% if media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ media.video_subtitle }}" default>{% endif %}</video>{% if media.video_caption %}<figcaption>{{ media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
-              {% if media.audio %}<figure class="qx-figure"><audio src="{{ media.audio }}" controls preload="metadata"{% if q.playback %} data-playback{% endif %}></audio></figure>{% endif %}
+            {# Media frame of the question: a fixed place under the text; a click on the image opens the zoom view. #}
+            <div class="qx-media qx-stage">
+              {% if media.image and q.type != 'image_label' and q.type != 'hotspot' %}<figure class="qx-stage-fig"><button type="button" class="qx-stage-frame" data-zoom-src="{{ media.image }}" data-zoom-caption="{{ media.image_alt }}" aria-label="بزرگ‌نمایی تصویر سؤال"><img src="{{ media.image }}" alt="{{ media.image_alt }}"><span class="qx-stage-hint"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>بزرگ‌نمایی</span></button>{% if media.image_alt %}<figcaption>{{ media.image_alt }}</figcaption>{% endif %}</figure>{% endif %}
+              {% if media.video %}<figure class="qx-stage-fig"><div class="qx-stage-frame qx-stage-frame--video"><video src="{{ media.video }}" controls preload="metadata" playsinline{% if q.playback %} data-playback{% endif %}>{% if media.video_subtitle %}<track kind="subtitles" srclang="fa" label="فارسی" src="{{ media.video_subtitle }}" default>{% endif %}</video></div>{% if media.video_caption %}<figcaption>{{ media.video_caption }}</figcaption>{% endif %}</figure>{% endif %}
+              {% if media.audio %}<figure class="qx-stage-fig"><div class="qx-stage-frame qx-stage-frame--audio"><svg class="qx-stage-audio-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><audio src="{{ media.audio }}" controls preload="metadata"{% if q.playback %} data-playback{% endif %}></audio></div></figure>{% endif %}
             </div>
           {% endif %}
         {% endwith %}
@@ -30,33 +36,41 @@
         <section class="qx-answer">
           {# Disabled inputs are not posted; the server ignores this question's answer anyway once feedback was shown. #}
           {% if q.locked %}<p class="qx-locked-note">پاسخ این سؤال ثبت شده است و طبق قوانین آزمون دیگر تغییر نمی‌کند.</p>{% endif %}
-          <fieldset class="qx-lock"{% if practice.feedback or q.locked %} disabled{% endif %}>
+          <fieldset class="qx-lock"{% if practice.feedback or q.locked %} disabled{% endif %}>{% with q_dir=q.text|text_dir %}
           {% if q.type == 'single' or q.type == 'multiple_choice' or q.type == 'true_false' %}
             <div class="qx-options" role="radiogroup" aria-label="گزینه‌های پاسخ">
               {% for option in q.options %}
-                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
-                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
-                  <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
-                  {% include "student/_practice_option_verdict.html" %}
+                {# Choice, number, picture (thumbnail, click to zoom), then the text; the row follows the option's own direction (fa / en). #}
+                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}" dir="{{ option.label|text_dir:q_dir }}">
                   <input type="radio" name="answer_{{ q.question_id }}" value="{{ option.value }}" {% if q.answer == option.value %}checked{% endif %}>
+                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
+                  {% if option.media_kind != 'audio' %}{% include "student/_attempt_item_media.html" with item=option %}{% endif %}
+                  <span class="qx-option-body">{% if option.label %}<span class="qx-option-text">{{ option.label }}</span>{% endif %}{% if option.media_kind == 'audio' %}{% include "student/_attempt_item_media.html" with item=option %}{% endif %}</span>
+                  {% include "student/_practice_option_verdict.html" %}
                 </label>
               {% empty %}
                 <p class="qx-empty">برای این سؤال گزینه‌ای تعریف نشده است؛ موضوع را به مراقب آزمون اطلاع دهید.</p>
               {% endfor %}
             </div>
+            {# A second tap on the chosen option also clears it (attempt.html). #}
+            <button type="button" class="qx-clear-choice" data-clear-choice{% if not q.answered %} hidden{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>پاک کردن انتخاب</button>
           {% elif q.type == 'multi' %}
             {% if q.max_select %}<p class="qx-select-hint">حداکثر {{ q.max_select|fa_digits }} گزینه را می‌توانید انتخاب کنید.</p>{% endif %}
             {% if q.min_select > 1 %}<p class="qx-select-hint">دست‌کم {{ q.min_select|fa_digits }} گزینه را انتخاب کنید؛ انتخاب کمتر، پاسخ غلط به حساب می‌آید.</p>{% endif %}
             <div class="qx-options" data-max-select="{{ q.max_select|default:0 }}">
               {% for option in q.options %}
-                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}">
-                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
-                  <span class="qx-option-body">{{ option.label }}{% include "student/_attempt_item_media.html" with item=option %}</span>
-                  {% include "student/_practice_option_verdict.html" %}
+                {# Choice, number, picture (thumbnail, click to zoom), then the text; the row follows the option's own direction (fa / en). #}
+                <label class="qx-option{% if option.feedback %} is-{{ option.feedback }}{% endif %}" dir="{{ option.label|text_dir:q_dir }}">
                   <input type="checkbox" name="answer_{{ q.question_id }}" value="{{ option.value }}" {% if option.value in q.answer %}checked{% endif %}>
+                  <span class="qx-letter">{{ forloop.counter|fa_digits }}</span>
+                  {% if option.media_kind != 'audio' %}{% include "student/_attempt_item_media.html" with item=option %}{% endif %}
+                  <span class="qx-option-body">{% if option.label %}<span class="qx-option-text">{{ option.label }}</span>{% endif %}{% if option.media_kind == 'audio' %}{% include "student/_attempt_item_media.html" with item=option %}{% endif %}</span>
+                  {% include "student/_practice_option_verdict.html" %}
                 </label>
               {% endfor %}
             </div>
+            {# A second tap on the chosen option also clears it (attempt.html). #}
+            <button type="button" class="qx-clear-choice" data-clear-choice{% if not q.answered %} hidden{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>پاک کردن انتخاب</button>
           {% elif q.type == 'essay' or q.type == 'descriptive' or q.type == 'media_response' %}
             <h3>پاسخ شما</h3>
             {% if not q.answer_formats or 'text' in q.answer_formats %}
@@ -235,7 +249,7 @@
             <h3>پاسخ شما</h3>
             <input class="qx-input" name="answer_{{ q.question_id }}" value="{{ q.answer|default_if_none:'' }}" placeholder="پاسخ خود را وارد کنید">
           {% endif %}
-          </fieldset>
+          {% endwith %}</fieldset>
           {% if practice.tutorial %}{% include 'student/_practice_feedback.html' with feedback=practice.feedback %}{% endif %}
           <div class="qx-answer-meta">
             {% if with_autosave_state %}{% include "student/_attempt_autosave_state.html" %}{% endif %}

@@ -14,7 +14,8 @@ from django.utils import timezone
 
 from .student_dashboard import _course_icon
 from .views import (
-    PRACTICE_EXAM_MODE, RESULT_CHOICE_KINDS, _grade_question, _jalali_long_date, _sx_accessible_exams,
+    PRACTICE_EXAM_MODE, RESULT_CHOICE_KINDS, _grade_question, _jalali_long_date, _sx_accessible_exams, _with_exam_grading_rules,
+    attempt_grading_rules,
     _sx_attempt_accepts_answers, _sx_dt, _sx_exam_mode_sql, _sx_exam_row, _sx_float, _sx_json, _sx_percent,
     _sx_answer_files, _sx_answer_value, _sx_media_fields, _sx_question_options, _sx_result_question_rows, _sx_result_topics,
     _sx_result_values, erd_execute, question_resource, erd_has_column, erd_row, erd_rows,
@@ -185,7 +186,8 @@ def show_feedback(attempt_id, question_id) -> str:
     answered = any(str(value).strip() for value in answer) if isinstance(answer, list) else bool(str(answer).strip())
     if not row.get('answer_id') or not answered:
         return 'برای دیدن بازخورد، ابتدا به سؤال پاسخ دهید.'
-    points, manual, is_correct = _grade_question(row, answer, _sx_float(row.get('points'), 0))
+    graded_as = _with_exam_grading_rules(row, attempt_grading_rules(attempt_id))
+    points, manual, is_correct = _grade_question(graded_as, answer, _sx_float(row.get('points'), 0))
     erd_execute(
         """
         UPDATE attempt_answers

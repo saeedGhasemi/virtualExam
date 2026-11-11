@@ -136,6 +136,8 @@
     .qb-option--tf.is-wrong .qb-wrong-badge{display:inline-block}
     .qb-option--tf.is-correct{border-color:#93c5fd;background:#f5f9ff;box-shadow:inset 0 0 0 1px #bfdbfe}
     .qb-mini{width:5rem!important;text-align:center;direction:ltr}
+    .qb-share{display:inline-block;padding:.35rem 0;border-radius:.6rem;background:#f0fdf4;color:var(--qb-green);font-size:.78rem;font-weight:600}
+    .qb-share.is-minus{background:#fff5f5;color:var(--qb-red)}
     .qb-option-head{display:flex;justify-content:flex-end;gap:.55rem;padding:0 .75rem .35rem;color:var(--qb-muted);font-size:.68rem;font-weight:700}
     .qb-option-head span{width:5rem;text-align:center}
     .qb-option-head span:last-child{width:2.4rem}
@@ -354,6 +356,37 @@
         .qb-row2{grid-template-columns:1fr}
         .qb-footer > :nth-child(2){margin-inline-start:0}
     }
+    /* «از سرور»: reuse an image already on the server (teacher_question_media_library) */
+    .qf-library-link{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;width:100%;margin-top:.45rem;padding:.45rem .6rem;border:1px solid #dbe5f3;border-radius:.65rem;background:#fff;color:var(--qb-blue);font-size:.74rem;font-weight:600;cursor:pointer;text-align:center}
+    .qf-library-link:hover{background:var(--qb-blue-soft);border-color:#bfdbfe}
+    .qf-library-link svg,.qf-media-actions [data-media-library] svg{width:1rem;height:1rem;flex:none}
+    .qf-media--large.has-media .qf-library-link{display:none}
+    .qf-media-actions{flex-wrap:wrap}
+    .qf-lib{width:min(860px,calc(100vw - 16px));max-width:none;max-height:min(86vh,760px);margin:auto;padding:0;border:0;border-radius:1rem;background:#fff;color:#1e293b;box-shadow:0 24px 60px rgba(15,23,42,.28);direction:rtl;overflow:hidden}
+    .qf-lib[open]{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(0,1fr) auto}
+    .qf-lib::backdrop{background:rgba(15,23,42,.5)}
+    .qf-lib-head{display:flex;align-items:center;gap:.5rem;padding:.85rem 1rem;border-bottom:1px solid var(--qb-line)}
+    .qf-lib-head strong{flex:1;min-width:0;font-size:.95rem;font-weight:700}
+    .qf-lib-head button{display:inline-grid;place-items:center;width:2.1rem;height:2.1rem;flex:none;border:1px solid #dbe5f3;border-radius:.6rem;background:#fff;color:#475569;font-size:1.1rem;cursor:pointer}
+    .qf-lib-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:.55rem;padding:.75rem 1rem 0}
+    .qf-lib-tools input{width:100%;min-width:0;height:2.4rem;padding:0 .75rem;border:1px solid #cfdcf5;border-radius:.65rem;background:#fff;font:inherit;font-size:.8rem}
+    .qf-lib-filters{display:flex;flex-wrap:wrap;gap:.35rem}
+    .qf-lib-filters button{flex:1 1 auto;min-height:2.1rem;padding:.3rem .7rem;border:1px solid #dbe5f3;border-radius:.6rem;background:#f8fafc;color:#475569;font:inherit;font-size:.74rem;font-weight:600;cursor:pointer}
+    .qf-lib-filters button.is-active{border-color:var(--qb-blue);background:var(--qb-blue);color:#fff}
+    .qf-lib-status{margin:0;padding:.55rem 1rem 0;color:#64748b;font-size:.74rem;font-weight:600}
+    .qf-lib-status:empty{display:none}
+    .qf-lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,9rem),1fr));align-content:start;gap:.6rem;padding:.75rem 1rem;overflow-y:auto;overscroll-behavior:contain}
+    .qf-lib-item{display:grid;grid-template-columns:minmax(0,1fr);gap:.3rem;padding:.4rem;border:1.5px solid var(--qb-line);border-radius:.8rem;background:#fff;color:inherit;font:inherit;text-align:start;cursor:pointer}
+    .qf-lib-item:hover,.qf-lib-item:focus-visible{border-color:var(--qb-blue);background:#f8fbff;outline:none}
+    .qf-lib-item.is-current{border-color:#16a34a;background:#f0fdf4}
+    .qf-lib-thumb{display:grid;place-items:center;aspect-ratio:4/3;border-radius:.55rem;background:#f1f5f9;overflow:hidden}
+    .qf-lib-thumb img{max-width:100%;max-height:100%;object-fit:contain}
+    .qf-lib-item strong{overflow:hidden;font-size:.74rem;font-weight:600;line-height:1.6;text-overflow:ellipsis;white-space:nowrap}
+    .qf-lib-item small{overflow:hidden;color:#94a3b8;font-size:.66rem;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+    .qf-lib-note{margin:0;padding:.6rem 1rem .8rem;border-top:1px solid var(--qb-line);color:#64748b;font-size:.7rem;line-height:1.8;overflow-wrap:anywhere}
+    .qf-lib-note code{display:inline-block;max-width:100%;direction:ltr;unicode-bidi:isolate;font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+    .qf-lib-tools input:focus{outline:2px solid #bfdbfe;outline-offset:0;border-color:var(--qb-blue)}
+    @media (max-width:420px){.qf-lib-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,6.5rem),1fr));padding:.6rem}.qf-lib-head,.qf-lib-tools,.qf-lib-note{padding-inline:.6rem}}
 </style>
 <div class="qb{% if qf.type == 'true_false' %} qb--tf qb--v2{% elif qf.type == 'fill_blank' %} qb--fb qb--v2{% elif qf.type == 'multi' %} qb--mc qb--v2{% endif %}">
 {% if question_draft_saved_at %}
@@ -454,7 +487,7 @@
                         <h3>{% if qf.type == 'multi' %}<button type="button" class="qb-collapse-btn" data-collapse-toggle aria-expanded="true" aria-label="جمع/باز کردن گزینه‌ها"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>گزینه‌ها <small data-multi-range>(حداقل {{ qf.settings.min_correct|fa_digits }}{% if qf.settings.max_correct %} و حداکثر {{ qf.settings.max_correct|fa_digits }}{% endif %} پاسخ صحیح)</small>{% elif qf.type == 'true_false' %}گزینه‌های پاسخ {% include "teacher/_qb_icon.html" with name="info" %}{% else %}گزینه‌ها <small>(یک گزینه صحیح است)</small>{% endif %}</h3>
                         <small>{% if qf.type == 'multi' %}همه‌ی گزینه‌های صحیح را علامت بزنید{% elif qf.type == 'true_false' %}یک گزینه را به عنوان پاسخ صحیح انتخاب کنید.{% else %}گزینه‌ی صحیح را انتخاب کنید{% endif %}</small>
                     </div>
-                    {% if qf.type == 'multi' %}<div class="qb-option-head"><span title="امتیازی که انتخاب این گزینه‌ی صحیح در نمره‌دهی جزئی می‌گیرد (وزن گزینه)">امتیاز انتخاب{% include "teacher/_qb_icon.html" with name="info" %}</span><span title="کسری که انتخاب این گزینه در صورت نادرست بودن از نمره کم می‌کند">جریمه انتخاب نادرست{% include "teacher/_qb_icon.html" with name="info" %}</span><span></span></div>{% endif %}
+                    {% if qf.type == 'multi' %}<div class="qb-option-head"><span title="پیش‌فرض همه‌ی گزینه‌ها هم‌وزن‌اند؛ نمره‌ی سؤال به نسبت وزن بین گزینه‌های صحیح تقسیم می‌شود">وزن{% include "teacher/_qb_icon.html" with name="info" %}</span><span title="سهم این گزینه از نمره‌ی سؤال">سهم</span><span></span></div>{% endif %}
                     <div class="qb-rows" data-row-list="option" data-sortable>
                         {% for option in qf.options %}
                             <article class="qb-option{% if qf.type == 'true_false' %} qb-option--tf{% endif %}{% if option.is_correct %} is-correct{% endif %}">
@@ -466,8 +499,8 @@
                                 {% if qf.type == 'true_false' %}<span class="qb-wrong-badge">پاسخ صحیح نیست</span>{% endif %}
                                 {% if qf.type == 'true_false' %}{% include "teacher/_qf_media_slot.html" with url=option.media kind=option.media_kind base="option_media" labeled=True %}{% else %}{% include "teacher/_qf_media_slot.html" with url=option.media kind=option.media_kind base="option_media" %}{% endif %}
                                 {% if qf.type == 'multi' %}
-                                    <input type="number" class="qb-mini" data-option-points value="{{ option.points }}" step="0.25" min="0" title="امتیاز انتخاب این گزینه (وزن)">
-                                    <input type="number" class="qb-mini" data-option-penalty value="{{ option.penalty|default:'-0.5' }}" step="0.25" max="0" title="جریمه‌ی انتخاب این گزینه در صورت نادرست بودن">
+                                    <input type="number" class="qb-mini" data-option-points value="{{ option.points|default:1 }}" step="1" min="0" title="وزن گزینه (پیش‌فرض ۱)" aria-label="وزن گزینه">
+                                    <output class="qb-mini qb-share" data-option-share title="سهم این گزینه از نمره‌ی سؤال"></output>
                                 {% else %}
                                     <input type="hidden" data-option-points value="{{ option.points }}">
                                 {% endif %}
@@ -728,9 +761,6 @@
                         <label><input type="radio" name="scoring_mode" value="partial"{% if qf.settings.scoring_mode != 'all_or_nothing' %} checked{% endif %}>نمره‌دهی جزئی</label>
                         <label><input type="radio" name="scoring_mode" value="all_or_nothing"{% if qf.settings.scoring_mode == 'all_or_nothing' %} checked{% endif %}>همه یا هیچ</label>
                     </div>
-                    <label class="qb-field">نمره منفی <small>برای هر پاسخ نادرست؛ روی جریمه‌ی همه‌ی گزینه‌ها اعمال می‌شود</small>
-                        <span class="qb-stepper"><button type="button" data-step="0.25">+</button><input type="number" step="0.25" min="-10" max="0" value="-0.5" data-penalty-all aria-label="جریمه‌ی پیش‌فرض همه‌ی گزینه‌ها"><button type="button" data-step="-0.25">−</button></span>
-                    </label>
                 {% elif qf.type == 'fill_blank' or qf.type == 'matching' or qf.type == 'matrix' or qf.type == 'image_label' or qf.type == 'hotspot' %}
                     {# Unchecked box → the hidden value (all-or-nothing) is the one posted. #}
                     <input type="hidden" name="scoring_mode" value="all_or_nothing">
@@ -745,29 +775,17 @@
                         <label class="qb-field">حداقل پاسخ صحیح<input type="number" name="min_correct" min="1" value="{{ qf.settings.min_correct }}" data-min-correct></label>
                         <label class="qb-field">حداکثر انتخاب<input type="number" name="max_correct" min="0" value="{{ qf.settings.max_correct }}" data-max-correct></label>
                     </div>
-                    <p class="qb-help">حداکثر انتخاب ۰ یعنی بدون محدودیت؛ انتخاب کمتر از «حداقل پاسخ صحیح» یا بیش از حد مجاز، پاسخ غلط است. در نمره‌ی جزئی، «امتیاز انتخاب» وزن هر گزینه‌ی صحیح و «جریمه» کسر هر گزینه‌ی غلطِ انتخاب‌شده است.</p>
+                    <p class="qb-help">حداکثر انتخاب ۰ یعنی بدون محدودیت؛ انتخاب کمتر از «حداقل پاسخ صحیح» یا بیش از حد مجاز، پاسخ غلط است. در نمره‌دهی جزئی، نمره‌ی سؤال به نسبت «وزن» بین گزینه‌های صحیح تقسیم می‌شود (مثلاً وزن‌های ۲، ۲، ۱، ۱ یعنی ۲/۶، ۲/۶، ۱/۶ و ۱/۶ نمره) و انتخاب هر گزینه‌ی غلط به نسبت وزنش بین گزینه‌های غلط از نمره کم می‌کند.</p>
                     <label class="qb-switch"><span>حداقل نمره کل: ۰<small>نمره کل هرگز از صفر کمتر نشود</small></span><input type="checkbox" name="floor_zero" value="1" {% if qf.settings.floor_zero %}checked{% endif %}><span class="qb-switch-ui"></span></label>
                 {% endif %}
                 {% if qf.type == 'image_label' %}
                     <label class="qb-switch"><span>پذیرش پاسخ‌های مترادف<small>پاسخ‌های ستون «مترادف‌ها» هم صحیح شمرده شوند</small></span><input type="checkbox" name="label_accept_synonyms" value="1" {% if qf.image_label.accept_synonyms %}checked{% endif %}><span class="qb-switch-ui"></span></label>
                 {% endif %}
-                {% if qf.type != 'essay' and qf.type != 'short_answer' and qf.type != 'multi' and qf.type != 'media_response' %}
-                    <label class="qb-switch"><span>اعمال جریمه نمره منفی<small>برای هر پاسخ نادرست{% if qf.type != 'single' and qf.type != 'true_false' %} (در حالت همه یا هیچ){% endif %}</small></span><input type="checkbox" name="negative_marking" value="1" {% if qf.settings.negative_marking %}checked{% endif %}><span class="qb-switch-ui"></span></label>
-                    <label class="qb-field">ضریب نمره‌ی منفی (کسری از بارم)
-                        <span class="qb-stepper"><button type="button" data-step="0.05">+</button><input type="number" name="negative_value" step="0.05" min="0" max="1" value="{{ qf.settings.negative_value }}"><button type="button" data-step="-0.05">−</button></span>
-                        <small>مثلاً ۰٫۲۵ یعنی پاسخ غلط یک‌چهارم بارم کسر می‌کند؛ سؤال بی‌پاسخ نمره‌ی منفی ندارد.</small>
-                    </label>
-                {% endif %}
-                {% if qf.type == 'single' or qf.type == 'multi' %}
-                    <label class="qb-switch"><span>تصادفی‌سازی گزینه‌ها<small>ترتیب گزینه‌ها برای هر دانشجو متفاوت است</small></span><input type="checkbox" name="shuffle_options" value="1" {% if qf.settings.shuffle_options %}checked{% endif %}><span class="qb-switch-ui"></span></label>
-                {% endif %}
                 {% if qf.type == 'short_answer' %}
-                    <label class="qb-switch"><span>نمره‌ی منفی<small>در این نوع سؤال پاسخ نامنطبق به‌جای کسر نمره به تصحیح دستی می‌رود</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span></label>
                     <input type="hidden" name="scoring_mode" value="all_or_nothing">
                     <label class="qb-switch"><span>امتیاز بخشی<small>پاسخ‌های جایگزین به اندازه‌ی «امتیاز (٪)» خود نمره بگیرند؛ خاموش: فقط پاسخ ۱۰۰٪ نمره دارد</small></span><input type="checkbox" name="scoring_mode" value="partial" {% if qf.settings.scoring_mode != 'all_or_nothing' %}checked{% endif %}><span class="qb-switch-ui"></span></label>
                     <label class="qb-field">حداکثر طول پاسخ (نویسه)<input type="number" name="short_answer_max_chars" min="0" max="2000" step="1" value="{{ qf.settings.max_chars|default:0 }}"><small>۰ یعنی بدون محدودیت؛ در صفحه‌ی آزمون «حداکثر … نویسه» و شمارنده نمایش داده می‌شود.</small></label>
                     <label class="qb-field">حداقل امتیاز برای پاسخ صحیح (٪)<input type="number" name="correct_threshold" min="0" max="100" step="5" value="{{ qf.settings.correct_threshold }}"><small>پاسخی با امتیاز کمتر از این درصد در گزارش‌ها «صحیح» شمرده نمی‌شود؛ نمره‌ی آن تغییری نمی‌کند.</small></label>
-                    <label class="qb-switch"><span>بر هم زدن ترتیب گزینه‌ها<small>در این نوع سؤال غیرفعال است</small></span><input type="checkbox" disabled><span class="qb-switch-ui"></span></label>
                     <p class="qb-help">پاسخ‌ها با قواعد هر ردیف خودکار تصحیح می‌شوند و بهترین تطابق نمره می‌گیرد. پاسخی که با هیچ قاعده‌ای منطبق نباشد صفر نمی‌شود و برای بازبینی به صف تصحیح دستی استاد می‌رود.</p>
                 {% endif %}
                 {% if qf.type == 'essay' %}
@@ -777,10 +795,13 @@
                 {% elif qf.type == 'hotspot' %}
                     <p class="qb-help">هر ناحیه‌ای که دانشجو داخل آن کلیک کند به اندازه‌ی «امتیاز» خود حساب می‌شود؛ با امتیازدهی جزئی خاموش، فقط پیدا کردن همه‌ی ناحیه‌ها نمره دارد. کلیک‌های بیش از «تعداد کلیک مجاز» شمرده نمی‌شوند.</p>
                 {% elif qf.type == 'numeric' %}
-                    <p class="qb-help">پاسخ در بازه‌ی قابل قبول نمره‌ی کامل و خارج از آن صفر (یا نمره‌ی منفی) می‌گیرد.</p>
+                    <p class="qb-help">پاسخ در بازه‌ی قابل قبول نمره‌ی کامل و خارج از آن صفر می‌گیرد.</p>
                 {% endif %}
                 {% if qf.type == 'ordering' %}
                     <p class="qb-help">روش امتیازدهی ترتیب در پایین فهرست موارد تنظیم می‌شود.</p>
+                {% endif %}
+                {% if qf.type == 'single' or qf.type == 'multi' or qf.type == 'true_false' %}
+                    <p class="qb-help">«نمره منفی» و «تصادفی‌سازی گزینه‌ها» تنظیم آزمون هستند و هنگام ساخت آزمون تعیین می‌شوند، نه برای هر سؤال.</p>
                 {% endif %}
             </section>
         </aside>
@@ -794,11 +815,31 @@
         <button type="submit" class="qb-btn qb-btn--primary" name="save" value="1">{% include "teacher/_qb_icon.html" with name="check" %}{% if question_id %}ذخیره تغییرات{% else %}ثبت سؤال{% endif %}</button>
     </footer>
 </form>
+{# «از سرور»: images already on the server for any image slot (filled by the script below). #}
+<dialog class="qf-lib" data-media-library-dialog data-url="{% url 'core:teacher_question_media_library' %}" aria-labelledby="qfLibTitle">
+    <div class="qf-lib-head">
+        <strong id="qfLibTitle">انتخاب تصویر از سرور</strong>
+        <button type="button" data-lib-reload title="به‌روزرسانی فهرست" aria-label="به‌روزرسانی فهرست"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 0 1-13.7 5.6L4 15m0 5v-5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" data-lib-close aria-label="بستن">×</button>
+    </div>
+    <div class="qf-lib-tools">
+        <input type="search" data-lib-search placeholder="جستجو در نام فایل یا متن سؤال" aria-label="جستجو در تصاویر">
+        <div class="qf-lib-filters" role="group" aria-label="منبع تصویر">
+            <button type="button" class="is-active" data-lib-filter="all">همه</button>
+            <button type="button" data-lib-filter="mine">سؤال‌های من</button>
+            <button type="button" data-lib-filter="shared">سؤال‌های اشتراکی</button>
+            <button type="button" data-lib-filter="server">پوشه‌ی سرور</button>
+        </div>
+    </div>
+    <p class="qf-lib-status" data-lib-status role="status" aria-live="polite"></p>
+    <div class="qf-lib-grid" data-lib-grid></div>
+    <p class="qf-lib-note">تصاویر سؤال‌هایی که به آن‌ها دسترسی دارید نمایش داده می‌شوند؛ انتخاب تصویر، فایل را دوباره بارگذاری نمی‌کند. برای تصاویر مشترک همه‌ی اساتید، فایل‌ها را روی سرور در پوشه‌ی <code data-latin-digits data-lib-folder>media/question-media/library/</code> قرار دهید.</p>
+</dialog>
 </div>
 {# Outside .qb so the builder's form-control styles don't leak into the exam view. #}
 {% include "teacher/_qf_exam_preview.html" %}
 <script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>
-<script src="{% static 'js/waveform-player.js' %}?v=media-20261107e" defer></script>
+<script src="{% static 'js/waveform-player.js' %}?v=media-20261111l" defer></script>
 <script src="{% static 'js/question-types-v2.js' %}?v=media-20261107e"></script>
 <script>
 (() => {
@@ -816,15 +857,31 @@
     card.classList.toggle('is-collapsed');
     button.setAttribute('aria-expanded', card.classList.contains('is-collapsed') ? 'false' : 'true');
   }));
-  // Multiple-answer: one penalty field sets every option's «جریمه انتخاب نادرست».
-  const penaltyAll = createForm.querySelector('[data-penalty-all]');
-  if (penaltyAll) {
-    const penalties = [...createForm.querySelectorAll('[data-option-penalty]')].map((input) => input.value);
-    if (penalties.length && penalties.every((value) => value === penalties[0])) penaltyAll.value = penalties[0];
-    penaltyAll.addEventListener('input', () => {
-      const value = Math.min(0, Number(toEn(penaltyAll.value)) || 0);
-      createForm.querySelectorAll('[data-option-penalty]').forEach((input) => { input.value = String(value); });
-    });
+  // Multiple-answer «وزن»: the question's points split between the correct options by weight (2,2,1,1 → 2/6 …);
+  // a wrong option's share is what ticking it takes off (the wrong options split one full deduction).
+  const optionList = createForm.querySelector('[data-row-list="option"]');
+  if (optionList && createForm.querySelector('[data-option-share]')) {
+    const updateShares = () => {
+      const rows = [...optionList.querySelectorAll('article')];
+      const weightOf = (row) => Math.max(0, Number(toEn(row.querySelector('[data-option-points]')?.value || '0')) || 0);
+      const isCorrect = (row) => !!row.querySelector('[data-correct-marker]')?.checked;
+      const totals = { true: 0, false: 0 };
+      rows.forEach((row) => { totals[isCorrect(row)] += weightOf(row); });
+      rows.forEach((row) => {
+        const out = row.querySelector('[data-option-share]');
+        if (!out) return;
+        const correct = isCorrect(row);
+        const total = totals[correct];
+        const weight = weightOf(row);
+        out.textContent = total ? `${correct ? '' : '−'}${toFa(Math.round((weight / total) * 100))}٪` : '—';
+        out.title = total ? `${toFa(weight)} از ${toFa(total)}${correct ? ' — سهم از نمره' : ' — کسر در صورت انتخاب'}` : '';
+        out.classList.toggle('is-minus', !correct);
+      });
+    };
+    optionList.addEventListener('input', updateShares);
+    optionList.addEventListener('change', updateShares);
+    new MutationObserver(updateShares).observe(optionList, { childList: true });
+    updateShares();
   }
   // Question stem: Quill edits a Delta; the server renders safe HTML from it and derives the plain `text`.
   let stemQuill = null;
@@ -1012,6 +1069,115 @@
       },
     });
   });
+  // «از سرور»: pick an image that is already on the server (teacher_question_media_library). Only the slot's
+  // «existing» field is filled, exactly like media saved before, so nothing is uploaded again.
+  const libDialog = document.querySelector('[data-media-library-dialog]');
+  const libSources = { mine: 'سؤال‌های من', shared: 'اشتراکی', server: 'پوشه‌ی سرور' };
+  const foldText = (text) => toEn(String(text || '').toLowerCase()).replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+  const libNode = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  };
+  let libItems = null;
+  let libSlot = null;
+  let libFilter = 'all';
+  const libStatus = (text) => { libDialog.querySelector('[data-lib-status]').textContent = text; };
+  const renderLibrary = () => {
+    const grid = libDialog.querySelector('[data-lib-grid]');
+    grid.innerHTML = '';
+    if (!libItems) return;
+    const query = foldText(libDialog.querySelector('[data-lib-search]').value.trim());
+    const current = libSlot?.querySelector('[data-media-existing]')?.value || '';
+    const shown = libItems.filter((item) => (libFilter === 'all' || item.source === libFilter)
+      && (!query || foldText(`${item.name} ${item.question}`).includes(query)));
+    shown.forEach((item) => {
+      const card = libNode('button', `qf-lib-item${item.url === current ? ' is-current' : ''}`);
+      card.type = 'button';
+      card.dataset.libUrl = item.url;
+      card.title = item.question ? `${item.name}\n${item.question}` : item.name;
+      const thumb = libNode('span', 'qf-lib-thumb');
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.alt = '';
+      img.src = item.url;
+      thumb.append(img);
+      const meta = [libSources[item.source], formatSize(item.size), item.uses > 1 ? `در ${toFa(item.uses)} سؤال` : ''].filter(Boolean).join(' · ');
+      card.append(thumb, libNode('strong', '', item.question || item.name), libNode('small', '', meta));
+      grid.append(card);
+    });
+    if (!libItems.length) libStatus('هنوز تصویری روی سرور نیست؛ تصویر را از رایانه بارگذاری کنید.');
+    else if (!shown.length) libStatus('تصویری با این جستجو یا فیلتر پیدا نشد.');
+    else libStatus(shown.length < libItems.length ? `${toFa(shown.length)} تصویر از ${toFa(libItems.length)}` : `${toFa(libItems.length)} تصویر`);
+  };
+  const loadLibrary = async () => {
+    libItems = null;
+    renderLibrary();
+    libStatus('در حال دریافت فهرست تصاویر...');
+    try {
+      const response = await fetch(libDialog.dataset.url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`);
+      libItems = body.items || [];
+      if (body.library_folder) libDialog.querySelector('[data-lib-folder]').textContent = body.library_folder;
+      renderLibrary();
+      if (body.total > libItems.length) libStatus(`${toFa(libItems.length)} تصویر جدیدتر از ${toFa(body.total)} نمایش داده می‌شود.`);
+    } catch (error) {
+      libStatus(`دریافت فهرست تصاویر ناموفق بود (${error.message}). دوباره تلاش کنید.`);
+    }
+  };
+  const openLibrary = (slot) => {
+    if (!slot || !libDialog) return;
+    libSlot = slot;
+    if (!libDialog.open) libDialog.showModal();
+    if (libItems) renderLibrary(); else loadLibrary();
+    libDialog.querySelector('[data-lib-search]').focus();
+  };
+  const useLibraryImage = (slot, item) => {
+    const preview = slot.querySelector('[data-media-preview]');
+    preview.querySelectorAll('img, audio, video').forEach((node) => { if (node.src.startsWith('blob:')) URL.revokeObjectURL(node.src); });
+    preview.innerHTML = '';
+    const img = document.createElement('img');
+    img.alt = '';
+    img.src = item.url;
+    preview.append(img);
+    slot.querySelector('[data-media-file]').value = '';
+    slot.querySelector('[data-media-existing]').value = item.url;
+    slot.querySelector('[data-media-remove]').value = '';
+    const duration = slot.querySelector('[data-media-duration]');
+    if (duration) duration.textContent = '';
+    const name = slot.querySelector('[data-media-name]');
+    const size = slot.querySelector('[data-media-size]');
+    if (name) name.textContent = size ? item.name : `${item.name} — ${formatSize(item.size)}`;
+    if (size) size.textContent = `اندازه: ${formatSize(item.size)}`;
+    slot.classList.add('has-media');
+    const panel = slot.closest('[data-media-panel]');
+    if (panel) panel.hidden = false;
+    refreshTfMedia();
+    scheduleAutosave({ target: slot });
+  };
+  if (libDialog) {
+    libDialog.addEventListener('click', (event) => {
+      if (event.target === libDialog || event.target.closest('[data-lib-close]')) { libDialog.close(); return; }
+      if (event.target.closest('[data-lib-reload]')) { loadLibrary(); return; }
+      const filter = event.target.closest('[data-lib-filter]');
+      if (filter) {
+        libFilter = filter.dataset.libFilter;
+        libDialog.querySelectorAll('[data-lib-filter]').forEach((button) => button.classList.toggle('is-active', button === filter));
+        renderLibrary();
+        return;
+      }
+      const card = event.target.closest('[data-lib-url]');
+      const item = card && libItems?.find((entry) => entry.url === card.dataset.libUrl);
+      if (item && libSlot) {
+        useLibraryImage(libSlot, item);
+        libDialog.close();
+      }
+    });
+    libDialog.querySelector('[data-lib-search]').addEventListener('input', renderLibrary);
+    libDialog.addEventListener('close', () => { libSlot = null; });
+  }
   const stemPick = createForm.querySelector('[data-stem-pick]');
   // Video subtitles: show the chosen (or saved) WebVTT track on the stem video previews.
   const subtitleInput = createForm.querySelector('[data-subtitle-file]');
@@ -1083,7 +1249,6 @@
       if (input.tagName === 'SELECT') input.selectedIndex = 0;
       else if (input.type === 'radio' || input.type === 'checkbox') input.checked = input.matches('[data-blank-spaces], [data-accepted-normalize]');
       else if (input.matches('[data-option-points], [data-blank-points]')) input.value = '1';
-      else if (input.matches('[data-option-penalty]')) input.value = '-0.5';
       else if (input.matches('[data-accepted-points]')) input.value = '100';
       else if (input.matches('[data-accepted-tolerance]')) input.value = '0';
       else input.value = '';
@@ -1307,6 +1472,8 @@
     if (event.target.closest('[data-stem-drop]')) { stemPick?.click(); return; }
     const pick = event.target.closest('[data-media-pick]');
     if (pick) { openPicker(pick.closest('[data-media-slot]'), pick.dataset.mediaPick); return; }
+    const libraryButton = event.target.closest('[data-media-library]');
+    if (libraryButton) { openLibrary(libraryButton.closest('[data-media-slot]')); return; }
     const drop = event.target.closest('[data-media-drop], [data-media-replace]');
     if (drop) { openPicker(drop.closest('[data-media-slot]')); return; }
     const clearButton = event.target.closest('[data-media-clear]');
@@ -1382,7 +1549,6 @@
         nameRowMedia(row, index);
         addHidden('option_text', text);
         addHidden(`option_points_${index}`, value(row.querySelector('[data-option-points]')) || '1');
-        addHidden(`option_negative_${index}`, value(row.querySelector('[data-option-penalty]')) || '0');
         if (checked(row, '[data-correct-marker]')) addHidden('correct_options', String(index));
       });
     }
@@ -1463,7 +1629,7 @@
     const data = new FormData(createForm);
     [...data.entries()].forEach(([name, entry]) => { if (entry instanceof File) data.delete(name); });
     if (createForm.dataset.questionId) data.set('question_id', createForm.dataset.questionId);
-    fetch(createForm.dataset.autosaveUrl, { method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    fetch(createForm.dataset.autosaveUrl, { mqBackground: true, method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then((response) => response.json().then((body) => ({ ok: response.ok && body.ok, body })))
       .then(({ ok, body }) => {
         autosaveState.classList.toggle('is-error', !ok);
@@ -1513,23 +1679,36 @@
     return box;
   };
   const stemPlainText = () => (stemQuill ? stemQuill.getText() : textArea?.value || '').trim();
+  // Same rule as the text_dir template filter: the first letter decides (English → ltr), else the fallback.
+  const textDir = (text, fallback = 'rtl') => {
+    const letter = /[\u0590-\u065f\u066a-\u06ef\u06fa-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]|[A-Za-z\u00c0-\u024f]/.exec(text || '');
+    if (!letter) return fallback;
+    return /[A-Za-z\u00c0-\u024f]/.test(letter[0]) ? 'ltr' : 'rtl';
+  };
 
   const renderChoices = (area, multiple) => {
     let rows = [...createForm.querySelectorAll('[data-row-list="option"] article')].filter((row) => fieldValue(row, '[data-option-text]'));
-    if (createForm.querySelector('[name="shuffle_options"]')?.checked) rows = shuffled(rows);
     const max = multiple ? Number(toEn(createForm.querySelector('[name="max_correct"]')?.value || 0)) || 0 : 0;
     if (max) area.append(el('p', 'qx-select-hint', `حداکثر ${toFa(max)} گزینه را می‌توانید انتخاب کنید.`));
     const list = el('div', 'qx-options');
     list.setAttribute('role', multiple ? 'group' : 'radiogroup');
+    const stemDir = textDir(stemPlainText());
     rows.forEach((row, index) => {
+      // As on the exam page: choice → number → thumbnail → text, in the option's own direction.
+      const text = fieldValue(row, '[data-option-text]');
       const label = el('label', 'qx-option');
-      const body = el('span', 'qx-option-body', fieldValue(row, '[data-option-text]'));
+      label.dir = textDir(text, stemDir);
+      const body = el('span', 'qx-option-body');
+      if (text) body.append(el('span', 'qx-option-text', text));
       const media = itemMedia(row.querySelector('[data-media-slot]'));
-      if (media) body.append(media);
+      if (media) media.classList.add(`qx-item-media--${media.firstElementChild?.tagName === 'IMG' ? 'image' : media.firstElementChild?.tagName.toLowerCase()}`);
       const input = el('input');
       input.type = multiple ? 'checkbox' : 'radio';
       input.name = '_qx_choice';
-      label.append(el('span', 'qx-letter', toFa(index + 1)), body, input);
+      label.append(input, el('span', 'qx-letter', toFa(index + 1)));
+      if (media && !media.classList.contains('qx-item-media--audio')) label.append(media);
+      label.append(body);
+      if (media?.classList.contains('qx-item-media--audio')) body.append(media);
       list.append(label);
     });
     if (!rows.length) list.append(el('p', 'qx-empty', 'هنوز گزینه‌ای وارد نشده است.'));
@@ -1795,6 +1974,7 @@
     // Fill-in-the-blank has no separate stem: like the exam page, the sentence with its blanks is the stem.
     qx('text').hidden = questionType === 'fill_blank';
     qx('text').innerHTML = stemQuill && stemQuill.getText().trim() ? stemQuill.root.innerHTML : `<p>${esc(textArea?.value || '') || '<em>متن سؤال هنوز وارد نشده است.</em>'}</p>`;
+    qx('text').dir = textDir(stemPlainText());
     const instructions = createForm.querySelector('[name="student_instructions"]')?.value.trim() || '';
     qx('instructions').textContent = instructions;
     qx('instructions').hidden = !instructions;

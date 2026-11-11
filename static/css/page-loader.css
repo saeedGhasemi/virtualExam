@@ -1,0 +1,94 @@
+/* Site-wide loader (static/js/page-loader.js): the MetaQuizy mark inside a spinning ring, centred on the screen.
+   Brand blues are recoloured by appearance.js like every other stylesheet. The element is a manual popover when the
+   browser supports it (so it sits above open <dialog>s), otherwise a fixed layer with the highest z-index. */
+#mq-page-loader.mq-loader{
+  position:fixed;inset:0;z-index:2147483000;
+  display:grid;place-items:center;
+  width:auto;height:auto;max-width:none;max-height:none;margin:0;padding:16px;border:0;
+  background:transparent;color:#0b1a3a;overflow:hidden;
+  direction:rtl;font-family:Vazirmatn,"B Yekan",BYekan,Tahoma,sans-serif;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .15s ease,visibility 0s linear .15s;
+}
+#mq-page-loader.mq-loader:popover-open{display:grid}
+#mq-page-loader.mq-loader[popover]:not(:popover-open){display:none}
+#mq-page-loader.mq-loader::backdrop{background:transparent}
+#mq-page-loader.mq-loader.is-open{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .1s ease}
+#mq-page-loader.mq-loader.is-open.is-passive{pointer-events:none}
+#mq-page-loader.mq-loader.is-instant{transition:none}
+
+/* backdrop: leaving the page = a clear veil; a part of the page loading = a light one; first paint = none */
+#mq-page-loader .mq-loader__veil{position:absolute;inset:0;background:rgba(248,250,252,.74);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+#mq-page-loader[data-kind="task"] .mq-loader__veil{background:rgba(248,250,252,.42);-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px)}
+#mq-page-loader[data-kind="boot"] .mq-loader__veil{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+
+#mq-page-loader .mq-loader__card{
+  position:relative;box-sizing:border-box;
+  display:flex;flex-direction:column;align-items:center;gap:.8rem;
+  min-width:0;max-width:100%;
+  padding:clamp(1rem,4vw,1.5rem) clamp(1.1rem,6vw,2.1rem) clamp(.9rem,3.5vw,1.25rem);
+  border-radius:1.35rem;background:rgba(255,255,255,.94);
+  border:1px solid rgba(37,99,235,.10);
+  box-shadow:0 24px 60px -26px rgba(15,35,90,.38),0 2px 8px rgba(15,35,90,.06);
+  transform:translateY(8px) scale(.96);
+  transition:transform .26s cubic-bezier(.2,.8,.2,1);
+}
+#mq-page-loader.is-open .mq-loader__card{transform:none}
+#mq-page-loader.is-instant .mq-loader__card{transition:none}
+
+/* the mark + ring */
+#mq-page-loader .mq-loader__logo{position:relative;flex:0 0 auto;width:4.4rem;height:4.4rem;display:grid;place-items:center}
+#mq-page-loader .mq-loader__track,
+#mq-page-loader .mq-loader__ring{position:absolute;inset:0;border-radius:50%}
+#mq-page-loader .mq-loader__track{border:3px solid rgba(37,99,235,.10)}
+#mq-page-loader .mq-loader__ring{
+  background:conic-gradient(from 0deg,rgba(37,99,235,0) 0deg,rgba(79,139,255,.25) 120deg,#4f8bff 260deg,#2563eb 345deg,rgba(37,99,235,0) 360deg);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3.5px),#000 calc(100% - 3px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 3.5px),#000 calc(100% - 3px));
+  animation:mq-loader-spin .95s linear infinite;
+}
+#mq-page-loader .mq-loader__mark{
+  position:relative;width:2.75rem;height:2.75rem;border-radius:.85rem;display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(140deg,#4f8bff 0%,#2563eb 48%,#3b3fd8 100%);
+  box-shadow:0 .5rem 1.1rem -.45rem rgba(37,99,235,.6),inset 0 1px 0 rgba(255,255,255,.35);
+  animation:mq-loader-breathe 1.9s ease-in-out infinite;
+}
+#mq-page-loader .mq-loader__mark::after{
+  content:"";position:absolute;inset:-40% auto -40% -60%;width:45%;
+  background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.38),rgba(255,255,255,0));
+  transform:skewX(-18deg);animation:mq-loader-sheen 1.9s ease-in-out infinite;
+}
+#mq-page-loader .mq-loader__mark svg{position:relative;z-index:1;width:62%;height:62%;display:block}
+
+#mq-page-loader .mq-loader__name{font-family:"MQ Lalezar",Vazirmatn,Tahoma,sans-serif;font-weight:400;font-size:1.3rem;line-height:1;color:#0b1a3a;padding-top:.1em}
+#mq-page-loader .mq-loader__text{display:flex;align-items:baseline;gap:.15em;font-size:.8rem;font-weight:600;line-height:1.4;color:#6b7891;white-space:nowrap}
+#mq-page-loader .mq-loader__dots{display:inline-flex;gap:.18em}
+#mq-page-loader .mq-loader__dots i{width:.28em;height:.28em;border-radius:50%;background:currentColor;opacity:.25;animation:mq-loader-dot 1.2s ease-in-out infinite}
+#mq-page-loader .mq-loader__dots i:nth-child(2){animation-delay:.18s}
+#mq-page-loader .mq-loader__dots i:nth-child(3){animation-delay:.36s}
+
+@keyframes mq-loader-spin{to{transform:rotate(360deg)}}
+@keyframes mq-loader-breathe{0%,100%{transform:scale(1)}50%{transform:scale(.93)}}
+@keyframes mq-loader-sheen{0%,35%{left:-60%}75%,100%{left:120%}}
+@keyframes mq-loader-dot{0%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-.18em)}}
+
+/* very narrow screens: a smaller card, no wordmark row squeeze */
+@media (max-width:300px){
+  #mq-page-loader .mq-loader__logo{width:3.6rem;height:3.6rem}
+  #mq-page-loader .mq-loader__mark{width:2.25rem;height:2.25rem;border-radius:.7rem}
+  #mq-page-loader .mq-loader__name{font-size:1.1rem}
+  #mq-page-loader .mq-loader__card{gap:.6rem;border-radius:1.1rem}
+}
+@media (prefers-reduced-motion:reduce){
+  #mq-page-loader .mq-loader__ring{animation-duration:1.8s}
+  #mq-page-loader .mq-loader__mark,#mq-page-loader .mq-loader__mark::after,#mq-page-loader .mq-loader__dots i{animation:none}
+  #mq-page-loader .mq-loader__dots i{opacity:.6}
+  #mq-page-loader.mq-loader,#mq-page-loader .mq-loader__card{transition:none}
+}
+@media print{#mq-page-loader{display:none!important}}
+
+/* Dark theme: appearance.css inverts <html> with a filter, which does not reach the top layer (the popover) */
+html[data-mq-theme="dark"]:not([data-teacher-theme]) #mq-page-loader:popover-open .mq-loader__card{filter:invert(.9) hue-rotate(180deg)}
+html[data-mq-theme="dark"]:not([data-teacher-theme]) #mq-page-loader:popover-open .mq-loader__veil{background:rgba(22,24,30,.72)}
+html[data-mq-theme="dark"]:not([data-teacher-theme]) #mq-page-loader:popover-open[data-kind="task"] .mq-loader__veil{background:rgba(22,24,30,.42)}
+html[data-mq-theme="dark"]:not([data-teacher-theme]) #mq-page-loader:popover-open[data-kind="boot"] .mq-loader__veil{background:transparent}

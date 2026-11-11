@@ -608,6 +608,19 @@ table.rt-fit-act > tbody > tr > td.rt-act :is(a, button) { white-space: nowrap !
   table.rt-cards > tbody > tr > td.rt-act::before { display: none; }
   table.rt-cards > tbody > tr > td.rt-act > :is(div, nav, span) { flex-wrap: wrap; justify-content: flex-start !important; }
   table.rt-cards > tbody > tr > td:has(+ td.rt-act:last-child) { border-bottom: 0 !important; }
+  /* wide, short cards (user's choice 2026-11-11): fields are small tiles (label above value) side by side in a grid;
+     long values (rt-wide, set by responsive-tables.js), the title and the actions take the full width.
+     40 min-content rows + one auto row: empty rows collapse to 0 and the last (auto) row holds the actions at the card bottom. */
+  table.rt-cards > tbody { grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); }
+  table.rt-cards.rt-cards > tbody > tr { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(8.5rem, 34%)), 1fr)); grid-template-rows: repeat(40, min-content) auto; column-gap: .5rem; row-gap: 0; align-content: stretch; padding: .3rem .85rem .7rem; }
+  table.rt-cards.rt-cards > tbody > tr > td:is(.rt-head, .rt-act, .rt-wide, [colspan], [data-label=""], :not([data-label])) { grid-column: 1 / -1; }
+  table.rt-cards.rt-cards > tbody > tr > td.rt-head { margin-bottom: .6rem; }
+  table.rt-cards.rt-cards > tbody > tr > td.rt-wide-odd { order: 49; } /* same layout in every card: odd tile after the tiles, */
+  table.rt-cards.rt-cards > tbody > tr > td.rt-wide-end { order: 50; } /* long fields listed after the tiles at the bottom */
+  table.rt-cards.rt-cards > tbody > tr > td.rt-act { grid-row: -2 / -1; align-self: end; margin-top: 0; }
+  table.rt-cards.rt-cards > tbody > tr > td:not(.rt-head, .rt-act)[data-label]:not([data-label=""]) { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; justify-content: flex-start; gap: .25rem; min-height: 0; margin-bottom: .5rem; padding: .5rem .65rem !important; border: 1px solid #edf2f9 !important; border-radius: 12px; background: #f8fafc !important; text-align: start; }
+  table.rt-cards.rt-cards > tbody > tr > td:not(.rt-head, .rt-act)[data-label]:not([data-label=""])::before { max-width: 100%; font-size: .72rem; text-align: start; }
+  table.rt-cards.rt-cards > tbody > tr > td:not(.rt-head, .rt-act)[data-label=""] { border-bottom: 0 !important; }
 }
 @media screen and (max-width: 760px) { table.rt-cards > tbody { padding: .5rem 0; gap: .75rem; } }
 /* card title row (icon/code chip + title): wraps instead of squeezing the title to one letter per line */

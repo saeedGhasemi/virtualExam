@@ -175,27 +175,19 @@
 
     {% else %}
         <section class="tset-card">
-            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="user" %}<div><h2>محیط کار</h2><p>زبان، منطقه زمانی، تاریخ و نحوه نمایش را تنظیم کنید.</p></div></header>
-            <div class="tset-row is-3">
+            <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="user" %}<div><h2>محیط کار</h2><p>زبان، منطقه زمانی و تاریخ را تنظیم کنید.</p></div></header>
+            <div class="tset-row is-4">
                 {% include "teacher/settings/_select.html" with name="language" label="زبان سامانه" icon="globe" %}
                 {% include "teacher/settings/_select.html" with name="timezone" label="منطقه زمانی" icon="clock" %}
                 {% include "teacher/settings/_select.html" with name="date_format" label="تقویم تاریخ" icon="calendar" %}
-            </div>
-            <div class="tset-row is-2">
-                <fieldset class="tset-field">
-                    <legend class="tset-label">{% include "teacher/_qb_icon.html" with name="palette" %}نمایش پوسته (تم)</legend>
-                    <div class="tset-segment">
-                        {% for value, text in teacher_settings_choices.theme %}
-                            <label><input type="radio" name="theme" value="{{ value }}"{% if value == teacher_settings_selected.theme %} checked{% endif %}><span>{% if value == 'light' %}{% include "teacher/_qb_icon.html" with name="sun" %}{% elif value == 'dark' %}{% include "teacher/_qb_icon.html" with name="moon" %}{% else %}{% include "teacher/_qb_icon.html" with name="monitor" %}{% endif %}{{ text }}</span></label>
-                        {% endfor %}
-                    </div>
-                </fieldset>
                 <div class="tset-field">
                     <span class="tset-label">{% include "teacher/_qb_icon.html" with name="building" %}واحد سازمانی</span>
                     <span class="tset-readonly" title="اطلاعات سازمانی توسط مدیر آموزشی مدیریت می‌شود.">{{ teacher_profile.faculty|default:"-" }}{% include "teacher/_qb_icon.html" with name="lock" %}</span>
                 </div>
             </div>
         </section>
+
+        {% include "partials/my_appearance.html" with card_class="tset-card" head_class="tset-card-head" %}
 
         <section class="tset-card">
             <header class="tset-card-head">{% include "teacher/_qb_icon.html" with name="monitor" %}<div><h2>نمایش و دسترسی</h2><p>نحوه نمایش و دسترسی به امکانات را تنظیم کنید.</p></div></header>

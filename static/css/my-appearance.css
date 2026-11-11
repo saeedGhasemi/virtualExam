@@ -1,0 +1,47 @@
+/* The account's own «تنظیمات ظاهری» card (templates/partials/my_appearance.html): the admin panel's look
+   (super_admin/settings.html → .appearance-panel), scoped to .mqa. The host page supplies the card box (card_class).
+   Down to 240px: label above control, everything wraps. */
+.mqa { display: block; min-width: 0; direction: rtl; }
+.mqa * { box-sizing: border-box; }
+.mqa svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.mqa-head { display: flex; align-items: flex-start; gap: .65rem; margin: 0 0 .6rem; min-width: 0; }
+.mqa-head > svg { width: 1.4rem; height: 1.4rem; flex: none; margin-top: .1rem; color: #2563eb; }
+.mqa-head > div { min-width: 0; }
+.mqa-head h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+.mqa-head p { margin: .2rem 0 0; color: #61708d; font-size: .82rem; font-weight: 400; line-height: 1.7; }
+
+.mqa .ap-field { display: grid; grid-template-columns: minmax(5.5rem, auto) minmax(0, 1fr); gap: .6rem; align-items: center; margin: .55rem 0; }
+.mqa .ap-label { color: #54657f; font-weight: 600; font-size: .86rem; white-space: nowrap; }
+.mqa .ap-seg { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: .18rem; padding: .18rem; border: 1px solid #d8e2ef; border-radius: .8rem; background: rgba(255, 255, 255, .42); min-width: 0; }
+.mqa .ap-seg label { position: relative; margin: 0; min-width: 0; cursor: pointer; }
+.mqa .ap-seg input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+.mqa .ap-seg span { display: flex; align-items: center; justify-content: center; gap: .3rem; height: 2.25rem; padding: 0 .35rem; border-radius: .62rem; color: #64748b; font-size: .82rem; font-weight: 600; white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
+.mqa .ap-seg span svg { width: 1rem; height: 1rem; flex: none; }
+.mqa .ap-seg label:hover span { color: #1e293b; }
+.mqa .ap-seg input:checked + span { background: #fff; color: #2563eb; box-shadow: 0 6px 16px rgba(37, 99, 235, .14), inset 0 0 0 1px rgba(37, 99, 235, .22); }
+.mqa .ap-seg input:focus-visible + span { outline: 2px solid #2563eb; outline-offset: 1px; }
+.mqa .ap-glyph { font-weight: 700; line-height: 1; }
+.mqa .ap-glyph-small { font-size: .72rem; } .mqa .ap-glyph-medium { font-size: .92rem; } .mqa .ap-glyph-large { font-size: 1.12rem; }
+.mqa .ap-colors { display: flex; flex-wrap: wrap; align-items: center; gap: .42rem; min-width: 0; }
+.mqa .ap-swatch { position: relative; display: block; flex: none; width: 1.6rem; height: 1.6rem; margin: 0; padding: 0; border: 0; border-radius: .45rem; background: var(--sw); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .12); cursor: pointer; transition: transform .12s; }
+.mqa .ap-swatch:hover { transform: scale(1.08); }
+.mqa .ap-swatch.is-selected { outline: 2px solid var(--sw); outline-offset: 2px; }
+.mqa .ap-swatch.is-selected::after { content: ""; position: absolute; inset: 0; margin: auto; width: .42rem; height: .72rem; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+.mqa .ap-swatch:focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; }
+.mqa .ap-custom { background: conic-gradient(from 90deg, #ef4444, #f59e0b, #22c55e, #06b6d4, #8b5cf6, #ec4899, #ef4444); }
+.mqa .ap-custom.is-selected { background: var(--sw); }
+.mqa .ap-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.mqa .ap-hex { width: 5.6rem; height: 2.1rem; min-width: 0; border: 1px solid #d8e2ef; border-radius: .62rem; background: rgba(255, 255, 255, .6); padding: 0 .45rem; color: #13223f; font: inherit; font-size: .82rem; font-weight: 600; text-align: center; text-transform: uppercase; }
+.mqa .ap-hex:invalid { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, .12); }
+.mqa .ap-hint { margin: .7rem 0 0; color: #7a879b; font-size: .74rem; font-weight: 600; line-height: 1.8; }
+
+.mqa-actions { display: flex; justify-content: flex-end; margin-top: .9rem; padding-top: .8rem; border-top: 1px solid #e6edf6; }
+.mqa-save { display: inline-flex; align-items: center; justify-content: center; min-height: 2.5rem; max-width: 100%; padding: .4rem 1.4rem; border: 0; border-radius: .75rem; background: #2563eb; color: #fff; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; box-shadow: 0 8px 18px rgba(37, 99, 235, .22); }
+.mqa-save:hover { background: #1d4ed8; }
+
+@media (max-width: 480px) {
+  .mqa .ap-field { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+  .mqa .ap-seg span { font-size: .78rem; padding: 0 .2rem; gap: .2rem; }
+  .mqa-save { flex: 1 1 100%; }
+}

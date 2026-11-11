@@ -1,4 +1,5 @@
 import logging
+import time
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -80,11 +81,18 @@ class SecurityHeadersMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        response.headers.setdefault('Content-Security-Policy', self.CSP)
+        # Over HTTPS the browser also upgrades any leftover http:// sub-resource instead of loading it in clear text.
+        csp = self.CSP + ('; upgrade-insecure-requests' if request.is_secure() else '')
+        response.headers.setdefault('Content-Security-Policy', csp)
         response.headers.setdefault('Permissions-Policy', self.PERMISSIONS)
         user = getattr(request, 'user', None)
         static_prefix = settings.STATIC_URL or '/static/'
         if (user is not None and user.is_authenticated and 'Cache-Control' not in response.headers
                 and not request.path.startswith(static_prefix)):
             response.headers['Cache-Control'] = 'private, no-store'
+        # A file download keeps the page where it is: tell the site-wide loader (static/js/page-loader.js) that the file
+        # has started, so it hides instead of waiting for a page that never comes.
+        if response.headers.get('Content-Disposition', '').lower().startswith('attachment'):
+            response.set_cookie('mq_dl', str(time.time_ns()), max_age=120, path='/', samesite='Lax',
+                                secure=request.is_secure(), httponly=False)
         return response

@@ -604,6 +604,84 @@ class SystemAppearanceTests(_ScopedOrgFixture):
         self.assertContains(page, 'name="settings_font_size" value="متوسط" data-ap="font" data-code="medium" checked')
 
 
+class PersonalAppearanceTests(_ScopedOrgFixture):
+    """Every account's own «تنظیمات ظاهری»: the admin's options, stored only with «ذخیره تغییرات», only for that account."""
+
+    def _user(self, username):
+        return get_user_model().objects.create_user(username=username, email=f'{username}@example.com', password='x')
+
+    def test_student_saves_with_the_workspace_tab(self):
+        self.client.force_login(self._user('student_in_scope'))
+        page = self.client.get(f"{reverse('core:student_settings')}?tab=workspace")
+        self.assertContains(page, 'data-my-appearance')
+        self.assertContains(page, 'name="mqa_theme" value="light" data-ap="theme" checked')
+        response = self.client.post(reverse('core:student_settings'), {
+            'settings_tab': 'workspace', 'mqa_theme': 'dark', 'mqa_font': 'large', 'mqa_color': '#22c55e',
+        })
+        self.assertEqual(response.status_code, 302)
+        page = self.client.get(f"{reverse('core:student_settings')}?tab=workspace")
+        self.assertContains(page, 'data-mq-theme="dark" data-mq-font="large" data-mq-accent="#22C55E"')
+        self.assertContains(page, 'name="mqa_theme" value="dark" data-ap="theme" checked')
+        self.client.logout()
+        self.assertContains(self.client.get(reverse('core:login')), 'data-mq-theme="light" data-mq-font="medium">')
+        self.client.force_login(self.manager_user)
+        self.assertContains(self.client.get(reverse('core:profile')), 'data-mq-theme="light" data-mq-font="medium">')
+
+    def test_unsaved_accounts_follow_the_admin_and_bad_values_are_dropped(self):
+        self.client.force_login(self.admin_user)
+        self.client.post(reverse('core:super_admin_settings'), {
+            'settings_action': 'bulk_save', 'settings_theme_mode': 'تیره', 'settings_primary_color': '#8B5CF6',
+            'settings_font_size': 'کوچک',
+        })
+        self.client.force_login(self._user('teacher_in_scope'))
+        page = self.client.get(f"{reverse('core:teacher_settings')}?tab=account")
+        self.assertContains(page, 'data-mq-theme="dark" data-mq-font="small" data-mq-accent="#8B5CF6"')
+        self.assertContains(page, 'data-my-appearance')
+        self.assertNotContains(page, 'name="theme"')
+        self.client.post(reverse('core:teacher_settings'), {
+            'settings_tab': 'account', 'mqa_theme': '<b>', 'mqa_font': 'huge', 'mqa_color': 'url(x)',
+        })
+        page = self.client.get(f"{reverse('core:teacher_settings')}?tab=account")
+        self.assertContains(page, 'data-mq-theme="dark" data-mq-font="small" data-mq-accent="#8B5CF6"')
+        self.client.post(reverse('core:teacher_settings'), {
+            'settings_tab': 'account', 'mqa_theme': 'light', 'mqa_font': 'medium', 'mqa_color': '#2563EB',
+        })
+        page = self.client.get(f"{reverse('core:teacher_settings')}?tab=account")
+        self.assertContains(page, 'data-mq-theme="light" data-mq-font="medium">')
+
+    def test_teacher_old_dark_theme_is_kept_until_saved(self):
+        from .appearance import personal_appearance
+
+        _insert('system_settings', ['key', 'value'], [f'teacher_settings.{self.teacher_in_id}', json.dumps({'theme': 'dark'})])
+        self.assertEqual(personal_appearance(self.teacher_in_id)['theme'], 'dark')
+        self.client.force_login(self._user('teacher_in_scope'))
+        self.client.post(reverse('core:teacher_settings'), {
+            'settings_tab': 'account', 'mqa_theme': 'light', 'mqa_font': 'medium', 'mqa_color': '#2563EB',
+        })
+        self.assertEqual(personal_appearance(self.teacher_in_id)['theme'], 'light')
+
+    def test_manager_and_admin_tab_has_its_own_save(self):
+        for user in (self.manager_user, self.admin_user):
+            self.client.force_login(user)
+            url = f"{reverse('core:profile')}?section=appearance"
+            page = self.client.get(url)
+            self.assertEqual(page.status_code, 200)
+            self.assertContains(page, 'data-my-appearance')
+            self.assertContains(page, 'class="mqa-save"')
+            response = self.client.post(reverse('core:my_appearance'), {
+                'mqa_theme': 'dark', 'mqa_font': 'large', 'mqa_color': '#F97316', 'next': url,
+            })
+            self.assertRedirects(response, url, fetch_redirect_response=False)
+            self.assertContains(self.client.get(url), 'data-mq-theme="dark" data-mq-font="large" data-mq-accent="#F97316"')
+
+    def test_requires_login_and_post_and_safe_next(self):
+        self.assertEqual(self.client.post(reverse('core:my_appearance'), {'mqa_theme': 'dark'}).status_code, 302)
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self.client.get(reverse('core:my_appearance')).status_code, 405)
+        response = self.client.post(reverse('core:my_appearance'), {'mqa_theme': 'dark', 'next': 'https://evil.example/'})
+        self.assertRedirects(response, reverse('core:profile'), fetch_redirect_response=False)
+
+
 class SuperAdminExamBulkImportScopeTests(_ScopedOrgFixture):
     """
     ویزارد ورود گروهی آزمون قبلاً کد درس/استاد/گروه را در کل سیستم
@@ -980,9 +1058,10 @@ class TeacherQuestionBuilderTests(_ScopedOrgFixture):
         settings_data = json.loads(settings_json)
         self.assertEqual(settings_data['scoring_mode'], 'partial')
         self.assertEqual(settings_data['max_correct'], 3)
-        self.assertTrue(settings_data['shuffle_options'])
-        self.assertEqual(settings_data['negative_value'], 0.25)
-        self.assertEqual(float(negative_points), -0.25)
+        # «نمره منفی» / «تصادفی‌سازی گزینه‌ها» are exam settings: a question form no longer stores them.
+        self.assertNotIn('shuffle_options', settings_data)
+        self.assertNotIn('negative_marking', settings_data)
+        self.assertEqual(float(negative_points), 0)
 
     def test_multi_max_selection_must_cover_correct_options(self):
         self.client.force_login(self.teacher_user)
@@ -1001,7 +1080,9 @@ class TeacherQuestionBuilderTests(_ScopedOrgFixture):
         self.assertContains(page, 'class="qb qb--mc qb--v2"')
         self.assertContains(page, 'name="scoring_mode" value="all_or_nothing"')
         self.assertNotContains(page, '<select data-template-select>')  # template pills replace the side select
-        self.assertContains(page, 'data-penalty-all')
+        self.assertNotContains(page, 'data-penalty-all')  # negative marking is an exam setting
+        self.assertNotContains(page, 'name="shuffle_options"')
+        self.assertContains(page, 'data-option-share')  # «وزن» + «سهم» per option
         response = self._create('multi', {
             'text': 'چندپاسخی همه یا هیچ', 'option_text': ['الف', 'ب', 'ج'], 'correct_options': ['1', '2'],
             'scoring_mode': 'all_or_nothing', 'min_correct': '1', 'max_correct': '3',
@@ -1256,20 +1337,27 @@ class TeacherQuestionBuilderTests(_ScopedOrgFixture):
         self.assertEqual([item['text'] for item in options], ['درست', 'نادرست'])
         self.assertEqual(json.loads(row[4]), options[1]['id'])
 
-    def test_question_bank_type_strip_filters_list(self):
+    def test_question_bank_type_multiselect_filters_list(self):
         self.client.force_login(self.teacher_user)
         self._create('true_false', {'text': 'فیلتر نوع درست نادرست', 'option_text': ['درست', 'نادرست'], 'correct_options': ['1']})
         self._create('ordering', {'text': 'فیلتر نوع ترتیبی', 'ordering_item': ['الف', 'ب']})
-        page = self.client.get(f"{reverse('core:teacher_questions')}?type=ordering&q=فیلتر نوع")
-        html = page.content.decode()
+        self._create('essay', {'text': 'فیلتر نوع تشریحی'})
+        url = reverse('core:teacher_questions')
+        html = self.client.get(f"{url}?type=ordering&q=فیلتر نوع").content.decode()
         listed = html.split('question-bank-table')[1].split('</table>')[0]  # «فعالیت‌های اخیر» below is not filtered
         self.assertIn('فیلتر نوع ترتیبی', listed)
         self.assertNotIn('فیلتر نوع درست نادرست', listed)
-        # کارت فعال اکنون باید فیلتر را بردارد و بقیه‌ی فیلترها حفظ شوند
-        self.assertIn('class="is-active" aria-current="true"', html)
-        from urllib.parse import urlencode
-        self.assertIn('?' + urlencode({'q': 'فیلتر نوع', 'status': 'all', 'difficulty': 'all'}).replace('&', '&amp;') + '&amp;type=all', html)
-        self.assertNotIn('teacher_question_create', html.split('question-type-strip')[1].split('</nav>')[0])
+        # the tile strip is gone; the dropdown keeps the ticked type and names it
+        self.assertNotIn('question-type-strip', html)
+        self.assertIn('value="ordering" data-type-option name="type" checked', html)
+        self.assertIn('<span data-type-ms-text>ترتیب‌گذاری</span>', html)
+        # several types at once
+        html = self.client.get(f"{url}?type=ordering&type=true_false&q=فیلتر نوع").content.decode()
+        listed = html.split('question-bank-table')[1].split('</table>')[0]
+        self.assertIn('فیلتر نوع ترتیبی', listed)
+        self.assertIn('فیلتر نوع درست نادرست', listed)
+        self.assertNotIn('فیلتر نوع تشریحی', listed)
+        self.assertIn('<span data-type-ms-text>2 نوع سؤال</span>', html)
 
 
 class AttemptGradingTests(_ScopedOrgFixture):
@@ -1332,18 +1420,36 @@ class AttemptGradingTests(_ScopedOrgFixture):
 
     def test_multi_partial_credit_and_selection_limit(self):
         from apps.core.views import _grade_question
-        options = [{'id': str(i), 'text': t, 'points': '1', 'negative_points': '-0.5'} for i, t in enumerate('ابجد', start=1)]
+        options = [{'id': str(i), 'text': t, 'points': '1'} for i, t in enumerate('ابجد', start=1)]
         row = {'type': 'multi', 'correct_answer': json.dumps(['1', '2']), 'options': options,
                'scoring_settings': {'scoring_mode': 'partial', 'max_correct': 3, 'floor_zero': True}}
         self.assertEqual(_grade_question(row, ['1', '2'], 4)[0], 4)
         self.assertEqual(_grade_question(row, ['1'], 4)[0], 2)
-        self.assertEqual(_grade_question(row, ['1', '3'], 4)[0], 1)  # (1 − 0.5) / 2 of the points
+        self.assertEqual(_grade_question(row, ['1', '2', '3'], 4)[0], 2)  # 1 − (1/2 of the wrong weight)
         self.assertEqual(_grade_question(row, ['3', '4'], 4)[0], 0)  # floored at zero
         self.assertEqual(_grade_question(row, ['1', '2', '3', '4'], 4)[0], 0)  # above max selection
-        options[0]['points'] = '3'  # weighted option
+        options[0]['points'] = '3'  # weighted option: 3 of 4
         self.assertEqual(_grade_question(row, ['1'], 4)[0], 3)
         row['scoring_settings']['floor_zero'] = False
-        self.assertEqual(_grade_question(row, ['3', '4'], 4)[0], -1)  # (0 − 1) / 4 of the points
+        self.assertEqual(_grade_question(row, ['3'], 4)[0], -2)  # −1/2 of the points
+
+    def test_multi_weights_split_the_points(self):
+        """Weights 2,2,1,1 on four correct options: the points split 2/6, 2/6, 1/6, 1/6."""
+        from apps.core.views import _grade_question
+        options = [{'id': str(i), 'text': t, 'points': w} for i, (t, w) in enumerate(zip('ابجد', '2211'), start=1)]
+        row = {'type': 'multi', 'correct_answer': json.dumps(['1', '2', '3', '4']), 'options': options,
+               'scoring_settings': {'scoring_mode': 'partial'}}
+        self.assertEqual(_grade_question(row, ['1'], 6)[0], 2)
+        self.assertEqual(_grade_question(row, ['3'], 6)[0], 1)
+        self.assertEqual(_grade_question(row, ['1', '3'], 6)[0], 3)
+        self.assertEqual(_grade_question(row, ['1', '2', '3', '4'], 6), (6, False, True))
+
+    def test_question_negative_marking_is_ignored_for_exam_rules(self):
+        from apps.core.views import _grade_question, _with_exam_grading_rules
+        row = {'type': 'single', 'correct_answer': json.dumps('2'), 'scoring_settings': {'negative_marking': True, 'negative_value': 0.5}}
+        self.assertEqual(_grade_question(_with_exam_grading_rules(row, {}), '1', 2)[0], 0)
+        exam = {'negative_marking': True, 'negative_factor': 0.25}
+        self.assertEqual(_grade_question(_with_exam_grading_rules(row, exam), '1', 2)[0], -0.5)
 
     def test_short_answer_auto_grading_rules(self):
         from apps.core.views import _grade_question
@@ -2948,6 +3054,74 @@ class QuestionTypesV2Tests(_ScopedOrgFixture):
         self.client.force_login(self.student_user)
         self.assertIn('<span class="qx-label-text" style="left:10.00%;top:90.00%">چپ</span>',
                       self.client.get(reverse('core:student_attempt', args=[attempt_id])).content.decode())
+
+
+class QuestionMediaLibraryTests(_ScopedOrgFixture):
+    """«از سرور» in the question builder: images already on the server, limited to what the user may see."""
+
+    PNG = b'\x89PNG\r\n\x1a\n' + b'0' * 32
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'question_media', 'options'], [
+            str(uuid.uuid4()), cls.teacher_in_id, '<p>تصویر قلب را ببینید</p>', 'single',
+            json.dumps({'image': '/media/question-media/own.png'}),
+            json.dumps([{'text': 'الف', 'media': '/media/question-media/option.jpg', 'media_kind': 'image'}, {'text': 'ب', 'media': '/media/question-media/../escape.png'}]),
+        ])
+        _insert('questions', ['id', 'teacher_id', 'text', 'type', 'question_media'], [
+            str(uuid.uuid4()), cls.teacher_out_id, 'سؤال استاد دیگر', 'single', json.dumps({'image': '/media/question-media/other.png'}),
+        ])
+
+    def setUp(self):
+        from pathlib import Path
+        self.media_root = tempfile.mkdtemp()
+        override = self.settings(MEDIA_ROOT=self.media_root)
+        override.enable()
+        self.addCleanup(override.disable)
+        folder = Path(self.media_root) / 'question-media'
+        (folder / 'library').mkdir(parents=True)
+        for name in ('own.png', 'option.jpg', 'other.png', 'orphan.png', 'library/atlas.png', 'library/notes.txt'):
+            (folder / name).write_bytes(self.PNG)
+        (Path(self.media_root) / 'escape.png').write_bytes(self.PNG)
+
+    def _items(self):
+        response = self.client.get(reverse('core:teacher_question_media_library'))
+        self.assertEqual(response.status_code, 200)
+        return {item['url'].rsplit('question-media/', 1)[1]: item for item in response.json()['items']}
+
+    def test_teacher_sees_own_question_images_and_the_library_folder(self):
+        self.client.force_login(self.teacher_user)
+        items = self._items()
+        self.assertEqual(set(items), {'own.png', 'option.jpg', 'library/atlas.png'})  # not another teacher's, not orphans, no ../
+        self.assertEqual(items['own.png']['source'], 'mine')
+        self.assertEqual(items['own.png']['question'], 'تصویر قلب را ببینید')
+        self.assertEqual(items['library/atlas.png']['source'], 'server')
+        page = self.client.get(f"{reverse('core:teacher_question_create')}?type=single").content.decode()
+        self.assertIn('data-media-library-dialog', page)
+        self.assertIn('data-media-library', page)
+
+    def test_admin_sees_every_image_and_anonymous_users_nothing(self):
+        self.client.force_login(self.admin_user)
+        self.assertEqual(set(self._items()), {'own.png', 'option.jpg', 'other.png', 'orphan.png', 'library/atlas.png'})
+        self.client.logout()
+        self.assertNotEqual(self.client.get(reverse('core:teacher_question_media_library')).status_code, 200)
+
+    def test_a_picked_server_image_is_saved_with_the_question(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.post(f"{reverse('core:teacher_question_create')}?type=single", {
+            'type': 'single', 'structure': 'independent', 'course_id': self.course_in_id, 'is_published': '1',
+            'text': 'سؤال با تصویر سرور', 'existing_question_image': '/media/question-media/library/atlas.png',
+            'option_text': ['یک', 'دو'], 'correct_options': ['1'],
+        })
+        self.assertEqual(response.status_code, 302)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT question_media FROM questions WHERE text = %s', ['سؤال با تصویر سرور'])
+            media = cursor.fetchone()[0]
+        media = json.loads(media) if isinstance(media, str) else media
+        self.assertEqual(media['image'], '/media/question-media/library/atlas.png')
 
 
 class TeacherDashboardTests(_ScopedOrgFixture):
@@ -4952,7 +5126,7 @@ class StudentExamIntegrityTests(_ScopedOrgFixture):
         self.client.force_login(get_user_model().objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x'))
         report = self.client.get(reverse('core:teacher_monitoring'), {'exam': self.exam_id})
         self.assertEqual(report.context['report']['rows'][0]['flags'],
-                         {'tab': 2, 'fullscreen': 1, 'copy_paste': 2, 'disconnect': 1, 'device': 0, 'screenshot': 0, 'camera': 0, 'total': 6})
+                         {'tab': 2, 'fullscreen': 1, 'copy_paste': 2, 'disconnect': 1, 'device': 0, 'screenshot': 0, 'camera': 0, 'navigation': 0, 'devtools': 0, 'total': 6})
         self.assertContains(report, 'خروج از صفحه ۲')
 
     def test_proctoring_log_has_a_ceiling_per_attempt(self):
@@ -5998,6 +6172,8 @@ class DashboardChartsRealDataTests(_ScopedOrgFixture):
         self.assertEqual(panel['trend_labels'][-1], ' '.join(_jalali_long_date(timezone.localdate(), with_weekday=False).split()[:2]))
         health = {item['label']: item for item in panel['health_items']}
         self.assertTrue(health['پایگاه داده']['status'].startswith('سالم'))
+        from apps.core import auto_backup
+        auto_backup.save_config({'enabled': False})  # the folder monitor below applies while automatic backups are off
         with self.settings(BACKUP_DIR=''):
             self.assertEqual({i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']['status'], 'پایش نشده')
         with tempfile.TemporaryDirectory() as folder, self.settings(BACKUP_DIR=folder):
@@ -6027,6 +6203,8 @@ class BackupDatabaseCommandTests(TestCase):
         from pathlib import Path
         from django.core.management import CommandError, call_command
         from apps.core.views import _system_health_items
+        from apps.core import auto_backup
+        auto_backup.save_config({'enabled': False})  # the folder monitor applies while automatic backups are off
         with self.settings(BACKUP_DIR=''):
             with self.assertRaises(CommandError):
                 call_command('backup_database', stdout=io.StringIO())
@@ -6250,6 +6428,64 @@ class ExamAttemptRulesTests(_EnforcedExamFixture):
         self.client.post(url, {f'answer_{self.single_id}': '2', f'mark_{self.single_id}': 'on'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(self._rows('SELECT marked_for_review FROM attempt_answers WHERE attempt_id = %s', [attempt_id]), [(False,)])
 
+    def test_choice_can_be_cleared_and_list_shows_question_starts(self):
+        exam_id = self._exam()
+        attempt_id = self._start(exam_id)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        ajax = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'}
+        self.client.post(f'{url}?q=1', {f'answer_{self.single_id}': '2', f'seen_{self.single_id}': '1'}, **ajax)
+        # A cleared choice is posted as an explicit empty answer (the page adds it after a second tap).
+        self.client.post(f'{url}?q=1', {f'answer_{self.single_id}': '', f'seen_{self.single_id}': '1'}, **ajax)
+        [(answer,)] = self._rows('SELECT answer FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, self.single_id])
+        self.assertEqual(json.loads(answer)['value'], '')
+        page = self.client.get(f'{url}?q=1')
+        self.assertContains(page, 'data-clear-choice')
+        self.assertContains(page, 'data-sheet-list')
+        first = page.context['attempt_map']['items'][0]
+        self.assertTrue(first['snippet'])
+        self.assertLessEqual(len(first['snippet']), 41)
+        self.assertContains(page, f'data-qrow="1"')
+
+    def test_text_direction_follows_the_text(self):
+        from apps.core.templatetags.core_extras import text_dir
+        self.assertEqual(text_dir('What is H2O?'), 'ltr')
+        self.assertEqual(text_dir('فرمول آب H2O'), 'rtl')
+        self.assertEqual(text_dir('۱۲۳ apples'), 'ltr')
+        self.assertEqual(text_dir('', 'ltr'), 'ltr')
+        self.assertEqual(text_dir('۱۲۳'), 'rtl')
+
+    def test_option_row_is_choice_number_then_text(self):
+        exam_id = self._exam()
+        page = self.client.get(reverse('core:student_attempt', args=[self._start(exam_id)]) + '?q=1').content.decode()
+        start = page.index('<label class="qx-option')
+        row = page[start:page.index('</label>', start)]
+        self.assertIn('dir="rtl"', row)
+        self.assertLess(row.index('<input type="radio"'), row.index('qx-letter'))
+        self.assertLess(row.index('qx-letter'), row.index('qx-option-body'))
+
+    def test_restart_clears_answers_but_not_the_time(self):
+        exam_id = self._exam()
+        attempt_id = self._start(exam_id)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.client.post(f'{url}?q=1', {f'answer_{self.single_id}': '2', f'mark_{self.single_id}': 'on', f'seen_{self.single_id}': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        [(started_before,)] = self._rows('SELECT started_at FROM exam_attempts WHERE id = %s', [attempt_id])
+        self.assertContains(self.client.get(f'{url}?q=2'), 'value="clear_all"')
+        response = self.client.post(f'{url}?q=2', {'action': 'clear_all'})
+        self.assertRedirects(response, f'{url}?q=1', fetch_redirect_response=False)
+        [(answer, marked)] = self._rows('SELECT answer, marked_for_review FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, self.single_id])
+        self.assertEqual((json.loads(answer)['value'], marked), ('', False))
+        self.assertEqual(self._rows('SELECT started_at FROM exam_attempts WHERE id = %s', [attempt_id]), [(started_before,)])
+
+    def test_restart_is_not_offered_when_answers_cannot_change(self):
+        exam_id = self._exam(allow_answer_changes=False)
+        attempt_id = self._start(exam_id)
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.client.post(f'{url}?q=1', {f'answer_{self.single_id}': '1', 'action': 'next'})
+        self.assertNotContains(self.client.get(f'{url}?q=2'), 'value="clear_all"')
+        self.client.post(f'{url}?q=2', {'action': 'clear_all'})
+        [(answer,)] = self._rows('SELECT answer FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, self.single_id])
+        self.assertEqual(json.loads(answer)['value'], '1')
+
     def test_device_limit_off_lets_a_second_device_answer(self):
         from django.test import Client
         exam_id = self._exam(device_limit_enabled=False)
@@ -6286,6 +6522,70 @@ class ExamAttemptRulesTests(_EnforcedExamFixture):
         page = self.client.get(reverse('core:student_attempt', args=[self._start(exam_id)]))
         self.assertTrue(page.context['page_rules']['one_per_page'] and page.context['page_rules']['back'])
         self.assertFalse(page.context['proctoring']['webcam'])
+
+
+class ExamLockTests(_EnforcedExamFixture):
+    """قفل آزمون (exam_lock.py): تا وقتی آزمون درسی باز است، هر صفحه‌ی دیگری از سایت (بازگشت، تغییر نشانی،
+    صفحه‌ی اول، خروج) به همان آزمون برمی‌گردد و تلاش برای استاد ثبت می‌شود؛ درخواست‌های خود صفحه‌ی آزمون آزادند."""
+
+    NAV = {'HTTP_SEC_FETCH_MODE': 'navigate', 'HTTP_SEC_FETCH_DEST': 'document', 'HTTP_ACCEPT': 'text/html'}
+
+    def setUp(self):
+        self.client.force_login(self.student_user)
+
+    def _open(self):
+        attempt_id = self._start(self._exam())
+        url = reverse('core:student_attempt', args=[attempt_id])
+        self.assertEqual(self.client.get(url, **self.NAV).status_code, 200)
+        self.assertEqual(self.client.cookies['mq_exam_lock'].value, '1')
+        return attempt_id, url
+
+    def _navigation_events(self, attempt_id):
+        return self._rows("SELECT COUNT(*) FROM activity_audit_log WHERE entity_id = %s AND action = 'exam_navigation_attempt'", [attempt_id])[0][0]
+
+    def test_other_pages_return_to_the_open_exam(self):
+        attempt_id, url = self._open()
+        for path in (reverse('core:student_exam_schedule'), reverse('core:logout'), '/', f'/student/attempts/{uuid.uuid4()}/'):
+            response = self.client.get(path, **self.NAV)
+            self.assertRedirects(response, url, fetch_redirect_response=False, msg_prefix=path)
+        self.assertRedirects(self.client.post(reverse('core:logout'), **self.NAV), url, fetch_redirect_response=False)
+        self.assertEqual(self.client.get(url, **self.NAV).status_code, 200)  # still signed in
+        self.assertEqual(self._navigation_events(attempt_id), 5)
+
+    def test_the_exam_itself_and_background_requests_pass(self):
+        attempt_id, url = self._open()
+        self.assertEqual(self.client.get(f'{url}?q=2', **self.NAV).status_code, 200)
+        events = reverse('core:student_attempt_event', args=[attempt_id])
+        self.assertTrue(self.client.post(events, {'event': 'devtools'}).json()['logged'])
+        self.assertEqual(self.client.post(events, {'event': 'navigation'}).status_code, 200)
+        # a fetch / image / XHR from the page is not a page load
+        self.assertEqual(self.client.get(reverse('core:student_exam_schedule'), HTTP_SEC_FETCH_MODE='cors', HTTP_SEC_FETCH_DEST='empty').status_code, 200)
+        self.assertEqual(self._navigation_events(attempt_id), 1)
+
+    def test_submit_releases_the_lock(self):
+        attempt_id, url = self._open()
+        self.assertRedirects(self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]), **self.NAV),
+                             reverse('core:student_attempt_receipt', args=[attempt_id]), fetch_redirect_response=False)
+        self.assertEqual(self.client.get(reverse('core:student_exam_schedule'), **self.NAV).status_code, 200)
+        self.assertEqual(self.client.cookies['mq_exam_lock'].value, '')  # deleted
+
+    def test_time_over_releases_the_lock(self):
+        attempt_id, url = self._open()
+        with connection.cursor() as cursor:
+            cursor.execute('UPDATE exam_attempts SET started_at = %s WHERE id = %s', [timezone.now() - timedelta(hours=3), attempt_id])
+        self.assertEqual(self.client.get(reverse('core:student_exam_schedule'), **self.NAV).status_code, 200)
+
+    def test_signing_in_again_goes_back_to_the_exam(self):
+        attempt_id, url = self._open()
+        other = self.client_class()
+        other.force_login(self.student_user)
+        self.assertRedirects(other.get(reverse('core:student_exam_schedule'), **self.NAV), url, fetch_redirect_response=False)
+
+    def test_practice_preview_and_page_script(self):
+        attempt_id, url = self._open()
+        page = self.client.get(url, **self.NAV).content.decode()
+        self.assertIn('const examLocked = true', page)
+        self.assertIn("addEventListener('beforeunload'", page)
 
 
 class ExamEntryRulesTests(_EnforcedExamFixture):
@@ -6569,11 +6869,11 @@ class ExamEndToEndTests(_EnforcedExamFixture):
         self.assertTrue(attempt_id)
         self.assertEqual(self.client.get(reverse('core:student_attempt', args=[attempt_id])).status_code, 200)
         self.client.post(reverse('core:student_attempt', args=[attempt_id]), {
-            f'answer_{self.single_id}': '2', f'answer_{self.multi_id}': ['1', '3'], f'answer_{self.essay_id}': 'پاسخ تشریحی من'})
+            f'answer_{self.single_id}': '2', f'answer_{self.multi_id}': ['1'], f'answer_{self.essay_id}': 'پاسخ تشریحی من'})
         self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]))
         points = {str(q): float(p or 0) for q, p in self._rows('SELECT question_id, points_awarded FROM attempt_answers WHERE attempt_id = %s', [attempt_id])}
         self.assertEqual(points[self.single_id], 4.0)
-        self.assertEqual(points[self.multi_id], 2.0)  # partial: one of two correct options; «3» has no «جریمه انتخاب نادرست»
+        self.assertEqual(points[self.multi_id], 2.0)  # partial: one of two equally weighted correct options
         self.assertIsNone(self._start(exam_id))  # one attempt allowed
         result = self.client.get(reverse('core:student_result_detail', args=[attempt_id])).context['result']
         self.assertFalse(result['visibility']['score'])  # not published yet
@@ -8439,6 +8739,173 @@ class DatabaseBackupTabTests(_ScopedOrgFixture):
             db_backup.check_dump_file(handle.name)
         finally:
             Path(handle.name).unlink()
+
+
+class AutoBackupTests(_ScopedOrgFixture):
+    """Scheduled backups (auto_backup.py): schedule maths, due/retry logic, rotation, the tab's actions and access."""
+
+    def setUp(self):
+        from pathlib import Path
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        override = self.settings(BACKUP_DIR=self.folder.name)
+        override.enable()
+        self.addCleanup(override.disable)
+        self.path = Path(self.folder.name)
+        self.admin_user.is_superuser = True
+        self.admin_user.save()
+        self.url = reverse('core:super_admin_settings')
+
+    @staticmethod
+    def _at(text):
+        return timezone.make_aware(datetime.fromisoformat(text), timezone.get_current_timezone())
+
+    def _fake_tools(self):
+        """dump_to writes a small file; the pg_restore check passes. Returns the patchers already started."""
+        def fake_dump(target):
+            from pathlib import Path
+            Path(target).write_bytes(b'PGDMP fake')
+        patches = [mock.patch('apps.core.db_backup.dump_to', side_effect=fake_dump),
+                   mock.patch('apps.core.db_backup.check_dump_file'),
+                   mock.patch('apps.core.db_backup.is_postgres', return_value=True)]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_clean_config_rejects_bad_values(self):
+        from apps.core import auto_backup
+        config = auto_backup.clean_config({'enabled': 'on', 'frequency': 'yearly', 'every_hours': '5', 'time': '25:00',
+                                           'weekday': '9', 'keep': '9999'})
+        self.assertEqual(config, {**auto_backup.DEFAULT_CONFIG, 'enabled': True, 'keep': auto_backup.KEEP_MAX})
+        self.assertFalse(auto_backup.clean_config({'enabled': None})['enabled'])
+        self.assertTrue(auto_backup.clean_config({})['enabled'])  # nothing stored yet: on by default
+        self.assertEqual(auto_backup.clean_config({'time': '3:05', 'keep': '0'})['time'], '03:05')
+        self.assertEqual(auto_backup.clean_config({'keep': '0'})['keep'], auto_backup.KEEP_MIN)
+
+    def test_slots_for_each_frequency(self):
+        from apps.core import auto_backup
+        daily = auto_backup.clean_config({'frequency': 'daily', 'time': '03:00'})
+        self.assertEqual(auto_backup.latest_slot(daily, self._at('2026-11-11T10:00')), self._at('2026-11-11T03:00'))
+        self.assertEqual(auto_backup.latest_slot(daily, self._at('2026-11-11T02:59')), self._at('2026-11-10T03:00'))
+        self.assertEqual(auto_backup.next_slot(daily, self._at('2026-11-11T10:00')), self._at('2026-11-12T03:00'))
+        hours = auto_backup.clean_config({'frequency': 'hours', 'every_hours': '6', 'time': '01:30'})
+        self.assertEqual(auto_backup.latest_slot(hours, self._at('2026-11-11T00:10')), self._at('2026-11-10T19:30'))
+        self.assertEqual(auto_backup.latest_slot(hours, self._at('2026-11-11T14:00')), self._at('2026-11-11T13:30'))
+        weekly = auto_backup.clean_config({'frequency': 'weekly', 'weekday': '4', 'time': '22:00'})  # Friday
+        self.assertEqual(auto_backup.latest_slot(weekly, self._at('2026-11-11T10:00')), self._at('2026-11-06T22:00'))
+        self.assertEqual(auto_backup.latest_slot(weekly, self._at('2026-11-13T23:00')), self._at('2026-11-13T22:00'))
+        self.assertEqual(auto_backup.next_slot(weekly, self._at('2026-11-13T23:00')), self._at('2026-11-20T22:00'))
+
+    def test_due_catch_up_and_retries(self):
+        from apps.core import auto_backup
+        config = auto_backup.clean_config({'frequency': 'daily', 'time': '03:00'})
+        now = self._at('2026-11-11T10:00')
+        self.assertTrue(auto_backup.is_due(config, {}, now))  # never ran: the missed slot is caught up
+        done = {'last_attempt_at': self._at('2026-11-11T03:00:20').isoformat(), 'last_status': 'ok'}
+        self.assertFalse(auto_backup.is_due(config, done, now))
+        self.assertTrue(auto_backup.is_due(config, done, self._at('2026-11-12T03:01')))
+        self.assertFalse(auto_backup.is_due({**config, 'enabled': False}, {}, now))
+        slot = int(self._at('2026-11-11T03:00').timestamp())
+        failed = {'last_attempt_at': self._at('2026-11-11T09:50').isoformat(), 'last_status': 'error',
+                  'failed_slot': slot, 'failures': 1}
+        self.assertFalse(auto_backup.is_due(config, failed, now))  # retries wait 30 minutes
+        self.assertTrue(auto_backup.is_due(config, failed, self._at('2026-11-11T10:21')))
+        self.assertFalse(auto_backup.is_due(config, {**failed, 'failures': auto_backup.MAX_TRIES}, self._at('2026-11-11T10:21')))
+
+    def test_run_writes_rotates_and_records_state(self):
+        from apps.core import auto_backup
+        self._fake_tools()
+        auto_backup.save_config({'enabled': True, 'keep': 2})
+        for index in range(3):
+            (self.path / f'db-2026010{index + 1}-030000-auto.dump').write_bytes(b'old')
+        (self.path / 'db-20260101-030000-before-restore.dump').write_bytes(b'safety')
+        result = auto_backup.run('test')
+        self.assertEqual(result['status'], 'ok', result)
+        autos = sorted(path.name for path in self.path.glob('db-*-auto.dump'))
+        self.assertEqual(len(autos), 2)
+        self.assertIn(result['file'], autos)
+        self.assertIn('db-20260103-030000-auto.dump', autos)
+        self.assertTrue((self.path / 'db-20260101-030000-before-restore.dump').exists())  # never rotated
+        self.assertEqual(list(self.path.glob('.*.partial')), [])
+        state = auto_backup.load_state()
+        self.assertEqual((state['last_status'], state['last_file'], state['failures']), ('ok', result['file'], 0))
+        self.assertEqual(auto_backup.run('test')['status'], 'not_due')
+        self.assertEqual(auto_backup.health()['tone'], 'ok')
+
+    def test_failed_run_keeps_old_files_and_is_reported(self):
+        from apps.core import auto_backup
+        from apps.core.db_backup import BackupError
+        self._fake_tools()
+        auto_backup.save_config({'enabled': True, 'keep': 1})
+        (self.path / 'db-20260101-030000-auto.dump').write_bytes(b'old')
+        with mock.patch('apps.core.db_backup.dump_to', side_effect=BackupError('pg_dump خطا داد')):
+            result = auto_backup.run('test')
+        self.assertEqual(result['status'], 'error')
+        self.assertTrue((self.path / 'db-20260101-030000-auto.dump').exists())
+        state = auto_backup.load_state()
+        self.assertEqual((state['last_status'], state['failures']), ('error', 1))
+        self.assertIn('pg_dump', state['last_error'])
+        self.assertEqual(auto_backup.health()['tone'], 'bad')
+        self.assertEqual(auto_backup.run('test')['status'], 'not_due')  # the retry waits
+
+    def test_disabled_schedule_does_nothing(self):
+        from apps.core import auto_backup
+        self._fake_tools()
+        auto_backup.save_config({'enabled': False})
+        self.assertEqual(auto_backup.run('test')['status'], 'disabled')
+        self.assertEqual(list(self.path.glob('*.dump')), [])
+        self.assertIsNone(auto_backup.health())
+
+    def test_tab_saves_runs_downloads_and_deletes(self):
+        from apps.core import auto_backup
+        self._fake_tools()
+        self.client.force_login(self.admin_user)
+        page = self.client.get(self.url, {'tab': 'backup'})
+        self.assertContains(page, 'پشتیبان‌گیری خودکار')
+        self.assertContains(page, 'value="auto_backup_save"')
+        response = self.client.post(self.url, {'settings_action': 'auto_backup_save', 'enabled': 'on',
+                                               'frequency': 'weekly', 'weekday': '5', 'time': '02:30', 'keep': '8'})
+        self.assertRedirects(response, f'{self.url}?tab=backup', fetch_redirect_response=False)
+        self.assertEqual(auto_backup.load_config(), {'enabled': True, 'frequency': 'weekly', 'every_hours': 6,
+                                                     'time': '02:30', 'weekday': 5, 'keep': 8})
+        self.assertContains(self.client.get(self.url, {'tab': 'other'}), 'هر هفته، شنبه ساعت 02:30')
+        self.client.post(self.url, {'settings_action': 'auto_backup_run'})
+        name = auto_backup.load_state()['last_file']
+        self.assertTrue((self.path / name).exists())
+        self.assertContains(self.client.get(self.url, {'tab': 'backup'}), name)
+        download = self.client.post(self.url, {'settings_action': 'auto_backup_download', 'file': name})
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(b''.join(download.streaming_content), b'PGDMP fake')
+        for bad in ('../settings.py', '..\\db.dump', 'db-x.dump', '/etc/passwd'):
+            refused = self.client.post(self.url, {'settings_action': 'auto_backup_download', 'file': bad})
+            self.assertEqual(refused.status_code, 302, bad)
+        self.client.post(self.url, {'settings_action': 'auto_backup_delete', 'file': name})
+        self.assertFalse((self.path / name).exists())
+
+    def test_only_a_superuser_admin_can_use_it(self):
+        from apps.core import auto_backup
+        self.admin_user.is_superuser = False
+        self.admin_user.save()
+        self.client.force_login(self.admin_user)
+        for action in auto_backup.POST_ACTIONS:
+            self.assertEqual(self.client.post(self.url, {'settings_action': action, 'enabled': ''}).status_code, 403)
+        self.assertTrue(auto_backup.load_config()['enabled'])  # unchanged
+        self.client.force_login(self.manager_user)
+        self.assertNotEqual(self.client.post(self.url, {'settings_action': 'auto_backup_run'}).status_code, 200)
+
+    @skipUnless(connection.vendor == 'postgresql', 'pg_dump needs PostgreSQL')
+    def test_real_backup_and_lock(self):
+        from apps.core import auto_backup, db_backup
+        if not (db_backup.tool_path('pg_dump') and db_backup.tool_path('pg_restore')):
+            self.skipTest('pg_dump / pg_restore not installed')
+        with auto_backup.exclusive() as first:
+            self.assertTrue(first)
+            self.assertTrue(auto_backup.is_running())
+            self.assertEqual(auto_backup.run('test', force=True)['status'], 'busy')
+        self.assertFalse(auto_backup.is_running())
+        result = auto_backup.run('test', force=True)
+        self.assertEqual(result['status'], 'ok', result)
+        db_backup.check_dump_file(self.path / result['file'])
 
 
 class DeleteChoicesTests(_ScopedOrgFixture):

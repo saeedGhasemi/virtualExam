@@ -5,6 +5,8 @@ One media attachment slot of the question builder.
   preview spans the row below.
 Fixed slots pass file_name/existing_name/remove_name; row slots pass `base` and the form script assigns
 indexed names ({base}_file_{i}, {base}_{i}, {base}_remove_{i}) at submit.
+Slots that accept images also get «از سرور» (data-media-library): pick an image already on the server
+(teacher_question_media_library); it only fills the «existing» field.
 {% endcomment %}
 <div class="qf-media{% if large %} qf-media--large{% else %} qf-media--compact{% endif %}{% if url %} has-media{% endif %}" data-media-slot{% if base %} data-media-base="{{ base }}"{% endif %}{% if limit %} data-media-limit="{{ limit }}"{% endif %}>
     <input type="hidden" data-media-existing{% if existing_name %} name="{{ existing_name }}"{% endif %} value="{{ url|default:'' }}">
@@ -16,6 +18,7 @@ indexed names ({base}_file_{i}, {base}_{i}, {base}_remove_{i}) at submit.
             <strong>برای افزودن {{ label|default:'فایل' }}، <span>کلیک کنید</span> یا فایل را بکشید و رها کنید</strong>
             <small>{{ hint|default:'حداکثر حجم ۲۰ مگابایت' }}</small>
         </button>
+        {% if not accept or '.png' in accept %}<button type="button" class="qf-library-link" data-media-library><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.5" y="14" width="17" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7.3" cy="7" r="1" fill="currentColor"/><circle cx="7.3" cy="17" r="1" fill="currentColor"/></svg>یا انتخاب از تصاویر موجود روی سرور</button>{% endif %}
         <div class="qf-media-filled">
             <span class="qf-media-preview" data-media-preview>{% if url %}{% if kind == 'image' %}<img src="{{ url }}" alt="">{% elif kind == 'audio' %}<audio src="{{ url }}" controls preload="metadata"></audio>{% elif kind == 'video' %}<video src="{{ url }}" controls preload="metadata"></video>{% endif %}{% endif %}</span>
             <div class="qf-media-info">
@@ -24,6 +27,7 @@ indexed names ({base}_file_{i}, {base}_{i}, {base}_remove_{i}) at submit.
                 <small data-media-duration></small>
                 <span class="qf-media-actions">
                     <button type="button" data-media-replace><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 0 1-13.7 5.6L4 15m0 5v-5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>جایگزین</button>
+                    {% if not accept or '.png' in accept %}<button type="button" data-media-library><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.5" y="14" width="17" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7.3" cy="7" r="1" fill="currentColor"/><circle cx="7.3" cy="17" r="1" fill="currentColor"/></svg>از سرور</button>{% endif %}
                     <button type="button" class="is-danger" data-media-clear><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>حذف</button>
                 </span>
             </div>
@@ -33,6 +37,7 @@ indexed names ({base}_file_{i}, {base}_{i}, {base}_remove_{i}) at submit.
             <button type="button" data-media-pick="image" title="افزودن تصویر" aria-label="افزودن تصویر"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.6" fill="currentColor"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>{% if labeled %}<span>تصویر</span>{% endif %}</button>
             <button type="button" data-media-pick="audio" title="افزودن صوت" aria-label="افزودن صوت"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12-1.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{% if labeled %}<span>صوت</span>{% endif %}</button>
             <button type="button" data-media-pick="video" title="افزودن ویدئو" aria-label="افزودن ویدئو"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m16 10.5 5-3v9l-5-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>{% if labeled %}<span>ویدئو</span>{% endif %}</button>
+            {% if not accept or '.png' in accept %}<button type="button" data-media-library title="انتخاب تصویر از سرور" aria-label="انتخاب تصویر از سرور"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.5" y="14" width="17" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7.3" cy="7" r="1" fill="currentColor"/><circle cx="7.3" cy="17" r="1" fill="currentColor"/></svg>{% if labeled %}<span>از سرور</span>{% endif %}</button>{% endif %}
         </span>
         <span class="qf-media-line">
             <span class="qf-media-preview" data-media-preview>{% if url %}{% if kind == 'image' %}<img src="{{ url }}" alt="">{% elif kind == 'audio' %}<audio src="{{ url }}" controls preload="none"></audio>{% elif kind == 'video' %}<video src="{{ url }}" controls preload="metadata"></video>{% endif %}{% endif %}</span>

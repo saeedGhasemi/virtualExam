@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load core_extras %}
+{% load core_extras static %}
 
 {% block title %}
 {% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'students' %}دانشجویان{% elif page == 'students_directory' %}فهرست اطلاعات دانشجویان{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'osce_builder' %}سازنده ایستگاه OSCE{% elif page == 'osce_list' %}آزمون‌های OSCE{% elif page == 'osce_preview' %}پیش‌نمایش آزمون OSCE{% elif page == 'grading_detail' %}تصحیح پاسخ تشریحی{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
@@ -185,7 +185,7 @@
         </section>
         {% if question_banks %}
         <section class="question-bank-panel">
-            <header class="question-section-title"><h2>بانک‌های سؤال (هر درس یک بانک)</h2></header>
+            <header class="question-section-title"><h2>بانک‌های سؤال (هر درس یک بانک)</h2>{% include "partials/rt_view_switch.html" with key="questions-banks" %}</header>
             <table class="teacher-table">
                 <thead><tr><th>بانک / درس</th><th>فعال</th><th>پیش‌نویس</th><th>آرشیو</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead>
                 <tbody>{% for bank in question_banks %}<tr><td>{{ bank.title }}</td><td>{{ bank.active|fa_digits }}</td><td>{{ bank.draft|fa_digits }}</td><td>{{ bank.archived|fa_digits }}</td><td>{{ bank.last_update|to_jalali|default:'-' }}</td><td><a href="{{ bank.url }}">مدیریت بانک</a></td></tr>{% endfor %}</tbody>
@@ -201,33 +201,36 @@
         {% if stale_drafts %}<section class="question-draft-alert"><span>{{ stale_drafts|fa_digits }} پیش‌نویس بیش از ۱۴ روز بدون تغییر</span></section>{% endif %}
         {% if autosaved_drafts %}
         <section class="question-bank-panel">
-            <header class="question-section-title"><h2>فرم‌های ذخیره‌خودکار (هنوز ثبت نشده)</h2></header>
+            <header class="question-section-title"><h2>فرم‌های ذخیره‌خودکار (هنوز ثبت نشده)</h2>{% include "partials/rt_view_switch.html" with key="questions-autosaved" %}</header>
             <table class="teacher-table question-bank-table"><thead><tr><th>متن</th><th>نوع</th><th>وضعیت</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for draft in autosaved_drafts %}<tr><td>{{ draft.title|default:'بدون متن'|truncatechars:70 }}</td><td>{{ draft.type_label }}</td><td>{{ draft.kind }}</td><td>{{ draft.saved_at|fa_digits }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{{ draft.resume_url }}">ادامه</a><a href="{{ draft.discard_url }}">حذف</a></span></td></tr>{% endfor %}</tbody></table>
         </section>
         {% endif %}
         <section class="question-bank-panel" id="teacher-question-drafts" data-live-region>
-            <header class="question-section-title"><h2>سؤال‌های منتشرنشده</h2></header>
+            <header class="question-section-title"><h2>سؤال‌های منتشرنشده</h2>{% include "partials/rt_view_switch.html" with key="questions-drafts" %}</header>
             <table class="teacher-table question-bank-table"><thead><tr><th>متن سؤال</th>{% if question_scope_all %}<th>طراح</th>{% endif %}<th>نوع / ساختار</th><th>وضعیت</th><th>آخرین ذخیره</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|default:'بدون متن'|truncatechars:70 }}</td>{% if question_scope_all %}<td>{{ q.author }}</td>{% endif %}<td>{{ q.type_label }} / {{ q.structure_label }}</td><td><span class="teacher-badge {{ q.status_class }}">{{ q.status_label }}</span></td><td>{{ q.updated_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a class="teacher-primary" href="{% url 'core:teacher_question_edit' q.id %}">ادامه</a><a href="{% url 'core:question_preview' q.id %}?new=1">پیش‌نمایش</a></span></td></tr>{% empty %}<tr><td colspan="{% if question_scope_all %}6{% else %}5{% endif %}">پیش‌نویسی وجود ندارد.</td></tr>{% endfor %}</tbody></table>
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% elif question_view == 'shared' %}
         <section class="question-info-strip">سؤال‌هایی که اساتید درس‌های شما به اشتراک گذاشته‌اند. «افزودن به بانک من» یک نسخه‌ی پیش‌نویس از سؤال در بانک شما می‌سازد که می‌توانید ویرایش و منتشر کنید.</section>
         <section class="question-bank-panel" id="teacher-question-shared" data-live-region>
+            <header class="question-section-title"><h2>سؤال‌های اشتراکی</h2>{% include "partials/rt_view_switch.html" with key="questions-shared" %}</header>
             <table class="teacher-table question-bank-table"><thead><tr><th>سؤال</th><th>استاد</th><th>درس</th><th>نوع</th><th>ساختار</th><th>تاریخ اشتراک</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:78 }}</td><td>{{ q.author }}</td><td>{{ q.course }}</td><td>{{ q.type_label }}</td><td>{{ q.structure_label }}</td><td>{{ q.shared_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a href="{% url 'core:question_preview' q.id %}?new=1">پیش‌نمایش</a>{% if question_can_share %}<form method="post" action="{% url 'core:teacher_shared_question_copy' q.id %}">{% csrf_token %}<button class="teacher-primary" type="submit">افزودن به بانک من</button></form>{% else %}<a href="{% url 'core:teacher_question_edit' q.id %}?step=review">جزئیات</a>{% endif %}</span></td></tr>{% empty %}<tr><td colspan="7">{% if question_scope_all %}هیچ سؤالی به اشتراک گذاشته نشده است.{% else %}هنوز سؤالی از اساتید درس‌های شما به اشتراک گذاشته نشده است.{% endif %}</td></tr>{% endfor %}</tbody></table>
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% elif question_view == 'archive' %}
         <section class="question-info-strip">سؤال‌های آرشیوی در فهرست و در انتخاب سؤال آزمون‌های جدید نمایش داده نمی‌شوند؛ آزمون‌هایی که قبلاً از آن‌ها استفاده کرده‌اند تغییری نمی‌کنند و هر زمان می‌توانید سؤال را بازیابی کنید.</section>
         <section class="question-bank-panel" id="teacher-question-archive" data-live-region>
+            <header class="question-section-title"><h2>سؤال‌های آرشیوشده</h2>{% include "partials/rt_view_switch.html" with key="questions-archive" %}</header>
             <table class="teacher-table question-bank-table"><thead><tr><th>متن سؤال</th>{% if question_scope_all %}<th>طراح</th>{% endif %}<th>درس</th><th>نوع</th><th>تاریخ آرشیو</th><th>عملیات</th></tr></thead><tbody>{% for q in questions %}<tr><td>{{ q.text|truncatechars:82 }}</td>{% if question_scope_all %}<td>{{ q.author }}</td>{% endif %}<td>{{ q.course }}</td><td>{{ q.type_label }}</td><td>{{ q.archived_at|to_jalali|default:'-' }}</td><td><span class="question-row-actions"><a href="{% url 'core:question_preview' q.id %}?new=1">پیش‌نمایش</a><form method="post" action="{% url 'core:teacher_question_archive' q.id %}">{% csrf_token %}<button class="teacher-primary" type="submit" name="action" value="restore">بازیابی</button></form></span></td></tr>{% empty %}<tr><td colspan="{% if question_scope_all %}6{% else %}5{% endif %}">{% if question_scope_all %}سؤال آرشیوشده‌ای وجود ندارد.{% else %}سؤال آرشیوشده‌ای ندارید.{% endif %}</td></tr>{% endfor %}</tbody></table>
             {% include 'teacher/_question_bank_pager.html' %}
         </section>
         {% else %}
+        <link rel="stylesheet" href="{% static 'css/type-multiselect.css' %}?v=20261111b"><script src="{% static 'js/type-multiselect.js' %}?v=20261111d" defer></script>
         <section class="question-bank-panel" id="teacher-question-list" data-live-region>
             <form class="question-bank-filters" method="get">
                 <label><input name="q" value="{{ question_filters.q }}" placeholder="جستجو در متن سؤال یا کد..."><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
                 <select name="difficulty"><option value="all">همه دشواری‌ها</option><option value="easy" {% if question_filters.difficulty == 'easy' %}selected{% endif %}>آسان</option><option value="medium" {% if question_filters.difficulty == 'medium' %}selected{% endif %}>متوسط</option><option value="hard" {% if question_filters.difficulty == 'hard' %}selected{% endif %}>سخت</option></select>
-                <select name="type"><option value="all">همه انواع سؤال</option><option value="single" {% if question_filters.type == 'single' %}selected{% endif %}>چهارگزینه‌ای</option><option value="multi" {% if question_filters.type == 'multi' %}selected{% endif %}>چندپاسخی</option><option value="true_false" {% if question_filters.type == 'true_false' %}selected{% endif %}>درست/نادرست</option><option value="short_answer" {% if question_filters.type == 'short_answer' %}selected{% endif %}>پاسخ کوتاه</option><option value="essay" {% if question_filters.type == 'essay' %}selected{% endif %}>تشریحی</option><option value="fill_blank" {% if question_filters.type == 'fill_blank' %}selected{% endif %}>جای‌خالی</option><option value="matching" {% if question_filters.type == 'matching' %}selected{% endif %}>تطبیقی</option><option value="ordering" {% if question_filters.type == 'ordering' %}selected{% endif %}>ترتیب‌گذاری</option><option value="numeric" {% if question_filters.type == 'numeric' %}selected{% endif %}>پاسخ عددی</option><option value="matrix" {% if question_filters.type == 'matrix' %}selected{% endif %}>ماتریسی</option><option value="image_label" {% if question_filters.type == 'image_label' %}selected{% endif %}>نشانه‌گذاری تصویر</option><option value="hotspot" {% if question_filters.type == 'hotspot' %}selected{% endif %}>انتخاب ناحیه روی تصویر</option><option value="media_response" {% if question_filters.type == 'media_response' %}selected{% endif %}>صوتی/ویدئویی</option></select>
+                {% include "partials/type_multiselect.html" with items=question_type_options field="type" summary=question_type_summary %}
                 <select name="status"><option value="all">همه وضعیت‌ها</option><option value="active" {% if question_filters.status == 'active' %}selected{% endif %}>فعال</option><option value="draft" {% if question_filters.status == 'draft' %}selected{% endif %}>پیش‌نویس</option><option value="needs_review" {% if question_filters.status == 'needs_review' %}selected{% endif %}>نیازمند بازبینی</option></select>
                 {% if question_filters.course %}<input type="hidden" name="course" value="{{ question_filters.course }}">{% endif %}
                 {% if question_filters.subject %}<input type="hidden" name="subject" value="{{ question_filters.subject }}">{% endif %}
@@ -241,23 +244,7 @@
                 {% if question_filters.tag %}برچسب «{{ question_filters.tag }}»{% endif %}
                 — <a href="{% url 'core:teacher_questions' %}">حذف فیلتر</a></p>
             {% endif %}
-            {% with qf=question_filters %}{% with base=question_type_base %}
-            <nav class="question-type-strip" aria-label="فیلتر بر اساس نوع سؤال">
-                <a href="{{ base }}{% if qf.type == 'single' %}all{% else %}single{% endif %}" class="{% if qf.type == 'single' %}is-active{% endif %}" {% if qf.type == 'single' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="single" %}</b><span>چهارگزینه‌ای</span></a>
-                <a href="{{ base }}{% if qf.type == 'multi' %}all{% else %}multi{% endif %}" class="{% if qf.type == 'multi' %}is-active{% endif %}" {% if qf.type == 'multi' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="multi" %}</b><span>چندگزینه‌ای</span></a>
-                <a href="{{ base }}{% if qf.type == 'true_false' %}all{% else %}true_false{% endif %}" class="{% if qf.type == 'true_false' %}is-active{% endif %}" {% if qf.type == 'true_false' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="true_false" %}</b><span>درست/نادرست</span></a>
-                <a href="{{ base }}{% if qf.type == 'short_answer' %}all{% else %}short_answer{% endif %}" class="{% if qf.type == 'short_answer' %}is-active{% endif %}" {% if qf.type == 'short_answer' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="short_answer" %}</b><span>پاسخ کوتاه</span></a>
-                <a href="{{ base }}{% if qf.type == 'essay' %}all{% else %}essay{% endif %}" class="{% if qf.type == 'essay' %}is-active{% endif %}" {% if qf.type == 'essay' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="essay" %}</b><span>تشریحی</span></a>
-                <a href="{{ base }}{% if qf.type == 'fill_blank' %}all{% else %}fill_blank{% endif %}" class="{% if qf.type == 'fill_blank' %}is-active{% endif %}" {% if qf.type == 'fill_blank' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="fill_blank" %}</b><span>جای‌خالی</span></a>
-                <a href="{{ base }}{% if qf.type == 'matching' %}all{% else %}matching{% endif %}" class="{% if qf.type == 'matching' %}is-active{% endif %}" {% if qf.type == 'matching' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="matching" %}</b><span>تطبیقی</span></a>
-                <a href="{{ base }}{% if qf.type == 'ordering' %}all{% else %}ordering{% endif %}" class="{% if qf.type == 'ordering' %}is-active{% endif %}" {% if qf.type == 'ordering' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="ordering" %}</b><span>ترتیب‌گذاری</span></a>
-                <a href="{{ base }}{% if qf.type == 'numeric' %}all{% else %}numeric{% endif %}" class="{% if qf.type == 'numeric' %}is-active{% endif %}" {% if qf.type == 'numeric' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="numeric" %}</b><span>پاسخ عددی</span></a>
-                <a href="{{ base }}{% if qf.type == 'matrix' %}all{% else %}matrix{% endif %}" class="{% if qf.type == 'matrix' %}is-active{% endif %}" {% if qf.type == 'matrix' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="matrix" %}</b><span>ماتریسی</span></a>
-                <a href="{{ base }}{% if qf.type == 'image_label' %}all{% else %}image_label{% endif %}" class="{% if qf.type == 'image_label' %}is-active{% endif %}" {% if qf.type == 'image_label' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="image_label" %}</b><span>نشانه‌گذاری تصویر</span></a>
-                <a href="{{ base }}{% if qf.type == 'hotspot' %}all{% else %}hotspot{% endif %}" class="{% if qf.type == 'hotspot' %}is-active{% endif %}" {% if qf.type == 'hotspot' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="hotspot" %}</b><span>انتخاب ناحیه</span></a>
-                <a href="{{ base }}{% if qf.type == 'media_response' %}all{% else %}media_response{% endif %}" class="{% if qf.type == 'media_response' %}is-active{% endif %}" {% if qf.type == 'media_response' %}aria-current="true"{% endif %}><b>{% include "teacher/_qb_icon.html" with name="media_response" %}</b><span>صوتی/ویدئویی</span></a>
-            </nav>
-            {% endwith %}{% endwith %}
+            <header class="question-section-title" style="margin-top:1rem"><h2>فهرست سؤال‌ها</h2>{% include "partials/rt_view_switch.html" with key="questions-all" %}</header>
             <table class="teacher-table question-bank-table">
                 <thead><tr><th>کد</th><th>متن سؤال</th>{% if question_scope_all %}<th>طراح</th>{% endif %}<th>ساختار</th><th>نوع</th><th>درس</th><th>دشواری</th><th>استفاده در آزمون</th><th>وضعیت</th><th>عملیات</th></tr></thead>
                 <tbody>
@@ -1063,8 +1050,6 @@
 {% if teacher_ui %}
 {{ teacher_ui|json_script:"teacher-ui" }}
 <style>
-  html[data-teacher-theme="dark"]{filter:invert(.9) hue-rotate(180deg);background:#fff}
-  html[data-teacher-theme="dark"] img,html[data-teacher-theme="dark"] video,html[data-teacher-theme="dark"] canvas,html[data-teacher-theme="dark"] .tset-totp-qr{filter:invert(1) hue-rotate(180deg)}
   {% if teacher_ui.compact_tables %}.teacher-console table th,.teacher-console table td{padding-top:.35rem!important;padding-bottom:.35rem!important;font-size:.84rem}{% endif %}
   .tq-help{position:fixed;left:16px;bottom:16px;z-index:60;font-family:inherit}
   .tq-help>button{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1rem;border:0;border-radius:999px;background:#1d4ed8;color:#fff;font:inherit;font-weight:700;box-shadow:0 10px 24px rgba(29,78,216,.3);cursor:pointer}
@@ -1102,15 +1087,7 @@
 <script>
 (() => {
   const ui = JSON.parse(document.getElementById('teacher-ui').textContent || '{}');
-  // «نمایش پوسته»: light, dark, or the device's own setting
-  const root = document.documentElement;
-  const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-  const applyTheme = () => {
-    const dark = ui.theme === 'dark' || (ui.theme === 'system' && media && media.matches);
-    if (dark) root.dataset.teacherTheme = 'dark'; else delete root.dataset.teacherTheme;
-  };
-  applyTheme();
-  if (media && media.addEventListener) media.addEventListener('change', applyTheme);
+  // the theme («نمایش پوسته») is now every account's «ظاهر من» (apps/core/appearance.py → <html data-mq-theme>)
 
   const help = document.querySelector('[data-tq-help]');
   const toggle = help?.querySelector('[data-tq-help-toggle]');
@@ -1142,7 +1119,7 @@
     let since = null;
     try { since = localStorage.getItem(key); } catch (error) { /* storage blocked: only new ones from now */ }
     const poll = () => {
-      fetch("{% url 'core:teacher_notification_feed' %}" + (since ? `?since=${encodeURIComponent(since)}` : ''), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      fetch("{% url 'core:teacher_notification_feed' %}" + (since ? `?since=${encodeURIComponent(since)}` : ''), { mqBackground: true, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then((response) => response.ok ? response.json() : null)
         .then((data) => {
           if (!data || !data.enabled) return;

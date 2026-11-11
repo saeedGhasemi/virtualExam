@@ -44,6 +44,13 @@ STATUS_SQL = (
     "WHEN COALESCE(q.is_published, false) = true THEN 'active' ELSE 'draft' END"
 )
 NO_COURSE = 'none'
+# «همه انواع سؤال» filter (multi-select, ?type=a&type=b), in the order shown
+FILTER_TYPES = (
+    ('single', 'چهارگزینه‌ای'), ('multi', 'چندگزینه‌ای'), ('true_false', 'درست/نادرست'), ('short_answer', 'پاسخ کوتاه'),
+    ('essay', 'تشریحی'), ('fill_blank', 'جای‌خالی'), ('matching', 'تطبیقی'), ('ordering', 'ترتیب‌گذاری'),
+    ('numeric', 'پاسخ عددی'), ('matrix', 'ماتریسی'), ('image_label', 'نشانه‌گذاری تصویر'),
+    ('hotspot', 'انتخاب ناحیه روی تصویر'), ('media_response', 'صوتی/ویدئویی'),
+)
 # The tags column holds «a, b، c»; this wraps it as ",a,b,c," so one tag matches exactly.
 TAGS_SQL = "(',' || LOWER(REPLACE(REPLACE(REPLACE(COALESCE(q.tags, ''), '،', ','), ', ', ','), ' ,', ',')) || ',')"
 STATUS_LABELS = {
@@ -53,11 +60,20 @@ STATUS_LABELS = {
 }
 
 
+def _type_summary(types) -> str:
+    """Text of the closed type dropdown: '' (= «همه انواع سؤال»), the one type's label, or «N نوع سؤال»."""
+    if not types:
+        return ''
+    if len(types) == 1:
+        return dict(FILTER_TYPES).get(types[0], types[0])
+    return f'{len(types)} نوع سؤال'
+
+
 def _filters(request) -> dict:
     return {
         'q': (request.GET.get('q') or '').strip()[:200],
         'status': request.GET.get('status') if request.GET.get('status') in STATUS_LABELS else 'all',
-        'type': (request.GET.get('type') or 'all')[:40],
+        'types': list(dict.fromkeys(t[:40] for t in request.GET.getlist('type') if t and t != 'all'))[:20],
         'difficulty': request.GET.get('difficulty') if request.GET.get('difficulty') in QUESTION_DIFFICULTY_LABELS else 'all',
         'course': (request.GET.get('course') or '').strip()[:64],
         'subject': (request.GET.get('subject') or '').strip()[:160],
@@ -125,8 +141,8 @@ def _where(teacher_id, filters, archived=False) -> tuple:
     elif filters['status'] != 'all':
         clauses.append(f'{STATUS_SQL} = %s')
         params.append(filters['status'])
-    if filters['type'] != 'all':
-        types = TYPE_ALIASES.get(filters['type'], (filters['type'],))
+    if filters['types']:
+        types = [alias for kind in filters['types'] for alias in TYPE_ALIASES.get(kind, (kind,))]
         clauses.append(f"q.type IN ({', '.join(['%s'] * len(types))})")
         params += list(types)
     if filters['difficulty'] != 'all':
@@ -406,7 +422,8 @@ def question_bank_context(request, teacher_id) -> dict:
         'question_can_share': getattr(request, 'erd_role', None) == 'teacher',  # share/copy views are teacher-only
         'question_view': view,
         'question_filters': filters,
-        'question_type_base': '?' + urlencode({key: value for key, value in filters.items() if key != 'type' and value}) + '&type=',
+        'question_type_options': [{'key': key, 'label': label, 'checked': key in filters['types']} for key, label in FILTER_TYPES],
+        'question_type_summary': _type_summary(filters['types']),
         'question_filter_course': _course_title(filters['course']),
         'question_banks': banks,
         'question_categories': categories(owner) if view == 'tags' else {},

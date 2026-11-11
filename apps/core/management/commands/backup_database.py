@@ -13,13 +13,24 @@ class Command(BaseCommand):
     help = (
         'Writes a backup of the database into BACKUP_DIR (the folder the system dashboard monitors): '
         'SQLite through its online backup API, PostgreSQL with pg_dump -Fc. '
-        'With --keep N, only the newest N backups made by this command are kept.'
+        'With --keep N, only the newest N backups made by this command are kept. '
+        '--scheduled runs the automatic backup set in the admin backup tab if it is due (for cron); '
+        '--scheduled --now runs it regardless of the schedule.'
     )
 
     def add_arguments(self, parser):
         parser.add_argument('--keep', type=int, default=0, help='Keep only the newest N backups made by this command (0 keeps all).')
+        parser.add_argument('--scheduled', action='store_true', help='Run the automatic backup (apps/core/auto_backup.py) if it is due.')
+        parser.add_argument('--now', action='store_true', help='With --scheduled: run it now, whatever the schedule.')
 
     def handle(self, *args, **options):
+        if options['scheduled']:
+            from apps.core import auto_backup
+            result = auto_backup.run('command', force=options['now'])
+            if result['status'] == 'error':
+                raise CommandError(result['message'])
+            self.stdout.write(f"{result['status']}: {result.get('message') or ''}".strip())
+            return
         folder = Path(settings.BACKUP_DIR) if settings.BACKUP_DIR else None
         if not folder:
             raise CommandError('BACKUP_DIR is not set; set it in .env to the folder backups go to.')

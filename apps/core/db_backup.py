@@ -288,9 +288,14 @@ def handle_post(request, action):
             temporary.close()
             source = temporary.name
         check_dump_file(source)
-        safety = write_safety_backup()
-        actor = request.user.get_username()
-        restore_from(source)
+        from apps.core.auto_backup import exclusive  # same lock as the scheduled backups (auto_backup.py)
+        with exclusive() as acquired:
+            if not acquired:
+                raise BackupError('یک پشتیبان‌گیری خودکار در حال انجام است؛ چند دقیقه دیگر دوباره تلاش کنید. '
+                                  'بازیابی انجام نشد.')
+            safety = write_safety_backup()
+            actor = request.user.get_username()
+            restore_from(source)
     except BackupError as error:
         messages.error(request, str(error))
         return _back()

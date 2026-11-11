@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import sys
 import importlib.util
 from urllib.parse import parse_qsl, unquote, urlparse
 from dotenv import load_dotenv
@@ -10,8 +11,10 @@ load_dotenv(BASE_DIR / '.env', override=True)
 # Every secret (SECRET_KEY, database/e-mail passwords) comes only from the environment / .env, never from the code
 # (Security.md). With DEBUG off, `manage.py check` fails on a missing or placeholder SECRET_KEY (apps/core/checks.py).
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-local-development-only')
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,37.32.4.207').split(',') if host.strip()]
+# Off unless .env says DEBUG=True (local development), so a missing or partial .env never runs production in debug mode.
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+ALLOWED_HOSTS = [host.strip() for host in os.getenv(
+    'ALLOWED_HOSTS', 'metaquizy.ir,www.metaquizy.ir,127.0.0.1,localhost,37.32.4.207').split(',') if host.strip()]
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME', '').strip()
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -22,7 +25,7 @@ if RAILWAY_PUBLIC_DOMAIN:
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
-    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', 'http://37.32.4.207,https://37.32.4.207').split(',')
+    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', 'https://metaquizy.ir,https://www.metaquizy.ir,https://37.32.4.207').split(',')
     if origin.strip()
 ]
 if RENDER_EXTERNAL_HOSTNAME:
@@ -53,7 +56,9 @@ MIDDLEWARE = [
     'apps.core.middleware.MalformedIdNotFoundMiddleware',
     'apps.core.exam_schedule.ScheduledPublishMiddleware',
     'apps.core.middleware.PasswordChangeRequiredMiddleware',
+    'apps.core.exam_lock.ExamLockMiddleware',
     'apps.core.middleware.SecurityHeadersMiddleware',
+    'apps.core.auto_backup.AutoBackupSchedulerMiddleware',
 ]
 
 if HAS_WHITENOISE:
@@ -201,8 +206,12 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-# Folder of database backups; the system dashboard reports the newest file's age (empty: not monitored).
+# Folder of database backups (automatic ones go here; empty: BASE_DIR/backups). See apps/core/auto_backup.py.
 BACKUP_DIR = os.getenv('BACKUP_DIR', '').strip()
+# Each web process runs the automatic-backup scheduler thread (schedule set in the admin's backup tab); 0 turns it
+# off, e.g. when `manage.py backup_database --scheduled` runs from cron instead. Never on during tests.
+AUTO_BACKUP_SCHEDULER = (os.getenv('AUTO_BACKUP_SCHEDULER', '1').strip().lower() not in ('0', 'false', 'no', 'off')
+                         and 'test' not in sys.argv[1:2])
 # Never mapped to a URL: student answer files are streamed by views after an access check.
 PRIVATE_MEDIA_ROOT = Path(os.getenv('PRIVATE_MEDIA_ROOT', str(BASE_DIR / 'private_media')))
 
@@ -240,9 +249,13 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True  # the pages send the token from the form field ({% csrf_token %}), never from the cookie
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
-SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'false').lower() == 'true'
-# HSTS: production sets SECURE_HSTS_SECONDS in .env; with DEBUG off and nothing set, one day.
+# http -> https: on by default with DEBUG off (nginx forwards X-Forwarded-Proto, see SECURE_PROXY_SSL_HEADER).
+SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() == 'true'
+# HSTS: production sets SECURE_HSTS_SECONDS in .env; with DEBUG off and nothing set, one day. Subdomains / preload only
+# when .env opts in (preload is hard to undo).
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0' if DEBUG else '86400'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'false').lower() == 'true'
+SECURE_HSTS_PRELOAD = os.getenv('SECURE_HSTS_PRELOAD', 'false').lower() == 'true'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'

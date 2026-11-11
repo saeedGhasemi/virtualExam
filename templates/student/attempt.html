@@ -2,120 +2,173 @@
 {% load static core_extras %}
 {% block title %}صفحه آزمون | متاکوییز{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/exam-view.css' %}?v=media-20261110fw">
+<link rel="stylesheet" href="{% static 'css/exam-view.css' %}?v=exam-20261111ux12">
 <link rel="stylesheet" href="{% static 'js/vendor/quill-2.0.3/quill.snow.css' %}">
 {% if practice %}{% include 'student/_practice_attempt_styles.html' %}{% endif %}
 {# Field names (answer_*, mark_*, upload_*, remove_file_*, action) and data-* hooks are what the view and the script below rely on. #}
-<section class="qx qx--exam" data-attempt-id="{{ attempt.pk }}">
-  <div class="qx-wrap">
-    {% if preview %}{% include "student/_preview_bar.html" %}{% endif %}
-    {# No navigation links during an exam: the student must not leave the attempt from here. #}
-    <header class="qx-card qx-topbar">
-      {% include "partials/brand_logo.html" with size="1.15rem" %}
+{# One column: sticky top bar (time, finish) → position in the exam → the question → question list dock under it. #}
+{# data-no-count: numbers here are live values, never animated by count-up.js. #}
+<section class="qx qx--exam qx--v2" data-attempt-id="{{ attempt.pk }}" data-no-count>
+  {% if preview %}<div class="qx-wrap qx-pv-wrap">{% include "student/_preview_bar.html" %}</div>{% endif %}
+  {# No navigation links during an exam: the student must not leave the attempt from here. #}
+  <header class="qx-top">
+    <div class="qx-top-in">
+      {% include "partials/brand_logo.html" with size="1.1rem" %}
       <span class="qx-conn" data-connection role="status" aria-live="polite"><i></i><span data-connection-text>اتصال برقرار است</span></span>
       {% if practice %}<span class="qx-practice-tag"><span class="qx-practice-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>این آزمون در نمره‌ی درسی شما محاسبه نمی‌شود</span><span class="qx-practice-badge">{% include 'teacher/_qb_icon.html' with name='flask' %}آزمون آزمایشی</span></span>{% endif %}
-      <div class="qx-user">
-        <span class="qx-avatar">{% if panel_avatar_url %}<img src="{{ panel_avatar_url }}" alt="">{% else %}{{ panel_display_name|default:"د"|slice:":1" }}{% endif %}</span>
-        <span><strong>{{ panel_display_name|default:"دانشجو" }}</strong><small>{% if preview %}{{ preview.role_label }}{% else %}دانشجو{% endif %}</small></span>
+      <div class="qx-top-end">
+        {% if page_rules.show_list %}<button type="button" class="qx-list-btn" data-sheet-open aria-haspopup="dialog" title="فهرست سؤال‌ها"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg><span class="qx-hide-md">فهرست سؤال‌ها</span></button>{% endif %}
+        {% if not preview or preview.timed %}<div class="qx-timer qx-clock" data-timer-box><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><small>زمان باقی‌مانده</small><strong id="timer">{{ remaining_seconds|default:0|fa_digits }}</strong></div>{% endif %}
+        <div class="qx-user">
+          <span class="qx-avatar">{% if panel_avatar_url %}<img src="{{ panel_avatar_url }}" alt="">{% else %}{{ panel_display_name|default:"د"|slice:":1" }}{% endif %}</span>
+          <span class="qx-user-name"><strong>{{ panel_display_name|default:"دانشجو" }}</strong><small>{% if preview %}{{ preview.role_label }}{% else %}دانشجو{% endif %}</small></span>
+        </div>
+        {# Submits the answer form (saving the answers on screen) and then opens the end-of-exam confirmation. #}
+        <button class="qx-finish" type="submit" form="answer-form" name="action" value="finish"><svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg><span class="qx-hide-sm">{% if practice %}پایان آزمون آزمایشی{% else %}پایان آزمون{% endif %}</span><span class="qx-show-sm">پایان</span></button>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <section class="qx-card qx-bar">
-      <div><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>سؤال {{ current_index|fa_digits }} از {{ total_questions|fa_digits }}</span></div>
-      {% if not preview or preview.timed %}<div class="qx-timer" data-timer-box><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span><small>زمان باقی‌مانده</small><strong id="timer">{{ remaining_seconds|default:0|fa_digits }}</strong></span></div>{% endif %}
-      <div class="qx-exam-title"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/></svg><span>{{ attempt.exam.title }}</span></div>
+  <div class="qx-wrap">
+    {# Position in the exam: ring = answered share; the track fills blue up to the current question (grey after it, grey again when going back). Segment is-answered / is-marked only feed the counts. #}
+    <section class="qx-card qx-pos" aria-label="موقعیت در آزمون">
+      <div class="qx-pos-head">
+        <div class="qx-pos-ring{% if not attempt_map.progress_percent %} is-empty{% endif %}" style="--p:{{ attempt_map.progress_percent|default:0 }}" data-pos-ring role="img" aria-label="درصد پاسخ داده‌شده">
+          <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.9"/><circle cx="18" cy="18" r="15.9" pathLength="100"/></svg>
+          <span><span data-progress-percent>{{ attempt_map.progress_percent|fa_digits }}</span>٪</span>
+        </div>
+        <div class="qx-pos-main">
+          <span class="qx-pos-title">{{ attempt.exam.title }}</span>
+          <span class="qx-pos-count">سؤال <b data-pos-current>{{ current_index|default:1|fa_digits }}</b> از {{ total_questions|fa_digits }}</span>
+        </div>
+        <div class="qx-pos-stats">
+          <span class="qx-pos-stat is-answered"><i></i><b data-answered-count>{{ answered_count|fa_digits }}</b> <span class="qx-hide-sm">پاسخ داده‌شده</span><span class="qx-show-sm">پاسخ‌داده</span></span>
+          <span class="qx-pos-stat is-open"><i></i><b data-open-count></b> <span class="qx-hide-sm">بدون پاسخ</span><span class="qx-show-sm">بی‌پاسخ</span></span>
+          {% if page_rules.flagging %}<span class="qx-pos-stat is-marked"><i></i><b data-marked-count>۰</b> <span class="qx-hide-sm">علامت‌گذاری‌شده</span><span class="qx-show-sm">علامت‌دار</span></span>{% endif %}
+          {# «شروع دوباره» of a real attempt = clear every answer and mark, back to question 1; the time keeps running (a preview has its own restart). #}
+          {% if not preview and not page_rules.lock_on_leave %}<button type="submit" form="answer-form" name="action" value="clear_all" class="qx-pos-reset" data-confirm="همه‌ی پاسخ‌ها، فایل‌های بارگذاری‌شده و علامت‌ها پاک می‌شوند و به سؤال اول برمی‌گردید. زمان آزمون از نو شروع نمی‌شود و ادامه دارد. ادامه می‌دهید؟" data-confirm-ok="پاک کردن همه و شروع دوباره" data-confirm-danger><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>شروع دوباره</button>{% endif %}
+        </div>
+      </div>
+      <div class="qx-pos-track{% if total_questions > 40 %} is-dense{% endif %}" style="--n:{{ total_questions|default:1 }};--pos:{{ current_index|default:1 }}" data-pos-track aria-hidden="true">
+        {% for item in attempt_map.items %}<i class="{% if item.answered %}is-answered{% endif %}{% if item.marked and page_rules.flagging %} is-marked{% endif %}{% if page_rules.one_per_page %}{% if item.index <= current_index %} is-done{% endif %}{% if item.current %} is-current{% endif %}{% endif %}" data-pos-seg="{{ item.index }}"></i>{% endfor %}
+        <span class="qx-pos-pin"></span>
+      </div>
+      {% if not page_rules.back or page_rules.lock_on_leave %}
+        <div class="qx-pos-rules">
+          {% if not page_rules.back %}<p class="qx-rule-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>در این آزمون بازگشت به سؤال‌های قبلی ممکن نیست.</p>{% endif %}
+          {% if page_rules.lock_on_leave %}<p class="qx-rule-note"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>پاسخ هر سؤال پس از رفتن به سؤال دیگر قابل تغییر نیست.</p>{% endif %}
+        </div>
+      {% endif %}
+      {% if practice %}
+        <details class="qx-practice-guide">
+          <summary>{% include 'teacher/_qb_icon.html' with name='cap' %}<span>راهنمای آزمون آزمایشی: {{ practice.mode_title }}</span></summary>
+          <p>{% if practice.tutorial %}این آزمون با هدف یادگیری و آشنایی با سبک سؤالات طراحی شده است. پس از ثبت پاسخ هر سؤال، پاسخ صحیح و توضیح آموزشی نمایش داده می‌شود و پاسخ آن سؤال دیگر تغییر نمی‌کند.{% else %}مانند آزمون اصلی پاسخ دهید؛ پاسخ صحیح و توضیح هر سؤال پس از پایان آزمون در کارنامه نمایش داده می‌شود.{% endif %}</p>
+        </details>
+      {% endif %}
     </section>
 
-    <div class="qx-grid">
-      <form method="post" enctype="multipart/form-data" class="qx-card qx-main" id="answer-form" data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
-        {% csrf_token %}
-        {% if page_rules.one_per_page %}
-          <input type="hidden" name="seen_{{ current_answer.question_id }}" value="1">
-          <div data-question-block data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
-            {% include "student/_attempt_question.html" with q=current_answer with_autosave_state=True %}
-          </div>
-        {% else %}
-          {# «نمایش یک سوال در هر صفحه» off: every question on this page; each block saves with the same form. #}
-          {% for item in items %}
-            <input type="hidden" name="seen_{{ item.question_id }}" value="1">
-            <div class="qx-qblock" id="q-{{ item.index }}" data-question-block data-question-id="{{ item.question_id }}" data-answered="{% if item.answered %}1{% endif %}" data-has-files="{% if item.answer_files %}1{% endif %}">
-              {% include "student/_attempt_question.html" with q=item inline_mark=True %}
-            </div>
-          {% endfor %}
-          <div class="qx-answer-meta">{% include "student/_attempt_autosave_state.html" %}</div>
-        {% endif %}
-      </form>
-
-      <aside class="qx-side">
-        <section class="qx-card">
-          {% if page_rules.show_list %}
-            <h3>فهرست سؤالات</h3>
-            <div class="qx-legend"><span><i></i>بدون پاسخ</span><span><i class="is-answered"></i>پاسخ داده‌شده</span>{% if page_rules.flagging %}<span><i class="is-marked"></i>علامت‌گذاری‌شده</span>{% endif %}</div>
-            <nav class="qx-map" aria-label="فهرست سؤالات">
-              {% for item in attempt_map.items %}
-                {% if not page_rules.one_per_page %}
-                  <a class="qx-map-cell {% if item.marked %}is-marked{% elif item.answered %}is-answered{% endif %}" href="#q-{{ item.index }}" data-map-cell="{{ item.index }}">{{ item.index|fa_digits }}</a>
-                {% elif page_rules.back %}
-                  {# Saves the answer on screen, then opens that question. #}
-                  <button type="submit" form="answer-form" name="goto" value="{{ item.index }}" class="qx-map-cell {% if item.current %}is-current{% elif item.marked %}is-marked{% elif item.answered %}is-answered{% endif %}"{% if item.current %} aria-current="page"{% endif %}>{{ item.index|fa_digits }}</button>
-                {% else %}
-                  {# «امکان بازگشت به سوال قبلی» off: the list shows progress only. #}
-                  <span class="qx-map-cell {% if item.current %}is-current{% elif item.marked %}is-marked{% elif item.answered %}is-answered{% endif %}"{% if item.current %} aria-current="page"{% endif %}>{{ item.index|fa_digits }}</span>
-                {% endif %}
-              {% endfor %}
-            </nav>
-          {% else %}
-            <h3>پیشرفت آزمون</h3>
-          {% endif %}
-          <div class="qx-progress"><i style="width:{{ attempt_map.progress_percent }}%" data-progress-bar></i></div>
-          <span class="qx-progress-label"><span data-answered-count>{{ answered_count|fa_digits }}</span> از {{ total_questions|fa_digits }} پاسخ داده‌شده</span>
-          {% if not page_rules.back %}<p class="qx-rule-note">در این آزمون بازگشت به سؤال‌های قبلی ممکن نیست.</p>{% endif %}
-          {% if page_rules.lock_on_leave %}<p class="qx-rule-note">پاسخ هر سؤال پس از رفتن به سؤال دیگر قابل تغییر نیست.</p>{% endif %}
-        </section>
-        {% if page_rules.one_per_page %}
-        <section class="qx-card">
-          <h3>وضعیت سؤال <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></h3>
-          <div class="qx-status">
-            <div class="qx-state{% if current_answer.answered %} is-answered{% endif %}" data-answer-state><i></i><span data-answer-state-text>{% if current_answer.answered %}پاسخ داده‌شده{% else %}بدون پاسخ{% endif %}</span></div>
-            {% if page_rules.flagging %}<label class="qx-mark"><input type="checkbox" name="mark_{{ current_answer.question_id }}" form="answer-form" {% if current_answer.marked %}checked{% endif %}><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>علامت‌گذاری برای مرور</label>{% endif %}
-          </div>
-        </section>
-        <section class="qx-card">
-          <h3>راهنمای {{ current_answer.type_label }} <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></h3>
-          <p class="qx-guide"><svg viewBox="0 0 24 24"><path d="m4 20 4-1L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>{% include "partials/exam_guide_text.html" with kind=current_answer.type max_select=current_answer.max_select can_upload=current_answer.upload_rules %}</p>
-        </section>
-        {% endif %}
-        {% if practice %}
-          <section class="qx-card qx-practice-guide">
-            <h3>راهنمای آزمون آزمایشی {% include 'teacher/_qb_icon.html' with name='cap' %}</h3>
-            <p><strong>{{ practice.mode_title }}</strong>
-              {% if practice.tutorial %}این آزمون با هدف یادگیری و آشنایی با سبک سؤالات طراحی شده است. پس از ثبت پاسخ هر سؤال، پاسخ صحیح و توضیح آموزشی نمایش داده می‌شود و پاسخ آن سؤال دیگر تغییر نمی‌کند.{% else %}مانند آزمون اصلی پاسخ دهید؛ پاسخ صحیح و توضیح هر سؤال پس از پایان آزمون در کارنامه نمایش داده می‌شود.{% endif %}
-            </p>
-          </section>
-        {% endif %}
-      </aside>
-    </div>
-
-    <footer class="qx-card qx-foot">
-      {# Submits the answer form (saving the answers on screen) and then opens the end-of-exam confirmation. #}
-      <button class="qx-btn qx-btn--primary" type="submit" form="answer-form" name="action" value="finish"><svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>{% if practice %}پایان آزمون آزمایشی{% else %}پایان آزمون{% endif %}</button>
+    <form method="post" enctype="multipart/form-data" class="qx-card qx-main" id="answer-form" data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
+      {% csrf_token %}
       {% if page_rules.one_per_page %}
-        <button class="qx-btn" type="submit" form="answer-form" name="action" value="next"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>{% if current_index < total_questions %}ذخیره پاسخ و سؤال بعدی{% else %}ذخیره پاسخ{% endif %}</button>
-        {% if page_rules.back %}<button class="qx-btn qx-prev" type="submit" form="answer-form" name="action" value="previous"{% if current_index <= 1 %} disabled{% endif %}>سؤال قبلی<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>{% endif %}
+        <input type="hidden" name="seen_{{ current_answer.question_id }}" value="1">
+        <div data-question-block data-question-index="{{ current_index }}" data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
+          {% include "student/_attempt_question.html" with q=current_answer with_autosave_state=True %}
+        </div>
       {% else %}
-        <button class="qx-btn" type="submit" form="answer-form" name="action" value="save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>ذخیره پاسخ‌ها</button>
+        {# «نمایش یک سوال در هر صفحه» off: every question on this page; each block saves with the same form. #}
+        {% for item in items %}
+          <input type="hidden" name="seen_{{ item.question_id }}" value="1">
+          <div class="qx-qblock" id="q-{{ item.index }}" data-question-block data-question-index="{{ item.index }}" data-question-id="{{ item.question_id }}" data-answered="{% if item.answered %}1{% endif %}" data-has-files="{% if item.answer_files %}1{% endif %}">
+            {% include "student/_attempt_question.html" with q=item %}
+          </div>
+        {% endfor %}
+        <div class="qx-answer-meta">{% include "student/_attempt_autosave_state.html" %}</div>
       {% endif %}
-    </footer>
+    </form>
+
+    {# Question list under the question: one scrollable row (the full grid opens from the grid button) + previous / next. #}
+    <nav class="qx-card qx-dock{% if not page_rules.show_list %} qx-dock--nolist{% endif %}" aria-label="پیمایش سؤال‌ها">
+      {% if page_rules.show_list %}
+        <div class="qx-strip-wrap">
+          <div class="qx-strip" aria-label="فهرست سؤالات" data-strip>
+            {% for item in attempt_map.items %}
+              {% if not page_rules.one_per_page %}
+                <a class="qx-cell{% if item.answered %} is-answered{% endif %}{% if item.marked %} is-marked{% endif %}" href="#q-{{ item.index }}" data-map-cell="{{ item.index }}">{{ item.index|fa_digits }}</a>
+              {% elif page_rules.back %}
+                {# Saves the answer on screen, then opens that question. #}
+                <button type="submit" form="answer-form" name="goto" value="{{ item.index }}" class="qx-cell{% if item.answered %} is-answered{% endif %}{% if item.marked %} is-marked{% endif %}{% if item.current %} is-current{% endif %}" data-map-cell="{{ item.index }}"{% if item.current %} aria-current="page"{% endif %}>{{ item.index|fa_digits }}</button>
+              {% else %}
+                {# «امکان بازگشت به سوال قبلی» off: the list shows progress only. #}
+                <span class="qx-cell{% if item.answered %} is-answered{% endif %}{% if item.marked %} is-marked{% endif %}{% if item.current %} is-current{% endif %}" data-map-cell="{{ item.index }}"{% if item.current %} aria-current="page"{% endif %}>{{ item.index|fa_digits }}</span>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <button type="button" class="qx-dock-all" data-sheet-open aria-haspopup="dialog" aria-label="فهرست سؤال‌ها با متن سؤال" title="فهرست سؤال‌ها"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg></button>
+        </div>
+      {% else %}
+        <span class="qx-dock-count">سؤال <b data-pos-current>{{ current_index|default:1|fa_digits }}</b> از {{ total_questions|fa_digits }}</span>
+      {% endif %}
+      {# Previous and next side by side, at the end of the dock (the usual place for paging buttons). #}
+      <div class="qx-dock-nav">
+      {% if page_rules.one_per_page and page_rules.back %}
+        <button class="qx-nav-btn qx-prev" type="submit" form="answer-form" name="action" value="previous"{% if current_index <= 1 %} disabled{% endif %}><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg><span>قبلی</span></button>
+      {% endif %}
+      {% if page_rules.one_per_page %}
+        <button class="qx-nav-btn qx-nav-btn--next" type="submit" form="answer-form" name="action" value="next">{% if current_index < total_questions %}<span><span class="qx-hide-sm">ذخیره و </span>سؤال بعدی</span>{% else %}<span>ذخیره پاسخ</span>{% endif %}<svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+      {% else %}
+        <button class="qx-nav-btn qx-nav-btn--next" type="submit" form="answer-form" name="action" value="save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span>ذخیره پاسخ‌ها</span></button>
+      {% endif %}
+      </div>
+    </nav>
   </div>
-  <div class="qx-lightbox" data-lightbox hidden><img alt=""></div>
+
+  {% if page_rules.show_list %}
+    {# Question list: number, the start of each question, answered / flagged; search + filters. A side panel on wide screens, a bottom sheet on phones; opened from the top bar or the dock. #}
+    <div class="qx-sheet" data-sheet hidden>
+      <div class="qx-sheet-card" role="dialog" aria-modal="true" aria-labelledby="qx-sheet-title">
+        <div class="qx-sheet-head">
+          <h3 id="qx-sheet-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg>فهرست سؤال‌ها</h3>
+          <button type="button" class="qx-sheet-close" data-sheet-close aria-label="بستن">×</button>
+        </div>
+        <label class="qx-sheet-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="جست‌وجو در متن یا شماره‌ی سؤال" autocomplete="off" data-sheet-search aria-label="جست‌وجوی سؤال"></label>
+        <div class="qx-sheet-filters" role="group" aria-label="نمایش سؤال‌ها">
+          <button type="button" class="is-active" data-sheet-filter="all" aria-pressed="true">همه <b>{{ total_questions|fa_digits }}</b></button>
+          <button type="button" data-sheet-filter="answered" aria-pressed="false"><i class="is-answered"></i>پاسخ‌داده <b data-sheet-count="answered"></b></button>
+          <button type="button" data-sheet-filter="open" aria-pressed="false"><i></i>بی‌پاسخ <b data-sheet-count="open"></b></button>
+          {% if page_rules.flagging %}<button type="button" data-sheet-filter="marked" aria-pressed="false"><i class="is-marked"></i>علامت‌دار <b data-sheet-count="marked"></b></button>{% endif %}
+        </div>
+        <ol class="qx-qlist" data-sheet-list>
+          {% for item in attempt_map.items %}
+            <li class="qx-qrow{% if item.answered %} is-answered{% endif %}{% if item.marked and page_rules.flagging %} is-marked{% endif %}{% if item.current and page_rules.one_per_page %} is-current{% endif %}" data-qrow="{{ item.index }}" data-map-cell="{{ item.index }}" data-search="{{ item.index }} {{ item.snippet }}">
+              {% if not page_rules.one_per_page %}<a class="qx-qrow-link" href="#q-{{ item.index }}">{% elif page_rules.back %}<button type="submit" form="answer-form" name="goto" value="{{ item.index }}" class="qx-qrow-link">{% else %}<span class="qx-qrow-link is-static">{% endif %}
+                <span class="qx-qrow-num">{{ item.index|fa_digits }}</span>
+                <span class="qx-qrow-body"><span class="qx-qrow-text">{{ item.snippet }}</span><small>{{ item.type_label }}</small></span>
+                <span class="qx-qrow-state">
+                  {% if page_rules.flagging %}<svg class="qx-qrow-flag" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>{% endif %}
+                  <span class="qx-qrow-yes">پاسخ‌داده</span><span class="qx-qrow-no">بی‌پاسخ</span>
+                </span>
+              {% if not page_rules.one_per_page %}</a>{% elif page_rules.back %}</button>{% else %}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+        <p class="qx-sheet-empty" data-sheet-empty hidden>سؤالی با این شرایط پیدا نشد.</p>
+        {% if not page_rules.back %}<p class="qx-sheet-note">در این آزمون بازگشت به سؤال‌های قبلی ممکن نیست؛ فهرست فقط وضعیت را نشان می‌دهد.</p>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+  <div class="qx-lightbox qx-lb" data-lightbox hidden role="dialog" aria-modal="true" aria-label="نمای بزرگ تصویر">
+    <button type="button" class="qx-lb-close" data-lb-close aria-label="بستن">×</button>
+    <div class="qx-lb-stage" data-lb-stage><img alt="" data-lb-img><video controls playsinline preload="metadata" data-lb-video hidden></video></div>
+    <div class="qx-lb-bar"><span data-lb-caption></span><small>برای بزرگ‌نمایی بیشتر روی تصویر بزنید</small></div>
+  </div>
 </section>
 {% if not preview %}
 <form method="post" action="{% url 'core:student_attempt_submit' attempt.pk %}" id="auto-submit-form" hidden>{% csrf_token %}<input type="hidden" name="auto" value="1"></form>
 {% if practice or page_rules.offline == 'resume_from_last_save' %}{% include 'student/_practice_connection.html' %}{% endif %}
 {% endif %}
 <script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>
-<script src="{% static 'js/exam-interactions.js' %}?v=media-20261108a"></script>
-<script src="{% static 'js/waveform-player.js' %}?v=media-20261107e" defer></script>
+<script src="{% static 'js/exam-interactions.js' %}?v=exam-20261111voice"></script>
+<script src="{% static 'js/waveform-player.js' %}?v=media-20261111l" defer></script>
 {{ page_rules|json_script:"attempt-rules" }}
 {{ proctoring|json_script:"attempt-proctoring" }}
 {{ preview|json_script:"attempt-preview" }}
@@ -127,26 +180,41 @@
   // «پیش‌نمایش» (exam_preview.py): the same page and rules, but no proctoring event, file upload or submit leaves it.
   const preview = JSON.parse(document.getElementById('attempt-preview').textContent);
   const form = document.getElementById('answer-form');
-  const blocks = [...document.querySelectorAll('[data-question-block]')];
-  const state = document.getElementById('autosave-state');
-  const stateText = state?.querySelector('[data-autosave-text]');
-  const setSaveState = (text, isError = false) => { if (!stateText) return; stateText.textContent = text; state.classList.toggle('is-error', isError); };
+  // The question area (form contents, position card, dock) is swapped when moving between questions without a
+  // reload (see «Moving between questions» below), so everything inside it is looked up when needed.
+  let blocks = [...document.querySelectorAll('[data-question-block]')];
+  const setSaveState = (text, isError = false) => {
+    const state = document.getElementById('autosave-state');
+    const stateText = state?.querySelector('[data-autosave-text]');
+    if (!stateText) return;
+    stateText.textContent = text;
+    state.classList.toggle('is-error', isError);
+  };
   const timer = document.getElementById('timer');
   const eventUrl = {% if preview %}''{% else %}"{% url 'core:student_attempt_event' attempt.pk %}"{% endif %};
   const submitUrl = {% if preview %}preview.finish_url{% else %}"{% url 'core:student_attempt_submit' attempt.pk %}"{% endif %};
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  // Leaving the page on purpose (a submit, time over, a reload the page asks for) skips the «leave the exam?» prompt.
+  let leaveAllowed = false;
+  let leaveTimer;
+  const allowLeave = () => { leaveAllowed = true; clearTimeout(leaveTimer); leaveTimer = setTimeout(() => { leaveAllowed = false; }, 3000); };
+  window.mqAllowLeave = allowLeave;
   const pad = n => String(Math.max(0,n)).padStart(2,'0');
   const fa = s => String(s).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
   const showTime = seconds => {
     const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), sec = seconds % 60;
     timer.textContent = fa(`${pad(h)}:${pad(m)}:${pad(sec)}`);
+    // The last five minutes are shown in amber, the last minute in red.
+    const box = timer.closest('[data-timer-box]');
+    box?.classList.toggle('is-low', seconds <= 300 && seconds > 60);
+    box?.classList.toggle('is-over', seconds <= 60);
   };
 
   // Proctoring signals. One sent while offline (e.g. «قطع اتصال») is kept and sent once the page is back online.
   const eventQueueKey = 'mq-events-{{ attempt.pk }}';
   const readQueue = () => { try { return JSON.parse(localStorage.getItem(eventQueueKey) || '[]'); } catch (error) { return []; } };
   const writeQueue = (items) => { try { if (items.length) localStorage.setItem(eventQueueKey, JSON.stringify(items.slice(-50))); else localStorage.removeItem(eventQueueKey); } catch (error) { /* storage blocked */ } };
-  const sendEvent = event => preview ? Promise.resolve() : fetch(eventUrl, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: new URLSearchParams({ event }) })
+  const sendEvent = event => preview ? Promise.resolve() : fetch(eventUrl, { mqBackground: true, method: 'POST', headers: { 'X-CSRFToken': csrf }, body: new URLSearchParams({ event }) })
     .then(response => { if (!response.ok && response.status >= 500) throw new Error('event failed'); });
   const postEvent = event => sendEvent(event).catch(() => writeQueue([...readQueue(), event]));
   const flushEvents = async () => {
@@ -193,9 +261,9 @@
   };
   const save = () => {
     dirty = false;
-    return fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: answerData() })
+    return fetch(window.location.href, { mqBackground: true, method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: answerData() })
       .then(response => {
-        if (response.status === 423 || response.status === 403) { window.location.reload(); return; }  // another device / network
+        if (response.status === 423 || response.status === 403) { allowLeave(); window.location.reload(); return; }  // another device / network
         setSaveState(response.ok ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'ذخیره خودکار ناموفق بود.', !response.ok);
         if (!response.ok) dirty = true;
         if (navigator.onLine) setConnection(true);
@@ -226,9 +294,12 @@
   const stay = () => {
     clearTimeout(saveTimer);
     setSaveState('در حال ذخیره فایل...');
+    allowLeave();
     form.submit();
   };
-  form?.querySelectorAll('[data-auto-save]').forEach((input) => input.addEventListener('change', () => {
+  document.addEventListener('change', (event) => {
+    const input = event.target.closest?.('[data-auto-save]');
+    if (!input || !form?.contains(input)) return;
     if (preview) {
       // Nothing is uploaded from a preview; the file only shows what the student would pick.
       const names = [...(input.files || [])].map((file) => file.name).join('، ');
@@ -236,14 +307,14 @@
       return;
     }
     if (input.type !== 'file' || input.files.length) stay();
-  }));
+  });
   // Recorders: when recording stops the take is put in the question's file input and the form is submitted at once,
   // so it is stored on the server (and listed above the recorder, playable); «ضبط دوباره» replaces the earlier take.
-  const recorders = [];
+  let recorders = [];
   // Set when the exam time ends during a take: the take is stopped, stored, and then the time-up goes on.
   let timeUpAfterRecording = false;
   const continueTimeUp = () => { timeUpAfterRecording = false; finishTimeUp(); };
-  form?.querySelectorAll('[data-recorder]').forEach((box) => {
+  const initRecorders = () => form?.querySelectorAll('[data-recorder]').forEach((box) => {
     const target = box.querySelector('[data-record-target]');
     const replace = box.querySelector('[data-record-replace]');
     const kind = box.dataset.recordKind;
@@ -306,6 +377,7 @@
   // opens after the time is over). Off: answering stops and the confirmation page says what happens.
   let remaining = Number("{{ remaining_seconds|default:0 }}");
   const finishTimeUp = () => {
+    allowLeave();
     if (preview) { window.location.href = `${preview.finish_url}?timeup=1`; return; }
     if (rules.auto_submit) document.getElementById('auto-submit-form').submit();
     else window.location.href = submitUrl;
@@ -339,7 +411,7 @@
   }
 
   // Each question block: voice input, multi-answer limit, ordering, matching, matrix, image labels, playback.
-  blocks.forEach((block) => {
+  const initBlocks = () => blocks.forEach((block) => {
     window.ExamInteractions.voiceInput(block.querySelector('[data-voice-mic]'), block.querySelector('[data-voice-target]'));
     const multiRoot = block.querySelector('[data-max-select]');
     if (multiRoot) window.ExamInteractions.limitChoices(multiRoot, Number(multiRoot.dataset.maxSelect || 0));
@@ -365,18 +437,40 @@
   });
 
   // Live «وضعیت سؤال», progress and the question list; the server stays the source of truth on reload.
-  const answeredCount = document.querySelector('[data-answered-count]');
+  const answeredCountEl = () => document.querySelector('[data-answered-count]');
   const totalQuestions = {{ total_questions|default:1 }};
   const isAnswered = (block) => block.dataset.hasFiles === '1' || [...form.elements].some((el) => el.name === `answer_${block.dataset.questionId}`
     && ((el.type === 'radio' || el.type === 'checkbox') ? el.checked : el.value.trim()));
-  const answeredBefore = blocks.reduce((sum, block) => sum + (block.dataset.answered === '1' ? 1 : 0), 0);
-  const baseCount = Number(answeredCount.textContent.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) - answeredBefore;
+  const toNumber = (text) => Number(String(text).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) || 0;
+  // Answered questions other than the ones on screen (from the server's count); recomputed after each swap.
+  let baseCount = 0;
+  const initBaseCount = () => {
+    const answeredBefore = blocks.reduce((sum, block) => sum + (block.dataset.answered === '1' ? 1 : 0), 0);
+    baseCount = toNumber(answeredCountEl()?.textContent) - answeredBefore;
+  };
+  // A question's state shows in three places: its segment in the position bar, its cell in the list (strip) and the sheet.
+  const stateTargets = (index) => document.querySelectorAll(`[data-pos-seg="${index}"], [data-map-cell="${index}"]`);
+  const refreshCounts = () => {
+    const markedCount = document.querySelector('[data-marked-count]');
+    const openCount = document.querySelector('[data-open-count]');
+    const ring = document.querySelector('[data-pos-ring]');
+    const answered = toNumber(answeredCountEl()?.textContent);
+    const percent = Math.round(answered * 100 / totalQuestions);
+    if (markedCount) markedCount.textContent = fa(document.querySelectorAll('[data-pos-seg].is-marked').length);
+    if (openCount) openCount.textContent = fa(Math.max(0, totalQuestions - answered));
+    ring?.style.setProperty('--p', percent);
+    ring?.classList.toggle('is-empty', percent === 0);
+    // A count of zero stays grey (nothing filled yet), like the empty ring and segments.
+    document.querySelectorAll('.qx-pos-stat').forEach((chip) => chip.classList.toggle('is-zero', toNumber(chip.querySelector('b')?.textContent) === 0));
+    const percentText = document.querySelector('[data-progress-percent]');
+    if (percentText) percentText.textContent = fa(percent);
+  };
   const refreshAnswerState = () => {
     let count = baseCount;
-    blocks.forEach((block, index) => {
+    blocks.forEach((block) => {
       const answered = isAnswered(block);
       count += answered ? 1 : 0;
-      if (blocks.length > 1) document.querySelector(`[data-map-cell="${index + 1}"]`)?.classList.toggle('is-answered', answered);
+      stateTargets(block.dataset.questionIndex).forEach((el) => el.classList.toggle('is-answered', answered));
     });
     const stateBox = document.querySelector('[data-answer-state]');
     if (stateBox && blocks.length === 1) {
@@ -384,9 +478,98 @@
       stateBox.classList.toggle('is-answered', answered);
       stateBox.querySelector('[data-answer-state-text]').textContent = answered ? 'پاسخ داده‌شده' : 'بدون پاسخ';
     }
-    answeredCount.textContent = fa(count);
-    document.querySelector('[data-progress-bar]').style.width = `${Math.round(count * 100 / totalQuestions)}%`;
+    const answeredCount = answeredCountEl();
+    if (answeredCount) answeredCount.textContent = fa(count);
+    refreshCounts();
   };
+  // Choice answers can be taken back: a second tap on the chosen option (or «پاک کردن انتخاب») clears it. The server
+  // keeps an answer whose field is missing from the post, so a cleared question sends an explicit empty answer
+  // (a hidden answer_<id> = '' that exists only while nothing is chosen after a clear).
+  const syncChoice = (group) => {
+    const inputs = [...group.querySelectorAll('input[type=radio], input[type=checkbox]')];
+    if (!inputs.length) return;
+    const none = !inputs.some((input) => input.checked);
+    let blank = group.querySelector('input[data-empty-answer]');
+    if (none && !blank) {
+      blank = Object.assign(document.createElement('input'), { type: 'hidden', name: inputs[0].name, value: '' });
+      blank.dataset.emptyAnswer = '';
+      group.appendChild(blank);
+    } else if (!none && blank) {
+      blank.remove();
+    }
+    const clear = group.closest('[data-question-block]')?.querySelector('[data-clear-choice]');
+    if (clear) clear.hidden = none;
+  };
+  const choiceChanged = (input) => {
+    syncChoice(input.closest('.qx-options'));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  document.addEventListener('change', (event) => {
+    const group = event.target.closest?.('.qx-options');
+    if (group && form?.contains(group) && event.isTrusted) syncChoice(group);
+  });
+  const rememberChecked = (radio) => { if (radio) radio.dataset.wasChecked = radio.checked ? '1' : ''; };
+  document.addEventListener('pointerdown', (event) => {
+    rememberChecked(event.target.closest?.('.qx-option')?.querySelector('input[type=radio]'));
+  }, true);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === ' ' && event.target.matches?.('.qx-option input[type=radio]')) rememberChecked(event.target);
+  }, true);
+  document.addEventListener('click', (event) => {
+    const radio = event.target;
+    if (!radio.matches?.('.qx-options input[type=radio]') || !form?.contains(radio)) return;
+    const wasChecked = radio.dataset.wasChecked === '1';
+    delete radio.dataset.wasChecked;
+    if (!wasChecked || radio.disabled) return;
+    radio.checked = false;
+    choiceChanged(radio);
+  });
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('[data-clear-choice]');
+    if (!button || !form?.contains(button) || button.disabled) return;
+    const block = button.closest('[data-question-block]');
+    const checked = [...block.querySelectorAll('.qx-options input:checked')];
+    checked.forEach((input) => { input.checked = false; });
+    if (checked.length) choiceChanged(checked[0]);
+  });
+  // Enter in an answer field must not submit the form: its first submit button is «پایان آزمون» in the top bar.
+  form?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.isComposing && event.target.matches('input:not([type=checkbox]):not([type=radio]):not([type=file])')) event.preventDefault();
+  });
+  // Flag for review: the amber dot follows the checkbox at once (it is saved with the answer).
+  document.addEventListener('change', (event) => {
+    const box = event.target.closest?.('[data-mark-toggle]');
+    if (!box) return;
+    stateTargets(box.dataset.markToggle).forEach((el) => el.classList.toggle('is-marked', box.checked));
+    refreshCounts();
+  });
+  // Typing boxes follow what is typed: right-to-left for Persian, left-to-right once it starts with an English letter
+  // (an empty box stays right-to-left so the Persian placeholder sits right). Numeric fields stay left-to-right.
+  const TEXT_FIELDS = 'input.qx-input:not([inputmode="decimal"]):not(.qx-numeric-unit), input.qx-blank, textarea.qx-textarea';
+  const firstLetter = /[\u0590-\u065f\u066a-\u06ef\u06fa-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]|[A-Za-z\u00c0-\u024f]/;
+  const fitDir = (field) => {
+    const letter = firstLetter.exec(field.value || '');
+    field.dir = letter && /[A-Za-z\u00c0-\u024f]/.test(letter[0]) ? 'ltr' : 'rtl';
+  };
+  document.addEventListener('input', (event) => { if (event.target.matches?.(TEXT_FIELDS) && form?.contains(event.target)) fitDir(event.target); });
+  // Sets up what is on screen; runs again after each swap to another question.
+  const initQuestionArea = () => {
+    form?.querySelectorAll(TEXT_FIELDS).forEach(fitDir);
+    blocks = [...document.querySelectorAll('[data-question-block]')];
+    // An option's video is a still thumbnail (a click opens it large, with sound and controls).
+    form?.querySelectorAll('.qx-option > .qx-item-media--video video').forEach((video) => {
+      video.controls = false;
+      video.muted = true;
+      video.dataset.zoomVideo = video.currentSrc || video.getAttribute('src');
+      video.setAttribute('aria-label', 'پخش ویدئوی گزینه');
+    });
+    initRecorders();
+    initBlocks();
+    initBaseCount();
+    refreshCounts();
+  };
+  initQuestionArea();
   document.addEventListener('input', (event) => {
     if (event.target.form !== form) return;
     refreshAnswerState();
@@ -420,14 +603,199 @@
     document.addEventListener('focusin', enter, true);
   }
 
-  // Image zoom.
+  // Image zoom: the question's image frame and every option / item image open the zoom view; a click on the
+  // picture there toggles a closer look around that point (scroll / drag to move), the backdrop or Esc closes it.
   const lightbox = document.querySelector('[data-lightbox]');
-  document.querySelectorAll('[data-zoom]').forEach((button) => button.addEventListener('click', () => {
-    lightbox.querySelector('img').src = button.closest('figure').querySelector('img').src;
+  const lbStage = lightbox.querySelector('[data-lb-stage]');
+  const lbImg = lightbox.querySelector('[data-lb-img]');
+  const lbCaption = lightbox.querySelector('[data-lb-caption]');
+  const lbVideo = lightbox.querySelector('[data-lb-video]');
+  let lbOpener = null;
+  // A small picture is enlarged to fill the view (up to 3×); a large one is shrunk to fit by the CSS.
+  const lbFit = () => {
+    if (!lbImg.naturalWidth || lbStage.classList.contains('is-zoomed')) return;
+    const scale = Math.min(lbStage.clientWidth / lbImg.naturalWidth, lbStage.clientHeight / lbImg.naturalHeight, 3);
+    lbImg.style.width = scale > 1 ? `${Math.floor(lbImg.naturalWidth * scale)}px` : '';
+  };
+  lbImg.addEventListener('load', lbFit);
+  const lbReset = () => { lbStage.classList.remove('is-zoomed'); lbImg.style.width = ''; lbFit(); };
+  const openZoom = (src, caption, opener, isVideo = false) => {
+    lbReset();
+    lbImg.hidden = isVideo;
+    lbVideo.hidden = !isVideo;
+    lightbox.querySelector('.qx-lb-bar small').hidden = isVideo;
+    if (isVideo) { lbVideo.src = src; lbVideo.play().catch(() => {}); } else lbImg.src = src;
+    lbImg.alt = caption || '';
+    lbCaption.textContent = caption || '';
+    lbOpener = opener;
     lightbox.hidden = false;
-  }));
-  lightbox.addEventListener('click', () => { lightbox.hidden = true; });
-  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') lightbox.hidden = true; });
+    lightbox.querySelector('[data-lb-close]').focus();
+  };
+  const closeZoom = () => {
+    if (lightbox.hidden) return;
+    lightbox.hidden = true;
+    lbImg.removeAttribute('src');
+    lbVideo.pause();
+    lbVideo.removeAttribute('src');
+    lbVideo.load();
+    lbOpener?.focus?.({ preventScroll: true });
+  };
+  // Capture phase: an image inside an option / matching card zooms instead of choosing that answer.
+  document.addEventListener('click', (event) => {
+    const frame = event.target.closest?.('[data-zoom-src]');
+    const image = frame ? null : event.target.closest?.('img[data-zoomable], video[data-zoom-video]');
+    if (!frame && !image) return;
+    if (image && !form?.contains(image)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (frame) openZoom(frame.dataset.zoomSrc, frame.dataset.zoomCaption, frame);
+    else if (image.tagName === 'VIDEO') openZoom(image.dataset.zoomVideo, '', image, true);
+    else openZoom(image.currentSrc || image.src, image.alt, image);
+  }, true);
+  lbImg.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (lbStage.classList.contains('is-zoomed')) { lbReset(); return; }
+    const box = lbImg.getBoundingClientRect();
+    const fx = (event.clientX - box.left) / box.width, fy = (event.clientY - box.top) / box.height;
+    lbImg.style.width = `${Math.round(Math.max(lbImg.naturalWidth, box.width * 2.2))}px`;
+    lbStage.classList.add('is-zoomed');
+    lbStage.scrollLeft = fx * lbImg.offsetWidth - lbStage.clientWidth / 2;
+    lbStage.scrollTop = fy * lbImg.offsetHeight - lbStage.clientHeight / 2;
+  });
+  lightbox.addEventListener('click', (event) => { if (event.target !== lbImg && event.target !== lbVideo) closeZoom(); });
+  // Drag to move around a zoomed picture (mouse; touch scrolls natively).
+  let drag = null;
+  lbStage.addEventListener('pointerdown', (event) => {
+    if (event.pointerType !== 'mouse' || !lbStage.classList.contains('is-zoomed')) return;
+    drag = { x: event.clientX, y: event.clientY, left: lbStage.scrollLeft, top: lbStage.scrollTop, moved: false };
+  });
+  window.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    if (Math.abs(event.clientX - drag.x) + Math.abs(event.clientY - drag.y) > 4) drag.moved = true;
+    lbStage.scrollLeft = drag.left - (event.clientX - drag.x);
+    lbStage.scrollTop = drag.top - (event.clientY - drag.y);
+  });
+  window.addEventListener('pointerup', () => {
+    if (drag?.moved) lbImg.addEventListener('click', (e) => e.stopImmediatePropagation(), { capture: true, once: true });
+    drag = null;
+  });
+
+  // Question list under the question: the current question is scrolled into the middle of the row, the mouse
+  // wheel scrolls the row sideways, and the grid button opens every question in a sheet (filterable).
+  const getStrip = () => document.querySelector('[data-strip]');
+  const centerCell = (cell, smooth) => {
+    const strip = getStrip();
+    if (!strip || !cell) return;
+    const a = strip.getBoundingClientRect(), b = cell.getBoundingClientRect();
+    // Horizontal row (wide screens) or wrapped rows (phones): bring the cell to the middle either way.
+    // Wrapped rows scroll by whole rows: the current one becomes the top row.
+    const top = strip.scrollHeight > strip.clientHeight + 1 ? b.top - a.top - 6 : 0;
+    strip.scrollBy({ left: (b.left + b.width / 2) - (a.left + a.width / 2), top, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  document.addEventListener('wheel', (event) => {
+    const strip = event.target.closest?.('[data-strip]');
+    if (!strip || Math.abs(event.deltaY) <= Math.abs(event.deltaX) || strip.scrollWidth <= strip.clientWidth) return;
+    event.preventDefault();
+    strip.scrollBy({ left: -event.deltaY });
+  }, { passive: false });
+  // Question list (number + start of the question + answered / flagged). Rows carry data-map-cell, so answering or
+  // flagging updates them live; after moving to another question they take «current» from the number row.
+  const sheet = document.querySelector('[data-sheet]');
+  let syncList = () => {};
+  if (sheet) {
+    const rows = [...sheet.querySelectorAll('[data-qrow]')];
+    const empty = sheet.querySelector('[data-sheet-empty]');
+    const search = sheet.querySelector('[data-sheet-search]');
+    let filter = 'all';
+    let opener = null;
+    // Persian / Arabic letters and digits compared alike, so «ي» finds «ی» and «3» finds «۳».
+    const fold = (text) => String(text || '').toLowerCase()
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/\u064a/g, '\u06cc').replace(/\u0643/g, '\u06a9').replace(/[\u200c\u064b-\u0652]/g, '').replace(/\s+/g, ' ').trim();
+    rows.forEach((row) => { row.dataset.fold = fold(row.dataset.search); });
+    const matches = (row) => filter === 'all'
+      || (filter === 'answered' && row.classList.contains('is-answered'))
+      || (filter === 'open' && !row.classList.contains('is-answered'))
+      || (filter === 'marked' && row.classList.contains('is-marked'));
+    const render = () => {
+      const query = fold(search?.value);
+      let shown = 0;
+      rows.forEach((row) => {
+        const visible = matches(row) && (!query || row.dataset.fold.includes(query));
+        row.hidden = !visible;
+        shown += visible ? 1 : 0;
+      });
+      empty.hidden = shown > 0;
+      const count = (test) => fa(rows.filter(test).length);
+      sheet.querySelectorAll('[data-sheet-count]').forEach((badge) => {
+        const kind = badge.dataset.sheetCount;
+        badge.textContent = count((row) => kind === 'answered' ? row.classList.contains('is-answered')
+          : kind === 'open' ? !row.classList.contains('is-answered') : row.classList.contains('is-marked'));
+      });
+    };
+    syncList = () => {
+      const strip = getStrip();
+      rows.forEach((row) => {
+        const cell = strip?.querySelector(`.qx-cell[data-map-cell="${row.dataset.qrow}"]`);
+        if (!cell) return;
+        ['is-current', 'is-answered', 'is-marked'].forEach((name) => row.classList.toggle(name, cell.classList.contains(name)));
+      });
+      if (!sheet.hidden) render();
+    };
+    const openSheet = (button) => {
+      opener = button;
+      syncList();
+      render();
+      sheet.hidden = false;
+      const current = sheet.querySelector('.qx-qrow.is-current:not([hidden])');
+      current?.scrollIntoView({ block: 'center' });
+      (current?.querySelector('.qx-qrow-link') || sheet.querySelector('[data-sheet-close]')).focus({ preventScroll: true });
+    };
+    const closeSheet = () => { if (sheet.hidden) return; sheet.hidden = true; opener?.focus({ preventScroll: true }); };
+    document.addEventListener('click', (event) => { const button = event.target.closest?.('[data-sheet-open]'); if (button) openSheet(button); });
+    sheet.addEventListener('click', (event) => {
+      if (event.target === sheet || event.target.closest('[data-sheet-close]')) { closeSheet(); return; }
+      const chip = event.target.closest('[data-sheet-filter]');
+      if (chip) {
+        filter = chip.dataset.sheetFilter;
+        sheet.querySelectorAll('[data-sheet-filter]').forEach((b) => { b.classList.toggle('is-active', b === chip); b.setAttribute('aria-pressed', String(b === chip)); });
+        render();
+        return;
+      }
+      if (event.target.closest('a.qx-qrow-link, button.qx-qrow-link')) closeSheet();  // jump to that question
+    });
+    search?.addEventListener('input', render);
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeSheet(); });
+  }
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeZoom(); });
+
+  // All questions on one page: the position bar and the list follow the question being read.
+  if (blocks.length > 1) {
+    const track = document.querySelector('[data-pos-track]');
+    const posCurrent = document.querySelectorAll('[data-pos-current]');
+    const strip = getStrip();
+    let shown = 0;
+    const follow = () => {
+      const line = window.innerHeight * 0.35;
+      let current = blocks[0];
+      blocks.forEach((block) => { if (block.getBoundingClientRect().top <= line) current = block; });
+      const index = Number(current.dataset.questionIndex);
+      if (index === shown) return;
+      shown = index;
+      track?.style.setProperty('--pos', index);
+      posCurrent.forEach((el) => { el.textContent = fa(index); });
+      strip?.querySelectorAll('.qx-cell').forEach((cell) => cell.classList.toggle('is-current', Number(cell.dataset.mapCell) === index));
+      track?.querySelectorAll('[data-pos-seg]').forEach((seg) => {
+        seg.classList.toggle('is-current', Number(seg.dataset.posSeg) === index);
+        seg.classList.toggle('is-done', Number(seg.dataset.posSeg) <= index);
+      });
+      centerCell(strip?.querySelector('.is-current'), true);
+      syncList();
+    };
+    let pending = false;
+    window.addEventListener('scroll', () => { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; follow(); }); } }, { passive: true });
+    follow();
+  }
 
   // Proctoring (step 6 of the wizard): signals go to the server and the teacher sees them per student.
   const proctorNotice = document.createElement('div');
@@ -553,17 +921,148 @@
     start();
   }
 
-  // While the exam is open, «Back» / «Forward» (and Alt+←) stay on it: leaving is «پایان آزمون» or the end of time.
-  if ({% if practice or preview %}false{% else %}true{% endif %}) {  // practice attempts and previews may be left freely
-    const stay = () => history.pushState({ mqExam: true }, '', window.location.href);
-    stay();
+  // Moving between questions without a reload: «قبلی», «سؤال بعدی» and the question numbers send the same post as
+  // before (the server saves the answer and redirects to ?q=n); the question, position card and dock are taken from
+  // that page and swapped in, and the address bar follows. Anything else — «پایان آزمون», feedback in a practice
+  // exam, a redirect away from this page (time over, submitted, another device), an error page — loads normally.
+  // Other handlers may have stopped the submit first (recording in progress, offline): then nothing happens here.
+  centerCell(getStrip()?.querySelector('.is-current'), false);
+  let examUrl = window.location.pathname + window.location.search;  // follows the question switches below
+  if (rules.one_per_page && window.fetch && window.DOMParser) {
+    let navigating = false;
+    const isMove = (button) => !!button && ((button.name === 'action' && ['next', 'previous'].includes(button.value)) || button.name === 'goto');
+    const swapIn = (doc) => {
+      const parts = ['.qx-pos', '.qx-dock'].map((selector) => [document.querySelector(selector), doc.querySelector(selector)]);
+      const nextForm = doc.getElementById('answer-form');
+      if (!nextForm || parts.some(([here, there]) => !here || !there)) return false;
+      ['data-question-id', 'data-answered', 'data-has-files'].forEach((name) => form.setAttribute(name, nextForm.getAttribute(name) || ''));
+      form.replaceChildren(...[...nextForm.childNodes].map((node) => document.importNode(node, true)));
+      parts.forEach(([here, there]) => here.replaceWith(document.importNode(there, true)));
+      initQuestionArea();
+      centerCell(getStrip()?.querySelector('.is-current'), false);
+      syncList();
+      if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        form.animate?.([{ opacity: 0.4, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
+      }
+      [form, document.querySelector('.qx-pos'), document.querySelector('.qx-dock')].forEach((el) => el?.dispatchEvent(new CustomEvent('mq:live-load', { bubbles: true })));
+      return true;
+    };
+    form.addEventListener('submit', async (event) => {
+      if (event.defaultPrevented || !isMove(event.submitter)) return;
+      event.preventDefault();
+      if (navigating) return;
+      navigating = true;
+      clearTimeout(saveTimer);
+      const body = new FormData(form);
+      body.append(event.submitter.name, event.submitter.value);
+      const wrap = document.querySelector('.qx-wrap:not(.qx-pv-wrap)');
+      wrap?.classList.add('is-navigating');
+      wrap?.setAttribute('aria-busy', 'true');
+      try {
+        const response = await fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' });
+        if (response.status === 423 || response.status === 403) { allowLeave(); window.location.reload(); return; }  // another device / network
+        const target = new URL(response.url);
+        const html = (response.headers.get('content-type') || '').includes('text/html');
+        if (!response.ok || !html || target.pathname !== window.location.pathname) { allowLeave(); window.location.assign(response.url); return; }
+        const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+        dirty = false;
+        if (!swapIn(doc)) { allowLeave(); window.location.assign(response.url); return; }
+        examUrl = target.pathname + target.search;
+        history.replaceState(history.state, '', examUrl);
+        if (navigator.onLine) setConnection(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const heading = form.querySelector('.qx-qhead h3');
+        if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+      } catch (error) {
+        // Not saved: the answer stays on screen and is sent again with the next try.
+        dirty = true;
+        setSaveState('رفتن به سؤال دیگر انجام نشد (پاسخ این سؤال هنوز ذخیره نشده است)؛ اتصال را بررسی کنید و دوباره بزنید.', true);
+        setConnection(false, navigator.onLine ? 'ارتباط با سرور برقرار نشد' : undefined);
+      } finally {
+        navigating = false;
+        wrap?.classList.remove('is-navigating');
+        wrap?.removeAttribute('aria-busy');
+      }
+    });
+  }
+
+  // While the exam is open the student stays on it: leaving is «پایان آزمون» or the end of time.
+  // - «Back» / «Forward» (buttons, Alt+←/→, mouse side buttons, swipe): an extra history entry on top of the page
+  //   catches them. Chrome skips entries added without a user action, so the entry is re-added on every click / key.
+  // - Anything that still leaves the document (history menu, typed address, closing the tab) gets the browser's
+  //   «Leave site?» prompt, and the server sends every other page of the site back here (apps/core/exam_lock.py).
+  // - Inspect / view-source shortcuts and the context menu are blocked. A browser cannot really stop DevTools; the
+  //   answer key never reaches the page and the server checks everything, so this only discourages and reports.
+  // Each kind of try is reported to the teacher at most every 10 seconds.
+  const examLocked = {% if practice or preview %}false{% else %}true{% endif %};  // practice attempts and previews may be left freely
+  if (examLocked) {
+    const lastReport = {};
+    const report = (event) => {
+      const now = Date.now();
+      if (now - (lastReport[event] || 0) < 10000) return;
+      lastReport[event] = now;
+      postEvent(event);
+    };
+    const backMessage = 'تا پایان آزمون نمی‌توانید از صفحه‌ی آزمون خارج شوید یا نشانی را تغییر دهید؛ برای خروج «پایان آزمون» را بزنید.';
+    const isTrap = () => !!(history.state && history.state.mqExamTrap);
+    const arm = () => {
+      if (isTrap()) return;
+      history.replaceState(Object.assign({}, history.state, { mqExamTrap: false }), '', examUrl);
+      history.pushState({ mqExamTrap: true }, '', examUrl);
+    };
+    arm();
     window.addEventListener('popstate', () => {
-      stay();
-      notify('تا پایان آزمون نمی‌توانید با دکمه‌ی بازگشت مرورگر از صفحه‌ی آزمون خارج شوید؛ برای خروج «پایان آزمون» را بزنید.');
+      if (leaveAllowed || isTrap()) return;  // back from an in-page #q-n jump onto the guard entry is fine
+      arm();
+      notify(backMessage);
+      report('navigation');
+    }, true);
+    ['pointerdown', 'keydown', 'touchstart'].forEach((type) => document.addEventListener(type, arm, { capture: true, passive: true }));
+    // Mouse side buttons (3 = back, 4 = forward) navigate on release unless cancelled.
+    ['mousedown', 'mouseup', 'pointerup', 'auxclick'].forEach((type) => document.addEventListener(type, (event) => {
+      if (event.button === 3 || event.button === 4) { event.preventDefault(); event.stopPropagation(); }
+    }, true));
+    const editable = (el) => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+    document.addEventListener('keydown', (event) => {
+      const key = (event.key || '').toLowerCase();
+      const code = event.code || '';
+      const mod = event.ctrlKey || event.metaKey;
+      const back = (event.altKey && ['arrowleft', 'arrowright', 'home'].includes(key))
+        || ['browserback', 'browserforward', 'browserhome'].includes(key)
+        || (key === 'backspace' && !editable(event.target))
+        || (mod && ['[', ']'].includes(key));                                   // macOS back / forward
+      const inspect = key === 'f12'
+        || (mod && event.shiftKey && ['KeyI', 'KeyJ', 'KeyC', 'KeyK', 'KeyE', 'KeyM'].includes(code))
+        || (event.metaKey && event.altKey && ['KeyI', 'KeyJ', 'KeyC', 'KeyU'].includes(code))
+        || (mod && !event.shiftKey && code === 'KeyU');                         // view source
+      if (!back && !inspect) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (inspect) {
+        notify('ابزار توسعه‌دهنده و دیدن کد صفحه در آزمون مجاز نیست و برای استاد ثبت شد.');
+        report('devtools');
+      } else {
+        notify(backMessage);
+      }
+    }, true);
+    document.addEventListener('contextmenu', (event) => event.preventDefault(), true);
+    // A real page change: allowed after a submit nothing cancelled; anything else asks first and is reported.
+    window.addEventListener('submit', (event) => { if (!event.defaultPrevented) allowLeave(); });
+    window.addEventListener('beforeunload', (event) => {
+      if (leaveAllowed) return;
+      if (eventUrl && navigator.sendBeacon) {
+        const data = new FormData();
+        data.append('csrfmiddlewaretoken', csrf);
+        data.append('event', 'navigation');
+        navigator.sendBeacon(eventUrl, data);
+      }
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
     });
   }
   // A page restored from the browser's memory (back / forward) is asked again: a finished attempt opens its receipt.
-  window.addEventListener('pageshow', (event) => { if (event.persisted) window.location.reload(); });
+  window.addEventListener('pageshow', (event) => { if (event.persisted) { allowLeave(); window.location.reload(); } });
   if (proctoring.fullscreen && document.documentElement.requestFullscreen) {
     // Each question is a new page and browsers drop full screen on navigation: the gate shows once, later pages
     // return to full screen on the student's first click or key, and only a deliberate exit is reported.
@@ -572,7 +1071,7 @@
     const markEntered = () => { try { sessionStorage.setItem(fsKey, '1'); } catch (error) { /* private mode: the gate shows again */ } };
     const enter = () => document.documentElement.requestFullscreen().catch(() => {});
     let leaving = false;
-    window.addEventListener('beforeunload', () => { leaving = true; });
+    window.addEventListener('beforeunload', () => { leaving = true; setTimeout(() => { leaving = false; }, 1000); });  // reset when «Leave site?» is cancelled
     const gate = document.createElement('div');
     gate.className = 'qx-overlay';  // its [hidden] rule really hides it (an inline display would keep it on screen)
     gate.innerHTML = '<div><p style="margin:0 0 14px">این آزمون در حالت تمام‌صفحه برگزار می‌شود. خروج از تمام‌صفحه برای استاد ثبت می‌شود.</p><button type="button" class="qx-btn qx-btn--primary">ورود به حالت تمام‌صفحه</button></div>';

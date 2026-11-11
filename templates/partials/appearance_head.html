@@ -5,6 +5,9 @@ applied, responsive-tables.js has turned tables into cards/icon buttons — and 
 a failsafe: the page shows after 2.5s even if a script fails. Without JS the class is never set, nothing is hidden.{% endcomment %}
 <link rel="preload" href="{% static 'fonts/Vazirmatn.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{% static 'fonts/Lalezar.woff2' %}" as="font" type="font/woff2" crossorigin>
+{# Site-wide loader (logo + ring) for every load: first paint, leaving the page, live regions, fetch() — see the JS header. #}
+<link rel="stylesheet" href="{% static 'css/page-loader.css' %}?v=20261111d">
+<script src="{% static 'js/page-loader.js' %}?v=20261111e"></script>
 <style>
 @font-face{font-family:'Vazirmatn';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:block}
 @font-face{font-family:'B Yekan';src:url('{% static "fonts/Vazirmatn.woff2" %}') format('woff2');font-weight:100 900;font-style:normal;font-display:block}
@@ -16,7 +19,7 @@ html.mq-loading body{opacity:0;animation:mq-reveal 0s 2.5s forwards}
 (() => {
   const root = document.documentElement;
   root.classList.add('mq-loading');
-  const show = () => root.classList.remove('mq-loading');
+  const show = () => { root.classList.remove('mq-loading'); if (window.mqLoader) window.mqLoader.bootDone(); };
   setTimeout(show, 2500);
   document.addEventListener('DOMContentLoaded', () => {
     const font = document.fonts && document.fonts.load ? document.fonts.load('400 1em Vazirmatn').catch(() => {}) : null;
@@ -24,5 +27,8 @@ html.mq-loading body{opacity:0;animation:mq-reveal 0s 2.5s forwards}
   });
 })();
 </script>
-<link rel="stylesheet" href="{% static 'css/appearance.css' %}?v=20261108b">
-<script src="{% static 'js/appearance.js' %}?v=20261108d"></script>
+{# An exam in progress (apps/core/exam_lock.py): a page brought back from the back/forward cache asks the server again, which returns the student to the exam. #}
+<script>window.addEventListener('pageshow',function(e){if(e.persisted&&/(?:^|;\s*)mq_exam_lock=1(?:;|$)/.test(document.cookie)){window.mqAllowLeave&&window.mqAllowLeave();location.reload();}});</script>
+<link rel="stylesheet" href="{% static 'css/appearance.css' %}?v=20261111fs">
+<script src="{% static 'js/appearance.js' %}?v=20261111fs"></script>
+{% if request.user.is_authenticated %}<script src="{% static 'js/my-appearance.js' %}?v=20261111c" defer></script>{% endif %}{# the account's own «تنظیمات ظاهری» card (partials/my_appearance.html) #}

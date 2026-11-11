@@ -1,0 +1,24 @@
+/* Multi-select dropdown of question types (question bank filters, exam wizard, exam edit).
+   Markup: <details class="type-ms" data-type-ms><summary><span data-type-ms-text>…</span><svg/></summary>
+   <div class="type-ms-panel"><button type="button" class="type-ms-all" data-type-ms-clear>…</button>
+   <label class="type-ms-opt"><input type="checkbox" data-type-option value="key"><span class="type-ms-ico">svg</span><span class="type-ms-label">…</span></label>…</div></details>
+   Behaviour: static/js/type-multiselect.js. Doubled classes beat the bank filter's generic input/button/label/svg rules. */
+.type-ms.type-ms { position: relative; min-width: 0; display: block; }
+.type-ms.type-ms > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: .4rem; height: 2.8rem; border: 1px solid #cbd9ec; border-radius: .65rem; padding: 0 .8rem; background: #fff; color: #334155; cursor: pointer; user-select: none; }
+.type-ms.type-ms > summary::-webkit-details-marker { display: none; }
+.type-ms.type-ms > summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.type-ms.type-ms > summary svg { position: static; transform: none; width: 1rem; height: 1rem; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; color: inherit; }
+.type-ms.type-ms[open] > summary { border-color: #6b7cff; }
+.type-ms.type-ms[open] > summary svg { transform: rotate(180deg); }
+.type-ms.type-ms.has-value > summary { border-color: #6b7cff; background: #f5f4ff; color: #315cff; font-weight: 600; }
+.type-ms.type-ms .type-ms-panel { position: absolute; z-index: 40; top: calc(100% + .3rem); inset-inline-start: 0; width: max(100%, min(16rem, calc(100vw - 2rem))); max-height: 21rem; overflow: auto; background: #fff; border: 1px solid #e1e8f3; border-radius: .75rem; box-shadow: 0 12px 30px rgba(15, 23, 42, .14); padding: .35rem; }
+.type-ms.type-ms.is-up .type-ms-panel { top: auto; bottom: calc(100% + .3rem); }
+.type-ms.type-ms .type-ms-all { display: block; width: 100%; height: auto; text-align: start; border: 0; background: none; box-shadow: none; padding: .5rem .6rem; border-radius: .5rem; color: #315cff; font-size: .88rem; font-weight: 600; cursor: pointer; }
+.type-ms.type-ms .type-ms-all:hover, .type-ms.type-ms .type-ms-opt:hover { background: #f1f5ff; }
+.type-ms.type-ms .type-ms-opt { position: static; display: flex; align-items: center; gap: .55rem; padding: .4rem .6rem; border-radius: .5rem; cursor: pointer; font-size: .88rem; font-weight: 400; color: #23314d; }
+.type-ms.type-ms .type-ms-opt input { width: 1rem; height: 1rem; flex-shrink: 0; margin: 0; padding: 0; border: 0; box-shadow: none; accent-color: #315cff; }
+.type-ms.type-ms .type-ms-ico { display: grid; place-items: center; width: 1.7rem; height: 1.7rem; flex-shrink: 0; border-radius: .45rem; background: #eef4ff; color: #315cff; }
+.type-ms.type-ms .type-ms-ico svg { position: static; transform: none; width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; color: inherit; }
+.type-ms.type-ms .type-ms-label { min-width: 0; }
+/* inside the question bank filter row: same size as its selects */
+.question-bank-filters .type-ms.type-ms > summary { height: 3rem; border-color: #d4dfef; border-radius: .75rem; padding: 0 1rem; font-size: .875rem; font-weight: 600; }

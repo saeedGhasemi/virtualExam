@@ -11,7 +11,8 @@
 // * A view switch (`[data-rt-switch="key"]` with `[data-rt-view="table|cards"]` buttons, optional
 //   `data-rt-target="selector"`, default: the tables of the switch's closest section) lets the user pick table or
 //   cards. Every page load opens on `data-rt-default` (cards unless set); the choice lasts while the page is open
-//   (live-region filtering/paging keeps it), it is not stored.
+//   (live-region filtering/paging keeps it), it is not stored. A table picked this way stays a table whenever it fits
+//   with wrapped text (the "squeezed" check is skipped); only a table that would still stick out becomes cards.
 // * Action buttons (the «عملیات» column) with a known label (ویرایش، مشاهده، حذف، گزارش، نتایج، تصحیح…) become icon
 //   buttons (rt-ico): the label moves to title + a visually hidden span (screen readers, tests and textContent keep it),
 //   a count like «تصحیح (۶)» becomes a badge, حذف is red, filled buttons stay filled. Unknown labels, menu items and
@@ -203,11 +204,23 @@
     const onlyControls = (i) => rows.length && rows.every((row) => { const c = row.cells[i]; if (!c) return false; const clone = c.cloneNode(true); clone.querySelectorAll('a, button, form, select, details, [role=menu], .dropdown-menu').forEach((n) => n.remove()); return !clone.textContent.trim() && c.querySelector('a, button, select'); });    let titleCol = names.findIndex((n, i) => n && !NO_TITLE_HEAD.test(n) && !ACTION_HEAD.test(n) && hasText(i));
     const actionCols = names.map((n, i) => (i !== titleCol && (ACTION_HEAD.test(n) || (i === names.length - 1 && onlyControls(i))) ? i : -1)).filter((i) => i >= 0);
     head.forEach((cell) => cell.classList.add('rt-th'));
+    // card layout is decided per column, so every card of a table looks the same:
+    // a column with a long value anywhere takes a full row (wide); short ones are tiles, two per row
+    // (an odd last tile takes the whole row); wide columns after the first tile go to the card bottom (rt-wide-end)
+    const fields = names.map((n, i) => i).filter((i) => names[i] && i !== titleCol && !actionCols.includes(i));
+    const wideCols = fields.filter((i) => rows.some((row) => row.cells[i] && row.cells[i].textContent.trim().replace(/\s+/g, ' ').length > 30));
+    const tileCols = fields.filter((i) => !wideCols.includes(i));
+    const oddCol = tileCols.length % 2 ? tileCols.pop() : -1;
+    const endCols = wideCols.filter((i) => tileCols.length && i > tileCols[0]);
+    if (oddCol >= 0) wideCols.push(oddCol);
     for (const row of rows) {
       [...row.cells].forEach((cell, i) => {
         if (!cell.hasAttribute('data-label')) cell.setAttribute('data-label', names[i] || '');
         if (i === titleCol) cell.classList.add('rt-head');
         if (actionCols.includes(i)) { cell.classList.add('rt-act'); iconize(cell); }
+        if (wideCols.includes(i)) cell.classList.add('rt-wide');
+        if (endCols.includes(i)) cell.classList.add('rt-wide-end');
+        if (i === oddCol) cell.classList.add('rt-wide-odd');
       });
     }
     if (!table.matches('[data-rt-align="keep"]')) {
@@ -257,12 +270,14 @@
       const room = box.clientWidth - (parseFloat(bs.paddingLeft) || 0) - (parseFloat(bs.paddingRight) || 0);
       const natural = table.offsetWidth;
       if (natural <= room + 2 && !spills(table)) return;
-      // a little too wide: let long text wrap before giving up the table (much too wide would squeeze every column)
-      if (natural <= room * 1.35) {
+      // a little too wide: let long text wrap before giving up the table (much too wide would squeeze every column).
+      // A table the user (or the switch's default) asked for stays a table whenever it fits with wrapping.
+      const picked = table.dataset.rtView === 'table';
+      if (picked || natural <= room * 1.35) {
         table.classList.add('rt-fit');
-        if (table.offsetWidth <= room + 2 && !squeezed(table) && !spills(table)) return;
+        if (table.offsetWidth <= room + 2 && (picked || !squeezed(table)) && !spills(table)) return;
         table.classList.add('rt-fit-act'); // then let action buttons wrap onto a second line
-        if (table.offsetWidth <= room + 2 && !squeezed(table) && !spills(table)) return;
+        if (table.offsetWidth <= room + 2 && (picked || !squeezed(table)) && !spills(table)) return;
         table.classList.remove('rt-fit', 'rt-fit-act');
       }
       table.classList.add('rt-cards');

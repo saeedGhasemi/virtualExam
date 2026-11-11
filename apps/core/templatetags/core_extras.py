@@ -1,5 +1,6 @@
 import contextvars
 import json
+import re
 from datetime import datetime
 
 from django import template
@@ -16,6 +17,25 @@ def fa_digits(value):
     if value is None:
         return ''
     return str(value).translate(PERSIAN_DIGITS)
+
+
+_RTL_CHARS = re.compile(r'[\u0590-\u065f\u066a-\u06ef\u06fa-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]')  # letters only: Arabic-Indic / Persian digits are neutral like 0-9
+_LTR_CHARS = re.compile(r'[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]')
+
+
+@register.filter
+def text_dir(value, default='rtl'):
+    """'rtl' or 'ltr' from the first letter of the text (like dir="auto"), the default when it has no letters.
+    Used so an English question / option lays out left-to-right inside the Persian page."""
+    text = str(value or '')
+    rtl, ltr = _RTL_CHARS.search(text), _LTR_CHARS.search(text)
+    if rtl and ltr:
+        return 'rtl' if rtl.start() < ltr.start() else 'ltr'
+    if ltr:
+        return 'ltr'
+    if rtl:
+        return 'rtl'
+    return default
 
 
 @register.filter
