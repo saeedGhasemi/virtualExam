@@ -10376,27 +10376,6 @@ def super_admin_org_units(request):
 
     rows = [row_for(unit) for unit in units]
     rows.sort(key=lambda row: (row['level'], row['parent_name'], row['name']))
-    # tree: each university followed by its departments; a unit whose parent is out of view starts a branch
-    children = {}
-    for row in rows:
-        children.setdefault(row['parent_id'] if row['parent_id'] in unit_by_id else '', []).append(row)
-    tree = []
-
-    def add(row, depth):
-        tree.append({**row, 'depth': min(depth, 2)})
-        for child in children.get(row['id'], []):
-            add(child, depth + 1)
-
-    for root in children.get('', []):
-        add(root, 0)
-    # the same tree as one column per top unit (the page lays the columns side by side)
-    tree_branches = []
-    for node in tree:
-        if node['depth'] == 0 or not tree_branches:
-            tree_branches.append({**node, 'items': []})
-        else:
-            tree_branches[-1]['items'].append(node)
-
     admins = erd_count('user_roles', "role = 'admin'")
     level_cards = []
     for number, info in org_levels.LEVELS.items():
@@ -10413,8 +10392,6 @@ def super_admin_org_units(request):
         'level_cards': level_cards,
         'permission_rows': org_levels.PERMISSIONS,
         'org_rows': rows,
-        'tree': tree,
-        'tree_branches': tree_branches,
         'settings_active_tab': 'org',
     })
 

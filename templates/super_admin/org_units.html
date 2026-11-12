@@ -113,32 +113,6 @@
                 </table>
             </section>
 
-            {# tree: each university as a row, its departments as a grid under it (views: tree_branches) #}
-            <section class="org-table-card ou-card ou-tree-card">
-                <h2>نمودار ساختار</h2>
-                {% if is_admin %}<div class="ou-node blue ou-root"><b>مدیر سیستم</b><small>سطح ۱ · کل سامانه</small></div>{% endif %}
-                <div class="ou-branches{% if is_admin %} under-root{% endif %}">
-                    {% for branch in tree_branches %}
-                        <div class="ou-branch">
-                            <div class="ou-node {{ branch.tone }}">
-                                <b>{{ branch.name|fa_digits }}</b>
-                                <small>سطح {{ branch.level|fa_digits }} · {% if branch.managers %}{% for manager in branch.managers %}{{ manager.full_name }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}بدون مدیر{% endif %}</small>
-                                <small>{{ branch.teachers|fa_digits }} استاد · {{ branch.students|fa_digits }} دانشجو</small>
-                            </div>
-                            {% if branch.items %}<div class="ou-kids" data-balance-rows>{% for node in branch.items %}
-                                <div class="ou-node {{ node.tone }} depth-{{ node.depth }}">
-                                    <b>{{ node.name|fa_digits }}</b>
-                                    <small>سطح {{ node.level|fa_digits }} · {% if node.managers %}{% for manager in node.managers %}{{ manager.full_name }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}بدون مدیر{% endif %}</small>
-                                    <small>{{ node.teachers|fa_digits }} استاد · {{ node.students|fa_digits }} دانشجو</small>
-                                </div>
-                            {% endfor %}</div>{% endif %}
-                        </div>
-                    {% empty %}
-                        <p class="ou-muted ou-empty">ساختاری برای نمایش وجود ندارد.</p>
-                    {% endfor %}
-                </div>
-            </section>
-
             <section class="org-table-card ou-card ou-matrix-card">
                 <h2>دسترسی هر سطح</h2>
                 <table class="ou-matrix rt-off">
@@ -462,8 +436,8 @@
     /* toolbar buttons: compact, label on one line */
     .org-settings .org-actions .org-level-create,.org-settings .org-actions .org-open-form{white-space:nowrap;height:2.45rem!important;min-width:0!important;padding:0 .85rem!important;border-radius:.75rem!important;font-size:.8rem!important;gap:.4rem!important}
     .org-settings .org-actions .org-level-create svg,.org-settings .org-actions .org-open-form svg{width:.95rem;height:.95rem;flex:none}
-    /* Page layout (one column, no empty space): tabs › level cards › units table › tree › access matrix.
-       Every block is full width, tables fill their card, the tree is one column per university. */
+    /* Page layout (one column, no empty space): tabs › level cards › units table › access matrix.
+       Every block is full width, tables fill their card. */
     .org-settings .settings-layout.ou-layout{display:block!important;min-height:0}
     .org-settings .settings-main-card.ou-main{display:flex;flex-direction:column;gap:.85rem;min-width:0;padding:.85rem}
     .org-settings .ou-main>*{margin:0!important;min-width:0}
@@ -494,16 +468,6 @@
     .org-settings .status-pill.ou-off{background:#f1f5f9;color:#64748b}
     .org-settings .ou-table .row-actions{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center}
     .org-settings .ou-table .row-actions form{margin:0}
-    .org-settings .ou-tree-card :is(.ou-branches,.ou-branch,.ou-kids){display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem;width:100%}
-    .org-settings .ou-tree-card .ou-kids>.ou-node{flex:1 1 14rem}.org-settings .ou-tree-card .ou-node{display:grid;gap:.1rem;width:auto;min-width:0;padding:.5rem .75rem;border-inline-start:3px solid #2563eb;border-radius:.65rem;background:rgba(255,255,255,.7);text-align:start}
-    .org-settings .ou-node.purple{border-color:#7c3aed}.org-settings .ou-node.green{border-color:#059669}
-    .org-settings .ou-root{margin-bottom:.5rem}
-    .org-settings .ou-branches{gap:.7rem}
-    .org-settings .ou-branches.under-root{padding-inline-start:.9rem;border-inline-start:2px dashed rgba(148,163,184,.4)}
-    .org-settings .ou-tree-card .ou-kids{display:flex;flex-wrap:wrap;padding-inline-start:.9rem;border-inline-start:2px dashed rgba(148,163,184,.4)}
-    .org-settings .ou-node b{font-size:.85rem;font-weight:700;overflow-wrap:anywhere}
-    .org-settings .ou-node small{color:#64748b;font-size:.72rem;line-height:1.7;overflow-wrap:anywhere}
-    .org-settings .ou-empty{margin:0;text-align:center}
     .org-settings .ou-yes{color:#059669;font-weight:700}.org-settings .ou-no{color:#94a3b8}.org-settings .ou-part{color:#2563eb;font-size:.78rem;font-weight:600}
     /* access matrix: a reference grid (rt-off: it stays a table on phones, its text wraps instead) */
     .org-settings .ou-matrix{table-layout:auto}
