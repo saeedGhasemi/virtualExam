@@ -259,9 +259,19 @@
     [...data.entries()].forEach(([name, value]) => { if (value instanceof File) data.delete(name); });
     return data;
   };
+  // Saves and question moves go to the server one after another, never side by side: overlapping posts could be
+  // handled out of order (an older autosave stored over the newer answer; in a preview the later one also wiped
+  // answers the other had just saved).
+  let postQueue = Promise.resolve();
+  const queuePost = (send) => {
+    const run = postQueue.then(send, send);
+    postQueue = run.catch(() => {});
+    return run;
+  };
   const save = () => {
     dirty = false;
-    return fetch(window.location.href, { mqBackground: true, method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: answerData() })
+    clearTimeout(saveTimer);
+    return queuePost(() => fetch(window.location.href, { mqBackground: true, method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: answerData() }))
       .then(response => {
         if (response.status === 423 || response.status === 403) { allowLeave(); window.location.reload(); return; }  // another device / network
         setSaveState(response.ok ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'ذخیره خودکار ناموفق بود.', !response.ok);
@@ -1003,7 +1013,8 @@
       wrap?.classList.add('is-navigating');
       wrap?.setAttribute('aria-busy', 'true');
       try {
-        const response = await fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' });
+        // After an autosave still on its way (this post carries the same answer, so it is the last word).
+        const response = await queuePost(() => fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' }));
         if (response.status === 423 || response.status === 403) { allowLeave(); window.location.reload(); return; }  // another device / network
         const target = new URL(response.url);
         const html = (response.headers.get('content-type') || '').includes('text/html');

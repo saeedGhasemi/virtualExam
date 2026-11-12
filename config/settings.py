@@ -164,7 +164,12 @@ CACHES = {
     }
 }
 
-SESSION_ENGINE = os.getenv('SESSION_ENGINE', 'django.contrib.sessions.backends.cached_db')
+SESSION_ENGINE = os.getenv('SESSION_ENGINE', 'django.contrib.sessions.backends.db')
+# The cache above is per process: with several gunicorn workers a cache-backed session reads another worker's stale
+# copy and writes it back (e.g. preview answers vanished and came back between questions). Sessions stay in the DB
+# unless a shared cache (Redis/Memcached) is configured.
+if SESSION_ENGINE.endswith(('.cache', '.cached_db')) and CACHES['default']['BACKEND'].endswith(('.LocMemCache', '.DummyCache')):
+    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', str(60 * 60 * 8)))
 
 # Brute-force protection of the sign-in page (apps/core/auth_guard.py, Auth.md). Counted in auth_events, so the limit

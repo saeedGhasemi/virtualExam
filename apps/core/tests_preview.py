@@ -116,6 +116,36 @@ class ExamPreviewTests(_EnforcedExamFixture):
         state = self.client.session['mq_previews'][f'exam:{exam_id}']
         self.assertEqual(json.loads(state['answers'][self.single_id])['value'], '1')
 
+    def test_overlapping_requests_keep_every_answer(self):
+        """A request holding an older copy of the session (another gunicorn worker, an autosave crossing «سؤال بعدی»)
+        must not write it back over answers saved in the meantime."""
+        from importlib import import_module
+
+        from django.conf import settings
+        from django.test import RequestFactory
+
+        from .exam_preview import exam_preview
+
+        self.assertEqual(settings.SESSION_ENGINE, 'django.contrib.sessions.backends.db')  # the cache is per process
+        exam_id = self._exam()
+        self.client.force_login(self.teacher_user)
+        self.client.get(self._url(exam_id, '?new=1'))
+        session_key = self.client.session.session_key
+        store = import_module(settings.SESSION_ENGINE).SessionStore
+        stale = store(session_key)
+        stale.keys()  # read now, before the next answer is saved
+        self.client.post(self._url(exam_id, '?q=1'), {f'answer_{self.single_id}': '2', f'seen_{self.single_id}': '1', 'action': 'next'})
+        request = RequestFactory().post(self._url(exam_id, '?q=2'), {f'answer_{self.multi_id}': ['1', '2'], f'seen_{self.multi_id}': '1'},
+                                        HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        request.user, request.session = self.teacher_user, stale
+        request._dont_enforce_csrf_checks = True
+        self.assertEqual(exam_preview(request, exam_id).status_code, 200)
+        if stale.modified:  # what SessionMiddleware does after the view
+            stale.save()
+        answers = self.client.session['mq_previews'][f'exam:{exam_id}']['answers']
+        self.assertEqual(json.loads(answers[self.single_id])['value'], '2')
+        self.assertEqual(json.loads(answers[self.multi_id])['value'], ['1', '2'])
+
     def test_question_preview_and_list_links(self):
         self.client.force_login(self.teacher_user)
         page = self.client.get(reverse('core:question_preview', args=[self.secret_id]) + '?new=1', follow=True)

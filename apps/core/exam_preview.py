@@ -17,7 +17,9 @@ import json
 import random
 import time
 import uuid
+from contextlib import contextmanager
 
+from django.db import router, transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.templatetags.static import static
@@ -472,9 +474,39 @@ def _rows_for(kind, target, sample, state):
     return rows
 
 
+@contextmanager
+def _session_locked(request):
+    """One preview request of a session at a time, each on the session's latest saved data.
+
+    The preview state is one value in the session and Django saves the whole session after a request, so two
+    overlapping requests (an autosave and «سؤال بعدی», two tabs) each wrote back the copy they had read and the
+    later one wiped the other's answers. Here the session row is locked, re-read, changed and saved inside the lock.
+    """
+    session = request.session
+    model = getattr(session, 'model', None)  # DB-backed session stores only
+    session_key = session.session_key
+    if model is None or not session_key:
+        yield
+        return
+    using = router.db_for_write(model)
+    with transaction.atomic(using=using):
+        row = model.objects.using(using).select_for_update().filter(session_key=session_key).first()
+        if row is not None:
+            session._session_cache = session.decode(row.session_data)
+        yield
+        if row is not None and session.modified:
+            session.save()
+            session.modified = False  # already saved; the middleware must not write this copy again later
+
+
 def _preview(request, kind, target_id):
     target_id = _valid_id(target_id)
     target, sample = _target(request, kind, target_id)
+    with _session_locked(request):
+        return _preview_locked(request, kind, target_id, target, sample)
+
+
+def _preview_locked(request, kind, target_id, target, sample):
     if request.method == 'GET' and request.GET.get('new'):
         # Opened from a list / detail page: a fresh run that returns to that page.
         _put_state(request, _state_key(kind, target_id), _new_state(request, kind))
