@@ -10389,6 +10389,13 @@ def super_admin_org_units(request):
 
     for root in children.get('', []):
         add(root, 0)
+    # the same tree as one column per top unit (the page lays the columns side by side)
+    tree_branches = []
+    for node in tree:
+        if node['depth'] == 0 or not tree_branches:
+            tree_branches.append({**node, 'items': []})
+        else:
+            tree_branches[-1]['items'].append(node)
 
     admins = erd_count('user_roles', "role = 'admin'")
     level_cards = []
@@ -10407,13 +10414,7 @@ def super_admin_org_units(request):
         'permission_rows': org_levels.PERMISSIONS,
         'org_rows': rows,
         'tree': tree,
-        'org_summary': {
-            'universities': sum(1 for row in rows if row['level'] == org_levels.UNIVERSITY),
-            'departments': sum(1 for row in rows if row['level'] == org_levels.DEPARTMENT),
-            'managers': len({str(manager['id']) for row in rows for manager in row['managers']}),
-            'teachers': sum(teachers.get(str(unit['id']), 0) for unit in units),
-            'students': sum(students.get(str(unit['id']), 0) for unit in units),
-        },
+        'tree_branches': tree_branches,
         'settings_active_tab': 'org',
     })
 

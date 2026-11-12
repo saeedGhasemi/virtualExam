@@ -46,26 +46,8 @@
         <span class="hero-icon"><svg viewBox="0 0 24 24"><path d="M12 4v5"/><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1"/><path d="M12 9H6v4M12 9h6v4"/></svg></span>
     </section>
 
-    <section class="settings-layout">
-        <aside class="settings-side-card">
-            <h2>خلاصه ساختار<span>≡</span></h2>
-            <dl>
-                <div><dt>سطح شما</dt><dd>{{ my_level.manager_title }} (سطح {{ my_level.number|fa_digits }})</dd></div>
-                <div><dt>دامنه دسترسی</dt><dd>{{ scope_label }}</dd></div>
-                {% if is_admin %}<div><dt>دانشگاه‌ها</dt><dd>{{ org_summary.universities|fa_digits }}</dd></div>{% endif %}
-                <div><dt>بخش‌ها</dt><dd>{{ org_summary.departments|fa_digits }}</dd></div>
-                <div><dt>مدیران دانشگاه و بخش</dt><dd>{{ org_summary.managers|fa_digits }}</dd></div>
-                <div><dt>استادان / دانشجویان</dt><dd>{{ org_summary.teachers|fa_digits }} / {{ org_summary.students|fa_digits }}</dd></div>
-            </dl>
-            <hr>
-            <h3>دسترسی سریع</h3>
-            {% if is_admin %}<button type="button" class="side-action org-open-form" data-type="university">افزودن دانشگاه (سطح ۲) <span>+</span></button>{% endif %}
-            <button type="button" class="side-action org-open-form" data-type="department">افزودن بخش (سطح ۳) <span>+</span></button>
-            <a class="side-action" href="{% url 'core:super_admin_manager_create' %}">افزودن مدیر {% if is_admin %}دانشگاه یا بخش{% else %}بخش{% endif %} <span>+</span></a>
-            <a class="side-action" href="{% url 'core:super_admin_users' %}?tab=managers">مدیران <span>‹</span></a>
-        </aside>
-
-        <div class="settings-main-card">
+    <section class="settings-layout ou-layout">
+        <div class="settings-main-card ou-main">
             {% if is_admin %}
                 <div class="settings-tabs">
                     <a href="{% url 'core:super_admin_settings' %}?tab=backup"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3 1 0 2-.1 2.9-.2"/><path d="M18 15v6M15.5 18.5 18 21l2.5-2.5"/></svg>پشتیبان‌گیری و بازیابی</a>
@@ -76,7 +58,7 @@
             {% endif %}
 
             {# The three fixed levels (apps/core/org_levels.py); not editable #}
-            <section class="ou-levels" aria-label="سطح‌های سامانه">
+            <section class="ou-levels" aria-label="سطح‌های سامانه" data-balance-rows>
                 {% for level in level_cards %}
                     <article class="ou-level {{ level.tone }}{% if level.is_mine %} is-mine{% endif %}">
                         <header>
@@ -90,67 +72,77 @@
                 {% endfor %}
             </section>
 
-            <div class="org-grid ou-grid">
-                <section class="org-table-card ou-table-card">
-                    <div class="ou-card-head">
-                        <h2>{% if is_admin %}دانشگاه‌ها و بخش‌ها{% else %}بخش‌های دانشگاه{% endif %}</h2>
-                        <button type="button" class="primary-action org-open-form" data-type="department"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن بخش</button>
+            <section class="org-table-card ou-card ou-table-card">
+                <div class="ou-card-head">
+                    <h2>{% if is_admin %}دانشگاه‌ها و بخش‌ها{% else %}بخش‌های دانشگاه{% endif %}</h2>
+                    <div class="ou-card-actions">
                         {% if is_admin %}<button type="button" class="primary-action org-open-form ou-secondary" data-type="university"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن دانشگاه</button>{% endif %}
+                        <button type="button" class="primary-action org-open-form" data-type="department"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن بخش</button>
                     </div>
-                    <table class="ou-table">
-                        <thead><tr><th>نام واحد</th><th>سطح</th><th>زیرمجموعه‌ی</th><th>مدیر</th><th>استاد</th><th>دانشجو</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-                        <tbody>
-                            {% for unit in org_rows %}
-                                <tr data-row-link="off">
-                                    <td><strong>{{ unit.name|fa_digits }}</strong>{% if unit.code %} <small data-latin-digits>{{ unit.code }}</small>{% endif %}</td>
-                                    <td><span class="status-pill {{ unit.tone }}">سطح {{ unit.level|fa_digits }} · {{ unit.level_title }}</span></td>
-                                    <td>{{ unit.parent_name|fa_digits }}</td>
-                                    <td>{% for manager in unit.managers %}{{ manager.full_name }}{% if not forloop.last %}، {% endif %}{% empty %}<span class="ou-muted">ندارد</span>{% endfor %}</td>
-                                    <td>{{ unit.teachers|fa_digits }}</td>
-                                    <td>{{ unit.students|fa_digits }}</td>
-                                    <td>{% if unit.is_active %}<span class="status-pill green">فعال</span>{% else %}<span class="status-pill ou-off">غیرفعال</span>{% endif %}</td>
-                                    <td class="row-actions">
-                                        {% if unit.editable %}
-                                            <button type="button" class="org-edit-unit" data-id="{{ unit.id }}" data-type="{{ unit.type }}" data-name="{{ unit.name }}" data-code="{{ unit.code }}" data-parent="{{ unit.parent_id }}" data-active="{{ unit.is_active|yesno:'1,0' }}">ویرایش</button>
-                                            <form method="post" data-confirm="«{{ unit.name }}»{% if unit.departments %} و {{ unit.departments|fa_digits }} بخش زیرمجموعه‌اش{% endif %} حذف شود؟ دسترسی مدیرانش هم برداشته می‌شود." data-confirm-ok="حذف" data-confirm-danger>
-                                                {% csrf_token %}
-                                                <input type="hidden" name="org_action" value="delete">
-                                                <input type="hidden" name="org_id" value="{{ unit.id }}">
-                                                <button type="submit" class="danger">حذف</button>
-                                            </form>
-                                        {% else %}
-                                            <span class="ou-muted">دامنه‌ی شما</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr><td colspan="8">هنوز واحدی ثبت نشده است.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </section>
-
-                <aside class="org-preview-card ou-tree-card">
-                    <h2>نمودار ساختار</h2>
-                    <div class="ou-tree">
-                        {% if is_admin %}<div class="ou-node blue depth-root"><b>مدیر سیستم</b><small>سطح ۱</small></div>{% endif %}
-                        {% for node in tree %}
-                            <div class="ou-node {{ node.tone }} depth-{{ node.depth }}{% if is_admin %} under-root{% endif %}">
-                                <b>{{ node.name|fa_digits }}</b>
-                                <small>سطح {{ node.level|fa_digits }} · {% if node.managers %}{% for manager in node.managers %}{{ manager.full_name }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}بدون مدیر{% endif %}</small>
-                                <small>{{ node.teachers|fa_digits }} استاد · {{ node.students|fa_digits }} دانشجو</small>
-                            </div>
+                </div>
+                <table class="ou-table">
+                    <thead><tr><th>نام واحد</th><th>سطح</th><th>زیرمجموعه‌ی</th><th>مدیر</th><th>استاد</th><th>دانشجو</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                    <tbody>
+                        {% for unit in org_rows %}
+                            <tr data-row-link="off">
+                                <td><strong>{{ unit.name|fa_digits }}</strong>{% if unit.code %} <small data-latin-digits>{{ unit.code }}</small>{% endif %}</td>
+                                <td><span class="status-pill {{ unit.tone }}">سطح {{ unit.level|fa_digits }} · {{ unit.level_title }}</span></td>
+                                <td>{{ unit.parent_name|fa_digits }}</td>
+                                <td>{% for manager in unit.managers %}{{ manager.full_name }}{% if not forloop.last %}، {% endif %}{% empty %}<span class="ou-muted">ندارد</span>{% endfor %}</td>
+                                <td>{{ unit.teachers|fa_digits }}</td>
+                                <td>{{ unit.students|fa_digits }}</td>
+                                <td>{% if unit.is_active %}<span class="status-pill green">فعال</span>{% else %}<span class="status-pill ou-off">غیرفعال</span>{% endif %}</td>
+                                <td class="row-actions">
+                                    {% if unit.editable %}
+                                        <button type="button" class="org-edit-unit" data-id="{{ unit.id }}" data-type="{{ unit.type }}" data-name="{{ unit.name }}" data-code="{{ unit.code }}" data-parent="{{ unit.parent_id }}" data-active="{{ unit.is_active|yesno:'1,0' }}">ویرایش</button>
+                                        <form method="post" data-confirm="«{{ unit.name }}»{% if unit.departments %} و {{ unit.departments|fa_digits }} بخش زیرمجموعه‌اش{% endif %} حذف شود؟ دسترسی مدیرانش هم برداشته می‌شود." data-confirm-ok="حذف" data-confirm-danger>
+                                            {% csrf_token %}
+                                            <input type="hidden" name="org_action" value="delete">
+                                            <input type="hidden" name="org_id" value="{{ unit.id }}">
+                                            <button type="submit" class="danger">حذف</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="ou-muted">دامنه‌ی شما</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
                         {% empty %}
-                            <p class="ou-muted">ساختاری برای نمایش وجود ندارد.</p>
+                            <tr><td colspan="8">هنوز واحدی ثبت نشده است.</td></tr>
                         {% endfor %}
-                    </div>
-                </aside>
-            </div>
+                    </tbody>
+                </table>
+            </section>
 
-            <section class="org-table-card ou-matrix-card">
+            {# tree: each university as a row, its departments as a grid under it (views: tree_branches) #}
+            <section class="org-table-card ou-card ou-tree-card">
+                <h2>نمودار ساختار</h2>
+                {% if is_admin %}<div class="ou-node blue ou-root"><b>مدیر سیستم</b><small>سطح ۱ · کل سامانه</small></div>{% endif %}
+                <div class="ou-branches{% if is_admin %} under-root{% endif %}">
+                    {% for branch in tree_branches %}
+                        <div class="ou-branch">
+                            <div class="ou-node {{ branch.tone }}">
+                                <b>{{ branch.name|fa_digits }}</b>
+                                <small>سطح {{ branch.level|fa_digits }} · {% if branch.managers %}{% for manager in branch.managers %}{{ manager.full_name }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}بدون مدیر{% endif %}</small>
+                                <small>{{ branch.teachers|fa_digits }} استاد · {{ branch.students|fa_digits }} دانشجو</small>
+                            </div>
+                            {% if branch.items %}<div class="ou-kids" data-balance-rows>{% for node in branch.items %}
+                                <div class="ou-node {{ node.tone }} depth-{{ node.depth }}">
+                                    <b>{{ node.name|fa_digits }}</b>
+                                    <small>سطح {{ node.level|fa_digits }} · {% if node.managers %}{% for manager in node.managers %}{{ manager.full_name }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}بدون مدیر{% endif %}</small>
+                                    <small>{{ node.teachers|fa_digits }} استاد · {{ node.students|fa_digits }} دانشجو</small>
+                                </div>
+                            {% endfor %}</div>{% endif %}
+                        </div>
+                    {% empty %}
+                        <p class="ou-muted ou-empty">ساختاری برای نمایش وجود ندارد.</p>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="org-table-card ou-card ou-matrix-card">
                 <h2>دسترسی هر سطح</h2>
-                <table class="ou-matrix">
-                    <thead><tr><th>کار</th><th>سطح ۱ · مدیر سیستم</th><th>سطح ۲ · مدیر دانشگاه</th><th>سطح ۳ · مدیر بخش</th><th>استاد</th></tr></thead>
+                <table class="ou-matrix rt-off">
+                    <thead><tr><th>کار</th><th>سطح ۱<small class="ou-th-sub"> · مدیر سیستم</small></th><th>سطح ۲<small class="ou-th-sub"> · مدیر دانشگاه</small></th><th>سطح ۳<small class="ou-th-sub"> · مدیر بخش</small></th><th>استاد</th></tr></thead>
                     <tbody>
                         {% for row in permission_rows %}
                             <tr data-row-link="off">
@@ -470,45 +462,65 @@
     /* toolbar buttons: compact, label on one line */
     .org-settings .org-actions .org-level-create,.org-settings .org-actions .org-open-form{white-space:nowrap;height:2.45rem!important;min-width:0!important;padding:0 .85rem!important;border-radius:.75rem!important;font-size:.8rem!important;gap:.4rem!important}
     .org-settings .org-actions .org-level-create svg,.org-settings .org-actions .org-open-form svg{width:.95rem;height:.95rem;flex:none}
-    /* Fixed levels (org_levels.py), units table, tree, access matrix */
-    .org-settings .ou-levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:.75rem;margin:1rem 0}
-    .org-settings .ou-level{display:flex;flex-direction:column;gap:.5rem;min-width:0;padding:.9rem;border:1px solid rgba(255,255,255,.7);border-radius:1.1rem;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff}
-    .org-settings .ou-level.is-mine{outline:2px solid rgba(37,99,235,.35)}
+    /* Page layout (one column, no empty space): tabs › level cards › units table › tree › access matrix.
+       Every block is full width, tables fill their card, the tree is one column per university. */
+    .org-settings .settings-layout.ou-layout{display:block!important;min-height:0}
+    .org-settings .settings-main-card.ou-main{display:flex;flex-direction:column;gap:.85rem;min-width:0;padding:.85rem}
+    .org-settings .ou-main>*{margin:0!important;min-width:0}
+    .org-settings .ou-levels{display:flex;flex-wrap:wrap;gap:.6rem}.org-settings .ou-levels>.ou-level{flex:1 1 15rem}
+    .org-settings .ou-level{display:flex;flex-direction:column;gap:.5rem;min-width:0;padding:.85rem;border:1px solid rgba(255,255,255,.7);border-radius:1rem;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff}
+    .org-settings .ou-level.is-mine{border-color:rgba(37,99,235,.45);box-shadow:inset 0 0 0 1px rgba(37,99,235,.25)}
     .org-settings .ou-level header{display:flex;align-items:center;gap:.6rem}
-    .org-settings .ou-level header i{display:grid;flex:none;width:2.3rem;height:2.3rem;place-items:center;border-radius:.8rem;font-style:normal;font-weight:700;color:#fff;background:#2563eb}
+    .org-settings .ou-level header i{display:grid;flex:none;width:2.2rem;height:2.2rem;place-items:center;border-radius:.75rem;font-style:normal;font-weight:700;color:#fff;background:#2563eb}
     .org-settings .ou-level.purple header i{background:#7c3aed}.org-settings .ou-level.green header i{background:#059669}
     .org-settings .ou-level header div{display:grid;min-width:0}
     .org-settings .ou-level header span{color:#64748b;font-size:.75rem;font-weight:600}
     .org-settings .ou-level header b{font-size:1rem;font-weight:700}
     .org-settings .ou-level header em{margin-inline-start:auto;padding:.15rem .5rem;border-radius:999px;background:#dbeafe;color:#2563eb;font-size:.72rem;font-style:normal;font-weight:600;white-space:nowrap}
     .org-settings .ou-level p{margin:0;color:#475569;font-size:.8rem;line-height:1.8}
-    .org-settings .ou-level footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.35rem;margin-top:auto;color:#64748b;font-size:.75rem;font-weight:600}
+    .org-settings .ou-level footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.35rem;margin-top:auto;padding-top:.5rem;border-top:1px solid rgba(148,163,184,.2);color:#64748b;font-size:.75rem;font-weight:600}
     .org-settings .ou-level footer strong{color:#0b1935;font-size:.85rem;font-weight:700}
-    .org-settings .ou-grid.ou-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,17rem);gap:.9rem;direction:rtl}
-    .org-settings .ou-card-head{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.8rem}
-    .org-settings .ou-card-head h2{margin:0 0 0 auto!important;font-size:1rem}
+    .org-settings .org-table-card.ou-card{min-height:0!important;padding:.85rem!important;border-radius:1rem!important}
+    .org-settings .ou-card>h2{margin:0 0 .7rem!important;padding:0!important;font-size:1rem!important;line-height:1.6!important}
+    .org-settings .ou-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.7rem}
+    .org-settings .ou-card-head h2{margin:0!important;padding:0!important;font-size:1rem!important;line-height:1.6!important}
+    .org-settings .ou-card-actions{display:flex;flex-wrap:wrap;gap:.5rem}
     .org-settings .ou-card-head .primary-action{height:2.3rem;padding:0 .85rem;border-radius:.7rem;font-size:.8rem;white-space:nowrap}
     .org-settings .ou-card-head .primary-action svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
     .org-settings .ou-card-head .ou-secondary{background:#fff;color:#2563eb;border:1px solid #d8e2ef}
+    .org-settings :is(.ou-table,.ou-matrix){width:100%;border-collapse:collapse}
     .org-settings .ou-table small{color:#64748b}
     .org-settings .ou-muted{color:#94a3b8;font-size:.8rem}
     .org-settings .status-pill.ou-off{background:#f1f5f9;color:#64748b}
     .org-settings .ou-table .row-actions{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center}
     .org-settings .ou-table .row-actions form{margin:0}
-    .org-settings .ou-tree{display:grid;gap:.45rem}
-    .org-settings .ou-node{display:grid;gap:.1rem;min-width:0;padding:.55rem .75rem;border-inline-start:3px solid #2563eb;border-radius:.7rem;background:rgba(255,255,255,.62)}
+    .org-settings .ou-tree-card :is(.ou-branches,.ou-branch,.ou-kids){display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem;width:100%}
+    .org-settings .ou-tree-card .ou-kids>.ou-node{flex:1 1 14rem}.org-settings .ou-tree-card .ou-node{display:grid;gap:.1rem;width:auto;min-width:0;padding:.5rem .75rem;border-inline-start:3px solid #2563eb;border-radius:.65rem;background:rgba(255,255,255,.7);text-align:start}
     .org-settings .ou-node.purple{border-color:#7c3aed}.org-settings .ou-node.green{border-color:#059669}
-    .org-settings .ou-node.depth-0.under-root{margin-inline-start:.9rem}
-    .org-settings .ou-node.depth-1{margin-inline-start:.9rem}.org-settings .ou-node.depth-1.under-root,.org-settings .ou-node.depth-2{margin-inline-start:1.8rem}
+    .org-settings .ou-root{margin-bottom:.5rem}
+    .org-settings .ou-branches{gap:.7rem}
+    .org-settings .ou-branches.under-root{padding-inline-start:.9rem;border-inline-start:2px dashed rgba(148,163,184,.4)}
+    .org-settings .ou-tree-card .ou-kids{display:flex;flex-wrap:wrap;padding-inline-start:.9rem;border-inline-start:2px dashed rgba(148,163,184,.4)}
     .org-settings .ou-node b{font-size:.85rem;font-weight:700;overflow-wrap:anywhere}
     .org-settings .ou-node small{color:#64748b;font-size:.72rem;line-height:1.7;overflow-wrap:anywhere}
-    .org-settings .ou-matrix-card{margin-top:.9rem}
-    .org-settings .ou-matrix-card h2{margin:0 0 .8rem;font-size:1rem}
+    .org-settings .ou-empty{margin:0;text-align:center}
     .org-settings .ou-yes{color:#059669;font-weight:700}.org-settings .ou-no{color:#94a3b8}.org-settings .ou-part{color:#2563eb;font-size:.78rem;font-weight:600}
+    /* access matrix: a reference grid (rt-off: it stays a table on phones, its text wraps instead) */
+    .org-settings .ou-matrix{table-layout:auto}
+    .org-settings .ou-matrix :is(th,td){padding:.5rem .45rem;border-bottom:1px solid rgba(148,163,184,.22);text-align:center;vertical-align:middle;overflow-wrap:break-word}
+    .org-settings .ou-matrix th{color:#64748b;font-size:.72rem;font-weight:600;background:rgba(241,245,249,.6)}
+    .org-settings .ou-matrix td{color:#0b1935;font-size:.8rem;font-weight:400}
+    .org-settings .ou-matrix :is(th,td):first-child{text-align:start;width:36%}
+    .org-settings .ou-matrix tbody tr:last-child td{border-bottom:0}
+    @media (max-width:420px){.org-settings .ou-matrix :is(th,td){padding:.4rem .2rem}.org-settings .ou-matrix td{font-size:.72rem}.org-settings .ou-matrix .ou-part{font-size:.68rem}}@media (max-width:300px){.org-settings .ou-matrix :is(th,td){overflow-wrap:anywhere}}
+    .org-settings .ou-matrix-card .org-note{margin:.7rem 0 0!important}
     .org-settings .org-unit-form .org-checkbox{display:flex!important;align-items:center;gap:.45rem}
     .org-settings .org-unit-form .org-checkbox input{width:1rem;height:1rem}
     .org-settings .org-unit-form .errorlist{margin:0;padding:0;list-style:none;color:#dc2626;font-size:.78rem}
-    @media (max-width:1100px){.org-settings .ou-grid.ou-grid{grid-template-columns:minmax(0,1fr)}}
+    .org-settings .ou-th-sub{font-size:inherit;color:inherit}
+    /* phones: the matrix headers keep only «سطح n» so it stays a table (card labels still read the full text) */
+    @media (max-width:760px){.org-settings .ou-matrix th .ou-th-sub{display:none}.org-settings .settings-main-card.ou-main{padding:.6rem}.org-settings .org-table-card.ou-card{padding:.65rem!important}.org-settings .settings-tabs{height:auto!important}}
+    @media (max-width:420px){.org-settings .ou-card-actions{width:100%}.org-settings .ou-card-actions>*{flex:1 1 100%}}
 </style>
 
 <script>

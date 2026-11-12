@@ -67,6 +67,7 @@
     </section>
 
     <section class="settings-layout settings-layout-{{ settings_active_tab }}">
+        {% if settings_active_tab != 'other' %}
         <aside class="settings-side-card">
             <h2>{% if settings_active_tab == 'other' %}خلاصه سامانه{% else %}خلاصه تنظیمات{% endif %}<span>i</span></h2>
             {% if settings_active_tab == 'backup' %}
@@ -96,6 +97,7 @@
             <a href="{% url 'core:super_admin_settings' %}?tab=other"><span>+</span>تنظیمات پیش‌فرض نمره</a>
             <a href="{% url 'core:super_admin_settings' %}?tab=other"><span>+</span>الگوهای اطلاع‌رسانی</a>
         </aside>
+        {% endif %}
 
         <div class="settings-main-card">
             <div class="settings-tabs" role="tablist">
@@ -192,10 +194,10 @@
                             <section class="settings-panel notifications-panel">
                                 <h2><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>تنظیمات اعلان‌ها</h2>
                                 {% for item in settings_groups.notifications %}
-                                    <div class="toggle-setting-row">
+                                    <div class="compact-setting-row">
+                                        <label>{{ item.label }}</label>
                                         <input type="hidden" name="settings_{{ item.key }}" value="{% if item.value %}on{% else %}off{% endif %}" data-boolean-value>
                                         <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}"><span></span></button>
-                                        <label>{{ item.label }}</label>
                                     </div>
                                 {% endfor %}
                             </section>
@@ -237,8 +239,10 @@
                                     <label>پشتیبان‌گیری خودکار</label>
                                     <strong>{{ auto_backup_summary|default:"غیرفعال" }}</strong>
                                 </div>
+                                <div class="gs-buttons">
                                 <a class="export-button" href="{% url 'core:super_admin_settings' %}?tab=backup"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>تنظیم زمان‌بندی و نسخه‌ها</a>
                                 <button type="submit" class="export-button" name="settings_action" value="export"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>خروجی فایل</button>
+                                </div>
                             </section>
 
                             <section class="settings-panel exam-panel">
@@ -497,6 +501,42 @@
     .ap-hex:invalid{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
     .ap-hint{margin:.7rem 0 0;color:#7a879b;font-size:.74rem;font-weight:600;line-height:1.8}
     @media (max-width:480px){.appearance-panel .ap-field{grid-template-columns:minmax(0,1fr)}}
+    /* «تنظیمات عمومی» (tab=other): compact like the other tabs — cards of equal height, 3 per row (پایه|امنیتی|اعلان‌ها،
+       ظاهری|پشتیبان‌گیری|آزمون), 2 per row ≤1280px, 1 ≤900px; every row = label | one control column of the same width,
+       so inputs and switches line up; labels 600, values 400 (site weights). */
+    .settings-screen .settings-layout.settings-layout-other{grid-template-columns:minmax(0,1fr)!important;direction:rtl!important}
+    .settings-screen .settings-layout-other .general-settings-board{display:block!important;margin:0!important}
+    .settings-screen .settings-layout-other .settings-summary-panel{display:none!important}
+    .settings-screen .settings-layout-other .settings-tabs{margin-bottom:.85rem!important}
+    .settings-screen .settings-layout-other .settings-action-row{margin:0 0 .85rem!important}
+    .settings-screen .settings-layout-other .settings-card-grid{--gs-ctl:10.5rem;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important;gap:.7rem!important}
+    .settings-screen .settings-layout-other .settings-card-grid>.settings-panel{display:flex!important;flex-direction:column;gap:.4rem;grid-column:auto!important;grid-row:auto!important;min-width:0;min-height:0!important;margin:0!important;padding:.85rem .9rem!important}
+    .settings-screen .settings-layout-other .settings-panel h2{margin:0 0 .25rem!important}
+    .settings-screen .settings-layout-other .settings-panel :is(.compact-setting-row,.logo-picker){display:grid!important;grid-template-columns:minmax(0,1fr) var(--gs-ctl)!important;gap:.6rem!important;align-items:center!important;min-height:2.2rem;margin:0!important}
+    .settings-screen .settings-layout-other .settings-panel .compact-setting-row>label,.settings-screen .settings-layout-other .logo-picker>span{min-width:0;margin:0;text-align:start;font-size:.78rem!important;font-weight:600!important;line-height:1.5}
+    .settings-screen .settings-layout-other .settings-panel .compact-setting-row>input:not([type=hidden]){width:100%!important;height:2.2rem!important;min-width:0;margin:0;font-size:.78rem!important;font-weight:400!important}
+    .settings-screen .settings-layout-other .settings-panel .compact-setting-row>.switch-button{justify-self:end;margin:0}
+    .settings-screen .settings-layout-other .settings-panel .compact-setting-row>strong{justify-self:stretch;text-align:end;font-size:.78rem;font-weight:600}
+    .settings-screen .settings-layout-other .settings-panel .logo-picker.logo-picker{grid-template-columns:minmax(0,1fr) calc(var(--gs-ctl) - 2.8rem) 2.2rem!important}
+    .settings-screen .settings-layout-other .logo-picker>button{width:100%;min-width:0;height:2.2rem!important;font-size:.78rem!important;font-weight:600!important}.settings-screen .settings-layout-other .logo-picker>b{width:2.2rem!important;height:2.2rem!important;border-radius:.7rem!important;box-shadow:none!important}.settings-screen .settings-layout-other .logo-picker>b svg{width:1rem;height:1rem}
+    .settings-screen .settings-layout-other .appearance-panel .ap-field{margin:0}
+    .settings-screen .settings-layout-other .gs-buttons{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:auto;padding-top:.25rem}
+    .settings-screen .settings-layout-other .gs-buttons>.export-button{display:inline-flex;flex:1 1 9rem;height:2.3rem!important;padding:0 .7rem!important;font-size:.78rem!important;font-weight:600!important;align-items:center;justify-content:center;gap:.45rem;min-width:0;margin:0;text-decoration:none;white-space:nowrap}
+    .settings-screen .settings-layout-other .gs-buttons svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .settings-screen .settings-layout-other .settings-changes-panel{margin-top:.85rem!important}
+    .settings-screen .settings-layout-other .settings-panel .switch-button{transform:scale(.88);transform-origin:left center}
+    .settings-screen .settings-layout-other .appearance-panel .ap-field{gap:.5rem!important}
+    .settings-screen .settings-layout-other .appearance-panel .ap-label{font-size:.78rem!important;font-weight:600!important}
+    .settings-screen .settings-layout-other .appearance-panel .ap-seg span{font-weight:600!important}
+    .settings-screen .settings-layout-other .ap-hint{margin:.2rem 0 0!important;font-weight:400!important;line-height:1.7}
+    @media (max-width:1280px){.settings-screen .settings-layout-other .settings-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+    @media (max-width:900px){.settings-screen .settings-layout-other .settings-card-grid{grid-template-columns:minmax(0,1fr)!important}}
+    @media (max-width:520px){
+        .settings-screen .settings-layout-other .settings-panel .compact-setting-row.compact-setting-row{grid-template-columns:minmax(0,1fr)!important;gap:.35rem!important}
+        .settings-screen .settings-layout-other .settings-panel .compact-setting-row.compact-setting-row:has(.switch-button),.settings-screen .settings-layout-other .settings-panel .compact-setting-row.compact-setting-row:has(>strong){grid-template-columns:minmax(0,1fr) auto!important;gap:.75rem!important}
+        .settings-screen .settings-layout-other .settings-panel .logo-picker.logo-picker.logo-picker{grid-template-columns:minmax(0,1fr) 2.75rem!important;row-gap:.35rem!important}
+        .settings-screen .settings-layout-other .logo-picker>span{grid-column:1/-1}
+    }
 </style>
 
 <script>
