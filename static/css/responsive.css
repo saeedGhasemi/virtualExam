@@ -1127,3 +1127,51 @@ a.sap-btn.sap-btn:not(.is-outline):not(.is-danger) { color: #fff; }
 /* row «⋯» menus in card view: actions sit at the card's right (RTL start), so the popup opens leftwards from there instead of running off-screen */
 @media screen { table.rt-cards > tbody > tr > td.rt-act details > :not(summary) { left: auto; right: 0; max-width: calc(100vw - 1.5rem); } }
 @media (max-width: 480px) { .tstu-menu.tstu-bulk > div { left: auto; right: 0; } }
+
+/* ---------- Compact listing tables (user's choice; model: teacher dashboard «آزمون‌های پیش رو») ----------
+   Every table handled by responsive-tables.js in table view: small grey head, short rows, normal-weight cells (main
+   column 600), small pills and icon buttons. Page styles load later but have lower specificity than these. */
+table.rt-start.rt-start.rt-start:not(.rt-cards) > thead > tr > th { height: 2.3rem; padding: .35rem .6rem; font-size: .75rem; font-weight: 600; line-height: 1.4; color: #64748b; letter-spacing: 0; text-transform: none; }
+table.rt-start.rt-start.rt-start:not(.rt-cards) > tbody > tr > td { height: 2.6rem; padding: .3rem .6rem; font-size: .83rem; font-weight: 400; line-height: 1.55; }
+table.rt-start.rt-start.rt-start:not(.rt-cards) > tbody > tr > td.rt-head, table.rt-start.rt-start:not(.rt-cards) > tbody > tr > td :is(strong, b) { font-weight: 600; }
+table.rt-start.rt-start.rt-start > tbody > tr > td :is(span, mark, a, small, em):is([class*="badge"], [class*="pill"], [class*="status"], [class*="chip"]):not(.rt-ico, .rt-ico *) { padding-block: .15rem; font-size: .72rem; font-weight: 600; line-height: 1.5; }
+table td.rt-act .rt-ico.rt-ico.rt-ico { width: 2rem; min-width: 2rem; height: 2rem; border-radius: .6rem; }
+table td.rt-act .rt-ico.rt-ico.rt-ico > svg { width: 1rem; height: 1rem; }
+
+/* ---------- Listing pager (static/js/list-pager.js): at most 10 rows per page, prev / numbers / next under the table ----------
+   Doubled classes + explicit resets: page styles such as `.exam-card span{…}` must not restyle it. */
+.mq-pg-out.mq-pg-out.mq-pg-out { display: none !important; }
+.mq-pager[hidden] { display: none !important; }
+@media print { .mq-pg-out.mq-pg-out.mq-pg-out { display: revert !important; } .mq-pager { display: none !important; } }
+/* centred (user's choice, 2026-11-12): buttons in the middle of the list, «۱–۱۰ از ۱۵» centred under them */
+.mq-pager.mq-pager { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: center; justify-content: center; gap: .45rem; width: auto; margin: 1rem 0 .25rem; padding: 0 .15rem; min-width: 0; border: 0; background: none; box-shadow: none; text-align: center; }
+.mq-pager.mq-pager span { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; font-size: inherit; line-height: inherit; }
+.mq-pager.mq-pager .mq-pg-info { order: 2; font-size: .8rem; font-weight: 400; color: #64748b; white-space: nowrap; }
+.mq-pager.mq-pager .mq-pg-btns { order: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .35rem; max-width: 100%; min-width: 0; }
+.mq-pager.mq-pager :is(button, a, .mq-pg-num, .mq-pg-step) { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; width: auto; min-width: 2.25rem; height: 2.25rem; margin: 0; padding: 0 .65rem; border: 1px solid #e2e8f0; border-radius: .6rem; background: #fff; box-shadow: none; color: #334155; font: inherit; font-size: .86rem; font-weight: 600; line-height: 1; letter-spacing: 0; text-transform: none; text-decoration: none; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
+.mq-pager.mq-pager :is(button, a) > span { color: inherit; font-weight: inherit; }
+.mq-pager.mq-pager :is(button, a):hover:not([disabled]):not(.is-active) { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+.mq-pager.mq-pager :is(button, a):focus-visible { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.mq-pager.mq-pager :is(button, span).is-active { border-color: #2563eb; background: #2563eb; color: #fff; cursor: default; }
+.mq-pager.mq-pager :is(button[disabled], .is-disabled) { opacity: .45; cursor: default; }
+.mq-pager.mq-pager :is(button, a, span) > svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.mq-pager.mq-pager .mq-pg-gap { min-width: 1.1rem; text-align: center; color: #94a3b8; font-size: .86rem; }
+.mq-pager.mq-pager .mq-pg-now { display: none; min-width: 3.2rem; text-align: center; font-size: .86rem; font-weight: 600; color: #334155; }
+@media (max-width: 560px) {
+  .mq-pager.mq-pager .mq-pg-step > span { display: none; }
+  .mq-pager.mq-pager .mq-pg-step { padding: 0; }
+}
+@media (max-width: 360px) {
+  .mq-pager.mq-pager .mq-pg-num, .mq-pager.mq-pager .mq-pg-gap { display: none; }
+  .mq-pager.mq-pager .mq-pg-now { display: inline-block; }
+}
+/* a pager inside a list's footer (server pager tag {% mq_pager %} / wizards) takes the footer's whole width, so it stays centred */
+:is(footer, .org-table-footer, .xl-foot) > .mq-pager.mq-pager { flex: 1 1 100%; grid-column: 1 / -1; justify-self: stretch; width: 100%; margin: 0; }
+/* live timers (countdowns): equal-width digits, so the text beside them doesn't wiggle every second */
+[data-countdown], [data-timer], .qx-timer { font-variant-numeric: tabular-nums; }
+/* Cards in a row (user's choice): equal height and aligned, but the row is as tall as its tallest content — no stretching to fill the screen, no fixed min-height; empty states sit centred. */
+.edu-dashboard-grid.edu-dashboard-grid > .edu-card { min-height: 0; }
+/* Whole-row links (static/js/row-link.js): a row / card that opens an item is clickable anywhere, not only on its name. */
+.mq-row-link, [data-row-href] { cursor: pointer; }
+table:not(.rt-cards) > tbody > tr.mq-row-link:hover > td { background-color: rgba(37, 99, 235, .045); }
+table.rt-cards > tbody > tr.mq-row-link:hover, [data-row-href]:not(tr):hover { border-color: #bfd3f5; box-shadow: 0 10px 26px rgba(37, 99, 235, .09); }

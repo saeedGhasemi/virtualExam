@@ -36,12 +36,6 @@
         <div class="tset-card tchg-empty">{% if status == 'pending' %}درخواستی در انتظار بررسی نیست.{% else %}هنوز درخواستی بررسی نشده است.{% endif %}</div>
     {% endfor %}
 
-    {% if page.paginator.num_pages > 1 %}
-        <nav class="tchg-pages" aria-label="صفحه‌بندی">
-            {% if page.has_previous %}<a href="?{% if status == 'reviewed' %}status=reviewed&{% endif %}page={{ page.previous_page_number }}">قبلی</a>{% endif %}
-            <span>صفحه {{ page.number|fa_digits }} از {{ page.paginator.num_pages|fa_digits }}</span>
-            {% if page.has_next %}<a href="?{% if status == 'reviewed' %}status=reviewed&{% endif %}page={{ page.next_page_number }}">بعدی</a>{% endif %}
-        </nav>
-    {% endif %}
+    {% mq_pager page %}
 </section>
 {% endblock %}

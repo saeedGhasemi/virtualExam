@@ -386,7 +386,8 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
 
     def test_manager_can_view_in_scope_exam(self):
         self.client.force_login(self.manager_user)
-        self.assertEqual(self.client.get(reverse('core:super_admin_exam_detail', args=[self.exam_in_id])).status_code, 200)
+        # the old exam page now opens «مدیریت آزمون»
+        self.assertEqual(self.client.get(reverse('core:super_admin_exam_detail', args=[self.exam_in_id]), follow=True).status_code, 200)
         self.assertEqual(self.client.get(reverse('core:super_admin_exam_edit', args=[self.exam_in_id])).status_code, 200)
 
     def _approve(self, exam_id, **extra):
@@ -473,6 +474,8 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         exam_id = self._pending_exam('آزمون دوبار')
         self.client.force_login(self.manager_user)
         self.assertTrue(self._ajax_approve(exam_id).json()['ok'])
+        # the list reloads after the modal: the green toast says it was approved
+        self.assertContains(self.client.get(reverse('core:super_admin_exams')), 'تأیید و منتشر شد')
         again = self._ajax_approve(exam_id)
         self.assertTrue(again.json()['ok'])
         self.assertIn('پیش‌تر تأیید شده', again.json()['message'])
@@ -492,10 +495,10 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         start = timezone.now() + timedelta(days=1)
         exam_id = self._pending_exam('آزمون دیده‌شده', start_at=start, end_at=start + timedelta(hours=1))
         self.client.force_login(self.manager_user)
-        detail = reverse('core:super_admin_exam_detail', args=[exam_id])
-        self.assertEqual(self.client.get(detail).context['exam']['status_label'], 'در انتظار تأیید')
+        detail = reverse('core:super_admin_exam_hub', args=[exam_id])
+        self.assertEqual(self.client.get(detail).context['exam']['state_label'], 'در انتظار تأیید')
         self._ajax_approve(exam_id)
-        self.assertEqual(self.client.get(detail).context['exam']['status_label'], 'تأیید شده · برنامه‌ریزی شده')
+        self.assertEqual(self.client.get(detail).context['exam']['state_label'], 'تأیید شده · برنامه‌ریزی شده')
         upcoming = self.client.get(reverse('core:super_admin_exams')).context['upcoming']
         self.assertEqual(upcoming[0]['id'], exam_id)  # the nearest published exam, with its real time
 
@@ -505,6 +508,21 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         self.assertEqual(rows['آزمون دیده‌شده']['status_label'], 'تأیید شده · برنامه‌ریزی شده')
         from .views import erd_count
         self.assertEqual(erd_count('notifications', "user_id = %s AND title = 'تأیید آزمون'", [self.teacher_in_id]), 1)
+
+    def test_manager_duplicates_and_deletes_drafts_in_scope(self):
+        from .views import erd_row
+        self.client.force_login(self.manager_user)
+        list_url = reverse('core:exam_manager_exams')
+        response = self.client.post(reverse('core:super_admin_exam_duplicate', args=[self.exam_in_id]), {'next': list_url + '?status=draft'})
+        self.assertRedirects(response, list_url + '?status=draft', fetch_redirect_response=False)
+        copy = erd_row("SELECT id, lifecycle_status, is_published FROM exams WHERE title LIKE %s", ['% (کپی)'])
+        self.assertEqual((copy['lifecycle_status'], bool(copy['is_published'])), ('draft', False))
+        listing = self.client.get(list_url, {'status': 'draft'}).context['exam_list']
+        self.assertIn(str(copy['id']), {str(row['id']) for row in listing['rows']})
+        self.client.post(reverse('core:super_admin_exam_delete', args=[copy['id']]), {'next': 'https://evil.example/'})
+        self.assertIsNone(erd_row('SELECT id FROM exams WHERE id = %s', [copy['id']]))
+        for name in ('duplicate', 'delete'):
+            self.assertEqual(self.client.post(reverse(f'core:super_admin_exam_{name}', args=[self.exam_out_id])).status_code, 404)
 
     def test_list_has_no_fake_countdown(self):
         self.client.force_login(self.manager_user)
@@ -1924,7 +1942,8 @@ class OsceBuilderTests(_ScopedOrgFixture):
         with connection.cursor() as cursor:
             cursor.execute("SELECT COUNT(*) FROM questions WHERE text = 'ایستگاه قدیمی'")
             self.assertEqual(cursor.fetchone()[0], 0)
-        self.assertContains(self.client.get(reverse('core:teacher_exams')), reverse('core:teacher_osce_list'))
+        # The exam list no longer links OSCE (user's choice, 2026-11-12); the OSCE list itself still works.
+        self.assertEqual(self.client.get(reverse('core:teacher_osce_list')).status_code, 200)
 
     def test_template_library_is_shared_within_org_unit_only(self):
         colleague_id = self._make_profile('teacher_colleague', 'استاد همکار')
@@ -3174,8 +3193,10 @@ class TeacherDashboardTests(_ScopedOrgFixture):
         page = response.content.decode()
         self.assertIn('آزمون آینده من', page)
         self.assertNotIn('آزمون آینده دیگری', page)
-        for section in ('دسترسی سریع', 'آزمون‌های پیش رو', 'یادآور آزمون آینده', 'فعالیت‌های اخیر', 'عملکرد دانشجویان', 'پاسخ‌های نیازمند تصحیح'):
+        for section in ('دسترسی سریع', 'آزمون‌های پیش رو', 'یادآور آزمون آینده', 'فعالیت‌های اخیر', 'عملکرد دانشجویان', 'آزمون‌های در انتظار تصحیح'):
             self.assertIn(section, page)
+        self.assertNotIn('پاسخ‌های نیازمند تصحیح', page)  # folded into the KPI box (arrow link)
+        self.assertIn('tdash-kpi-go', page)
         self.assertNotIn('۷۸٪', page)  # the old hard-coded participation figure is gone
 
     def test_dashboard_pending_and_performance_are_scoped(self):
@@ -3351,7 +3372,7 @@ class TeacherExamListTests(_ScopedOrgFixture):
         self.assertNotIn('آزمون خارج محدوده', page)
         for leftover in ('ریاضی دهم', 'گروه الف', '۲۸/۳۰'):
             self.assertNotIn(leftover, page)
-        self.assertIn('تصحیح (۱)', page)
+        self.assertIn('تصحیح پاسخ‌ها (۱)', page)  # in the row's «…» menu
 
     def test_status_filter_and_search(self):
         self._exam('پیش‌نویس فیزیولوژی', lifecycle_status='draft')
@@ -3364,6 +3385,55 @@ class TeacherExamListTests(_ScopedOrgFixture):
         self.assertEqual(titles(self._get(status='bogus', q='قلب')), {'لغوشده قلب'})  # unknown filter falls back to all
         self.assertIn('آزمونی با این جستجو یا وضعیت پیدا نشد', self._get(q='ناموجود').content.decode())
 
+    def test_tabs_filters_and_code_search(self):
+        from apps.core.views import exam_access_code
+        draft = self._exam('پیش‌نویس کددار', lifecycle_status='draft')
+        self._exam('ارسالی دیگر', lifecycle_status='pending_approval')
+        listing = self._get().context['exam_list']
+        tabs = {tab['key']: tab['count'] for tab in listing['tabs']}
+        self.assertEqual(tabs['all'], listing['total'])
+        self.assertGreaterEqual(tabs['draft'], 1)
+        self.assertGreaterEqual(tabs['pending_approval'], 1)
+        titles = lambda response: {row['title'] for row in response.context['exam_list']['rows']}
+        self.assertEqual(titles(self._get(q=exam_access_code(draft).lower())), {'پیش‌نویس کددار'})
+        self.assertIn('پیش‌نویس کددار', titles(self._get(course=str(self.course_in_id))))
+        self.assertEqual(titles(self._get(course=str(uuid.uuid4()))), set())
+        self.assertIn('پیش‌نویس کددار', titles(self._get(date='unset', sort='title')))
+        self.assertNotIn('پیش‌نویس کددار', titles(self._get(date='today')))
+        row = {r['title']: r for r in self._get(q='کددار').context['exam_list']['rows']}['پیش‌نویس کددار']
+        self.assertEqual((row['state'], row['primary']['label']), ('draft', 'ادامه ویرایش'))
+        self.assertEqual([item['label'] for item in row['menu']][-2:], ['ارسال برای تأیید', 'حذف پیش‌نویس'])
+
+    def test_duplicate_submit_and_delete_from_the_list(self):
+        from apps.core.views import erd_row
+        draft = self._exam('پیش‌نویس عملیات', lifecycle_status='draft')
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), draft, self.question_in_id, 2, 1])
+        self.client.force_login(self.teacher_user)
+        list_url = reverse('core:teacher_exams')
+        response = self.client.post(reverse('core:teacher_exam_duplicate', args=[draft]), {'next': list_url + '?status=draft'})
+        self.assertRedirects(response, list_url + '?status=draft', fetch_redirect_response=False)
+        copy = erd_row("SELECT * FROM exams WHERE title = 'پیش‌نویس عملیات (کپی)'")
+        self.assertEqual((copy['lifecycle_status'], bool(copy['is_published']), str(copy['teacher_id'])), ('draft', False, str(self.teacher_in_id)))
+        self.assertEqual(erd_row('SELECT COUNT(*) AS n FROM exam_questions WHERE exam_id = %s', [copy['id']])['n'], 1)
+        # no audience / time yet: refused, still a draft
+        self.client.post(reverse('core:teacher_exam_submit', args=[draft]))
+        self.assertEqual(erd_row('SELECT lifecycle_status FROM exams WHERE id = %s', [draft])['lifecycle_status'], 'draft')
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), draft, self.group_in_id])
+        from apps.core.views import erd_execute
+        erd_execute('UPDATE exams SET start_at = %s WHERE id = %s', [timezone.now(), draft])
+        self.client.post(reverse('core:teacher_exam_submit', args=[draft]))
+        self.assertEqual(erd_row('SELECT lifecycle_status FROM exams WHERE id = %s', [draft])['lifecycle_status'], 'pending_approval')
+        # only a draft can be deleted; the copy is one
+        self.client.post(reverse('core:teacher_exam_delete', args=[draft]))
+        self.assertIsNotNone(erd_row('SELECT id FROM exams WHERE id = %s', [draft]))
+        self.client.post(reverse('core:teacher_exam_delete', args=[copy['id']]))
+        self.assertIsNone(erd_row('SELECT id FROM exams WHERE id = %s', [copy['id']]))
+        self.assertIsNone(erd_row('SELECT id FROM exam_questions WHERE exam_id = %s', [copy['id']]))
+        # another teacher's exam, and GET, do nothing
+        for name in ('duplicate', 'submit', 'delete'):
+            self.assertEqual(self.client.post(reverse(f'core:teacher_exam_{name}', args=[self.exam_out_id])).status_code, 404)
+            self.assertEqual(self.client.get(reverse(f'core:teacher_exam_{name}', args=[draft])).status_code, 405)
+
     def test_approved_exam_shows_combined_status(self):
         from datetime import timedelta
         self._exam('تأییدشده قلب', lifecycle_status='published', approval_status='approved', is_published=True,
@@ -3373,13 +3443,17 @@ class TeacherExamListTests(_ScopedOrgFixture):
         self.assertEqual(labels, {'تأییدشده قلب': 'تأیید شده · برنامه‌ریزی شده', 'ارسالی قلب': 'در انتظار تأیید'})
 
     def test_pagination(self):
+        self.assertNotIn('mq-pager-server', self._get().content.decode())  # one page: no pager at all
         for index in range(24):
             self._exam(f'آزمون شماره {index}')
         first, second = self._get(), self._get(page='2')
         self.assertEqual(first.context['exam_list']['total'], 25)
-        self.assertEqual(len(first.context['exam_list']['rows']), 20)
-        self.assertEqual(len(second.context['exam_list']['rows']), 5)
-        self.assertIn('صفحه ۱ از ۲', first.content.decode())
+        third = self._get(page='3')
+        self.assertEqual(len(first.context['exam_list']['rows']), 10)
+        self.assertEqual(len(second.context['exam_list']['rows']), 10)
+        self.assertEqual(len(third.context['exam_list']['rows']), 5)
+        self.assertIn('class="mq-pager mq-pager-server"', first.content.decode())
+        self.assertIn('۱–۱۰ از ۲۵', first.content.decode())
 
     def test_status_labels_follow_time_window(self):
         from datetime import timedelta
@@ -3451,14 +3525,25 @@ class TeacherClassListTests(_ScopedOrgFixture):
         self.assertIn('فیزیولوژی پایه', names(self._get(term='9999|bogus', status='bogus')))  # unknown filters fall back to all
         self.assertIn('کلاسی با این جستجو یا فیلتر پیدا نشد', self._get(q='ناموجود').content.decode())
 
+    def test_current_and_past_tabs(self):
+        self._group('کلاس جاری', status='active')
+        self._group('کلاس غیرفعال', is_active=False)
+        self._group('کلاس بایگانی', status='archived', is_active=False, is_archived=True)
+        names = lambda response: {row['course_name'] for row in response.context['class_list']['rows']}
+        current = self._get()  # opens on «کلاس‌های فعال»; drafts are current classes
+        self.assertEqual(names(current), {'کلاس جاری', 'درس داخل محدوده'})
+        self.assertEqual(names(self._get(status='past')), {'کلاس غیرفعال', 'کلاس بایگانی'})
+        self.assertEqual([(tab['key'], tab['count']) for tab in current.context['class_list']['tabs']], [('current', 2), ('past', 2)])
+        self.assertNotIn('tclass-stats', current.content.decode())
+
     def test_pagination_and_list_view(self):
         for index in range(13):
             self._group(f'کلاس شماره {index}')
         first, second = self._get(), self._get(page='2')
         self.assertEqual(first.context['class_list']['total'], 14)
-        self.assertEqual(len(first.context['class_list']['rows']), 12)
-        self.assertEqual(len(second.context['class_list']['rows']), 2)
-        self.assertIn('صفحه ۱ از ۲', first.content.decode())
+        self.assertEqual(len(first.context['class_list']['rows']), 10)
+        self.assertEqual(len(second.context['class_list']['rows']), 4)
+        self.assertIn('۱–۱۰ از ۱۴', first.content.decode())
         self.assertIn('class="tclass-table"', self._get(view='list').content.decode())
 
 
@@ -3595,7 +3680,7 @@ class TeacherStudentScopeTests(_ScopedOrgFixture):
     def test_group_pages_redirect_to_filtered_list_or_404(self):
         for name in ('core:teacher_group_students', 'core:teacher_group_activity'):
             response = self._get(reverse(name, args=[self.shared_group_id]))
-            self.assertRedirects(response, f"{reverse('core:teacher_students')}?group={self.shared_group_id}")
+            self.assertRedirects(response, f"{reverse('core:teacher_course_detail', args=[self.shared_group_id])}?tab=students")
             self.assertEqual(self._get(reverse(name, args=[self.group_out_id])).status_code, 404)
             self.assertEqual(self._get(reverse(name, args=['nursing-01'])).status_code, 404)
 
@@ -5214,7 +5299,7 @@ class StudentDashboardTests(_ScopedOrgFixture):
         response = self._dashboard(self.student_user)
         classes = response.context['student_dashboard']['classes']
         self.assertEqual([(group['course_title'], group['teacher_name']) for group in classes], [('درس داخل محدوده', 'استاد داخل محدوده')])
-        self.assertContains(response, f'class="sdb-more" href="{reverse("core:student_classes")}"')
+        self.assertContains(response, f'<a href="{reverse("core:student_classes")}">مشاهده همه')
 
     def test_notifications_are_own_and_links_stay_internal(self):
         from .views import create_notification as create
@@ -5804,9 +5889,9 @@ class TeacherQuestionBankPaginationTests(_ScopedOrgFixture):
         self.client.force_login(self.teacher_user)
         url = reverse('core:teacher_questions')
         first = self.client.get(url, {'type': 'single'})
-        self.assertEqual(len(first.context['questions']), 20)
-        self.assertContains(first, '<input type="hidden" name="type" value="single">')
-        second = self.client.get(url, {'type': 'single', 'page': 2})
+        self.assertEqual(len(first.context['questions']), 10)
+        self.assertContains(first, 'href="?type=single&amp;page=2"')  # pager links keep the filters
+        second = self.client.get(url, {'type': 'single', 'page': 3})
         self.assertEqual([q['text'] for q in second.context['questions']], [f'سؤال شماره {n}' for n in range(20, 25)])
         self.assertEqual({q['status_key'] for q in second.context['questions']}, {'draft'})
         self.assertNotContains(second, '۱۴۰۴/۰۳/۲۰')
@@ -6066,16 +6151,27 @@ class TeacherPanelRealNumbersTests(_ScopedOrgFixture):
 
     def test_course_detail_shows_real_numbers_and_only_own_groups(self):
         self.client.force_login(self.teacher_user)
+        url = reverse('core:teacher_course_detail', args=[self.group_in_id])
         self.assertEqual(self.client.get(reverse('core:teacher_course_detail', args=[self.group_out_id])).status_code, 404)
-        page = self.client.get(reverse('core:teacher_course_detail', args=[self.group_in_id]))
-        summary = page.context['course_summary']
-        self.assertEqual((summary['students_count'], summary['exams_count'], summary['active_exams_count'], summary['class_average']), (1, 1, 0, 15.0))
-        self.assertEqual([(item['title'], item['type']) for item in page.context['course_activity']], [('آزمون داخل محدوده', 'برگزاری آزمون')])
-        exams = self.client.get(reverse('core:teacher_course_detail', args=[self.group_in_id]), {'tab': 'exams', 'exam_status': 'پایان‌یافته'}).context['course_exams']
-        self.assertEqual([(e['status_label'], e['participants_count'], e['average_score']) for e in exams], [('پایان‌یافته', 1, 15.0)])
+        page = self.client.get(url)
+        overview = page.context['cls']['overview']
+        self.assertEqual(overview['kpis'], {'students': 1, 'exams': 1, 'running': 0, 'finished': 1})
+        self.assertIn('آزمون داخل محدوده', ' '.join(item['text'] for item in overview['activity']))
         html = page.content.decode()
         for invented in ('۱۶.۸', 'آزمون میان‌ترم', '۱۴۰۴/۰۳/۱۰'):
             self.assertNotIn(invented, html)
+
+        students = self.client.get(url, {'tab': 'students'}).context['cls']['students']
+        [row] = students['rows']
+        self.assertEqual((row['taken'], row['total'], row['last']['score'], row['learning']), (1, 1, 15.0, 'average'))
+        panel = self.client.get(url, {'tab': 'students', 'student': self.student_in_id}).context['cls']['students']['panel']
+        self.assertEqual([item['score'] for item in panel['results']], [15.0])
+        self.assertEqual(self.client.get(url, {'tab': 'students', 'student': self.student_out_id}).status_code, 404)
+
+        exams = self.client.get(url, {'tab': 'exams', 'status': 'finished'}).context['cls']['exams']
+        self.assertEqual([(e['title'], e['state']) for e in exams['rows']], [('آزمون داخل محدوده', 'finished')])
+        export = self.client.get(url, {'export': 'xlsx'})
+        self.assertEqual(export['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
     def test_profile_has_no_invented_identity(self):
         self.client.force_login(self.teacher_user)
@@ -6098,6 +6194,11 @@ class ManagerDashboardCardsTests(_ScopedOrgFixture):
         self.assertEqual(cards['نیازمند بررسی']['hint'], 'آزمون در انتظار تأیید')
         self.assertIn('در حال برگزاری', cards['آزمون‌های منتشرشده']['hint'])
 
+    def test_generic_dashboard_url_leads_to_the_managers_dashboard(self):
+        # /dashboard/ used to render an almost empty placeholder page for academic managers.
+        self.client.force_login(self.manager_user)
+        self.assertRedirects(self.client.get(reverse('core:dashboard')), reverse('core:exam_manager_dashboard'), fetch_redirect_response=False)
+
 
 class SubordinateOverviewTests(_ScopedOrgFixture):
     """«زیرمجموعه من»: each account sees how many people are under it, limited to its access."""
@@ -6116,7 +6217,9 @@ class SubordinateOverviewTests(_ScopedOrgFixture):
     def test_teacher_sees_only_the_students_of_own_groups(self):
         self.client.force_login(self.teacher_user)
         page = self.client.get(reverse('core:teacher_panel'))
-        self.assertContains(page, 'زیرمجموعه من')
+        # The teacher dashboard shows the tiles beside its KPI boxes (no separate «زیرمجموعه من» panel).
+        self.assertNotContains(page, 'subs-panel')
+        self.assertContains(page, 'آزمون‌های در انتظار تصحیح')
         data = page.context['subordinates']
         self.assertEqual(self._tiles(data)['دانشجویان'], 1)
         self.assertEqual(self._tiles(data)['کلاس‌ها'], 1)
@@ -6140,7 +6243,9 @@ class SubordinateOverviewTests(_ScopedOrgFixture):
         tiles = self._tiles(data)
         self.assertEqual((tiles['مدیران آموزشی'], tiles['اساتید'], tiles['دانشجویان']), (1, 2, 2))
         self.assertEqual({row['label'] for row in data['rows']}, {'واحد تحت مدیریت', 'واحد دیگر'})
-        self.assertContains(page, 'subs-panel')
+        # same look as the teacher dashboard (partials/dashboard/): the tiles are a KPI row, no breakdown on the page
+        self.assertContains(page, 'tdash-kpi-go')
+        self.assertNotContains(page, 'subs-panel')
 
 
 class DashboardChartsRealDataTests(_ScopedOrgFixture):
@@ -7205,7 +7310,8 @@ class ExamCodeJoinTests(_EnforcedExamFixture):
             'title': 'آزمون تازه', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id], 'question_ids': [self.single_id],
             'duration_minutes': '30', 'publish_choice': 'submit', 'start_at': '2026-12-10T16:00'}, follow=True)
         [(new_id,)] = self._rows("SELECT id FROM exams WHERE title = 'آزمون تازه'", [])
-        self.assertContains(created, f'data-copy-code="{self._code(new_id)}"', count=2)  # the new exam's code card and row
+        self.assertContains(created, f'data-copy-code="{self._code(new_id)}"', count=1)  # the new exam's code card
+        self.assertContains(created, f'data-xl-copy="{self._code(new_id)}"', count=2)  # its row (table and card view)
         self.client.force_login(self.manager_user)
         self.assertContains(self.client.get(reverse('core:super_admin_exam_edit', args=[exam_id])), code)
         found = self.client.get(reverse('core:super_admin_exams'), {'q': code.lower()})
@@ -7362,10 +7468,10 @@ class ExamCodeStaffJoinTests(_EnforcedExamFixture):
     def test_manager_in_scope_and_admin(self):
         mine = self._exam()
         self.client.force_login(self.manager_user)
-        self._lands(mine, reverse('core:super_admin_exam_detail', args=[mine]))
+        self._lands(mine, f"{reverse('core:super_admin_exam_hub', args=[mine])}?tab=overview")
         self.assertIn('join=not_found_staff', self._join(self.exam_out_id)['Location'])  # another unit's exam
         self.client.force_login(self.admin_user)
-        self._lands(self.exam_out_id, reverse('core:super_admin_exam_detail', args=[self.exam_out_id]))
+        self._lands(self.exam_out_id, f"{reverse('core:super_admin_exam_hub', args=[self.exam_out_id])}?tab=overview")
 
 
 class WizardQuestionUsageCountTests(_EnforcedExamFixture):
@@ -7686,7 +7792,8 @@ class ExamCodeAndAttemptFlowFixesTests(_EnforcedExamFixture):
         code = self._code(exam_id)
         page = self.client.get(reverse('core:teacher_exams'), {'saved': str(exam_id)})
         self.assertContains(page, 'class="texams-saved"')
-        self.assertContains(page, f'data-copy-code="{code}"', count=2)  # the card and the exam's row
+        self.assertContains(page, f'data-copy-code="{code}"', count=1)  # the card
+        self.assertContains(page, f'data-xl-copy="{code}"', count=2)  # the exam's row (table and card view)
         self.assertNotContains(self.client.get(reverse('core:teacher_exams'), {'saved': str(uuid.uuid4())}), 'class="texams-saved"')
 
 
@@ -7699,9 +7806,11 @@ class TeacherExamListActionLinksTests(_EnforcedExamFixture):
         ended = self._exam(title='آزمون تمام‌شده', start_at=now - timedelta(hours=3), end_at=now - timedelta(hours=2))
         self.client.force_login(self.teacher_user)
         page = self.client.get(reverse('core:teacher_exams')).content.decode()
-        self.assertIn(f"{reverse('core:teacher_monitoring')}?exam={running}", page)
-        self.assertIn(f"{reverse('core:teacher_results')}?exam={ended}", page)
-        self.assertNotIn(f"{reverse('core:teacher_results')}?exam={running}", page)  # nobody handed it in yet
+        # running / finished exams lead to «مدیریت آزمون» (exam_hub)
+        hub = lambda exam_id, tab: f"{reverse('core:teacher_exam_hub', args=[exam_id])}?tab={tab}"  # noqa: E731
+        self.assertIn(hub(running, 'live'), page)
+        self.assertIn(hub(ended, 'results'), page)
+        self.assertNotIn(hub(running, 'results'), page)  # nobody handed it in yet
         self.assertIn('data-latin-digits>MQ-', page)
 
 
@@ -9090,3 +9199,89 @@ class DeleteChoicesTests(_ScopedOrgFixture):
             users = self.client.get(reverse('core:super_admin_users'), {'tab': tab})
             self.assertContains(users, reverse('core:super_admin_delete_account', args=[kind, profile_id]))
             self.assertContains(users, 'data-delete-dialog')
+
+
+class ExamHubTests(_ScopedOrgFixture):
+    """«مدیریت آزمون» (exam_hub.py): every tab opens for the exam's teacher, other teachers get 404, «افزودن زمان»
+    lengthens the attempt, and a proctor message reaches the open exam page once."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        User = get_user_model()
+        cls.teacher_user = User.objects.create_user(username='teacher_in_scope', email='t_in@example.com', password='x')
+        cls.other_user = User.objects.create_user(username='teacher_out_scope', email='t_out@example.com', password='x')
+        cls.student_user = User.objects.create_user(username='student_in_scope', email='s_in@example.com', password='x')
+        now = timezone.now()
+        execute = __import__('apps.core.views', fromlist=['erd_execute']).erd_execute
+        execute('UPDATE exams SET is_published = true, start_at = %s, end_at = %s, duration_minutes = 60 WHERE id = %s',
+                [now - timedelta(minutes=10), now + timedelta(minutes=50), cls.exam_in_id])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), cls.exam_in_id, cls.question_in_id, 1, 1])
+        _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), cls.exam_in_id, cls.student_in_id])
+        cls.attempt_id = str(uuid.uuid4())
+        _insert('exam_attempts', ['id', 'exam_id', 'student_id', 'started_at', 'status'],
+                [cls.attempt_id, cls.exam_in_id, cls.student_in_id, now - timedelta(minutes=5), 'in_progress'])
+
+    def _hub(self, **params):
+        return self.client.get(reverse('core:teacher_exam_hub', args=[self.exam_in_id]), params)
+
+    def test_every_tab_opens_for_the_teacher(self):
+        self.client.force_login(self.teacher_user)
+        for tab in ('overview', 'live', 'grading', 'results', 'events', 'review', 'settings'):
+            self.assertEqual(self._hub(tab=tab).status_code, 200, tab)
+        self.assertEqual(self._hub(tab='live', attempt=self.attempt_id).status_code, 200)
+        self.assertEqual(self._hub(tab='results', view='items').status_code, 200)
+        self.assertEqual(self._hub(tab='results', student=self.attempt_id).status_code, 200)
+        page = self._hub(tab='live').content.decode()
+        self.assertIn('دانشجوی داخل محدوده', page)
+        self.assertIn('در حال پاسخ‌گویی', page)
+
+    def test_other_teacher_gets_404(self):
+        self.client.force_login(self.other_user)
+        self.assertEqual(self._hub().status_code, 404)
+        response = self.client.post(reverse('core:teacher_exam_hub_action', args=[self.exam_in_id]),
+                                    {'action': 'add_time', 'attempt': self.attempt_id, 'minutes': '10', 'reason': 'x'})
+        self.assertEqual(response.status_code, 404)
+
+    def test_add_time_and_message_reach_the_exam_page(self):
+        from .views import erd_row
+
+        self.client.force_login(self.student_user)
+        live_url = reverse('core:student_attempt_live', args=[self.attempt_id])
+        before = self.client.get(live_url).json()['remaining_seconds']
+        self.client.force_login(self.teacher_user)
+        action = reverse('core:teacher_exam_hub_action', args=[self.exam_in_id])
+        self.client.post(action, {'action': 'add_time', 'attempt': self.attempt_id, 'minutes': '15', 'reason': 'قطع برق'})
+        self.client.post(action, {'action': 'send_message', 'attempt': self.attempt_id, 'message': 'ادامه دهید'})
+        self.assertEqual(erd_row('SELECT extra_minutes FROM exam_attempts WHERE id = %s', [self.attempt_id])['extra_minutes'], 15)
+        self.client.force_login(self.student_user)
+        data = self.client.get(live_url).json()
+        self.assertGreater(data['remaining_seconds'], before + 14 * 60)
+        self.assertEqual([m['text'] for m in data['messages']], ['ادامه دهید'])
+        self.assertEqual(self.client.get(live_url).json()['messages'], [])  # delivered once
+        self.assertIsNotNone(erd_row('SELECT last_seen_at FROM exam_attempts WHERE id = %s', [self.attempt_id])['last_seen_at'])
+
+    def test_grading_return_address_stays_on_the_hub(self):
+        from django.test import RequestFactory
+
+        from .grading_views import _hub_return
+
+        factory = RequestFactory()
+        for url, expected in (('/teacher/exams/x/manage/?tab=grading&answer=1', True), ('https://evil.example/manage/', False),
+                              ('//evil.example/teacher/exams/x/manage/', False), ('/teacher/reviews/', False)):
+            self.assertEqual(bool(_hub_return(factory.post('/', {'hub': url}))), expected, url)
+
+
+class AppVersionTests(TestCase):
+    """The release number from the VERSION file is shown under the logo (brand_logo.html)."""
+
+    def test_version_file_is_semver_and_shown_under_the_logo(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        version = (Path(settings.BASE_DIR) / 'VERSION').read_text(encoding='utf-8').strip()
+        self.assertRegex(version, r'^\d+\.\d+\.\d+$')
+        self.assertEqual(settings.APP_VERSION, version)
+        response = self.client.get(reverse('core:login'))
+        self.assertContains(response, f'class="mq-brand-version" dir="ltr" data-latin-digits title="نسخه سامانه">v{version}<')

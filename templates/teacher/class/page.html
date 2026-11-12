@@ -1,0 +1,47 @@
+{% load core_extras static %}{% comment %}
+Class page of one of the teacher's groups (apps/core/teacher_class.py, header comment): one live region, header +
+the same tab strip on every tab, then the tab's partial. Styles: exam-hub.css (shared .xh look) + class-hub.css.
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'css/exam-hub.css' %}?v=xh-20261112c">
+<link rel="stylesheet" href="{% static 'css/exam-list.css' %}?v=xl-20261112b">
+<link rel="stylesheet" href="{% static 'css/class-hub.css' %}?v=ch-20261112a">
+{% include 'partials/exam_list/sprite.html' %}
+<div class="xh ch" id="teacher-class" data-live-region dir="rtl">
+    <header class="ch-head is-{{ cls.tab }}">
+        <div class="ch-titles">
+            <ol class="xh-crumbs" aria-label="مسیر">
+                <li><a href="{{ cls.urls.list }}">کلاس‌ها</a></li>
+                {% if cls.tab == 'overview' %}<li>{{ cls.title|fa_digits }}</li>
+                {% else %}<li><a href="{{ cls.urls.overview }}">{{ cls.title|fa_digits }}</a></li><li>{% if cls.tab == 'students' %}دانشجویان کلاس{% else %}آزمون‌های کلاس{% endif %}</li>{% endif %}
+            </ol>
+            {% if cls.tab == 'overview' %}
+                <h1 class="ch-h1">{{ cls.title|fa_digits }}</h1>
+            {% else %}
+                <div class="ch-section">
+                    <span class="ch-section-ico">{% if cls.tab == 'students' %}{% include 'teacher/class/_icon.html' with i='users' %}{% else %}{% include 'teacher/class/_icon.html' with i='doc' %}{% endif %}</span>
+                    <div>
+                        <h1 class="ch-h1">{% if cls.tab == 'students' %}دانشجویان کلاس{% else %}آزمون‌های کلاس{% endif %}</h1>
+                        {% if cls.tab == 'exams' %}<p>مدیریت آزمون‌های این کلاس</p>{% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="ch-headside">
+            {% if cls.tab == 'overview' %}
+                <a class="xh-btn is-solid" href="{{ cls.urls.new_exam }}" data-live-skip><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>آزمون جدید</a>
+            {% else %}
+                <h2 class="ch-classname">{{ cls.title|fa_digits }}</h2>
+                {% if cls.tab == 'students' %}<span class="ch-count">{% include 'teacher/class/_icon.html' with i='users' %}{{ cls.students.total|fa_digits }} دانشجو</span>{% endif %}
+            {% endif %}
+        </div>
+        <nav class="ch-tabs" aria-label="بخش‌های کلاس">
+            {% for t in cls.tabs %}<a class="ch-tab{% if t.key == cls.tab %} is-active{% endif %}" href="{{ t.url }}"{% if t.key == cls.tab %} aria-current="page"{% endif %}>{% include 'teacher/class/_icon.html' with i=t.icon %}<span>{{ t.label }}</span></a>{% endfor %}
+        </nav>
+    </header>
+
+    {% if cls.tab == 'overview' %}{% include 'teacher/class/_overview.html' %}
+    {% elif cls.tab == 'students' %}{% include 'teacher/class/_students.html' %}
+    {% else %}{% include 'teacher/class/_exams.html' %}
+    {% endif %}
+</div>
+<script src="{% static 'js/exam-list.js' %}?v=xl-20261112b" defer></script>

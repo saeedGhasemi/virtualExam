@@ -40,8 +40,8 @@ EXAM_PAGE_STATES = {
     'absent': ('غایب', 'red', 'finished'),
 }
 EXAM_PAGE_TABS = (('all', 'همه'), ('upcoming', 'پیش رو'), ('in_progress', 'در حال انجام'), ('finished', 'پایان‌یافته'))
-EXAM_PAGE_SIZE = 6
-CLASS_PAGE_SIZE = 9
+EXAM_PAGE_SIZE = 10
+CLASS_PAGE_SIZE = 10
 # icon names from teacher/_qb_icon.html; courses have no icon of their own, so one is picked per course title
 COURSE_ICONS = ('book', 'calculator', 'globe', 'chart', 'database', 'monitor')
 
@@ -435,13 +435,19 @@ def student_dashboard_context(request, profile) -> dict:
     if not student_id:
         return {'first_name': request.user.first_name or request.user.username, 'exam_rows': [], 'classes': [],
                 'results': [], 'notifications': [], 'next_exam': None,
-                'stats': {'upcoming': 0, 'classes': 0, 'new_results': 0}}
+                'stats': {'upcoming': 0, 'classes': 0, 'new_results': 0},
+                **_dashboard_boxes({'upcoming': 0, 'classes': 0, 'new_results': 0})}
     rows = student_exam_rows(student_id)
     classes = student_classes(student_id)
     results, new_results = _recent_results(student_id)
     next_exam = next((row for row in rows if row['state'] == 'ready'), None) or next(
         (row for row in rows if row['state'] == 'upcoming'), None)
     full_name = profile.get('full_name') or request.user.get_full_name() or request.user.username
+    stats = {
+        'upcoming': sum(1 for row in rows if row['state'] in ('ready', 'upcoming')),
+        'classes': len(classes),
+        'new_results': new_results,
+    }
     return {
         'first_name': profile.get('first_name') or full_name.split(' ')[0],
         'next_exam': next_exam,
@@ -449,9 +455,18 @@ def student_dashboard_context(request, profile) -> dict:
         'classes': classes[:CLASS_LIST_SIZE],
         'results': results,
         'notifications': _notifications(student_id),
-        'stats': {
-            'upcoming': sum(1 for row in rows if row['state'] in ('ready', 'upcoming')),
-            'classes': len(classes),
-            'new_results': new_results,
-        },
+        'stats': stats,
+        **_dashboard_boxes(stats),
     }
+
+
+def _dashboard_boxes(stats) -> dict:
+    """The «آزمون بعدی» tip and the three KPI boxes, drawn by partials/dashboard/kpis.html (the look shared with the teacher dashboard)."""
+    exams_url = reverse('core:student_exam_schedule')
+    return {'tip': {'title': 'نکات مهم قبل از آزمون',
+                    'text': 'لطفاً با اتصال پایدار اینترنت، مرورگر به‌روز و کارت دانشجویی در زمان آزمون حاضر باشید.'},
+            'kpis': [
+        {'label': 'آزمون پیش‌رو', 'value': stats['upcoming'], 'hint': 'آزمون در انتظار برگزاری', 'icon': 'exams', 'url': exams_url},
+        {'label': 'کلاس‌های من', 'value': stats['classes'], 'hint': 'کلاس فعال', 'icon': 'classes'},
+        {'label': 'نتایج جدید', 'value': stats['new_results'], 'hint': 'کارنامه منتشر شده در ۱۴ روز اخیر', 'icon': 'results', 'url': f'{exams_url}?tab=finished'},
+    ]}

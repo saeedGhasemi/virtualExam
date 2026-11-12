@@ -10,9 +10,11 @@
 .mq-brand .mq-brand-text:not(#mq-x){display:flex;flex-direction:column;justify-content:center;gap:.18em;min-width:0}
 .mq-brand .mq-brand-name:not(#mq-x){display:block;font-family:"MQ Lalezar",Vazirmatn,Tahoma,sans-serif;font-weight:400;font-size:1.22em;line-height:1;color:#0b1a3a;padding-top:.08em}
 .mq-brand .mq-brand-tagline:not(#mq-x){display:block;font-family:Vazirmatn,"B Yekan",BYekan,Tahoma,sans-serif;font-weight:600;font-size:.44em;line-height:1;color:#6b7891}
+/* Release number under the name (VERSION file) */
+.mq-brand .mq-brand-version:not(#mq-x){display:block;align-self:flex-start;font-family:Vazirmatn,Tahoma,sans-serif;font-weight:600;font-size:.42em;line-height:1;letter-spacing:.02em;color:#8a96ad;direction:ltr;unicode-bidi:isolate}
 /* On dark/coloured surfaces add extra="mq-brand--light" */
 .mq-brand--light .mq-brand-name:not(#mq-x){color:#fff}
-.mq-brand--light .mq-brand-tagline:not(#mq-x){color:rgba(255,255,255,.75)}
+.mq-brand--light .mq-brand-tagline:not(#mq-x),.mq-brand--light .mq-brand-version:not(#mq-x){color:rgba(255,255,255,.75)}
 a:hover .mq-brand .mq-brand-mark:not(#mq-x){transform:translateY(-1px)}
 /* A collapsed side menu hides the text (label_class="profile-sidebar-label") */
 .profile-sidebar.is-collapsed .mq-brand .mq-brand-text:not(#mq-x){display:none}

@@ -1,0 +1,25 @@
+{% load core_extras %}{# «یادآور آزمون آینده» card like the teacher dashboard. exam = {title, status_label/state_label, status_tone/state_tone, countdown, course, date_label, time_label, participants?, questions?, duration?}; more_url / more_label, action ({url, label}) and tip ({title, text}) optional. #}
+<section class="tdash-card">
+    <header class="tdash-card-head"><h2><i class="tdash-hicon is-amber" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></i>{{ title|default:"یادآور آزمون آینده" }}</h2>{% if exam and more_url %}<a href="{{ more_url }}">{{ more_label|default:"جزئیات" }} <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>{% endif %}</header>
+    {% if exam %}
+        <div class="tdr">
+            <b class="tdr-title" title="{{ exam.title }}">{{ exam.title }}</b>
+            <div class="tdr-meta">
+                {% firstof exam.status_tone exam.state_tone 'blue' as tone %}<span class="tdash-pill is-{{ tone }}">{% firstof exam.status_label exam.state_label %}</span>
+                {% if exam.countdown %}<span class="tdr-count"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ exam.countdown|fa_digits }}</span>{% endif %}
+            </div>
+            <ul class="tdr-facts">
+                <li><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg><span>{{ exam.course }}</span></li>
+                <li><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><span>{{ exam.date_label|default:"-" }}</span></li>
+                {% if exam.time_label %}<li><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>ساعت {{ exam.time_label|fa_digits }}</span></li>{% endif %}
+                {% if exam.participants %}<li><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.8 20a5.2 5.2 0 0 1 10.4 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 15.5A4.7 4.7 0 0 1 20.5 20"/></svg><span>{{ exam.participants|fa_digits }} دانشجو</span></li>{% endif %}
+                {% if exam.question_count %}<li><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg><span>{{ exam.question_count|fa_digits }} سؤال</span></li>{% endif %}
+                {% if exam.duration %}<li><svg viewBox="0 0 24 24"><path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/></svg><span>{{ exam.duration|fa_digits }} دقیقه</span></li>{% endif %}
+            </ul>
+            {% if action %}<a class="tdr-action" href="{{ action.url }}">{{ action.label }}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>{% endif %}
+            {% if tip %}<p class="tdr-tip"><b><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>{{ tip.title }}</b>{{ tip.text }}</p>{% endif %}
+        </div>
+    {% else %}
+        <p class="tdash-empty">{{ empty|default:"آزمون زمان‌بندی‌شده‌ای در پیش نیست." }}</p>
+    {% endif %}
+</section>

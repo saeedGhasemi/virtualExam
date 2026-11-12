@@ -141,7 +141,7 @@
             </table>
         </div>
 
-        <div class="am-card-grid" hidden>
+        <div class="am-card-grid" data-pager hidden>
             {% for row in rows %}
                 <article class="am-person-card" data-manager-card="{{ row.id }}">
                     <div class="am-card-top">
@@ -196,14 +196,6 @@
             {% endfor %}
         </div>
 
-        <footer class="am-table-footer">
-            <span>نمایش ۱-{{ rows|length|fa_digits }} از {{ rows|length|fa_digits }}</span>
-            <div>
-                <button type="button">‹</button>
-                <b>۱</b>
-                <button type="button">›</button>
-            </div>
-        </footer>
     </section>
 
     <div class="am-modal" id="managerModal" aria-hidden="true">

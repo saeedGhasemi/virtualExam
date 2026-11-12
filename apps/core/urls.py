@@ -1,6 +1,9 @@
 from django.urls import path
 from .appearance_views import my_appearance_save
 from .exam_preview import exam_preview, exam_preview_finish, question_preview, question_preview_finish
+from .exam_hub import (
+    student_attempt_live, super_admin_exam_hub, super_admin_exam_hub_action, teacher_exam_hub, teacher_exam_hub_action,
+)
 from .exam_report import super_admin_exam_report, teacher_exam_report
 from .user_directory import super_admin_user_directory
 from .deletion import super_admin_course_delete
@@ -101,6 +104,8 @@ from .views import (
     super_admin_dashboard,
     super_admin_emergency_stop,
     super_admin_exam_approve,
+    super_admin_exam_delete,
+    super_admin_exam_duplicate,
     super_admin_exam_create,
     super_admin_exam_detail,
     super_admin_exam_edit,
@@ -172,6 +177,9 @@ from .views import (
     teacher_courses,
     teacher_educational_question_answer,
     teacher_exam_create,
+    teacher_exam_delete,
+    teacher_exam_duplicate,
+    teacher_exam_submit,
     teacher_exam_edit,
     teacher_exam_participants_match,
     teacher_exam_preview,
@@ -238,7 +246,11 @@ urlpatterns = [
     path('super-admin/exams/active/', super_admin_active_exams, name='super_admin_active_exams'),  # before <exam_id>, or 'active' is read as an id
     path('super-admin/exams/<str:exam_id>/edit/', super_admin_exam_edit, name='super_admin_exam_edit'),
     path('super-admin/exams/<str:exam_id>/approve/', super_admin_exam_approve, name='super_admin_exam_approve'),
+    path('super-admin/exams/<str:exam_id>/duplicate/', super_admin_exam_duplicate, name='super_admin_exam_duplicate'),
+    path('super-admin/exams/<str:exam_id>/delete/', super_admin_exam_delete, name='super_admin_exam_delete'),
     path('super-admin/exams/<str:exam_id>/report/', super_admin_exam_report, name='super_admin_exam_report'),
+    path('super-admin/exams/<str:exam_id>/manage/', super_admin_exam_hub, name='super_admin_exam_hub'),
+    path('super-admin/exams/<str:exam_id>/manage/action/', super_admin_exam_hub_action, name='super_admin_exam_hub_action'),
     path('super-admin/exams/<str:exam_id>/wizard/', super_admin_exam_wizard_edit, name='super_admin_exam_wizard_edit'),
     path('super-admin/exams/<str:exam_id>/', super_admin_exam_detail, name='super_admin_exam_detail'),
     path('super-admin/calendar/', super_admin_calendar, name='super_admin_calendar'),
@@ -362,7 +374,12 @@ urlpatterns = [
     path('teacher/exams/create/', teacher_exam_create, name='teacher_exam_create'),
     path('teacher/exams/create/participants-match/', teacher_exam_participants_match, name='teacher_exam_participants_match'),
     path('teacher/exams/<str:exam_id>/edit/', teacher_exam_edit, name='teacher_exam_edit'),
+    path('teacher/exams/<str:exam_id>/duplicate/', teacher_exam_duplicate, name='teacher_exam_duplicate'),
+    path('teacher/exams/<str:exam_id>/submit/', teacher_exam_submit, name='teacher_exam_submit'),
+    path('teacher/exams/<str:exam_id>/delete/', teacher_exam_delete, name='teacher_exam_delete'),
     path('teacher/exams/<str:exam_id>/report/', teacher_exam_report, name='teacher_exam_report'),
+    path('teacher/exams/<str:exam_id>/manage/', teacher_exam_hub, name='teacher_exam_hub'),
+    path('teacher/exams/<str:exam_id>/manage/action/', teacher_exam_hub_action, name='teacher_exam_hub_action'),
     path('teacher/exams/<str:exam_id>/preview/', teacher_exam_preview, name='teacher_exam_preview'),
     path('teacher/monitoring/', teacher_monitoring, name='teacher_monitoring'),
     path('teacher/reviews/', teacher_reviews, name='teacher_reviews'),
@@ -394,6 +411,7 @@ urlpatterns = [
     path('student/practice/<str:exam_id>/start/', student_practice_start, name='student_practice_start'),
     path('student/attempts/<str:attempt_id>/', student_attempt, name='student_attempt'),
     path('student/attempts/<str:attempt_id>/event/', student_attempt_event, name='student_attempt_event'),
+    path('student/attempts/<str:attempt_id>/live/', student_attempt_live, name='student_attempt_live'),
     path('student/attempts/<str:attempt_id>/submit/', student_attempt_submit, name='student_attempt_submit'),
     path('student/attempts/<str:attempt_id>/receipt/', student_attempt_receipt, name='student_attempt_receipt'),
     path('student/results/<str:attempt_id>/', student_result_detail, name='student_result_detail'),

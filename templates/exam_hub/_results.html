@@ -1,0 +1,99 @@
+{% load core_extras %}{% with r=results st=results.students sm=results.students.summary %}
+<div class="xh-split is-right">
+    <aside class="xh-side">
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>تحلیل سؤالات</h3></div>
+            {% if r.mini %}
+            <table class="rt-off xh-mini-table">
+                <thead><tr><th>سؤال</th><th>درصد پاسخ صحیح</th><th>سختی</th><th>تمایز</th><th>وضعیت</th></tr></thead>
+                <tbody>
+                {% for q in r.mini %}
+                <tr>
+                    <td><a href="?tab=results&view=items&q_no={{ q.index }}">{{ q.index }}</a></td>
+                    <td>{{ q.correct_pct }}٪</td>
+                    <td>{% if q.level %}<span class="xh-pill is-{{ q.level.1 }}">{{ q.level.0 }}</span>{% else %}—{% endif %}</td>
+                    <td>{% if q.d is not None %}<span style="color:{% if q.d < 0 %}var(--xh-red){% elif q.d < 0.3 %}var(--xh-amber){% else %}var(--xh-green){% endif %}">{{ q.d }}</span>{% else %}—{% endif %}</td>
+                    <td>{% if q.verdict == 'bad' %}<span style="color:var(--xh-red)" title="تمایز منفی">{% include 'exam_hub/_icon.html' with i='alert' %}</span>{% elif q.verdict == 'warn' %}<span style="color:var(--xh-blue)" title="تمایز کم">{% include 'exam_hub/_icon.html' with i='info' %}</span>{% else %}<span style="color:var(--xh-green)" title="مناسب">{% include 'exam_hub/_icon.html' with i='checkcircle' %}</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div class="xh-card-foot"><a class="xh-link" href="?tab=results&view=items">مشاهده تحلیل کامل سؤالات {% include 'exam_hub/_icon.html' with i='arrowl' %}</a></div>
+            {% else %}<div class="xh-empty">این آزمون سؤالی ندارد.</div>{% endif %}
+        </div>
+        {% include 'exam_hub/_exam_info.html' with question_total=r.kpis.questions %}
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis">
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='users' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">تعداد شرکت‌کنندگان</span><span class="xh-kpi-value">{{ sm.takers }}<em>نفر</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='chart' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین نمره</span><span class="xh-kpi-value">{{ sm.average }}<em>از {{ st.scale }}</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-green">{% include 'exam_hub/_icon.html' with i='check' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">پذیرفته‌شده</span><span class="xh-kpi-value">{{ sm.passed }}<em>نفر</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-red">{% include 'exam_hub/_icon.html' with i='x' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">مردود</span><span class="xh-kpi-value">{{ sm.failed }}<em>نفر</em></span>{% if sm.pending %}<span class="xh-kpi-sub">{{ sm.pending }} نفر در انتظار تصحیح</span>{% endif %}</div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-violet">{% include 'exam_hub/_icon.html' with i='award' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">نرخ قبولی</span><span class="xh-kpi-value">{{ sm.pass_pct }}٪</span></div></div>
+        </div>
+
+        <div class="xh-cols is-3-2">
+            <div class="xh-card">
+                <div class="xh-card-head"><h3>توزیع نمرات (هیستوگرام)</h3><small class="xh-muted">تعداد دانشجو</small></div>
+                <div class="xh-hist" role="img" aria-label="توزیع نمرات دانشجویان">
+                    <div class="xh-hist-axis">{% for a in sm.axis %}<span>{{ a }}</span>{% endfor %}</div>
+                    <div>
+                        <div class="xh-hist-bars">{% for b in sm.bands %}<div><b>{{ b.count }}</b><i class="is-{{ b.tone }}" style="height:{{ b.height }}%"></i></div>{% endfor %}</div>
+                        <div class="xh-hist-labels">{% for b in sm.bands %}<span>{{ b.label }}</span>{% endfor %}</div>
+                        <div class="xh-hist-cap">نمره (از {{ st.scale }})</div>
+                    </div>
+                </div>
+            </div>
+            <div class="xh-card">
+                <div class="xh-card-head"><h3>توزیع وضعیت نمره</h3></div>
+                <div class="xh-donut-wrap" style="min-height:12rem">
+                    <ul class="xh-legend-list">
+                        <li><i></i>قبول: &nbsp;<span>{{ sm.passed }} نفر</span>&nbsp;<span class="xh-muted">({{ sm.pass_pct }}٪)</span></li>
+                        <li><i class="is-red"></i>مردود: &nbsp;<span>{{ sm.failed }} نفر</span>&nbsp;<span class="xh-muted">({{ sm.fail_pct }}٪)</span></li>
+                        {% if sm.pending %}<li><i class="is-amber"></i>در انتظار تصحیح: &nbsp;<span>{{ sm.pending }} نفر</span></li>{% endif %}
+                    </ul>
+                    <div class="xh-donut{% if not sm.passed and not sm.failed %} is-grey{% endif %}" style="--p:{{ sm.pass_pct }}"><span><b>{{ sm.pass_pct }}٪</b><small>قبولی</small></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="xh-card">
+            <div class="xh-card-head">
+                <h3>نتایج دانشجویان <small>({{ sm.takers }} نفر)</small></h3>
+                <form method="get" class="xh-filters" style="flex:1 1 30rem;justify-content:flex-end">
+                    <input type="hidden" name="tab" value="results">
+                    <select class="xh-select" name="outcome" onchange="this.form.requestSubmit()" aria-label="وضعیت" style="flex:0 1 10rem">
+                        <option value="">همه وضعیت‌ها</option>
+                        {% for key, label in st.outcomes.items %}<option value="{{ key }}"{% if st.filters.outcome == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <select class="xh-select" name="band" onchange="this.form.requestSubmit()" aria-label="بازه نمره" style="flex:0 1 10rem">
+                        <option value="">همه بازه‌های نمره</option>
+                        {% for b in sm.bands %}<option value="{{ b.key }}"{% if st.filters.band == b.key %} selected{% endif %}>{{ b.label }}</option>{% endfor %}
+                    </select>
+                    <label class="xh-search is-search">{% include 'exam_hub/_icon.html' with i='search' %}<input class="xh-input" type="search" name="q" value="{{ st.filters.q }}" placeholder="جستجو در دانشجویان (نام یا شماره دانشجویی)" aria-label="جستجو"></label>
+                </form>
+            </div>
+            {% if st.rows %}
+            <table class="table">
+                <thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>نمره (از {{ st.scale }})</th><th>درصد</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                <tbody>
+                {% for s in st.rows %}
+                <tr>
+                    <td>{{ s.rank }}</td>
+                    <td><span class="xh-person">{% include 'exam_hub/_avatar.html' with p=s %}<b>{{ s.name }}</b></span></td>
+                    <td data-latin-digits>{{ s.code|default:"—" }}</td>
+                    <td>{{ s.score_label }}</td>
+                    <td>{% if s.percent is not None %}{{ s.percent }}٪{% else %}—{% endif %}</td>
+                    <td><span class="xh-pill is-{{ s.status_tone }}">{% if s.outcome == 'pass' %}{% include 'exam_hub/_icon.html' with i='checkcircle' %}{% elif s.outcome == 'fail' %}{% include 'exam_hub/_icon.html' with i='xcircle' %}{% endif %}{{ s.status_label }}</span></td>
+                    <td><a class="xh-btn is-ghost is-sm" data-rt-text href="?tab=results&student={{ s.attempt_id }}">{% include 'exam_hub/_icon.html' with i='eye' %}مشاهده</a></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% mq_pager st.page %}
+            {% else %}<div class="xh-empty">{% include 'exam_hub/_icon.html' with i='users' %}{% if sm.takers %}دانشجویی با این فیلترها نیست.{% else %}هنوز هیچ دانشجویی آزمون را ارسال نکرده است.{% endif %}</div>{% endif %}
+        </div>
+    </div>
+</div>
+{% endwith %}

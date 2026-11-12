@@ -3090,7 +3090,7 @@
     gap: 10px;
     margin: 0;
     font-size: 28px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .courses-header h1 svg {
@@ -3105,7 +3105,7 @@
     margin: 6px 0 0;
     color: #64748b;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     text-align: right;
   }
 
@@ -3133,7 +3133,7 @@
     color: #64748b;
     font-size: 11px;
     font-style: normal;
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .course-stats strong {
@@ -3141,7 +3141,7 @@
     margin: 4px 0 2px;
     color: #0b1a3b;
     font-size: 26px;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1;
   }
 
@@ -3212,7 +3212,7 @@
   .course-form-card h2 {
     margin: 0;
     font-size: 17px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .courses-primary {
@@ -3227,7 +3227,7 @@
     background: #6d4aff;
     color: white;
     font-size: 13px;
-    font-weight: 900;
+    font-weight: 700;
     box-shadow: 0 10px 20px rgba(109, 74, 255, 0.22);
     cursor: pointer;
   }
@@ -3247,7 +3247,7 @@
     gap: 6px;
     color: #475569;
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .courses-search {
@@ -3283,7 +3283,7 @@
     color: #0f172a;
     font: inherit;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 600;
     outline: none;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
   }
@@ -3328,17 +3328,17 @@
   .courses-table th {
     color: #475569;
     background: #f8fafc;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .courses-table td {
     color: #24324a;
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .courses-table td strong {
     color: #06142d;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .course-status {
@@ -3348,7 +3348,7 @@
     padding: 0 11px;
     border-radius: 999px;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .course-status.is-active {
@@ -3410,7 +3410,7 @@
     padding: 12px 18px;
     color: #475569;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .courses-footer div {
@@ -3478,7 +3478,7 @@
     background: white;
     color: #0f172a;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -3503,7 +3503,7 @@
     padding: 0 18px;
     color: #07152f;
     font-size: 13px;
-    font-weight: 900;
+    font-weight: 700;
     box-shadow: 0 14px 30px rgba(33, 55, 104, 0.08);
   }
 
@@ -3540,7 +3540,7 @@
     display: block;
     color: #64748b;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .course-editor-summary strong {
@@ -3548,7 +3548,7 @@
     margin-top: 10px;
     color: #07152f;
     font-size: 15px;
-    font-weight: 950;
+    font-weight: 800;
   }
 
   .course-toast {
@@ -3562,7 +3562,7 @@
     background: #102a67;
     color: white;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
     box-shadow: 0 16px 34px rgba(15, 23, 42, 0.22);
   }
 
@@ -3582,7 +3582,7 @@
     gap: 10px;
     margin: 0;
     font-size: 28px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exams-header h1 svg {
     width: 24px;
@@ -3597,7 +3597,7 @@
     margin: 5px 0 0;
     color: #64748b;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 600;
   }
   .exam-stats {
     display: grid;
@@ -3620,14 +3620,14 @@
     color: #64748b;
     font-size: 11px;
     font-style: normal;
-    font-weight: 850;
+    font-weight: 600;
   }
   .exam-stats strong {
     display: block;
     margin: 4px 0 3px;
     color: #0b1a3b;
     font-size: 25px;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1;
   }
   .exam-stat-icon {
@@ -3712,7 +3712,7 @@
   .exam-side h2 {
     margin: 0 0 10px;
     font-size: 13px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-mini,
   .exam-warning {
@@ -3739,7 +3739,7 @@
     background: #efe9ff;
     color: #6d4aff;
     font-size: 16px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-mini svg {
     width: 18px;
@@ -3753,7 +3753,7 @@
     display: block;
     color: #07152f;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-mini small,
   .exam-mini em,
@@ -3764,7 +3764,7 @@
     color: #64748b;
     font-size: 10px;
     font-style: normal;
-    font-weight: 800;
+    font-weight: 600;
   }
   .exam-warning.is-danger > span {
     background: #ffe7ea;
@@ -3783,7 +3783,7 @@
     margin-top: 9px;
     color: #6d4aff;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
     text-align: center;
   }
   .exam-main-card {
@@ -3799,7 +3799,7 @@
   .exam-table-head h2 {
     margin: 0;
     font-size: 17px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-table-head > div {
     display: flex;
@@ -3817,7 +3817,7 @@
     min-height: 38px;
     border-radius: 9px;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
     cursor: pointer;
   }
   .exam-primary,
@@ -3849,7 +3849,7 @@
     gap: 5px;
     color: #64748b;
     font-size: 10px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-search {
     position: relative;
@@ -3875,7 +3875,7 @@
     background: white;
     color: #07152f;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 600;
     outline: 0;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
   }
@@ -3926,7 +3926,7 @@
     background: #f8fafc;
     color: #64748b;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-table th,
   .exam-table td {
@@ -3959,7 +3959,7 @@
   .exam-title-cell strong {
     display: block;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-title-cell small,
   .exam-time {
@@ -3967,7 +3967,7 @@
     margin-top: 2px;
     color: #64748b;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 600;
   }
   .exam-teacher b {
     display: grid;
@@ -3979,7 +3979,7 @@
     background: #e9edf3;
     color: #142a5f;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-teacher img {
     width: 100%;
@@ -3993,7 +3993,7 @@
     border-radius: 999px;
     padding: 0 9px;
     font-size: 10px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-status.is-running {
     background: #dcfce7;
@@ -4034,7 +4034,7 @@
   .exam-empty {
     height: 88px;
     color: #64748b;
-    font-weight: 900;
+    font-weight: 700;
     text-align: center;
   }
   .exam-table-footer {
@@ -4045,7 +4045,7 @@
     padding: 0 16px;
     color: #64748b;
     font-size: 11px;
-    font-weight: 850;
+    font-weight: 600;
   }
   .exam-table-footer div {
     display: flex;
@@ -4081,7 +4081,7 @@
   .exam-charts h3 {
     margin: 0 0 10px;
     font-size: 13px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-line-chart svg {
     width: 100%;
@@ -4102,7 +4102,7 @@
     gap: 4px;
     color: #64748b;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 600;
     text-align: center;
   }
   .exam-donut {
@@ -4128,7 +4128,7 @@
     background: white;
     color: #142a5f;
     font-size: 22px;
-    font-weight: 900;
+    font-weight: 700;
     text-align: center;
   }
   .exam-donut small {
@@ -4148,7 +4148,7 @@
     gap: 8px;
     color: #64748b;
     font-size: 11px;
-    font-weight: 850;
+    font-weight: 600;
   }
   .exam-charts li + li {
     margin-top: 6px;
@@ -4191,7 +4191,7 @@
   .exam-bars b {
     color: #64748b;
     font-size: 10px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-bars i {
     display: block;
@@ -4207,7 +4207,7 @@
   .exam-create-card h2 {
     margin: 0 0 12px;
     font-size: 16px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-create-card div {
     display: grid;
@@ -4269,7 +4269,7 @@
   .exam-create-panel h2 {
     margin: 0;
     font-size: 17px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-create-steps {
     display: flex;
@@ -4291,7 +4291,7 @@
     color: #334155;
     padding: 0 12px;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-create-steps button.is-active {
     border-color: #142a5f;
@@ -4328,7 +4328,7 @@
   .exam-question-head h3 {
     margin: 0 0 8px;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-group-picker > label,
   .exam-question-search {
@@ -4345,7 +4345,7 @@
     padding: 0 34px 0 10px;
     color: #0f172a;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 600;
     outline: 0;
   }
   .exam-group-picker > label span,
@@ -4380,7 +4380,7 @@
     display: block;
     color: #0f172a;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-group-list small,
   .exam-question-list small,
@@ -4390,7 +4390,7 @@
     margin-top: 2px;
     color: #64748b;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 600;
   }
   .exam-field {
     display: grid;
@@ -4398,7 +4398,7 @@
     margin-bottom: 10px;
     color: #0f172a;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-field input,
   .exam-field select,
@@ -4411,7 +4411,7 @@
     padding: 0 10px;
     color: #0f172a;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 600;
     outline: 0;
   }
   .exam-field textarea {
@@ -4440,7 +4440,7 @@
     gap: 10px;
     color: #334155;
     font-size: 11px;
-    font-weight: 850;
+    font-weight: 600;
   }
   .exam-switch-grid input {
     display: none;
@@ -4486,7 +4486,7 @@
     color: white;
     padding: 7px 11px;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .exam-question-list {
     max-height: 370px;
@@ -4498,7 +4498,7 @@
     padding: 16px;
     color: #64748b;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
     text-align: center;
   }
   .exam-create-panel footer {
@@ -4514,7 +4514,7 @@
     border-radius: 8px;
     padding: 0 16px;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
     cursor: pointer;
   }
   .exam-create-next,
@@ -4563,7 +4563,7 @@
     gap: 10px;
     margin: 0;
     font-size: 25px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-cal-header h1 svg {
     width: 22px;
@@ -4578,7 +4578,7 @@
     margin: 4px 0 0;
     color: #64748b;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 600;
   }
   .edu-cal-stats {
     display: grid;
@@ -4647,14 +4647,14 @@
     color: #64748b;
     font-size: 11px;
     font-style: normal;
-    font-weight: 850;
+    font-weight: 600;
   }
   .edu-cal-stats strong {
     display: block;
     margin: 4px 0 3px;
     color: #0b1a3b;
     font-size: 24px;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1;
   }
   .edu-cal-layout {
@@ -4692,7 +4692,7 @@
   .edu-cal-bottom h2 {
     margin: 0 0 10px;
     font-size: 13px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-event-card,
   .edu-important,
@@ -4720,7 +4720,7 @@
     background: #efe9ff;
     color: #6d4aff;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-event-card.is-success > span,
   .edu-important.is-green > span {
@@ -4740,7 +4740,7 @@
   .edu-upcoming strong {
     display: block;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-event-card small,
   .edu-important small,
@@ -4750,14 +4750,14 @@
     margin: 2px 0 0;
     color: #64748b;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 600;
   }
   .edu-cal-left a {
     display: block;
     margin-top: 9px;
     color: #6d4aff;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
     text-align: center;
   }
   .edu-legend {
@@ -4768,7 +4768,7 @@
     list-style: none;
     color: #64748b;
     font-size: 10px;
-    font-weight: 850;
+    font-weight: 600;
   }
   .edu-legend li {
     display: flex;
@@ -4810,7 +4810,7 @@
     margin: 0;
     text-align: center;
     font-size: 17px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-calendar-card button,
   .edu-filter-card button {
@@ -4821,7 +4821,7 @@
     color: #142a5f;
     padding: 0 12px;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
     cursor: pointer;
   }
   .edu-cal-nav,
@@ -4846,7 +4846,7 @@
     display: grid;
     place-items: center;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-calendar-grid article {
     min-height: 82px;
@@ -4864,7 +4864,7 @@
     margin-bottom: 5px;
     color: #64748b;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-calendar-grid span {
     display: block;
@@ -4878,7 +4878,7 @@
     background: #efe9ff;
     color: #6d4aff;
     font-size: 9px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-calendar-grid span.is-success {
     background: #dcfce7;
@@ -4894,7 +4894,7 @@
     color: #64748b;
     font-size: 9px;
     font-style: normal;
-    font-weight: 800;
+    font-weight: 600;
   }
   .edu-filter-card form {
     display: grid;
@@ -4905,7 +4905,7 @@
     gap: 5px;
     color: #64748b;
     font-size: 10px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-filter-card select {
     min-height: 34px;
@@ -4915,7 +4915,7 @@
     color: #07152f;
     padding: 0 10px;
     font-size: 11px;
-    font-weight: 850;
+    font-weight: 600;
   }
   .edu-filter-card form > div {
     display: grid;
@@ -4952,12 +4952,12 @@
     background: #f8fbff;
     color: #64748b;
     font-size: 10px;
-    font-weight: 850;
+    font-weight: 600;
   }
   .edu-mini-stats b {
     color: #07152f;
     font-size: 16px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-bar-chart {
     display: grid;
@@ -4982,7 +4982,7 @@
     margin-top: 8px;
     color: #64748b;
     font-size: 9px;
-    font-weight: 800;
+    font-weight: 600;
     text-align: center;
   }
   .edu-term-row {
@@ -4993,7 +4993,7 @@
     min-height: 40px;
     border-bottom: 1px solid #edf2f7;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .edu-term-row span {
     color: #64748b;
@@ -5065,7 +5065,7 @@
   .groupings-page .group-filters label {
     gap: 8px;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .groupings-page .group-filters select {
@@ -5113,7 +5113,7 @@
     place-items: center;
     border-radius: 50%;
     font-size: 17px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .group-stat-grid .is-blue {
@@ -5137,7 +5137,7 @@
     display: block;
     color: #142a5f;
     font-size: 21px;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.2;
   }
 
@@ -5146,7 +5146,7 @@
     margin-top: 3px;
     color: #64748b;
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .groupings-page .group-table-card {
@@ -5194,7 +5194,7 @@
     background: white;
     color: #6d4aff;
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .groupings-page .group-delete {
@@ -7526,7 +7526,7 @@
   .admin-radar-wrap text {
     fill: #596273;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 600;
     text-anchor: middle;
   }
 
@@ -11429,15 +11429,12 @@
   }
 
   .tclass-title {
-    @apply flex items-center gap-4;
+    @apply flex min-w-0 items-center gap-3;
   }
 
-  .tclass-title > i {
-    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-blue-50 not-italic text-blue-600;
-  }
-
-  .tclass-title > i svg {
-    @apply h-7 w-7;
+  .tclass-title > svg {
+    @apply h-8 w-8 text-slate-900;
+    stroke-width: 1.9;
   }
 
   .tclass-title h1 {
@@ -11445,53 +11442,35 @@
   }
 
   .tclass-title p {
-    @apply mt-1 text-sm font-bold text-slate-500;
+    @apply mt-1 text-sm font-normal text-slate-500;
   }
 
-  .tclass-stats {
-    @apply grid grid-cols-3 gap-4;
+  .tclass-seg {
+    @apply flex min-w-0 flex-wrap gap-1 rounded-2xl border border-[#e1e8f3] bg-white p-1.5 shadow-[0_10px_30px_rgba(33,55,104,.05)];
   }
 
-  .tclass-stats article,
+  .tclass-seg a {
+    @apply flex min-h-[2.75rem] flex-1 items-center justify-center gap-6 whitespace-nowrap rounded-xl px-5 text-sm font-bold text-slate-600 transition hover:text-blue-600;
+  }
+
+  .tclass-seg a b {
+    @apply grid h-7 min-w-[2.25rem] place-items-center rounded-full bg-slate-100 px-2 text-sm font-bold text-slate-700;
+  }
+
+  .tclass-seg a.is-active {
+    @apply bg-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,.25)] hover:text-white;
+  }
+
+  .tclass-seg a.is-active b {
+    @apply bg-white/25 text-white;
+  }
+
   .tclass-filters,
   .tclass-card,
   .tclass-table-card {
     @apply min-w-0 rounded-xl border border-[#e1e8f3] bg-white shadow-[0_10px_30px_rgba(33,55,104,.05)];
   }
 
-  .tclass-stats article {
-    @apply flex items-center justify-between gap-4 px-6 py-5;
-  }
-
-  .tclass-stats span {
-    @apply block text-sm font-bold text-slate-500;
-  }
-
-  .tclass-stats span.is-green {
-    @apply text-emerald-600;
-  }
-
-  .tclass-stats strong {
-    @apply mt-2 block text-3xl font-black leading-none text-slate-950;
-  }
-
-  .tclass-stats i {
-    @apply grid h-14 w-14 shrink-0 place-items-center rounded-xl not-italic;
-  }
-
-  .tclass-stats i svg {
-    @apply h-7 w-7;
-  }
-
-  .tclass-stats i.is-green {
-    @apply bg-emerald-50 text-emerald-600;
-  }
-  .tclass-stats i.is-blue {
-    @apply bg-blue-50 text-blue-600;
-  }
-  .tclass-stats i.is-orange {
-    @apply bg-orange-50 text-orange-500;
-  }
   .tclass-filters {
     @apply flex flex-wrap items-center gap-3 p-3;
   }
@@ -11515,15 +11494,15 @@
   }
 
   .tclass-view-toggle {
-    @apply flex h-12 items-center gap-1 rounded-xl border border-slate-200 p-1;
+    @apply flex h-12 items-center gap-2;
   }
 
   .tclass-view-toggle a {
-    @apply grid h-full w-12 place-items-center rounded-lg text-slate-500 transition hover:text-blue-600;
+    @apply grid h-12 w-12 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:text-blue-600;
   }
 
   .tclass-view-toggle a.is-active {
-    @apply bg-blue-600 text-white hover:text-white;
+    @apply border-blue-600 bg-blue-600 text-white hover:text-white;
   }
 
   .tclass-grid {
@@ -11745,16 +11724,31 @@
   }
 
   @media (max-width: 1280px) {
-    .tclass-grid,
-    .tclass-stats {
+    .tclass-grid {
       @apply grid-cols-2;
     }
   }
 
   @media (max-width: 760px) {
-    .tclass-grid,
-    .tclass-stats {
+    .tclass-grid {
       @apply grid-cols-1;
+    }
+
+    .tclass-head {
+      @apply items-stretch;
+    }
+
+    .tclass-seg {
+      @apply w-full;
+    }
+
+    .tclass-seg a {
+      @apply gap-3 px-3;
+    }
+
+    .tclass-filters > .tclass-search.tclass-search {
+      flex: 1 1 100%;
+      min-width: 0;
     }
 
     .tclass-select {
@@ -13339,7 +13333,7 @@
   .tstu-line-chart .is-axis {
     fill: #94a3b8;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     text-anchor: middle;
     dominant-baseline: middle;
   }
@@ -13370,13 +13364,13 @@
   .tstu-line-chart .is-student-label {
     fill: #4338ca;
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
     text-anchor: middle;
   }
   .tstu-line-chart .is-class-label {
     fill: #2563eb;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 600;
     text-anchor: middle;
   }
 
@@ -21131,7 +21125,7 @@
   background: rgba(255, 255, 255, 0.26);
   color: #536386;
   font-size: 0.82rem;
-  font-weight: 900;
+  font-weight: 700;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
@@ -21170,7 +21164,7 @@
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.58);
   color: #1f2a44;
-  font-weight: 950;
+  font-weight: 800;
   box-shadow:
     0 14px 34px rgba(30, 55, 95, 0.07),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
@@ -21265,7 +21259,7 @@
 .edu-stat small {
   color: #59677f;
   font-size: 0.86rem;
-  font-weight: 950;
+  font-weight: 800;
 }
 
 .edu-stat strong {
@@ -21273,7 +21267,7 @@
   color: #071936;
   font-size: 2rem;
   line-height: 1;
-  font-weight: 950;
+  font-weight: 800;
 }
 
 .edu-stat em {
@@ -21281,7 +21275,7 @@
   color: #16a34a;
   font-size: 0.78rem;
   font-style: normal;
-  font-weight: 950;
+  font-weight: 800;
 }
 
 .edu-stat.is-red em {
@@ -21311,7 +21305,7 @@
   margin: 0 0 18px;
   color: #071936;
   font-size: 1.1rem;
-  font-weight: 950;
+  font-weight: 800;
 }
 
 .edu-donut {
@@ -21342,14 +21336,14 @@
   text-align: center;
   font-size: 1.15rem;
   line-height: 1.1;
-  font-weight: 950;
+  font-weight: 800;
 }
 
 .edu-donut small {
   margin-top: 4px;
   color: #65728a;
   font-size: 0.66rem;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .edu-participation ul,
@@ -21369,7 +21363,7 @@
   gap: 10px;
   color: #59677f;
   font-size: 0.82rem;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .edu-participation i,
@@ -21414,7 +21408,7 @@
   list-style: none;
   color: #64748b;
   font-size: 0.68rem;
-  font-weight: 850;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -21443,7 +21437,7 @@
   background: rgba(255, 255, 255, 0.35);
   color: #42506b;
   font-size: 0.88rem;
-  font-weight: 950;
+  font-weight: 800;
 }
 
 .edu-attention li span {

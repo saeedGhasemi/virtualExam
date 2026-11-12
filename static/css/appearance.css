@@ -4,9 +4,9 @@
 /* ---------- text size: rem-based sizes follow the root size; px font sizes are scaled by appearance.js via --mq-fs.
    «متوسط» (the default) is 15px — one step more compact than the browser's 16px (user's choice, 2026-11-11);
    small / large stay ±10% around it. */
-html[data-mq-font="small"] { font-size: 84.375%; --mq-fs: .84375; }
-html[data-mq-font="medium"] { font-size: 93.75%; --mq-fs: .9375; }
-html[data-mq-font="large"] { font-size: 103.125%; --mq-fs: 1.03125; }
+html[data-mq-font="small"] { font-size: 81.25%; --mq-fs: .8125; }
+html[data-mq-font="medium"] { font-size: 90.625%; --mq-fs: .90625; }
+html[data-mq-font="large"] { font-size: 100%; --mq-fs: 1; }
 
 /* ---------- dark theme (same technique as the teacher's own «نمایش پوسته»; a teacher's personal dark theme
    sets data-teacher-theme instead, so the two never invert twice) ---------- */

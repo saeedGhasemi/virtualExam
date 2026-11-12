@@ -1,0 +1,3 @@
+<nav class="xh-tabs is-{{ head.style }}{% if head.icons %} has-icons{% endif %}" aria-label="بخش‌های آزمون" data-balance-rows>
+    {% for t in tabs %}<a class="xh-tab{% if t.key == tab %} is-active{% endif %}" href="{{ t.url }}"{% if t.key == tab %} aria-current="page"{% endif %}>{% if head.icons %}{% if head.style == 'solid' and t.key == tab %}{% include 'exam_hub/_icon.html' with i='edit' %}{% else %}{% include 'exam_hub/_icon.html' with i=t.icon %}{% endif %}{% endif %}<span>{{ t.label }}</span></a>{% endfor %}
+</nav>

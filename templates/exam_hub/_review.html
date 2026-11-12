@@ -1,0 +1,78 @@
+{% load core_extras %}{% with v=review %}
+<div class="xh-split is-right is-narrow">
+    <aside class="xh-side">
+        <form method="get" class="xh-card">
+            <input type="hidden" name="tab" value="review">
+            <div class="xh-card-head" style="margin:0 0 .2rem"><h3>فیلتر موارد</h3></div>
+            <div class="xh-filter-group"><h4>نوع مورد</h4>
+                <div class="xh-checklist">
+                    <label><input type="checkbox" name="k_flagged" value="1"{% if 'flagged' in v.filters.kinds %} checked{% endif %}>سؤال مبهم <span class="xh-muted">({{ v.kind_counts.flagged }})</span></label>
+                    <label><input type="checkbox" name="k_negative" value="1"{% if 'negative' in v.filters.kinds %} checked{% endif %}>تمایز منفی <span class="xh-muted">({{ v.kind_counts.negative }})</span></label>
+                    <label><input type="checkbox" name="k_objection" value="1"{% if 'objection' in v.filters.kinds %} checked{% endif %}>اعتراض به نمره <span class="xh-muted">({{ v.kind_counts.objection }})</span></label>
+                </div>
+            </div>
+            <div class="xh-filter-group"><h4>وضعیت رسیدگی</h4>
+                <div class="xh-checklist">{% for key, label in v.states.items %}<label><input type="checkbox" name="s_{{ key }}" value="1"{% if key in v.filters.states %} checked{% endif %}>{{ label }} <span class="xh-muted">({{ v.state_counts|get_item:key }})</span></label>{% endfor %}</div>
+            </div>
+            <div class="xh-filter-group"><label class="xh-field">شماره سؤال<input class="xh-input" name="question" value="{{ v.filters.question }}" inputmode="numeric" placeholder="مثلاً ۱۴ یا ۲۳"></label></div>
+            <div class="xh-filter-group is-last"><label class="xh-field">نام/شماره دانشجو<input class="xh-input" name="student" value="{{ v.filters.student }}" placeholder="جستجو..."></label></div>
+            <div class="xh-cols" style="gap:.6rem;margin-top:.4rem">
+                <button class="xh-btn is-solid">{% include 'exam_hub/_icon.html' with i='filter' %}اعمال فیلتر</button>
+                <a class="xh-btn is-ghost" href="?tab=review">{% include 'exam_hub/_icon.html' with i='refresh' %}پاکسازی</a>
+            </div>
+        </form>
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis">
+            <div class="xh-kpi"><span class="xh-kpi-ico is-green">{% include 'exam_hub/_icon.html' with i='user' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">اعتراض به نمره</span><span class="xh-kpi-value">{{ v.kpis.objection }}<em>مورد</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-amber">{% include 'exam_hub/_icon.html' with i='chart' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">تمایز منفی</span><span class="xh-kpi-value">{{ v.kpis.negative }}<em>مورد</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='question' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">سؤال مهم</span><span class="xh-kpi-value">{{ v.kpis.flagged }}<em>مورد</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-violet">{% include 'exam_hub/_icon.html' with i='docsearch' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">مجموع موارد</span><span class="xh-kpi-value">{{ v.kpis.total }}<em>مورد</em></span></div></div>
+        </div>
+        <div class="xh-card">
+            <div class="xh-card-head">
+                <h3>صف بازبینی <span class="xh-pill is-blue is-round">{{ v.page.paginator.count }} مورد</span></h3>
+                <form method="get" class="xh-search" style="flex:0 1 24rem">
+                    <input type="hidden" name="tab" value="review">
+                    {% for k in v.filters.kinds %}<input type="hidden" name="k_{{ k }}" value="1">{% endfor %}
+                    {% for s in v.filters.states %}<input type="hidden" name="s_{{ s }}" value="1">{% endfor %}
+                    {% include 'exam_hub/_icon.html' with i='search' %}<input class="xh-input" type="search" name="q" value="{{ v.filters.q }}" placeholder="جستجو در موارد (شماره سؤال، نام دانشجو، توضیحات)" aria-label="جستجو">
+                </form>
+            </div>
+            {% if v.rows %}
+            <table class="table">
+                <thead><tr><th>#</th><th>نوع مورد</th><th>شرح مورد</th><th>شواهد و توضیحات</th><th>وضعیت رسیدگی</th><th>عملیات</th></tr></thead>
+                <tbody>
+                {% for r in v.rows %}
+                <tr>
+                    <td>{{ r.index }}</td>
+                    <td><span class="xh-kind"><span class="xh-pill is-{% if r.kind == 'objection' %}green{% elif r.kind == 'negative' %}amber{% else %}blue{% endif %}">{% if r.kind == 'objection' %}{% include 'exam_hub/_icon.html' with i='user' %}{% elif r.kind == 'negative' %}{% include 'exam_hub/_icon.html' with i='chart' %}{% else %}{% include 'exam_hub/_icon.html' with i='question' %}{% endif %}{{ r.kind_label }}</span><small>{% if r.student %}{{ r.student }}{% elif r.question_no %}سؤال {{ r.question_no }}{% endif %}</small></span></td>
+                    <td>{{ r.title }}</td>
+                    <td><ul class="xh-evidence">{% for e in r.evidence %}<li>{{ e }}</li>{% endfor %}</ul></td>
+                    <td><span class="xh-kind"><span class="xh-pill is-{% if r.status == 'open' %}amber{% else %}green{% endif %}">{% if r.status == 'open' %}{% include 'exam_hub/_icon.html' with i='clock' %}{% else %}{% include 'exam_hub/_icon.html' with i='checkcircle' %}{% endif %}{{ r.status_label }}</span><small>یادداشت: {{ r.notes }} مورد</small></span></td>
+                    <td><span class="xh-stack-btns">
+                        {% if r.detail_url %}<a class="xh-btn is-sm" data-rt-text href="{{ r.detail_url }}"{% if r.kind == 'objection' and exam.role == 'teacher' %} data-live-skip{% endif %}>{% include 'exam_hub/_icon.html' with i='eye' %}مشاهده جزئیات</a>{% endif %}
+                        {% if exam.can.review %}<button type="button" class="xh-btn is-sm" data-rt-text data-xh-toggle="xh-note-{{ r.index }}" aria-expanded="false">{% include 'exam_hub/_icon.html' with i='message' %}افزودن یادداشت</button>{% endif %}
+                    </span></td>
+                </tr>
+                {% if exam.can.review %}
+                <tr class="xh-detail-row" id="xh-note-{{ r.index }}" hidden><td colspan="6">
+                    <form method="post" action="{{ urls.action }}" class="xh-form">
+                        {% csrf_token %}<input type="hidden" name="action" value="review_note"><input type="hidden" name="key" value="{{ r.key }}"><input type="hidden" name="back" value="?tab=review">
+                        <span class="xh-textbox"><textarea class="xh-textarea" name="note" maxlength="{{ v.note_max }}" data-xh-counter aria-label="یادداشت" placeholder="یادداشت بازبینی..." style="min-height:3.6rem"></textarea><span class="xh-count"><span data-xh-count>0</span> / {{ v.note_max }}</span></span>
+                        <div class="xh-radios">{% for key, label in v.states.items %}<label><input type="radio" name="status" value="{{ key }}"{% if r.status == key %} checked{% endif %}>{{ label }}</label>{% endfor %}</div>
+                        <div><button class="xh-btn is-solid is-sm">{% include 'exam_hub/_icon.html' with i='save' %}ثبت</button></div>
+                    </form>
+                </td></tr>
+                {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+            {% mq_pager v.page %}
+            {% else %}<div class="xh-empty">{% include 'exam_hub/_icon.html' with i='checkcircle' %}{% if v.kpis.total %}موردی با این فیلترها نیست.{% else %}فعلاً موردی برای بررسی وجود ندارد.{% endif %}</div>{% endif %}
+        </div>
+        <div class="xh-guide">{% include 'exam_hub/_icon.html' with i='info' %}<span><b>راهنما:</b> این فهرست شامل مواردی است که بر اساس تحلیل نتایج و درخواست‌های دانشجویان برای بازبینی و تصمیم‌گیری آموزشی (مانند شفاف‌سازی سؤال، بررسی تحلیلی یا پاسخ به اعتراض) گردآوری شده‌اند.</span></div>
+    </div>
+</div>
+{% endwith %}

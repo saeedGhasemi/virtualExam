@@ -210,3 +210,71 @@ def jalali_today():
     today = timezone.localdate()
     jy, jm, jd = _gregorian_to_jalali(today.year, today.month, today.day)
     return fa_digits(f'{jy:04d}/{jm:02d}/{jd:02d}')
+
+
+_PG_PREV = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>'
+_PG_NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>'
+
+
+def _pager_numbers(page, pages):
+    """Page numbers to show (same rule as static/js/list-pager.js): first, last, current ±1, more near the ends; None = gap."""
+    want = {1, pages, page - 1, page, page + 1}
+    if page <= 3:
+        want.update((2, 3, 4))
+    if page >= pages - 2:
+        want.update((pages - 1, pages - 2, pages - 3))
+    nums = sorted(n for n in want if 1 <= n <= pages)
+    out = []
+    for i, n in enumerate(nums):
+        if i and n - nums[i - 1] > 1:
+            out.append(n - 1 if n - nums[i - 1] == 2 else None)
+        out.append(n)
+    return out
+
+
+@register.simple_tag(takes_context=True)
+def mq_pager(context, page_obj=None, number=None, pages=None, total=None, size=None, param='page', **extra):
+    """Server-side pager with the exact look of the listing pager (static/js/list-pager.js, .mq-pager in
+    responsive.css): «۱۱–۲۰ از ۴۳» + prev / numbers / next as links. Renders nothing when there is only one page.
+    Use {% mq_pager page_obj %} with a Django Page, or number= pages= total= size= for hand-made paging;
+    extra keyword arguments are set on the links' query string (the current GET is kept)."""
+    from django.utils.html import escape
+    from django.utils.safestring import mark_safe
+    if page_obj is not None:
+        number, pages, total, size = page_obj.number, page_obj.paginator.num_pages, page_obj.paginator.count, page_obj.paginator.per_page
+    try:
+        number, pages, total, size = int(number or 1), int(pages or 1), int(total or 0), int(size or 10)
+    except (TypeError, ValueError):
+        return ''
+    if pages <= 1:
+        return ''
+    number = min(max(number, 1), pages)
+
+    def url(n):
+        return escape(query_url(context, **{**extra, param: n}))
+
+    first = (number - 1) * size + 1
+    last = min(total, number * size) if total else number * size
+    info = fa_digits(last) if first == last else f'{fa_digits(first)}–{fa_digits(last)}'
+    if total:
+        info += f' از {fa_digits(total)}'
+
+    def step(n, disabled, label, inner):
+        if disabled:
+            return f'<span class="mq-pg-step is-disabled" aria-disabled="true">{inner}</span>'
+        return f'<a class="mq-pg-step" href="{url(n)}" aria-label="{label}">{inner}</a>'
+
+    parts = [step(number - 1, number == 1, 'صفحه قبل', f'{_PG_PREV}<span>قبلی</span>')]
+    for n in _pager_numbers(number, pages):
+        if n is None:
+            parts.append('<span class="mq-pg-gap" aria-hidden="true">…</span>')
+        elif n == number:
+            parts.append(f'<span class="mq-pg-num is-active" aria-current="page">{fa_digits(n)}</span>')
+        else:
+            parts.append(f'<a class="mq-pg-num" href="{url(n)}" aria-label="صفحه {fa_digits(n)}">{fa_digits(n)}</a>')
+    parts.append(f'<span class="mq-pg-now" aria-hidden="true">{fa_digits(number)} از {fa_digits(pages)}</span>')
+    parts.append(step(number + 1, number == pages, 'صفحه بعد', f'<span>بعدی</span>{_PG_NEXT}'))
+    return mark_safe(
+        '<nav class="mq-pager mq-pager-server" aria-label="صفحه‌بندی فهرست">'
+        f'<span class="mq-pg-info">{info}</span><span class="mq-pg-btns">{"".join(parts)}</span></nav>'
+    )

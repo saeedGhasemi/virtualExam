@@ -138,14 +138,7 @@
                 <p class="tstu-empty is-flat">هنوز آزمونی از شما برای این دانشجو منتشر نشده است.</p>
             {% endif %}
             <footer class="tstu-footer">
-                <span>{% if p.exam_total %}نتایج {{ p.exam_page.start_index|fa_digits }} تا {{ p.exam_page.end_index|fa_digits }} از {{ p.exam_total|fa_digits }} مورد{% endif %}</span>
-                {% if p.exam_page.paginator.num_pages > 1 %}
-                    <nav class="tstu-pages" aria-label="صفحه‌بندی">
-                        {% if p.exam_page.has_previous %}<a href="{% query_url page=p.exam_page.previous_page_number %}">‹</a>{% endif %}
-                        <span class="is-active">صفحه {{ p.exam_page.number|fa_digits }} از {{ p.exam_page.paginator.num_pages|fa_digits }}</span>
-                        {% if p.exam_page.has_next %}<a href="{% query_url page=p.exam_page.next_page_number %}">›</a>{% endif %}
-                    </nav>
-                {% endif %}
+                {% mq_pager p.exam_page %}
                 <div class="tstu-footer-actions">
                     <button type="button" class="tstu-btn" disabled title="در حال توسعه">مشاهده پاسخنامه<small>در حال توسعه</small></button>
                     {% if p.first_pending %}<a class="tstu-btn" href="{% url 'core:teacher_grading_detail' p.first_pending %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>تصحیح دستی</a>

@@ -1,0 +1,98 @@
+{% load core_extras %}{% with v=events s=events.selected %}
+<div class="xh-split is-right is-wide">
+    <aside class="xh-side">
+        {% if s %}
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>جزئیات رخداد انتخاب‌شده</h3></div>
+            <dl class="xh-kv">
+                <div><dt>دانشجو</dt><dd><span class="xh-person">{% include 'exam_hub/_avatar.html' with p=s sm=1 %}{{ s.name }}</span></dd></div>
+                <div><dt>شماره دانشجویی</dt><dd data-latin-digits>{{ s.code|default:"—" }}</dd></div>
+                <div><dt>نوع رخداد</dt><dd><span class="xh-type">{% include 'exam_hub/_icon.html' with i=s.icon %}{{ s.label }}</span></dd></div>
+                <div><dt>زمان رخداد</dt><dd>{{ s.date_label }}</dd></div>
+                <div><dt>توضیحات</dt><dd>{{ s.description }}</dd></div>
+            </dl>
+            <div class="xh-note" style="margin:.8rem 0">{% include 'exam_hub/_icon.html' with i='info' %}{{ s.label }} صرفاً نیازمند بررسی است و به‌معنای تقلب نیست.</div>
+            {% if exam.can.review %}
+            <form method="post" action="{{ urls.action }}" class="xh-form">
+                {% csrf_token %}<input type="hidden" name="action" value="event_review"><input type="hidden" name="event" value="{{ s.id }}">
+                <input type="hidden" name="back" value="?tab=events&event={{ s.id }}">
+                <div class="xh-field">وضعیت بررسی
+                    <div class="xh-radios">
+                        <label class="is-seen"><input type="radio" name="status" value="seen"{% if s.status == 'seen' %} checked{% endif %}>{% include 'exam_hub/_icon.html' with i='check' %}مرور شد</label>
+                        <label class="is-review"><input type="radio" name="status" value="review"{% if s.status == 'review' %} checked{% endif %}>{% include 'exam_hub/_icon.html' with i='clock' %}نیازمند بررسی</label>
+                        <label><input type="radio" name="status" value="none"{% if s.status == 'none' %} checked{% endif %}>– بدون اقدام</label>
+                    </div>
+                </div>
+                <label class="xh-field">یادداشت استاد
+                    <span class="xh-textbox"><textarea class="xh-textarea" name="note" maxlength="{{ v.note_max }}" data-xh-counter placeholder="یادداشت درباره‌ی این رخداد">{{ s.note }}</textarea><span class="xh-count"><span data-xh-count>0</span> / {{ v.note_max }}</span></span>
+                </label>
+                <div class="xh-cols" style="gap:.6rem">
+                    <button class="xh-btn is-solid">{% include 'exam_hub/_icon.html' with i='save' %}ثبت یادداشت</button>
+                    <a class="xh-btn" href="?tab=events&student={{ s.student_id }}">{% include 'exam_hub/_icon.html' with i='external' %}پرش به رخدادهای دانشجو</a>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>روند رخدادهای این دانشجو <small>(همین آزمون)</small></h3></div>
+            <ul class="xh-feed">
+                {% for t in v.trail %}<li class="{% if t.id == s.id %}is-current is-amber{% elif t.status == 'review' %}is-amber{% elif t.group == 'connection' or t.group == 'staff' %}is-green{% else %}is-blue{% endif %}"><span><span class="xh-feed-kind">{% include 'exam_hub/_icon.html' with i=t.icon %}{{ t.label }}</span><span class="xh-feed-desc">{{ t.kind_label }}</span></span><time>{{ t.time }}</time></li>{% endfor %}
+            </ul>
+        </div>
+        {% else %}
+        <div class="xh-card"><div class="xh-empty">{% include 'exam_hub/_icon.html' with i='list' %}رخدادی برای نمایش انتخاب نشده است.</div></div>
+        {% endif %}
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis">
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='layers' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">کل رخدادها</span><span class="xh-kpi-value">{{ v.kpis.total }}</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='wifi' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">تغییر اتصال</span><span class="xh-kpi-value">{{ v.kpis.connection }}</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='focus' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">تغییر تمرکز</span><span class="xh-kpi-value">{{ v.kpis.focus }}</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-amber">{% include 'exam_hub/_icon.html' with i='alert' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">نیازمند بررسی</span><span class="xh-kpi-value">{{ v.kpis.review }}</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-green">{% include 'exam_hub/_icon.html' with i='check' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">مرور شده</span><span class="xh-kpi-value">{{ v.kpis.seen }}</span></div></div>
+        </div>
+        <form method="get" class="xh-filters">
+            <input type="hidden" name="tab" value="events">
+            <label class="xh-selwrap">{% include 'exam_hub/_icon.html' with i='calendar' %}<select class="xh-select has-ico" name="range" onchange="this.form.requestSubmit()" aria-label="بازه زمانی">
+                {% for key, label in v.ranges.items %}<option value="{{ key }}"{% if v.filters.range == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></label>
+            <select class="xh-select" name="student" onchange="this.form.requestSubmit()" aria-label="دانشجو">
+                <option value="">همه دانشجویان</option>
+                {% for p in v.students %}<option value="{{ p.id }}"{% if v.filters.student == p.id %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
+            </select>
+            <select class="xh-select" name="group" onchange="this.form.requestSubmit()" aria-label="نوع رخداد">
+                <option value="">همه رخدادها</option>
+                {% for key, label in v.groups.items %}<option value="{{ key }}"{% if v.filters.group == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <select class="xh-select" name="status" onchange="this.form.requestSubmit()" aria-label="وضعیت بررسی">
+                <option value="">همه وضعیت‌ها</option>
+                {% for key, label in v.states.items %}<option value="{{ key }}"{% if v.filters.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <label class="xh-search is-search">{% include 'exam_hub/_icon.html' with i='search' %}<input class="xh-input" type="search" name="q" value="{{ v.filters.q }}" placeholder="جستجو در دانشجو، شماره دانشجویی یا توضیح رخداد..." aria-label="جستجو"></label>
+        </form>
+        <div class="xh-card">
+            {% if v.rows %}
+            <table class="table">
+                <thead><tr><th><span class="xh-sort">{% include 'exam_hub/_icon.html' with i='arrowd' %}زمان رخداد</span></th><th>دانشجو</th><th>شماره دانشجویی</th><th>نوع رخداد</th><th>توضیحات رخداد</th><th>وضعیت بررسی</th><th>یادداشت</th><th>عملیات</th></tr></thead>
+                <tbody>
+                {% for e in v.rows %}
+                <tr class="{% if s and s.id == e.id %}xh-row-active{% endif %}">
+                    <td dir="ltr">{{ e.time }}</td>
+                    <td><span class="xh-person">{% include 'exam_hub/_avatar.html' with p=e %}<b>{{ e.name }}</b></span></td>
+                    <td data-latin-digits>{{ e.code|default:"—" }}</td>
+                    <td><span class="xh-type">{% include 'exam_hub/_icon.html' with i=e.icon %}{{ e.label }}</span></td>
+                    <td>{{ e.description }}</td>
+                    <td>{% if e.status == 'seen' %}<span class="xh-pill is-green">{% include 'exam_hub/_icon.html' with i='check' %}مرور شد</span>{% elif e.status == 'review' %}<span class="xh-pill is-amber">{% include 'exam_hub/_icon.html' with i='clock' %}نیازمند بررسی</span>{% else %}<span class="xh-pill is-grey">بدون اقدام</span>{% endif %}</td>
+                    <td>{{ e.note|default:"—"|truncatechars:30 }}</td>
+                    <td><a class="xh-kebab" data-rt-text href="?tab=events&event={{ e.id }}{% for k, val in v.filters.items %}{% if val %}&{{ k }}={{ val|urlencode }}{% endif %}{% endfor %}{% if v.page.number > 1 %}&page={{ v.page.number }}{% endif %}" title="جزئیات رخداد" aria-label="جزئیات رخداد">{% include 'exam_hub/_icon.html' with i='more' %}</a></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% mq_pager v.page %}
+            {% else %}<div class="xh-empty">{% include 'exam_hub/_icon.html' with i='list' %}{% if v.kpis.total %}رخدادی با این فیلترها نیست.{% else %}هنوز رخدادی برای این آزمون ثبت نشده است.{% endif %}</div>{% endif %}
+        </div>
+    </div>
+</div>
+{% endwith %}

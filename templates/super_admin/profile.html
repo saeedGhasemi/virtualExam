@@ -11,12 +11,12 @@
   .sap a{text-decoration:none;color:inherit}
   .sap svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .sap-breadcrumb{margin:0 0 .3rem;font-size:.82rem;font-weight:600;color:var(--muted)}
-  .sap-head{margin:0 0 1.1rem;font-size:1.85rem;font-weight:800;color:var(--ink)}
+  .sap-head{margin:0 0 1.1rem;font-size:1.85rem;font-weight:700;color:var(--ink)}
   .sap-tabs{display:flex;flex-direction:row-reverse;width:100%;margin:0 0 1rem;padding:.3rem;gap:.4rem;background:rgba(244,248,253,.9);border:1px solid var(--line);border-radius:1rem}
   .sap-tabs a{display:flex;flex:1;align-items:center;justify-content:center;gap:.5rem;height:3rem;padding:0 1rem;border:1px solid transparent;border-radius:.75rem;background:transparent;color:#54617a;font-weight:700;font-size:.88rem;white-space:nowrap}
   .sap-tabs a.is-active{background:#fff;color:var(--blue);border-color:#bfdbfe;box-shadow:0 6px 16px rgba(37,99,235,.14)}
   .sap-card{border:1px solid var(--line);border-radius:1rem;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.05)}
-  .sap-card h2{margin:0 0 .75rem;font-size:.95rem;font-weight:800;color:var(--ink)}
+  .sap-card h2{margin:0 0 .75rem;font-size:.95rem;font-weight:700;color:var(--ink)}
   .sap-pad{padding:1rem}
   .sap-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:.9rem}
   .sap-stat{display:flex;align-items:center;gap:.75rem;padding:.9rem 1rem;border-bottom:3px solid transparent}
@@ -30,7 +30,7 @@
   .sap-stat.tone-purple b{background:#ede9fe;color:#7c3aed}
   .sap-stat.tone-teal{border-bottom-color:#0d9488}
   .sap-stat.tone-teal b{background:#ccfbf1;color:#0d9488}
-  .sap-stat strong{display:block;font-size:1.5rem;font-weight:800;color:var(--ink)}
+  .sap-stat strong{display:block;font-size:1.5rem;font-weight:700;color:var(--ink)}
   .sap-stat span{color:var(--muted);font-weight:600;font-size:.82rem}
   .sap-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:.9rem;align-items:start}
   .sap-layout.is-reverse{grid-template-columns:340px minmax(0,1fr)}
@@ -69,9 +69,9 @@
   .sap-chip.gray{background:#eef2f7;color:#5a6a85}
   .sap-hero{padding:1.15rem}
   .sap-hero-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.4rem}
-  .sap-avatar{position:relative;display:grid;width:5.2rem;height:5.2rem;place-items:center;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#5d16ef,#0b65ff);color:#fff;font-size:1.8rem;font-weight:800}
+  .sap-avatar{position:relative;display:grid;width:5.2rem;height:5.2rem;place-items:center;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#5d16ef,#0b65ff);color:#fff;font-size:1.8rem;font-weight:700}
   .sap-avatar img{width:100%;height:100%;object-fit:cover}
-  .sap-hero-top h3{margin:.15rem 0 0;font-size:1.1rem;font-weight:800;color:var(--ink)}
+  .sap-hero-top h3{margin:.15rem 0 0;font-size:1.1rem;font-weight:700;color:var(--ink)}
   .sap-hero-chips{display:flex;gap:.4rem}
   .sap-detail{display:grid;gap:.1rem;margin-top:.85rem}
   .sap-detail-row{display:flex;align-items:center;justify-content:space-between;min-height:2.3rem;border-bottom:1px solid #f1f4f9;font-weight:600;font-size:.85rem}
@@ -88,11 +88,11 @@
   .sap-score-status{flex:1;min-width:0}
   .sap-score-visual{display:flex;align-items:center;gap:1rem}
   .sap-ring{display:grid;width:5.5rem;height:5.5rem;flex-shrink:0;place-items:center;border-radius:50%;background:conic-gradient(#16a34a calc(var(--score)*1%),#eef2f7 0)}
-  .sap-ring span{display:grid;width:4.2rem;height:4.2rem;place-items:center;border-radius:50%;background:#fff;font-size:1.05rem;font-weight:800;color:#16a34a}
+  .sap-ring span{display:grid;width:4.2rem;height:4.2rem;place-items:center;border-radius:50%;background:#fff;font-size:1.05rem;font-weight:700;color:#16a34a}
   .sap-score-bar{width:9rem}
   .sap-score-bar .sap-progress{height:.55rem}
   .sap-score-bar span{display:block;margin-top:.4rem;font-size:.75rem;font-weight:600;color:var(--muted)}
-  .sap-security-grid{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:.9rem;align-items:start}
+  .sap-security-grid{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:.9rem;align-items:stretch}
   .sap-field{display:grid;gap:.35rem;font-weight:700;font-size:.85rem;margin-bottom:.7rem}
   .sap-field input,.sap-field select,.sap-field textarea{width:100%;height:2.8rem;border:1px solid var(--line);border-radius:.6rem;background:#fff;padding:0 .9rem;text-align:right;outline:0;font-weight:600;color:var(--ink)}
   .sap-field textarea{height:5rem;padding-top:.6rem;resize:vertical}
@@ -362,7 +362,7 @@
                     {% endfor %}
                 </section>
 
-                <div class="sap-layout" style="grid-template-columns:1fr 1fr">
+                <div class="sap-layout" style="grid-template-columns:1fr 1fr;align-items:stretch">
                     <article class="sap-card sap-pad">
                         <h2><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg>اطلاعات و دسترسی</h2>
                         <div class="sap-list">
@@ -407,7 +407,7 @@
                     </article>
                 </div>
 
-                <div class="sap-layout" style="grid-template-columns:1fr 1fr">
+                <div class="sap-layout" style="grid-template-columns:1fr 1fr;align-items:stretch">
                     <article class="sap-card sap-pad">
                         <h2><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>آخرین فعالیت‌ها</h2>
                         {% for item in recent_activities %}

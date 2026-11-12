@@ -29,7 +29,7 @@ PRACTICE_MODES = {
                    'مانند آزمون اصلی پاسخ می‌دهید؛ پاسخ صحیح، توضیح و تحلیل نتایج پس از پایان آزمون در کارنامه نمایش داده می‌شود.'),
 }
 DEFAULT_PRACTICE_MODE = 'tutorial'
-CARD_PAGE_SIZE = 9
+CARD_PAGE_SIZE = 10
 RECENT_ATTEMPTS_SIZE = 10
 
 # attempt status -> (label, tone)

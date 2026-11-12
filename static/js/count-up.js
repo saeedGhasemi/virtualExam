@@ -69,20 +69,31 @@
         useGrouping: job.grouped,
     });
 
+    // The number keeps the width of its final value while it counts (no jitter of the text beside it), and never goes
+    // below 0: a frame's timestamp can be a little earlier than the start, which used to show «−۱» / «−۰».
     const run = (job) => {
         const fmt = formatter(job);
         const finalText = job.before + fmt.format(job.target) + job.after;
+        const host = job.host;
+        if (!job.width) {
+            // measured once, while the final value is shown (before the first run)
+            if (getComputedStyle(host).display === 'inline') host.style.display = 'inline-block';
+            host.style.fontVariantNumeric = 'tabular-nums'; // equal-width digits: the counting value never outgrows it
+            job.width = host.getBoundingClientRect().width;
+        }
+        if (job.width) host.style.minWidth = `${job.width}px`;
         const start = performance.now();
         const runId = (job.runId || 0) + 1;
         job.runId = runId;
         const tick = (now) => {
             if (job.runId !== runId) return;
-            const progress = Math.min((now - start) / DURATION, 1);
+            const progress = Math.min(Math.max((now - start) / DURATION, 0), 1);
             const eased = 1 - Math.pow(1 - progress, 3);
             job.textNode.nodeValue = progress < 1
                 ? job.before + fmt.format(job.decimals ? job.target * eased : Math.round(job.target * eased)) + job.after
                 : finalText;
             if (progress < 1) requestAnimationFrame(tick);
+            else host.style.minWidth = '';
         };
         job.textNode.nodeValue = job.before + fmt.format(0) + job.after;
         requestAnimationFrame(tick);

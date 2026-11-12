@@ -78,12 +78,15 @@
     [/^(اعضا|دانشجویان|شرکت‌?\s?کنندگان)$/, 'users'],
   ];
   const faDigits = (t) => t.replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
-  const iconize = (cell) => {
+  // Batched for speed: reading a computed style or size right after a DOM change forces a full layout, so a table's
+  // reads all happen first and its changes after (one layout instead of one per button / cell; 21 rows took ~0.9s).
+  const iconizeAll = (cells) => {
     // an icon-only disabled placeholder (e.g. «کارنامه» before results exist) matches the icon buttons beside it
-    cell.querySelectorAll('span[aria-disabled="true"]').forEach((el) => {
+    cells.forEach((cell) => cell.querySelectorAll('span[aria-disabled="true"]').forEach((el) => {
       if (el.querySelector('svg') && !el.textContent.trim()) el.classList.add('rt-ico');
-    });
-    cell.querySelectorAll('a, button').forEach((el) => {
+    }));
+    const jobs = [];
+    cells.forEach((cell) => cell.querySelectorAll('a, button').forEach((el) => {
       if (el.classList.contains('rt-ico') || el.closest('[role=menu], .dropdown-menu, details, [data-rt-text]') || el.querySelector('img')) return;
       const raw = el.textContent.trim().replace(/\s+/g, ' ');
       const m = raw.match(/^(.*?)\s*[(]\s*([0-9۰-۹]+)\s*[)]$/); // «تصحیح (۶)»
@@ -94,6 +97,9 @@
       const rgb = (cs.backgroundColor.match(/[\d.]+/g) || []).map(Number);
       // filled (saturated, opaque) buttons stay filled; white / tinted ones get the plain icon style
       const filled = cs.backgroundImage.includes('gradient') || (rgb.length >= 3 && (rgb[3] === undefined || rgb[3] > .8) && Math.max(rgb[0], rgb[1], rgb[2]) - Math.min(rgb[0], rgb[1], rgb[2]) > 90);
+      jobs.push({el, raw, m, hit, filled});
+    }));
+    jobs.forEach(({el, raw, m, hit, filled}) => {
       const own = el.querySelector('svg');
       if (own) own.remove();
       el.textContent = '';
@@ -109,12 +115,12 @@
       if (filled) el.classList.add('is-filled');
     });
     // beside the page's own bare icon buttons (no border/background), converted ones go bare too
-    const bare = [...cell.querySelectorAll('a, button')].some((el) => {
+    const bare = cells.filter((cell) => [...cell.querySelectorAll('a, button')].some((el) => {
       if (el.classList.contains('rt-ico') || el.textContent.trim() || !el.querySelector('svg')) return false;
       const cs = getComputedStyle(el);
       return parseFloat(cs.borderTopWidth) === 0 && /rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) && cs.backgroundImage === 'none';
-    });
-    if (bare) cell.querySelectorAll('.rt-ico:not(.is-filled)').forEach((el) => el.classList.add('is-ghost'));
+    }));
+    bare.forEach((cell) => cell.querySelectorAll('.rt-ico:not(.is-filled)').forEach((el) => el.classList.add('is-ghost')));
   };
   try { Object.keys(localStorage).filter((k) => k.startsWith('mq-rt-view:')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* old stored choices are no longer used */ }
 
@@ -124,25 +130,47 @@
 
   // centre a box's own wrappers: flex rows get justify-content:center, narrower blocks auto margins, full-width blocks
   // (e.g. a <details> menu) are looked into
-  const centreIn = (box, depth) => {
+  const centreIn = (box, depth, out) => {
     const own = getComputedStyle(box);
     if (own.display.includes('flex') || own.display.includes('grid') && box.tagName !== 'TD' && box.tagName !== 'TH') return; // its items follow justify-content / the grid
     const inner = box.getBoundingClientRect().width - parseFloat(own.paddingLeft) - parseFloat(own.paddingRight) - parseFloat(own.borderLeftWidth) - parseFloat(own.borderRightWidth);
     for (const child of box.children) {
       const cs = getComputedStyle(child);
       if (cs.position === 'absolute' || cs.position === 'fixed' || cs.display === 'none') continue;
-      if (cs.display.includes('flex') && cs.flexDirection.startsWith('row')) { child.classList.add('rt-jc'); continue; }
+      if (cs.display.includes('flex') && cs.flexDirection.startsWith('row')) { out.push([child, 'rt-jc']); continue; }
       if (!/^(block|grid|table|list-item)$/.test(cs.display)) continue;
-      if (child.getBoundingClientRect().width < inner - 2) child.classList.add('rt-mc');
-      else if (depth < 2) centreIn(child, depth + 1);
+      if (child.getBoundingClientRect().width < inner - 2) out.push([child, 'rt-mc']);
+      else if (depth < 2) centreIn(child, depth + 1, out);
     }
   };
 
-  const alignCell = (cell) => {
-    if (getComputedStyle(cell).display.includes('flex')) cell.classList.add('rt-jc');
-    const lead = cell.tagName === 'TD' && leadRow(cell);
-    if (lead) lead.classList.add('rt-lead'); else centreIn(cell, 0);
-    if (cell.tagName !== 'TH') markShort(cell);
+  const alignAll = (table, cells) => {
+    // (fixed-layout tables don't grow, so one-line text there would spill over the next cell)
+    const fixed = getComputedStyle(table).tableLayout === 'fixed';
+    const plan = cells.map((cell) => {
+      const p = {cell, flex: getComputedStyle(cell).display.includes('flex'), lead: cell.tagName === 'TD' && leadRow(cell), nw: false, wrap: false};
+      if (cell.tagName !== 'TH') {
+        const t = cell.textContent.trim().replace(/\s+/g, ' ');
+        p.nw = !!t && !fixed && shortValue(cell, t);
+        // loose text next to elements (e.g. a date + <small>time</small>) is one value: keep it together in card view
+        p.wrap = cell.children.length > 0 && [...cell.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+      }
+      return p;
+    });
+    plan.forEach((p) => {
+      if (p.flex) p.cell.classList.add('rt-jc');
+      if (p.lead) p.lead.classList.add('rt-lead');
+      if (p.nw) p.cell.classList.add('rt-nw');
+      if (p.wrap) {
+        const wrap = document.createElement('span');
+        wrap.className = 'rt-val';
+        [...p.cell.childNodes].forEach((n) => wrap.appendChild(n));
+        p.cell.appendChild(wrap);
+      }
+    });
+    const out = [];
+    plan.forEach((p) => { if (!p.lead) centreIn(p.cell, 0, out); });
+    out.forEach(([el, cls]) => el.classList.add(cls));
   };
 
   // one flex row of 2+ items and no loose text, e.g. icon + title, avatar + name, code chip + title
@@ -157,32 +185,16 @@
   };
   // equal widths per column (table view only; measured on every fit, since a hidden table measures 0)
   const leadWidths = (table) => {
+    const leads = [...table.querySelectorAll(':scope > tbody > tr > td > .rt-lead')];
+    if (!leads.length) return;
+    leads.forEach((row) => { row.style.removeProperty('--rt-lead-w'); row.style.width = 'max-content'; });
     const cols = {};
-    table.querySelectorAll(':scope > tbody > tr > td > .rt-lead').forEach((row) => {
-      row.style.removeProperty('--rt-lead-w');
-      const i = row.parentElement.cellIndex;
-      row.style.width = 'max-content';
-      cols[i] = Math.max(cols[i] || 0, Math.ceil(row.getBoundingClientRect().width));
+    leads.forEach((row) => { const i = row.parentElement.cellIndex; cols[i] = Math.max(cols[i] || 0, Math.ceil(row.getBoundingClientRect().width)); });
+    leads.forEach((row) => {
       row.style.width = '';
-    });
-    table.querySelectorAll(':scope > tbody > tr > td > .rt-lead').forEach((row) => {
       const w = cols[row.parentElement.cellIndex];
       if (w) row.style.setProperty('--rt-lead-w', `${w}px`);
     });
-  };
-
-  const markShort = (cell) => {
-    const t = cell.textContent.trim().replace(/\s+/g, ' ');
-    // (fixed-layout tables don't grow, so one-line text there would spill over the next cell)
-    if (t && shortValue(cell, t) && getComputedStyle(cell.closest('table')).tableLayout !== 'fixed') cell.classList.add('rt-nw');
-    // loose text next to elements (e.g. a date + <small>time</small>) is one value: keep it together in card view
-    const nodes = [...cell.childNodes];
-    if (nodes.some((n) => n.nodeType === 3 && n.textContent.trim()) && cell.children.length) {
-      const wrap = document.createElement('span');
-      wrap.className = 'rt-val';
-      nodes.forEach((n) => wrap.appendChild(n));
-      cell.appendChild(wrap);
-    }
   };
 
   // fixed column widths can be too small: content then spills over the next cell
@@ -213,11 +225,12 @@
     const oddCol = tileCols.length % 2 ? tileCols.pop() : -1;
     const endCols = wideCols.filter((i) => tileCols.length && i > tileCols[0]);
     if (oddCol >= 0) wideCols.push(oddCol);
+    const actCells = [];
     for (const row of rows) {
       [...row.cells].forEach((cell, i) => {
         if (!cell.hasAttribute('data-label')) cell.setAttribute('data-label', names[i] || '');
         if (i === titleCol) cell.classList.add('rt-head');
-        if (actionCols.includes(i)) { cell.classList.add('rt-act'); iconize(cell); }
+        if (actionCols.includes(i)) { cell.classList.add('rt-act'); actCells.push(cell); }
         if (wideCols.includes(i)) cell.classList.add('rt-wide');
         if (endCols.includes(i)) cell.classList.add('rt-wide-end');
         if (i === oddCol) cell.classList.add('rt-wide-odd');
@@ -229,8 +242,10 @@
         th.classList.add('rt-c');
         rows.forEach((row) => row.cells[i] && row.cells[i].classList.add('rt-c'));
       });
-      head.forEach(alignCell);
-      for (const row of rows) [...row.cells].forEach(alignCell);
+    }
+    iconizeAll(actCells);
+    if (!table.matches('[data-rt-align="keep"]')) {
+      alignAll(table, [...head, ...rows.flatMap((row) => [...row.cells])]);
     }
     table.dataset.rtState = 'ok';
     return true;
@@ -297,5 +312,8 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fit); else fit();
   window.addEventListener('load', fit);
   window.addEventListener('resize', later);
-  document.addEventListener('mq:live-load', fit); // tables swapped in by live-region.js
+  // tables swapped in by live-region.js: one pass per swap (it fires once per region), still before the next paint
+  let queued = false;
+  document.addEventListener('mq:live-load', () => { if (queued) return; queued = true; queueMicrotask(() => { queued = false; fit(); }); });
+  document.addEventListener('mq:pager', fit); // list-pager.js showed other rows: re-measure at once, before the next paint
 })();

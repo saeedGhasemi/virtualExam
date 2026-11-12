@@ -1,4 +1,5 @@
-"""Test data for trying every part of the site by hand: 15 teachers, 15 students, 15 questions, 17 exams (two of them practice exams).
+"""Test data for trying every part of the site by hand: 15 teachers, 39 students, 15 questions, 9 classes, ~44 exams
+(two of them practice exams); classes G5–G9 show every state of the teacher class page (see seed_classes).
 
 Everything it makes is marked so it can be found and removed:
   * usernames start with `mqtest_` (password of every account: Test@12345), e-mails end with @mqtest.local
@@ -692,7 +693,171 @@ class Command(BaseCommand):
                                           'title': f'{MARK} {title}', 'message': message, 'link': '', 'is_read': read,
                                           'created_at': now - timedelta(hours=index)})
 
+        # ---- more classes for the teacher class page (teacher/courses/<id>/): every block in every state
+        self.seed_classes(now, courses, unit, teacher, student, skill, group, exam, add_questions, assign, attempt,
+                          grade_manual, auto, mixed)
+
         self.report(teacher, student)
+
+    def seed_classes(self, now, courses, unit, teacher, student, skill, group, exam, add_questions, assign, attempt,
+                     grade_manual, auto, mixed):
+        """24 more students (mqtest_c01…c24) and five classes:
+        G5 (t01, فیزیک پایه, 14 students): 8 ended exams with every learning status (عالی/خوب/متوسط/نیاز به تلاش,
+           در انتظار ارزیابی, با تأخیر در مشارکت: absent / unfinished in the last one), two exams waiting for grading,
+           one running, three upcoming, one waiting for approval, a draft and a cancelled one;
+        G6 (t01, شیمی عمومی, 6 students): a new class — only upcoming / draft / pending exams, nothing ended yet;
+        G7 (t01, آمار زیستی): empty — no students, no exams (every empty state);
+        G8 (t02, فیزیک پایه): three graded exams and an upcoming one; G9 (t03, شیمی عمومی): grading queue + running exam."""
+        from apps.core.views import erd_rows
+
+        days = timedelta(days=1)
+        first = ['آرین', 'سارا', 'علی', 'نرگس', 'مهدی', 'فاطمه', 'امیرحسین', 'ریحانه', 'محمدجعفر', 'کیمیا', 'حسین', 'زینب',
+                 'بهار', 'رضا', 'مریم', 'پارسا', 'الناز', 'سجاد', 'هانیه', 'نیما', 'شیدا', 'کوروش', 'مینا', 'آیدا']
+        last = ['محمدی', 'رضایی', 'حسینی', 'کریمی', 'کاشانی', 'مرادی', 'براتی', 'احمدی', 'صدقی', 'نادری', 'جعفری', 'موسوی',
+                'نوروزی', 'اکبری', 'رحمانی', 'صالحی', 'شاکری', 'فرجی', 'یزدانی', 'بهرامی', 'توکلی', 'قنبری', 'میرزایی', 'سلطانی']
+        # answering skill: ~0.97 عالی, ~0.85 خوب, ~0.68 متوسط, ~0.4 نیاز به تلاش
+        levels = [0.97, 0.85, 0.68, 0.4, 0.9, 0.75, 0.55]
+        names = {key: f'{f} {l} {MARK}' for key, f, l, *_rest in STUDENTS}
+        for number in range(1, 25):
+            key = f'c{number:02d}'
+            index = len(STUDENTS) + number
+            profile_id = self.make_profile(key, first[number - 1], last[number - 1], 'male' if number % 2 else 'female',
+                                           'active', 'student', index, {}, now - timedelta(hours=number * 2))
+            student[key], skill[key] = profile_id, levels[(number - 1) % len(levels)]
+            names[key] = f'{first[number - 1]} {last[number - 1]} {MARK}'
+            self.insert('student_profiles', {
+                'user_id': profile_id, 'student_number': f'{CODE}-{key.upper()}', 'field_of_study': 'علوم تجربی',
+                'degree': 'کارشناسی', 'class_group': f'گروه {1 + number % 3}', 'semester': str(1 + number % 8),
+                'academic_status': 'active', 'department': f'{MARK} گروه علوم', 'org_unit_id': unit, 'entry_year': '1404',
+                'admission_type': 'روزانه', 'password_method': 'manual', 'must_change_password': False,
+                'send_welcome_message': False, 'show_avatar_to_teacher': True,
+            })
+
+        for number, title in ((4, 'فیزیک پایه'), (5, 'شیمی عمومی'), (6, 'آمار زیستی')):
+            course = sid(f'course:{number}')
+            courses.append(course)
+            self.insert('courses', {'id': course, 'title': f'{MARK} {title}', 'code': f'{CODE}-C{number}',
+                                    'description': 'درس آزمایشی برای تست صفحه‌ی کلاس', 'org_unit_id': unit, 'credit_units': 3})
+        physics, chemistry, statistics = courses[3], courses[4], courses[5]
+
+        def make_group(code, course, owner, members, capacity=30):
+            group_id = sid(f'group:{code}')
+            group[code] = group_id
+            self.insert('student_groups', {
+                'id': group_id, 'teacher_id': teacher[owner], 'course_id': course,
+                'course_name': erd_rows('SELECT title FROM courses WHERE id = %s', [course])[0]['title'],
+                'academic_year': '1405-1406', 'semester': 'نیمسال اول', 'group_code': f'{CODE}-{code}',
+                'description': f'{MARK} کلاس آزمایشی', 'is_active': True, 'created_by': teacher[owner], 'capacity': capacity,
+                'min_students': 2, 'offering_type': 'theory', 'class_schedule': 'یکشنبه‌ها ۸ تا ۱۰', 'class_location': 'کلاس ۱۰۲',
+                'registration_start_at': now - 30 * days, 'registration_end_at': now + 30 * days,
+                'status': 'active', 'is_archived': False, 'archived_at': None,
+            })
+            for position, member in enumerate(members, start=1):
+                self.insert('student_group_members', {
+                    'id': sid(f'member:{code}:{member}'), 'group_id': group_id, 'student_user_id': student[member],
+                    'full_name': names[member], 'national_id': f'79{int(code[1:]):02d}{position:06d}',
+                    'student_number': f'{CODE}-{member.upper()}'})
+                self.sql('INSERT INTO student_course_enrollments (id, student_user_id, course_id) VALUES (%s, %s, %s) '
+                         'ON CONFLICT (student_user_id, course_id) DO NOTHING', [sid(f'enroll:{member}:{course}'), student[member], course])
+
+        def ended(key, title, owner, course, code, start, questions, minutes=60, published=True):
+            exam_id = exam(key, title, owner=owner, course=course, start=start, minutes=minutes, is_published=True,
+                           lifecycle_status='closed', publish_mode='immediate',
+                           results_published_at=start + 2 * days if published else None)
+            add_questions(exam_id, questions)
+            assign(exam_id, [code])
+            return exam_id
+
+        def sit(exam_id, members, start, absent=(), unfinished=(), pending=(), grader='t01'):
+            """Every member sits the exam except `absent`; `unfinished` ran out of time; `pending` keep manual answers ungraded."""
+            for offset, key in enumerate(members):
+                if key in absent:
+                    continue
+                if key in unfinished:
+                    attempt(exam_id, key, start + timedelta(minutes=2), status='expired', answered=2)
+                    continue
+                attempt_id = attempt(exam_id, key, start + timedelta(minutes=1 + offset % 5), minutes=25 + offset % 20)
+                if key not in pending:
+                    grade_manual(attempt_id, key, grader=grader)
+
+        def upcoming(key, title, owner, course, code, start, minutes=60, **fields):
+            values = {'is_published': True, 'lifecycle_status': 'published', 'publish_mode': 'immediate', **fields}
+            exam_id = exam(key, title, owner=owner, course=course, start=start, minutes=minutes, **values)
+            add_questions(exam_id, auto[:6])
+            assign(exam_id, [code])
+            return exam_id
+
+        def draft_or_pending(key, title, owner, course, code, start, pending):
+            fields = {'lifecycle_status': 'pending_approval', 'approval_status': 'pending', 'publish_mode': 'submit'} if pending else {}
+            exam_id = exam(key, title, owner=owner, course=course, start=start, **fields)
+            add_questions(exam_id, auto[:5])
+            assign(exam_id, [code])
+
+        # G5 — the full class
+        g5 = [f'c{n:02d}' for n in range(1, 15)]
+        make_group('G5', physics, 't01', g5, capacity=35)
+        history = [('حرکت‌شناسی — آزمونک ۱', 42), ('بردارها و نیروها', 35), ('قوانین نیوتن', 28), ('کار و انرژی', 21),
+                   ('تکانه و برخورد', 14), ('حرکت دورانی', 9)]
+        for number, (title, ago) in enumerate(history, start=1):
+            start = now - ago * days
+            exam_id = ended(f'g5f{number}', f'فیزیک — {title}', 't01', physics, 'G5', start, auto[:8], published=number <= 5)
+            sit(exam_id, g5, start, absent={3: ('c05',), 6: ('c12',)}.get(number, ()))
+        start = now - 5 * days
+        exam_id = ended('g5f7', 'فیزیک — گزارش آزمایش نوسان (تشریحی)', 't01', physics, 'G5', start, mixed, published=False)
+        sit(exam_id, g5, start, pending=('c03', 'c04'))
+        start = now - 2 * days
+        exam_id = ended('g5f8', 'فیزیک — میان‌ترم (تستی + تشریحی)', 't01', physics, 'G5', start, mixed, minutes=90, published=False)
+        sit(exam_id, g5, start, absent=('c13', 'c14'), unfinished=('c09',), pending=('c06', 'c07', 'c10'))
+        running = exam('g5r', 'فیزیک — آزمونک الکتریسیته (در حال برگزاری)', course=physics, start=now - timedelta(minutes=25),
+                       minutes=90, is_published=True, lifecycle_status='published', publish_mode='immediate')
+        add_questions(running, auto[:8])
+        assign(running, ['G5'])
+        for offset, key in enumerate(g5[:7]):
+            if offset < 3:
+                attempt(running, key, now - timedelta(minutes=24 - offset), minutes=15)
+            else:
+                attempt(running, key, now - timedelta(minutes=20 - offset), status='in_progress', answered=offset)
+        upcoming('g5u1', 'فیزیک — آزمونک مغناطیس (فردا)', 't01', physics, 'G5', now + days)
+        upcoming('g5u2', 'فیزیک — آزمون فصل نور', 't01', physics, 'G5', now + 4 * days, minutes=45)
+        upcoming('g5u3', 'فیزیک — پایان‌ترم', 't01', physics, 'G5', now + 20 * days, minutes=120)
+        draft_or_pending('g5p', 'فیزیک — آزمون جبرانی (در انتظار تأیید)', 't01', physics, 'G5', now + 12 * days, True)
+        draft_or_pending('g5d', 'فیزیک — تمرین ترمودینامیک (پیش‌نویس)', 't01', physics, 'G5', now + 15 * days, False)
+        upcoming('g5x', 'فیزیک — آزمونک لغوشده', 't01', physics, 'G5', now + 6 * days, is_cancelled=True, cancel_reason='تعطیلی رسمی')
+
+        # G6 — a new class: nothing has been held yet
+        make_group('G6', chemistry, 't01', [f'c{n:02d}' for n in range(15, 21)], capacity=25)
+        upcoming('g6u1', 'شیمی — آزمونک ساختار اتم', 't01', chemistry, 'G6', now + 5 * days, minutes=30)
+        draft_or_pending('g6p', 'شیمی — آزمون فصل ۱ (در انتظار تأیید)', 't01', chemistry, 'G6', now + 14 * days, True)
+        draft_or_pending('g6d', 'شیمی — پیش‌نویس استوکیومتری', 't01', chemistry, 'G6', None, False)
+
+        # G7 — empty class (no students, no exams)
+        make_group('G7', statistics, 't01', [], capacity=20)
+
+        # G8 — t02's class of the same course
+        g8 = [f'c{n:02d}' for n in range(8, 19)]
+        make_group('G8', physics, 't02', g8)
+        for number, (title, ago) in enumerate((('آزمونک ۱', 20), ('آزمونک ۲', 10), ('میان‌ترم', 3)), start=1):
+            start = now - ago * days
+            exam_id = ended(f'g8f{number}', f'فیزیک (گروه ۲) — {title}', 't02', physics, 'G8', start, auto[:8], published=number < 3)
+            sit(exam_id, g8, start, absent=('c16',) if number == 3 else (), grader='t02')
+        upcoming('g8u1', 'فیزیک (گروه ۲) — آزمونک ۳', 't02', physics, 'G8', now + 3 * days)
+
+        # G9 — t03's class: grading queue and a running exam
+        g9 = [f'c{n:02d}' for n in range(19, 25)] + ['s01', 's02']
+        make_group('G9', chemistry, 't03', g9)
+        start = now - 15 * days
+        exam_id = ended('g9f1', 'شیمی (گروه ۲) — آزمونک ۱', 't03', chemistry, 'G9', start, auto[:8])
+        sit(exam_id, g9, start, grader='t03')
+        start = now - 4 * days
+        exam_id = ended('g9f2', 'شیمی (گروه ۲) — گزارش کار (تشریحی)', 't03', chemistry, 'G9', start, mixed, published=False)
+        sit(exam_id, g9, start, pending=tuple(g9), grader='t03')
+        g9r = exam('g9r', 'شیمی (گروه ۲) — آزمونک ۲ (در حال برگزاری)', owner='t03', course=chemistry,
+                   start=now - timedelta(minutes=10), minutes=60, is_published=True, lifecycle_status='published',
+                   publish_mode='immediate')
+        add_questions(g9r, auto[:6])
+        assign(g9r, ['G9'])
+        attempt(g9r, 'c19', now - timedelta(minutes=9), status='in_progress', answered=3)
+        draft_or_pending('g9d', 'شیمی (گروه ۲) — پیش‌نویس پایان‌ترم', 't03', chemistry, 'G9', now + 25 * days, False)
 
     def report(self, teacher, student):
         from apps.core.views import erd_rows, exam_access_code
@@ -705,6 +870,12 @@ class Command(BaseCommand):
         out('Students:')
         for key, *_rest, note in STUDENTS:
             out(f'  {PREFIX}{key}  {note}')
+        out('Classes (teacher class page /teacher/courses/<id>/):')
+        for row in erd_rows("SELECT sg.group_code, sg.course_name, p.username, "
+                            "(SELECT COUNT(*) FROM student_group_members m WHERE m.group_id = sg.id) AS members "
+                            "FROM student_groups sg JOIN profiles p ON p.id = sg.teacher_id WHERE sg.group_code LIKE %s "
+                            "ORDER BY sg.group_code", [f'{CODE}-%']):
+            out(f"  {row['group_code']}  {row['course_name']}  ({row['username']}, {row['members']} students)")
         out('Exams:')
         for row in erd_rows('SELECT id, title FROM exams WHERE title LIKE %s ORDER BY title', [f'{MARK}%']):
             out(f"  {exam_access_code(row['id'])}  {row['title']}")

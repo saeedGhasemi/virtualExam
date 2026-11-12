@@ -1,0 +1,15 @@
+{% load core_extras %}{# «دسترسی سریع» strip like the teacher dashboard. actions = [{label, url, icon, hint?, primary? or tone='primary'}]; icon = plus | doc | book | check | send | calendar | users | layers | settings | help | chart #}
+<section class="tdash-card tdash-quick">
+    <div class="tdash-quick-head">
+        <i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7Z"/></svg></i>
+        <div>
+            <h2>دسترسی سریع</h2>
+            <p>کارهای پرکاربرد با یک کلیک</p>
+        </div>
+    </div>
+    <div class="tdash-quick-grid" style="--qc: {{ actions|length }}">
+        {% for a in actions %}
+            <a class="{% if a.primary or a.tone == 'primary' %}is-primary{% else %}is-blue{% endif %}" href="{{ a.url }}"><i aria-hidden="true"><svg viewBox="0 0 24 24">{% if a.icon == 'plus' %}<path d="M12 5v14M5 12h14"/>{% elif a.icon == 'doc' %}<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>{% elif a.icon == 'book' %}<path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/>{% elif a.icon == 'check' %}<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>{% elif a.icon == 'send' %}<path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/>{% elif a.icon == 'calendar' %}<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>{% elif a.icon == 'users' %}<circle cx="9" cy="8" r="3"/><path d="M3.8 20a5.2 5.2 0 0 1 10.4 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 15.5A4.7 4.7 0 0 1 20.5 20"/>{% elif a.icon == 'layers' %}<path d="m12 3 9 4.5-9 4.5-9-4.5ZM3 12l9 4.5 9-4.5M3 16.5 12 21l9-4.5"/>{% elif a.icon == 'help' %}<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M9.4 9a2.7 2.7 0 1 1 5.2 1c-.6 1-1.9 1.4-2.3 2.4M12 17h.01"/>{% elif a.icon == 'settings' %}<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>{% else %}<path d="M5 20V10M10 20V4M15 20v-7M20 20v-4"/>{% endif %}</svg></i><span><b>{{ a.label|fa_digits }}</b>{% if a.hint %}<small>{{ a.hint }}</small>{% endif %}</span><em aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></em></a>
+        {% endfor %}
+    </div>
+</section>

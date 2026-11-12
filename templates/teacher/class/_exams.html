@@ -1,0 +1,54 @@
+{% load core_extras %}{% with x=cls.exams %}
+<form class="xh-card ch-filter ch-exam-filter" method="get" role="search">
+    <input type="hidden" name="tab" value="exams">
+    <label class="xh-search ch-filter-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span class="sr-only">جستجو</span><input class="xh-input" type="search" name="q" value="{{ x.query }}" maxlength="100" placeholder="جستجوی عنوان آزمون..."></label>
+    <nav class="ch-chips" aria-label="وضعیت آزمون">
+        {% for chip in x.chips %}<a class="ch-chip{% if chip.active %} is-active{% endif %}" href="{{ chip.url }}"{% if chip.active %} aria-current="page"{% endif %}>{% if chip.icon %}<span class="ch-chip-ico is-{{ chip.key }}">{% include 'teacher/class/_icon.html' with i=chip.icon %}</span>{% endif %}<span>{{ chip.label }}</span><b>{{ chip.count|fa_digits }}</b></a>{% endfor %}
+    </nav>
+    <label class="ch-select-wrap ch-state-select"><span class="sr-only">وضعیت آزمون</span><select class="xh-select" name="status" onchange="this.form.requestSubmit()">{% for key, label in x.state_options %}<option value="{% if key != 'all' %}{{ key }}{% endif %}"{% if key == x.status %} selected{% endif %}>{% if key == 'all' %}وضعیت آزمون{% else %}{{ label }}{% endif %}</option>{% endfor %}</select></label>
+    <a class="xh-btn is-solid ch-new" href="{{ cls.urls.new_exam }}" data-live-skip><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>آزمون جدید</a>
+    <noscript><button class="xh-btn" type="submit">جستجو</button></noscript>
+</form>
+
+<section class="xh-card ch-block ch-exams">
+    {% if x.rows %}
+    <div class="xl ch-xl">
+        <table class="ch-table ch-exam-table">
+            <thead><tr><th>عنوان آزمون</th><th>تاریخ شروع</th><th>مدت</th><th>ارسال‌شده / مجاز</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+            <tbody>
+                {% for exam in x.rows %}
+                <tr class="is-{{ exam.state }}">
+                    <td><span class="ch-exam-title">{% include 'teacher/class/_icon.html' with i='doc' %}<b>{{ exam.title|fa_digits }}</b></span></td>
+                    <td><span class="ch-ltr">{{ exam.when|default:'—' }}</span></td>
+                    <td>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}—{% endif %}</td>
+                    <td><span class="ch-ratio">{{ exam.submitted|default:0|fa_digits }} / {{ exam.assigned|default:0|fa_digits }}</span></td>
+                    <td>{% with pill=exam.class_pill %}<span class="xh-pill is-{{ pill.1 }}">{% include 'teacher/class/_icon.html' with i=pill.2 %}{{ pill.0 }}</span>{% endwith %}</td>
+                    <td>
+                        <div class="xl-actions ch-actions">
+                            {% with pr=exam.primary %}<a class="xl-main is-{% if pr.tone == 'solid' %}blue{% else %}{{ pr.tone }}{% endif %} ch-main" href="{{ pr.url }}" data-rt-text>{% include 'teacher/class/_icon.html' with i=exam.primary_icon %}{{ pr.label }}{% if pr.count %}<b class="xl-main-count">{{ pr.count|fa_digits }}</b>{% endif %}</a>{% endwith %}
+                            <a class="xl-icon" href="{{ exam.preview_url }}" title="پیش‌نمایش آزمون" aria-label="پیش‌نمایش آزمون {{ exam.title }}" data-live-skip><svg aria-hidden="true"><use href="#xl-i-eye"/></svg></a>
+                            <a class="xl-icon" href="{{ exam.results_url }}" title="{% if exam.state == 'finished' %}نتایج و تحلیل{% else %}گزارش آزمون{% endif %}" aria-label="نتایج آزمون {{ exam.title }}"><svg aria-hidden="true"><use href="#xl-i-chart"/></svg></a>
+                            <div class="xl-more">
+                                <button type="button" class="xl-icon" data-xl-menu aria-haspopup="menu" aria-expanded="false" title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر برای {{ exam.title }}"><svg aria-hidden="true"><use href="#xl-i-more"/></svg></button>
+                                <div class="xl-menu" role="menu" hidden>
+                                    {% for item in exam.menu %}
+                                        {% if item.url %}<a role="menuitem" href="{{ item.url }}"><svg aria-hidden="true"><use href="#xl-i-{{ item.icon }}"/></svg>{{ item.label }}</a>
+                                        {% else %}<form method="post" action="{{ item.post }}"{% if item.danger %} class="is-danger"{% endif %}{% if item.confirm %} data-confirm="{{ item.confirm }}"{% if item.confirm_ok %} data-confirm-ok="{{ item.confirm_ok }}"{% endif %}{% if item.danger %} data-confirm-danger{% endif %}{% endif %}>{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button type="submit" role="menuitem"><svg aria-hidden="true"><use href="#xl-i-{{ item.icon }}"/></svg>{{ item.label }}</button></form>{% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="ch-foot">{% mq_pager x.page %}</div>
+    {% elif x.filtered %}
+        <p class="ch-empty">آزمونی با این جستجو یا وضعیت پیدا نشد. <a href="{{ cls.urls.exams }}">نمایش همه آزمون‌های کلاس</a></p>
+    {% else %}
+        <p class="ch-empty">هنوز آزمونی برای این کلاس ساخته نشده است. <a href="{{ cls.urls.new_exam }}" data-live-skip>ایجاد اولین آزمون</a></p>
+    {% endif %}
+</section>
+{% endwith %}

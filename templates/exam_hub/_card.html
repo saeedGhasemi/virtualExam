@@ -1,0 +1,83 @@
+{% load core_extras %}{% with c=card %}
+<div class="xh-no-print" style="display:flex;justify-content:flex-end;margin:-.4rem 0 .8rem">
+    <a class="xh-btn is-ghost" href="?tab=results">بازگشت به نتایج آزمون {% include 'exam_hub/_icon.html' with i='next' %}</a>
+</div>
+<div class="xh-split">
+    <div class="xh-main">
+        <div class="xh-kpis" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,8.6rem),1fr))">
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='layers' %}کل سؤال‌ها</span><span class="xh-kpi-value">{{ c.total }}<em>سؤال</em></span></div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label is-green">{% include 'exam_hub/_icon.html' with i='checkcircle' %}صحیح</span><span class="xh-kpi-value">{{ c.good }}<em>سؤال</em></span></div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label is-red">{% include 'exam_hub/_icon.html' with i='eyeoff' %}نادرست</span><span class="xh-kpi-value">{{ c.bad }}<em>سؤال</em></span></div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label is-grey">{% include 'exam_hub/_icon.html' with i='ring' %}بدون پاسخ</span><span class="xh-kpi-value">{{ c.empty }}<em>سؤال</em></span></div>
+            <div class="xh-kpi is-ring"><div class="xh-donut is-grey is-md" style="--p:{{ c.percent }}"><span><b>{{ c.percent }}٪</b><small>عملکرد</small></span></div></div>
+            <div class="xh-kpi is-tint"><div class="xh-kpi-body"><span class="xh-kpi-label" style="color:var(--xh-blue)">نمره نهایی</span><span class="xh-kpi-value" style="font-size:1.75rem">{{ c.score }}<em>از {{ c.scale }}</em></span><span class="xh-kpi-sub">{% if c.graded %}معادل {{ c.percent }}٪{% else %}در انتظار تصحیح{% endif %}</span></div><span class="xh-kpi-ico is-plain" style="color:var(--xh-blue)">{% include 'exam_hub/_icon.html' with i='award' %}</span></div>
+        </div>
+        <div class="xh-card">
+            <div class="xh-card-head">
+                <h3>{% include 'exam_hub/_icon.html' with i='question' %}مرور سؤالات و پاسخ‌ها</h3>
+                <form method="get" class="xh-filters" style="flex:1 1 30rem;justify-content:flex-end">
+                    <input type="hidden" name="tab" value="results"><input type="hidden" name="student" value="{{ c.attempt_id }}">
+                    <label class="xh-search is-search">{% include 'exam_hub/_icon.html' with i='search' %}<input class="xh-input" type="search" name="q" value="{{ c.filters.q }}" placeholder="جستجو در متن سؤال یا بازخورد..." aria-label="جستجو"></label>
+                    <select class="xh-select" name="status" onchange="this.form.requestSubmit()" aria-label="وضعیت" style="flex:0 1 10rem">
+                        <option value="">همه وضعیت‌ها</option>
+                        {% for key, label in c.tones.items %}<option value="{{ key }}"{% if c.filters.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <select class="xh-select" name="subject" onchange="this.form.requestSubmit()" aria-label="موضوع" style="flex:0 1 10rem">
+                        <option value="">همه موضوع‌ها</option>
+                        {% for s in c.subjects %}<option value="{{ s }}"{% if c.filters.subject == s %} selected{% endif %}>{{ s }}</option>{% endfor %}
+                    </select>
+                </form>
+            </div>
+            {% if c.rows %}
+            <table class="table">
+                <thead><tr><th>ردیف</th><th>سؤال (خلاصه)</th><th>پاسخ دانشجو</th><th>پاسخ کلید</th><th>وضعیت</th><th>بازخورد (توضیح)</th><th>مشاهده سؤال</th></tr></thead>
+                <tbody>
+                {% for q in c.rows %}
+                <tr>
+                    <td>{{ q.index }}</td>
+                    <td>{{ q.short }}</td>
+                    <td>{{ q.student_answer }}</td>
+                    <td>{{ q.key_answer }}</td>
+                    <td><span class="xh-pill is-{{ q.status_tone }}">{% if q.tone == 'good' %}{% include 'exam_hub/_icon.html' with i='check' %}{% elif q.tone == 'bad' %}{% include 'exam_hub/_icon.html' with i='x' %}{% elif q.tone == 'empty' %}{% include 'exam_hub/_icon.html' with i='ring' %}{% endif %}{{ q.status_label }}</span></td>
+                    <td>{{ q.feedback_short }}</td>
+                    <td><button type="button" class="xh-btn is-ghost is-sm" data-rt-text data-xh-toggle="xh-q-{{ q.index }}" aria-expanded="false">{% include 'exam_hub/_icon.html' with i='eye' %}مشاهده</button></td>
+                </tr>
+                <tr class="xh-detail-row" id="xh-q-{{ q.index }}" hidden><td colspan="7">
+                    <p class="xh-qtext" style="margin:0 0 .4rem">{{ q.text }}</p>
+                    {% if q.options %}<ul class="xh-options">{% for o in q.options %}<li class="{% if o.correct %}is-correct{% endif %}">{% if o.correct %}<span class="xh-ok">{% include 'exam_hub/_icon.html' with i='check' %}</span>{% else %}<span></span>{% endif %}<i>{{ o.letter }}</i><span>{{ o.label }}</span><em>{% if o.chosen %}انتخاب دانشجو{% endif %}</em></li>{% endfor %}</ul>
+                    {% elif q.answer_text %}<p class="xh-prose"><b>پاسخ دانشجو:</b> {{ q.answer_text }}</p>{% endif %}
+                    {% for f in q.files %}<p class="xh-prose"><b>فایل پاسخ:</b> {{ f.name|default:"فایل" }}</p>{% endfor %}
+                    <p class="xh-prose"><b>نمره:</b> {{ q.points|floatformat:"-2" }} از {{ q.max_points|floatformat:"-2" }}</p>
+                    {% if q.feedback %}<p class="xh-prose"><b>بازخورد مصحح:</b> {{ q.feedback }}</p>{% endif %}
+                    {% if q.explanation %}<p class="xh-prose"><b>توضیح:</b> {{ q.explanation }}</p>{% endif %}
+                </td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% mq_pager c.page %}
+            {% else %}<div class="xh-empty">سؤالی با این فیلترها نیست.</div>{% endif %}
+        </div>
+    </div>
+    <aside class="xh-side">
+        <div class="xh-card">
+            <div class="xh-profile" style="padding-bottom:1rem;margin-bottom:.4rem;border-bottom:1px solid #eef2f7">
+                {% include 'exam_hub/_avatar.html' with p=c.person lg=1 %}
+                <div style="min-width:0"><h3>{{ c.person.name|default:"دانشجو" }}</h3>{% if c.person.faculty %}<p>{{ c.person.faculty }}</p>{% endif %}{% if c.person.code %}<p>شماره دانشجویی: <span data-latin-digits>{{ c.person.code }}</span></p>{% endif %}</div>
+            </div>
+            <dl class="xh-kv">
+                <div><dt>{% include 'exam_hub/_icon.html' with i='user' %}وضعیت تحویل</dt><dd>{% if c.submitted %}<span class="xh-pill is-green is-round">{% include 'exam_hub/_icon.html' with i='checkcircle' %}تحویل شده</span>{% else %}<span class="xh-pill is-amber is-round">تحویل نشده</span>{% endif %}</dd></div>
+                <div><dt>{% include 'exam_hub/_icon.html' with i='calendar' %}شروع آزمون</dt><dd>{{ c.start_label }}</dd></div>
+                <div><dt>{% include 'exam_hub/_icon.html' with i='calendar' %}پایان آزمون</dt><dd>{{ c.end_label }}</dd></div>
+                <div><dt>{% include 'exam_hub/_icon.html' with i='clock' %}مدت زمان</dt><dd>{% if c.minutes is not None %}{{ c.minutes }} دقیقه{% else %}—{% endif %}</dd></div>
+                <div><dt>{% include 'exam_hub/_icon.html' with i='eye' %}وضعیت انتشار نمره</dt><dd>{% if c.published %}<span class="xh-pill is-green is-round">{% include 'exam_hub/_icon.html' with i='eye' %}منتشرشده</span>{% else %}<span class="xh-pill is-red is-round">{% include 'exam_hub/_icon.html' with i='eyeoff' %}منتشرنشده</span>{% endif %}</dd></div>
+                {% if c.objection %}<div><dt>{% include 'exam_hub/_icon.html' with i='doc' %}دلیل بررسی</dt><dd><span class="xh-pill is-blue is-round">بررسی موردی (درخواست دانشجو)</span></dd></div>{% endif %}
+            </dl>
+        </div>
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='message' %}یادداشت برای دانشجو</h3></div>
+            <p class="xh-prose" style="padding:.8rem .9rem;border:1px solid var(--xh-line);border-radius:.7rem;background:var(--xh-soft)">پاسخ‌ها و بازخورد هر سؤال را بررسی کنید. در صورت نیاز به توضیح بیشتر، از بخش پیام آزمون با من در ارتباط باشید.</p>
+        </div>
+        <button type="button" class="xh-btn is-lg is-block xh-no-print" data-xh-print>{% include 'exam_hub/_icon.html' with i='download' %}دانلود کارنامه (PDF)</button>
+    </aside>
+</div>
+{% endwith %}

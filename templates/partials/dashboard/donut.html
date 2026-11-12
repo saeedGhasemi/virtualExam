@@ -1,0 +1,12 @@
+{% load core_extras %}{# Donut + legend card in the teacher dashboard's card look. title, total, total_label, ring_style (views._conic_style), items = [{label, color, count or value}]. #}
+<section class="tdash-card">
+    <header class="tdash-card-head"><h2><i class="tdash-hicon is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9Z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15Z"/></svg></i>{{ title }}</h2></header>
+    <div class="tdd">
+        <div class="tdd-ring" style="{{ ring_style }}"><b>{{ total|fa_digits }}<small>{{ total_label }}</small></b></div>
+        <ul class="tdd-legend">
+            {% for item in items %}
+                <li><i style="background:{{ item.color }}"></i><span>{{ item.label }}</span><b>{% if item.count is not None %}{{ item.count|fa_digits }}{% else %}{{ item.value|default:0|fa_digits }}{% endif %}</b></li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>

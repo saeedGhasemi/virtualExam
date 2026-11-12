@@ -1,0 +1,14 @@
+{% load core_extras %}{% comment %}KPI boxes like the teacher dashboard. kpis = [{label, value, icon (partials/dashboard/kpi_icon.html), url?, hint?}], no_hint=1 hides the hints — the
+   manager/admin stat cards and «زیرمجموعه من» tiles (with no_hint, like the teacher's) pass straight in. 6 → 6 per row when they fit, else 3 / 2 / 1; 4 → 4 / 2 / 1.{% endcomment %}
+<div class="tdash-kpis{% if kpis|length == 6 %} is-six{% elif kpis|length == 4 %} is-four{% endif %}" style="--kc: {% if kpis|length == 6 %}6{% else %}3{% endif %}">
+    {% for k in kpis %}
+        {% if k.url %}<a class="tdash-kpi{% if k.hint and not no_hint %} has-hint{% endif %}" href="{{ k.url }}">{% else %}<div class="tdash-kpi{% if k.hint and not no_hint %} has-hint{% endif %}">{% endif %}
+            {% include 'partials/dashboard/kpi_icon.html' with name=k.icon %}
+            <div>
+                <h2>{{ k.label }}</h2>{% if k.url %}<span class="tdash-kpi-go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>{% endif %}
+                <strong>{{ k.value|fa_digits }}</strong>
+                {% if k.hint and not no_hint %}<small class="tdash-kpi-hint">{{ k.hint|fa_digits }}</small>{% endif %}
+            </div>
+        {% if k.url %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+</div>

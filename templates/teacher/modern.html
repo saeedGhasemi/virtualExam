@@ -2,7 +2,7 @@
 {% load core_extras static %}
 
 {% block title %}
-{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}جزئیات گروه درسی{% elif page == 'students' %}دانشجویان{% elif page == 'students_directory' %}فهرست اطلاعات دانشجویان{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'osce_builder' %}سازنده ایستگاه OSCE{% elif page == 'osce_list' %}آزمون‌های OSCE{% elif page == 'osce_preview' %}پیش‌نمایش آزمون OSCE{% elif page == 'grading_detail' %}تصحیح پاسخ تشریحی{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
+{% if page == 'dashboard' %}داشبورد استاد{% elif page == 'courses' %}درس‌ها و گروه‌ها{% elif page == 'course_detail' %}{{ cls.title }}{% elif page == 'students' %}دانشجویان{% elif page == 'students_directory' %}فهرست اطلاعات دانشجویان{% elif page == 'student_profile' %}پروفایل دانشجو{% elif page == 'questions' %}بانک سؤال{% elif page == 'question_type' %}انتخاب نوع سؤال{% elif page == 'question_create' %}ایجاد سؤال{% elif page == 'question_edit' %}ویرایش سؤال{% elif page == 'question_import' %}ورود گروهی سؤالات{% elif page == 'osce_builder' %}سازنده ایستگاه OSCE{% elif page == 'osce_list' %}آزمون‌های OSCE{% elif page == 'osce_preview' %}پیش‌نمایش آزمون OSCE{% elif page == 'grading_detail' %}تصحیح پاسخ تشریحی{% elif page == 'exams' %}آزمون‌ها{% elif page == 'monitoring' %}پایش زنده{% elif page == 'reviews' %}تصحیح پاسخ{% elif page == 'results' %}نتایج آزمون{% elif page == 'objections' %}اعتراض‌ها{% elif page == 'calendar' %}تقویم آموزشی{% elif page == 'profile' %}پروفایل استاد{% elif page == 'teacher_settings' %}تنظیمات پنل استاد{% elif page == 'security' %}امنیت حساب{% else %}اعلان‌ها{% endif %} | متاکوییز
 {% endblock %}
 
 {% block public_header %}{% endblock %}
@@ -10,7 +10,7 @@
 {% block content %}
 <section class="super-admin-page teacher-console" dir="rtl">
         <main class="teacher-content">
-    {% if page != 'dashboard' and page != 'osce_builder' and page != 'osce_list' and page != 'osce_preview' and page != 'reviews' and page != 'grading_detail' and page != 'questions' and page != 'question_type' and page != 'question_create' and page != 'question_edit' and page != 'question_import' and page != 'courses' and page != 'course_detail' and page != 'students' and page != 'students_directory' and page != 'student_profile' and page != 'teacher_settings' %}
+    {% if page != 'dashboard' and page != 'osce_builder' and page != 'osce_list' and page != 'osce_preview' and page != 'reviews' and page != 'grading_detail' and page != 'questions' and page != 'question_type' and page != 'question_create' and page != 'question_edit' and page != 'question_import' and page != 'courses' and page != 'course_detail' and page != 'students' and page != 'students_directory' and page != 'student_profile' and page != 'teacher_settings' and page != 'exams' %}
     <div class="teacher-console-head">
         <div>
             <small>سامانه آزمون آنلاین</small>
@@ -37,7 +37,6 @@
         {% if page != 'dashboard' %}
             <div class="teacher-head-actions">
                 <a href="{% url 'core:teacher_question_create' %}">+ سؤال جدید</a>
-                {% if page == 'exams' %}<a href="{% url 'core:teacher_osce_list' %}">آزمون‌های OSCE</a>{% endif %}
                 <a class="is-primary" href="{% url 'core:teacher_exam_create' %}">+ آزمون جدید</a>
             </div>
         {% endif %}
@@ -70,84 +69,7 @@
     {% elif page == 'courses' %}
         {% include 'teacher/_classes.html' %}
     {% elif page == 'course_detail' %}
-        <section class="class-reference-page class-detail-page" id="teacher-course-detail" data-live-region>
-            <div class="class-action-row">
-                <a class="class-btn is-primary" href="{% url 'core:teacher_exam_create' %}">+ آزمون جدید</a>
-                <span class="class-btn" aria-disabled="true" title="اطلاعات گروه را مدیر آموزشی ویرایش می‌کند" style="opacity:.6;cursor:not-allowed">ویرایش اطلاعات (با مدیر آموزشی)</span>
-            </div>
-            <div class="class-detail-title">
-                <div class="class-breadcrumb"><a href="{% url 'core:teacher_courses' %}">کلاس‌ها</a> / {{ selected_course.course_name }} / گروه {{ selected_course.group_code|fa_digits }}</div>
-                <small>{{ selected_course.semester|default:'' }} {{ selected_course.academic_year|default:''|fa_digits }}</small>
-                <h1>{{ selected_course.course_name }} - گروه {{ selected_course.group_code|fa_digits }}</h1>
-            </div>
-            <nav class="class-tabs">
-                <a class="{% if course_detail_tab == 'overview' %}is-active{% endif %}" href="{% url 'core:teacher_course_detail' selected_group_id %}">نمای کلی</a>
-                <a href="{% url 'core:teacher_group_students' selected_group_id %}">دانشجویان</a>
-                <a class="{% if course_detail_tab == 'exams' %}is-active{% endif %}" href="{% url 'core:teacher_course_detail' selected_group_id %}?tab=exams">آزمون‌ها</a>
-                <a class="{% if course_detail_tab == 'info' %}is-active{% endif %}" href="{% url 'core:teacher_course_detail' selected_group_id %}?tab=info">اطلاعات کلاس</a>
-            </nav>
-            {% if course_detail_tab == 'info' %}
-                <section class="class-info-card">
-                    <h2>مشخصات گروه درسی</h2>
-                    <div class="class-info-grid">
-                        <span><small>درس:</small><b>{{ selected_course.course_name }}</b></span>
-                        <span><small>کد درس:</small><b>{{ selected_course.course_code|default:'-' }}</b></span>
-                        <span><small>شماره گروه:</small><b>{{ selected_course.group_code|fa_digits }}</b></span>
-                        <span><small>ظرفیت:</small><b>{% if selected_course.capacity %}{{ selected_course.capacity|fa_digits }} نفر{% else %}-{% endif %}</b></span>
-                        <span><small>تعداد دانشجویان:</small><b>{{ course_summary.students_count|fa_digits }} نفر</b></span>
-                        <span><small>وضعیت:</small>{% if selected_course.is_active %}<b class="class-badge is-ok">فعال</b>{% else %}<b class="class-badge is-muted">غیرفعال</b>{% endif %}</span>
-                    </div>
-                    <p class="class-lock-note">اطلاعات گروه و عضویت دانشجویان توسط مدیر آموزشی مدیریت می‌شود.</p>
-                </section>
-                <section class="class-info-card is-access">
-                    <h2>دسترسی‌های استاد در این کلاس</h2>
-                    <div class="class-access-grid"><span>مشاهده دانشجویان <b>✓</b></span><span>ایجاد و مدیریت آزمون <b>✓</b></span><span>مشاهده نتایج <b>✓</b></span><span>بانک سؤال <b>✓</b></span></div>
-                </section>
-            {% elif course_detail_tab == 'exams' %}
-                <form class="class-filter-card is-compact" method="get">
-                    <input type="hidden" name="tab" value="exams">
-                    <label class="class-search"><input name="exam_q" data-live-input value="{{ course_exam_filters.q }}" placeholder="جستجو در آزمون‌ها..."></label>
-                    <select name="exam_status" onchange="this.form.requestSubmit()">{% for value, label in course_exam_status_choices %}<option value="{{ value }}"{% if course_exam_filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-                    <noscript><button type="submit">اعمال</button></noscript>
-                </form>
-                <section class="class-table-card">
-                    <h2>آزمون‌های این کلاس</h2>
-                    <table class="class-table">
-                        <thead><tr><th>نام آزمون</th><th>تاریخ و ساعت</th><th>مدت</th><th>شرکت‌کنندگان</th><th>وضعیت</th><th>میانگین</th><th>عملیات</th></tr></thead>
-                        <tbody>
-                            {% for exam in course_exams %}
-                            <tr>
-                                <td>{{ exam.title }}</td><td>{{ exam.start_at|to_jalali|default:"-" }}</td><td>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td><td>{{ exam.participants_count|default:"0"|fa_digits }}</td>
-                                <td><span class="class-badge {{ exam.status_class }}">{{ exam.status_label }}</span></td>
-                                <td>{% if exam.average_score is not None %}{{ exam.average_score|fa_digits }} از ۲۰{% else %}-{% endif %}</td><td><span class="question-row-actions"><a class="class-link" href="{% url 'core:exam_preview' exam.id %}?new=1">پیش‌نمایش</a><a class="class-link" href="{% url 'core:teacher_results' %}?exam={{ exam.id }}">نتایج</a></span></td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="7">آزمونی برای این کلاس پیدا نشد.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </section>
-            {% else %}
-                <div class="class-stat-grid is-detail">
-                    <article><i class="is-green">♙</i><span>دانشجو</span><strong>{{ course_summary.students_count|fa_digits }}</strong></article>
-                    <article><i class="is-blue">▤</i><span>آزمون</span><strong>{{ course_summary.exams_count|fa_digits }}</strong></article>
-                    <article><i class="is-violet">⌁</i><span>آزمون فعال</span><strong>{{ course_summary.active_exams_count|fa_digits }}</strong></article>
-                    <article><i class="is-green">⌁</i><span>میانگین کلاس</span><strong>{% if course_summary.class_average is not None %}{{ course_summary.class_average|fa_digits }}{% else %}-{% endif %}</strong></article>
-                </div>
-                <div class="class-detail-grid">
-                    <section class="class-table-card">
-                        <h2>فعالیت‌های اخیر</h2>
-                        <table class="class-table"><thead><tr><th>عنوان</th><th>نوع</th><th>تاریخ و زمان</th></tr></thead><tbody>{% for item in course_activity %}<tr><td>{{ item.title }}</td><td>{{ item.type }}</td><td>{{ item.at|to_jalali }}</td></tr>{% empty %}<tr><td colspan="3">هنوز فعالیتی برای آزمون‌های این کلاس ثبت نشده است.</td></tr>{% endfor %}</tbody></table>
-                    </section>
-                    <section class="class-table-card">
-                        <h2>آزمون‌های نزدیک</h2>
-                        <table class="class-table"><thead><tr><th>عنوان آزمون</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{% for exam in course_summary.upcoming %}<tr><td>{{ exam.title }}</td><td>{{ exam.start_at|to_jalali|default:"-" }}</td><td><span class="class-badge {{ exam.status_class }}">{{ exam.status_label }}</span></td><td><a class="class-link" href="{% url 'core:teacher_exams' %}">مدیریت آزمون</a></td></tr>{% empty %}<tr><td colspan="4">آزمون زمان‌بندی‌شده‌ای در پیش نیست.</td></tr>{% endfor %}</tbody></table>
-                        <a class="class-link" href="{% url 'core:teacher_course_detail' selected_group_id %}?tab=exams">مشاهده همه آزمون‌ها</a>
-                    </section>
-                </div>
-                <section class="class-table-card"><h2>وضعیت دانشجویان در آخرین آزمون</h2><table class="class-table"><thead><tr><th>نام دانشجو</th><th>نمره (از ۲۰)</th><th>وضعیت</th></tr></thead><tbody>{% for student in recent_exam_students %}<tr><td><a href="{% url 'core:teacher_student_profile' student.id %}">{{ student.name }}</a></td><td>{% if student.average is not None %}{{ student.average|fa_digits }}{% else %}-{% endif %}</td><td><span class="class-badge {% if student.status_tone == 'is-ok' %}is-ok{% else %}is-warn{% endif %}">{{ student.status_label }}</span></td></tr>{% endfor %}</tbody></table><a class="class-link" href="{% url 'core:teacher_group_students' selected_group_id %}">مشاهده همه دانشجویان</a></section>
-            {% endif %}
-        </section>
+        {% include 'teacher/class/page.html' %}
     {% elif page == 'students' %}
         {% include 'teacher/students/_list.html' %}
     {% elif page == 'students_directory' %}
@@ -570,46 +492,15 @@
             {% endif %}
         </section>
     {% elif page == 'exams' %}
-        {% with el=exam_list %}
         <style>
-            /* exam list: narrow columns (duration … actions) centred under their headings; the code on its own line */
-            .texams-panel .teacher-table td{vertical-align:middle}
-            .texams-panel .teacher-table th:nth-child(n+5),.texams-panel .teacher-table td:nth-child(n+5){text-align:center}
-            .texams-panel .teacher-table td.texams-title{min-width:11rem;padding-top:.65rem;padding-bottom:.65rem;line-height:1.6}
-            .texams-title-row{display:flex;align-items:center;gap:.65rem}
-            .texams-title-text{min-width:0;font-weight:700}
-            .texams-code-pill{display:flex;flex:none;align-items:center;gap:.3rem;width:fit-content;padding:.15rem .5rem .15rem .2rem;border:1px solid #c7d7fe;border-radius:.55rem;background:#f5f8ff;white-space:nowrap;direction:ltr}
-            .texams-code-pill small{font-size:.66rem;font-weight:600;color:#64748b}
-            .texams-code-pill b{min-width:6.1rem;font-size:.8rem;font-weight:700;letter-spacing:.04em;color:#1e3a8a;text-align:left;direction:ltr;unicode-bidi:isolate;user-select:all}
-            .texams-code-pill button{display:grid;flex:none;width:1.6rem;height:1.6rem;min-height:0;place-items:center;border:0;border-radius:.4rem;background:#1d4ed8;color:#fff;padding:0;cursor:pointer;transition:background .15s}
-            .texams-code-pill button svg{width:.9rem;height:.9rem;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-            .texams-code-pill button .is-check,.texams-code-pill button.is-done .is-copy{display:none}.texams-code-pill button.is-done .is-check{display:block}
-            .texams-code-pill button:hover{background:#1e40af}
-            .texams-code-pill button.is-done,.texams-saved button.is-done{background:#15803d}
-            td.texams-actions{white-space:nowrap}
-            td.texams-actions .texams-action-row{display:inline-flex;align-items:center;justify-content:center;gap:.4rem}
-            td.texams-actions .texams-action-row > a{display:inline-flex;align-items:center;min-height:2rem;padding:0 .6rem;border:1px solid #dbe5f3;border-radius:.5rem;background:#fff;color:#1e293b;font-size:.78rem;font-weight:600;text-decoration:none}
-            td.texams-actions .texams-action-row > a:hover{border-color:#93c5fd;background:#f5f9ff}
-            td.texams-actions .texams-action-row > a.texams-results-link{border-color:#1d4ed8;background:#1d4ed8;color:#fff!important}
-            td.texams-actions .texams-action-row > a.texams-results-link:hover{background:#1e40af}
-            .texams-saved button{flex:none;min-height:0;height:auto;line-height:1.5;border:0;border-radius:.55rem;background:#1d4ed8;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+            /* «کد آزمون» card after saving an exam */
             .texams-saved{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 1rem;padding:1.2rem 1.4rem;border:2px solid #93c5fd;border-radius:1rem;background:linear-gradient(135deg,#eff6ff,#fff)}
             .texams-saved p{margin:.25rem 0 0;color:#475569;font-weight:600;font-size:.85rem}
-            .texams-saved-code{display:flex;align-items:center;gap:.8rem}
-            .texams-saved-code b{font-size:2rem;font-weight:800;letter-spacing:.1em;color:#1e3a8a;user-select:all}
-            .texams-saved button{font-size:.95rem;padding:.6rem 1.2rem}
-            .texams-panel .teacher-table td,.texams-panel .teacher-table th{padding-inline:.45rem}
-            /* exams filter bar (search sends while typing, status on change): fixed standard widths from the right, result count at the far left */
-            .texams-filter{flex-direction:row;flex-wrap:wrap;align-items:center}
-            .texams-filter > .texams-filter-q{flex:0 1 22rem;min-width:0}
-            .texams-filter > .texams-filter-status{flex:0 1 13rem;min-width:0}
-            .texams-filter input,.texams-filter select{width:100%;min-width:0}
-            .texams-filter-q{position:relative}
-            .texams-filter-q > svg{position:absolute;inset-inline-start:.85rem;top:50%;transform:translateY(-50%);width:1.05rem;height:1.05rem;color:#94a3b8;pointer-events:none}
-            .texams-filter-q input{padding-inline-start:2.5rem}
-            .texams-filter-q:focus-within > svg{color:#2563eb}
-            .texams-filter-count{margin-inline-start:auto;display:inline-flex;align-items:center;height:2.75rem;padding:0 1rem;border-radius:.6rem;background:#eff6ff;color:#1d4ed8;font-size:.82rem;font-weight:700;white-space:nowrap}
-            @media (max-width:760px){.texams-filter > .texams-filter-q{flex:1 1 100%}.texams-filter > .texams-filter-status{flex:1 1 0}.texams-filter > .texams-filter-count{flex:none;max-width:none}}
+            .texams-saved-code{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem}
+            .texams-saved-code b{font-size:2rem;font-weight:700;letter-spacing:.1em;color:#1e3a8a;user-select:all}
+            .texams-saved button{flex:none;min-height:0;height:auto;padding:.6rem 1.2rem;line-height:1.5;border:0;border-radius:.55rem;background:#1d4ed8;color:#fff;font:inherit;font-size:.95rem;font-weight:700;cursor:pointer}
+            .texams-saved button.is-done{background:#15803d}
+            @media (max-width:420px){.texams-saved{padding:1rem}.texams-saved-code b{font-size:1.4rem}}
         </style>
         {% if saved_exam %}
             <section class="texams-saved" role="status">
@@ -617,53 +508,7 @@
                 <div class="texams-saved-code"><b dir="ltr" data-latin-digits>{{ saved_exam.code }}</b><button type="button" data-copy-code="{{ saved_exam.code }}">کپی کد</button></div>
             </section>
         {% endif %}
-        <div id="teacher-exams-list" data-live-region>
-        <form class="teacher-toolbar texams-toolbar texams-filter" method="get" action="{% url 'core:teacher_exams' %}">
-            <label class="texams-filter-q"><span class="sr-only">جستجو</span><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" name="q" value="{{ el.query }}" maxlength="100" placeholder="جستجو بر عنوان آزمون..."></label>
-            <label class="texams-filter-status"><span class="sr-only">وضعیت</span><select name="status" onchange="this.form.requestSubmit()">{% for key, label in el.filters.items %}<option value="{{ key }}"{% if key == el.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-            <noscript><button type="submit">جستجو</button></noscript>
-            <span class="texams-filter-count" aria-live="polite">{{ el.total|fa_digits }} آزمون</span>
-        </form>
-        <section class="teacher-panel texams-panel">
-            {% if el.rows %}
-                <div class="texams-table-wrap">
-                    <table class="teacher-table">
-                        <thead><tr><th>عنوان آزمون</th><th>درس</th><th>گروه</th><th>تاریخ برگزاری</th><th>مدت</th><th>تعداد سؤالات</th><th>شرکت‌کنندگان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-                        <tbody>
-                            {% for exam in el.rows %}
-                                <tr>
-                                    <td class="texams-title"><div class="texams-title-row"><span class="texams-code-pill" title="دانشجویان با این کد از صفحه‌ی اول سایت وارد آزمون می‌شوند"><b dir="ltr" data-latin-digits>{{ exam.id|exam_code }}</b><button type="button" data-copy-code="{{ exam.id|exam_code }}" data-copy-icon title="کپی کد" aria-label="کپی کد آزمون {{ exam.id|exam_code }}"><svg class="is-copy" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="is-check" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg></button></span><span class="texams-title-text">{{ exam.title }}</span></div></td>
-                                    <td>{{ exam.course }}</td>
-                                    <td>{% if exam.groups_label %}{{ exam.groups_label|fa_digits }}{% elif exam.assigned %}دانشجویان منتخب{% else %}<span class="texams-muted">بدون تخصیص</span>{% endif %}</td>
-                                    <td>{% if exam.date_label %}{{ exam.date_label }}<small class="texams-time">{{ exam.time_label|fa_digits }}</small>{% else %}<span class="texams-muted">تعیین نشده</span>{% endif %}</td>
-                                    <td>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}-{% endif %}</td>
-                                    <td>{{ exam.question_count|fa_digits }}</td>
-                                    <td>{{ exam.submitted|fa_digits }}{% if exam.assigned %} / {{ exam.assigned|fa_digits }}{% endif %}</td>
-                                    <td><span class="teacher-badge {{ exam.status_tone }}">{{ exam.status_label }}</span></td>
-                                    <td class="texams-actions"><span class="texams-action-row"><a href="{% url 'core:teacher_exam_report' exam.id %}" title="مشخصات و گزارش آزمون">گزارش آزمون</a><a href="{% url 'core:exam_preview' exam.id %}?new=1" title="پیش‌نمایش آزمون همان‌طور که دانشجو می‌بیند">پیش‌نمایش</a>{% if exam.editable %}<a href="{% url 'core:teacher_exam_edit' exam.id %}">ویرایش</a>{% endif %}{% if exam.is_running %}<a href="{% url 'core:teacher_monitoring' %}?exam={{ exam.id }}">پایش زنده</a>{% endif %}{% if exam.pending_reviews %}<a href="{% url 'core:teacher_reviews' %}">تصحیح ({{ exam.pending_reviews|fa_digits }})</a>{% endif %}{% if exam.has_results %}<a class="texams-results-link" href="{% url 'core:teacher_results' %}?exam={{ exam.id }}">نتایج و انتشار</a>{% endif %}</span></td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <footer class="texams-footer">
-                    <span>{{ el.total|fa_digits }} آزمون</span>
-                    {% if el.page.paginator.num_pages > 1 %}
-                        <nav class="texams-pages" aria-label="صفحه‌بندی">
-                            {% if el.page.has_previous %}<a href="{% query_url page=el.page.previous_page_number %}">قبلی</a>{% endif %}
-                            <span>صفحه {{ el.page.number|fa_digits }} از {{ el.page.paginator.num_pages|fa_digits }}</span>
-                            {% if el.page.has_next %}<a href="{% query_url page=el.page.next_page_number %}">بعدی</a>{% endif %}
-                        </nav>
-                    {% endif %}
-                </footer>
-            {% elif el.query or el.status != 'all' %}
-                <p class="texams-empty">آزمونی با این جستجو یا وضعیت پیدا نشد. <a href="{% url 'core:teacher_exams' %}">نمایش همه آزمون‌ها</a></p>
-            {% else %}
-                <p class="texams-empty">هنوز آزمونی نساخته‌اید. <a href="{% url 'core:teacher_exam_create' %}">ایجاد اولین آزمون</a></p>
-            {% endif %}
-        </section>
-        </div>
-        {% endwith %}
+        {% include 'partials/exam_list/list.html' with xl=exam_list xl_title='آزمون‌های من' xl_subtitle='مدیریت آزمون‌ها از طراحی تا اعلام نتایج' xl_new_url=teacher_exam_create_url xl_list_url=teacher_exams_url xl_region='teacher-exams-list' xl_head_links=exam_head_links %}
     {% elif page == 'monitoring' %}
         {% if not report_exam %}
             <section class="teacher-panel"><p class="texams-empty">هنوز آزمونی ندارید که پایش شود. <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون</a></p></section>
@@ -805,13 +650,7 @@
                             <tbody>{% for row in report.rows %}<tr><td>{{ report.page.start_index|add:forloop.counter0|fa_digits }}</td><td class="texams-title">{{ row.name }}</td><td>{{ row.code|fa_digits }}</td><td><bdi dir="ltr" style="user-select:all" data-latin-digits>{{ row.receipt_code|default:"-" }}</bdi></td><td>{% if row.score_20 is not None %}{{ row.score_20|fa_digits }}{% else %}-{% endif %}</td><td>{% if row.score is not None %}{{ row.percent|fa_digits }}٪{% else %}-{% endif %}</td><td>{{ row.submitted_label|default:"-" }}</td><td><span class="teacher-badge {{ row.status_tone }}">{{ row.status_label }}</span></td><td>{% include "teacher/_attempt_flags.html" with flags=row.flags %}</td></tr>{% endfor %}</tbody>
                         </table>
                     </div>
-                    {% if report.page.paginator.num_pages > 1 and not receipt_code %}
-                        <footer class="texams-footer"><span></span><nav class="texams-pages" aria-label="صفحه‌بندی">
-                            {% if report.page.has_previous %}<a href="{% query_url page=report.page.previous_page_number %}">قبلی</a>{% endif %}
-                            <span>صفحه {{ report.page.number|fa_digits }} از {{ report.page.paginator.num_pages|fa_digits }}</span>
-                            {% if report.page.has_next %}<a href="{% query_url page=report.page.next_page_number %}">بعدی</a>{% endif %}
-                        </nav></footer>
-                    {% endif %}
+                    {% if not receipt_code %}{% mq_pager report.page %}{% endif %}
                 {% else %}
                     <p class="texams-empty">هنوز پاسخ‌نامه‌ای برای این آزمون تحویل نشده است.</p>
                 {% endif %}

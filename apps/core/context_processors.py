@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import connection
 
 
@@ -62,3 +63,8 @@ def panel_user(request):
         'panel_display_name': user.get_full_name() or user.get_username(),
         'panel_role_label': '',
     }
+
+
+def app_version(request):
+    """The running release (VERSION file) for the logo, so anyone can see which version the page came from."""
+    return {'app_version': settings.APP_VERSION}

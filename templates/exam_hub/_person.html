@@ -1,0 +1,63 @@
+{% load core_extras %}{% with d=person %}
+<h2 style="display:flex;align-items:center;gap:.5rem;margin:0 0 1rem;font-size:1.25rem;font-weight:700">{% include 'exam_hub/_icon.html' with i='user' %}جزئیات شرکت‌کننده</h2>
+<div class="xh-three" {% if d.poll %}data-xh-poll="{{ d.poll }}"{% endif %}>
+    <aside class="xh-side">
+        <div class="xh-card">
+            <div class="xh-profile">
+                {% include 'exam_hub/_avatar.html' with p=d.person lg=1 %}
+                <div style="min-width:0">
+                    <h3>{{ d.person.name|default:"دانشجو" }}</h3>
+                    {% if d.person.faculty %}<p>{{ d.person.faculty }}</p>{% endif %}
+                    {% if d.person.code %}<p class="xh-copy">شماره دانشجویی: <span data-latin-digits data-xh-copy-text>{{ d.person.code }}</span><button type="button" data-xh-copy aria-label="کپی شماره دانشجویی">{% include 'exam_hub/_icon.html' with i='copy' %}</button></p>{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="xh-card" id="xh-person-feed" data-xh-part>
+            <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='wifi' %}رخدادهای اتصال</h3></div>
+            <ul class="xh-feed is-boxed">
+                {% for e in d.timeline %}<li class="is-{{ e.tone }}"><span>{% include 'exam_hub/_icon.html' with i=e.icon %}<span class="xh-feed-text">{{ e.label }}</span></span><time>{{ e.time }}</time></li>{% endfor %}
+            </ul>
+        </div>
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis" id="xh-person-kpis" data-xh-part>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label{% if d.state == 'offline' %} is-red{% else %} is-green{% endif %}">{% if d.state == 'offline' %}{% include 'exam_hub/_icon.html' with i='wifi-off' %}{% else %}{% include 'exam_hub/_icon.html' with i='wifi' %}{% endif %}وضعیت</span><span><span class="xh-pill is-round is-{% if d.state == 'offline' %}red{% elif d.state == 'submitted' %}blue{% else %}green{% endif %}" style="font-size:.86rem;padding:.35rem .9rem">{% if d.state == 'answering' %}<i class="xh-dot"></i>در حال آزمون{% else %}{{ d.state_label }}{% endif %}</span></span></div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label is-dark">{% include 'exam_hub/_icon.html' with i='hourglass' %}شروع شرکت</span><span class="xh-kpi-value" dir="ltr" style="text-align:right">{{ d.started_label|default:"—" }}</span></div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='doc' %}پاسخ‌های ذخیره‌شده</span><span class="xh-kpi-value">{{ d.answered }} / {{ d.question_count }}</span><span style="display:flex;align-items:center;gap:.5rem"><span class="xh-bar" style="flex:1"><i style="width:{{ d.answered_pct }}%"></i></span><span class="xh-kpi-sub">{{ d.answered_pct }}٪</span></span></div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='clock' %}زمان باقی‌مانده</span><span class="xh-kpi-value is-time" data-xh-countdown="{{ d.remaining }}">{{ d.remaining_label }}</span><span class="xh-kpi-sub" dir="ltr" style="text-align:right">{{ d.duration_label }}{% if d.extra_minutes %} (+{{ d.extra_minutes }}′){% endif %}</span></div>
+        </div>
+
+        <div class="xh-card" id="xh-person-grid" data-xh-part>
+            <div class="xh-card-head">
+                <h3>شبکه سؤالات <small>({{ d.question_count }} سؤال)</small></h3>
+                <span class="xh-legend"><span><i class="is-done"></i>پاسخ ذخیره‌شده {{ d.answered }}</span><span><i></i>پاسخ نداده</span></span>
+            </div>
+            <div class="xh-qgrid">{% for c in d.grid %}<span class="{% if c.answered %}is-done{% endif %}{% if c.marked %} is-marked{% endif %}"{% if c.marked %} title="علامت‌دار برای مرور"{% endif %}>{{ c.n }}</span>{% endfor %}</div>
+        </div>
+        {% if not d.open %}<div class="xh-note">{% include 'exam_hub/_icon.html' with i='info' %}آزمون این دانشجو ارسال شده یا زمانش تمام شده است؛ افزودن زمان و پیام فقط برای آزمون باز ممکن است.</div>{% endif %}
+    </div>
+
+    {% if exam.can.live %}
+    <aside class="xh-side is-end">
+        <form class="xh-card xh-form" method="post" action="{{ urls.action }}">
+            {% csrf_token %}<input type="hidden" name="action" value="add_time"><input type="hidden" name="attempt" value="{{ d.attempt.id }}"><input type="hidden" name="back" value="?tab=live&attempt={{ d.attempt.id }}">
+            <div class="xh-card-head" style="margin:0"><h3>{% include 'exam_hub/_icon.html' with i='clockplus' %}افزودن زمان</h3></div>
+            <label class="xh-field">مدت زمان افزوده
+                <select class="xh-select" name="minutes" {% if not d.open %}disabled{% endif %}>{% for m in d.add_time_choices %}<option value="{{ m }}"{% if m == 10 %} selected{% endif %}>{{ m }} دقیقه</option>{% endfor %}</select>
+            </label>
+            <label class="xh-field"><span>دلیل افزودن زمان <i class="xh-req">*</i></span>
+                <span class="xh-textbox"><textarea class="xh-textarea" name="reason" maxlength="{{ d.reason_max }}" required data-xh-counter placeholder="مثلاً: گزارش مشکل موقت در اتصال اینترنت و همگام‌سازی مجدد." {% if not d.open %}disabled{% endif %}></textarea><span class="xh-count"><span data-xh-count>0</span> / {{ d.reason_max }}</span></span>
+            </label>
+            <button class="xh-btn is-solid is-block" {% if not d.open %}disabled{% endif %}>{% include 'exam_hub/_icon.html' with i='clockplus' %}افزودن زمان</button>
+        </form>
+        <form class="xh-card xh-form" method="post" action="{{ urls.action }}">
+            {% csrf_token %}<input type="hidden" name="action" value="send_message"><input type="hidden" name="attempt" value="{{ d.attempt.id }}"><input type="hidden" name="back" value="?tab=live&attempt={{ d.attempt.id }}">
+            <div class="xh-card-head" style="margin:0"><h3>{% include 'exam_hub/_icon.html' with i='message' %}ارسال پیام به دانشجو</h3></div>
+            <span class="xh-textbox"><textarea class="xh-textarea" name="message" maxlength="{{ d.message_max }}" required data-xh-counter aria-label="متن پیام" placeholder="{{ d.person.name|default:'دانشجوی' }} عزیز، اتصال شما پایدار است. لطفاً ادامه دهید." {% if not d.open %}disabled{% endif %} style="min-height:6.5rem"></textarea><span class="xh-count"><span data-xh-count>0</span> / {{ d.message_max }}</span></span>
+            <button class="xh-btn is-solid is-block" {% if not d.open %}disabled{% endif %}>{% include 'exam_hub/_icon.html' with i='send' %}ارسال پیام</button>
+        </form>
+    </aside>
+    {% endif %}
+</div>
+{% endwith %}

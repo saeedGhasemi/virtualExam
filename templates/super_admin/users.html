@@ -241,16 +241,6 @@
                     </tbody>
                 </table>
             </div>
-            <footer class="users-table-footer">
-                <label class="users-page-size">
-                    <select aria-label="تعداد نمایش مدیران">
-                        <option>۱۰</option>
-                    </select>
-                    <span>تعداد نمایش:</span>
-                </label>
-                <div class="users-pagination"><button type="button">بعدی</button><b>۱</b><button type="button">قبلی</button></div>
-                <span>نمایش ۱ تا {{ managers|length }} از {{ manager_stats.total }} مدیر</span>
-            </footer>
         </section>
 
         {% if featured_manager %}
@@ -483,16 +473,6 @@
                     </tbody>
                 </table>
             </div>
-            <footer class="users-table-footer">
-                <label class="users-page-size">
-                    <select aria-label="تعداد نمایش دانشجویان">
-                        <option>۱۰</option>
-                    </select>
-                    <span>تعداد نمایش:</span>
-                </label>
-                <div class="users-pagination"><button type="button">بعدی</button><b>۱</b><button type="button">قبلی</button></div>
-                <span>نمایش ۱ تا {{ students|length }} از {{ student_stats.total }} دانشجو</span>
-            </footer>
         </section>
 
         {% if featured_student %}
@@ -687,16 +667,6 @@
                     </tbody>
                 </table>
             </div>
-            <footer class="users-table-footer">
-                <label class="users-page-size">
-                    <select aria-label="تعداد نمایش اساتید">
-                        <option>۱۰</option>
-                    </select>
-                    <span>تعداد نمایش:</span>
-                </label>
-                <div class="users-pagination"><button type="button">بعدی</button><b>۱</b><button type="button">قبلی</button></div>
-                <span>نمایش ۱ تا {{ teachers|length }} از {{ teacher_stats.total }} استاد</span>
-            </footer>
         </section>
 
         {% if featured_teacher %}

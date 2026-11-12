@@ -54,6 +54,18 @@
         + '@media (prefers-reduced-motion: reduce){[data-live-region].is-live-loading,[data-live-region="contents"].is-live-loading>*{transition:none}}';
     document.head.appendChild(style);
 
+    // The element that scrolls the page: the panel layouts scroll an inner box (.app-main), others the window.
+    const scrollerOf = (el) => {
+        for (let n = el && el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+            const oy = getComputedStyle(n).overflowY;
+            if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay')
+            && n.scrollHeight > n.clientHeight + 1 && n.clientHeight > window.innerHeight / 2) return n; // not a table's sideways box
+        }
+        return null;
+    };
+    const scrollTopOf = (sc) => (sc ? sc.scrollTop : window.scrollY);
+    const setScrollTop = (sc, y) => (sc ? (sc.scrollTop = y) : window.scrollTo(window.scrollX, y));
+
     const regions = () => [...document.querySelectorAll(REGION)];
     const hasRegions = () => document.querySelector(REGION) !== null;
     const isLiveScope = (el) => !el.closest(SKIP) && (el.closest(REGION) || el.closest('[data-live]'));
@@ -143,7 +155,7 @@
         return swapped;
     };
 
-    const load = async (url, {push = true, scrollToRegion = false, fromForm = false, hash = ''} = {}) => {
+    const load = async (url, {push = true, scrollToRegion = false, fromForm = false, hash = '', target = ''} = {}) => {
         if (controller) controller.abort();
         controller = new AbortController();
         const mine = controller;
@@ -167,6 +179,10 @@
             const html = await response.text();
             if (mine !== controller) return;
             const doc = new DOMParser().parseFromString(html, 'text/html');
+            // the swapped content is briefly shorter until tables/cards are rebuilt, so the browser clamps
+            // and re-anchors the scroll position (the page jumped); keep it where it was instead
+            const scroller = scrollerOf(outerRegions()[0]);
+            const keepY = scrollTopOf(scroller);
             const swapped = swap(doc, fromForm);
             if (!swapped) {
                 fullNavigation(url);
@@ -175,14 +191,22 @@
             const shownUrl = response.redirected ? finalUrl.href : url;
             if (push) history.pushState({mqLive: true}, '', shownUrl + hash);
             else if (shownUrl !== window.location.href) history.replaceState({mqLive: true}, '', shownUrl);
-            const first = swapped[0] && (swapped[0].getAttribute('data-live-region') === 'contents'
-                ? swapped[0].firstElementChild : swapped[0]);
+            const boxOf = (el) => (el && el.getAttribute('data-live-region') === 'contents' ? el.firstElementChild : el);
+            const first = boxOf((target && document.getElementById(target)) || swapped[0]);
             const anchor = hash && document.getElementById(decodeURIComponent(hash.slice(1)));
-            if (anchor) anchor.scrollIntoView({block: 'start'});
-            else if (scrollToRegion && first) {
-                const top = first.getBoundingClientRect().top;
-                if (top < 0) first.scrollIntoView({block: 'start'});
-            }
+            const place = () => {
+                setScrollTop(scroller, keepY);
+                if (anchor) anchor.scrollIntoView({block: 'start'});
+                else if (scrollToRegion && first && first.isConnected) {
+                    // paging: back to the top of the list when it is above the visible area (never further down)
+                    const viewTop = scroller ? scroller.getBoundingClientRect().top : 0;
+                    const top = first.getBoundingClientRect().top - viewTop;
+                    if (top < 0) setScrollTop(scroller, scrollTopOf(scroller) + top - (scroller ? 12 : 90));
+                }
+            };
+            place();
+            // again after the region's helpers (responsive tables, pager) rebuilt it in microtasks, before the paint
+            requestAnimationFrame(place);
         } catch (error) {
             if (error && error.name === 'AbortError') return;
             fullNavigation(url);
@@ -232,7 +256,10 @@
         if (new URL(url).origin !== window.location.origin) return;
         event.preventDefault();
         clearTimeout(form.__mqLiveTimer);
-        load(url, {fromForm: true});
+        // a pager made of submit buttons (name="page"): like a paging link
+        const paging = !!(submitter && submitter.name === 'page');
+        const region = form.closest(REGION);
+        load(url, {fromForm: true, scrollToRegion: paging, target: paging && region ? region.id : ''});
     });
 
     document.addEventListener('click', (event) => {
@@ -247,7 +274,8 @@
         event.preventDefault();
         const hash = url.hash;
         url.hash = '';
-        load(url.href, {scrollToRegion: true, hash});
+        const region = link.closest(REGION);
+        load(url.href, {scrollToRegion: true, hash, target: region ? region.id : ''});
     });
 
     // Search while typing (debounced); Enter still submits immediately through the submit handler.

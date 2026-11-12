@@ -19,6 +19,7 @@ from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login as auth_login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -41,7 +42,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.html import format_html, strip_tags
 from django.utils.safestring import mark_safe
 
-from . import account_security, question_import_word, question_kinds
+from . import account_security, exam_list, question_import_word, question_kinds
 from .rich_text import clean_delta, delta_length, delta_text, delta_to_html
 from .appearance import (
     APPEARANCE_DEFAULTS, COLOR_PRESETS, FONT_SIZE_CHOICES, THEME_CHOICES, clean_appearance_value, save_posted_appearance,
@@ -7802,8 +7803,7 @@ def super_admin_groups(request):
     }
 
     total_rows = len(rows)
-    page_size = request.GET.get('page_size')
-    page_size = int(page_size) if str(page_size).isdigit() and int(page_size) in (10, 25, 50) else 10
+    page_size = 10
     total_pages = max(1, math.ceil(total_rows / page_size))
     page = request.GET.get('page')
     page = int(page) if str(page).isdigit() else 1
@@ -8680,7 +8680,9 @@ def super_admin_exam_approve(request, exam_id):
     wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     def answer(ok, text, status=200):
-        if wants_json:  # the list's confirm modal shows the message itself (page messages sit under the panel)
+        if wants_json:  # an error stays in the list's confirm modal; on success the list reloads and shows the toast
+            if ok:
+                messages.success(request, text)
             return JsonResponse({'ok': ok, 'message': text}, status=status)
         (messages.success if ok else messages.error)(request, text)
         return redirect(back)
@@ -8722,6 +8724,93 @@ def super_admin_exam_approve(request, exam_id):
     if waits:
         return answer(True, f"آزمون «{exam['title']}» تأیید شد و در زمان انتشار تعیین‌شده منتشر می‌شود.")
     return answer(True, f"آزمون «{exam['title']}» تأیید و منتشر شد" + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
+
+
+def _manager_exam_list_url(request) -> str:
+    """The exam list the manager/admin action came from (both panels share one view)."""
+    manager = reverse('core:exam_manager_exams')
+    return manager if (request.POST.get('next') or '').startswith(manager) else reverse('core:super_admin_exams')
+
+
+@erd_role_required('academic_manager', 'admin')
+@require_POST
+def super_admin_exam_duplicate(request, exam_id):
+    exam = erd_row('SELECT id, title FROM exams WHERE id = %s', [exam_id])
+    if not exam or not _erd_exam_in_manager_scope(request, exam_id):
+        raise Http404('آزمون پیدا نشد.')
+    new_id = _exam_duplicate(exam['id'])
+    log_activity(request.user, 'exam_duplicated', f"آزمون {exam['title']} تکثیر شد.", request, {'exam_id': new_id, 'source': str(exam['id'])})
+    messages.success(request, f"کپی «{exam['title']}» به‌صورت پیش‌نویس ساخته شد.")
+    return _exam_list_back(request, _manager_exam_list_url(request))
+
+
+@erd_role_required('academic_manager', 'admin')
+@require_POST
+def super_admin_exam_delete(request, exam_id):
+    exam = erd_row('SELECT id, title FROM exams WHERE id = %s', [exam_id])
+    if not exam or not _erd_exam_in_manager_scope(request, exam_id):
+        raise Http404('آزمون پیدا نشد.')
+    if _exam_delete_draft(exam_id):
+        log_activity(request.user, 'exam_deleted', f"پیش‌نویس آزمون {exam['title']} حذف شد.", request, {'exam_id': exam_id})
+        messages.success(request, f"پیش‌نویس «{exam['title']}» حذف شد.")
+    else:
+        messages.error(request, 'فقط پیش‌نویسی که منتشر نشده و کسی در آن شرکت نکرده قابل حذف است.')
+    return _exam_list_back(request, _manager_exam_list_url(request))
+
+
+def _manager_exam_list_sort(rows, sort, now):
+    """Python twin of _exam_list_order_sql for the manager/admin list."""
+    if sort == 'oldest':
+        dated = sorted((row for row in rows if row['start_at']), key=lambda row: (row['start_at'], row['title'] or ''))
+        return dated + [row for row in rows if not row['start_at']]
+    if sort == 'title':
+        return sorted(rows, key=lambda row: row['title'] or '')
+    if sort == 'upcoming':
+        coming = sorted((row for row in rows if row['start_at'] and row['start_at'] >= now), key=lambda row: row['start_at'])
+        past = sorted((row for row in rows if row['start_at'] and row['start_at'] < now), key=lambda row: row['start_at'], reverse=True)
+        return coming + past + [row for row in rows if not row['start_at']]
+    dated = sorted((row for row in rows if row['start_at']), key=lambda row: row['start_at'], reverse=True)
+    return [row for row in rows if not row['start_at']] + dated
+
+
+def _manager_exam_row_actions(row):
+    """Main button, icons and «…» menu of one row on the manager/admin exam list (exam_list.present)."""
+    from .exam_hub import hub_url
+
+    exam_id, state = row['id'], row['state']
+    detail = hub_url('manager', exam_id)
+    edit = reverse('core:super_admin_exam_edit', args=[exam_id])
+    report = reverse('core:super_admin_exam_report', args=[exam_id])
+    approve = {'url': reverse('core:super_admin_exam_approve', args=[exam_id]), 'blocker': row.get('approve_blocker') or '',
+               'edit_url': edit} if row.get('can_approve') else None
+    if approve:
+        primary = {'label': 'بررسی و تأیید', 'approve': approve, 'tone': 'amber'}
+    elif state == 'draft':
+        primary = {'label': 'ادامه ویرایش', 'url': edit, 'tone': 'blue'}
+    elif state == 'pending_approval':
+        primary = {'label': 'بررسی آزمون', 'url': detail, 'tone': 'amber'}
+    elif state == 'scheduled':
+        primary = {'label': 'مدیریت آزمون', 'url': hub_url('manager', exam_id), 'tone': 'blue'}
+    elif state == 'running':
+        primary = {'label': 'نظارت زنده', 'url': hub_url('manager', exam_id, 'live'), 'tone': 'solid'}
+    elif state == 'finished':
+        primary = {'label': 'نتایج و گزارش‌ها', 'url': hub_url('manager', exam_id, 'results'), 'tone': 'blue'}
+    else:
+        primary = {'label': 'جزئیات آزمون', 'url': detail, 'tone': 'grey'}
+    used = primary.get('url')
+    hub = hub_url('manager', exam_id)
+    post = lambda name: reverse(f'core:super_admin_exam_{name}', args=[exam_id])  # noqa: E731
+    menu = [
+        hub != used and {'label': 'مدیریت آزمون', 'icon': 'live', 'url': hub},
+        edit != used and not row['is_cancelled'] and {'label': 'ویرایش آزمون', 'icon': 'edit', 'url': edit},
+        approve and {'label': 'تأیید آزمون', 'icon': 'shield', 'approve': approve},
+        {'label': 'تکثیر آزمون', 'icon': 'copy', 'post': post('duplicate')},
+        state == 'draft' and not row.get('attempts') and {
+            'label': 'حذف پیش‌نویس', 'icon': 'trash', 'post': post('delete'), 'danger': True, 'confirm_ok': 'حذف',
+            'confirm': f"پیش‌نویس «{row['title']}» برای همیشه حذف شود؟"},
+    ]
+    exam_list.present(row, state=state, primary=primary, menu=menu, code=exam_access_code(exam_id),
+                      preview_url=f"{reverse('core:exam_preview', args=[exam_id])}?new=1", report_url=report)
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -8849,7 +8938,7 @@ def super_admin_exams(request):
     exams = erd_rows(
         f"""
         {scope_cte}
-        SELECT e.id, e.title, e.description, e.duration_minutes, e.start_at, e.end_at,
+        SELECT e.id, e.title, e.description, e.duration_minutes, e.start_at, e.end_at, e.course_id,
                '-' AS start_date,
                '-' AS start_time,
                '-' AS end_time,
@@ -8900,27 +8989,70 @@ def super_admin_exams(request):
     receipt_query = normalize_receipt_code(query) if query and erd_has_column('exam_attempts', 'receipt_code') else ''
     receipt_exam_ids = {str(found['exam_id']) for found in erd_rows(
         'SELECT exam_id FROM exam_attempts WHERE receipt_code = %s', [receipt_query])} if receipt_query else set()
-    rows = []
+    filters = exam_list.read_filters(request.GET, exam_list.STATE_KEYS | {'pending'})
+    if filters['status'] == 'pending':  # older links
+        filters['status'] = 'pending_approval'
+    exam_groups = {}
+    if exams:
+        marks = ', '.join(['%s'] * len(exams))
+        for item in erd_rows(
+            f"""
+            SELECT ea.exam_id, sg.id AS group_id, sg.group_code, sg.course_name
+            FROM exam_assignments ea JOIN student_groups sg ON sg.id = ea.group_id
+            WHERE ea.exam_id IN ({marks}) ORDER BY sg.course_name, sg.group_code
+            """, [str(row['id']) for row in exams]):
+            exam_groups.setdefault(str(item['exam_id']), []).append(item)
+    code_query = _normalize_exam_code(query)
+    rows, counts = [], {}
     for row in exams:
         status_key, status_label = exam_state(row)
+        row['state'] = 'pending_approval' if status_key == 'pending' else status_key
         haystack = ' '.join(str(row.get(key) or '') for key in ('title', 'course', 'course_code', 'teacher', 'academic_year', 'semester', 'approval_status'))
-        code_query = _normalize_exam_code(query)
-        if query and query not in haystack and not (code_query and exam_access_code(row['id']) == EXAM_CODE_PREFIX + code_query.upper())                 and str(row['id']) not in receipt_exam_ids:
+        if query and query not in haystack and not (code_query and exam_access_code(row['id']) == EXAM_CODE_PREFIX + code_query.upper()) \
+                and str(row['id']) not in receipt_exam_ids:
             continue
-        if status_filter and status_filter != status_key:
+        if filters['course'] and filters['course'] != str(row.get('course_id') or ''):
             continue
-        if teacher_filter and teacher_filter != row['teacher']:
+        if filters['group'] and filters['group'] not in {str(item['group_id']) for item in exam_groups.get(str(row['id']), [])}:
             continue
-        if date_filter == 'today' and (not row['start_at'] or row['start_at'].date() != timezone.localdate()):
+        if filters['teacher'] and filters['teacher'] != row['teacher']:
             continue
-        if date_filter == 'week' and (not row['start_at'] or row['start_at'].date() < timezone.localdate() or row['start_at'].date() > timezone.localdate() + timedelta(days=7)):
+        if not exam_list.in_date_range(row['start_at'], filters['date'], now):
+            continue
+        counts[row['state']] = counts.get(row['state'], 0) + 1
+        if filters['status'] != 'all' and filters['status'] != row['state']:
             continue
         row['status_key'] = status_key
+        row['base_label'] = status_label
         row['status_label'] = _exam_status_with_approval(status_label, row)
         row['is_approved'] = not row['is_cancelled'] and row['approval_status'] == 'approved'
         row['can_approve'] = _exam_needs_approval(row)
         row['approve_blocker'] = _exam_approve_blocker(row) if row['can_approve'] else ''
         rows.append(row)
+    rows = _manager_exam_list_sort(rows, filters['sort'], now)
+    from django.core.paginator import Paginator
+    page = Paginator(rows, exam_list.PAGE_SIZE).get_page(request.GET.get('page'))
+    page_rows = list(page.object_list)
+    figures = _exam_list_figures([str(row['id']) for row in page_rows])
+    for row in page_rows:
+        exam_id = str(row['id'])
+        row.update({key: values.get(exam_id, 0) for key, values in figures.items() if key not in ('groups', 'question_count')})
+        row['assigned'] = row['assigned'] or None
+        row['groups_label'] = '، '.join(f"گروه {item['group_code']}" if item['group_code'] else (item['course_name'] or '')
+                                       for item in exam_groups.get(exam_id, []))
+        row['date_label'] = _jalali_long_date(row['start_at'])
+        row['time_label'] = timezone.localtime(row['start_at']).strftime('%H:%M') if row['start_at'] else ''
+        _manager_exam_row_actions(row)
+    courses = sorted({(str(row['course_id']), row['course']) for row in exams if row.get('course_id')}, key=lambda item: item[1] or '')
+    group_options = sorted({(str(item['group_id']), f"{item['course_name'] or ''} - گروه {item['group_code']}" if item['group_code'] else (item['course_name'] or ''))
+                            for items in exam_groups.values() for item in items}, key=lambda item: item[1])
+    listing = exam_list.listing(
+        rows=page_rows, page=page, counts=counts, filters=filters,
+        courses=[{'value': value, 'label': label} for value, label in courses],
+        groups=[{'value': value, 'label': label} for value, label in group_options],
+        teachers=sorted({row['teacher'] for row in exams if row['teacher'] and row['teacher'] != '-'}),
+    )
+    list_url = reverse('core:exam_manager_exams') if request.path.startswith(reverse('core:exam_manager_exams')) else reverse('core:super_admin_exams')
 
     all_statuses = [exam_state(row)[0] for row in exams]
     stats = {
@@ -9001,6 +9133,9 @@ def super_admin_exams(request):
         'status_distribution': status_distribution,
         'groups': groups,
         'questions_json': questions,
+        'exam_list': listing,
+        'exam_list_url': list_url,
+        'exam_create_url': reverse('core:super_admin_exam_create'),
     })
 
 
@@ -9827,212 +9962,14 @@ def super_admin_exam_edit(request, exam_id):
 
 @erd_role_required('academic_manager', 'admin')
 def super_admin_exam_detail(request, exam_id):
-    tab = request.GET.get('tab', 'overview').strip() or 'overview'
-    exam = erd_row(
-        """
-        SELECT e.*,
-               COALESCE(c.title, '-') AS course_title,
-               COALESCE(c.code, '-') AS course_code,
-               COALESCE(p.full_name, '-') AS teacher_name,
-               COALESCE(p.avatar_url, '') AS teacher_avatar,
-               '-' AS start_date,
-               '-' AS start_time,
-               '-' AS end_time,
-               COALESCE(eq.question_count, 0) AS question_count,
-               COALESCE(eq.total_points, 0) AS total_points,
-               COALESCE(attempts.participant_count, 0) AS participant_count,
-               COALESCE(attempts.submitted_count, 0) AS submitted_count,
-               COALESCE(attempts.graded_count, 0) AS graded_count,
-               COALESCE(attempts.avg_score, 0) AS avg_score
-        FROM exams e
-        LEFT JOIN courses c ON c.id = e.course_id
-        LEFT JOIN profiles p ON p.id = e.teacher_id
-        LEFT JOIN (
-            SELECT exam_id, COUNT(*) AS question_count, SUM(COALESCE(points, 1)) AS total_points
-            FROM exam_questions
-            GROUP BY exam_id
-        ) eq ON eq.exam_id = e.id
-        LEFT JOIN (
-            SELECT exam_id,
-                   COUNT(DISTINCT student_id) AS participant_count,
-                   COUNT(CASE WHEN submitted_at IS NOT NULL THEN 1 END) AS submitted_count,
-                   COUNT(CASE WHEN COALESCE(is_graded, false) THEN 1 END) AS graded_count,
-                   AVG(COALESCE(score, 0)) AS avg_score
-            FROM exam_attempts
-            GROUP BY exam_id
-        ) attempts ON attempts.exam_id = e.id
-        WHERE e.id = %s
-        """,
-        [exam_id],
-    )
-    if not exam:
+    """Old «جزئیات آزمون» address (exam codes, old links): every exam now opens on «مدیریت آزمون» (exam_hub)."""
+    from .exam_hub import hub_url
+
+    if not erd_row('SELECT id FROM exams WHERE id = %s', [exam_id]) or not _erd_exam_in_manager_scope(request, exam_id):
         raise Http404('آزمون پیدا نشد.')
-    if not _erd_exam_in_manager_scope(request, exam_id):
-        raise Http404('آزمون پیدا نشد.')
-
-    exam['start_at'] = erd_datetime(exam.get('start_at'))
-    exam['end_at'] = erd_datetime(exam.get('end_at'))
-    if exam.get('start_at'):
-        exam['start_date'] = _to_jalali(timezone.localtime(exam['start_at']).date())
-        exam['start_time'] = timezone.localtime(exam['start_at']).strftime('%H:%M')
-    if exam.get('end_at'):
-        exam['end_time'] = timezone.localtime(exam['end_at']).strftime('%H:%M')
-    now = timezone.now()
-    status_key, status_label = _admin_exam_state(exam, now)  # same badge as on the exam list
-    exam['status_key'] = status_key
-    exam['status_label'] = _exam_status_with_approval(status_label, exam)
-    exam['is_approved'] = not exam.get('is_cancelled') and exam.get('approval_status') == 'approved'
-
-    type_labels = {
-        'single': 'چهارگزینه‌ای',
-        'multi': 'چندگزینه‌ای',
-        'true_false': 'درست/نادرست',
-        'short_answer': 'پاسخ کوتاه',
-        'essay': 'تشریحی',
-        'fill_blank': 'جای خالی',
-        'matching': 'تطبیقی',
-        'ordering': 'ترتیبی',
-        'scenario': 'سناریوی بالینی',
-        'clinical': 'سناریوی بالینی',
-        **question_kinds.TYPE_LABELS,
-    }
-    questions = erd_rows(
-        """
-        SELECT eq.id AS exam_question_id, eq.question_id, eq.points, eq.order_index,
-               q.type, q.difficulty, q.text, q.options, q.correct_answer, q.explanation,
-               COALESCE(q.default_points, eq.points, 1) AS default_points,
-               COALESCE(q.tags, '') AS tags,
-               COALESCE(q.media_url, '') AS media_url,
-               COALESCE(c.title, '-') AS course_title,
-               COALESCE(p.full_name, '-') AS teacher_name
-        FROM exam_questions eq
-        JOIN questions q ON q.id = eq.question_id
-        LEFT JOIN courses c ON c.id = q.course_id
-        LEFT JOIN profiles p ON p.id = q.teacher_id
-        WHERE eq.exam_id = %s
-        ORDER BY eq.order_index, q.text
-        """,
-        [exam_id],
-    )
-    for index, question in enumerate(questions, start=1):
-        question['number'] = index
-        question['type_label'] = type_labels.get(question.get('type'), question.get('type') or 'سؤال')
-
-    attempts = erd_rows(
-        """
-        SELECT ea.id, ea.student_id, ea.started_at, ea.submitted_at, ea.score, ea.max_score,
-               COALESCE(ea.is_graded, false) AS is_graded,
-               COALESCE(ea.status, '-') AS status,
-               COALESCE(p.full_name, 'دانشجو') AS student_name,
-               COALESCE(p.avatar_url, '') AS avatar_url,
-               COALESCE(sp.student_number, p.identifier, '-') AS student_number,
-               COALESCE(sp.field_of_study, '-') AS field_of_study
-        FROM exam_attempts ea
-        LEFT JOIN profiles p ON p.id = ea.student_id
-        LEFT JOIN student_profiles sp ON sp.user_id = ea.student_id
-        WHERE ea.exam_id = %s
-        ORDER BY ea.submitted_at DESC NULLS LAST, ea.started_at DESC NULLS LAST
-        LIMIT 300
-        """,
-        [exam_id],
-    )
-    if not attempts:
-        attempts = erd_rows(
-            """
-            SELECT p.id, p.id AS student_id, NULL AS started_at, NULL AS submitted_at,
-                   0 AS score, 20 AS max_score, false AS is_graded, 'not_started' AS status,
-                   COALESCE(p.full_name, 'دانشجو') AS student_name,
-                   COALESCE(p.avatar_url, '') AS avatar_url,
-                   COALESCE(sp.student_number, p.identifier, '-') AS student_number,
-                   COALESCE(sp.field_of_study, '-') AS field_of_study
-            FROM student_profiles sp
-            JOIN profiles p ON p.id = sp.user_id
-            ORDER BY p.full_name
-            LIMIT 8
-            """
-        )
-
-    answer_rows = erd_rows(
-        """
-        SELECT aa.*, q.text AS question_text, q.type, eq.order_index,
-               COALESCE(p.full_name, 'دانشجو') AS student_name,
-               COALESCE(sp.student_number, p.identifier, '-') AS student_number
-        FROM attempt_answers aa
-        JOIN questions q ON q.id = aa.question_id
-        LEFT JOIN exam_questions eq ON eq.exam_id = %s AND eq.question_id = q.id
-        LEFT JOIN exam_attempts ea ON ea.id = aa.attempt_id
-        LEFT JOIN profiles p ON p.id = ea.student_id
-        LEFT JOIN student_profiles sp ON sp.user_id = ea.student_id
-        WHERE ea.exam_id = %s
-        ORDER BY eq.order_index, p.full_name
-        LIMIT 400
-        """,
-        [exam_id, exam_id],
-    )
-
-    total_questions = len(questions) or int(exam.get('question_count') or 0) or 40
-    total_participants = int(exam.get('participant_count') or 0) or len(attempts) or 168
-    submitted = int(exam.get('submitted_count') or 0) or max(0, total_participants - 12)
-    graded = int(exam.get('graded_count') or 0)
-    avg_score = round(float(exam.get('avg_score') or 0), 2) if exam.get('avg_score') else 13.26
-    top_score = max([float(item.get('score') or 0) for item in attempts] or [19.5])
-
-    distribution = []
-    for type_key, label in type_labels.items():
-        count = sum(1 for item in questions if item.get('type') == type_key)
-        if count:
-            distribution.append({'label': label, 'count': count, 'percent': round(count * 100 / max(1, len(questions)), 1)})
-    if not distribution:
-        distribution = [
-            {'label': 'چهارگزینه‌ای', 'count': 12, 'percent': 30},
-            {'label': 'چندگزینه‌ای', 'count': 10, 'percent': 25},
-            {'label': 'درست/نادرست', 'count': 5, 'percent': 12.5},
-            {'label': 'تشریحی', 'count': 3, 'percent': 7.5},
-        ]
-
-    sample_question = questions[0] if questions else {
-        'number': 12,
-        'text': 'خانم ۶۵ ساله‌ای با سابقه دیابت نوع ۲ و نارسایی قلبی با شکایت افزایش تنگی نفس مراجعه کرده است. محتمل‌ترین تشخیص چیست؟',
-        'type_label': 'چهارگزینه‌ای',
-        'points': 1,
-        'media_url': '',
-    }
-    sample_options = ['تشدید نارسایی قلبی احتقانی', 'پنومونی اکتسابی از جامعه', 'آمبولی ریه', 'بیماری انسدادی مزمن ریه']
-    tabs = [
-        ('overview', 'نمای کلی'),
-        ('preview', 'پیش‌نمایش'),
-        ('session', 'جلسه آزمون'),
-        ('results', 'نتایج'),
-        ('grading', 'تصحیح'),
-        ('questions', 'سوالات'),
-        ('report', 'کارنامه'),
-        ('bank', 'بانک سوال'),
-    ]
-
-    return render(request, 'super_admin/exam_detail.html', {
-        'title': exam['title'],
-        'exam': exam,
-        'tabs': tabs,
-        'tab': tab,
-        'questions': questions,
-        'attempts': attempts,
-        'answer_rows': answer_rows,
-        'stats': {
-            'total_questions': total_questions,
-            'total_participants': total_participants,
-            'submitted': submitted,
-            'graded': graded,
-            'avg_score': avg_score,
-            'top_score': top_score,
-            'online': min(92, total_participants),
-            'connection_issues': 3,
-            'warnings': 7,
-            'healthy': max(0, total_participants - 16),
-        },
-        'distribution': distribution,
-        'sample_question': sample_question,
-        'sample_options': sample_options,
-    })
+    tab = {'session': 'live', 'results': 'results', 'report': 'results', 'grading': 'grading'}.get(
+        (request.GET.get('tab') or '').strip(), 'overview')
+    return redirect(hub_url('manager', exam_id, tab))
 
 
 def _jalali_calendar_month(request) -> dict:
@@ -10501,12 +10438,7 @@ def super_admin_org_units(request):
         })
     org_table_rows.sort(key=lambda row: (row.get('level_index') or 1, row.get('parent_name') or '', row.get('name') or ''))
     org_total_rows = len(org_table_rows)
-    try:
-        org_per_page = int(request.GET.get('per_page', 5))
-    except (TypeError, ValueError):
-        org_per_page = 5
-    if org_per_page not in (5, 10):
-        org_per_page = 5
+    org_per_page = 10
     org_total_pages = max(math.ceil(org_total_rows / org_per_page), 1)
     try:
         org_current_page = int(request.GET.get('page', 1))
@@ -13073,6 +13005,8 @@ def dashboard(request):
         )
     if erd_primary == 'teacher':
         return redirect('core:teacher_panel')
+    if erd_primary == 'academic_manager':
+        return redirect('core:exam_manager_dashboard')  # its real dashboard; dashboard.html only has a placeholder for it
     role_code = {
         'admin': 'super_admin',
         'academic_manager': 'exam_manager',
@@ -13784,69 +13718,6 @@ def _teacher_selected_course(courses, group_id=None):
     return courses[0] if courses else None
 
 
-def _teacher_group_exam_rows(teacher_id, group, query=''):
-    """The teacher's exams of a group (assigned to it or of its course), with the group's participants and
-    average out of 20 over graded attempts; newest start first."""
-    if not teacher_id or not group:
-        return []
-    search = f"%{query.strip().lower()}%" if query.strip() else None
-    rows = erd_rows(
-        """
-        SELECT e.id, e.title, e.duration_minutes, e.start_at, e.end_at, COALESCE(e.lifecycle_status, '') AS lifecycle,
-               COALESCE(e.is_cancelled, false) AS is_cancelled, COALESCE(e.approval_status, '') AS approval_status,
-               (SELECT COUNT(DISTINCT ea.student_id) FROM exam_attempts ea
-                 WHERE ea.exam_id = e.id AND ea.student_id IN (SELECT student_user_id FROM student_group_members WHERE group_id = %s)
-               ) AS participants_count,
-               (SELECT AVG(ea.score * 20.0 / ea.max_score) FROM exam_attempts ea
-                 WHERE ea.exam_id = e.id AND COALESCE(ea.is_graded, false) = true AND ea.max_score > 0
-                   AND ea.student_id IN (SELECT student_user_id FROM student_group_members WHERE group_id = %s)
-               ) AS average_score
-        FROM exams e
-        WHERE e.teacher_id = %s
-          AND (e.course_id = %s OR e.id IN (SELECT exam_id FROM exam_assignments WHERE group_id = %s))
-          AND (%s IS NULL OR LOWER(e.title) LIKE %s)
-        ORDER BY e.start_at DESC, e.title
-        """,
-        [group['id'], group['id'], teacher_id, group.get('course_id'), group['id'], search, search],
-    )
-    now = timezone.now()
-    for row in rows:
-        label, row['status_class'] = _teacher_exam_status(row, now)
-        row['status_label'] = _exam_status_with_approval(label, row)
-        row['average_score'] = round(float(row['average_score']), 1) if row.get('average_score') is not None else None
-    return rows
-
-
-def _teacher_group_activity_rows(group, exams):
-    """Recent events of a group's exams: held (start passed) and results published, newest first."""
-    now = timezone.now()
-    events = []
-    for exam in exams:
-        start = erd_datetime(exam.get('start_at'))
-        if exam['lifecycle'] in ('published', 'in_progress', 'closed', 'archived') and start and start <= now:
-            events.append({'title': exam['title'], 'type': 'برگزاری آزمون', 'at': start})
-    if exams and erd_has_column('exams', 'results_published_at'):
-        ids = [exam['id'] for exam in exams]
-        for row in erd_rows(
-            f"SELECT title, results_published_at FROM exams WHERE results_published_at IS NOT NULL AND id IN ({', '.join(['%s'] * len(ids))})",
-            ids,
-        ):
-            events.append({'title': row['title'], 'type': 'انتشار نتایج', 'at': erd_datetime(row['results_published_at'])})
-    return sorted(events, key=lambda item: item['at'], reverse=True)[:5]
-
-
-def _teacher_group_summary(group, exams):
-    """The overview numbers of a group, all from stored data (average is None without graded attempts)."""
-    averages = [exam['average_score'] for exam in exams if exam.get('average_score') is not None]
-    return {
-        'students_count': int(group.get('students_count') or 0),
-        'exams_count': len(exams),
-        'active_exams_count': sum(1 for exam in exams if exam['status_label'] == 'در حال برگزاری'),
-        'class_average': round(sum(averages) / len(averages), 1) if averages else None,
-        'upcoming': sorted((exam for exam in exams if exam['status_label'] == 'برنامه‌ریزی شده'), key=lambda exam: str(exam.get('start_at')))[:3],
-    }
-
-
 QUESTION_TYPE_LABELS = {
     **question_kinds.TYPE_LABELS,
     'single': 'چهارگزینه‌ای',
@@ -13946,6 +13817,52 @@ def _teacher_dashboard_participant_counts(exam_ids: list) -> dict:
     return {str(row['exam_id']): row['count'] for row in rows}
 
 
+def _dashboard_countdown(start_at, now=None) -> str:
+    """«امروز» / «فردا» / «N روز دیگر» until an exam starts; '' once it has started."""
+    start_at = erd_datetime(start_at)
+    if not start_at or start_at <= (now or timezone.now()):
+        return ''
+    days = (timezone.localtime(start_at).date() - timezone.localdate()).days
+    return 'امروز' if days <= 0 else 'فردا' if days == 1 else f'{days} روز دیگر'
+
+
+def _dashboard_upcoming_exams(where='1=1', params=None, cte='', cte_params=None, limit=5) -> tuple:
+    """(the next exams for a dashboard's «آزمون‌های پیش رو» table, the first one with its countdown) — running or
+    coming, not cancelled/closed, nearest first. `where` is a condition on `e` (exams); a scope CTE may come first."""
+    now = timezone.now()
+    lifecycle = "COALESCE(e.lifecycle_status, '')"
+    rows = erd_rows(
+        f"""
+        {cte}
+        SELECT e.id, e.title, COALESCE(c.title, '-') AS course, e.start_at, e.duration_minutes,
+               {lifecycle} AS lifecycle, COALESCE(e.approval_status, '') AS approval_status
+        FROM exams e
+        LEFT JOIN courses c ON c.id = e.course_id
+        WHERE {where} AND COALESCE(e.is_cancelled, false) = false
+          AND {lifecycle} NOT IN ('closed', 'archived')
+          AND (e.start_at >= %s OR (e.end_at IS NOT NULL AND e.end_at >= %s))
+        ORDER BY e.start_at
+        LIMIT {int(limit)}
+        """,
+        [*(cte_params or []), *(params or []), now, now],
+    )
+    participants = _teacher_dashboard_participant_counts([str(row['id']) for row in rows])
+    for row in rows:
+        start_at = erd_datetime(row['start_at'])
+        status_key = row['lifecycle']
+        if status_key == 'published' and start_at and start_at <= now:
+            status_key = 'in_progress'
+        label, row['status_tone'] = TEACHER_DASHBOARD_EXAM_STATUS.get(status_key, ('پیش‌نویس', 'violet'))
+        row['status_label'] = _exam_status_with_approval(label, row)
+        row['date_label'] = _jalali_long_date(start_at)
+        row['time_label'] = timezone.localtime(start_at).strftime('%H:%M') if start_at else ''
+        row['participants'] = participants.get(str(row['id']))
+    next_exam = rows[0] if rows else None
+    if next_exam:
+        next_exam['countdown'] = _dashboard_countdown(next_exam['start_at'], now)  # '' while running: the pill says so
+    return rows, next_exam
+
+
 def _teacher_dashboard_data(teacher_id) -> dict:
     """Everything the teacher dashboard shows, all scoped to this teacher's exams and questions."""
     from django.utils.timesince import timesince
@@ -13964,20 +13881,7 @@ def _teacher_dashboard_data(teacher_id) -> dict:
         [teacher_id, now, now],
     )['count']
 
-    upcoming = erd_rows(
-        f"""
-        SELECT e.id, e.title, COALESCE(c.title, '-') AS course, e.start_at, e.duration_minutes,
-               {lifecycle} AS lifecycle, COALESCE(e.approval_status, '') AS approval_status
-        FROM exams e
-        LEFT JOIN courses c ON c.id = e.course_id
-        WHERE e.teacher_id = %s AND {not_cancelled}
-          AND {lifecycle} NOT IN ('closed', 'archived')
-          AND (e.start_at >= %s OR (e.end_at IS NOT NULL AND e.end_at >= %s))
-        ORDER BY e.start_at
-        LIMIT 5
-        """,
-        [teacher_id, now, now],
-    )
+    upcoming, next_exam = _dashboard_upcoming_exams('e.teacher_id = %s', [teacher_id])
     upcoming_count = erd_row(
         f"""
         SELECT COUNT(*) AS count FROM exams e
@@ -13985,17 +13889,6 @@ def _teacher_dashboard_data(teacher_id) -> dict:
         """,
         [teacher_id, now],
     )['count']
-    participants = _teacher_dashboard_participant_counts([str(row['id']) for row in upcoming])
-    for row in upcoming:
-        start_at = erd_datetime(row['start_at'])
-        status_key = row['lifecycle']
-        if status_key == 'published' and start_at and start_at <= now:
-            status_key = 'in_progress'
-        label, row['status_tone'] = TEACHER_DASHBOARD_EXAM_STATUS.get(status_key, ('پیش‌نویس', 'violet'))
-        row['status_label'] = _exam_status_with_approval(label, row)
-        row['date_label'] = _jalali_long_date(start_at)
-        row['time_label'] = timezone.localtime(start_at).strftime('%H:%M') if start_at else ''
-        row['participants'] = participants.get(str(row['id']))
 
     new_questions = None
     if erd_has_column('questions', 'created_at'):
@@ -14031,6 +13924,8 @@ def _teacher_dashboard_data(teacher_id) -> dict:
     for row in performance:
         row['average'] = round(max(0.0, min(20.0, float(row['average'] or 0))), 1)
         row['height'] = round(row['average'] * 5)  # percent of a 20-point axis
+        row['tone'] = 'green' if row['average'] >= 15 else 'blue' if row['average'] >= 10 else 'orange'
+    performance_avg = round(sum(row['average'] for row in performance) / len(performance), 1) if performance else None
 
     activities = []
     if erd_has_column('activity_audit_log', 'created_at'):
@@ -14047,31 +13942,33 @@ def _teacher_dashboard_data(teacher_id) -> dict:
         for row in activities:
             created_at = erd_datetime(row['created_at'])
             row['ago'] = f'{timesince(created_at, now, depth=1)} پیش' if created_at else ''
+            action = row['action'] or ''
+            row['kind'] = ('export' if 'export' in action or 'download' in action
+                           else 'grade' if any(k in action for k in ('review', 'grad', 'violation', 'finaliz'))
+                           else 'message' if any(k in action for k in ('message', 'note', 'answered'))
+                           else 'account' if any(k in action for k in ('password', 'profile', 'session', 'totp', 'recovery'))
+                           else 'exam')
 
     return {
         'today_label': _jalali_long_date(timezone.localdate()),
         'active_exams': active_exams,
         'upcoming_count': upcoming_count,
         'upcoming_exams': upcoming,
-        'next_exam': upcoming[0] if upcoming else None,
+        'next_exam': next_exam,
         'new_questions': new_questions,
         'pending_total': sum(row['count'] for row in pending_by_exam),
         'pending_exam_count': len(pending_by_exam),
         'pending_by_exam': pending_by_exam[:4],
         'performance': performance,
+        'performance_avg': performance_avg,
         'activities': activities,
     }
 
 
-TEACHER_EXAM_LIST_FILTERS = {
-    'all': 'همه وضعیت‌ها',
-    'draft': 'پیش‌نویس',
-    'pending_approval': 'در انتظار تأیید',
-    'active': 'منتشرشده / در حال برگزاری',
-    'finished': 'پایان‌یافته',
-    'cancelled': 'لغو شده',
+TEACHER_EXAM_LIST_FILTERS = {  # status keys a link may carry («active» = scheduled or running, from older links)
+    **{key: label for key, label, _tone in exam_list.STATE_TABS}, 'active': 'منتشرشده / در حال برگزاری',
 }
-TEACHER_EXAM_LIST_PAGE_SIZE = 20
+TEACHER_EXAM_LIST_PAGE_SIZE = exam_list.PAGE_SIZE
 
 
 def _teacher_exam_status(row, now) -> tuple:
@@ -14091,102 +13988,225 @@ def _teacher_exam_status(row, now) -> tuple:
     }.get(lifecycle, ('پیش‌نویس', 'is-violet'))
 
 
-def _teacher_exam_list(teacher_id, query: str, status: str, page_number) -> dict:
-    """One page of the teacher's own exams with real course, groups, question and participant counts."""
+_TEACHER_EXAM_STATE_BY_LABEL = {
+    'لغو شده': 'cancelled', 'پایان‌یافته': 'finished', 'در حال برگزاری': 'running', 'برنامه‌ریزی شده': 'scheduled',
+    'تأیید شده': 'scheduled', 'زمان‌بندی انتشار': 'scheduled', 'در انتظار تأیید': 'pending_approval', 'پیش‌نویس': 'draft',
+}
+
+
+def _teacher_exam_state_sql() -> str:
+    """SQL twin of _teacher_exam_status as a tab key (two %s = now)."""
+    lifecycle = "COALESCE(e.lifecycle_status, '')"
+    running = f"{lifecycle} IN ('published', 'in_progress')"
+    return f"""CASE
+        WHEN COALESCE(e.is_cancelled, false) THEN 'cancelled'
+        WHEN {lifecycle} IN ('closed', 'archived') OR ({running} AND e.end_at < %s) THEN 'finished'
+        WHEN {running} AND e.start_at <= %s THEN 'running'
+        WHEN {running} OR {lifecycle} IN ('approved', 'scheduled') THEN 'scheduled'
+        WHEN {lifecycle} = 'pending_approval' THEN 'pending_approval'
+        ELSE 'draft' END"""
+
+
+def _exam_list_order_sql(sort) -> tuple:
+    """ORDER BY of an exam list (sort key from exam_list.SORTS) and its params."""
+    if sort == 'oldest':
+        return 'e.start_at ASC NULLS LAST, e.title', []
+    if sort == 'title':
+        return 'e.title, e.start_at DESC', []
+    if sort == 'upcoming':  # coming exams nearest first, then past ones newest first, undated last
+        now = timezone.now()
+        return ('CASE WHEN e.start_at IS NULL THEN 2 WHEN e.start_at >= %s THEN 0 ELSE 1 END, '
+                'CASE WHEN e.start_at >= %s THEN e.start_at END ASC, e.start_at DESC, e.title'), [now, now]
+    return 'CASE WHEN e.start_at IS NULL THEN 0 ELSE 1 END, e.start_at DESC, e.title', []
+
+
+def _teacher_exam_list(teacher_id, filters: dict, page_number) -> dict:
+    """One page of the teacher's own exams with real course, groups, question and participant counts,
+    plus tab counts and filter options (exam_list.py)."""
     from django.core.paginator import Paginator
 
     now = timezone.now()
-    lifecycle = "COALESCE(e.lifecycle_status, '')"
-    cancelled = 'COALESCE(e.is_cancelled, false) = true'
-    running = f"{lifecycle} IN ('published', 'in_progress')"
-    status_conditions = {
-        'draft': (f"{lifecycle} IN ('draft', '') AND NOT {cancelled}", []),
-        'pending_approval': (f"{lifecycle} = 'pending_approval' AND NOT {cancelled}", []),
-        'active': (f"NOT {cancelled} AND ({lifecycle} IN ('approved', 'scheduled') OR ({running} AND (e.end_at IS NULL OR e.end_at >= %s)))", [now]),
-        'finished': (f"NOT {cancelled} AND ({lifecycle} IN ('closed', 'archived') OR ({running} AND e.end_at < %s))", [now]),
-        'cancelled': (cancelled, []),
-    }
+    query, status = filters['query'], filters['status']
     where, params = ['e.teacher_id = %s'], [teacher_id]
     if query:
-        where.append('e.title LIKE %s')
-        params.append(f'%{query}%')
-    if status in status_conditions:
-        condition, condition_params = status_conditions[status]
-        where.append(f'({condition})')
-        params.extend(condition_params)
-    where_sql = ' AND '.join(where)
+        code = _normalize_exam_code(query)
+        if code:
+            where.append("(e.title LIKE %s OR REPLACE(CAST(e.id AS text), '-', '') LIKE %s)")
+            params.extend([f'%{query}%', f'{code}%'])
+        else:
+            where.append('e.title LIKE %s')
+            params.append(f'%{query}%')
+    if filters['course']:
+        where.append('CAST(e.course_id AS text) = %s')
+        params.append(filters['course'])
+    if filters['group']:
+        where.append('e.id IN (SELECT exam_id FROM exam_assignments WHERE CAST(group_id AS text) = %s)')
+        params.append(filters['group'])
+    if filters.get('class_group'):  # (course id, group id): the exams of one class (teacher_class.py)
+        where.append('(e.course_id = %s OR e.id IN (SELECT exam_id FROM exam_assignments WHERE group_id = %s))')
+        params.extend(filters['class_group'])
+    low, high = exam_list.date_bounds(filters['date'], now)
+    if low == 'unset':
+        where.append('e.start_at IS NULL')
+    elif low == 'past':
+        where.append('e.start_at < %s')
+        params.append(high)
+    elif low is not None:
+        where.append('e.start_at >= %s AND e.start_at < %s')
+        params.extend([low, high])
+    state_sql = _teacher_exam_state_sql()
+    base = f"SELECT e.id, {state_sql} AS state FROM exams e WHERE {' AND '.join(where)}"
+    base_params = [now, now, *params]
+    counts = {row['state']: row['count'] for row in erd_rows(
+        f'SELECT x.state, COUNT(*) AS count FROM ({base}) x GROUP BY x.state', base_params)}
+    states = ['scheduled', 'running'] if status == 'active' else [status] if status != 'all' else []
+    state_where = f"WHERE x.state IN ({', '.join(['%s'] * len(states))})" if states else ''
 
-    total = erd_row(f'SELECT COUNT(*) AS count FROM exams e WHERE {where_sql}', params)['count']
+    total = sum(counts.get(key, 0) for key in states) if states else sum(counts.values())
     page = Paginator(range(total), TEACHER_EXAM_LIST_PAGE_SIZE).get_page(page_number)
+    order_sql, order_params = _exam_list_order_sql(filters['sort'])
     rows = erd_rows(
         f"""
         SELECT e.id, e.title, COALESCE(c.title, '-') AS course, e.start_at, e.end_at, e.duration_minutes,
-               {lifecycle} AS lifecycle, COALESCE(e.is_cancelled, false) AS is_cancelled,
+               COALESCE(e.lifecycle_status, '') AS lifecycle, COALESCE(e.is_cancelled, false) AS is_cancelled,
                COALESCE(e.is_published, false) AS is_published, COALESCE(e.approval_status, '') AS approval_status
-        FROM exams e
+        FROM ({base}) x
+        JOIN exams e ON e.id = x.id
         LEFT JOIN courses c ON c.id = e.course_id
-        WHERE {where_sql}
-        ORDER BY CASE WHEN e.start_at IS NULL THEN 0 ELSE 1 END, e.start_at DESC, e.title
+        {state_where}
+        ORDER BY {order_sql}
         LIMIT %s OFFSET %s
         """,
-        [*params, TEACHER_EXAM_LIST_PAGE_SIZE, page.start_index() - 1 if total else 0],
+        [*base_params, *states, *order_params, TEACHER_EXAM_LIST_PAGE_SIZE, page.start_index() - 1 if total else 0],
     )
 
-    exam_ids = [str(row['id']) for row in rows]
-    question_counts, submitted_counts, pending_counts, group_labels, attempt_counts = {}, {}, {}, {}, {}
-    if exam_ids:
-        marks = ', '.join(['%s'] * len(exam_ids))
-        question_counts = {str(r['exam_id']): r['count'] for r in erd_rows(
-            f'SELECT exam_id, COUNT(*) AS count FROM exam_questions WHERE exam_id IN ({marks}) GROUP BY exam_id', exam_ids)}
-        attempt_counts = {str(r['exam_id']): r['count'] for r in erd_rows(
-            f'SELECT exam_id, COUNT(*) AS count FROM exam_attempts WHERE exam_id IN ({marks}) GROUP BY exam_id', exam_ids)}
-        submitted_counts = {str(r['exam_id']): r['count'] for r in erd_rows(
-            f"""
-            SELECT exam_id, COUNT(DISTINCT student_id) AS count FROM exam_attempts
-            WHERE exam_id IN ({marks}) AND status IN ('submitted', 'graded') GROUP BY exam_id
-            """, exam_ids)}
-        pending_counts = {str(r['exam_id']): r['count'] for r in erd_rows(
-            f"""
-            SELECT ea.exam_id, COUNT(aa.id) AS count
-            FROM attempt_answers aa JOIN exam_attempts ea ON ea.id = aa.attempt_id
-            WHERE ea.exam_id IN ({marks}) AND COALESCE(aa.needs_manual_grading, false) = true
-            GROUP BY ea.exam_id
-            """, exam_ids)}
-        for r in erd_rows(
-            f"""
-            SELECT ea.exam_id, sg.group_code, sg.course_name
-            FROM exam_assignments ea JOIN student_groups sg ON sg.id = ea.group_id
-            WHERE ea.exam_id IN ({marks})
-            ORDER BY sg.course_name, sg.group_code
-            """, exam_ids):
-            group_labels.setdefault(str(r['exam_id']), []).append(f"گروه {r['group_code']}" if r['group_code'] else r['course_name'])
-    assigned_counts = _teacher_dashboard_participant_counts(exam_ids)
-
+    figures = _exam_list_figures([str(row['id']) for row in rows])
     for row in rows:
         exam_id = str(row['id'])
         start_at = erd_datetime(row['start_at'])
         row['status_label'], row['status_tone'] = _teacher_exam_status(row, now)
+        row['base_label'] = row['status_label']
         row['date_label'] = _jalali_long_date(start_at)
         row['time_label'] = timezone.localtime(start_at).strftime('%H:%M') if start_at else ''
-        row['groups_label'] = '، '.join(group_labels.get(exam_id, []))
-        row['question_count'] = question_counts.get(exam_id, 0)
-        row['assigned'] = assigned_counts.get(exam_id)
-        row['submitted'] = submitted_counts.get(exam_id, 0)
-        row['pending_reviews'] = pending_counts.get(exam_id, 0)
+        row.update({key: values.get(exam_id, 0) for key, values in figures.items() if key != 'groups'})
+        row['groups_label'] = '، '.join(figures['groups'].get(exam_id, []))
+        row['assigned'] = row['assigned'] or None
         # «پایش زنده» while it runs; «نتایج و انتشار» (where results are released) once anyone handed it in or it ended
         row['is_running'] = row['status_label'] == 'در حال برگزاری'
         row['has_results'] = bool(row['is_published']) and (row['submitted'] > 0 or row['status_label'] == 'پایان‌یافته')
         # same rule as _teacher_exam_editable, from the counts already loaded for this page
         row['editable'] = (
             (row['lifecycle'] or 'draft') in ('draft', 'pending_approval')
-            and not row['is_published'] and not row['is_cancelled'] and not attempt_counts.get(exam_id)
+            and not row['is_published'] and not row['is_cancelled'] and not row['attempts']
         )
         row['status_label'] = _exam_status_with_approval(row['status_label'], row)  # after the label checks above
-    return {'rows': rows, 'page': page, 'total': total, 'query': query, 'status': status, 'filters': TEACHER_EXAM_LIST_FILTERS}
+        _teacher_exam_row_actions(row, _TEACHER_EXAM_STATE_BY_LABEL.get(row['base_label'], 'draft'))
+
+    courses = [{'value': str(row['id']), 'label': row['title']} for row in erd_rows(
+        """
+        SELECT DISTINCT c.id, c.title FROM exams e JOIN courses c ON c.id = e.course_id
+        WHERE e.teacher_id = %s ORDER BY c.title
+        """, [teacher_id])]
+    groups = [
+        {'value': str(row['id']), 'label': f"{row['course_name'] or ''} - گروه {row['group_code']}" if row['group_code'] else row['course_name']}
+        for row in erd_rows(
+            """
+            SELECT DISTINCT sg.id, sg.course_name, sg.group_code FROM exam_assignments ea
+            JOIN exams e ON e.id = ea.exam_id JOIN student_groups sg ON sg.id = ea.group_id
+            WHERE e.teacher_id = %s ORDER BY sg.course_name, sg.group_code
+            """, [teacher_id])
+    ]
+    return exam_list.listing(rows=rows, page=page, counts=counts, filters=filters, courses=courses, groups=groups)
 
 
-TEACHER_CLASS_LIST_FILTERS = {'all': 'همه وضعیت‌ها', 'active': 'فعال', 'inactive': 'غیرفعال / پیش‌نویس'}
-TEACHER_CLASS_LIST_PAGE_SIZE = 12
+def _exam_list_figures(exam_ids) -> dict:
+    """Per exam id: question / attempt / submitted / started / pending-review / assigned counts and group labels."""
+    figures = {key: {} for key in ('question_count', 'attempts', 'submitted', 'started', 'pending_reviews', 'assigned', 'groups')}
+    if not exam_ids:
+        return figures
+    marks = ', '.join(['%s'] * len(exam_ids))
+    for row in erd_rows(
+        f"""
+        SELECT exam_id, COUNT(*) AS attempts, COUNT(DISTINCT student_id) AS started,
+               COUNT(DISTINCT CASE WHEN status IN ('submitted', 'graded') THEN student_id END) AS submitted
+        FROM exam_attempts WHERE exam_id IN ({marks}) GROUP BY exam_id
+        """, exam_ids):
+        for key in ('attempts', 'started', 'submitted'):
+            figures[key][str(row['exam_id'])] = row[key]
+    figures['question_count'] = {str(r['exam_id']): r['count'] for r in erd_rows(
+        f'SELECT exam_id, COUNT(*) AS count FROM exam_questions WHERE exam_id IN ({marks}) GROUP BY exam_id', exam_ids)}
+    figures['pending_reviews'] = {str(r['exam_id']): r['count'] for r in erd_rows(
+        f"""
+        SELECT ea.exam_id, COUNT(aa.id) AS count
+        FROM attempt_answers aa JOIN exam_attempts ea ON ea.id = aa.attempt_id
+        WHERE ea.exam_id IN ({marks}) AND COALESCE(aa.needs_manual_grading, false) = true
+        GROUP BY ea.exam_id
+        """, exam_ids)}
+    for r in erd_rows(
+        f"""
+        SELECT ea.exam_id, sg.group_code, sg.course_name
+        FROM exam_assignments ea JOIN student_groups sg ON sg.id = ea.group_id
+        WHERE ea.exam_id IN ({marks})
+        ORDER BY sg.course_name, sg.group_code
+        """, exam_ids):
+        figures['groups'].setdefault(str(r['exam_id']), []).append(f"گروه {r['group_code']}" if r['group_code'] else r['course_name'])
+    figures['assigned'] = _teacher_dashboard_participant_counts(exam_ids)
+    return figures
+
+
+def _teacher_exam_row_actions(row, state):
+    """Main button, icons and «…» menu of one row on the teacher's exam list (exam_list.present)."""
+    from .templatetags.core_extras import fa_digits
+
+    from .exam_hub import HUB_STATES, hub_url
+
+    exam_id = row['id']
+    report = reverse('core:teacher_exam_report', args=[exam_id])
+    edit = reverse('core:teacher_exam_edit', args=[exam_id]) if row['editable'] else ''
+    managed = state in HUB_STATES  # «مدیریت آزمون» (exam_hub) for scheduled / running / finished exams
+    results = (hub_url('teacher', exam_id, 'results') if managed else f"{reverse('core:teacher_results')}?exam={exam_id}")         if row['has_results'] else ''
+    monitoring = (hub_url('teacher', exam_id, 'live') if managed else f"{reverse('core:teacher_monitoring')}?exam={exam_id}")         if row['is_running'] else ''
+    reviews = (hub_url('teacher', exam_id, 'grading') if managed else reverse('core:teacher_reviews')) if row['pending_reviews'] else ''
+    if state == 'draft':
+        primary = {'label': 'ادامه ویرایش', 'url': edit, 'tone': 'blue'} if edit else {'label': 'جزئیات آزمون', 'url': report, 'tone': 'grey'}
+    elif state == 'pending_approval':
+        primary = {'label': 'پیگیری تأیید', 'url': report, 'tone': 'amber'}
+    elif state == 'scheduled':
+        primary = {'label': 'مدیریت آزمون', 'url': hub_url('teacher', exam_id), 'tone': 'blue'}
+    elif state == 'running':
+        primary = {'label': 'نظارت زنده', 'url': monitoring or hub_url('teacher', exam_id, 'live'), 'tone': 'solid'}
+    elif state == 'finished' and reviews:
+        primary = {'label': 'تصحیح پاسخ‌ها', 'url': reviews, 'tone': 'amber', 'count': row['pending_reviews']}
+    elif state == 'finished':
+        primary = {'label': 'نتایج و گزارش‌ها', 'url': hub_url('teacher', exam_id, 'results'), 'tone': 'blue'}
+    else:
+        primary = {'label': 'جزئیات آزمون', 'url': report, 'tone': 'grey'}
+    used = primary['url']
+    draft = state == 'draft' and row['editable']
+    post = lambda name: reverse(f'core:teacher_exam_{name}', args=[exam_id])  # noqa: E731
+    hub = hub_url('teacher', exam_id) if managed else ''
+    menu = [
+        hub and hub != used and {'label': 'مدیریت آزمون', 'icon': 'live', 'url': hub},
+        {'label': 'جزئیات آزمون', 'icon': 'info', 'url': report},
+        edit and edit != used and {'label': 'ویرایش آزمون', 'icon': 'edit', 'url': edit},
+        monitoring and monitoring != used and {'label': 'پایش زنده', 'icon': 'live', 'url': monitoring},
+        results and results != used and {'label': 'نتایج و انتشار', 'icon': 'chart', 'url': results},
+        reviews and reviews != used and {'label': f"تصحیح پاسخ‌ها ({fa_digits(row['pending_reviews'])})", 'icon': 'grade', 'url': reviews},
+        {'label': 'تکثیر آزمون', 'icon': 'copy', 'post': post('duplicate')},
+        draft and {'label': 'ارسال برای تأیید', 'icon': 'send', 'post': post('submit'), 'confirm_ok': 'ارسال',
+                   'confirm': 'آزمون برای تأیید مدیر آموزشی ارسال شود؟ تا زمان بررسی هنوز می‌توانید آن را ویرایش کنید.'},
+        draft and {'label': 'حذف پیش‌نویس', 'icon': 'trash', 'post': post('delete'), 'danger': True, 'confirm_ok': 'حذف',
+                   'confirm': f"پیش‌نویس «{row['title']}» برای همیشه حذف شود؟"},
+    ]
+    exam_list.present(row, state=state, primary=primary, menu=menu, code=exam_access_code(exam_id),
+                      preview_url=f"{reverse('core:exam_preview', args=[exam_id])}?new=1", report_url=report)
+
+
+# «کلاس‌های فعال» / «کلاس‌های گذشته» tabs (current = not deactivated / archived, drafts included); the older
+# status values still work in links.
+TEACHER_CLASS_LIST_FILTERS = {'current': 'کلاس‌های فعال', 'past': 'کلاس‌های گذشته',
+                              'all': 'همه وضعیت‌ها', 'active': 'فعال', 'inactive': 'غیرفعال / پیش‌نویس'}
+TEACHER_CLASS_LIST_PAGE_SIZE = 10
 TEACHER_CLASS_AVATARS = 4  # member faces stacked on each class card
 # A student's photo as teachers see it: empty when the student switched «نمایش تصویر پروفایل برای استاد» off
 # on their settings page. Needs `p` (profiles) and `sp` (student_profiles) in the query.
@@ -14212,8 +14232,9 @@ def _teacher_class_list(teacher_id, query: str, term: str, status: str, page_num
     status_col = "COALESCE(sg.status, 'active')" if erd_has_column('student_groups', 'status') else "'active'"
     is_active = f"(COALESCE(sg.is_active, true) = true AND {status_col} = 'active')"
     own = ['(sg.teacher_id = %s OR sg.id IN (SELECT group_id FROM group_teachers WHERE teacher_id = %s))']
-    if erd_has_column('student_groups', 'is_archived'):
-        own.append('COALESCE(sg.is_archived, false) = false')
+    archived = 'COALESCE(sg.is_archived, false)' if erd_has_column('student_groups', 'is_archived') else 'false'
+    is_past = (f"(COALESCE(sg.is_active, true) = false OR {archived} "
+               f"OR {status_col} IN ('archived', 'closed', 'inactive', 'finished'))")
     own_params = [teacher_id, teacher_id]
 
     terms = [
@@ -14234,11 +14255,19 @@ def _teacher_class_list(teacher_id, query: str, term: str, status: str, page_num
         year, semester = term.split('|', 1)
         where.append("COALESCE(sg.academic_year, '') = %s AND COALESCE(sg.semester, '') = %s")
         params.extend([year, semester])
-    if status == 'active':
-        where.append(is_active)
+    tab_where_sql, tab_params = ' AND '.join(where), list(params)  # tab counts follow search + term
+    if status == 'current':
+        where.append(f'NOT {is_past}')
+    elif status == 'past':
+        where.append(is_past)
+    elif status == 'active':
+        where.append(f'{is_active} AND NOT {archived}')
     elif status == 'inactive':
-        where.append(f'NOT {is_active}')
+        where.append(f'NOT {is_active} AND NOT {archived}')
     where_sql = ' AND '.join(where)
+    tab_counts = erd_row(
+        f'SELECT SUM(CASE WHEN {is_past} THEN 0 ELSE 1 END) AS current, SUM(CASE WHEN {is_past} THEN 1 ELSE 0 END) AS past '
+        f'FROM student_groups sg LEFT JOIN courses c ON c.id = sg.course_id WHERE {tab_where_sql}', tab_params)
 
     total = erd_row(f'SELECT COUNT(*) AS count FROM student_groups sg LEFT JOIN courses c ON c.id = sg.course_id WHERE {where_sql}', params)['count']
     page = Paginator(range(total), TEACHER_CLASS_LIST_PAGE_SIZE).get_page(page_number)
@@ -14286,7 +14315,7 @@ def _teacher_class_list(teacher_id, query: str, term: str, status: str, page_num
 
     for row in rows:
         row['is_active'] = bool(row['is_active'])
-        row['status_label'] = 'فعال' if row['is_active'] else ('پیش‌نویس' if row['status'] == 'draft' else 'غیرفعال')
+        row['status_label'] = 'فعال' if row['is_active'] else ('پیش‌نویس' if row['status'] == 'draft' else 'بایگانی‌شده' if row['status'] == 'archived' else 'غیرفعال')
         row['term_label'] = _teacher_semester_label(row['semester'], row['academic_year'])
         row['faces'] = faces.get(str(row['id']), [])
         row['more_students'] = max(0, int(row['students_count'] or 0) - len(row['faces']))
@@ -14316,10 +14345,12 @@ def _teacher_class_list(teacher_id, query: str, term: str, status: str, page_num
     return {
         'rows': rows, 'page': page, 'total': total, 'query': query, 'term': term, 'status': status,
         'terms': terms, 'filters': TEACHER_CLASS_LIST_FILTERS, 'summary': summary,
+        'tabs': [{'key': key, 'label': TEACHER_CLASS_LIST_FILTERS[key], 'count': int(tab_counts[key] or 0),
+                  'active': status == key} for key in ('current', 'past')],
     }
 
 
-TEACHER_RESULTS_PAGE_SIZE = 50
+TEACHER_RESULTS_PAGE_SIZE = 10
 TEACHER_RESULT_BUCKETS = ((0, 4), (4, 8), (8, 12), (12, 16), (16, 20))
 
 
@@ -14512,41 +14543,13 @@ def _query_without_page(request) -> list:
     return [(key, value) for key, values in request.GET.lists() if key != 'page' for value in values]
 
 
-def _teacher_course_detail_context(request, teacher_id, group_id) -> dict:
-    """The course detail page of one of the teacher's groups; raises 404 for any other group id."""
-    from .teacher_students import student_list_rows
-
-    group = _teacher_selected_course(_teacher_courses_rows(teacher_id), group_id)
-    if not group:
-        raise Http404('کلاس پیدا نشد.')
-    tab = request.GET.get('tab') if request.GET.get('tab') in ('overview', 'exams', 'info') else 'overview'
-    exams = _teacher_group_exam_rows(teacher_id, group)
-    listed = exams
-    status = request.GET.get('exam_status') or 'all'
-    if tab == 'exams':
-        listed = _teacher_group_exam_rows(teacher_id, group, (request.GET.get('exam_q') or '')[:100]) if request.GET.get('exam_q') else exams
-        if status != 'all':
-            listed = [exam for exam in listed if exam['status_label'] == status]
-    return {
-        'selected_course': group,
-        'selected_group_id': group['id'],
-        'course_detail_tab': tab,
-        'course_exams': listed,
-        'course_exam_filters': {'q': request.GET.get('exam_q', ''), 'status': status},
-        'course_exam_status_choices': [('all', 'همه وضعیت‌ها')] + [
-            (label, label) for label in ('در حال برگزاری', 'برنامه‌ریزی شده', 'پایان‌یافته', 'در انتظار تأیید', 'پیش‌نویس', 'لغو شده')
-        ],
-        'course_summary': _teacher_group_summary(group, exams),
-        'course_activity': _teacher_group_activity_rows(group, exams),
-        'recent_exam_students': student_list_rows(teacher_id, group['id'])[:5] if tab == 'overview' else [],
-    }
-
-
 def _teacher_modern_context(request, page, **extra):
     teacher_id = getattr(request, 'erd_profile_id', None)
     course_detail = {}
     if page == 'course_detail' and teacher_id:
-        course_detail = _teacher_course_detail_context(request, teacher_id, extra.get('group_id'))
+        from .teacher_class import class_context
+
+        course_detail = class_context(request, teacher_id, extra.get('group_id'))
     question_bank = {}
     if page == 'questions' and teacher_id:
         from .teacher_question_bank import question_bank_context
@@ -14758,7 +14761,7 @@ def _teacher_announcements_context(teacher_id) -> dict:
 
 @erd_role_required('teacher')
 def teacher_courses(request):
-    status = request.GET.get('status') if request.GET.get('status') in TEACHER_CLASS_LIST_FILTERS else 'all'
+    status = request.GET.get('status') if request.GET.get('status') in TEACHER_CLASS_LIST_FILTERS else 'current'
     class_list = _teacher_class_list(
         request.erd_profile_id, (request.GET.get('q') or '').strip()[:100], request.GET.get('term') or '', status, request.GET.get('page'),
     )
@@ -14768,6 +14771,11 @@ def teacher_courses(request):
 
 @erd_role_required('teacher')
 def teacher_course_detail(request, group_id):
+    """The class page (apps/core/teacher_class.py): نمای کلی / دانشجویان / آزمون‌ها."""
+    if request.GET.get('export') == 'xlsx':
+        from .teacher_class import export_students
+
+        return export_students(request.erd_profile_id, group_id)
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'course_detail', group_id=group_id))
 
 
@@ -14926,7 +14934,7 @@ def _save_teacher_personal_info(request, teacher_id) -> list:
 TEACHER_ACADEMIC_RANKS = ('مربی', 'استادیار', 'دانشیار', 'استاد')
 TEACHER_DEGREES = ('کارشناسی ارشد', 'دکتری حرفه‌ای', 'دکتری تخصصی (PhD)', 'فوق تخصص')
 TEACHER_REQUEST_UNIT_TYPES = ('faculty', 'department', 'group')
-TEACHER_CHANGE_REQUEST_PAGE_SIZE = 20
+TEACHER_CHANGE_REQUEST_PAGE_SIZE = 10
 
 
 def _teacher_unit_options() -> list:
@@ -15018,7 +15026,7 @@ def _cancel_teacher_change_request(request, teacher_id) -> None:
     log_activity(request.user, 'profile_change_cancelled', 'لغو درخواست تغییر اطلاعات دانشگاهی استاد', request)
 
 
-ACCOUNT_DELETION_PAGE_SIZE = 20
+ACCOUNT_DELETION_PAGE_SIZE = 10
 
 
 def _latest_account_deletion_request(profile_id) -> dict | None:
@@ -16515,13 +16523,123 @@ def teacher_question_edit(request, question_id):
 
 @erd_role_required('teacher')
 def teacher_exams(request):
-    status = request.GET.get('status') if request.GET.get('status') in TEACHER_EXAM_LIST_FILTERS else 'all'
-    exam_list = _teacher_exam_list(
-        request.erd_profile_id, (request.GET.get('q') or '').strip()[:100], status, request.GET.get('page'),
-    )
+    filters = exam_list.read_filters(request.GET, TEACHER_EXAM_LIST_FILTERS)
+    listing = _teacher_exam_list(request.erd_profile_id, filters, request.GET.get('page'))
     saved = _teacher_owned_exam(request.erd_profile_id, request.GET.get('saved')) if request.GET.get('saved') else None
     saved_exam = {'title': saved['title'], 'code': exam_access_code(saved['id'])} if saved else None
-    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'exams', exam_list=exam_list, saved_exam=saved_exam))
+    return render(request, 'teacher/modern.html', _teacher_modern_context(
+        request, 'exams', exam_list=listing, saved_exam=saved_exam,
+        teacher_exams_url=reverse('core:teacher_exams'), teacher_exam_create_url=reverse('core:teacher_exam_create'),
+    ))
+
+
+EXAM_COPY_RESET = {  # columns a copy does not inherit: it starts as an unpublished draft
+    'is_published': False, 'is_cancelled': False, 'lifecycle_status': 'draft', 'approval_status': 'pending',
+    'approved_by': None, 'approved_at': None, 'publish_mode': 'draft', 'results_published_at': None,
+    'cancel_reason': None, 'extend_reason': None, 'scheduled_publish_at': None,
+}
+EXAM_COPY_CHILDREN = ('exam_questions', 'exam_assignments', 'exam_assignment_exclusions', 'exam_staff')
+
+
+def _exam_duplicate(exam_id) -> str:
+    """«تکثیر آزمون»: a draft copy of the exam with its settings, questions, audience and staff (no attempts)."""
+    exam = erd_row('SELECT title FROM exams WHERE id = %s', [exam_id])
+    new_id = str(uuid.uuid4())
+    overrides = {**EXAM_COPY_RESET, 'id': new_id, 'title': f"{exam['title']} (کپی)"}
+    columns = sorted(erd_table_columns('exams'))
+    with transaction.atomic():
+        exprs, params = [], []
+        for column in columns:
+            if column in overrides:
+                exprs.append('%s')
+                params.append(overrides[column])
+            else:
+                exprs.append(column)
+        erd_execute(f"INSERT INTO exams ({', '.join(columns)}) SELECT {', '.join(exprs)} FROM exams WHERE id = %s",
+                    [*params, exam_id])
+        for table in EXAM_COPY_CHILDREN:
+            child_columns = sorted(erd_table_columns(table) - {'id', 'exam_id', 'created_at'})
+            if not child_columns:
+                continue
+            for child in erd_rows(f'SELECT id FROM {table} WHERE exam_id = %s', [exam_id]):
+                erd_execute(
+                    f"INSERT INTO {table} (id, exam_id, {', '.join(child_columns)}) "
+                    f"SELECT %s, %s, {', '.join(child_columns)} FROM {table} WHERE id = %s",
+                    [str(uuid.uuid4()), new_id, child['id']],
+                )
+    return new_id
+
+
+def _exam_delete_draft(exam_id) -> bool:
+    """«حذف پیش‌نویس»: removes an unpublished draft nobody has started (False when it is not one)."""
+    exam = erd_row('SELECT * FROM exams WHERE id = %s', [exam_id])
+    if not exam or (exam.get('lifecycle_status') or 'draft') != 'draft' or exam.get('is_published')             or erd_count('exam_attempts', 'exam_id = %s', [exam_id]):
+        return False
+    with transaction.atomic():
+        for table in ('objections', *EXAM_COPY_CHILDREN):
+            erd_execute(f'DELETE FROM {table} WHERE exam_id = %s', [exam_id])
+        erd_execute('DELETE FROM exams WHERE id = %s', [exam_id])
+    return True
+
+
+def _exam_list_back(request, fallback):
+    """Back to the list page the action came from (same filters / page), else the plain list."""
+    target = request.POST.get('next') or ''
+    if target and url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}) and target.startswith(fallback):
+        return redirect(target)
+    return redirect(fallback)
+
+
+@erd_role_required('teacher')
+@require_POST
+def teacher_exam_duplicate(request, exam_id):
+    exam = _teacher_owned_exam(request.erd_profile_id, exam_id)
+    if not exam:
+        raise Http404('آزمون پیدا نشد.')
+    new_id = _exam_duplicate(exam['id'])
+    log_activity(request.user, 'teacher_exam_duplicated', f"آزمون {exam['title']} تکثیر شد.", request, {'exam_id': new_id, 'source': str(exam['id'])})
+    messages.success(request, f"کپی «{exam['title']}» به‌صورت پیش‌نویس ساخته شد.")
+    return _exam_list_back(request, reverse('core:teacher_exams'))
+
+
+@erd_role_required('teacher')
+@require_POST
+def teacher_exam_submit(request, exam_id):
+    """«ارسال برای تأیید» from the list: a complete draft goes to the academic manager."""
+    exam = erd_row('SELECT * FROM exams WHERE id = %s AND teacher_id = %s', [exam_id, request.erd_profile_id])
+    if not exam:
+        raise Http404('آزمون پیدا نشد.')
+    back = reverse('core:teacher_exams')
+    if not _teacher_exam_editable(exam) or (exam.get('lifecycle_status') or 'draft') != 'draft':
+        messages.error(request, 'فقط پیش‌نویس‌ها را می‌توان برای تأیید ارسال کرد.')
+    elif not erd_count('exam_questions', 'exam_id = %s', [exam_id]):
+        messages.error(request, f"آزمون «{exam['title']}» هنوز سؤالی ندارد؛ از «ادامه ویرایش» سؤال‌های آن را انتخاب کنید.")
+    elif not erd_count('exam_assignments', 'exam_id = %s', [exam_id]):
+        messages.error(request, f"برای آزمون «{exam['title']}» هنوز گروه یا دانشجویی انتخاب نشده است.")
+    elif not exam.get('start_at'):
+        messages.error(request, f"زمان برگزاری آزمون «{exam['title']}» تعیین نشده است.")
+    else:
+        sets = ["lifecycle_status = 'pending_approval'", "approval_status = 'pending'"]
+        if erd_has_column('exams', 'publish_mode'):
+            sets.append("publish_mode = 'submit'")
+        erd_execute(f"UPDATE exams SET {', '.join(sets)} WHERE id = %s", [exam_id])
+        log_activity(request.user, 'teacher_exam_submitted', f"آزمون {exam['title']} برای تأیید ارسال شد.", request, {'exam_id': exam_id})
+        messages.success(request, 'آزمون برای تأیید مدیر آموزشی ارسال شد.')
+    return _exam_list_back(request, back)
+
+
+@erd_role_required('teacher')
+@require_POST
+def teacher_exam_delete(request, exam_id):
+    exam = erd_row('SELECT id, title FROM exams WHERE id = %s AND teacher_id = %s', [exam_id, request.erd_profile_id])
+    if not exam:
+        raise Http404('آزمون پیدا نشد.')
+    if _exam_delete_draft(exam_id):
+        log_activity(request.user, 'teacher_exam_deleted', f"پیش‌نویس آزمون {exam['title']} حذف شد.", request, {'exam_id': exam_id})
+        messages.success(request, f"پیش‌نویس «{exam['title']}» حذف شد.")
+    else:
+        messages.error(request, 'فقط پیش‌نویسی که منتشر نشده و کسی در آن شرکت نکرده قابل حذف است.')
+    return _exam_list_back(request, reverse('core:teacher_exams'))
 
 
 @erd_role_required('teacher')
@@ -19002,7 +19120,7 @@ def _sx_attempt_rows(attempt_id, student_id):
     )
     rows = erd_rows(
         f"""
-        SELECT ea.id AS attempt_id, ea.exam_id, ea.started_at, ea.submitted_at, ea.status,
+        SELECT ea.id AS attempt_id, ea.exam_id, ea.started_at, ea.submitted_at, ea.status, {_sx_attempt_extra_sql()} AS extra_minutes,
                e.title AS exam_title, COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at AS exam_end_at,
                q.id AS question_id, q.text, COALESCE(q.type, 'single') AS type, q.options,
                COALESCE(eq.points, q.default_points) AS question_points,
@@ -19193,11 +19311,20 @@ def _sx_answer_dashboard(items, current_index):
 ATTEMPT_GRACE_SECONDS = 60
 
 
-def _sx_attempt_ends_at(started_at, duration_minutes, exam_end_at):
-    """When an attempt's time runs out: start + exam duration (90 minutes when unset), but never after the exam's end."""
-    ends_at = started_at + timedelta(minutes=_em_int(duration_minutes, 90))
+def _sx_attempt_ends_at(started_at, duration_minutes, exam_end_at, extra_minutes=0):
+    """When an attempt's time runs out: start + exam duration (90 minutes when unset), but never after the exam's end.
+
+    extra_minutes («افزودن زمان» on the live monitor, exam_attempts.extra_minutes) lengthens both the attempt and,
+    for this attempt only, the exam's end."""
+    extra = timedelta(minutes=max(_em_int(extra_minutes, 0), 0))
+    ends_at = started_at + timedelta(minutes=_em_int(duration_minutes, 90)) + extra
     exam_end = _sx_dt(exam_end_at)
-    return min(ends_at, exam_end) if exam_end else ends_at
+    return min(ends_at, exam_end + extra) if exam_end else ends_at
+
+
+def _sx_attempt_extra_sql(alias='ea'):
+    """SELECT expression of an attempt's «افزودن زمان» minutes (0 before migration 0064)."""
+    return f'COALESCE({alias}.extra_minutes, 0)' if erd_has_column('exam_attempts', 'extra_minutes') else '0'
 
 
 def _sx_attempt_accepts_answers(attempt_id):
@@ -19206,9 +19333,9 @@ def _sx_attempt_accepts_answers(attempt_id):
     The limit matches the exam page timer (_sx_attempt_ends_at).
     """
     attempt = erd_row(
-        """
+        f"""
         SELECT ea.submitted_at, ea.status, ea.started_at, ea.exam_id, COALESCE(e.duration_minutes, 90) AS duration_minutes,
-               e.end_at, COALESCE(e.is_cancelled, false) AS is_cancelled
+               e.end_at, COALESCE(e.is_cancelled, false) AS is_cancelled, {_sx_attempt_extra_sql()} AS extra_minutes
         FROM exam_attempts ea
         JOIN exams e ON e.id = ea.exam_id
         WHERE ea.id = %s
@@ -19224,7 +19351,7 @@ def _sx_attempt_accepts_answers(attempt_id):
         return True
     rules = _sx_exam_rules(attempt['exam_id'])
     cutoff = _sx_exam_cutoff(attempt.get('end_at'), rules['registration_end_at'])
-    deadline = _sx_attempt_ends_at(started_at, attempt.get('duration_minutes'), cutoff) + timedelta(seconds=ATTEMPT_GRACE_SECONDS)
+    deadline = _sx_attempt_ends_at(started_at, attempt.get('duration_minutes'), cutoff, attempt.get('extra_minutes'))         + timedelta(seconds=ATTEMPT_GRACE_SECONDS)
     return timezone.now() <= deadline
 
 
@@ -19648,7 +19775,8 @@ def _exam_code_staff_page(request, role, code):
             running = bool(exam.get('is_published')) and start and start <= now and (not end or now <= end)
             return f"{reverse('core:teacher_monitoring' if running else 'core:teacher_results')}?{urlencode({'exam': exam_id})}"
         if role in ('academic_manager', 'admin') and _erd_exam_in_manager_scope(request, exam_id):
-            return reverse('core:super_admin_exam_detail', args=[exam_id])
+            from .exam_hub import hub_url
+            return hub_url('manager', exam_id)
     return None
 
 
@@ -20045,7 +20173,8 @@ def student_attempt(request, attempt_id):
     first = rows[0]
     started_at = _sx_dt(first.get('started_at')) or timezone.now()
     cutoff = _sx_exam_cutoff(first.get('exam_end_at'), rules['registration_end_at'])
-    remaining_seconds = max(0, int((_sx_attempt_ends_at(started_at, first.get('duration_minutes'), cutoff) - timezone.now()).total_seconds()))
+    remaining_seconds = max(0, int((_sx_attempt_ends_at(started_at, first.get('duration_minutes'), cutoff, first.get('extra_minutes'))
+                                    - timezone.now()).total_seconds()))
     answered_count = sum(1 for item in items if item['answered'])
     attempt = {
         'pk': attempt_id,

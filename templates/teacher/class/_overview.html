@@ -1,0 +1,124 @@
+{% load core_extras %}{% with o=cls.overview g=cls.group %}
+<section class="xh-card ch-info" aria-label="مشخصات کلاس">
+    <div class="ch-info-item">
+        <span class="ch-info-label">{% include 'teacher/class/_icon.html' with i='layers' %}کد درس</span>
+        <b data-latin-digits>{{ g.course_code|default:'—' }}</b>
+    </div>
+    <div class="ch-info-item">
+        <span class="ch-info-label">{% include 'teacher/class/_icon.html' with i='calendar' %}نیمسال</span>
+        <b><span class="ch-ltr">{{ cls.term|default:'—' }}</span></b>
+    </div>
+    <div class="ch-info-item">
+        <span class="ch-info-label">{% include 'teacher/class/_icon.html' with i='users' %}ظرفیت</span>
+        <b>{% if g.capacity %}{{ g.capacity|fa_digits }}{% else %}—{% endif %}</b>
+    </div>
+    <div class="ch-info-item">
+        <span class="ch-info-label">{% include 'teacher/class/_icon.html' with i='user' %}عضویت</span>
+        <b>{{ o.kpis.students|fa_digits }}</b>
+    </div>
+    <details class="ch-info-item ch-perm">
+        <summary>
+            <span class="ch-perm-text">
+                <span class="ch-info-label is-strong">{% include 'teacher/class/_icon.html' with i='lock' %}دسترسی‌های استاد</span>
+                <small>مدیریت دسترسی‌ها به آزمون‌ها، سؤالات و نتایج</small>
+            </span>
+            <span class="ch-perm-chev">{% include 'teacher/class/_icon.html' with i='chevron' %}</span>
+        </summary>
+        <ul class="ch-perm-list">
+            {% for item in cls.permissions %}<li>{% include 'teacher/class/_icon.html' with i='check' %}{{ item }}</li>{% endfor %}
+            <li class="is-off">{% include 'teacher/class/_icon.html' with i='lock' %}ویرایش مشخصات و عضویت کلاس (فقط مدیر آموزشی)</li>
+        </ul>
+    </details>
+</section>
+
+<section class="ch-kpis" aria-label="خلاصه کلاس">
+    <article class="ch-kpi"><div class="ch-kpi-body"><span>دانشجویان</span><strong>{{ o.kpis.students|fa_digits }}</strong></div><span class="ch-kpi-ico is-green">{% include 'teacher/class/_icon.html' with i='gradcap' %}</span></article>
+    <article class="ch-kpi"><div class="ch-kpi-body"><span>آزمون‌ها</span><strong>{{ o.kpis.exams|fa_digits }}</strong></div><span class="ch-kpi-ico is-blue">{% include 'teacher/class/_icon.html' with i='doc' %}</span></article>
+    <article class="ch-kpi"><div class="ch-kpi-body"><span>آزمون فعال</span><strong>{{ o.kpis.running|fa_digits }}</strong></div><span class="ch-kpi-ico is-amber">{% include 'teacher/class/_icon.html' with i='live' %}</span></article>
+    <article class="ch-kpi"><div class="ch-kpi-body"><span>آزمون‌های تکمیل‌شده</span><strong>{{ o.kpis.finished|fa_digits }}</strong></div><span class="ch-kpi-ico is-violet">{% include 'teacher/class/_icon.html' with i='checkcircle' %}</span></article>
+</section>
+
+<section class="xh-card ch-block">
+    <header class="xh-card-head"><h3>{% include 'teacher/class/_icon.html' with i='live' %}آزمون در حال برگزاری</h3></header>
+    {% if o.live %}
+        <table class="ch-table">
+            <thead><tr><th>عنوان آزمون</th><th>کد</th><th>نوع</th><th>شروع</th><th>مدت</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+            <tbody>
+                {% for exam in o.live %}
+                <tr>
+                    <td><b class="ch-strong">{{ exam.title|fa_digits }}</b></td>
+                    <td><span data-latin-digits>{{ exam.code }}</span></td>
+                    <td><span class="xh-type">{% include 'teacher/class/_icon.html' with i='live' %}{{ exam.type_label }}</span></td>
+                    <td><span class="ch-ltr">{{ exam.when|default:'—' }}</span></td>
+                    <td>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}—{% endif %}</td>
+                    <td><span class="xh-pill is-green"><i class="xh-dot ch-live-dot"></i>در حال برگزاری</span></td>
+                    <td><a class="xh-btn is-solid is-sm" href="{{ exam.live_url }}" data-rt-text>{% include 'teacher/class/_icon.html' with i='live' %}پایش زنده</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="ch-empty">در حال حاضر آزمونی از این کلاس در حال برگزاری نیست.</p>
+    {% endif %}
+</section>
+
+<div class="ch-cols">
+    <section class="xh-card ch-block ch-grading">
+        <header class="xh-card-head"><h3>{% include 'teacher/class/_icon.html' with i='layers' %}در انتظار تصحیح <small>({{ o.grading|length|fa_digits }})</small></h3></header>
+        {% if o.grading %}
+            <table class="ch-table">
+                <thead><tr><th>عنوان آزمون</th><th>نوع</th><th>تعداد پاسخ</th></tr></thead>
+                <tbody>
+                    {% for item in o.grading %}
+                    <tr>
+                        <td><a class="ch-strong" href="{{ item.url }}">{{ item.title|fa_digits }}</a></td>
+                        <td><span class="xh-type">{% include 'teacher/class/_icon.html' with i='doc' %}{{ item.type_label }}</span></td>
+                        <td>{{ item.count|fa_digits }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="ch-empty">پاسخی در انتظار تصحیح نیست.</p>
+        {% endif %}
+        <p class="ch-note">{% include 'teacher/class/_icon.html' with i='info' %}مدیریت عضویت دانشجویان و جزئیات کلاس (مانند نام، گروه و ظرفیت) توسط مدیر سامانه انجام می‌شود.</p>
+    </section>
+
+    <div class="ch-stack">
+        <section class="xh-card ch-block">
+            <header class="xh-card-head"><h3>{% include 'teacher/class/_icon.html' with i='calendar' %}آزمون‌های پیش‌رو <small>({{ o.upcoming_total|fa_digits }})</small></h3></header>
+            {% if o.upcoming %}
+                <table class="ch-table">
+                    <thead><tr><th>عنوان آزمون</th><th>زمان برگزاری</th><th>مدت</th><th><span class="sr-only">عملیات</span></th></tr></thead>
+                    <tbody>
+                        {% for exam in o.upcoming %}
+                        <tr>
+                            <td><b class="ch-strong">{{ exam.title|fa_digits }}</b></td>
+                            <td><span class="ch-ltr">{{ exam.when|default:'—' }}</span></td>
+                            <td>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}—{% endif %}</td>
+                            <td><span class="ch-icons"><a class="xh-iconbtn is-blue" href="{{ exam.manage_url }}" title="مدیریت آزمون" aria-label="مدیریت آزمون {{ exam.title }}">{% include 'teacher/class/_icon.html' with i='calendar' %}</a><a class="xh-iconbtn is-blue" href="{{ exam.preview_url }}" title="پیش‌نمایش آزمون" aria-label="پیش‌نمایش آزمون {{ exam.title }}" data-live-skip>{% include 'teacher/class/_icon.html' with i='start' %}</a></span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if o.upcoming_total > o.upcoming|length %}<div class="xh-card-foot"><a class="xh-link" href="{{ cls.urls.exams }}&status=scheduled">مشاهده همه</a></div>{% endif %}
+            {% else %}
+                <p class="ch-empty">آزمون زمان‌بندی‌شده‌ای در پیش نیست.</p>
+            {% endif %}
+        </section>
+
+        <section class="xh-card ch-block">
+            <header class="xh-card-head"><h3>{% include 'teacher/class/_icon.html' with i='history' %}فعالیت‌های اخیر</h3></header>
+            {% if o.activity %}
+                <ul class="ch-feed">
+                    {% for item in o.activity %}
+                    <li><span class="ch-feed-ico is-{{ item.icon }}">{% include 'teacher/class/_icon.html' with i=item.icon %}</span><p>{{ item.text|fa_digits }}</p><time>{{ item.when }}</time></li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="ch-empty">هنوز فعالیتی برای آزمون‌های این کلاس ثبت نشده است.</p>
+            {% endif %}
+        </section>
+    </div>
+</div>
+{% endwith %}

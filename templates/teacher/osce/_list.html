@@ -42,11 +42,5 @@
         <p class="ol-empty">هنوز آزمون OSCE نساخته‌اید.</p>
         {% endif %}
     </div>
-    {% if osce_page.paginator.num_pages > 1 %}
-    <nav class="ol-pages" aria-label="صفحه‌بندی">
-        {% if osce_page.has_previous %}<a href="?page={{ osce_page.previous_page_number }}">قبلی</a>{% endif %}
-        <span>صفحه {{ osce_page.number|fa_digits }} از {{ osce_page.paginator.num_pages|fa_digits }}</span>
-        {% if osce_page.has_next %}<a href="?page={{ osce_page.next_page_number }}">بعدی</a>{% endif %}
-    </nav>
-    {% endif %}
+    {% mq_pager osce_page %}
 </div>

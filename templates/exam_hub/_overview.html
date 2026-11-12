@@ -1,0 +1,81 @@
+{% load core_extras %}{% with o=overview %}
+<div class="xh-split is-right">
+    <aside class="xh-side">
+        <div class="xh-card">
+            <div class="xh-illus" aria-hidden="true">
+                <svg viewBox="0 0 160 160">
+                    <ellipse cx="80" cy="140" rx="58" ry="8" fill="#dfe3fb" stroke="none"/>
+                    <rect x="38" y="26" width="76" height="104" rx="10" fill="#4f6bf5" stroke="none"/>
+                    <rect x="45" y="36" width="62" height="88" rx="6" fill="#fff" stroke="none"/>
+                    <rect x="60" y="20" width="32" height="14" rx="5" fill="#3a52d9" stroke="none"/>
+                    <circle cx="76" cy="20" r="4" fill="#fff" stroke="none"/>
+                    <rect x="52" y="50" width="12" height="12" rx="3" fill="#22c55e" stroke="none"/>
+                    <path d="m54.5 56 2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" fill="none"/>
+                    <rect x="69" y="53" width="28" height="5" rx="2.5" fill="#c9d3fb" stroke="none"/>
+                    <rect x="52" y="70" width="12" height="12" rx="3" fill="#22c55e" stroke="none"/>
+                    <path d="m54.5 76 2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" fill="none"/>
+                    <rect x="69" y="73" width="22" height="5" rx="2.5" fill="#c9d3fb" stroke="none"/>
+                    <rect x="52" y="90" width="12" height="12" rx="3" fill="#22c55e" stroke="none"/>
+                    <path d="m54.5 96 2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" fill="none"/>
+                    <rect x="69" y="93" width="18" height="5" rx="2.5" fill="#c9d3fb" stroke="none"/>
+                    <path d="M118 84c-6-9-21-5-19 7 2 9 19 20 19 20s17-11 19-20c2-12-13-16-19-7Z" fill="#6c7ff7" stroke="#fff" stroke-width="3"/>
+                    <path d="M108 92h6l3-5 4 10 3-5h6" stroke="#fff" stroke-width="2" fill="none"/>
+                </svg>
+            </div>
+            <div class="xh-card-head" style="margin:1rem 0 .3rem"><h3>{% include 'exam_hub/_icon.html' with i='info' %}اطلاعات آزمون</h3></div>
+            <dl class="xh-kv is-boxed">
+                <div><dt>نام آزمون</dt><dd>{{ title }}</dd></div>
+                <div><dt>درس</dt><dd>{{ exam.course_title|default:"—" }}</dd></div>
+                <div><dt>گروه(ها)</dt><dd>{% for g in o.groups %}{{ g }}{% if not forloop.last %}، {% endif %}{% empty %}—{% endfor %}</dd></div>
+                <div><dt>وضعیت</dt><dd><span class="xh-pill is-{% if exam.state == 'draft' %}grey{% elif exam.state == 'cancelled' %}red{% elif exam.state == 'pending_approval' %}amber{% else %}green{% endif %}">{{ exam.state_label }}</span></dd></div>
+                <div><dt>تاریخ و ساعت</dt><dd>{% if start_label %}{{ start_label }}، ساعت {{ start_time }}{% else %}تعیین نشده{% endif %}</dd></div>
+                <div><dt>مدت زمان</dt><dd>{{ exam.duration_minutes|default:"—" }} دقیقه</dd></div>
+                <div><dt>تعداد سؤال</dt><dd>{{ o.question_count }}</dd></div>
+                <div><dt>واجد شرایط</dt><dd>{{ o.eligible }} نفر</dd></div>
+            </dl>
+        </div>
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis">
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='calendar' %}تاریخ برگزاری</span><span class="xh-kpi-value is-sm">{{ start_label|default:"تعیین نشده" }}</span>{% if start_time %}<span class="xh-kpi-sub">ساعت {{ start_time }}</span>{% endif %}</div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='clock' %}مدت زمان</span><span class="xh-kpi-value">{{ exam.duration_minutes|default:"—" }}<em>دقیقه</em></span>{% if duration_label %}<span class="xh-kpi-sub">({{ duration_label }})</span>{% endif %}</div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='listnum' %}تعداد سؤال</span><span class="xh-kpi-value">{{ o.question_count }}<em>سؤال</em></span></div>
+            <div class="xh-kpi is-stack"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='users' %}واجد شرایط</span><span class="xh-kpi-value">{{ o.eligible }}<em>نفر</em></span><span class="xh-kpi-sub">از {{ o.members }} دانشجو</span></div>
+        </div>
+
+        <div class="xh-cols is-3-2">
+            <div class="xh-main">
+                <div class="xh-card">
+                    <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='doc' %}خلاصه آزمون</h3></div>
+                    <p class="xh-prose">{{ exam.description|striptags|default:"توضیحی برای این آزمون ثبت نشده است." }}</p>
+                    <div class="xh-mini">
+                        <div><span>{% include 'exam_hub/_icon.html' with i='layers' %}نوع آزمون</span><b>{{ o.mode_label }}</b></div>
+                        <div><span>{% include 'exam_hub/_icon.html' with i='monitor' %}شیوه برگزاری</span><b>{{ o.execution_label }}</b></div>
+                        <div><span>{% include 'exam_hub/_icon.html' with i='question' %}نوع سؤال</span><b>{{ o.kind_label }}</b></div>
+                        <div><span>{% include 'exam_hub/_icon.html' with i='star' %}نمره کل</span><b>{{ o.total_points }} نمره</b></div>
+                    </div>
+                </div>
+                <div class="xh-card">
+                    <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='pie' %}ترکیب سؤالات</h3></div>
+                    {% if o.composition %}
+                    <table class="xh-compo rt-off">
+                        <thead><tr><th>مبحث</th><th>تعداد سؤال</th><th>سهم از آزمون</th></tr></thead>
+                        <tbody>{% for row in o.composition %}<tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td><span class="xh-share"><span class="xh-bar"><i style="width:{{ row.share }}%"></i></span><b>{{ row.share }}٪</b></span></td></tr>{% endfor %}</tbody>
+                    </table>
+                    {% else %}<div class="xh-empty">هنوز سؤالی به آزمون اضافه نشده است.</div>{% endif %}
+                </div>
+            </div>
+            <div class="xh-card">
+                <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='clipcheck' %}چک‌لیست آمادگی آزمون</h3></div>
+                <ul class="xh-checks">
+                    {% for c in o.checks %}<li class="{% if not c.ok %}is-off{% endif %}"><i>{% if c.ok %}{% include 'exam_hub/_icon.html' with i='check' %}{% else %}{% include 'exam_hub/_icon.html' with i='alert' %}{% endif %}</i>{{ c.text }}</li>{% endfor %}
+                </ul>
+                <div class="xh-note {% if o.ready %}is-green{% else %}is-amber{% endif %}" style="margin-top:1rem">
+                    {% if o.ready %}{% include 'exam_hub/_icon.html' with i='checkcircle' %}آزمون آماده برگزاری است.{% else %}{% include 'exam_hub/_icon.html' with i='alert' %}پیش از برگزاری موارد نارنجی را کامل کنید.{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endwith %}

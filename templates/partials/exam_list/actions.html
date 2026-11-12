@@ -1,0 +1,15 @@
+{% load core_extras %}<div class="xl-actions">
+    {% with p=exam.primary %}{% if p.approve %}<button type="button" class="xl-main is-{{ p.tone }}" data-approve-url="{{ p.approve.url }}" data-preview-url="{{ exam.preview_url }}" data-approve-title="{{ exam.title }}" data-approve-blocker="{{ p.approve.blocker }}" data-edit-url="{{ p.approve.edit_url }}" aria-haspopup="dialog">{{ p.label }}</button>{% else %}<a class="xl-main is-{{ p.tone }}" href="{{ p.url }}">{{ p.label }}{% if p.count %}<b class="xl-main-count">{{ p.count|fa_digits }}</b>{% endif %}</a>{% endif %}{% endwith %}
+    <a class="xl-icon" href="{{ exam.preview_url }}" title="پیش‌نمایش آزمون" aria-label="پیش‌نمایش آزمون {{ exam.title }}"><svg aria-hidden="true"><use href="#xl-i-eye"/></svg></a>
+    <a class="xl-icon" href="{{ exam.report_url }}" title="گزارش آزمون" aria-label="گزارش آزمون {{ exam.title }}"><svg aria-hidden="true"><use href="#xl-i-report"/></svg></a>
+    <div class="xl-more">
+        <button type="button" class="xl-icon" data-xl-menu aria-haspopup="menu" aria-expanded="false" title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر برای {{ exam.title }}"><svg aria-hidden="true"><use href="#xl-i-more"/></svg></button>
+        <div class="xl-menu" role="menu" hidden>
+            {% for item in exam.menu %}
+                {% if item.url %}<a role="menuitem" href="{{ item.url }}"><svg aria-hidden="true"><use href="#xl-i-{{ item.icon }}"/></svg>{{ item.label }}</a>
+                {% elif item.approve %}<button type="button" role="menuitem" data-approve-url="{{ item.approve.url }}" data-preview-url="{{ exam.preview_url }}" data-approve-title="{{ exam.title }}" data-approve-blocker="{{ item.approve.blocker }}" data-edit-url="{{ item.approve.edit_url }}" aria-haspopup="dialog"><svg aria-hidden="true"><use href="#xl-i-{{ item.icon }}"/></svg>{{ item.label }}</button>
+                {% else %}<form method="post" action="{{ item.post }}"{% if item.danger %} class="is-danger"{% endif %}{% if item.confirm %} data-confirm="{{ item.confirm }}"{% if item.confirm_ok %} data-confirm-ok="{{ item.confirm_ok }}"{% endif %}{% if item.danger %} data-confirm-danger{% endif %}{% endif %}>{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button type="submit" role="menuitem"><svg aria-hidden="true"><use href="#xl-i-{{ item.icon }}"/></svg>{{ item.label }}</button></form>{% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>

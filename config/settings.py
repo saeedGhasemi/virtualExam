@@ -6,6 +6,13 @@ from urllib.parse import parse_qsl, unquote, urlparse
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Release number shown under the logo (templates/partials/brand_logo.html). Single source: the VERSION file
+# at the repo root, Semantic Versioning MAJOR.MINOR.PATCH — bump it in the commit of every deploy (see README).
+try:
+    APP_VERSION = (BASE_DIR / 'VERSION').read_text(encoding='utf-8').strip() or '0.0.0'
+except OSError:
+    APP_VERSION = '0.0.0'
 load_dotenv(BASE_DIR / '.env', override=True)
 
 # Every secret (SECRET_KEY, database/e-mail passwords) comes only from the environment / .env, never from the code
@@ -79,6 +86,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'apps.core.navigation.app_shell',
                 'apps.core.context_processors.panel_user',
+                'apps.core.context_processors.app_version',
                 'apps.core.appearance.appearance_context',
             ],
         },

@@ -1,0 +1,106 @@
+{% load core_extras %}{% with st=p.student %}
+<section class="xh-card ch-panel" aria-label="عملکرد دانشجو">
+    <header class="ch-panel-head">
+        <div class="ch-panel-who">
+            <h2>عملکرد دانشجو</h2>
+            <div class="xh-profile">
+                <span class="xh-avatar ch-avatar is-lg">{% if st.avatar_url %}<img src="{{ st.avatar_url }}" alt="">{% else %}{% include 'teacher/class/_icon.html' with i='user' %}{% endif %}</span>
+                <div><h3>{{ st.name }}</h3><p>شماره دانشجویی: {{ st.code|fa_digits|default:'—' }}</p></div>
+            </div>
+        </div>
+        <div class="ch-panel-nav">
+            <a class="xh-btn is-ghost is-sm{% if not p.prev_url %} is-off{% endif %}" href="{{ p.prev_url|default:'#' }}"{% if not p.prev_url %} aria-disabled="true" tabindex="-1"{% endif %}>{% include 'teacher/class/_icon.html' with i='prev' %}دانشجوی قبلی</a>
+            <a class="xh-btn is-ghost is-sm{% if not p.next_url %} is-off{% endif %}" href="{{ p.next_url|default:'#' }}"{% if not p.next_url %} aria-disabled="true" tabindex="-1"{% endif %}>دانشجوی بعدی{% include 'teacher/class/_icon.html' with i='next' %}</a>
+            <a class="xh-iconbtn" href="{{ p.close_url }}" title="بستن" aria-label="بستن عملکرد دانشجو">{% include 'teacher/class/_icon.html' with i='x' %}</a>
+        </div>
+    </header>
+
+    <nav class="ch-subtabs" aria-label="بخش‌های عملکرد">
+        <a class="{% if p.view == 'perf' %}is-active{% endif %}" href="{{ p.tab_urls.perf }}">عملکرد در کلاس</a>
+        <a class="{% if p.view == 'chart' %}is-active{% endif %}" href="{{ p.tab_urls.chart }}">نمودار پیشرفت</a>
+        <a class="{% if p.view == 'activity' %}is-active{% endif %}" href="{{ p.tab_urls.activity }}">جزئیات فعالیت</a>
+    </nav>
+
+    {% if p.view == 'perf' %}
+        <div class="ch-kpis is-three">
+            <article class="ch-kpi"><div class="ch-kpi-body"><span>مشارکت در کلاس</span><strong>{{ st.taken|fa_digits }} <em>از {{ st.total|fa_digits }}</em></strong></div><span class="ch-kpi-ico is-green">{% include 'teacher/class/_icon.html' with i='checkcircle' %}</span></article>
+            <article class="ch-kpi"><div class="ch-kpi-body"><span>غیبت‌ها</span><strong>{{ st.absent|fa_digits }}</strong></div><span class="ch-kpi-ico is-red">{% include 'teacher/class/_icon.html' with i='calx' %}</span></article>
+            <article class="ch-kpi"><div class="ch-kpi-body"><span>آخرین آزمون منتشرشده</span><strong>{% if st.last_done %}{{ st.last_done.score|fa_digits }} <em>از ۲۰</em>{% else %}—{% endif %}</strong></div><span class="ch-kpi-ico is-blue">{% include 'teacher/class/_icon.html' with i='star' %}</span></article>
+        </div>
+
+        <section class="ch-subcard">
+            <h3>عملکرد کلی در آزمون‌های تکمیل‌شده</h3>
+            <div class="ch-bars">
+                {% for bar in p.bars %}
+                <div class="ch-bar-row"><span>{{ bar.label }}</span><span class="xh-bar"><i style="width:{{ bar.percent }}%"></i></span><b>{% if bar.value is not None %}{{ bar.value|fa_digits }} از ۲۰{% else %}—{% endif %}</b></div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="ch-subcard">
+            <h3>آزمون‌های کلاس <small>({{ p.results|length|fa_digits }} مورد تکمیل‌شده)</small></h3>
+            {% if p.results %}
+            <table class="ch-table">
+                <thead><tr><th>ردیف</th><th>عنوان آزمون</th><th>تاریخ برگزاری</th><th>نمره (از ۲۰)</th><th>وضعیت</th><th>کارنامه</th></tr></thead>
+                <tbody>
+                    {% for item in p.results %}
+                    <tr>
+                        <td>{{ item.row_no|fa_digits }}</td>
+                        <td><b class="ch-strong">{{ item.exam.title|fa_digits }}</b></td>
+                        <td><span class="ch-ltr">{{ item.date|default:'—' }}</span></td>
+                        <td>{% if item.score is not None %}{{ item.score|fa_digits }}{% else %}—{% endif %}</td>
+                        <td><span class="xh-pill is-{{ item.state_tone }}">{{ item.state_label }}</span></td>
+                        <td>{% if item.card_url %}<a class="xh-btn is-sm ch-card-btn" href="{{ item.card_url }}" data-rt-text>{% include 'teacher/class/_icon.html' with i='eye' %}مشاهده کارنامه</a>{% else %}<span class="xh-muted">—</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+                <p class="ch-empty">هنوز آزمونی از این کلاس به پایان نرسیده است.</p>
+            {% endif %}
+        </section>
+    {% elif p.view == 'chart' %}
+        <section class="ch-subcard">
+            <h3>روند نمره در آزمون‌های کلاس</h3>
+            {% if p.chart %}
+                <svg class="ch-chart" viewBox="0 0 400 230" role="img" aria-label="روند نمره دانشجو و میانگین کلاس">
+                    {% for line in p.chart.grid %}<line x1="24" x2="376" y1="{{ line.y }}" y2="{{ line.y }}" class="is-grid"/><text x="390" y="{{ line.y }}" class="is-axis">{{ line.label }}</text>{% endfor %}
+                    {% if p.chart.class %}<polyline points="{{ p.chart.class_points }}" class="is-class"/>{% for point in p.chart.class %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="3.5" class="is-class"/>{% endfor %}{% endif %}
+                    <polyline points="{{ p.chart.student_points }}" class="is-student"/>
+                    {% for point in p.chart.student %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="4.5" class="is-student"/><text x="{{ point.x }}" y="{{ point.y }}" dy="-10" class="is-value">{{ point.value|fa_digits }}</text>{% endfor %}
+                    {% for label in p.chart.labels %}<text x="{{ label.x }}" y="222" class="is-axis is-x">{{ label.text }}</text>{% endfor %}
+                </svg>
+                <p class="ch-legend"><span class="is-student">نمره دانشجو</span><span class="is-class">میانگین کلاس</span></p>
+            {% else %}
+                <p class="ch-empty">برای این دانشجو هنوز نمره تصحیح‌شده‌ای ثبت نشده است.</p>
+            {% endif %}
+        </section>
+    {% else %}
+        <section class="ch-subcard">
+            <h3>ورود و ارسال در آزمون‌های کلاس</h3>
+            {% if p.activity %}
+            <table class="ch-table">
+                <thead><tr><th>عنوان آزمون</th><th>ورود</th><th>ارسال</th><th>مدت پاسخ‌گویی</th><th>وضعیت</th></tr></thead>
+                <tbody>
+                    {% for item in p.activity %}
+                    <tr>
+                        <td><b class="ch-strong">{{ item.title|fa_digits }}</b></td>
+                        <td><span class="ch-ltr">{{ item.started|default:'—' }}</span></td>
+                        <td><span class="ch-ltr">{{ item.submitted|default:'—' }}</span></td>
+                        <td>{% if item.minutes is not None %}{{ item.minutes|fa_digits }} دقیقه{% else %}—{% endif %}</td>
+                        <td><span class="xh-pill is-{{ item.state_tone }}">{{ item.state_label }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+                <p class="ch-empty">این دانشجو هنوز در آزمونی از این کلاس شرکت نکرده است.</p>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    <div class="ch-panel-foot">
+        <a class="xh-btn is-solid" href="{{ p.report_url }}" target="_blank" rel="noopener" data-live-skip data-no-loader>{% include 'teacher/class/_icon.html' with i='download' %}دانلود گزارش عملکرد</a>
+    </div>
+</section>
+{% endwith %}

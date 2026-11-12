@@ -1,0 +1,93 @@
+{% load core_extras %}{% with g=grading %}
+<div class="xh-split is-right">
+    <aside class="xh-side">
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>پیشرفت تصحیح</h3></div>
+            <div class="xh-donut-wrap">
+                <ul class="xh-legend-list" style="flex:1 1 9rem">
+                    <li>کل پاسخ‌ها <b>{{ g.counts.all }}</b></li>
+                    <li><i class="is-dot"></i>تصحیح‌شده <b>{{ g.counts.graded }}</b></li>
+                    <li><i class="is-dot is-amber"></i>در انتظار تصحیح <b>{{ g.counts.pending }}</b></li>
+                </ul>
+                <div class="xh-donut is-grey is-md" style="--p:{{ g.percent }}"><span><b>{{ g.percent }}٪</b><small>تصحیح‌شده</small></span></div>
+            </div>
+        </div>
+        {% include 'exam_hub/_exam_info.html' with question_total=overview.question_count %}
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='star' %}میانگین امتیاز <small>(پاسخ‌های تصحیح‌شده)</small></h3></div>
+            <div class="xh-avg">
+                {% if g.average %}<p>{{ g.average }} <small>از {{ g.average_of }}</small></p>{% else %}<p class="xh-muted" style="font-size:.9rem;font-weight:400">هنوز پاسخی تصحیح نشده است.</p>{% endif %}
+                <span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='chart' %}</span>
+            </div>
+        </div>
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis is-grading">
+            <div class="xh-card is-tight" style="display:grid;align-content:center">
+                <div class="xh-seg">
+                    <a href="?tab=grading&status=pending" class="{% if g.filters.status == 'pending' %}is-active{% endif %}">در انتظار تصحیح ({{ g.counts.pending }})</a>
+                    <a href="?tab=grading&status=graded" class="{% if g.filters.status == 'graded' %}is-active{% endif %}">تصحیح‌شده ({{ g.counts.graded }})</a>
+                    <a href="?tab=grading&status=all" class="{% if g.filters.status == 'all' %}is-active{% endif %}">همه ({{ g.counts.all }})</a>
+                </div>
+            </div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-green">{% include 'exam_hub/_icon.html' with i='check' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">تصحیح‌شده</span><span class="xh-kpi-value">{{ g.counts.graded }}<em>پاسخ</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-amber">{% include 'exam_hub/_icon.html' with i='hourglass' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">در انتظار تصحیح</span><span class="xh-kpi-value">{{ g.counts.pending }}<em>پاسخ</em></span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='users' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">همه پاسخ‌ها</span><span class="xh-kpi-value">{{ g.counts.all }}<em>پاسخ</em></span></div></div>
+        </div>
+
+        <form method="get" class="xh-filters">
+            <input type="hidden" name="tab" value="grading">
+            <label class="xh-selwrap">{% include 'exam_hub/_icon.html' with i='sort' %}<select class="xh-select has-ico" name="sort" onchange="this.form.requestSubmit()" aria-label="مرتب‌سازی">
+                <option value="newest"{% if g.filters.sort == 'newest' %} selected{% endif %}>جدیدترین</option>
+                <option value="oldest"{% if g.filters.sort == 'oldest' %} selected{% endif %}>قدیمی‌ترین</option>
+            </select></label>
+            <select class="xh-select" name="status" onchange="this.form.requestSubmit()" aria-label="وضعیت">
+                <option value="all"{% if g.filters.status == 'all' %} selected{% endif %}>همه وضعیت‌ها</option>
+                <option value="pending"{% if g.filters.status == 'pending' %} selected{% endif %}>در انتظار تصحیح</option>
+                <option value="graded"{% if g.filters.status == 'graded' %} selected{% endif %}>تصحیح‌شده</option>
+            </select>
+            <select class="xh-select" name="question" onchange="this.form.requestSubmit()" aria-label="سؤال">
+                <option value="">همه سؤال‌ها</option>
+                {% for n in g.question_numbers %}<option value="{{ n }}"{% if g.filters.question == n|stringformat:"s" %} selected{% endif %}>سؤال {{ n }}</option>{% endfor %}
+            </select>
+            <select class="xh-select" name="kind" onchange="this.form.requestSubmit()" aria-label="نوع پاسخ">
+                <option value="">همه نوع پاسخ</option>
+                {% for key, label in g.kinds.items %}<option value="{{ key }}"{% if g.filters.kind == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <label class="xh-search is-search">{% include 'exam_hub/_icon.html' with i='search' %}<input class="xh-input" type="search" name="q" value="{{ g.filters.q }}" placeholder="جستجو در پاسخ‌ها (نام، شماره دانشجویی...)" aria-label="جستجو"></label>
+        </form>
+
+        <div class="xh-card">
+            {% if g.rows %}
+            <table class="table">
+                <thead><tr><th>#</th><th>دانشجو</th><th>سؤال</th><th>نوع پاسخ</th><th>پیش‌نمایش پاسخ</th><th>وضعیت</th><th>امتیاز</th><th>عملیات</th></tr></thead>
+                <tbody>
+                {% for r in g.rows %}
+                <tr>
+                    <td>{{ r.index }}</td>
+                    <td><span class="xh-person">{% include 'exam_hub/_avatar.html' with p=r %}<span><b>{{ r.name }}</b>{% if r.code %}<small data-latin-digits>{{ r.code }}</small>{% endif %}</span></span></td>
+                    <td>سؤال {{ r.question_no }}</td>
+                    <td><span class="xh-type">{% if r.kind == 'audio' %}{% include 'exam_hub/_icon.html' with i='mic' %}{% elif r.kind == 'image' %}{% include 'exam_hub/_icon.html' with i='image' %}{% elif r.kind == 'video' %}{% include 'exam_hub/_icon.html' with i='video' %}{% elif r.kind == 'file' %}{% include 'exam_hub/_icon.html' with i='file' %}{% else %}{% include 'exam_hub/_icon.html' with i='pdf' %}{% endif %}{{ r.kind_label }}</span></td>
+                    <td>
+                        {% if r.media.url and r.kind == 'audio' %}<span class="xh-preview is-media"><audio controls preload="none" src="{{ r.media.url }}"></audio></span>
+                        {% elif r.media.url and r.kind == 'image' %}<span class="xh-preview is-media"><img src="{{ r.media.url }}" alt="تصویر پاسخ" loading="lazy"></span>
+                        {% elif r.media.url and r.kind == 'video' %}<span class="xh-preview is-media"><video controls preload="metadata" src="{{ r.media.url }}"></video></span>
+                        {% else %}<span class="xh-preview">{% if r.snippet %}{{ r.snippet }}{% elif r.media %}{{ r.media.name }}{% else %}<span class="xh-muted">پاسخ خالی</span>{% endif %}</span>{% endif %}
+                    </td>
+                    <td>{% if r.pending %}<span class="xh-pill is-amber">{% include 'exam_hub/_icon.html' with i='hourglass' %}در انتظار تصحیح</span>{% else %}<span class="xh-pill is-green">{% include 'exam_hub/_icon.html' with i='check' %}تصحیح‌شده</span>{% endif %}</td>
+                    <td>{% if r.pending %}—{% else %}{{ r.points|floatformat:"-2" }} از {{ r.max_points|floatformat:"-2" }}{% endif %}</td>
+                    <td><span class="xh-ops">{% if r.url %}<a class="xh-btn {% if r.pending %}is-solid{% endif %} is-sm" data-rt-text href="{{ r.url }}">{% include 'exam_hub/_icon.html' with i='edit' %}{% if r.pending %}شروع تصحیح{% else %}ویرایش نمره{% endif %}</a>{% endif %}<a class="xh-kebab" data-rt-text href="?tab=results&student={{ r.attempt_id }}" title="کارنامه دانشجو" aria-label="کارنامه {{ r.name }}">{% include 'exam_hub/_icon.html' with i='more' %}</a></span></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% mq_pager g.page %}
+            {% else %}
+            <div class="xh-empty">{% include 'exam_hub/_icon.html' with i='checkcircle' %}{% if g.counts.all %}پاسخی با این فیلترها نیست.{% else %}این آزمون پاسخ تشریحی، صوتی یا تصویری برای تصحیح دستی ندارد.{% endif %}</div>
+            {% endif %}
+        </div>
+        {% if exam.role == 'teacher' and not exam.can.grade %}<div class="xh-note">{% include 'exam_hub/_icon.html' with i='info' %}شما همکار تصحیح این آزمون نیستید؛ فقط پاسخ سؤال‌های خودتان را می‌بینید.</div>{% endif %}
+    </div>
+</div>
+{% endwith %}

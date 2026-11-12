@@ -3,57 +3,71 @@
     <header class="tdash-hero">
         <div>
             <h1>سلام {{ teacher_profile.name }}، خوش آمدید <span aria-hidden="true">👋</span></h1>
-            <p>مرور وضعیت آزمون‌ها، سؤالات و فعالیت‌های آموزشی شما در یک نگاه</p>
         </div>
         <span class="tdash-today"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>{{ dashboard.today_label }}</span>
     </header>
 
-    <div class="tdash-kpis">
-        <article class="tdash-kpi">
+    {% include 'partials/dashboard/styles.html' %}
+    {# Six compact KPI boxes: the teacher's exams/questions/grading + «زیرمجموعه من» tiles (students, classes, courses). #}
+    {% with sub_tiles=subordinates.tiles|default:'' %}
+    <div class="tdash-kpis{% if sub_tiles %} is-six{% endif %}" style="--kc: {% if sub_tiles %}6{% else %}3{% endif %}">
+        <a class="tdash-kpi" href="{% url 'core:teacher_exams' %}">
+            <i class="is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect class="fill" x="5" y="4" width="14" height="17" rx="2.5"/><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 3h6v3H9zM8.5 11.5l1.5 1.5 3-3M14.5 12H16M8.5 16.5h7"/></svg></i>
             <div>
-                <h2>آزمون‌های فعال</h2>
+                <h2>آزمون‌های فعال</h2><span class="tdash-kpi-go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
                 <strong>{{ dashboard.active_exams|fa_digits }}</strong>
-                <small>{{ dashboard.upcoming_count|fa_digits }} آزمون آینده</small>
             </div>
-            <i class="is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></svg></i>
-        </article>
-        <article class="tdash-kpi">
+        </a>
+        <a class="tdash-kpi" href="{% url 'core:teacher_questions' %}">
+            <i class="is-violet" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="fill" d="m12 3 9 4.5-9 4.5-9-4.5Z"/><path d="m12 3 9 4.5-9 4.5-9-4.5ZM3 12l9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></svg></i>
             <div>
-                <h2>سؤالات بانک</h2>
+                <h2>سؤالات بانک</h2><span class="tdash-kpi-go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
                 <strong>{{ teacher_stats.questions|fa_digits }}</strong>
-                {% if dashboard.new_questions is not None %}
-                    <small class="is-up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>{{ dashboard.new_questions|fa_digits }} سؤال جدید در ۳۰ روز اخیر</small>
-                {% endif %}
             </div>
-            <i class="is-violet" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></i>
-        </article>
-        <article class="tdash-kpi">
+        </a>
+        <a class="tdash-kpi" href="{% url 'core:teacher_reviews' %}">
+            <i class="is-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="fill" d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4.5L13 15.5l5-5V8Z"/><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M13 3v5h5M18 8v1.5M8.5 12.5h4M8.5 16H11"/><path d="m19.4 12.6 1.9 1.9-5.6 5.6-2.6.7.7-2.6Z"/></svg></i>
             <div>
-                <h2>پاسخ‌های در انتظار تصحیح</h2>
-                <strong>{{ dashboard.pending_total|fa_digits }}</strong>
-                <small>در {{ dashboard.pending_exam_count|fa_digits }} آزمون</small>
+                <h2>آزمون‌های در انتظار تصحیح</h2><span class="tdash-kpi-go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+                <strong>{{ dashboard.pending_exam_count|fa_digits }}</strong>
             </div>
-            <i class="is-orange" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>
-        </article>
+        </a>
+        {% for tile in sub_tiles %}
+            {% if tile.url %}<a class="tdash-kpi" href="{{ tile.url }}">{% else %}<div class="tdash-kpi">{% endif %}
+                {% if tile.icon == 'students' %}<i class="is-teal" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="fill" d="M22 9.5 12 5 2 9.5 12 14Z"/><path d="M22 9.5 12 5 2 9.5 12 14ZM6 11.3V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.7M22 9.5V15"/></svg></i>
+                {% elif tile.icon == 'groups' %}<i class="is-indigo" aria-hidden="true"><svg viewBox="0 0 24 24"><rect class="fill" x="3" y="4" width="18" height="12" rx="2"/><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M7.5 12.5l3-3 2 2 4-4"/></svg></i>
+                {% else %}<i class="is-rose" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="fill" d="M4 4.5h5.5A2.5 2.5 0 0 1 12 7v13a2 2 0 0 0-2-2H4Z"/><path d="M4 4.5h5.5A2.5 2.5 0 0 1 12 7v13a2 2 0 0 0-2-2H4ZM20 4.5h-5.5A2.5 2.5 0 0 0 12 7v13a2 2 0 0 1 2-2h6Z"/></svg></i>{% endif %}
+                <div>
+                    <h2>{{ tile.label }}</h2>{% if tile.url %}<span class="tdash-kpi-go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>{% endif %}
+                    <strong>{{ tile.value|fa_digits }}</strong>
+                </div>
+            {% if tile.url %}</a>{% else %}</div>{% endif %}
+        {% endfor %}
     </div>
+    {% endwith %}
 
-    {% include 'partials/subordinates_panel.html' %}
-
+    {# Quick access: one compact strip (title beside the actions on wide screens), same icon style as the KPI boxes. #}
     <section class="tdash-card tdash-quick">
-        <h2>دسترسی سریع</h2>
-        <p>به امکانات پرکاربرد دسترسی سریع داشته باشید.</p>
+        <div class="tdash-quick-head">
+            <i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7Z"/></svg></i>
+            <div>
+                <h2>دسترسی سریع</h2>
+                <p>کارهای پرکاربرد با یک کلیک</p>
+            </div>
+        </div>
         <div class="tdash-quick-grid">
-            <a class="is-primary" href="{% url 'core:teacher_exam_create' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span><b>ایجاد آزمون</b><small>ساخت آزمون جدید</small></span></a>
-            <a class="is-blue" href="{% url 'core:teacher_question_type' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></svg><span><b>ایجاد سؤال</b><small>طراحی سؤال جدید</small></span></a>
-            <a class="is-violet" href="{% url 'core:teacher_questions' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg><span><b>بانک سؤالات</b><small>مشاهده و مدیریت سؤالات</small></span></a>
-            <a class="is-lavender" href="{% url 'core:teacher_reviews' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span><b>تصحیح پاسخ‌ها</b><small>بررسی و تصحیح پاسخ دانشجویان</small></span></a>
+            <a class="is-primary" href="{% url 'core:teacher_exam_create' %}"><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><span><b>ایجاد آزمون</b><small>ساخت آزمون جدید</small></span><em aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></em></a>
+            <a class="is-sky" href="{% url 'core:teacher_question_type' %}"><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></svg></i><span><b>ایجاد سؤال</b><small>طراحی سؤال جدید</small></span><em aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></em></a>
+            <a class="is-violet" href="{% url 'core:teacher_questions' %}"><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg></i><span><b>بانک سؤالات</b><small>مشاهده و مدیریت سؤالات</small></span><em aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></em></a>
+            <a class="is-orange" href="{% url 'core:teacher_reviews' %}"><i aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></i><span><b>تصحیح پاسخ‌ها</b><small>بررسی پاسخ دانشجویان</small></span><em aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></em></a>
         </div>
     </section>
 
+    {# Upcoming exams + the three bottom cards: compact, plain cards (icon tile + title, link pill in the head), no tall panels. #}
     <section class="tdash-card tdash-upcoming">
         <header class="tdash-card-head">
-            <h2><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>آزمون‌های پیش رو</h2>
-            <a href="{% url 'core:teacher_exams' %}">مشاهده همه آزمون‌ها <span aria-hidden="true">←</span></a>
+            <h2><i class="tdash-hicon is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></i>آزمون‌های پیش رو</h2>
+            <a href="{% url 'core:teacher_exams' %}">مشاهده همه <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>
         </header>
         {% if dashboard.upcoming_exams %}
             <div class="tdash-table-wrap">
@@ -80,51 +94,56 @@
     </section>
 
     <div class="tdash-bottom">
+        {% with exam=dashboard.next_exam %}
         <section class="tdash-card">
-            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>یادآور آزمون آینده</h2></header>
-            {% with exam=dashboard.next_exam %}
-                {% if exam %}
-                    <div class="tdash-reminder">
-                        <b>{{ exam.title }}</b>
-                        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg>{{ exam.course }}</span>
-                        <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>{{ exam.date_label|default:"-" }}</span>
-                        {% if exam.time_label %}<span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>ساعت {{ exam.time_label|fa_digits }}</span>{% endif %}
-                        {% if exam.participants %}<span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.8 20a5.2 5.2 0 0 1 10.4 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 15.5A4.7 4.7 0 0 1 20.5 20"/></svg>{{ exam.participants|fa_digits }} دانشجو</span>{% endif %}
+            <header class="tdash-card-head"><h2><i class="tdash-hicon is-amber" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></i>یادآور آزمون آینده</h2>{% if exam %}<a href="{% url 'core:teacher_exams' %}">جزئیات <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>{% endif %}</header>
+            {% if exam %}
+                <div class="tdr">
+                    <b class="tdr-title" title="{{ exam.title }}">{{ exam.title }}</b>
+                    <div class="tdr-meta">
+                        <span class="tdash-pill is-{{ exam.status_tone }}">{{ exam.status_label }}</span>
+                        {% if exam.countdown %}<span class="tdr-count"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ exam.countdown|fa_digits }}</span>{% endif %}
                     </div>
-                    <a class="tdash-outline-btn" href="{% url 'core:teacher_exams' %}">مشاهده جزئیات <span aria-hidden="true">←</span></a>
-                {% else %}
-                    <p class="tdash-empty">آزمون زمان‌بندی‌شده‌ای در پیش نیست.</p>
-                {% endif %}
-            {% endwith %}
+                    <ul class="tdr-facts">
+                        <li><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3ZM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7Z"/></svg><span>{{ exam.course }}</span></li>
+                        <li><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><span>{{ exam.date_label|default:"-" }}</span></li>
+                        {% if exam.time_label %}<li><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>ساعت {{ exam.time_label|fa_digits }}</span></li>{% endif %}
+                        {% if exam.participants %}<li><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.8 20a5.2 5.2 0 0 1 10.4 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 15.5A4.7 4.7 0 0 1 20.5 20"/></svg><span>{{ exam.participants|fa_digits }} دانشجو</span></li>{% endif %}
+                    </ul>
+                </div>
+            {% else %}
+                <p class="tdash-empty">آزمون زمان‌بندی‌شده‌ای در پیش نیست.</p>
+            {% endif %}
         </section>
+        {% endwith %}
 
         <section class="tdash-card">
-            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>فعالیت‌های اخیر</h2></header>
+            <header class="tdash-card-head"><h2><i class="tdash-hicon is-teal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>فعالیت‌های اخیر</h2></header>
             {% if dashboard.activities %}
-                <ul class="tdash-activity">
+                <ol class="tda">
                     {% for item in dashboard.activities %}
-                        <li><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></i><div><b>{{ item.reason }}</b><small>{{ item.ago|fa_digits }}</small></div></li>
+                        <li class="is-{{ item.kind }}">
+                            <i aria-hidden="true">{% if item.kind == 'export' %}<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>{% elif item.kind == 'grade' %}<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></svg>{% elif item.kind == 'message' %}<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4Z"/></svg>{% elif item.kind == 'account' %}<svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6Z"/></svg>{% else %}<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>{% endif %}</i>
+                            <div><b>{{ item.reason }}</b><small>{{ item.ago|fa_digits }}</small></div>
+                        </li>
                     {% endfor %}
-                </ul>
+                </ol>
             {% else %}
                 <p class="tdash-empty">هنوز فعالیتی ثبت نشده است.</p>
             {% endif %}
         </section>
 
         <section class="tdash-card">
-            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-7M20 20v-4"/></svg>عملکرد دانشجویان</h2></header>
+            <header class="tdash-card-head"><h2><i class="tdash-hicon is-violet" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20V10M10 20V4M15 20v-7M20 20v-4"/></svg></i>عملکرد دانشجویان</h2>{% if dashboard.performance %}<span title="میانگین نمرات {{ dashboard.performance|length|fa_digits }} آزمون اخیر">میانگین {{ dashboard.performance_avg|fa_digits }} از ۲۰</span>{% endif %}</header>
             {% if dashboard.performance %}
-                <p class="tdash-sub">میانگین نمرات در {{ dashboard.performance|length|fa_digits }} آزمون اخیر (از ۲۰)</p>
-                <div class="tdash-chart" role="img" aria-label="میانگین نمره آزمون‌های اخیر">
-                    <div class="tdash-chart-axis" aria-hidden="true"><span>۲۰</span><span>۱۵</span><span>۱۰</span><span>۵</span><span>۰</span></div>
-                    <div class="tdash-chart-plot">
+                <div class="tdc" role="img" aria-label="میانگین نمره آزمون‌های اخیر">
+                    <div class="tdc-axis" aria-hidden="true"><span style="top:0">۲۰</span><span style="top:25%">۱۵</span><span style="top:50%">۱۰</span><span style="top:75%">۵</span><span style="top:100%">۰</span></div>
+                    <div class="tdc-plot">
                         {% for row in dashboard.performance %}
-                            <div class="tdash-bar" tabindex="0" data-tip="{{ row.title }}: {{ row.average|fa_digits }}">
-                                <span class="tdash-bar-fill" style="height: {{ row.height }}%"><em>{{ row.average|fa_digits }}</em></span>
-                                <small>{{ row.title|truncatechars:12 }}</small>
-                            </div>
+                            <div class="tdc-bar is-{{ row.tone }}" tabindex="0" title="{{ row.title }}: {{ row.average|fa_digits }}"><span style="height: {{ row.height }}%"><em>{{ row.average|fa_digits }}</em></span></div>
                         {% endfor %}
                     </div>
+                    <div class="tdc-labels" aria-hidden="true">{% for row in dashboard.performance %}<small>{{ row.title|cut:"[آزمایشی] " }}</small>{% endfor %}</div>
                 </div>
                 <table class="sr-only"><caption>میانگین نمره آزمون‌های اخیر</caption><thead><tr><th>آزمون</th><th>میانگین (از ۲۰)</th></tr></thead><tbody>{% for row in dashboard.performance %}<tr><td>{{ row.title }}</td><td>{{ row.average|fa_digits }}</td></tr>{% endfor %}</tbody></table>
             {% else %}
@@ -132,20 +151,5 @@
             {% endif %}
         </section>
 
-        <section class="tdash-card">
-            <header class="tdash-card-head"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/></svg>پاسخ‌های نیازمند تصحیح</h2></header>
-            <div class="tdash-pending-head">
-                <div><strong>{{ dashboard.pending_total|fa_digits }}</strong><small>در {{ dashboard.pending_exam_count|fa_digits }} آزمون مختلف</small></div>
-                <i aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg></i>
-            </div>
-            {% if dashboard.pending_by_exam %}
-                <ul class="tdash-pending-list">
-                    {% for row in dashboard.pending_by_exam %}<li><span>{{ row.title }}</span><b>{{ row.count|fa_digits }} پاسخ</b></li>{% endfor %}
-                </ul>
-            {% else %}
-                <p class="tdash-empty">پاسخی در انتظار تصحیح نیست.</p>
-            {% endif %}
-            <a class="tdash-outline-btn" href="{% url 'core:teacher_reviews' %}">مشاهده و تصحیح پاسخ‌ها <span aria-hidden="true">←</span></a>
-        </section>
     </div>
 </div>

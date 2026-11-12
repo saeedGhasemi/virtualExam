@@ -277,7 +277,7 @@
     elements.forEach((el) => { if (el.isConnected) writeAttrs(el); else elements.delete(el); });
   }
 
-  // every text size (medium too, 15px) scales px font sizes, so this runs whenever a size is set
+  // every text size (medium too, 14.5px) scales px font sizes, so this runs whenever a size is set
   if (root.dataset.mqAccent || root.dataset.mqFont) {
     activate();
     setColor(root.dataset.mqAccent);

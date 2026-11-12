@@ -1,0 +1,101 @@
+{% load core_extras %}{% with r=results q=results.selected %}
+<div class="xh-split is-right is-wide">
+    <aside class="xh-side">
+        {% if q %}
+        <div class="xh-card">
+            <div class="xh-qnav">
+                <a class="xh-iconbtn{% if not r.prev_no %} is-disabled{% endif %}" href="?tab=results&view=items&q_no={{ r.prev_no }}" aria-label="سؤال قبلی">{% include 'exam_hub/_icon.html' with i='prev' %}</a>
+                <b>سؤال {{ q.index }} از {{ r.kpis.questions }}</b>
+                <a class="xh-iconbtn{% if not r.next_no %} is-disabled{% endif %}" href="?tab=results&view=items&q_no={{ r.next_no }}" aria-label="سؤال بعدی">{% include 'exam_hub/_icon.html' with i='next' %}</a>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:.9rem"><span class="xh-pill is-blue is-round">{{ q.type_label }}</span></div>
+            <p class="xh-qtext"{% if q.ltr %} dir="ltr"{% endif %}>{{ q.text }}</p>
+            <div class="xh-card-head" style="margin-bottom:.55rem"><h3>توزیع پاسخ‌ها</h3></div>
+            {% if q.options %}
+            <div class="xh-donut-wrap">
+                <ul class="xh-options" style="flex:1 1 13rem">
+                    {% for o in q.options %}<li class="{% if o.correct %}is-correct{% endif %}">{% if o.correct %}<span class="xh-ok">{% include 'exam_hub/_icon.html' with i='check' %}</span>{% else %}<span></span>{% endif %}<i>{{ o.letter_fa }}</i><span>{{ o.label|default:"گزینه" }}</span><em>{{ o.percent|floatformat:0 }}٪ ({{ o.count }} نفر)</em></li>{% endfor %}
+                </ul>
+                <div class="xh-donut is-grey is-md" style="--p:{{ q.correct_pct }}"><span><b>{{ q.correct_pct }}٪</b><small>درست</small></span></div>
+            </div>
+            {% elif q.stats.bars %}
+            <ul class="xh-options">{% for b in q.stats.bars %}<li class="{% if b.tone == 'correct' %}is-correct{% endif %}">{% if b.tone == 'correct' %}<span class="xh-ok">{% include 'exam_hub/_icon.html' with i='check' %}</span>{% else %}<span></span>{% endif %}<i>{{ forloop.counter }}</i><span>{{ b.label }}</span><em>{{ b.percent|floatformat:0 }}٪ ({{ b.count }} نفر)</em></li>{% endfor %}</ul>
+            {% else %}<p class="xh-muted">هنوز پاسخی برای این سؤال ثبت نشده است.</p>{% endif %}
+        </div>
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>شاخص‌های تحلیل سؤال</h3></div>
+            <div class="xh-cells">
+                <div>درصد صحیح<b>{{ q.correct_pct }}٪</b></div>
+                <div>شاخص دشواری (p)<b>{% if q.p is not None %}{{ q.p }}{% else %}—{% endif %}</b></div>
+                <div>شاخص تمایز<b class="{% if q.d is not None and q.d < 0 %}is-red{% endif %}">{% if q.d is not None %}{{ q.d }}{% if q.d < 0 %}{% include 'exam_hub/_icon.html' with i='alert' %}{% endif %}{% else %}—{% endif %}</b></div>
+                <div>بارم سؤال<b>{{ q.points }}</b></div>
+            </div>
+            {% for f in q.flags %}{% if f.key == 'negative' %}
+            <div class="xh-note is-red" style="margin-top:.9rem">{% include 'exam_hub/_icon.html' with i='alert' %}<span><b>تمایز منفی:</b> این سؤال پاسخ‌دهندگان قوی‌تر را بیش از سایرین به اشتباه انداخته است. بازبینی گزینه‌ها و کلید پیشنهاد می‌شود.</span></div>
+            {% endif %}{% endfor %}
+            <div class="xh-cols" style="margin-top:.9rem;gap:.6rem">
+                {% if exam.can.review %}<button type="button" class="xh-btn is-solid" data-xh-toggle="xh-item-note" aria-expanded="false">{% include 'exam_hub/_icon.html' with i='edit' %}یادداشت بازبینی</button>{% endif %}
+                <a class="xh-btn" href="?tab=results">{% include 'exam_hub/_icon.html' with i='users' %}مشاهده پاسخ‌های دانشجویان</a>
+            </div>
+            {% if exam.can.review %}
+            <form method="post" action="{{ urls.action }}" class="xh-form" id="xh-item-note" hidden style="margin-top:.8rem">
+                {% csrf_token %}<input type="hidden" name="action" value="review_note"><input type="hidden" name="key" value="q:{{ q.id }}"><input type="hidden" name="flag" value="1">
+                <input type="hidden" name="back" value="?tab=results&view=items&q_no={{ q.index }}">
+                <span class="xh-textbox"><textarea class="xh-textarea" name="note" maxlength="200" data-xh-counter aria-label="یادداشت بازبینی" placeholder="یادداشت بازبینی برای این سؤال"></textarea><span class="xh-count"><span data-xh-count>0</span> / 200</span></span>
+                <button class="xh-btn is-solid is-sm">{% include 'exam_hub/_icon.html' with i='save' %}ثبت یادداشت و افزودن به موارد بازبینی</button>
+            </form>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="xh-card"><div class="xh-empty">سؤالی برای تحلیل نیست.</div></div>
+        {% endif %}
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis">
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='listnum' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">تعداد سؤال</span><span class="xh-kpi-value">{{ r.kpis.questions }}</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='target2' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین درصد صحیح</span><span class="xh-kpi-value">{{ r.kpis.correct }}٪</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='chart' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین شاخص تمایز</span><span class="xh-kpi-value">{{ r.kpis.discrimination }}</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico is-red">{% include 'exam_hub/_icon.html' with i='alert' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">سؤال با تمایز منفی</span><span class="xh-kpi-value" style="color:var(--xh-red)">{{ r.kpis.negative }}</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='clock' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین نمره</span><span class="xh-kpi-value">{{ r.kpis.average }}<em>از {{ r.kpis.scale }}</em></span></div></div>
+        </div>
+        <div class="xh-card">
+            <form method="get" class="xh-filters">
+                <input type="hidden" name="tab" value="results"><input type="hidden" name="view" value="items">
+                <select class="xh-select" name="flag" onchange="this.form.requestSubmit()" aria-label="وضعیت">
+                    <option value="">همه وضعیت‌ها</option>
+                    <option value="negative"{% if r.filters.flag == 'negative' %} selected{% endif %}>تمایز منفی</option>
+                    <option value="hard"{% if r.filters.flag == 'hard' %} selected{% endif %}>دشوار</option>
+                    <option value="easy"{% if r.filters.flag == 'easy' %} selected{% endif %}>آسان</option>
+                    <option value="ok"{% if r.filters.flag == 'ok' %} selected{% endif %}>بدون پرچم</option>
+                </select>
+                <select class="xh-select" name="type" onchange="this.form.requestSubmit()" aria-label="نوع سؤال">
+                    <option value="">همه انواع سؤال</option>
+                    {% for t in r.types %}<option value="{{ t }}"{% if r.filters.type == t %} selected{% endif %}>{{ t }}</option>{% endfor %}
+                </select>
+                <label class="xh-search is-search">{% include 'exam_hub/_icon.html' with i='search' %}<input class="xh-input" type="search" name="q" value="{{ r.filters.q }}" placeholder="جستجو در شماره یا متن سؤال..." aria-label="جستجو"></label>
+            </form>
+            {% if r.rows %}
+            <table class="table">
+                <thead><tr><th>#</th><th>متن کوتاه سؤال</th><th>نوع</th><th>درصد صحیح</th><th>شاخص دشواری (p)</th><th>شاخص تمایز</th><th>پرچم‌ها</th><th>عملیات</th></tr></thead>
+                <tbody>
+                {% for i in r.rows %}
+                <tr class="{% if q and q.index == i.index %}xh-row-active{% endif %}">
+                    <td>{{ i.index }}</td>
+                    <td>{{ i.short }}</td>
+                    <td><span class="xh-pill is-blue">{{ i.type_label }}</span></td>
+                    <td><span class="xh-meter"><b>{{ i.correct_pct }}%</b><span class="xh-bar{% if i.correct_pct >= 70 %} is-green{% elif i.correct_pct < 40 %} is-red{% endif %}"><i style="width:{{ i.correct_pct }}%"></i></span></span></td>
+                    <td>{% if i.p is not None %}{{ i.p }}{% else %}—{% endif %}</td>
+                    <td>{% if i.d is not None %}{% if i.d < 0 %}<span class="xh-neg">{{ i.d }}{% include 'exam_hub/_icon.html' with i='alert' %}</span>{% else %}{{ i.d }}{% endif %}{% else %}—{% endif %}</td>
+                    <td><span class="xh-flags">{% for f in i.flags %}<span class="xh-pill is-{% if f.key == 'negative' %}red{% elif f.key == 'hard' %}amber{% else %}blue{% endif %}">{% if f.key == 'negative' %}{% include 'exam_hub/_icon.html' with i='alert' %}{% else %}{% include 'exam_hub/_icon.html' with i='info' %}{% endif %}{{ f.label }}</span>{% empty %}—{% endfor %}</span></td>
+                    <td><a class="xh-btn {% if q and q.index == i.index %}is-solid{% endif %} is-sm" data-rt-text href="?tab=results&view=items&q_no={{ i.index }}{% if r.filters.flag %}&flag={{ r.filters.flag }}{% endif %}{% if r.page.number > 1 %}&page={{ r.page.number }}{% endif %}">{% include 'exam_hub/_icon.html' with i='chart' %}تحلیل</a></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% mq_pager r.page %}
+            {% else %}<div class="xh-empty">سؤالی با این فیلترها نیست.</div>{% endif %}
+        </div>
+    </div>
+</div>
+{% endwith %}

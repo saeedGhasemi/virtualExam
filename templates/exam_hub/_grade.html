@@ -1,0 +1,117 @@
+{% load core_extras %}{% with d=grade q=grade.grading %}
+<form method="post" action="{{ d.post_url }}" data-xh-grade data-max="{{ d.grading_max_points }}" data-rubric-total="{{ d.grading_rubric_total }}" data-integer="{% if d.grading_rules.integer_scores %}1{% endif %}">
+    {% csrf_token %}<input type="hidden" name="hub" value="{{ request.get_full_path }}">
+    <div class="xh-split is-half">
+        <div class="xh-main">
+            <div class="xh-card">
+                <div class="xh-gbar">
+                    <span class="xh-person">{% include 'exam_hub/_avatar.html' with p=d.person lg=1 %}<span><b style="font-size:1.05rem">{{ d.person.name|default:"دانشجو" }}</b>{% if d.person.faculty %}<small>{{ d.person.faculty }}</small>{% endif %}</span></span>
+                    {% if d.person.code %}<span class="xh-sep"></span><div>شماره دانشجویی<b data-latin-digits>{{ d.person.code }}</b></div>{% endif %}
+                    <span class="xh-sep"></span>
+                    <div>پیشرفت تصحیح<b>{{ d.graded }} از {{ d.count }}{% if d.graded == d.count %}{% include 'exam_hub/_icon.html' with i='checkcircle' %}{% endif %}</b></div>
+                    <span class="xh-sep"></span>
+                    <div>سؤال فعلی<b>سؤال {{ d.position }} از {{ d.count }}</b></div>
+                    <span class="xh-gnav">
+                        <a class="xh-iconbtn{% if not d.prev_id %} is-disabled{% endif %}" href="?tab=grading&answer={{ d.prev_id }}" aria-label="پاسخ قبلی">{% include 'exam_hub/_icon.html' with i='arrowr' %}</a>
+                        <a class="xh-iconbtn{% if not d.next_id %} is-disabled{% endif %}" href="?tab=grading&answer={{ d.next_id }}" aria-label="پاسخ بعدی">{% include 'exam_hub/_icon.html' with i='arrowl' %}</a>
+                    </span>
+                </div>
+            </div>
+
+            <div class="xh-card">
+                <div class="xh-card-head">
+                    <span class="xh-qtitle">سؤال {{ d.question_no }} <small>({{ d.kind_label }})</small></span>
+                    <span class="xh-pill" style="padding:.35rem .75rem;font-size:.8rem">حداکثر نمره: {{ d.grading_max_points }}</span>
+                </div>
+                {% if d.grading_essay.text_html %}<div class="xh-prose" style="font-weight:600">{{ d.grading_essay.text_html|safe }}</div>{% else %}<p class="xh-prose" style="font-weight:600">{{ q.question_text }}</p>{% endif %}
+                {% if d.grading_essay.student_instructions %}<p class="xh-prose xh-muted" style="margin-top:.4rem">{{ d.grading_essay.student_instructions|linebreaksbr }}</p>{% endif %}
+                {% if d.grading_media.image or d.grading_media.audio or d.grading_media.video %}
+                <div class="xh-player" style="margin-top:.7rem">
+                    {% if d.grading_media.image %}<img src="{{ d.grading_media.image }}" alt="{{ d.grading_media.image_alt }}">{% endif %}
+                    {% if d.grading_media.audio %}<audio src="{{ d.grading_media.audio }}" controls preload="metadata"></audio>{% endif %}
+                    {% if d.grading_media.video %}<video src="{{ d.grading_media.video }}" controls preload="metadata"></video>{% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="xh-card">
+                <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='user' %}پاسخ دانشجو</h3></div>
+                {% for file in d.grading_files %}
+                <div class="xh-player" style="margin-bottom:.6rem">
+                    {% if file.kind == 'audio' %}<audio src="{{ file.url }}" controls preload="metadata"></audio>
+                    {% elif file.kind == 'video' %}<video src="{{ file.url }}" controls preload="metadata"></video>
+                    {% elif file.kind == 'image' %}<img src="{{ file.url }}" alt="{{ file.name }}">{% endif %}
+                    <a class="xh-link" href="{{ file.url }}" target="_blank" rel="noopener" data-live-skip>{% include 'exam_hub/_icon.html' with i='download' %}{{ file.name }}</a>
+                </div>
+                {% endfor %}
+                {% if d.grading_answer_html %}<div class="xh-answer is-rich">{{ d.grading_answer_html|safe }}</div>
+                {% elif d.grading_answer_text %}<div class="xh-answer">{{ d.grading_answer_text }}</div>
+                {% elif not d.grading_files %}<div class="xh-empty">دانشجو پاسخی ثبت نکرده است.</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="xh-main">
+            <div class="xh-card">
+                {% if d.grading_rubric %}
+                <div class="xh-card-head"><h3>روبریک (معیارهای ارزیابی) <span class="xh-help" title="نمره‌ی هر معیار را بدهید؛ جمع آن به بارم سؤال تبدیل می‌شود.">i</span></h3></div>
+                <table class="xh-rubric rt-off">
+                    <thead><tr><th>معیار</th><th>حداکثر نمره</th><th>نمره اعطا شده</th><th>توضیح کوتاه</th></tr></thead>
+                    <tbody>
+                    {% for item in d.grading_rubric %}
+                    <tr>
+                        <td><span class="xh-crit">{% cycle 'target2' 'share' 'doc' 'checkcircle' 'star' as crit_icon silent %}{% include 'exam_hub/_icon.html' with i=crit_icon %}{{ item.criterion }}</span></td>
+                        <td>{{ item.points }}</td>
+                        <td><input class="xh-score-in" type="number" name="score_{{ item.index }}" min="0" max="{{ item.points }}" step="{{ d.grading_score_step|default:'0.25' }}" required value="{{ item.previous }}" aria-label="نمره {{ item.criterion }}" data-xh-rubric="{{ item.points }}"{% if d.grading_locked %} disabled{% endif %}></td>
+                        <td><small>{% if item.description %}{{ item.description }}{% else %}ضعیف: {{ item.weak|default:'-' }} · متوسط: {{ item.average|default:'-' }} · عالی: {{ item.excellent|default:'-' }}{% endif %}</small></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <div class="xh-total"><span>محاسبه: <span data-xh-calc>—</span></span><strong>نمره نهایی: <span data-xh-final>—</span> از {{ d.grading_max_points }}</strong></div>
+                {% else %}
+                <div class="xh-card-head"><h3>نمره پاسخ</h3></div>
+                <div class="xh-total" style="margin-top:0">
+                    <label class="xh-field" style="flex-direction:row">نمره (از {{ d.grading_max_points }})
+                        <input class="xh-score-in is-wide" type="number" name="score" min="0" max="{{ d.grading_max_points }}" step="{{ d.grading_score_step|default:'0.25' }}" required value="{{ d.grading_score_value }}"{% if d.grading_locked %} disabled{% endif %}>
+                    </label>
+                    <strong>نمره نهایی: <span data-xh-final>{{ d.grading_score_value|default:"—" }}</span> از {{ d.grading_max_points }}</strong>
+                </div>
+                {% endif %}
+                {% if d.grading_rules.integer_scores %}<p class="xh-muted" style="margin:.6rem 0 0;font-size:.76rem">طبق «دقت نمره‌دهی» نمره به عدد صحیح گرد می‌شود.</p>{% endif %}
+                {% if d.grading_double %}<div class="xh-note" style="margin-top:.7rem">{% include 'exam_hub/_icon.html' with i='info' %}<span>{% if q.graded_at and d.grading_first %}نمره‌ی نهایی میانگین دو مصحح است.{% elif d.grading_first_mine %}شما نمره‌ی اول را داده‌اید؛ نمره‌ی دوم را مصحح دیگری مستقل ثبت می‌کند.{% elif d.grading_first %}شما نمره‌دهنده‌ی دوم هستید؛ نمره‌ی نهایی میانگین دو نمره خواهد بود.{% else %}این سؤال دو مصحح دارد؛ نمره‌ی نهایی میانگین دو نمره است.{% endif %}</span></div>{% endif %}
+                {% if d.grading_locked %}<div class="xh-note is-amber" style="margin-top:.7rem">{% include 'exam_hub/_icon.html' with i='lock' %}نتایج منتشر شده و طبق تنظیمات شما نمره‌ی این پاسخ قفل است.</div>{% endif %}
+            </div>
+
+            {% if d.grading_rules.feedback is not False %}
+            <div class="xh-card">
+                <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='message' %}بازخورد به دانشجو</h3></div>
+                <span class="xh-textbox"><textarea class="xh-textarea" name="feedback" maxlength="{{ d.feedback_max }}" data-xh-counter aria-label="بازخورد به دانشجو" placeholder="بازخورد برای دانشجو (اختیاری)"{% if d.grading_locked %} disabled{% endif %}>{{ q.grader_feedback|default:'' }}</textarea><span class="xh-count"><span data-xh-count>0</span> / {{ d.feedback_max }}</span></span>
+            </div>
+            {% endif %}
+
+            <div class="xh-card">
+                <div class="xh-card-head" style="margin-bottom:.6rem"><h3>{% include 'exam_hub/_icon.html' with i='book' %}پاسخ نمونه</h3></div>
+                <details class="xh-details">
+                    <summary>مشاهده پاسخ استاندارد و نکات کلیدی سؤال {% include 'exam_hub/_icon.html' with i='chevron' %}</summary>
+                    {% if d.grading_essay.sample_answer_text %}<p class="xh-prose" style="white-space:pre-wrap">{{ d.grading_essay.sample_answer_text }}</p>{% endif %}
+                    {% if d.grading_essay.sample_answer_file %}<p><a class="xh-link" href="{{ d.grading_essay.sample_answer_file.url }}" target="_blank" rel="noopener" data-live-skip>{{ d.grading_essay.sample_answer_file.name }}</a></p>{% endif %}
+                    {% if d.grading_accepted_answers %}<ul class="xh-evidence">{% for a in d.grading_accepted_answers %}<li>{{ a.answer }}</li>{% endfor %}</ul>{% endif %}
+                    {% if d.grading_transcript %}<p class="xh-prose"><b>متن فایل سؤال:</b> {{ d.grading_transcript }}</p>{% endif %}
+                    {% if q.exam_settings_enforced and q.exam_correction_instructions %}<p class="xh-prose"><b>دستورالعمل تصحیح:</b> {{ q.exam_correction_instructions|linebreaksbr }}</p>{% endif %}
+                    {% if not d.grading_essay.sample_answer_text and not d.grading_essay.sample_answer_file and not d.grading_accepted_answers and not d.grading_transcript %}<p class="xh-muted" style="margin:0">برای این سؤال پاسخ نمونه‌ای ثبت نشده است.</p>{% endif %}
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <div class="xh-footbar">
+        <div class="xh-note">{% include 'exam_hub/_icon.html' with i='info' %}نکته: نمره و بازخورد فقط ذخیره می‌شود و به‌صورت خودکار منتشر نخواهد شد.</div>
+        {% if not d.grading_locked %}
+        <div class="xh-actions">
+            <button class="xh-btn is-lg" type="submit">{% include 'exam_hub/_icon.html' with i='save' %}ذخیره</button>
+            <button class="xh-btn is-solid xh-next" type="submit" name="next" value="1"><span>بعدی<small>{% if d.next_id %}سؤال {{ d.position|add:1 }} از {{ d.count }}{% else %}پاسخ بعدی در صف{% endif %}</small></span>{% include 'exam_hub/_icon.html' with i='arrowl' %}</button>
+        </div>
+        {% endif %}
+    </div>
+</form>
+{% endwith %}

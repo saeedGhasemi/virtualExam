@@ -90,7 +90,7 @@ def _teacher_overview(teacher_id) -> dict:
         'tiles': [
             _tile('دانشجویان', students, 'students', 'blue', f"{_n(totals.get('students_active'))} حساب فعال", students_url),
             _tile('کلاس‌ها', len(groups), 'groups', 'violet', f'{active_groups} کلاس فعال', reverse('core:teacher_courses')),
-            _tile('درس‌ها', len(courses), 'courses', 'orange', 'درس‌های کلاس‌های شما'),
+            _tile('درس‌ها', len(courses), 'courses', 'orange', 'درس‌های کلاس‌های شما', reverse('core:teacher_courses')),
         ],
         'breakdown_title': 'دانشجویان به تفکیک کلاس',
         'rows': _with_share(rows[:BREAKDOWN_LIMIT], 'total'),

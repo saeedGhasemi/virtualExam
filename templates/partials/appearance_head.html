@@ -29,6 +29,6 @@ html.mq-loading body{opacity:0;animation:mq-reveal 0s 2.5s forwards}
 </script>
 {# An exam in progress (apps/core/exam_lock.py): a page brought back from the back/forward cache asks the server again, which returns the student to the exam. #}
 <script>window.addEventListener('pageshow',function(e){if(e.persisted&&/(?:^|;\s*)mq_exam_lock=1(?:;|$)/.test(document.cookie)){window.mqAllowLeave&&window.mqAllowLeave();location.reload();}});</script>
-<link rel="stylesheet" href="{% static 'css/appearance.css' %}?v=20261111fs">
-<script src="{% static 'js/appearance.js' %}?v=20261111fs"></script>
+<link rel="stylesheet" href="{% static 'css/appearance.css' %}?v=20261111fs2">
+<script src="{% static 'js/appearance.js' %}?v=20261111fs2"></script>
 {% if request.user.is_authenticated %}<script src="{% static 'js/my-appearance.js' %}?v=20261111c" defer></script>{% endif %}{# the account's own «تنظیمات ظاهری» card (partials/my_appearance.html) #}

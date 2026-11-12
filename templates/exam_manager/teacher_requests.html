@@ -40,12 +40,6 @@
         <div class="tset-card tchg-empty">{% if requests_status == 'pending' %}درخواستی در انتظار بررسی نیست.{% else %}هنوز درخواستی بررسی نشده است.{% endif %}</div>
     {% endfor %}
 
-    {% if requests_page.page.paginator.num_pages > 1 %}
-        <nav class="tchg-pages" aria-label="صفحه‌بندی">
-            {% if requests_page.page.has_previous %}<a href="?{% if requests_status == 'reviewed' %}status=reviewed&{% endif %}page={{ requests_page.page.previous_page_number }}">قبلی</a>{% endif %}
-            <span>صفحه {{ requests_page.page.number|fa_digits }} از {{ requests_page.page.paginator.num_pages|fa_digits }}</span>
-            {% if requests_page.page.has_next %}<a href="?{% if requests_status == 'reviewed' %}status=reviewed&{% endif %}page={{ requests_page.page.next_page_number }}">بعدی</a>{% endif %}
-        </nav>
-    {% endif %}
+    {% mq_pager requests_page.page %}
 </section>
 {% endblock %}

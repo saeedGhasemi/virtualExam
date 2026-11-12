@@ -1,0 +1,87 @@
+{% extends 'base_standalone.html' %}
+{% load core_extras static %}
+
+{% block title %}{{ title }} | {{ tab_label }} | متاکوییز{% endblock %}
+
+{% block content %}
+{% include 'partials/super_admin_chrome.html' %}
+<link rel="stylesheet" href="{% static 'css/exam-hub.css' %}?v=xh-20261112c">
+
+<section class="super-admin-page super-admin-workspace" dir="rtl" data-fixed-scroll-page>
+<div class="xh" id="xh-page" data-live-region data-xh-root>
+    {# Header: title + state pill + breadcrumb on the right, the view's buttons on the left, then the tab strip on its #}
+    {# own full-width row — identical on every view (exam_hub.HEAD).                                                  #}
+    <header class="xh-head is-{{ head.tabs }}">
+        <div class="xh-titles">
+            <div class="xh-title-row">
+                {% if view == 'settings' %}
+                    <h1 class="xh-h1-settings">{% include 'exam_hub/_icon.html' with i='gear' %}تنظیمات آزمون</h1>
+                    <span class="xh-h1-sub">{{ title }}</span>
+                {% else %}
+                    <h1>{{ title }}</h1>
+                {% endif %}
+                <span class="xh-state is-{{ exam.state }}">{% if exam.state == 'running' %}<i class="xh-dot"></i>{% elif exam.state == 'finished' %}{% include 'exam_hub/_icon.html' with i='checkcircle' %}{% elif exam.state == 'scheduled' %}{% include 'exam_hub/_icon.html' with i='calendar' %}{% elif exam.state == 'draft' %}{% include 'exam_hub/_icon.html' with i='edit' %}{% elif exam.state == 'pending_approval' %}{% include 'exam_hub/_icon.html' with i='clock' %}{% endif %}{{ exam.state_label }}</span>
+            </div>
+            {% include 'exam_hub/_crumbs.html' %}
+        </div>
+
+        {% if view == 'overview' or view == 'live' or view == 'results' or view == 'items' or view == 'review' or view == 'person' %}
+        <div class="xh-headside">
+            <div class="xh-actions">
+            {% if view == 'overview' %}
+                <a class="xh-btn" href="{{ urls.preview }}" data-live-skip>{% include 'exam_hub/_icon.html' with i='eye' %}پیش‌نمایش آزمون</a>
+                <a class="xh-btn is-solid" href="?tab=settings">{% include 'exam_hub/_icon.html' with i='edit' %}ویرایش آزمون</a>
+            {% elif view == 'live' %}
+                <button type="button" class="xh-btn" data-xh-full>{% include 'exam_hub/_icon.html' with i='expand' %}نمایش تمام صفحه</button>
+                <a class="xh-btn is-solid" href="{{ request.get_full_path }}">{% include 'exam_hub/_icon.html' with i='refresh' %}به‌روزرسانی لحظه‌ای</a>
+            {% elif view == 'items' %}
+                <a class="xh-btn is-solid" href="?tab=results&view=items">{% include 'exam_hub/_icon.html' with i='chart' %}تحلیل سؤال</a>
+                <button type="button" class="xh-btn" data-xh-print>{% include 'exam_hub/_icon.html' with i='pdf' %}گزارش PDF</button>
+                <a class="xh-btn" href="?tab=results&view=items&export=xlsx" data-live-skip>{% include 'exam_hub/_icon.html' with i='excel' %}خروجی Excel</a>
+            {% elif view == 'results' %}
+                <a class="xh-btn" href="?tab=results&export=xlsx" data-live-skip>{% include 'exam_hub/_icon.html' with i='excel' %}خروجی Excel</a>
+                <button type="button" class="xh-btn" data-xh-print>{% include 'exam_hub/_icon.html' with i='pdf' %}خروجی PDF</button>
+                <a class="xh-btn" href="?tab=review">{% include 'exam_hub/_icon.html' with i='edit' %}بررسی نمرات</a>
+                {% if exam.can.publish %}
+                <form method="post" action="{{ urls.action }}" class="xh-inline-form">
+                    {% csrf_token %}<input type="hidden" name="back" value="?tab=results">
+                    {% if results.published %}
+                        <input type="hidden" name="action" value="unpublish_results">
+                        <button class="xh-btn is-solid is-danger" data-confirm="انتشار نتایج لغو شود؟ دانشجویان دیگر نمره را نمی‌بینند." data-confirm-ok="لغو انتشار">{% include 'exam_hub/_icon.html' with i='x' %}لغو انتشار نتایج</button>
+                    {% else %}
+                        <input type="hidden" name="action" value="publish_results">
+                        <button class="xh-btn is-solid" data-confirm="نتایج آزمون منتشر شود؟ برای دانشجویانی که تصحیح‌شان تمام شده اعلان فرستاده می‌شود." data-confirm-ok="انتشار">{% include 'exam_hub/_icon.html' with i='send' %}انتشار نتایج</button>
+                    {% endif %}
+                </form>
+                {% endif %}
+            {% elif view == 'person' %}
+                <a class="xh-btn" href="?tab=live">{% include 'exam_hub/_icon.html' with i='back' %}بازگشت به پایش زنده</a>
+            {% elif view == 'review' %}
+                <a class="xh-btn is-solid" href="?tab=results">{% include 'exam_hub/_icon.html' with i='eye' %}بازبینی نمرات</a>
+                <button type="button" class="xh-btn" data-xh-print>{% include 'exam_hub/_icon.html' with i='pdf' %}گزارش PDF</button>
+                <a class="xh-btn" href="?tab=review&export=xlsx" data-live-skip>{% include 'exam_hub/_icon.html' with i='excel' %}خروجی Excel</a>
+            {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% include 'exam_hub/_tabs.html' %}
+    </header>
+
+    {% if view == 'overview' %}{% include 'exam_hub/_overview.html' %}
+    {% elif view == 'live' %}{% include 'exam_hub/_live.html' %}
+    {% elif view == 'person' %}{% include 'exam_hub/_person.html' %}
+    {% elif view == 'grading' %}{% include 'exam_hub/_grading.html' %}
+    {% elif view == 'grade' %}{% include 'exam_hub/_grade.html' %}
+    {% elif view == 'results' %}{% include 'exam_hub/_results.html' %}
+    {% elif view == 'items' %}{% include 'exam_hub/_items.html' %}
+    {% elif view == 'card' %}{% include 'exam_hub/_card.html' %}
+    {% elif view == 'events' %}{% include 'exam_hub/_events.html' %}
+    {% elif view == 'review' %}{% include 'exam_hub/_review.html' %}
+    {% elif view == 'settings' %}{% include 'exam_hub/_settings.html' %}
+    {% endif %}
+</div>
+</section>
+<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108l"></script>
+<script src="{% static 'js/exam-hub.js' %}?v=xh-20261112c" defer></script>
+{% endblock %}

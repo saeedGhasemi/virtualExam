@@ -1,0 +1,11 @@
+<div class="xh-card">
+    <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='calendar' %}اطلاعات آزمون</h3></div>
+    <dl class="xh-kv">
+        <div><dt>تاریخ برگزاری</dt><dd>{{ start_label|default:"تعیین نشده" }}</dd></div>
+        <div><dt>ساعت شروع</dt><dd>{{ start_time|default:"—" }}</dd></div>
+        <div><dt>مدت زمان</dt><dd>{{ exam.duration_minutes|default:"—" }} دقیقه</dd></div>
+        <div><dt>تعداد سؤالات</dt><dd>{{ question_total|default:"—" }}</dd></div>
+        <div><dt>نمره کل</dt><dd>{{ exam.total_score|default:"20"|floatformat:"-2" }}</dd></div>
+        <div><dt>نوع آزمون</dt><dd>{{ exam.exam_type|default:"آزمون عادی" }}</dd></div>
+    </dl>
+</div>

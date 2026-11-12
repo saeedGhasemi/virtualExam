@@ -36,7 +36,7 @@ from .views import (
     log_activity,
 )
 
-PAGE_SIZE = 20
+PAGE_SIZE = 10
 VIEWS = ('all', 'banks', 'drafts', 'shared', 'archive', 'tags')
 TYPE_ALIASES = {'single': ('single', 'multiple_choice'), 'essay': ('essay', 'descriptive')}
 STATUS_SQL = (

@@ -1,0 +1,1 @@
+<span class="xh-avatar{% if lg %} is-lg{% endif %}">{% if p.avatar_url %}<img src="{{ p.avatar_url }}" alt="" loading="lazy">{% else %}{{ p.name|default:"د"|slice:":1" }}{% endif %}</span>

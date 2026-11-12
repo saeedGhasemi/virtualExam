@@ -1,0 +1,108 @@
+{% load core_extras static %}{% comment %}
+Shared exam list (teacher «آزمون‌های من», manager/admin «آزمون‌ها»), see apps/core/exam_list.py.
+Include with: xl (exam_list.listing()), xl_title, xl_subtitle, xl_new_url, xl_list_url, optional xl_region (live-region id),
+xl_teacher_col (show the teacher under the course), and a block of extra header links via xl_head_links (list of {url,label}).
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'css/exam-list.css' %}?v=xl-20261112b">
+{% include 'partials/exam_list/sprite.html' %}
+<div class="xl" data-xl dir="rtl">
+    <header class="xl-head">
+        <div class="xl-head-text">
+            <h1>{{ xl_title }}</h1>
+            {% if xl_subtitle %}<p>{{ xl_subtitle }}</p>{% endif %}
+        </div>
+        <div class="xl-head-actions">
+            {% for link in xl_head_links %}<a class="xl-head-link" href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
+            {% if xl_new_url %}<a class="xl-new" href="{{ xl_new_url }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>آزمون جدید</a>{% endif %}
+        </div>
+    </header>
+
+    <div id="{{ xl_region|default:'exam-list' }}" class="xl-region" data-live-region>
+        <nav class="xl-tabs" aria-label="وضعیت آزمون" data-balance-rows>
+            {% for tab in xl.tabs %}
+                <a class="xl-tab{% if tab.active %} is-active{% endif %}" href="{% query_url status=tab.param page='' %}"{% if tab.active %} aria-current="page"{% endif %}>
+                    <span>{{ tab.label }}</span><b class="xl-count is-{{ tab.tone|default:'all' }}">{{ tab.count|fa_digits }}</b>
+                </a>
+            {% endfor %}
+        </nav>
+
+        <form class="xl-filters" method="get" action="{{ xl_list_url }}" role="search">
+            {% if xl.status != 'all' %}<input type="hidden" name="status" value="{{ xl.status }}">{% endif %}
+            <input type="hidden" name="view" value="{{ xl.view }}" data-xl-view-input>
+            <label class="xl-search"><svg aria-hidden="true"><use href="#xl-i-search"/></svg><span class="sr-only">جستجو</span><input type="search" name="q" value="{{ xl.query }}" maxlength="100" placeholder="جستجو در عنوان یا کد آزمون..."></label>
+            <label class="xl-select"><span>درس:</span><select name="course" onchange="this.form.requestSubmit()"><option value="">همه درس‌ها</option>{% for item in xl.courses %}<option value="{{ item.value }}"{% if item.value == xl.course %} selected{% endif %}>{{ item.label|fa_digits }}</option>{% endfor %}</select></label>
+            <label class="xl-select"><span>گروه:</span><select name="group" onchange="this.form.requestSubmit()"><option value="">همه گروه‌ها</option>{% for item in xl.groups %}<option value="{{ item.value }}"{% if item.value == xl.group %} selected{% endif %}>{{ item.label|fa_digits }}</option>{% endfor %}</select></label>
+            {% if xl.teachers %}<label class="xl-select"><span>استاد:</span><select name="teacher" onchange="this.form.requestSubmit()"><option value="">همه استادان</option>{% for item in xl.teachers %}<option value="{{ item }}"{% if item == xl.teacher %} selected{% endif %}>{{ item|fa_digits }}</option>{% endfor %}</select></label>{% endif %}
+            <label class="xl-select"><svg aria-hidden="true"><use href="#xl-i-calendar"/></svg><span>بازه تاریخ:</span><select name="date" onchange="this.form.requestSubmit()">{% for key, label in xl.date_ranges.items %}<option value="{{ key }}"{% if key == xl.date %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <label class="xl-select"><span>مرتب‌سازی:</span><select name="sort" onchange="this.form.requestSubmit()">{% for key, label in xl.sorts.items %}<option value="{{ key }}"{% if key == xl.sort %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <div class="xl-switch" role="group" aria-label="نوع نمایش">
+                <button type="button" data-xl-view="table" class="{% if xl.view == 'table' %}is-active{% endif %}" aria-pressed="{% if xl.view == 'table' %}true{% else %}false{% endif %}" title="نمایش جدولی" aria-label="نمایش جدولی"><svg aria-hidden="true"><use href="#xl-i-table"/></svg></button>
+                <button type="button" data-xl-view="cards" class="{% if xl.view == 'cards' %}is-active{% endif %}" aria-pressed="{% if xl.view == 'cards' %}true{% else %}false{% endif %}" title="نمایش کارتی" aria-label="نمایش کارتی"><svg aria-hidden="true"><use href="#xl-i-cards"/></svg></button>
+            </div>
+            <noscript><button type="submit">جستجو</button></noscript>
+        </form>
+
+        <section class="xl-body" data-xl-body data-view="{{ xl.view }}">
+            {% if xl.rows %}
+                <div class="xl-table-wrap">
+                    <table class="xl-table rt-off">
+                        <thead><tr><th class="is-start">عنوان آزمون</th><th class="is-start">درس و گروه</th><th class="is-start">زمان برگزاری</th><th>سؤالات / مدت</th><th>شرکت‌کنندگان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                        <tbody>
+                            {% for exam in xl.rows %}
+                                <tr class="is-{{ exam.state }}">
+                                    <td class="is-start">
+                                        <strong class="xl-title">{{ exam.title|fa_digits }}</strong>
+                                        {% include 'partials/exam_list/code.html' %}
+                                    </td>
+                                    <td class="is-start">
+                                        <span class="xl-line">{{ exam.course|fa_digits }}</span>
+                                        <small class="xl-sub">{% if exam.groups_label %}{{ exam.groups_label|fa_digits }}{% elif exam.assigned %}دانشجویان منتخب{% else %}بدون تخصیص{% endif %}{% if xl_teacher_col and exam.teacher and exam.teacher != '-' %} · {{ exam.teacher|fa_digits }}{% endif %}</small>
+                                    </td>
+                                    <td class="is-start">
+                                        {% if exam.date_label %}<span class="xl-line">{{ exam.date_label }}</span><small class="xl-sub">ساعت {{ exam.time_label|fa_digits }}</small>{% else %}<span class="xl-muted">تعیین نشده</span>{% endif %}
+                                    </td>
+                                    <td class="xl-nw">{{ exam.question_count|fa_digits }} سؤال · {% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}<span class="xl-muted">بدون مدت</span>{% endif %}</td>
+                                    <td class="xl-nw">{% if exam.state == 'draft' or exam.state == 'pending_approval' %}<span class="xl-muted">—</span>{% elif exam.assigned %}{{ exam.submitted|fa_digits }} از {{ exam.assigned|fa_digits }}{% else %}{{ exam.submitted|fa_digits }}{% endif %}</td>
+                                    <td>{% include 'partials/exam_list/pill.html' %}</td>
+                                    <td class="xl-actions-cell">{% include 'partials/exam_list/actions.html' %}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="xl-cards" data-pager="off">
+                    {% for exam in xl.rows %}
+                        <article class="xl-card is-{{ exam.state }}">
+                            <header class="xl-card-head">
+                                <h3 class="xl-title">{{ exam.title|fa_digits }}</h3>
+                                {% include 'partials/exam_list/pill.html' %}
+                            </header>
+                            <p class="xl-card-meta"><span>{{ exam.course|fa_digits }}</span><i aria-hidden="true">•</i><span>{% if exam.groups_label %}{{ exam.groups_label|fa_digits }}{% elif exam.assigned %}دانشجویان منتخب{% else %}بدون تخصیص{% endif %}</span>{% if xl_teacher_col and exam.teacher and exam.teacher != '-' %}<i aria-hidden="true">•</i><span>{{ exam.teacher|fa_digits }}</span>{% endif %}</p>
+                            {% include 'partials/exam_list/code.html' %}
+                            <ul class="xl-facts">
+                                <li class="is-wide"><svg aria-hidden="true"><use href="#xl-i-calendar"/></svg>{% if exam.date_label %}{{ exam.date_label }}{% else %}<span class="xl-muted">زمان تعیین نشده</span>{% endif %}</li>
+                                <li><svg aria-hidden="true"><use href="#xl-i-clock"/></svg>{% if exam.time_label %}{{ exam.time_label|fa_digits }}{% else %}<span class="xl-muted">—</span>{% endif %}</li>
+                                <li><svg aria-hidden="true"><use href="#xl-i-question"/></svg>{{ exam.question_count|fa_digits }} سؤال</li>
+                                <li><svg aria-hidden="true"><use href="#xl-i-timer"/></svg>{% if exam.duration_minutes %}{{ exam.duration_minutes|fa_digits }} دقیقه{% else %}—{% endif %}</li>
+                                <li><svg aria-hidden="true"><use href="#xl-i-users"/></svg>{% if exam.assigned %}{{ exam.assigned|fa_digits }} نفر{% else %}—{% endif %}</li>
+                            </ul>
+                            {% if exam.progress is not None %}
+                                <div class="xl-progress" title="{{ exam.started|fa_digits }} نفر از {{ exam.assigned|fa_digits }} نفر وارد آزمون شده‌اند">
+                                    <span class="xl-progress-bar"><i style="width:{{ exam.progress }}%"></i></span>
+                                    <b>{{ exam.started|fa_digits }} از {{ exam.assigned|fa_digits }}</b>
+                                </div>
+                            {% endif %}
+                            <footer class="xl-card-foot">{% include 'partials/exam_list/actions.html' %}</footer>
+                        </article>
+                    {% endfor %}
+                </div>
+                <div class="xl-foot">{% mq_pager xl.page %}</div>
+            {% elif xl.filtered %}
+                <p class="xl-empty">آزمونی با این جستجو یا وضعیت پیدا نشد. <a href="{{ xl_list_url }}">نمایش همه آزمون‌ها</a></p>
+            {% else %}
+                <p class="xl-empty">هنوز آزمونی ساخته نشده است.{% if xl_new_url %} <a href="{{ xl_new_url }}">ایجاد اولین آزمون</a>{% endif %}</p>
+            {% endif %}
+        </section>
+    </div>
+</div>
+<script src="{% static 'js/exam-list.js' %}?v=xl-20261112b"></script>

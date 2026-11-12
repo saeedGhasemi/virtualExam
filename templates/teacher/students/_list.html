@@ -95,7 +95,6 @@ table card with a table/card switch and «مشاهده کامل اطلاعات �
 
     <form class="users-filter-bar" method="get" action="{% url 'core:teacher_students' %}">
         <input type="hidden" name="tab" value="{{ sl.filters.tab }}">
-        <input type="hidden" name="per_page" value="{{ sl.filters.per_page }}">
         <div class="users-search-control">
             <input type="search" name="q" value="{{ sl.filters.q }}" maxlength="100" placeholder="جست‌وجو براساس نام، شماره دانشجویی یا ایمیل..." aria-label="جستجو">
             <button type="submit" aria-label="جستجو">
@@ -138,7 +137,7 @@ table card with a table/card switch and «مشاهده کامل اطلاعات �
                     </details>
                 {% endif %}
                 {% include "partials/rt_view_switch.html" with key="teacher-students" %}
-                <a class="users-primary-action users-dir-link" href="{% url 'core:teacher_students_directory' %}{% query_url page='' per_page='' %}">
+                <a class="users-primary-action users-dir-link" href="{% url 'core:teacher_students_directory' %}{% query_url page='' %}">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
                     مشاهده کامل اطلاعات و چاپ
                 </a>
@@ -217,23 +216,7 @@ table card with a table/card switch and «مشاهده کامل اطلاعات �
             </table>
         </div>
         <footer class="users-table-footer">
-            <form method="get" action="{% url 'core:teacher_students' %}" class="users-page-size">
-                {% for key, value in request.GET.items %}{% if key != 'per_page' and key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
-                <select name="per_page" aria-label="تعداد نمایش دانشجویان" onchange="this.form.requestSubmit()">{% for size in sl.page_sizes %}<option value="{{ size }}"{% if size == sl.filters.per_page %} selected{% endif %}>{{ size|fa_digits }}</option>{% endfor %}</select>
-                <span>تعداد نمایش:</span>
-            </form>
-            <nav class="users-pagination" aria-label="صفحه‌بندی">
-                {% if sl.page.paginator.num_pages > 1 %}
-                    {% if sl.page.has_previous %}<a href="{% query_url page=sl.page.previous_page_number %}">قبلی</a>{% endif %}
-                    {% for number in sl.page_range %}
-                        {% if number == sl.page.number %}<b aria-current="page">{{ number|fa_digits }}</b>
-                        {% elif number == sl.ellipsis %}<span class="is-gap">…</span>
-                        {% else %}<a href="{% query_url page=number %}">{{ number|fa_digits }}</a>{% endif %}
-                    {% endfor %}
-                    {% if sl.page.has_next %}<a href="{% query_url page=sl.page.next_page_number %}">بعدی</a>{% endif %}
-                {% else %}<b aria-current="page">۱</b>{% endif %}
-            </nav>
-            <span>{% if sl.total %}نمایش {{ sl.page.start_index|fa_digits }} تا {{ sl.page.end_index|fa_digits }} از {{ sl.total|fa_digits }} دانشجو{% else %}دانشجویی برای نمایش نیست{% endif %}</span>
+            {% mq_pager sl.page %}
         </footer>
     </section>
 </div>

@@ -52,14 +52,15 @@ def finalize_expired_attempts(now=None) -> list:
     from datetime import timedelta
 
     from .views import (
-        ATTEMPT_GRACE_SECONDS, _notify_if_result_released, _sx_attempt_ends_at, _sx_dt, _sx_exam_cutoff, _sx_exam_rules,
+        ATTEMPT_GRACE_SECONDS, _notify_if_result_released, _sx_attempt_ends_at, _sx_attempt_extra_sql, _sx_dt, _sx_exam_cutoff, _sx_exam_rules,
         erd_execute, erd_rows, grade_attempt, log_activity,
     )
 
     now = now or timezone.now()
     open_attempts = erd_rows(
-        """
-        SELECT ea.id, ea.exam_id, ea.started_at, COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at
+        f"""
+        SELECT ea.id, ea.exam_id, ea.started_at, COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at,
+               {_sx_attempt_extra_sql()} AS extra_minutes
         FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
         WHERE ea.submitted_at IS NULL AND ea.status = 'in_progress' AND ea.started_at IS NOT NULL
         """
@@ -71,7 +72,7 @@ def finalize_expired_attempts(now=None) -> list:
         if not rules['settings_enforced']:
             continue  # exams without wizard settings keep such attempts as «نیمه‌کاره» for the teacher, as always
         cutoff = _sx_exam_cutoff(attempt['end_at'], rules['registration_end_at'])
-        deadline = _sx_attempt_ends_at(_sx_dt(attempt['started_at']), attempt['duration_minutes'], cutoff)
+        deadline = _sx_attempt_ends_at(_sx_dt(attempt['started_at']), attempt['duration_minutes'], cutoff, attempt['extra_minutes'])
         if now <= deadline + timedelta(seconds=ATTEMPT_GRACE_SECONDS):
             continue
         attempt_id = str(attempt['id'])

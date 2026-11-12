@@ -1,0 +1,74 @@
+{% load core_extras %}{% with l=live %}
+<div class="xh-split is-right" {% if l.poll %}data-xh-poll="{{ l.poll }}"{% endif %}>
+    <aside class="xh-side">
+        <div class="xh-card" id="xh-live-feed" data-xh-part>
+            <div class="xh-card-head"><h3>رخدادهای زنده آزمون</h3></div>
+            {% if l.feed %}
+            <ul class="xh-feed">
+                {% for e in l.feed %}<li class="is-{{ e.tone }}"><span><span class="xh-feed-ico">{% include 'exam_hub/_icon.html' with i=e.icon %}</span><span class="xh-feed-text">{{ e.name }}: {{ e.label }}.</span></span><time>{{ e.time }}</time></li>{% endfor %}
+            </ul>
+            {% else %}<div class="xh-empty">هنوز رخدادی ثبت نشده است.</div>{% endif %}
+            <div class="xh-card-foot"><a class="xh-link" href="?tab=events">مشاهده همه رخدادها {% include 'exam_hub/_icon.html' with i='arrowl' %}</a></div>
+        </div>
+        <div class="xh-card">
+            <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='info' %}درباره «کاهش توجه»</h3></div>
+            <p class="xh-prose" style="text-align:justify">کاهش توجه نشان‌دهنده احتمال برهم‌خوردن تمرکز دانشجو در حین آزمون است (مانند دور شدن طولانی از صفحه یا عدم تعامل مداوم). این مورد صرفاً برای کمک به پشتیبانی بهتر آزمون نمایش داده می‌شود و به‌تنهایی به معنای تخلف نیست.</p>
+            <div style="display:flex;justify-content:center;margin-top:.9rem"><a class="xh-btn" href="?tab=events&group=focus">{% include 'exam_hub/_icon.html' with i='external' %}اطلاعات بیشتر</a></div>
+        </div>
+    </aside>
+
+    <div class="xh-main">
+        <div class="xh-kpis" id="xh-live-kpis" data-xh-part>
+            <div class="xh-kpi is-stack is-center"><span class="xh-kpi-label is-dark">{% include 'exam_hub/_icon.html' with i='hourglass' %}شروع‌نکرده</span><span class="xh-kpi-value">{{ l.kpis.not_started }}<em>نفر</em></span><span class="xh-kpi-sub">{{ l.kpis.not_started_pct }}٪</span></div>
+            <div class="xh-kpi is-stack is-center"><span class="xh-kpi-label is-red">{% include 'exam_hub/_icon.html' with i='wifi-off' %}قطع اتصال</span><span class="xh-kpi-value">{{ l.kpis.offline }}<em>نفر</em></span><span class="xh-kpi-sub">{{ l.kpis.offline_pct }}٪</span></div>
+            <div class="xh-kpi is-stack is-center"><span class="xh-kpi-label is-green">{% include 'exam_hub/_icon.html' with i='wifi' %}متصل</span><span class="xh-kpi-value">{{ l.kpis.online }}<em>نفر</em></span><span style="display:flex;align-items:center;gap:.5rem;width:100%"><span class="xh-bar is-green" style="flex:1"><i style="width:{{ l.kpis.online_pct }}%"></i></span><span class="xh-kpi-sub" style="color:var(--xh-green)">{{ l.kpis.online_pct }}٪</span></span></div>
+            <div class="xh-kpi is-stack is-center"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='users' %}شرکت‌کنندگان واجد شرایط</span><span class="xh-kpi-value">{{ l.kpis.eligible }}<em>نفر</em></span></div>
+            <div class="xh-kpi is-stack is-center"><span class="xh-kpi-label">{% include 'exam_hub/_icon.html' with i='clock' %}زمان باقی‌مانده</span><span class="xh-kpi-value is-time" data-xh-countdown="{{ l.kpis.remaining }}">{{ l.kpis.remaining_label }}</span><span class="xh-kpi-sub" dir="ltr">{{ l.kpis.duration_label }}</span></div>
+        </div>
+
+        <div class="xh-card">
+            <form method="get" class="xh-filters">
+                <input type="hidden" name="tab" value="live">
+                <span class="xh-btn is-ghost xh-filter-btn" aria-hidden="true">{% include 'exam_hub/_icon.html' with i='filter' %}فیلترها</span>
+                <select class="xh-select" name="group" onchange="this.form.requestSubmit()" aria-label="گروه">
+                    <option value="">همه گروه‌ها</option>
+                    {% for g in l.groups %}<option value="{{ g }}"{% if l.filters.group == g %} selected{% endif %}>{{ g }}</option>{% endfor %}
+                </select>
+                <select class="xh-select" name="faculty" onchange="this.form.requestSubmit()" aria-label="دانشکده">
+                    <option value="">همه دانشکده‌ها</option>
+                    {% for f in l.faculties %}<option value="{{ f }}"{% if l.filters.faculty == f %} selected{% endif %}>{{ f }}</option>{% endfor %}
+                </select>
+                <select class="xh-select" name="state" onchange="this.form.requestSubmit()" aria-label="وضعیت">
+                    <option value="">همه وضعیت‌ها</option>
+                    {% for key, s in l.states.items %}<option value="{{ key }}"{% if l.filters.state == key %} selected{% endif %}>{{ s.0 }}</option>{% endfor %}
+                </select>
+                <label class="xh-search is-search">{% include 'exam_hub/_icon.html' with i='search' %}<input class="xh-input" type="search" name="q" value="{{ l.filters.q }}" placeholder="جستجو در نام، شماره دانشجویی و ..." aria-label="جستجو"></label>
+            </form>
+            <div id="xh-live-table" data-xh-part>
+            {% if l.rows %}
+            <table class="table">
+                <thead><tr><th>ردیف</th><th>دانشجو</th><th>شماره دانشجویی</th><th>پیشرفت آزمون</th><th>وضعیت اتصال</th><th>کانون توجه</th><th>زمان آخرین فعالیت</th><th>وضعیت آزمون</th><th>عملیات</th></tr></thead>
+                <tbody>
+                {% for r in l.rows %}
+                <tr>
+                    <td>{{ r.index }}</td>
+                    <td><span class="xh-person">{% include 'exam_hub/_avatar.html' with p=r %}<span><b>{{ r.name }}</b>{% if r.faculty %}<small>{{ r.faculty }}</small>{% endif %}</span></span></td>
+                    <td data-latin-digits>{{ r.code|default:"—" }}</td>
+                    <td><span class="xh-meter"><b>{{ r.progress }}%</b><span class="xh-bar{% if r.progress >= 70 %} is-green{% endif %}"><i style="width:{{ r.progress }}%"></i></span></span></td>
+                    <td>{% if r.connection == 'online' %}<span class="xh-conn is-online">{% include 'exam_hub/_icon.html' with i='wifi' %}متصل</span>{% elif r.connection == 'offline' %}<span class="xh-conn is-offline">{% include 'exam_hub/_icon.html' with i='wifi-off' %}قطع اتصال</span>{% else %}—{% endif %}</td>
+                    <td>{% if not r.attempt_id %}—{% elif r.attention == 'low' %}<span class="xh-pill is-amber">{% include 'exam_hub/_icon.html' with i='eye' %}کاهش توجه</span>{% else %}<span class="xh-pill is-green">عادی</span>{% endif %}</td>
+                    <td>{{ r.last_label }}</td>
+                    <td><span class="xh-pill is-{% if r.state == 'offline' %}red{% elif r.state == 'answering' %}blue{% elif r.state == 'submitted' %}green{% else %}grey{% endif %}">{{ r.state_label }}</span></td>
+                    <td>{% if r.attempt_id %}<a class="xh-kebab" data-rt-text href="?tab=live&attempt={{ r.attempt_id }}" title="جزئیات شرکت‌کننده" aria-label="جزئیات {{ r.name }}">{% include 'exam_hub/_icon.html' with i='more' %}</a>{% else %}<span class="xh-kebab" aria-hidden="true" style="opacity:.4">{% include 'exam_hub/_icon.html' with i='more' %}</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="xh-empty">{% include 'exam_hub/_icon.html' with i='users' %}{% if l.total_rows %}دانشجویی با این فیلترها پیدا نشد.{% else %}هنوز دانشجویی برای این آزمون تعیین نشده است.{% endif %}</div>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endwith %}

@@ -399,7 +399,9 @@
     showTime(remaining);
     if (remaining > 0) {
       // Counted from a fixed end moment: a background tab slows timers down, the clock must not.
-      const endsAt = performance.now() + remaining * 1000;
+      // The live check-in below may move it later («افزودن زمان» by the teacher / academic manager).
+      let endsAt = performance.now() + remaining * 1000;
+      window.mqExamSetRemaining = (seconds) => { if (seconds > remaining + 2) endsAt = performance.now() + seconds * 1000; };
       const ticker = setInterval(() => {
         remaining = Math.max(0, Math.round((endsAt - performance.now()) / 1000));
         showTime(remaining);
@@ -409,6 +411,48 @@
       timeUp();
     }
   }
+
+  // Live check-in (exam_hub.student_attempt_live, every 20 s, background): keeps the student «متصل» on the
+  // teacher's live monitor, brings added time to this clock and shows messages from the exam's proctor.
+  {% if not preview %}(() => {
+    const liveUrl = "{% url 'core:student_attempt_live' attempt.pk %}";
+    const showProctorMessage = (items) => {
+      let box = document.getElementById('qx-proctor-msg');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'qx-proctor-msg';
+        box.setAttribute('role', 'alert');
+        box.style.cssText = 'position:fixed;z-index:120;top:5rem;right:50%;transform:translateX(50%);width:min(30rem,calc(100% - 1.5rem));padding:.9rem 1rem;border:1px solid #c7d4ff;border-radius:.9rem;background:#fff;box-shadow:0 18px 40px rgba(20,40,90,.18);direction:rtl;font-size:.9rem;line-height:1.9';
+        document.body.appendChild(box);
+      }
+      box.textContent = '';
+      const title = document.createElement('strong');
+      title.textContent = 'پیام ناظر آزمون';
+      title.style.cssText = 'display:block;color:#315cff;margin-bottom:.25rem';
+      box.appendChild(title);
+      items.forEach((item) => { const p = document.createElement('p'); p.style.margin = '0 0 .3rem'; p.textContent = item.text; box.appendChild(p); });
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.textContent = 'متوجه شدم';
+      close.style.cssText = 'margin-top:.3rem;padding:.35rem 1rem;border:0;border-radius:.6rem;background:#315cff;color:#fff;font:inherit;cursor:pointer';
+      close.addEventListener('click', () => box.remove());
+      box.appendChild(close);
+    };
+    const checkIn = () => {
+      if (document.hidden) return;
+      fetch(liveUrl, { mqBackground: true, credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (!data || !data.open) return;
+          if (typeof data.remaining_seconds === 'number' && window.mqExamSetRemaining) window.mqExamSetRemaining(data.remaining_seconds);
+          if (data.messages && data.messages.length) showProctorMessage(data.messages);
+        })
+        .catch(() => {});
+    };
+    checkIn();
+    setInterval(checkIn, 20000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkIn(); });
+  })();{% endif %}
 
   // Each question block: voice input, multi-answer limit, ordering, matching, matrix, image labels, playback.
   const initBlocks = () => blocks.forEach((block) => {

@@ -1,0 +1,17 @@
+<ol class="xh-crumbs" aria-label="مسیر">
+    <li><a href="{{ urls.list }}">آزمون‌ها</a></li>
+    {% if view == 'events' %}{# mock-up: «آزمون‌ها / رخدادها» #}
+    {% elif view == 'review' %}<li><a href="?tab=results">نتایج آزمون</a></li>
+    {% else %}<li><a href="?tab=overview">{{ title }}</a></li>{% endif %}
+    {% if view == 'results' %}<li>نتایج و تحلیل</li>
+    {% elif view == 'items' %}<li><a href="?tab=results">نتایج و تحلیل</a></li><li>تحلیل سؤال</li>
+    {% elif view == 'card' %}<li>کارنامه دانشجو</li>
+    {% elif view == 'grading' %}<li>صف تصحیح</li>
+    {% elif view == 'grade' %}<li>تصحیح پاسخ</li>
+    {% elif view == 'person' %}<li><a href="?tab=live">پایش زنده</a></li><li>جزئیات شرکت‌کننده</li>
+    {% elif view == 'live' %}<li>پایش زنده</li>
+    {% elif view == 'events' %}<li>رخدادها</li>
+    {% elif view == 'review' %}<li>موارد نیازمند بررسی</li>
+    {% elif view == 'settings' %}<li>تنظیمات آزمون</li>
+    {% endif %}
+</ol>

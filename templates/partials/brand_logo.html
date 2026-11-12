@@ -3,6 +3,7 @@ Shared MetaQuizy logo (mark + wordmark), styled by static/css/brand.css.
 Params (all optional): size = CSS font-size of the wordmark (default 1.35rem);
 tagline = show «سامانه آزمون آنلاین» (or tagline_text) under the name; label_class = extra class on the text block
 (e.g. "profile-sidebar-label" so a collapsed sidebar hides it); extra = extra class on the root.
+The running release (`app_version`, from the VERSION file) is always shown under the name.
 {% endcomment %}<span class="mq-brand{% if extra %} {{ extra }}{% endif %}"{% if size %} style="font-size:{{ size }}"{% endif %}>
     <span class="mq-brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false">
@@ -15,5 +16,6 @@ tagline = show «سامانه آزمون آنلاین» (or tagline_text) under 
     <span class="mq-brand-text{% if label_class %} {{ label_class }}{% endif %}">
         <span class="mq-brand-name">متاکوییز</span>
         {% if tagline %}<span class="mq-brand-tagline">{% if tagline_text %}{{ tagline_text }}{% else %}سامانه آزمون آنلاین{% endif %}</span>{% endif %}
+        {% if app_version %}<span class="mq-brand-version" dir="ltr" data-latin-digits title="نسخه سامانه">v{{ app_version }}</span>{% endif %}
     </span>
 </span>

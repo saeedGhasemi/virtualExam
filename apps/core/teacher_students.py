@@ -40,7 +40,7 @@ from .views import (
 logger = logging.getLogger(__name__)
 
 DONE_STATUSES = "('submitted', 'graded', 'completed')"
-LIST_PAGE_SIZES = (10, 20, 50)
+LIST_PAGE_SIZE = 10
 EXAMS_PAGE_SIZE = 10
 NOTE_MAX_LENGTH = 1000
 MESSAGE_TITLE_MAX_LENGTH = 120
@@ -382,16 +382,12 @@ def _in_tab(row, tab) -> bool:
 
 def _list_filters(request, groups) -> dict:
     group_ids = {group['id'] for group in groups}
-    try:
-        per_page = int(request.GET.get('per_page') or LIST_PAGE_SIZES[0])
-    except ValueError:
-        per_page = LIST_PAGE_SIZES[0]
     return {
         'q': (request.GET.get('q') or '').strip()[:100],
         'group': request.GET.get('group') if request.GET.get('group') in group_ids else '',
         'status': request.GET.get('status') if request.GET.get('status') in STUDENT_STATUSES else '',
         'tab': request.GET.get('tab') if request.GET.get('tab') in LIST_TABS else 'all',
-        'per_page': per_page if per_page in LIST_PAGE_SIZES else LIST_PAGE_SIZES[0],
+        'per_page': LIST_PAGE_SIZE,
     }
 
 
@@ -829,7 +825,7 @@ def teacher_students(request):
             'ellipsis': Paginator.ELLIPSIS,
             'filters': filters, 'tabs': LIST_TABS, 'tab_counts': tab_counts, 'statuses': STUDENT_STATUSES,
             'status_counts': status_counts,
-            'page_sizes': LIST_PAGE_SIZES, 'is_filtered': bool(filters['q'] or filters['group'] or filters['status']),
+            'is_filtered': bool(filters['q'] or filters['group'] or filters['status']),
         },
     ))
 
@@ -943,7 +939,7 @@ def teacher_students_directory(request):
 @erd_role_required('teacher')
 def teacher_group_students(request, group_id):
     own_group_or_404(request.erd_profile_id, group_id)
-    return redirect(f"{reverse('core:teacher_students')}?group={group_id}")
+    return redirect(f"{reverse('core:teacher_course_detail', args=[group_id])}?tab=students")
 
 
 @erd_role_required('teacher')

@@ -1,0 +1,73 @@
+{% load core_extras %}{% with s=cls.students %}
+<p class="ch-alert">{% include 'teacher/class/_icon.html' with i='info' %}<span>عضویت دانشجویان این کلاس توسط مدیریت آموزشی انجام می‌شود و امکان افزودن، حذف یا مدیریت عضویت در این بخش وجود ندارد.</span></p>
+
+{% if s.panel %}
+<div class="ch-split">
+    {% include 'teacher/class/_student_panel.html' with p=s.panel %}
+    <div class="ch-side">
+        <form class="xh-card ch-filter is-compact" method="get" role="search">
+            <input type="hidden" name="tab" value="students">
+            <input type="hidden" name="student" value="{{ s.panel.student.id }}">
+            <label class="xh-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span class="sr-only">جستجو</span><input class="xh-input" type="search" name="q" value="{{ s.query }}" maxlength="100" placeholder="جستجوی نام یا شماره دانشجویی..."></label>
+            <label class="ch-select-wrap"><span class="sr-only">وضعیت</span><select class="xh-select" name="status" onchange="this.form.requestSubmit()"><option value="">همه وضعیت‌ها</option>{% for key, label in s.statuses %}<option value="{{ key }}"{% if key == s.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        </form>
+        <section class="xh-card ch-block ch-mini">
+            <table class="ch-table">
+                <thead><tr><th>ردیف</th><th>نام دانشجو</th><th>شماره دانشجویی</th><th>وضعیت</th></tr></thead>
+                <tbody>
+                    {% for row in s.rows %}
+                    <tr{% if row.id == s.panel.student.id %} class="is-selected" aria-current="true"{% endif %}>
+                        <td>{{ row.row_no|fa_digits }}</td>
+                        <td><a class="ch-strong" href="{{ row.url }}">{{ row.name }}</a></td>
+                        <td>{{ row.code|fa_digits|default:'—' }}</td>
+                        <td>{% if row.is_absent %}<span class="xh-pill is-red">غایب</span>{% else %}<span class="xh-pill is-green">فعال</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">دانشجویی با این جستجو پیدا نشد.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+</div>
+{% else %}
+<form class="xh-card ch-filter" method="get" role="search">
+    <input type="hidden" name="tab" value="students">
+    <label class="xh-search ch-filter-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span class="sr-only">جستجو</span><input class="xh-input" type="search" name="q" value="{{ s.query }}" maxlength="100" placeholder="جستجوی نام یا شماره دانشجویی..."></label>
+    <label class="xh-selwrap ch-select-wrap">{% include 'teacher/class/_icon.html' with i='gradcap' %}<span class="sr-only">وضعیت تحصیلی</span><select class="xh-select has-ico" name="status" onchange="this.form.requestSubmit()"><option value="">وضعیت تحصیلی: همه وضعیت‌ها</option>{% for key, label in s.statuses %}<option value="{{ key }}"{% if key == s.status %} selected{% endif %}>وضعیت تحصیلی: {{ label }}</option>{% endfor %}</select></label>
+    <a class="xh-btn is-solid ch-excel" href="{{ cls.urls.overview }}?export=xlsx" data-live-skip data-no-loader>{% include 'teacher/class/_icon.html' with i='excel' %}خروجی Excel</a>
+    <noscript><button class="xh-btn" type="submit">جستجو</button></noscript>
+</form>
+
+<section class="xh-card ch-block ch-students">
+    {% if s.rows %}
+    <table class="ch-table">
+        <thead><tr>
+            <th><span class="ch-th">{% include 'teacher/class/_icon.html' with i='user' %}دانشجو</span></th>
+            <th><span class="ch-th">{% include 'teacher/class/_icon.html' with i='idcard' %}شماره دانشجویی</span></th>
+            <th><span class="ch-th">{% include 'teacher/class/_icon.html' with i='layers' %}آزمون‌های شرکت‌کرده</span></th>
+            <th><span class="ch-th">{% include 'teacher/class/_icon.html' with i='medal' %}نمره آخرین آزمون</span></th>
+            <th><span class="ch-th">{% include 'teacher/class/_icon.html' with i='chart' %}وضعیت یادگیری</span></th>
+            <th>عملیات</th>
+        </tr></thead>
+        <tbody>
+            {% for row in s.rows %}
+            <tr data-row-href="{{ row.url }}">
+                <td><span class="xh-person ch-person"><span class="xh-avatar is-sm ch-avatar">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="">{% else %}{% include 'teacher/class/_icon.html' with i='user' %}{% endif %}</span><b>{{ row.name }}</b></span></td>
+                <td><span class="ch-strong">{{ row.code|fa_digits|default:'—' }}</span></td>
+                <td>{% if row.total %}{{ row.taken|fa_digits }} از {{ row.total|fa_digits }}{% else %}—{% endif %}</td>
+                <td>{% with last=row.last %}{% if not last %}—{% elif last.state == 'done' %}<b class="ch-score">{{ last.score|fa_digits }}</b>{% elif last.state == 'grading' %}<span class="xh-pill is-grey">ثبت نشده</span>{% else %}<span class="xh-pill is-{{ last.state_tone }}">{{ last.state_label }}</span>{% endif %}{% endwith %}</td>
+                <td><span class="xh-pill is-{{ row.learning_tone }}">{% include 'teacher/class/_icon.html' with i=row.learning_icon %}{{ row.learning_label }}</span></td>
+                <td><a class="xh-btn is-sm ch-perf-btn" href="{{ row.url }}" data-rt-text>{% include 'teacher/class/_icon.html' with i='trendup' %}مشاهده عملکرد</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% elif s.filtered %}
+        <p class="ch-empty">دانشجویی با این جستجو یا وضعیت پیدا نشد. <a href="{{ cls.urls.students }}">نمایش همه دانشجویان</a></p>
+    {% else %}
+        <p class="ch-empty">هنوز دانشجویی عضو این کلاس نشده است.</p>
+    {% endif %}
+</section>
+{% endif %}
+{% endwith %}

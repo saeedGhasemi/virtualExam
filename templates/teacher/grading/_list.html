@@ -50,11 +50,5 @@
         <p class="gl-empty">{% if grading_status == 'pending' %}پاسخی در انتظار تصحیح نیست.{% else %}پاسخی پیدا نشد.{% endif %}</p>
         {% endif %}
     </div>
-    {% if grading_page.paginator.num_pages > 1 %}
-    <nav class="gl-pages" aria-label="صفحه‌بندی">
-        {% if grading_page.has_previous %}<a href="?status={{ grading_status }}&page={{ grading_page.previous_page_number }}">قبلی</a>{% endif %}
-        <span>صفحه {{ grading_page.number|fa_digits }} از {{ grading_page.paginator.num_pages|fa_digits }}</span>
-        {% if grading_page.has_next %}<a href="?status={{ grading_status }}&page={{ grading_page.next_page_number }}">بعدی</a>{% endif %}
-    </nav>
-    {% endif %}
+    {% mq_pager grading_page status=grading_status %}
 </div>

@@ -39,7 +39,7 @@ from .views import (
 
 logger = logging.getLogger(__name__)
 
-PAGE_SIZE = 20
+PAGE_SIZE = 10
 FEEDBACK_MAX = 2000
 # Short answers matching none of the teacher's accepted answers are sent here by grade_attempt too;
 # without them the attempt could never finish grading.
@@ -208,10 +208,31 @@ def _refresh_attempt_score(attempt_id):
         _notify_if_result_released(attempt_id)
 
 
+def _hub_return(request):
+    """«مدیریت آزمون» posts here with hub=<its URL> so the grader stays on that page (exam_hub, tab «تصحیح»)."""
+    url = (request.POST.get('hub') or request.GET.get('hub') or '').strip()
+    return url if url.startswith('/teacher/exams/') and '/manage/' in url and '//' not in url and chr(92) not in url else ''
+
+
+def _hub_answer_url(hub, answer_id):
+    base = hub.split('?')[0]
+    return f'{base}?tab=grading&answer={answer_id}'
+
+
 @erd_role_required('teacher')
 def teacher_grading_detail(request, answer_id):
     teacher_id = request.erd_profile_id
     row = _grading_answer(teacher_id, answer_id)
+    hub = _hub_return(request)
+    context = grading_detail_context(request, row)
+    if request.method != 'POST':
+        return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'grading_detail', **context))
+    return _grading_post(request, row, context, hub)
+
+
+def grading_detail_context(request, row):
+    """Everything the grading screen shows for one answer (row = _grading_answer)."""
+    teacher_id = request.erd_profile_id
     from .teacher_preferences import grading_rules
 
     rules = grading_rules(teacher_id)  # the grading teacher's «تصحیح و بازخورد» settings
@@ -226,62 +247,6 @@ def teacher_grading_detail(request, answer_id):
         'SELECT e.results_published_at FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id WHERE ea.id = %s',
         [row['attempt_id']]) or {}).get('results_published_at'))
     locked = rules['lock_after_publish'] and published and bool(row.get('graded_at'))  # «قفل کردن نمرات پس از انتشار»
-    if request.method == 'POST' and locked:
-        messages.error(request, 'نتایج این آزمون منتشر شده و نمره‌ها طبق تنظیمات شما قفل است؛ برای تغییر، ابتدا «قفل کردن نمرات پس از انتشار» را خاموش کنید.')
-        return redirect('core:teacher_grading_detail', answer_id=row['id'])
-    if request.method == 'POST':
-        post = request.POST
-        if not rules['feedback']:  # «ارائه بازخورد کتبی» off: no box, and an earlier feedback is kept as it was
-            post = request.POST.copy()
-            post['feedback'] = row.get('grader_feedback') or ''
-        awarded, scores, feedback, errors = _grade_from_post(post, rubric, max_points)
-        if rules['integer_scores']:  # «دقت نمره‌دهی: عدد صحیح»
-            awarded = awarded.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-        essay_settings = (_sx_json(row.get('scoring_settings'), {}) or {}).get('essay') or {}
-        first = _sx_json(row.get('first_grade'), None)
-        first = first if isinstance(first, dict) else None
-        double = bool(essay_settings.get('second_grader')) and erd_has_column('attempt_answers', 'first_grade') and not row.get('graded_at')
-        if not errors and double and (first is None or str(first.get('by')) == str(teacher_id)):
-            # «نمره‌دهنده دوم»: the first grade is kept apart and the answer stays in the queue for another grader.
-            grade = {'by': str(teacher_id), 'by_name': (erd_profile_for_user(request.user) or {}).get('full_name') or '',
-                     'points': float(awarded), 'scores': scores, 'feedback': feedback, 'at': timezone.now().isoformat()}
-            erd_execute('UPDATE attempt_answers SET first_grade = %s, needs_manual_grading = true WHERE id = %s',
-                        [json.dumps(grade, ensure_ascii=False), row['id']])
-            messages.success(request, f'نمره‌ی اول ({awarded.normalize()} از {max_points.normalize()}) ثبت شد؛ پاسخ تا نمره‌دهی مستقلِ مصحح دوم در صف می‌ماند و نمره‌ی نهایی میانگین دو نمره خواهد بود.')
-            return redirect('core:teacher_reviews')
-        if not errors and double and first:
-            # Second, independent grade: the final points are the mean of both.
-            second = awarded
-            awarded = ((Decimal(str(first.get('points') or 0)) + second) / 2).quantize(Decimal('0.01'))
-            if rules['integer_scores']:
-                awarded = awarded.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-            scores = {'first': first.get('scores') or [], 'second': scores, 'first_points': first.get('points'), 'second_points': float(second)}
-            feedback = '\n\n'.join(part for part in (first.get('feedback') or '', feedback) if part)
-        if errors:
-            for error in errors:
-                messages.error(request, error)
-        else:
-            with transaction.atomic():
-                erd_execute(
-                    """
-                    UPDATE attempt_answers
-                    SET points_awarded = %s, needs_manual_grading = false, rubric_scores = %s,
-                        grader_feedback = %s, graded_by = %s, graded_at = now()
-                    WHERE id = %s
-                    """,
-                    [awarded, json.dumps(scores, ensure_ascii=False), feedback, teacher_id, row['id']],
-                )
-                _refresh_attempt_score(row['attempt_id'])
-            messages.success(request, f'نمره {awarded.normalize()} از {max_points.normalize()} ثبت شد.'
-                             + (' (میانگین نمره‌ی دو مصحح)' if double and first else ''))
-            # Next pending answer, skipping those this teacher already graded first (they wait for someone else).
-            following = next((item for item in erd_rows(
-                f"SELECT aa.id, {_first_grade_sql()} {_SCOPED_FROM} AND COALESCE(aa.needs_manual_grading, false) = true ORDER BY ea.submitted_at, aa.id LIMIT 50",
-                grader_params(teacher_id),
-            ) if str((_sx_json(item.get('first_grade'), None) or {}).get('by', '')) != str(teacher_id)), None)
-            if request.POST.get('next') and following:
-                return redirect('core:teacher_grading_detail', answer_id=following['id'])
-            return redirect('core:teacher_reviews')
     answer_id = str(row['id'])
     files = [{**item, 'url': reverse('core:attempt_answer_file', args=[str(row['attempt_id']), item['id']])}
              for item in _sx_answer_files(row.get('answer_files'))]
@@ -303,8 +268,8 @@ def teacher_grading_detail(request, answer_id):
     delta = raw_answer.get('delta') if isinstance(raw_answer, dict) else None
     # A rich essay answer (written with the exam page's editor): safe HTML built from its Quill Delta.
     answer_html = delta_to_html(clean_delta(delta)) if isinstance(delta, dict) else ''
-    return render(request, 'teacher/modern.html', _teacher_modern_context(
-        request, 'grading_detail',
+    return dict(
+        grading_locals={'rules': rules, 'rubric': rubric, 'max_points': max_points, 'locked': locked},
         grading=row, grading_answer_id=answer_id, grading_answer_text=_sx_answer_value(row.get('answer')),
         grading_answer_html=answer_html,
         grading_blind=blind,
@@ -330,7 +295,99 @@ def teacher_grading_detail(request, answer_id):
                              else f"{_sx_float(first.get('points'), 0):g}" if own_first and first else ''),
         grading_rules=rules, grading_locked=locked, grading_score_step='1' if rules['integer_scores'] else '0.25',
         grading_rubric_total=sum((_decimal(item.get('points')) or Decimal(0) for item in rubric), Decimal(0)).normalize(),
-    ))
+    )
+
+
+def _grading_post(request, row, context, hub=''):
+    teacher_id = request.erd_profile_id
+    local = context['grading_locals']
+    rules, rubric, max_points, locked = local['rules'], local['rubric'], local['max_points'], local['locked']
+    back = _hub_answer_url(hub, row['id']) if hub else None
+    if request.method == 'POST' and locked:
+        messages.error(request, 'نتایج این آزمون منتشر شده و نمره‌ها طبق تنظیمات شما قفل است؛ برای تغییر، ابتدا «قفل کردن نمرات پس از انتشار» را خاموش کنید.')
+        return redirect(back) if back else redirect('core:teacher_grading_detail', answer_id=row['id'])
+    if request.method == 'POST':
+        post = request.POST
+        if not rules['feedback']:  # «ارائه بازخورد کتبی» off: no box, and an earlier feedback is kept as it was
+            post = request.POST.copy()
+            post['feedback'] = row.get('grader_feedback') or ''
+        awarded, scores, feedback, errors = _grade_from_post(post, rubric, max_points)
+        if rules['integer_scores']:  # «دقت نمره‌دهی: عدد صحیح»
+            awarded = awarded.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        essay_settings = (_sx_json(row.get('scoring_settings'), {}) or {}).get('essay') or {}
+        first = _sx_json(row.get('first_grade'), None)
+        first = first if isinstance(first, dict) else None
+        double = bool(essay_settings.get('second_grader')) and erd_has_column('attempt_answers', 'first_grade') and not row.get('graded_at')
+        if not errors and double and (first is None or str(first.get('by')) == str(teacher_id)):
+            # «نمره‌دهنده دوم»: the first grade is kept apart and the answer stays in the queue for another grader.
+            grade = {'by': str(teacher_id), 'by_name': (erd_profile_for_user(request.user) or {}).get('full_name') or '',
+                     'points': float(awarded), 'scores': scores, 'feedback': feedback, 'at': timezone.now().isoformat()}
+            erd_execute('UPDATE attempt_answers SET first_grade = %s, needs_manual_grading = true WHERE id = %s',
+                        [json.dumps(grade, ensure_ascii=False), row['id']])
+            messages.success(request, f'نمره‌ی اول ({awarded.normalize()} از {max_points.normalize()}) ثبت شد؛ پاسخ تا نمره‌دهی مستقلِ مصحح دوم در صف می‌ماند و نمره‌ی نهایی میانگین دو نمره خواهد بود.')
+            return redirect(hub.split('?')[0] + '?tab=grading') if hub else redirect('core:teacher_reviews')
+        if not errors and double and first:
+            # Second, independent grade: the final points are the mean of both.
+            second = awarded
+            awarded = ((Decimal(str(first.get('points') or 0)) + second) / 2).quantize(Decimal('0.01'))
+            if rules['integer_scores']:
+                awarded = awarded.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+            scores = {'first': first.get('scores') or [], 'second': scores, 'first_points': first.get('points'), 'second_points': float(second)}
+            feedback = '\n\n'.join(part for part in (first.get('feedback') or '', feedback) if part)
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            if back:
+                return redirect(back)
+        else:
+            with transaction.atomic():
+                erd_execute(
+                    """
+                    UPDATE attempt_answers
+                    SET points_awarded = %s, needs_manual_grading = false, rubric_scores = %s,
+                        grader_feedback = %s, graded_by = %s, graded_at = now()
+                    WHERE id = %s
+                    """,
+                    [awarded, json.dumps(scores, ensure_ascii=False), feedback, teacher_id, row['id']],
+                )
+                _refresh_attempt_score(row['attempt_id'])
+            messages.success(request, f'نمره {awarded.normalize()} از {max_points.normalize()} ثبت شد.'
+                             + (' (میانگین نمره‌ی دو مصحح)' if double and first else ''))
+            # Next pending answer, skipping those this teacher already graded first (they wait for someone else).
+            following = next((item for item in erd_rows(
+                f"SELECT aa.id, {_first_grade_sql()} {_SCOPED_FROM} AND COALESCE(aa.needs_manual_grading, false) = true ORDER BY ea.submitted_at, aa.id LIMIT 50",
+                grader_params(teacher_id),
+            ) if str((_sx_json(item.get('first_grade'), None) or {}).get('by', '')) != str(teacher_id)), None)
+            if hub:
+                if not request.POST.get('next'):  # «ذخیره»: stay on this answer
+                    return redirect(back)
+                following = _hub_next_answer(teacher_id, row)
+                return redirect(_hub_answer_url(hub, following) if following else hub.split('?')[0] + '?tab=grading')
+            if request.POST.get('next') and following:
+                return redirect('core:teacher_grading_detail', answer_id=following['id'])
+            return redirect('core:teacher_reviews')
+    if back:
+        return redirect(back)
+    return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'grading_detail', **context))
+
+
+def _hub_next_answer(teacher_id, row):
+    """After «بعدی»: the next manually graded answer of the same attempt, else the exam's next pending one."""
+    same = erd_rows(
+        f"SELECT aa.id {_SCOPED_FROM} AND aa.attempt_id = %s ORDER BY eq.order_index NULLS LAST, aa.id",
+        [*grader_params(teacher_id), str(row['attempt_id'])],
+    )
+    ids = [str(item['id']) for item in same]
+    if str(row['id']) in ids and ids.index(str(row['id'])) + 1 < len(ids):
+        return ids[ids.index(str(row['id'])) + 1]
+    pending = erd_row(
+        f"SELECT aa.id {_SCOPED_FROM} AND ea.exam_id = (SELECT exam_id FROM exam_attempts WHERE id = %s) "
+        "AND COALESCE(aa.needs_manual_grading, false) = true AND aa.id <> %s ORDER BY ea.submitted_at, aa.id LIMIT 1",
+        [*grader_params(teacher_id), str(row['attempt_id']), str(row['id'])],
+    )
+    return str(pending['id']) if pending else None
+
+
 
 
 # Audio answers recorded in Chrome/Firefox are WebM/Ogg containers; serve them as audio so <audio> plays them.

@@ -1,0 +1,1 @@
+<span class="xl-pill is-{{ exam.pill_tone }}{% if exam.state == 'running' %} is-live{% endif %}"{% if exam.status_label and exam.status_label != exam.pill_label %} title="{{ exam.status_label }}"{% endif %}>{{ exam.pill_label }}</span>
