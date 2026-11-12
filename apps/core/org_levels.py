@@ -25,12 +25,12 @@ LEVELS = {
     },
     UNIVERSITY: {
         'number': UNIVERSITY, 'title': 'دانشگاه', 'unit': 'دانشگاه', 'manager_title': 'مدیر دانشگاه', 'tone': 'purple',
-        'unit_type': 'university', 'example': 'دانشگاه علوم پزشکی',
+        'unit_type': 'university', 'name': 'دانشگاه علوم پزشکی',  # shown as the level's title (user's choice)
         'hint': 'بخش‌های خود و مدیرانشان را تعریف می‌کند و استادان، دانشجویان و آزمون‌های همه‌ی بخش‌هایش را می‌بیند.',
     },
     DEPARTMENT: {
         'number': DEPARTMENT, 'title': 'بخش', 'unit': 'بخش', 'manager_title': 'مدیر بخش', 'tone': 'green',
-        'unit_type': 'department', 'example': 'بخش کودکان',
+        'unit_type': 'department', 'name': 'بخش کودکان',  # shown as the level's title (user's choice)
         'hint': 'مدیر آموزشی بخش؛ استاد و دانشجوی خود را می‌سازد و درس، کلاس و آزمون‌های بخش را مدیریت می‌کند.',
     },
 }

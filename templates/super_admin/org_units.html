@@ -81,11 +81,11 @@
                     <article class="ou-level {{ level.tone }}{% if level.is_mine %} is-mine{% endif %}">
                         <header>
                             <i aria-hidden="true">{{ level.number|fa_digits }}</i>
-                            <div><span>سطح {{ level.number|fa_digits }}</span><b>{{ level.title }}</b></div>
+                            <div><span>سطح {{ level.number|fa_digits }}</span><b>{{ level.name|default:level.title }}</b></div>
                             {% if level.is_mine %}<em>سطح شما</em>{% endif %}
                         </header>
                         <p>{{ level.hint }}</p>
-                        <footer><span>{{ level.manager_title }}{% if level.example %} — مثال: {{ level.example }}{% endif %}</span><strong>{{ level.count_label|fa_digits }}</strong></footer>
+                        <footer><span>{% if level.name %}مدیر {{ level.name }}{% else %}{{ level.manager_title }}{% endif %}</span><strong>{{ level.count_label|fa_digits }}</strong></footer>
                     </article>
                 {% endfor %}
             </section>

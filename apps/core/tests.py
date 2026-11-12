@@ -9339,6 +9339,10 @@ class AccessLevelTests(TestCase):
         self.assertEqual({row['id'] for row in response.context['org_rows']},
                          {self.university, self.department, self.other_university, self.other_department})
         self.assertNotContains(response, 'افزودن سطح جدید')
+        # the level names are the cards' titles, not examples (user's choice)
+        self.assertNotContains(response, 'مثال:')
+        self.assertContains(response, '<b>بخش کودکان</b>', html=False)
+        self.assertContains(response, 'مدیر دانشگاه علوم پزشکی')
         self.client.force_login(self.uni)
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
