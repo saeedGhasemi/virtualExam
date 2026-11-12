@@ -2,7 +2,8 @@
 
 - publish_due_exams(): «زمان‌بندی انتشار», an approved exam becomes visible to students once its publish time comes.
 - finalize_expired_attempts(): an attempt whose time ran out without «پایان آزمون» (e.g. the browser was closed) is
-  submitted with its saved answers when the exam's «ارسال خودکار در پایان زمان» is on, else closed as expired.
+  submitted with its saved answers when the exam's «ارسال خودکار در پایان زمان» is on (the default, also for exams
+  without wizard settings), else closed as expired.
 - release_due_results(): results are published when «خودکار پس از تصحیح کامل» finds every attempt graded, or when
   «مهلت نهایی انتشار نمرات» passes.
 
@@ -68,9 +69,9 @@ def finalize_expired_attempts(now=None) -> list:
     rules_by_exam, closed = {}, []
     for attempt in open_attempts:
         exam_id = str(attempt['exam_id'])
+        # Every exam, with or without wizard settings: time up means the attempt ends (older exams use the default
+        # «ارسال خودکار در پایان زمان» = on, which their exam page already announces and counts down to).
         rules = rules_by_exam.setdefault(exam_id, _sx_exam_rules(exam_id))
-        if not rules['settings_enforced']:
-            continue  # exams without wizard settings keep such attempts as «نیمه‌کاره» for the teacher, as always
         cutoff = _sx_exam_cutoff(attempt['end_at'], rules['registration_end_at'])
         deadline = _sx_attempt_ends_at(_sx_dt(attempt['started_at']), attempt['duration_minutes'], cutoff, attempt['extra_minutes'])
         if now <= deadline + timedelta(seconds=ATTEMPT_GRACE_SECONDS):

@@ -1,0 +1,3 @@
+{# ?part=questions of the exam page (views._sx_render_attempt_page): every question of the attempt with its stored answer, one <template> each, fetched once in the background so moving between questions never waits for the network (attempt.html «Moving between questions»). Served only where the student may open every question anyway. #}
+{% for item in items %}<template data-question="{{ item.index }}" data-question-id="{{ item.question_id }}" data-answered="{% if item.answered %}1{% endif %}" data-has-files="{% if item.answer_files %}1{% endif %}">{% include "student/_attempt_one_question.html" with q=item %}</template>
+{% endfor %}

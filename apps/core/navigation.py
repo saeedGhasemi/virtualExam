@@ -214,6 +214,15 @@ def app_shell(request):
         'teacher': 'استاد',
         'student': 'دانشجو',
     }.get(profile['role'], '') if profile else ''
+    access_level = None
+    if profile and profile['role'] == 'academic_manager':  # مدیر دانشگاه (سطح ۲) / مدیر بخش (سطح ۳), org_levels.py
+        from .org_levels import LEVELS, manager_level
+
+        access_level = manager_level(profile['id'])
+        role_label = LEVELS[access_level]['manager_title']
+        profile['role_label'] = role_label  # read by context_processors.panel_user (the panel header)
+    elif profile and profile['role'] == 'admin':
+        access_level = 1
     return {
         'app_nav_groups': app_nav_groups,
         'app_display_name': display_name,
@@ -223,6 +232,7 @@ def app_shell(request):
         'profile': profile,
         'role_label': role_label,
         'role_code': role_code,
+        'access_level': access_level,
         'is_super_admin_shell': role_code == 'super_admin',
         'use_panel_chrome': role_code in PANEL_CHROME_ROLES,
         'panel_home_url': _safe_reverse(PANEL_HOME_URL.get(role_code, 'core:dashboard')),

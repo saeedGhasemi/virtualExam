@@ -1,5 +1,11 @@
-"""Test data for trying every part of the site by hand: 15 teachers, 39 students, 15 questions, 9 classes, ~44 exams
-(two of them practice exams); classes G5–G9 show every state of the teacher class page (see seed_classes).
+"""Test data for trying every part of the site by hand, on the three access levels (apps/core/org_levels.py):
+
+  سطح ۱  مدیر سیستم (the existing admin accounts; not touched)
+  سطح ۲  «دانشگاه علوم پزشکی»  — manager mqtest_university
+  سطح ۳  «بخش کودکان» (under the university) — manager mqtest_pediatrics (the department's academic manager)
+         teachers mqtest_mohammadi (دکتر محمدی) and mqtest_hassani (دکتر حسنی), 39 students, 15 questions,
+         9 classes, ~44 exams (two practice exams) in every state; classes G5–G9 show every state of the teacher
+         class page (see seed_classes).
 
 Everything it makes is marked so it can be found and removed:
   * usernames start with `mqtest_` (password of every account: Test@12345), e-mails end with @mqtest.local
@@ -7,8 +13,10 @@ Everything it makes is marked so it can be found and removed:
   * codes (course, group, org unit, personnel / student numbers) start with `MQTEST-`; question tags hold `mqtest`
   * question media files are `media/question-media/mqtest-*`
 
-    python manage.py seed_test_data           # (re)create: removes the earlier test data first
-    python manage.py seed_test_data --purge   # remove all test data, and whatever was made with these accounts
+    python manage.py seed_test_data             # (re)create: removes the earlier test data first
+    python manage.py seed_test_data --purge     # remove all test data, and whatever was made with these accounts
+    python manage.py seed_test_data --wipe-all  # first remove EVERY account except system admins, and every unit,
+                                                # course, class, question and exam (local / demo databases only)
 """
 import io
 import json
@@ -43,27 +51,22 @@ def sid(name):
 
 
 # ---------------------------------------------------------------- people
-# (username suffix, first, last, gender, profile status, approval/academic status, extras, note shown in the summary)
+# The two managers: (username suffix, first, last, gender, level, unit key, note)
+MANAGERS = [
+    ('university', 'حمید', 'رضوانی', 'male', 2, 'university', 'مدیر دانشگاه علوم پزشکی (سطح ۲): بخش‌ها و مدیرانشان را تعریف می‌کند و همه‌چیز بخش کودکان را می‌بیند'),
+    ('pediatrics', 'مریم', 'کاظمی', 'female', 3, 'pediatrics', 'مدیر بخش کودکان (سطح ۳، مدیر آموزشی): استاد و دانشجو می‌سازد، آزمون‌ها را تأیید می‌کند'),
+]
+# login name of a teacher key (t01 / t02 stay the keys inside this file)
+TEACHER_LOGINS = {'t01': 'mohammadi', 't02': 'hassani'}
+
+# (key, first, last, gender, profile status, approval/academic status, extras, note shown in the summary)
 TEACHERS = [
-    ('t01', 'مریم', 'احمدی', 'female', 'active', 'approved', {'rank': 'دانشیار', 'bio': 'استاد اصلی داده‌های آزمایشی؛ بیشتر سؤال‌ها و آزمون‌ها مال اوست.'}, 'فعال، تأییدشده؛ صاحب سؤال‌ها و بیشتر آزمون‌ها'),
-    ('t02', 'رضا', 'کریمی', 'male', 'active', 'approved', {'rank': 'استادیار'}, 'فعال؛ «همکار تصحیح» آزمون‌های تشریحی، مدرس گروه ۳'),
-    ('t03', 'زهرا', 'حسینی', 'female', 'active', 'approved', {'rank': 'استاد'}, 'فعال؛ مدرس درس دوم و صاحب آزمون بایگانی‌شده'),
-    ('t04', 'علی', 'موسوی', 'male', 'active', 'approved', {'rank': 'مربی'}, 'فعال ولی بدون درس/گروه/سؤال (حالت‌های خالی)'),
-    ('t05', 'نرگس', 'رضایی', 'female', 'pending', 'pending', {}, 'ثبت‌نام‌شده، در انتظار تأیید'),
-    ('t06', 'حمید', 'جعفری', 'male', 'rejected', 'rejected', {}, 'درخواست همکاری رد شده'),
-    ('t07', 'لیلا', 'صادقی', 'female', 'inactive', 'approved', {}, 'غیرفعال'),
-    ('t08', 'مهدی', 'نوری', 'male', 'blocked', 'approved', {}, 'مسدود'),
-    ('t09', 'سمیرا', 'قاسمی', 'female', 'active', 'approved', {'must_change': True}, 'باید در اولین ورود رمز را عوض کند'),
-    ('t10', 'امیر', 'یوسفی', 'male', 'active', 'approved', {'can_design': False}, 'فعال ولی اجازه‌ی طراحی آزمون ندارد'),
-    ('t11', 'فاطمه', 'باقری', 'female', 'active', 'approved', {'change_request': True}, 'درخواست تغییر مشخصات در انتظار بررسی'),
-    ('t12', 'سعید', 'مرادی', 'male', 'active', 'approved', {'deletion_request': True}, 'درخواست حذف حساب در انتظار بررسی'),
-    ('t13', 'الهام', 'کاظمی', 'female', 'inactive', 'approved', {'deleted': True}, 'حذف‌شده (حذف نرم)'),
-    ('t14', 'بهرام', 'شریفی', 'male', 'active', 'approved', {'rank': 'حق‌التدریس', 'cooperation': 'حق‌التدریس', 'bio': 'ناظر آزمون پایان‌ترم.'}, 'فعال، حق‌التدریس؛ «ناظر» یک آزمون'),
-    ('t15', 'شیما', 'اکبری', 'female', 'active', 'approved', {'never_logged_in': True}, 'فعال ولی هرگز وارد نشده'),
+    ('t01', 'علی', 'محمدی', 'male', 'active', 'approved', {'rank': 'دانشیار', 'bio': 'فوق تخصص نوزادان؛ صاحب بانک سؤال و بیشتر آزمون‌های بخش.'}, 'دکتر محمدی: کلاس‌های G1، G4 (بایگانی)، G5، G6، G7 (خالی)؛ صاحب سؤال‌ها'),
+    ('t02', 'زهرا', 'حسنی', 'female', 'active', 'approved', {'rank': 'استادیار', 'bio': 'متخصص کودکان؛ همکار تصحیح آزمون‌های تشریحی.'}, 'دکتر حسنی: کلاس‌های G2، G3، G8، G9؛ همکار تصحیح و مدرس دوم G1'),
 ]
 
 STUDENTS = [
-    ('s01', 'آرش', 'محمدی', 'male', 'active', 'active', {'skill': 0.9}, 'فعال، عضو دو گروه، چند نتیجه‌ی منتشرشده + اعلان'),
+    ('s01', 'آرش', 'رستمی', 'male', 'active', 'active', {'skill': 0.9}, 'فعال، عضو دو گروه، چند نتیجه‌ی منتشرشده + اعلان'),
     ('s02', 'نیلوفر', 'عباسی', 'female', 'active', 'active', {'skill': 0.7}, 'فعال، پاسخ تشریحی در انتظار تصحیح'),
     ('s03', 'کیان', 'رحیمی', 'male', 'active', 'active', {'skill': 0.6}, 'فعال، الان وسط آزمون در حال برگزاری است'),
     ('s04', 'یاسمن', 'نجفی', 'female', 'active', 'active', {'skill': 1.0}, 'فعال، نمره‌ی کامل + اعتراض باز'),
@@ -122,39 +125,39 @@ def question_posts(course1, course2, image_url, audio_url):
         return fields
 
     return [
-        ('q01', q('پایتخت ایران کدام شهر است؟', 'single', difficulty='easy', subject='جغرافیا',
-                  option_text=['تبریز', 'تهران', 'شیراز', 'مشهد'], correct_options=['2'],
-                  feedback_text='تهران از سال ۱۱۶۵ خورشیدی پایتخت ایران است.'), 'published'),
-        ('q02', q('کدام اعداد اول هستند؟ (نمره‌ی جزئی دارد)', 'multi', points='2',
-                  option_text=['2', '4', '5', '9', '11'], correct_options=['1', '3', '5'],
+        ('q01', q('شایع‌ترین علت زردی نوزاد در هفته‌ی اول تولد کدام است؟', 'single', difficulty='easy', subject='نوزادان',
+                  option_text=['زردی فیزیولوژیک', 'آترزی صفراوی', 'هپاتیت نوزادی', 'کم‌کاری تیروئید'], correct_options=['1'],
+                  feedback_text='زردی فیزیولوژیک معمولاً از روز دوم تا سوم شروع می‌شود و تا پایان هفته‌ی اول کم می‌شود.'), 'published'),
+        ('q02', q('کدام واکسن‌ها در بدو تولد تزریق می‌شوند؟ (نمره‌ی جزئی دارد)', 'multi', points='2',
+                  option_text=['ب ث ژ', 'هپاتیت ب', 'MMR', 'فلج اطفال خوراکی', 'پنتاوالان'], correct_options=['1', '2', '4'],
                   scoring_mode='partial', partial_credit='1', min_correct='1', max_correct='0'), 'published'),
-        ('q03', q('آب در فشار یک اتمسفر در ۱۰۰ درجه‌ی سانتی‌گراد می‌جوشد. (سؤال اشتراکی)', 'true_false', difficulty='easy',
+        ('q03', q('تغذیه‌ی انحصاری با شیر مادر تا پایان ۶ ماهگی توصیه می‌شود. (سؤال اشتراکی)', 'true_false', difficulty='easy',
                   option_text=['درست', 'نادرست'], correct_options=['1']), 'shared'),
-        ('q04', q('فرمول شیمیایی آب چیست؟ (چند پاسخ قابل قبول)', 'short_answer',
-                  accepted_answer=['H2O', 'اچ‌تواو'], accepted_points_1='100', accepted_mode_1='exact', accepted_normalize_1='1',
+        ('q04', q('نام نمره‌ای که وضعیت نوزاد را در دقیقه‌ی ۱ و ۵ تولد می‌سنجد چیست؟ (چند پاسخ قابل قبول)', 'short_answer',
+                  accepted_answer=['APGAR', 'آپگار'], accepted_points_1='100', accepted_mode_1='exact', accepted_normalize_1='1',
                   accepted_points_2='100', accepted_mode_2='exact', accepted_normalize_2='1', max_chars='20'), 'published'),
-        ('q05', q('شتاب جاذبه‌ی زمین چند متر بر مجذور ثانیه است؟ (تلرانس ۰٫۱)', 'numeric', difficulty='hard', points='2',
-                  numeric_answer='9.8', numeric_unit='m/s²', numeric_decimals='1', numeric_tolerance_mode='absolute',
-                  numeric_tolerance='0.1', numeric_accept_persian='1'), 'published'),
-        ('q06', q('چرخه‌ی آب در طبیعت را توضیح دهید. (تشریحی با روبریک)', 'essay', difficulty='hard', points='4',
+        ('q05', q('حداکثر تعداد طبیعی تنفس نوزاد ترم در دقیقه چند است؟ (تلرانس ۵)', 'numeric', difficulty='hard', points='2',
+                  numeric_answer='60', numeric_unit='بار در دقیقه', numeric_decimals='0', numeric_tolerance_mode='absolute',
+                  numeric_tolerance='5', numeric_accept_persian='1'), 'published'),
+        ('q06', q('مراحل احیای نوزاد در اتاق زایمان را توضیح دهید. (تشریحی با روبریک)', 'essay', difficulty='hard', points='4',
                   answer_formats=['text'], student_instructions='حداقل در سه جمله پاسخ دهید.',
-                  sample_answer_text='تبخیر، میعان، بارش و جاری شدن آب در زمین.',
+                  sample_answer_text='گرم و خشک کردن، باز کردن راه هوایی، تهویه با فشار مثبت و در صورت نیاز ماساژ قلبی.',
                   rubric_criterion=['مراحل', 'نگارش'], rubric_weak=['ناقص', 'نامرتب'], rubric_average=['دو مرحله', 'قابل فهم'],
                   rubric_excellent=['هر چهار مرحله', 'روان'], rubric_points=['3', '1']), 'published'),
-        ('q07', q('پایتخت ایران [1] و پایتخت ترکیه [2] است.', 'fill_blank', points='2',
-                  blank_count='2', normalize_answers='1', blank_answers_1='تهران', blank_points_1='1',
-                  blank_answers_2='آنکارا، انکارا', blank_points_2='1'), 'published'),
-        ('q08', q('هر کشور را به پایتخت آن وصل کنید.', 'matching', points='3',
-                  matching_left=['ایران', 'فرانسه', 'ژاپن'], matching_right=['تهران', 'پاریس', 'توکیو'],
+        ('q07', q('دوز ویتامین K بدو تولد [1] میلی‌گرم است و از راه [2] تزریق می‌شود.', 'fill_blank', points='2',
+                  blank_count='2', normalize_answers='1', blank_answers_1='1، یک', blank_points_1='1',
+                  blank_answers_2='عضلانی، داخل عضلانی', blank_points_2='1'), 'published'),
+        ('q08', q('هر بیماری را به علامت شاخص آن وصل کنید.', 'matching', points='3',
+                  matching_left=['سرخک', 'اوریون', 'سیاه‌سرفه'], matching_right=['لکه‌های کوپلیک', 'تورم غده‌ی پاروتید', 'سرفه‌ی حمله‌ای'],
                   matching_points_1='1', matching_points_2='1', matching_points_3='1',
-                  matching_distractors='رم، برلین', matching_mode='one_to_one'), 'published'),
-        ('q09', q('مراحل رشد گیاه را به ترتیب مرتب کنید.', 'ordering', course=course2, points='2',
-                  ordering_item=['کاشت بذر', 'جوانه زدن', 'رشد ساقه و برگ', 'گل دادن'], ordering_mode='exact'), 'published'),
-        ('q10', q('هر جانور در کدام محیط زندگی می‌کند؟', 'matrix', points='3',
-                  matrix_json=json.dumps({'columns': [{'id': 'c1', 'text': 'خشکی'}, {'id': 'c2', 'text': 'آب'}],
-                                          'rows': [{'id': 'r1', 'text': 'شیر', 'points': 1, 'correct': ['c1']},
-                                                   {'id': 'r2', 'text': 'نهنگ', 'points': 1, 'correct': ['c2']},
-                                                   {'id': 'r3', 'text': 'شتر', 'points': 1, 'correct': ['c1']}]}, ensure_ascii=False),
+                  matching_distractors='زبان توت‌فرنگی، گونه‌ی سیلی‌خورده', matching_mode='one_to_one'), 'published'),
+        ('q09', q('مراحل احیای نوزاد را به ترتیب مرتب کنید.', 'ordering', course=course2, points='2',
+                  ordering_item=['گرم و خشک کردن', 'باز کردن راه هوایی', 'تهویه با فشار مثبت', 'ماساژ قلبی'], ordering_mode='exact'), 'published'),
+        ('q10', q('هر واکسن در کدام نوبت تزریق می‌شود؟', 'matrix', points='3',
+                  matrix_json=json.dumps({'columns': [{'id': 'c1', 'text': 'بدو تولد'}, {'id': 'c2', 'text': '۲ ماهگی'}],
+                                          'rows': [{'id': 'r1', 'text': 'ب ث ژ', 'points': 1, 'correct': ['c1']},
+                                                   {'id': 'r2', 'text': 'پنتاوالان', 'points': 1, 'correct': ['c2']},
+                                                   {'id': 'r3', 'text': 'هپاتیت ب (نوبت اول)', 'points': 1, 'correct': ['c1']}]}, ensure_ascii=False),
                   matrix_selection='single', matrix_show_column_titles='1', matrix_show_row_titles='1'), 'published'),
         ('q11', q('نام شکل‌های مشخص‌شده روی تصویر را بنویسید.', 'image_label', points='2',
                   existing_question_image=image_url, question_image_alt='دایره و مربع',
@@ -170,10 +173,10 @@ def question_posts(course1, course2, image_url, audio_url):
         ('q13', q('به فایل صوتی گوش دهید و بگویید چند صدای متفاوت شنیدید. (پاسخ صوتی یا متنی)', 'media_response', points='3',
                   existing_question_audio=audio_url, answer_formats=['text', 'audio'], media_allow_replay='1',
                   media_max_plays='3', media_max_record_seconds='60', media_transcript='دو بوق با زیر و بمی متفاوت.'), 'published'),
-        ('q14', q('کدام سیاره به خورشید نزدیک‌تر است؟ (پیش‌نویس منتشرنشده)', 'single', is_published='',
-                  option_text=['زهره', 'عطارد', 'مریخ'], correct_options=['2']), 'draft'),
-        ('q15', q('بزرگ‌ترین اقیانوس جهان کدام است؟ (آرشیوشده)', 'single', difficulty='easy',
-                  option_text=['اطلس', 'هند', 'آرام'], correct_options=['3']), 'archived'),
+        ('q14', q('داروی انتخابی تب در شیرخوار زیر ۳ ماه کدام است؟ (پیش‌نویس منتشرنشده)', 'single', is_published='',
+                  option_text=['ایبوپروفن', 'استامینوفن', 'آسپرین'], correct_options=['2']), 'draft'),
+        ('q15', q('سن شروع غذای کمکی کدام است؟ (آرشیوشده)', 'single', difficulty='easy',
+                  option_text=['۴ ماهگی', '۵ ماهگی', '۶ ماهگی'], correct_options=['3']), 'archived'),
     ]
 
 
@@ -195,11 +198,11 @@ def answer_for(row, right):
         values = [str(value) for value in correct]
         return values if right else values[:1]
     if kind == 'short_answer':
-        return accepted[0]['answer'] if right else 'CO2'
+        return accepted[0]['answer'] if right else 'NIPS'
     if kind == 'numeric':
         return [str(correct)] if right else ['12']
     if kind == 'fill_blank':
-        return [blank['answers'][0] for blank in accepted] if right else [accepted[0]['answers'][0], 'بغداد']
+        return [blank['answers'][0] for blank in accepted] if right else [accepted[0]['answers'][0], 'وریدی']
     if kind == 'matching':
         count = len(load(row['matching_pairs']) or [])
         return ','.join(f'{n}:{n}' for n in range(1, count + 1)) if right else '1:1,2:3,3:2'
@@ -213,8 +216,8 @@ def answer_for(row, right):
     if kind == 'hotspot':
         return '30,50' if right else '75,40'
     if kind == 'essay':
-        return ('چرخه‌ی آب با تبخیر آب دریاها شروع می‌شود، بخار در هوا سرد و به ابر تبدیل می‌شود (میعان)، '
-                'سپس به شکل باران و برف می‌بارد و در رودها و زمین جاری می‌شود.') if right else 'آب بخار می‌شود و می‌بارد.'
+        return ('ابتدا نوزاد را گرم و خشک می‌کنیم و تحریک می‌کنیم، سپس راه هوایی را باز می‌کنیم، اگر تنفس کافی نبود '
+                'تهویه با فشار مثبت می‌دهیم و اگر ضربان زیر ۶۰ ماند ماساژ قلبی را شروع می‌کنیم.') if right else 'نوزاد را گرم می‌کنیم.'
     if kind == 'media_response':
         return 'دو صدای متفاوت شنیدم؛ اولی بم‌تر و دومی زیرتر بود.' if right else 'یک صدا.'
     return ''
@@ -225,6 +228,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--purge', action='store_true', help='Only remove the test data.')
+        parser.add_argument('--wipe-all', action='store_true',
+                            help='Before seeding, remove every account except system admins and every unit, course, class, '
+                                 'question and exam (for a local / demo database).')
 
     # ------------------------------------------------------------ helpers
     def sql(self, statement, params=None):
@@ -239,26 +245,34 @@ class Command(BaseCommand):
         )
 
     # ------------------------------------------------------------ purge
-    def purge(self):
+    def purge(self, everything=False):
+        """Remove the marked test data; `everything`: every non-admin account and all units / courses / classes /
+        questions / exams (and what hangs on them), keeping only the system admins (level 1)."""
         from apps.core.views import erd_rows
 
         def ids(statement, params=None):
             return [str(row['id']) for row in erd_rows(statement, params or [])]
 
         like = f'{PREFIX}%'
-        profiles = ids("SELECT id FROM profiles WHERE username LIKE %s OR email LIKE %s",
-                       [like, f'%@{EMAIL_DOMAIN}'])
-        courses = ids('SELECT id FROM courses WHERE code LIKE %s', [f'{CODE}-%'])
-        units = ids('SELECT id FROM org_units WHERE code LIKE %s', [f'{CODE}-%'])
+        if everything:
+            profiles = ids("SELECT id FROM profiles WHERE id NOT IN (SELECT user_id FROM user_roles WHERE role = 'admin')")
+            courses = ids('SELECT id FROM courses')
+            units = ids('SELECT id FROM org_units')
+        else:
+            profiles = ids("SELECT id FROM profiles WHERE username LIKE %s OR email LIKE %s",
+                           [like, f'%@{EMAIL_DOMAIN}'])
+            courses = ids('SELECT id FROM courses WHERE code LIKE %s', [f'{CODE}-%'])
+            units = ids('SELECT id FROM org_units WHERE code LIKE %s', [f'{CODE}-%'])
+        everything_sql = 'true OR ' if everything else ''
         groups = ids(
-            'SELECT id FROM student_groups WHERE group_code LIKE %s OR teacher_id::text = ANY(%s) '
+            f'SELECT id FROM student_groups WHERE {everything_sql}group_code LIKE %s OR teacher_id::text = ANY(%s) '
             'OR course_id::text = ANY(%s) OR created_by::text = ANY(%s)',
             [f'{CODE}-%', profiles, courses, profiles])
         questions = ids(
-            "SELECT id FROM questions WHERE tags LIKE %s OR text LIKE %s OR teacher_id::text = ANY(%s) OR course_id::text = ANY(%s)",
+            f"SELECT id FROM questions WHERE {everything_sql}tags LIKE %s OR text LIKE %s OR teacher_id::text = ANY(%s) OR course_id::text = ANY(%s)",
             [f'%{TAG}%', f'{MARK}%', profiles, courses])
         exams = ids(
-            'SELECT id FROM exams WHERE title LIKE %s OR teacher_id::text = ANY(%s) OR course_id::text = ANY(%s)',
+            f'SELECT id FROM exams WHERE {everything_sql}title LIKE %s OR teacher_id::text = ANY(%s) OR course_id::text = ANY(%s)',
             [f'{MARK}%', profiles, courses])
         attempts = ids('SELECT id FROM exam_attempts WHERE exam_id::text = ANY(%s) OR student_id::text = ANY(%s)', [exams, profiles])
         sets = ids('SELECT id FROM question_sets WHERE course_id::text = ANY(%s) OR created_by::text = ANY(%s)', [courses, profiles])
@@ -312,6 +326,18 @@ class Command(BaseCommand):
             for profile_id in profiles:
                 self.sql('DELETE FROM system_settings WHERE key LIKE %s', [f'%{profile_id}%'])
         users = get_user_model().objects.filter(username__startswith=PREFIX)
+        if everything:  # every login that is not a system admin's
+            keep = erd_rows("SELECT p.username, p.email FROM profiles p JOIN user_roles ur ON ur.user_id = p.id AND ur.role = 'admin'")
+            names = {value for row in keep for value in (row['username'], row['email']) if value}
+            users = get_user_model().objects.exclude(is_superuser=True).exclude(username__in=names).exclude(email__in=names)
+            # the old ORM demo content (legacy models, unused by the ERD pages) goes too, then those users' profiles
+            from django.apps import apps as django_apps
+
+            for name in ('StudentQuestionAnswer', 'StudentExamAttempt', 'ExamStartAuthorization', 'ExamQuestion', 'Exam',
+                         'Question', 'CourseClass', 'Course', 'AcademicUnit'):
+                model = django_apps.get_model('core', name)
+                removed[model._meta.db_table] = model.objects.all().delete()[0]
+            removed['core_userprofile'] = django_apps.get_model('core', 'UserProfile').objects.filter(user__in=users).delete()[0]
         removed['auth_user'] = users.count()
         users.delete()
         media_dir = MEDIA_PREFIX.rsplit('/', 1)[0]
@@ -324,7 +350,7 @@ class Command(BaseCommand):
     # ------------------------------------------------------------ people
     def make_profile(self, key, first, last, gender, status, role, index, extras, last_login):
         profile_id = sid(f'profile:{key}')
-        username = f'{PREFIX}{key}'
+        username = f'{PREFIX}{TEACHER_LOGINS.get(key, key)}'
         now = timezone.now()
         self.insert('profiles', {
             'id': profile_id, 'full_name': f'{first} {last} {MARK}', 'first_name': first, 'last_name': f'{last} {MARK}',
@@ -348,6 +374,9 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------ main
     def handle(self, *args, **options):
+        if options['wipe_all']:
+            removed = self.purge(everything=True)
+            self.stdout.write('Wiped: ' + ', '.join(f'{table} {count}' for table, count in sorted(removed.items())))
         removed = self.purge()
         if removed:
             self.stdout.write('Removed: ' + ', '.join(f'{table} {count}' for table, count in sorted(removed.items())))
@@ -364,15 +393,27 @@ class Command(BaseCommand):
         now = timezone.now()
         rng = random.Random(1405)
 
-        # ---- org unit, courses
-        unit = sid('unit')
-        self.insert('org_units', {'id': unit, 'parent_id': None, 'type': 'university', 'name': f'{MARK} دانشکده‌ی تست', 'code': f'{CODE}-OU', 'is_active': True})
+        # ---- structure (org_levels.py): دانشگاه علوم پزشکی (level 2) › بخش کودکان (level 3); courses of the department
+        university, unit = sid('unit:university'), sid('unit')
+        self.insert('org_units', {'id': university, 'parent_id': None, 'type': 'university', 'name': 'دانشگاه علوم پزشکی',
+                                  'code': f'{CODE}-UNI', 'is_active': True})
+        self.insert('org_units', {'id': unit, 'parent_id': university, 'type': 'department', 'name': 'بخش کودکان',
+                                  'code': f'{CODE}-PED', 'is_active': True})
+        units = {'university': university, 'pediatrics': unit}
+        for index, (key, first, last, gender, level, unit_key, _note) in enumerate(MANAGERS, start=1):
+            profile_id = self.make_profile(key, first, last, gender, 'active', 'academic_manager', 60 + index, {},
+                                           now - timedelta(hours=index))
+            title = 'مدیر دانشگاه علوم پزشکی' if level == 2 else 'مدیر آموزشی بخش کودکان'
+            self.insert('academic_manager_profiles', {
+                'user_id': profile_id, 'personnel_code': f'{CODE}-{key.upper()}', 'department': 'بخش کودکان' if level == 3 else '',
+                'responsibility_area': title, 'title': title, 'access_type': 'unit_and_children', 'include_child_units': True})
+            self.insert('academic_manager_scopes', {'id': sid(f'scope:{key}'), 'manager_id': profile_id, 'org_unit_id': units[unit_key]})
         courses = []
-        for number, title in enumerate(['علوم پایه', 'زیست‌شناسی', 'ریاضی عمومی'], start=1):
+        for number, title in enumerate(['رشد و تکامل کودک', 'بیماری‌های عفونی کودکان', 'تغذیه‌ی کودک'], start=1):
             course = sid(f'course:{number}')
             courses.append(course)
             self.insert('courses', {'id': course, 'title': f'{MARK} {title}', 'code': f'{CODE}-C{number}',
-                                    'description': 'درس آزمایشی برای تست سایت', 'org_unit_id': unit, 'credit_units': number + 1})
+                                    'description': 'درس آزمایشی بخش کودکان', 'org_unit_id': unit, 'credit_units': number + 1})
 
         # ---- teachers
         teacher = {}
@@ -381,8 +422,8 @@ class Command(BaseCommand):
             profile_id = self.make_profile(key, first, last, gender, status, 'teacher', index, extras, last_login)
             teacher[key] = profile_id
             self.insert('teacher_profiles', {
-                'user_id': profile_id, 'personnel_code': f'{CODE}-{key.upper()}', 'department': f'{MARK} گروه علوم',
-                'specialty': 'آموزش علوم', 'approval_status': approval, 'org_unit_id': unit,
+                'user_id': profile_id, 'personnel_code': f'{CODE}-{key.upper()}', 'department': 'بخش کودکان',
+                'specialty': 'کودکان', 'approval_status': approval, 'org_unit_id': unit,
                 'academic_rank': extras.get('rank', 'استادیار'), 'degree': 'دکتری', 'position_title': 'عضو هیئت علمی',
                 'cooperation_type': extras.get('cooperation', 'تمام‌وقت'), 'employment_type': 'رسمی', 'weekly_hours': '12',
                 'max_units': '20', 'password_method': 'manual', 'apply_children': False,
@@ -406,9 +447,9 @@ class Command(BaseCommand):
             profile_id = self.make_profile(key, first, last, gender, status, 'student', index, extras, last_login)
             student[key], skill[key] = profile_id, extras.get('skill', 0.5)
             self.insert('student_profiles', {
-                'user_id': profile_id, 'student_number': f'{CODE}-{key.upper()}', 'field_of_study': 'علوم تجربی',
-                'degree': 'کارشناسی', 'class_group': f'گروه {1 + index % 3}', 'semester': str(1 + index % 8),
-                'academic_status': academic, 'department': f'{MARK} گروه علوم', 'org_unit_id': unit, 'entry_year': '1403',
+                'user_id': profile_id, 'student_number': f'{CODE}-{key.upper()}', 'field_of_study': 'پزشکی',
+                'degree': 'دکترای عمومی', 'class_group': f'گروه {1 + index % 3}', 'semester': str(1 + index % 8),
+                'academic_status': academic, 'department': 'بخش کودکان', 'org_unit_id': unit, 'entry_year': '1403',
                 'admission_type': 'روزانه', 'password_method': 'manual', 'must_change_password': bool(extras.get('must_change')),
                 'send_welcome_message': False, 'show_avatar_to_teacher': True,
             })
@@ -420,7 +461,7 @@ class Command(BaseCommand):
         # ---- groups (class = course + teacher + members)
         group_specs = [
             ('G1', courses[0], 't01', ['s01', 's02', 's03', 's04', 's05', 's06', 's11', 's13', 's15'], 'active', False),
-            ('G2', courses[1], 't03', ['s01', 's02', 's04', 's07', 's08'], 'active', False),
+            ('G2', courses[1], 't02', ['s01', 's02', 's04', 's07', 's08'], 'active', False),
             ('G3', courses[0], 't02', ['s09', 's10', 's11'], 'active', False),
             ('G4', courses[2], 't01', ['s05', 's07'], 'archived', True),
         ]
@@ -461,8 +502,8 @@ class Command(BaseCommand):
                 self.sql('UPDATE questions SET archived_at = %s WHERE id = %s', [now - timedelta(days=3), question_id])
             elif state == 'shared':
                 self.sql('UPDATE questions SET shared_at = %s WHERE id = %s', [now - timedelta(days=1), question_id])
-        # t03 teaches G2 (course 2) and t02 co-teaches G1: q03 is shared with them; the ordering question is t03's own
-        self.sql('UPDATE questions SET teacher_id = %s WHERE id = %s', [teacher['t03'], question['q09']])
+        # t02 (حسنی) teaches G2 (course 2) and co-teaches G1: q03 is shared with her; the ordering question is her own
+        self.sql('UPDATE questions SET teacher_id = %s WHERE id = %s', [teacher['t02'], question['q09']])
 
         # ---- exams
         def exam(key, title, owner='t01', course=None, start=None, minutes=60, end=None, **fields):
@@ -562,7 +603,7 @@ class Command(BaseCommand):
                    is_cancelled=True, cancel_reason='تداخل با برنامه‌ی کلاس جبرانی')
         add_questions(e14, auto[:4])
         assign(e14, ['G1'])
-        e15 = exam('e15', 'بایگانی‌شده (ترم قبل)', owner='t03', course=courses[1], start=now - 60 * days, minutes=60,
+        e15 = exam('e15', 'بایگانی‌شده (ترم قبل)', owner='t02', course=courses[1], start=now - 60 * days, minutes=60,
                    is_published=True, lifecycle_status='archived', publish_mode='immediate', results_published_at=now - 55 * days,
                    semester='نیمسال دوم', academic_year='1404-1405')
         add_questions(e15, [('q03', 5), ('q09', 5), ('q01', 10)])
@@ -573,7 +614,7 @@ class Command(BaseCommand):
                    max_attempts=0, show_results_immediately=True)
         add_questions(e16, auto[:5])
         assign(e16, ['G1'])
-        e17 = exam('e17', 'آزمون آزمایشی زیست (۲ بار شرکت)', owner='t03', course=courses[1], start=now - 3 * days,
+        e17 = exam('e17', 'آزمون آزمایشی عفونی (۲ بار شرکت)', owner='t02', course=courses[1], start=now - 3 * days,
                    end=now + 30 * days, minutes=15, is_published=True, lifecycle_status='published', publish_mode='immediate',
                    exam_mode='practice', max_attempts=2, show_results_immediately=True)
         add_questions(e17, [('q03', 5), ('q09', 5)])
@@ -581,7 +622,7 @@ class Command(BaseCommand):
 
         self.insert('exam_staff', {'id': sid('staff:e11:t02'), 'exam_id': e11, 'teacher_id': teacher['t02'], 'role': 'co_grader'})
         self.insert('exam_staff', {'id': sid('staff:e12:t02'), 'exam_id': e12, 'teacher_id': teacher['t02'], 'role': 'co_grader'})
-        self.insert('exam_staff', {'id': sid('staff:e10:t14'), 'exam_id': e10, 'teacher_id': teacher['t14'], 'role': 'observer'})
+        self.insert('exam_staff', {'id': sid('staff:e10:t02'), 'exam_id': e10, 'teacher_id': teacher['t02'], 'role': 'observer'})
         self.insert('exam_staff', {'id': sid('staff:e07:t02'), 'exam_id': e07, 'teacher_id': teacher['t02'], 'role': 'designer'})
 
         # ---- attempts
@@ -670,7 +711,7 @@ class Command(BaseCommand):
             ('s05', e10, 'q08', 'resolved_rejected', 'پاسخ شما با کلید تطابق نداشت.', 't01', 'سؤال وصل‌کردنی', 'کلید این سؤال اشتباه است.'),
             ('s02', e10, 'q05', 'resolved_accepted', 'حق با شماست؛ نمره اصلاح شد.', 't01', 'تلرانس سؤال عددی', 'پاسخم در بازه‌ی مجاز بود.'),
             ('s01', e13, 'q02', 'under_review', '', None, 'نمره‌ی منفی', 'چرا برای این سؤال نمره‌ی منفی گرفتم؟'),
-            ('s01', e15, 'q09', 'escalated', 'به مدیر آموزشی ارجاع شد.', 't03', 'ترتیب مراحل', 'دو ترتیب درست وجود دارد.'),
+            ('s01', e15, 'q09', 'escalated', 'به مدیر آموزشی ارجاع شد.', 't02', 'ترتیب مراحل', 'دو ترتیب درست وجود دارد.'),
         ]
         for index, (key, exam_id, qkey, status, response, resolver, subject, message) in enumerate(objections, start=1):
             self.insert('objections', {
@@ -696,24 +737,33 @@ class Command(BaseCommand):
         # ---- more classes for the teacher class page (teacher/courses/<id>/): every block in every state
         self.seed_classes(now, courses, unit, teacher, student, skill, group, exam, add_questions, assign, attempt,
                           grade_manual, auto, mixed)
+        # the department manager's notifications: exams waiting for its approval
+        manager = sid('profile:pediatrics')
+        for index, (title, message) in enumerate([
+            ('آزمون در انتظار تأیید', 'دکتر محمدی آزمونی را برای تأیید ارسال کرده است.'),
+            ('آزمون در انتظار تأیید', 'آزمون جبرانی نوزادان منتظر تأیید شماست.'),
+        ], start=1):
+            self.insert('notifications', {'id': sid(f'notification:manager:{index}'), 'user_id': manager, 'type': 'system',
+                                          'title': f'{MARK} {title}', 'message': message, 'link': '', 'is_read': False,
+                                          'created_at': now - timedelta(hours=index)})
 
         self.report(teacher, student)
 
     def seed_classes(self, now, courses, unit, teacher, student, skill, group, exam, add_questions, assign, attempt,
                      grade_manual, auto, mixed):
         """24 more students (mqtest_c01…c24) and five classes:
-        G5 (t01, فیزیک پایه, 14 students): 8 ended exams with every learning status (عالی/خوب/متوسط/نیاز به تلاش,
+        G5 (محمدی, نوزادان, 14 students): 8 ended exams with every learning status (عالی/خوب/متوسط/نیاز به تلاش,
            در انتظار ارزیابی, با تأخیر در مشارکت: absent / unfinished in the last one), two exams waiting for grading,
            one running, three upcoming, one waiting for approval, a draft and a cancelled one;
-        G6 (t01, شیمی عمومی, 6 students): a new class — only upcoming / draft / pending exams, nothing ended yet;
-        G7 (t01, آمار زیستی): empty — no students, no exams (every empty state);
-        G8 (t02, فیزیک پایه): three graded exams and an upcoming one; G9 (t03, شیمی عمومی): grading queue + running exam."""
+        G6 (محمدی, فوریت‌های کودکان, 6 students): a new class — only upcoming / draft / pending exams, nothing ended yet;
+        G7 (محمدی, فارماکولوژی کودکان): empty — no students, no exams (every empty state);
+        G8 (حسنی, نوزادان): three graded exams and an upcoming one; G9 (حسنی, فوریت‌ها): grading queue + running exam."""
         from apps.core.views import erd_rows
 
         days = timedelta(days=1)
         first = ['آرین', 'سارا', 'علی', 'نرگس', 'مهدی', 'فاطمه', 'امیرحسین', 'ریحانه', 'محمدجعفر', 'کیمیا', 'حسین', 'زینب',
                  'بهار', 'رضا', 'مریم', 'پارسا', 'الناز', 'سجاد', 'هانیه', 'نیما', 'شیدا', 'کوروش', 'مینا', 'آیدا']
-        last = ['محمدی', 'رضایی', 'حسینی', 'کریمی', 'کاشانی', 'مرادی', 'براتی', 'احمدی', 'صدقی', 'نادری', 'جعفری', 'موسوی',
+        last = ['رستگار', 'رضایی', 'حسینی', 'کریمی', 'کاشانی', 'مرادی', 'براتی', 'احمدی', 'صدقی', 'نادری', 'جعفری', 'موسوی',
                 'نوروزی', 'اکبری', 'رحمانی', 'صالحی', 'شاکری', 'فرجی', 'یزدانی', 'بهرامی', 'توکلی', 'قنبری', 'میرزایی', 'سلطانی']
         # answering skill: ~0.97 عالی, ~0.85 خوب, ~0.68 متوسط, ~0.4 نیاز به تلاش
         levels = [0.97, 0.85, 0.68, 0.4, 0.9, 0.75, 0.55]
@@ -726,18 +776,18 @@ class Command(BaseCommand):
             student[key], skill[key] = profile_id, levels[(number - 1) % len(levels)]
             names[key] = f'{first[number - 1]} {last[number - 1]} {MARK}'
             self.insert('student_profiles', {
-                'user_id': profile_id, 'student_number': f'{CODE}-{key.upper()}', 'field_of_study': 'علوم تجربی',
-                'degree': 'کارشناسی', 'class_group': f'گروه {1 + number % 3}', 'semester': str(1 + number % 8),
-                'academic_status': 'active', 'department': f'{MARK} گروه علوم', 'org_unit_id': unit, 'entry_year': '1404',
+                'user_id': profile_id, 'student_number': f'{CODE}-{key.upper()}', 'field_of_study': 'پزشکی',
+                'degree': 'دکترای عمومی', 'class_group': f'گروه {1 + number % 3}', 'semester': str(1 + number % 8),
+                'academic_status': 'active', 'department': 'بخش کودکان', 'org_unit_id': unit, 'entry_year': '1404',
                 'admission_type': 'روزانه', 'password_method': 'manual', 'must_change_password': False,
                 'send_welcome_message': False, 'show_avatar_to_teacher': True,
             })
 
-        for number, title in ((4, 'فیزیک پایه'), (5, 'شیمی عمومی'), (6, 'آمار زیستی')):
+        for number, title in ((4, 'نوزادان'), (5, 'فوریت‌های کودکان'), (6, 'فارماکولوژی کودکان')):
             course = sid(f'course:{number}')
             courses.append(course)
             self.insert('courses', {'id': course, 'title': f'{MARK} {title}', 'code': f'{CODE}-C{number}',
-                                    'description': 'درس آزمایشی برای تست صفحه‌ی کلاس', 'org_unit_id': unit, 'credit_units': 3})
+                                    'description': 'درس آزمایشی بخش کودکان', 'org_unit_id': unit, 'credit_units': 3})
         physics, chemistry, statistics = courses[3], courses[4], courses[5]
 
         def make_group(code, course, owner, members, capacity=30):
@@ -796,19 +846,19 @@ class Command(BaseCommand):
         # G5 — the full class
         g5 = [f'c{n:02d}' for n in range(1, 15)]
         make_group('G5', physics, 't01', g5, capacity=35)
-        history = [('حرکت‌شناسی — آزمونک ۱', 42), ('بردارها و نیروها', 35), ('قوانین نیوتن', 28), ('کار و انرژی', 21),
-                   ('تکانه و برخورد', 14), ('حرکت دورانی', 9)]
+        history = [('زردی نوزادی — آزمونک ۱', 42), ('احیای نوزاد', 35), ('تغذیه با شیر مادر', 28), ('دیسترس تنفسی', 21),
+                   ('سپسیس نوزادی', 14), ('غربالگری نوزاد', 9)]
         for number, (title, ago) in enumerate(history, start=1):
             start = now - ago * days
-            exam_id = ended(f'g5f{number}', f'فیزیک — {title}', 't01', physics, 'G5', start, auto[:8], published=number <= 5)
+            exam_id = ended(f'g5f{number}', f'نوزادان — {title}', 't01', physics, 'G5', start, auto[:8], published=number <= 5)
             sit(exam_id, g5, start, absent={3: ('c05',), 6: ('c12',)}.get(number, ()))
         start = now - 5 * days
-        exam_id = ended('g5f7', 'فیزیک — گزارش آزمایش نوسان (تشریحی)', 't01', physics, 'G5', start, mixed, published=False)
+        exam_id = ended('g5f7', 'نوزادان — گزارش مورد (تشریحی)', 't01', physics, 'G5', start, mixed, published=False)
         sit(exam_id, g5, start, pending=('c03', 'c04'))
         start = now - 2 * days
-        exam_id = ended('g5f8', 'فیزیک — میان‌ترم (تستی + تشریحی)', 't01', physics, 'G5', start, mixed, minutes=90, published=False)
+        exam_id = ended('g5f8', 'نوزادان — میان‌ترم (تستی + تشریحی)', 't01', physics, 'G5', start, mixed, minutes=90, published=False)
         sit(exam_id, g5, start, absent=('c13', 'c14'), unfinished=('c09',), pending=('c06', 'c07', 'c10'))
-        running = exam('g5r', 'فیزیک — آزمونک الکتریسیته (در حال برگزاری)', course=physics, start=now - timedelta(minutes=25),
+        running = exam('g5r', 'نوزادان — آزمونک هیپوگلیسمی (در حال برگزاری)', course=physics, start=now - timedelta(minutes=25),
                        minutes=90, is_published=True, lifecycle_status='published', publish_mode='immediate')
         add_questions(running, auto[:8])
         assign(running, ['G5'])
@@ -817,56 +867,59 @@ class Command(BaseCommand):
                 attempt(running, key, now - timedelta(minutes=24 - offset), minutes=15)
             else:
                 attempt(running, key, now - timedelta(minutes=20 - offset), status='in_progress', answered=offset)
-        upcoming('g5u1', 'فیزیک — آزمونک مغناطیس (فردا)', 't01', physics, 'G5', now + days)
-        upcoming('g5u2', 'فیزیک — آزمون فصل نور', 't01', physics, 'G5', now + 4 * days, minutes=45)
-        upcoming('g5u3', 'فیزیک — پایان‌ترم', 't01', physics, 'G5', now + 20 * days, minutes=120)
-        draft_or_pending('g5p', 'فیزیک — آزمون جبرانی (در انتظار تأیید)', 't01', physics, 'G5', now + 12 * days, True)
-        draft_or_pending('g5d', 'فیزیک — تمرین ترمودینامیک (پیش‌نویس)', 't01', physics, 'G5', now + 15 * days, False)
-        upcoming('g5x', 'فیزیک — آزمونک لغوشده', 't01', physics, 'G5', now + 6 * days, is_cancelled=True, cancel_reason='تعطیلی رسمی')
+        upcoming('g5u1', 'نوزادان — آزمونک واکسیناسیون (فردا)', 't01', physics, 'G5', now + days)
+        upcoming('g5u2', 'نوزادان — آزمون فصل ایکتر', 't01', physics, 'G5', now + 4 * days, minutes=45)
+        upcoming('g5u3', 'نوزادان — پایان‌ترم', 't01', physics, 'G5', now + 20 * days, minutes=120)
+        draft_or_pending('g5p', 'نوزادان — آزمون جبرانی (در انتظار تأیید)', 't01', physics, 'G5', now + 12 * days, True)
+        draft_or_pending('g5d', 'نوزادان — تمرین مایع‌درمانی (پیش‌نویس)', 't01', physics, 'G5', now + 15 * days, False)
+        upcoming('g5x', 'نوزادان — آزمونک لغوشده', 't01', physics, 'G5', now + 6 * days, is_cancelled=True, cancel_reason='تعطیلی رسمی')
 
         # G6 — a new class: nothing has been held yet
         make_group('G6', chemistry, 't01', [f'c{n:02d}' for n in range(15, 21)], capacity=25)
-        upcoming('g6u1', 'شیمی — آزمونک ساختار اتم', 't01', chemistry, 'G6', now + 5 * days, minutes=30)
-        draft_or_pending('g6p', 'شیمی — آزمون فصل ۱ (در انتظار تأیید)', 't01', chemistry, 'G6', now + 14 * days, True)
-        draft_or_pending('g6d', 'شیمی — پیش‌نویس استوکیومتری', 't01', chemistry, 'G6', None, False)
+        upcoming('g6u1', 'فوریت‌ها — آزمونک تریاژ', 't01', chemistry, 'G6', now + 5 * days, minutes=30)
+        draft_or_pending('g6p', 'فوریت‌ها — آزمون فصل ۱ (در انتظار تأیید)', 't01', chemistry, 'G6', now + 14 * days, True)
+        draft_or_pending('g6d', 'فوریت‌ها — پیش‌نویس مسمومیت‌ها', 't01', chemistry, 'G6', None, False)
 
         # G7 — empty class (no students, no exams)
         make_group('G7', statistics, 't01', [], capacity=20)
 
-        # G8 — t02's class of the same course
+        # G8 — حسنی's class of the same course
         g8 = [f'c{n:02d}' for n in range(8, 19)]
         make_group('G8', physics, 't02', g8)
         for number, (title, ago) in enumerate((('آزمونک ۱', 20), ('آزمونک ۲', 10), ('میان‌ترم', 3)), start=1):
             start = now - ago * days
-            exam_id = ended(f'g8f{number}', f'فیزیک (گروه ۲) — {title}', 't02', physics, 'G8', start, auto[:8], published=number < 3)
+            exam_id = ended(f'g8f{number}', f'نوزادان (گروه ۲) — {title}', 't02', physics, 'G8', start, auto[:8], published=number < 3)
             sit(exam_id, g8, start, absent=('c16',) if number == 3 else (), grader='t02')
-        upcoming('g8u1', 'فیزیک (گروه ۲) — آزمونک ۳', 't02', physics, 'G8', now + 3 * days)
+        upcoming('g8u1', 'نوزادان (گروه ۲) — آزمونک ۳', 't02', physics, 'G8', now + 3 * days)
 
-        # G9 — t03's class: grading queue and a running exam
+        # G9 — حسنی's second class: grading queue and a running exam
         g9 = [f'c{n:02d}' for n in range(19, 25)] + ['s01', 's02']
-        make_group('G9', chemistry, 't03', g9)
+        make_group('G9', chemistry, 't02', g9)
         start = now - 15 * days
-        exam_id = ended('g9f1', 'شیمی (گروه ۲) — آزمونک ۱', 't03', chemistry, 'G9', start, auto[:8])
-        sit(exam_id, g9, start, grader='t03')
+        exam_id = ended('g9f1', 'فوریت‌ها (گروه ۲) — آزمونک ۱', 't02', chemistry, 'G9', start, auto[:8])
+        sit(exam_id, g9, start, grader='t02')
         start = now - 4 * days
-        exam_id = ended('g9f2', 'شیمی (گروه ۲) — گزارش کار (تشریحی)', 't03', chemistry, 'G9', start, mixed, published=False)
-        sit(exam_id, g9, start, pending=tuple(g9), grader='t03')
-        g9r = exam('g9r', 'شیمی (گروه ۲) — آزمونک ۲ (در حال برگزاری)', owner='t03', course=chemistry,
+        exam_id = ended('g9f2', 'فوریت‌ها (گروه ۲) — گزارش مورد (تشریحی)', 't02', chemistry, 'G9', start, mixed, published=False)
+        sit(exam_id, g9, start, pending=tuple(g9), grader='t02')
+        g9r = exam('g9r', 'فوریت‌ها (گروه ۲) — آزمونک ۲ (در حال برگزاری)', owner='t02', course=chemistry,
                    start=now - timedelta(minutes=10), minutes=60, is_published=True, lifecycle_status='published',
                    publish_mode='immediate')
         add_questions(g9r, auto[:6])
         assign(g9r, ['G9'])
         attempt(g9r, 'c19', now - timedelta(minutes=9), status='in_progress', answered=3)
-        draft_or_pending('g9d', 'شیمی (گروه ۲) — پیش‌نویس پایان‌ترم', 't03', chemistry, 'G9', now + 25 * days, False)
+        draft_or_pending('g9d', 'فوریت‌ها (گروه ۲) — پیش‌نویس پایان‌ترم', 't02', chemistry, 'G9', now + 25 * days, False)
 
     def report(self, teacher, student):
         from apps.core.views import erd_rows, exam_access_code
 
         out = self.stdout.write
         out(self.style.SUCCESS(f'Test data created. Every account: password {PASSWORD}'))
-        out('Teachers:')
-        for key, *_rest, note in TEACHERS:
+        out('Level 2 / 3 managers:')
+        for key, *_rest, note in MANAGERS:
             out(f'  {PREFIX}{key}  {note}')
+        out('Teachers (بخش کودکان):')
+        for key, *_rest, note in TEACHERS:
+            out(f'  {PREFIX}{TEACHER_LOGINS.get(key, key)}  {note}')
         out('Students:')
         for key, *_rest, note in STUDENTS:
             out(f'  {PREFIX}{key}  {note}')

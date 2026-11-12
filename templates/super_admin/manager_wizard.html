@@ -86,8 +86,8 @@
                                     <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
                                     <select name="primary_scope_id" required data-primary-scope>
                                         <option value="">انتخاب واحد</option>
-                                        {% for unit in org_units %}
-                                            <option value="{{ unit.id }}" {% if draft.primary_scope_id == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
+                                        {% for unit in scope_units %}
+                                            <option value="{{ unit.id }}" data-level="{{ unit.access_level }}" {% if draft.primary_scope_id == unit.id|stringformat:"s" %}selected{% endif %}>{{ unit.name }}</option>
                                         {% endfor %}
                                     </select>
                                 </label>
@@ -121,8 +121,10 @@
                         </article>
                         <article>
                             <strong>نقش مدیریتی <b class="req">*</b></strong>
-                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="admin" {% if draft.manager_role == "admin" %}checked{% endif %}>مدیر سیستم<small>دسترسی کامل به تمام بخش‌های سیستم</small></label>
-                            <label class="manager-role-choice"><input type="radio" name="manager_role" value="academic_manager" {% if draft.manager_role != "admin" %}checked{% endif %}>مدیر آموزشی<small>مدیریت آموزشی در محدوده تخصیص داده شده</small></label>
+                            {# level of the new manager (apps/core/org_levels.py); a university manager may only add department managers #}
+                            {% for level in level_choices %}
+                                <label class="manager-role-choice"><input type="radio" name="manager_level" value="{{ level.number }}" data-manager-level {% if chosen_level == level.number|stringformat:"s" %}checked{% endif %}>{{ level.manager_title }} (سطح {{ level.number|fa_digits }})<small>{{ level.hint }}</small></label>
+                            {% endfor %}
                             <label>عنوان سمت <b class="req">*</b><input name="title" value="{{ draft.title|default:'' }}" placeholder="مدیر آموزش دانشکده" required></label>
                             <label>نوع دسترسی <b class="req">*</b>
                                 <select name="access_type" required>
@@ -135,6 +137,28 @@
                         </article>
                     </div>
                     {{ org_units|json_script:"org-units-data" }}
+                    <script>
+                        // the unit list follows the chosen level: دانشگاه for level 2, بخش for level 3, none for level 1
+                        (() => {
+                            const select = document.querySelector('[data-primary-scope]');
+                            const radios = document.querySelectorAll('[data-manager-level]');
+                            const wrap = select && select.closest('article');
+                            function sync() {
+                                const level = (document.querySelector('[data-manager-level]:checked') || {}).value || '3';
+                                if (!select) return;
+                                Array.from(select.options).forEach((option) => {
+                                    if (!option.value) return;
+                                    option.hidden = option.dataset.level !== level;
+                                    if (option.hidden && option.selected) select.value = '';
+                                });
+                                if (wrap) wrap.hidden = level === '1';
+                                select.required = level !== '1';
+                                select.dispatchEvent(new Event('change'));
+                            }
+                            radios.forEach((radio) => radio.addEventListener('change', sync));
+                            sync();
+                        })();
+                    </script>
                 </section>
             {% elif step == 3 %}
                 <section class="teacher-wizard-panel">
@@ -217,7 +241,7 @@
                             </div>
                         </div>
                         <dl>
-                            <div><dt>نقش:</dt><dd>{% if draft.manager_role == "admin" %}مدیر سیستم{% else %}مدیر آموزشی{% endif %}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
+                            <div><dt>نقش:</dt><dd>{% if draft.manager_level == "1" %}مدیر سیستم (سطح ۱){% elif draft.manager_level == "2" %}مدیر دانشگاه (سطح ۲){% else %}مدیر بخش (سطح ۳){% endif %}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
                             <div><dt>واحد اصلی:</dt><dd>{{ primary_scope_path.label|default:"-" }}</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
                             <div><dt>دامنه مدیریت:</dt><dd>{{ scope_ids|length|fa_digits }} واحد</dd><a href="?step=2"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>
                             <div><dt>مجوزهای فعال:</dt><dd>{{ active_permissions|fa_digits }} مورد</dd><a href="?step=3"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ویرایش</a></div>

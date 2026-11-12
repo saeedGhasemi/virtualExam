@@ -21,7 +21,7 @@ def panel_user(request):
         return {
             'panel_avatar_url': profile.get('avatar_url') or '',
             'panel_display_name': profile.get('full_name') or profile.get('username') or user.get_username(),
-            'panel_role_label': ROLE_LABELS.get(roles[0], roles[0]) if roles else '',
+            'panel_role_label': profile.get('role_label') or (ROLE_LABELS.get(roles[0], roles[0]) if roles else ''),
         }
 
     profile = None

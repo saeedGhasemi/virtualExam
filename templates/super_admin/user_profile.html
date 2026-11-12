@@ -197,7 +197,7 @@
                         {% endfor %}
                     </div>
                     <p>دسترسی به واحد اصلی و زیرواحدهای آن</p>
-                    <a href="{{ access_url|default:edit_url }}">مشاهده همه دسترسی‌ها</a>
+                    {% if access_url %}<a href="{{ access_url }}">مشاهده همه دسترسی‌ها</a>{% endif %}
                 </section>
 
                 <section class="manager-profile-card manager-profile-activity-card">
@@ -302,7 +302,7 @@
                                 <button type="submit">فعال‌سازی</button>
                             {% endif %}
                         </form>
-                        <a href="{{ edit_url }}#account-password">تغییر رمز عبور</a>
+                        {% if edit_url and edit_url != "#" %}<a href="{{ edit_url }}#account-password">تغییر رمز عبور</a>{% endif %}
                     </footer>
                 </section>
 

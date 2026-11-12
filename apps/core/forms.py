@@ -370,54 +370,37 @@ class SuperAdminCourseForm(forms.ModelForm):
 
 
 class SuperAdminOrgUnitForm(forms.Form):
+    """A unit of «ساختار سازمانی»: a university (level 2) or a department (level 3) under a university.
+
+    `allow_university`: only the system admin (level 1) defines universities; `parent_ids` limits the university a
+    department may sit under (a level-2 manager: its own university)."""
     UNIT_CHOICES = (
-        ('university', 'دانشگاه'),
-        ('faculty', 'دانشکده'),
-        ('department', 'گروه آموزشی'),
+        ('university', 'دانشگاه (سطح ۲)'),
+        ('department', 'بخش (سطح ۳)'),
     )
 
-    unit_type = forms.ChoiceField(label='نوع', choices=UNIT_CHOICES)
-    institution = forms.ChoiceField(label='دانشگاه', choices=(), required=False)
-    parent = forms.ChoiceField(label='دانشکده', choices=(), required=False)
+    unit_type = forms.ChoiceField(label='سطح', choices=UNIT_CHOICES)
+    parent = forms.ChoiceField(label='دانشگاه', choices=(), required=False)
     name = forms.CharField(label='نام', max_length=180)
     code = forms.CharField(label='کد (اختیاری)', max_length=60, required=False)
     is_active = forms.BooleanField(label='فعال', required=False, initial=True)
 
-    def __init__(self, *args, org_units=None, unit_id=None, org_levels=None, **kwargs):
+    def __init__(self, *args, org_units=None, unit_id=None, allow_university=True, parent_ids=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.unit_id = str(unit_id or '')
-        self.org_units = list(org_units or [])
-        self.org_levels = list(org_levels or [])
-        self.unit_by_id = {str(unit['id']): unit for unit in self.org_units}
-        if self.org_levels:
-            self.fields['unit_type'].choices = [
-                (f'level_{index}', level.get('title') or f'سطح {index}')
-                for index, level in enumerate(self.org_levels, start=1)
-            ]
-        parent_units = [
-            unit for unit in self.org_units
-            if str(unit['id']) != self.unit_id
-        ]
+        self.unit_by_id = {str(unit['id']): unit for unit in (org_units or [])}
+        self.allow_university = allow_university
+        if not allow_university:
+            self.fields['unit_type'].choices = [choice for choice in self.UNIT_CHOICES if choice[0] != 'university']
         universities = [
-            unit for unit in self.org_units
+            unit for unit in self.unit_by_id.values()
             if unit.get('type') == 'university' and str(unit['id']) != self.unit_id
+            and (parent_ids is None or str(unit['id']) in parent_ids)
         ]
-        faculties = [
-            unit for unit in self.org_units
-            if unit.get('type') == 'faculty' and str(unit['id']) != self.unit_id
-        ]
-        self.fields['institution'].choices = [('', '---------')] + [
-            (str(unit['id']), unit['name']) for unit in universities
-        ]
-        self.fields['parent'].choices = [('', '---------')] + [
-            (
-                str(unit['id']),
-                f"{unit.get('_level_label') or unit.get('type')} - {unit['name']}",
-            )
-            for unit in parent_units
+        self.fields['parent'].choices = [('', 'انتخاب دانشگاه')] + [
+            (str(unit['id']), unit['name']) for unit in sorted(universities, key=lambda unit: unit['name'])
         ]
         self.fields['unit_type'].widget.attrs.update({'data-org-field': 'type'})
-        self.fields['institution'].widget.attrs.update({'data-org-field': 'institution'})
         self.fields['parent'].widget.attrs.update({'data-org-field': 'parent'})
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'super-admin-input')
@@ -425,97 +408,32 @@ class SuperAdminOrgUnitForm(forms.Form):
     def clean(self):
         cleaned = super().clean()
         unit_type = cleaned.get('unit_type')
-        institution_id = cleaned.get('institution')
-        parent_id = cleaned.get('parent')
-        if unit_type and unit_type.startswith('level_'):
-            try:
-                level_index = int(unit_type.split('_', 1)[1])
-            except (TypeError, ValueError):
-                level_index = 1
-            if level_index <= 1:
-                cleaned['institution'] = ''
-                cleaned['parent'] = ''
-                return cleaned
-            parent = self.unit_by_id.get(str(parent_id))
-            if self.unit_id and str(parent_id) == self.unit_id:
-                self.add_error('parent', 'واحد نمی‌تواند زیرمجموعه خودش باشد.')
-            if not parent:
-                self.add_error('parent', 'برای این سطح، انتخاب واحد والد الزامی است.')
-            elif int(parent.get('_level_index') or 0) != level_index - 1:
-                self.add_error('parent', 'والد باید از سطح قبلی انتخاب شود.')
-            cleaned['institution'] = ''
-            return cleaned
-
         if unit_type == 'university':
-            cleaned['institution'] = ''
             cleaned['parent'] = ''
             return cleaned
-
-        institution = self.unit_by_id.get(str(institution_id))
-        if self.unit_id and str(institution_id) == self.unit_id:
-            self.add_error('institution', 'واحد نمی‌تواند زیرمجموعه خودش باشد.')
-        if not institution or institution.get('type') != 'university':
-            self.add_error('institution', 'برای ثبت دانشکده یا گروه آموزشی، انتخاب دانشگاه الزامی است.')
-
-        if unit_type == 'faculty':
-            cleaned['parent'] = str(institution_id or '')
-            return cleaned
-
-        if unit_type == 'department':
-            parent = self.unit_by_id.get(str(parent_id))
-            if self.unit_id and str(parent_id) == self.unit_id:
-                self.add_error('parent', 'واحد نمی‌تواند زیرمجموعه خودش باشد.')
-            if not parent or parent.get('type') != 'faculty':
-                self.add_error('parent', 'برای ثبت گروه آموزشی، انتخاب دانشکده الزامی است.')
-            elif str(parent.get('parent_id')) != str(institution_id):
-                self.add_error('parent', 'دانشکده باید زیرمجموعه همین دانشگاه باشد.')
-
+        parent_id = str(cleaned.get('parent') or '')
+        if not parent_id:
+            self.add_error('parent', 'هر بخش باید زیرمجموعه‌ی یک دانشگاه باشد.')
+        elif self.unit_id and parent_id == self.unit_id:
+            self.add_error('parent', 'واحد نمی‌تواند زیرمجموعه‌ی خودش باشد.')
+        elif parent_id not in {value for value, _label in self.fields['parent'].choices if value}:
+            self.add_error('parent', 'دانشگاه انتخاب‌شده معتبر نیست.')
         return cleaned
 
     def save(self):
         unit_id = self.unit_id or str(uuid.uuid4())
         unit_type = self.cleaned_data['unit_type']
-        name = self.cleaned_data['name'].strip()
-        code = self.cleaned_data.get('code', '').strip() or None
-        is_active = self.cleaned_data.get('is_active', True)
-        parent_id = None
-        if unit_type and unit_type.startswith('level_'):
-            try:
-                level_index = int(unit_type.split('_', 1)[1])
-            except (TypeError, ValueError):
-                level_index = 1
-            db_type = 'university' if level_index == 1 else 'faculty' if level_index == 2 else 'department' if level_index == 3 else 'group'
-            if level_index > 1:
-                parent_id = self.cleaned_data.get('parent') or None
-            if level_index >= 4:
-                code = f"__level:{level_index}__{code or ''}"[:60]
-            unit_type = db_type
-        else:
-            if unit_type == 'faculty':
-                parent_id = self.cleaned_data.get('institution') or None
-            elif unit_type == 'department':
-                parent_id = self.cleaned_data.get('parent') or None
-
+        parent_id = (self.cleaned_data.get('parent') or None) if unit_type == 'department' else None
+        values = [parent_id, unit_type, self.cleaned_data['name'].strip(), self.cleaned_data.get('code', '').strip() or None,
+                  self.cleaned_data.get('is_active', True)]
         with connection.cursor() as cursor:
             if self.unit_id:
-                cursor.execute(
-                    """
-                    UPDATE org_units
-                    SET parent_id = %s, type = %s, name = %s, code = %s, is_active = %s
-                    WHERE id = %s
-                    """,
-                    [parent_id, unit_type, name, code, is_active, unit_id],
-                )
+                cursor.execute('UPDATE org_units SET parent_id = %s, type = %s, name = %s, code = %s, is_active = %s WHERE id = %s',
+                               values + [unit_id])
             else:
-                cursor.execute(
-                    """
-                    INSERT INTO org_units (id, parent_id, type, name, code, is_active)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                    [unit_id, parent_id, unit_type, name, code, is_active],
-                )
+                cursor.execute('INSERT INTO org_units (parent_id, type, name, code, is_active, id) VALUES (%s, %s, %s, %s, %s, %s)',
+                               values + [unit_id])
         return unit_id
-
 
 class SuperAdminClassForm(forms.ModelForm):
     class Meta:

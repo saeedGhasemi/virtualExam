@@ -70,10 +70,7 @@
     <form method="post" enctype="multipart/form-data" class="qx-card qx-main" id="answer-form" data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
       {% csrf_token %}
       {% if page_rules.one_per_page %}
-        <input type="hidden" name="seen_{{ current_answer.question_id }}" value="1">
-        <div data-question-block data-question-index="{{ current_index }}" data-question-id="{{ current_answer.question_id }}" data-answered="{% if current_answer.answered %}1{% endif %}" data-has-files="{% if current_answer.answer_files %}1{% endif %}">
-          {% include "student/_attempt_question.html" with q=current_answer with_autosave_state=True %}
-        </div>
+        {% include "student/_attempt_one_question.html" with q=current_answer %}
       {% else %}
         {# «نمایش یک سوال در هر صفحه» off: every question on this page; each block saves with the same form. #}
         {% for item in items %}
@@ -249,8 +246,18 @@
     form?.addEventListener('submit', (event) => { if (!navigator.onLine) event.preventDefault(); });
   }
 
-  // Saving. «ذخیره خودکار پاسخ‌ها» off: answers are saved only when the student moves on or presses a save button.
-  // With a «بازه زمانی» the changes are sent every N seconds; without one, shortly after each change.
+  // Saving: every answer is first kept on this device, then sent to the server (the «outbox»).
+  // - Each change is written at once to localStorage (`mq-answers-<attempt>`, one entry per question; a preview keeps
+  //   it in memory only), so a closed tab, a crash, a power cut or a lost connection loses nothing answered here.
+  // - It goes to the server following the exam's rules: «ذخیره خودکار پاسخ‌ها» on → shortly after each change, or every
+  //   «بازه زمانی» seconds; off → when the student moves on or presses a save button. Sends go one at a time
+  //   (queuePost) and are retried (growing pauses; at once when the browser is back online) until the server has
+  //   them. An entry leaves the outbox only when the server confirmed it ({ok: true}) and nothing newer was answered
+  //   meanwhile. A question left unchanged is not sent again (`baseline` = what the server has).
+  // - What is still in the outbox when the attempt opens again on this device is sent first («Recovery» below).
+  // - 409 (time over / submitted): dropped, the server keeps what it had. 423 (taken over on another device): dropped
+  //   (that device has the newer answers) and the page reloads. 403 / a redirect (another network, signed out, stale
+  //   CSRF token): kept here and the page reloads (after signing in again the attempt sends them).
   let saveTimer;
   let dirty = false;
   const answerData = () => {
@@ -268,22 +275,127 @@
     postQueue = run.catch(() => {});
     return run;
   };
+  const csrfToken = () => form?.querySelector('[name=csrfmiddlewaretoken]')?.value || csrf;
+  const reloadPage = () => { allowLeave(); window.location.reload(); };
+  const outboxKey = 'mq-answers-{{ attempt.pk }}';
+  const outbox = new Map();     // question ids ("id" or "id,id,…") → { url, pairs, ready }
+  const baseline = new Map();   // question ids → the answer fields the server has (JSON)
+  const SKIP_FIELDS = new Set(['csrfmiddlewaretoken', 'action', 'goto']);
+  const pairsOnScreen = () => (form ? [...answerData().entries()].filter(([name, value]) => typeof value === 'string' && !SKIP_FIELDS.has(name)) : []);
+  const keyOf = (pairs) => pairs.filter(([name]) => name.startsWith('seen_')).map(([name]) => name.slice(5)).join(',') || 'page';
+  const writeOutbox = () => {
+    if (preview) return;
+    try {
+      if (outbox.size) localStorage.setItem(outboxKey, JSON.stringify({ at: Date.now(), items: [...outbox] }));
+      else localStorage.removeItem(outboxKey);
+    } catch (error) { /* storage full or blocked: the server copy still applies */ }
+  };
+  // What is on screen as the server should have it (after a load, a swap from the server, a confirmed save).
+  const setBaseline = () => { const pairs = pairsOnScreen(); if (pairs.length) baseline.set(keyOf(pairs), JSON.stringify(pairs)); };
+  // Takes the answers on screen into the outbox; `ready`: to be sent now (else it waits for the next save).
+  const stash = (ready) => {
+    const pairs = pairsOnScreen();
+    if (!pairs.length) return null;
+    const key = keyOf(pairs);
+    const json = JSON.stringify(pairs);
+    const before = outbox.get(key);
+    if (before && JSON.stringify(before.pairs) === json) {
+      if (ready && !before.ready) { before.ready = true; writeOutbox(); }
+      return key;
+    }
+    if (!before && baseline.get(key) === json) return key;  // unchanged: the server has it
+    outbox.set(key, { url: window.location.pathname + window.location.search, pairs, ready: !!ready || !!before?.ready });
+    writeOutbox();
+    return key;
+  };
+  const pendingCount = () => [...outbox.values()].filter((entry) => entry.ready).length;
+  let saveWaiters = [];
+  let flushing = false;
+  let retryTimer = 0;
+  let failures = 0;
+  const showSynced = () => {
+    if (pendingCount()) return;
+    setSaveState(rules.autosave ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'پاسخ ذخیره شد.');
+    saveWaiters.splice(0).forEach((resolve) => resolve());
+  };
+  const showUnsynced = () => {
+    setSaveState('پاسخ‌ها روی همین دستگاه نگه داشته شده‌اند و با برقراری اتصال، خودکار به سرور فرستاده می‌شوند.', true);
+    setConnection(false, navigator.onLine ? 'ارتباط با سرور برقرار نشد' : undefined);
+  };
+  const isConfirmed = async (response) => {
+    if (!response.ok || response.redirected || !(response.headers.get('content-type') || '').includes('application/json')) return false;
+    try { return (await response.json()).ok === true; } catch (error) { return false; }
+  };
+  const flush = () => {
+    clearTimeout(retryTimer);
+    if (flushing) return;
+    const next = [...outbox].find(([, entry]) => entry.ready);
+    if (!next) { showSynced(); return; }
+    const [key, entry] = next;
+    flushing = true;
+    const body = new FormData();
+    body.append('csrfmiddlewaretoken', csrfToken());
+    entry.pairs.forEach(([name, value]) => body.append(name, value));
+    queuePost(() => fetch(entry.url, { mqBackground: true, method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body, credentials: 'same-origin' }))
+      .then(async (response) => {
+        if (response.status === 423) { outbox.clear(); writeOutbox(); reloadPage(); return; }
+        if (response.status === 403 || (response.redirected && new URL(response.url).pathname !== new URL(entry.url, window.location.href).pathname)) { reloadPage(); return; }
+        if (response.status === 409) {
+          outbox.clear();
+          writeOutbox();
+          flushing = false;
+          setSaveState('زمان پاسخ‌دهی به پایان رسیده یا آزمون ارسال شده است؛ پاسخ جدید ذخیره نشد.', true);
+          saveWaiters.splice(0).forEach((resolve) => resolve());
+          return;
+        }
+        if (!(await isConfirmed(response))) {
+          // Server trouble or a lost connection: tried again. Any other refusal would never succeed: dropped.
+          if (response.status >= 500 || [0, 408, 429].includes(response.status) || response.ok) throw new Error(String(response.status));
+          if (outbox.get(key) === entry) outbox.delete(key);
+          writeOutbox();
+          setSaveState('ذخیره‌ی پاسخ انجام نشد؛ لطفاً صفحه را دوباره باز کنید.', true);
+        } else {
+          if (outbox.get(key) === entry) outbox.delete(key);  // nothing newer answered meanwhile
+          baseline.set(key, JSON.stringify(entry.pairs));
+          writeOutbox();
+        }
+        failures = 0;
+        flushing = false;
+        if (navigator.onLine) setConnection(true);
+        flush();
+      })
+      .catch(() => {
+        flushing = false;
+        failures += 1;
+        showUnsynced();
+        retryTimer = setTimeout(flush, Math.min(15000, 1000 * 2 ** Math.min(failures - 1, 4)));
+      });
+  };
+  // Resolves once every answer waiting to be sent is on the server (or after limitMs).
+  const whenSaved = (limitMs) => {
+    if (!pendingCount()) return Promise.resolve();
+    const all = new Promise((resolve) => saveWaiters.push(resolve));
+    flush();
+    return limitMs ? Promise.race([all, new Promise((resolve) => setTimeout(resolve, limitMs))]) : all;
+  };
+  window.mqExamWhenSaved = whenSaved;
+  window.mqExamPendingSaves = pendingCount;
   const save = () => {
     dirty = false;
     clearTimeout(saveTimer);
-    return queuePost(() => fetch(window.location.href, { mqBackground: true, method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: answerData() }))
-      .then(response => {
-        if (response.status === 423 || response.status === 403) { allowLeave(); window.location.reload(); return; }  // another device / network
-        setSaveState(response.ok ? 'پاسخ به‌صورت خودکار ذخیره شد.' : 'ذخیره خودکار ناموفق بود.', !response.ok);
-        if (!response.ok) dirty = true;
-        if (navigator.onLine) setConnection(true);
-      })
-      .catch(() => {
-        dirty = true;
-        setSaveState('ذخیره خودکار ناموفق بود.', true);
-        setConnection(false, navigator.onLine ? 'ارتباط با سرور برقرار نشد' : undefined);
-      });
+    stash(true);
+    flush();
   };
+  // Every change is kept on this device at once (also with autosave off; files are stored by their own submit).
+  let stashTimer;
+  const stashSoon = () => { clearTimeout(stashTimer); stashTimer = setTimeout(() => stash(false), 250); };
+  ['input', 'change'].forEach((type) => document.addEventListener(type, (event) => {
+    const field = event.target;
+    if (form && field?.type !== 'file' && (field?.form === form || form.contains(field))) stashSoon();
+  }));
+  const keepNow = () => { clearTimeout(stashTimer); stash(false); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) keepNow(); });
+  window.addEventListener('online', () => { failures = 0; flush(); });
   if (rules.autosave) {
     if (rules.autosave_seconds > 0) {
       setInterval(() => { if (dirty) save(); }, rules.autosave_seconds * 1000);
@@ -295,17 +407,38 @@
       clearTimeout(saveTimer);
       saveTimer = setTimeout(save, 700);
     });
-    // Closing the page with changes not yet sent (between two interval saves) still sends them when possible.
-    window.addEventListener('pagehide', () => {
-      if (dirty && navigator.sendBeacon) navigator.sendBeacon(window.location.href, answerData());
-    });
   }
+  // The page is closing: what is not yet on the server is handed to the browser to deliver (and stays here too).
+  window.addEventListener('pagehide', () => {
+    keepNow();
+    if (!navigator.sendBeacon) return;
+    outbox.forEach((entry) => {
+      const body = new FormData();
+      body.append('csrfmiddlewaretoken', csrfToken());
+      entry.pairs.forEach(([name, value]) => body.append(name, value));
+      navigator.sendBeacon(entry.url, body);
+    });
+  });
+  // «شروع دوباره» clears every answer on the server: nothing kept here may bring one back.
+  form?.addEventListener('submit', (event) => {
+    if (event.submitter?.value !== 'clear_all') return;
+    clearTimeout(stashTimer);
+    outbox.clear();
+    writeOutbox();
+  });
+  // Old outboxes of other attempts (submitted long ago) are removed.
+  try {
+    Object.keys(localStorage).filter((name) => name.startsWith('mq-answers-') && name !== outboxKey).forEach((name) => {
+      const at = Number(JSON.parse(localStorage.getItem(name) || '{}').at) || 0;
+      if (Date.now() - at > 3 * 86400000) localStorage.removeItem(name);
+    });
+  } catch (error) { /* storage blocked */ }
   // Essay uploads: picking (or removing) a file submits the form and stays on this question.
   const stay = () => {
     clearTimeout(saveTimer);
     setSaveState('در حال ذخیره فایل...');
-    allowLeave();
-    form.submit();
+    // Answers of other questions still being saved in the background go first (see «Moving between questions»).
+    Promise.resolve(window.mqExamWhenSaved?.()).then(() => { allowLeave(); form.submit(); });
   };
   document.addEventListener('change', (event) => {
     const input = event.target.closest?.('[data-auto-save]');
@@ -325,6 +458,8 @@
   let timeUpAfterRecording = false;
   const continueTimeUp = () => { timeUpAfterRecording = false; finishTimeUp(); };
   const initRecorders = () => form?.querySelectorAll('[data-recorder]').forEach((box) => {
+    if (box.dataset.qxReady) return;  // a question shown again keeps what was set up the first time
+    box.dataset.qxReady = '1';
     const target = box.querySelector('[data-record-target]');
     const replace = box.querySelector('[data-record-replace]');
     const kind = box.dataset.recordKind;
@@ -387,6 +522,12 @@
   // opens after the time is over). Off: answering stops and the confirmation page says what happens.
   let remaining = Number("{{ remaining_seconds|default:0 }}");
   const finishTimeUp = () => {
+    // Answers still being saved in the background are given a few seconds first (the server allows a short grace).
+    const pending = window.mqExamWhenSaved?.(8000);
+    if (pending) { pending.then(finishTimeUpNow); return; }
+    finishTimeUpNow();
+  };
+  const finishTimeUpNow = () => {
     allowLeave();
     if (preview) { window.location.href = `${preview.finish_url}?timeup=1`; return; }
     if (rules.auto_submit) document.getElementById('auto-submit-form').submit();
@@ -466,6 +607,8 @@
 
   // Each question block: voice input, multi-answer limit, ordering, matching, matrix, image labels, playback.
   const initBlocks = () => blocks.forEach((block) => {
+    if (block.dataset.qxReady) return;  // a question shown again (its own nodes, kept) is set up already
+    block.dataset.qxReady = '1';
     window.ExamInteractions.voiceInput(block.querySelector('[data-voice-mic]'), block.querySelector('[data-voice-target]'));
     const multiRoot = block.querySelector('[data-max-select]');
     if (multiRoot) window.ExamInteractions.limitChoices(multiRoot, Number(multiRoot.dataset.maxSelect || 0));
@@ -496,11 +639,12 @@
   const isAnswered = (block) => block.dataset.hasFiles === '1' || [...form.elements].some((el) => el.name === `answer_${block.dataset.questionId}`
     && ((el.type === 'radio' || el.type === 'checkbox') ? el.checked : el.value.trim()));
   const toNumber = (text) => Number(String(text).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) || 0;
-  // Answered questions other than the ones on screen (from the server's count); recomputed after each swap.
+  // Answered questions other than the ones on screen (from the marks of the position bar, which the server set and
+  // this page keeps up to date); recomputed after each swap.
   let baseCount = 0;
   const initBaseCount = () => {
-    const answeredBefore = blocks.reduce((sum, block) => sum + (block.dataset.answered === '1' ? 1 : 0), 0);
-    baseCount = toNumber(answeredCountEl()?.textContent) - answeredBefore;
+    const onScreen = new Set(blocks.map((block) => block.dataset.questionIndex));
+    baseCount = [...document.querySelectorAll('[data-pos-seg].is-answered')].filter((seg) => !onScreen.has(seg.dataset.posSeg)).length;
   };
   // A question's state shows in three places: its segment in the position bar, its cell in the list (strip) and the sheet.
   const stateTargets = (index) => document.querySelectorAll(`[data-pos-seg="${index}"], [data-map-cell="${index}"]`);
@@ -624,6 +768,37 @@
     refreshCounts();
   };
   initQuestionArea();
+  setBaseline();
+  // Recovery: answers this device kept but the server never confirmed (the page was closed, the browser crashed, the
+  // power or the connection went) are sent before anything else. One for a question on screen that differs from what
+  // the server showed: answering waits a moment (time still runs), then the page reloads to show the stored answer.
+  const recovered = (() => {
+    if (preview || !form) return Promise.resolve();
+    let kept = null;
+    try { kept = JSON.parse(localStorage.getItem(outboxKey) || 'null'); } catch (error) { kept = null; }
+    if (!kept || !Array.isArray(kept.items) || !kept.items.length) return Promise.resolve();
+    const onScreen = new Set(blocks.map((block) => block.dataset.questionId));
+    const here = pairsOnScreen();
+    let stale = false;
+    kept.items.forEach(([key, entry]) => {
+      if (typeof key !== 'string' || !entry || !Array.isArray(entry.pairs)) return;
+      if (key.split(',').some((id) => onScreen.has(id))) {
+        if (key === keyOf(here) && JSON.stringify(entry.pairs) === JSON.stringify(here)) return;  // the server has it
+        stale = true;
+      }
+      outbox.set(key, { url: entry.url || window.location.pathname, pairs: entry.pairs, ready: true });
+    });
+    writeOutbox();
+    if (!outbox.size) return Promise.resolve();
+    if (!stale) return whenSaved();
+    const wait = document.createElement('div');
+    wait.className = 'qx-overlay';
+    wait.setAttribute('role', 'alertdialog');
+    wait.innerHTML = '<div>در حال بازیابی پاسخ‌هایی که روی این دستگاه نگه داشته شده بود؛ چند لحظه صبر کنید...</div>';
+    document.body.appendChild(wait);
+    form.inert = true;
+    return whenSaved().then(() => { reloadPage(); return new Promise(() => {}); });
+  })();
   document.addEventListener('input', (event) => {
     if (event.target.form !== form) return;
     refreshAnswerState();
@@ -975,69 +1150,234 @@
     start();
   }
 
-  // Moving between questions without a reload: «قبلی», «سؤال بعدی» and the question numbers send the same post as
-  // before (the server saves the answer and redirects to ?q=n); the question, position card and dock are taken from
-  // that page and swapped in, and the address bar follows. Anything else — «پایان آزمون», feedback in a practice
-  // exam, a redirect away from this page (time over, submitted, another device), an error page — loads normally.
-  // Other handlers may have stopped the submit first (recording in progress, offline): then nothing happens here.
+  // Moving between questions without a reload: «قبلی», «سؤال بعدی» and the question numbers.
+  // - Instant moves (one question per page, going back allowed, answers may change, no tutorial feedback, i.e. where
+  //   the student may open any question anyway): once the page is up, every question with its stored answer is
+  //   fetched in one background request (?part=questions, views._sx_render_attempt_page). A move then never waits
+  //   for the network, also offline: the question is taken from that copy, or — for one already visited — its own
+  //   nodes as the student left them are put back (so the answer shows as left, whether or not the server has it
+  //   yet). The position bar, the list and the dock follow in place (setPosition); the answer left behind goes to the
+  //   outbox («Saving» above). The loader shows only if a move comes before that one request is back.
+  // - Otherwise (and if that copy can't be had): the same post as before — the server saves the answer and redirects
+  //   to ?q=n — and the question, position card and dock are taken from that page.
+  // Anything else — «پایان آزمون», feedback in a practice exam, a redirect away from this page (time over,
+  // submitted, another device), an error page — loads normally, after the answers still on their way.
+  // Other handlers may have stopped the submit first (recording in progress, «توقف آزمون» offline): then nothing.
   centerCell(getStrip()?.querySelector('.is-current'), false);
   let examUrl = window.location.pathname + window.location.search;  // follows the question switches below
+  const questionUrl = (index) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('q', index);
+    return url.pathname + url.search;
+  };
   if (rules.one_per_page && window.fetch && window.DOMParser) {
     let navigating = false;
+    const fastMoves = rules.back && !rules.lock_on_leave && !{% if practice.tutorial %}true{% else %}false{% endif %} && 'content' in document.createElement('template');
+    window.mqExamOfflineMoves = () => fastMoves;  // _practice_connection.html lets these moves through while offline
     const isMove = (button) => !!button && ((button.name === 'action' && ['next', 'previous'].includes(button.value)) || button.name === 'goto');
+    const currentIndex = () => Number(form.querySelector('[data-question-block]')?.dataset.questionIndex) || 1;
+    const targetOf = (button, from) => {
+      const to = button.name === 'goto' ? Number(button.value) : from + (button.value === 'next' ? 1 : -1);
+      return Math.min(Math.max(1, to || from), totalQuestions);
+    };
+    const afterSwap = (url) => {
+      examUrl = url;
+      history.replaceState(history.state, '', examUrl);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      const heading = form.querySelector('.qx-qhead h3');
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    };
+    const settle = () => {
+      if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        form.animate?.([{ opacity: 0.55, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 140, easing: 'ease-out' });
+      }
+    };
+    // From the server's page (the classic move): question, position card and dock.
     const swapIn = (doc) => {
       const parts = ['.qx-pos', '.qx-dock'].map((selector) => [document.querySelector(selector), doc.querySelector(selector)]);
       const nextForm = doc.getElementById('answer-form');
       if (!nextForm || parts.some(([here, there]) => !here || !there)) return false;
+      // Instant moves: the question left behind is kept as left (a copy of every question may be older).
+      if (fastMoves) visited.set(currentIndex(), { nodes: [...form.childNodes], attrs: FORM_ATTRS.map((name) => [name, form.getAttribute(name) || '']) });
       ['data-question-id', 'data-answered', 'data-has-files'].forEach((name) => form.setAttribute(name, nextForm.getAttribute(name) || ''));
       form.replaceChildren(...[...nextForm.childNodes].map((node) => document.importNode(node, true)));
       parts.forEach(([here, there]) => here.replaceWith(document.importNode(there, true)));
       initQuestionArea();
+      setBaseline();
       centerCell(getStrip()?.querySelector('.is-current'), false);
       syncList();
-      if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-        form.animate?.([{ opacity: 0.4, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
-      }
+      settle();
       [form, document.querySelector('.qx-pos'), document.querySelector('.qx-dock')].forEach((el) => el?.dispatchEvent(new CustomEvent('mq:live-load', { bubbles: true })));
       return true;
     };
-    form.addEventListener('submit', async (event) => {
-      if (event.defaultPrevented || !isMove(event.submitter)) return;
-      event.preventDefault();
-      if (navigating) return;
+    const classicMove = async (submitter) => {
       navigating = true;
       clearTimeout(saveTimer);
+      const key = stash(false);  // kept here in case the post does not get through
+      const entry = key && outbox.get(key);
       const body = new FormData(form);
-      body.append(event.submitter.name, event.submitter.value);
+      body.append(submitter.name, submitter.value);
       const wrap = document.querySelector('.qx-wrap:not(.qx-pv-wrap)');
       wrap?.classList.add('is-navigating');
       wrap?.setAttribute('aria-busy', 'true');
       try {
-        // After an autosave still on its way (this post carries the same answer, so it is the last word).
+        // After the saves still on their way (this post carries the same answer, so it is the last word).
         const response = await queuePost(() => fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' }));
-        if (response.status === 423 || response.status === 403) { allowLeave(); window.location.reload(); return; }  // another device / network
+        if (response.status === 423 || response.status === 403) { reloadPage(); return; }  // another device / network
         const target = new URL(response.url);
         const html = (response.headers.get('content-type') || '').includes('text/html');
         if (!response.ok || !html || target.pathname !== window.location.pathname) { allowLeave(); window.location.assign(response.url); return; }
+        if (entry && outbox.get(key) === entry) { outbox.delete(key); writeOutbox(); }  // the server has it
         const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
         dirty = false;
         if (!swapIn(doc)) { allowLeave(); window.location.assign(response.url); return; }
-        examUrl = target.pathname + target.search;
-        history.replaceState(history.state, '', examUrl);
+        afterSwap(target.pathname + target.search);
         if (navigator.onLine) setConnection(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        const heading = form.querySelector('.qx-qhead h3');
-        if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
       } catch (error) {
-        // Not saved: the answer stays on screen and is sent again with the next try.
-        dirty = true;
-        setSaveState('رفتن به سؤال دیگر انجام نشد (پاسخ این سؤال هنوز ذخیره نشده است)؛ اتصال را بررسی کنید و دوباره بزنید.', true);
+        // Not moved: the answer stays on screen (and on this device) and is sent in the background meanwhile.
+        if (entry && outbox.get(key) === entry) { entry.ready = true; writeOutbox(); flush(); }
+        setSaveState('رفتن به سؤال دیگر به اتصال اینترنت نیاز دارد و انجام نشد؛ پاسخ این سؤال روی همین دستگاه نگه داشته شده است. اتصال را بررسی کنید و دوباره بزنید.', true);
         setConnection(false, navigator.onLine ? 'ارتباط با سرور برقرار نشد' : undefined);
       } finally {
         navigating = false;
         wrap?.classList.remove('is-navigating');
         wrap?.removeAttribute('aria-busy');
       }
+    };
+
+    // Every question at once: number → its <template> (fetched after the recovery above; again on failure).
+    let bundle = null;
+    const pictures = [];  // question images loaded ahead, so a question shows complete offline too
+    const loadBundle = () => {
+      if (!fastMoves) return Promise.reject(new Error('off'));
+      if (!bundle) {
+        const loading = recovered
+          .then(() => fetch(`${window.location.pathname}?part=questions`, { mqBackground: true, credentials: 'same-origin' }))
+          .then(async (response) => {
+            const html = (response.headers.get('content-type') || '').includes('text/html');
+            if (!response.ok || response.redirected || !html) throw new Error(String(response.status));
+            const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const map = new Map([...doc.querySelectorAll('template[data-question]')].map((tpl) => [Number(tpl.dataset.question), tpl]));
+            if (map.size !== totalQuestions) throw new Error('incomplete');
+            map.forEach((tpl) => tpl.content.querySelectorAll('img[src]').forEach((img) => {
+              const picture = new Image();
+              picture.decoding = 'async';
+              picture.src = img.getAttribute('src');
+              pictures.push(picture);
+            }));
+            return map;
+          });
+        loading.catch(() => { if (bundle === loading) bundle = null; });
+        bundle = loading;
+      }
+      return bundle;
+    };
+    if (fastMoves) {
+      const start = () => loadBundle().catch(() => {});
+      if (document.readyState === 'complete') start();
+      else window.addEventListener('load', start, { once: true });
+      window.addEventListener('online', start);
+    }
+    // Visited questions: number → the form's own nodes and attributes as the student left them.
+    const FORM_ATTRS = ['data-question-id', 'data-answered', 'data-has-files'];
+    const visited = new Map();
+    const fromBundle = (map, index) => {
+      const tpl = map?.get(index);
+      if (!tpl) return null;
+      const token = Object.assign(document.createElement('input'), { type: 'hidden', name: 'csrfmiddlewaretoken', value: csrfToken() });
+      return { nodes: [token, ...document.importNode(tpl.content, true).childNodes], attrs: FORM_ATTRS.map((name) => [name, tpl.getAttribute(name) || '']), fresh: true };
+    };
+    // The position card, the question list and the dock follow the question on screen (as the server renders them).
+    const setPosition = (index) => {
+      const track = document.querySelector('[data-pos-track]');
+      track?.style.setProperty('--pos', index);
+      track?.querySelectorAll('[data-pos-seg]').forEach((seg) => {
+        seg.classList.toggle('is-current', Number(seg.dataset.posSeg) === index);
+        seg.classList.toggle('is-done', Number(seg.dataset.posSeg) <= index);
+      });
+      document.querySelectorAll('[data-pos-current]').forEach((el) => { el.textContent = fa(index); });
+      getStrip()?.querySelectorAll('.qx-cell').forEach((cell) => {
+        const current = Number(cell.dataset.mapCell) === index;
+        cell.classList.toggle('is-current', current);
+        if (current) cell.setAttribute('aria-current', 'page'); else cell.removeAttribute('aria-current');
+      });
+      const previous = document.querySelector('.qx-dock .qx-prev');
+      if (previous) previous.disabled = index <= 1;
+      const label = document.querySelector('.qx-dock .qx-nav-btn--next > span');
+      if (label) label.innerHTML = index < totalQuestions ? '<span class="qx-hide-sm">ذخیره و </span>سؤال بعدی' : 'ذخیره پاسخ';
+      centerCell(getStrip()?.querySelector('.is-current'), false);
+      syncList();
+    };
+    const showQuestion = (to, content) => {
+      clearTimeout(saveTimer);
+      keepNow();
+      stash(true);  // the answer left behind (only if it changed)
+      flush();
+      visited.set(currentIndex(), { nodes: [...form.childNodes], attrs: FORM_ATTRS.map((name) => [name, form.getAttribute(name) || '']) });
+      content.attrs.forEach(([name, value]) => form.setAttribute(name, value));
+      form.replaceChildren(...content.nodes);
+      visited.delete(to);
+      dirty = false;
+      setPosition(to);
+      initQuestionArea();
+      refreshAnswerState();
+      if (content.fresh) setBaseline();
+      settle();
+      form.dispatchEvent(new CustomEvent('mq:live-load', { bubbles: true }));
+      afterSwap(questionUrl(to));
+    };
+
+    form.addEventListener('submit', (event) => {
+      if (event.defaultPrevented) return;
+      const submitter = event.submitter;
+      if (!isMove(submitter)) {
+        // «پایان آزمون», a file upload, …: the answers still on their way are stored first.
+        keepNow();
+        if (!pendingCount() || submitter?.value === 'clear_all') return;
+        event.preventDefault();
+        setSaveState('در حال ذخیره‌ی پاسخ‌ها...');
+        const ready = whenSaved();
+        window.mqLoader?.track(ready);
+        ready.then(() => form.requestSubmit(submitter));
+        return;
+      }
+      event.preventDefault();
+      if (navigating) return;
+      if (!fastMoves) { classicMove(submitter); return; }
+      const from = currentIndex();
+      const to = targetOf(submitter, from);
+      if (to === from) {  // «ذخیره پاسخ» on the last question
+        clearTimeout(saveTimer);
+        dirty = false;
+        keepNow();
+        stash(true);
+        setSaveState('در حال ذخیره...');
+        whenSaved().then(showSynced);
+        return;
+      }
+      const kept = visited.get(to);
+      if (kept) { showQuestion(to, kept); return; }
+      // Not visited yet: from the copy of every question (normally here long before the first move).
+      clearTimeout(saveTimer);
+      keepNow();
+      stash(true);
+      flush();
+      navigating = true;
+      let settled = false;
+      const ready = Promise.race([loadBundle(), new Promise((resolve, reject) => setTimeout(() => reject(new Error('timeout')), 20000))]);
+      ready.then(() => { settled = true; }, () => { settled = true; });
+      // Shown only while that copy is still on its way.
+      Promise.resolve().then(() => { if (!settled) window.mqLoader?.track(ready.catch(() => {}), { delay: 120 }); });
+      ready.then((map) => {
+        navigating = false;
+        if (currentIndex() !== from) return;
+        const content = fromBundle(map, to);
+        if (content) showQuestion(to, content);
+        else classicMove(submitter);
+      }).catch(() => {
+        navigating = false;
+        if (currentIndex() === from) classicMove(submitter);
+      });
     });
   }
 

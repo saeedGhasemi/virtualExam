@@ -1,0 +1,5 @@
+{# The answer form's contents for one question («one question per page»): q is an item of the view's items. Used by attempt.html for the question on screen and by _attempt_questions.html for every question at once. #}
+<input type="hidden" name="seen_{{ q.question_id }}" value="1">
+<div data-question-block data-question-index="{{ q.index }}" data-question-id="{{ q.question_id }}" data-answered="{% if q.answered %}1{% endif %}" data-has-files="{% if q.answer_files %}1{% endif %}">
+  {% include "student/_attempt_question.html" with q=q with_autosave_state=True %}
+</div>

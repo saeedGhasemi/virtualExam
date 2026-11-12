@@ -727,22 +727,12 @@ def erd_count(table, where='', params=None):
     return row['count'] if row else 0
 
 
-ORG_LEVEL_MIN_COUNT = 1
-ORG_LEVEL_DEFAULT_TITLES = ['دانشگاه', 'دانشکده', 'گروه آموزشی', 'رشته', 'کلاس / واحد']
-ORG_LEVEL_DEFAULT_HINTS = [
-    'ریشه ساختار سازمانی',
-    'زیرمجموعه دانشگاه',
-    'زیرمجموعه دانشکده',
-    'ریزترین سطح ساختار سازمانی',
-    'ریزترین سطح ساختار سازمانی',
+# Organisational structure: fixed levels (apps/core/org_levels.py). For the unit pickers of the account wizards a
+# unit's depth is 1 = دانشگاه (level 2 of the system), 2 = بخش (level 3).
+ORG_UNIT_PICKER_LEVELS = [
+    {'title': 'دانشگاه', 'hint': 'سطح ۲ — زیرمجموعه‌ی مدیر سیستم'},
+    {'title': 'بخش', 'hint': 'سطح ۳ — زیرمجموعه‌ی دانشگاه'},
 ]
-
-
-def default_org_level(index):
-    return {
-        'title': ORG_LEVEL_DEFAULT_TITLES[index - 1] if index <= len(ORG_LEVEL_DEFAULT_TITLES) else f'سطح {index}',
-        'hint': ORG_LEVEL_DEFAULT_HINTS[index - 1] if index <= len(ORG_LEVEL_DEFAULT_HINTS) else 'سطح فرعی ساختار سازمانی',
-    }
 
 
 def repair_display_text(value):
@@ -760,47 +750,14 @@ def repair_display_text(value):
     return text
 
 
-def normalize_org_levels(raw_value):
-    try:
-        if isinstance(raw_value, str):
-            raw_value = json.loads(raw_value)
-    except json.JSONDecodeError:
-        raw_value = None
-
-    if isinstance(raw_value, int):
-        level_count = max(raw_value, ORG_LEVEL_MIN_COUNT)
-        return [default_org_level(index) for index in range(1, level_count + 1)]
-
-    if isinstance(raw_value, list):
-        levels = []
-        for index, item in enumerate(raw_value, start=1):
-            defaults = default_org_level(index)
-            if not isinstance(item, dict):
-                item = {}
-            title = repair_display_text(item.get('title')) or defaults['title']
-            hint = repair_display_text(item.get('hint') or item.get('description')) or defaults['hint']
-            levels.append({'title': title, 'hint': hint})
-        return levels or [default_org_level(1)]
-
-    return [default_org_level(index) for index in range(1, 6)]
-
-
 def get_org_level_config():
-    row = erd_row("SELECT value FROM system_settings WHERE key = %s", ['org_structure_levels_config'])
-    if row:
-        return normalize_org_levels(row['value'])
-    legacy_row = erd_row("SELECT value FROM system_settings WHERE key = %s", ['org_structure_levels'])
-    return normalize_org_levels(legacy_row['value'] if legacy_row else 5)
+    """Titles of the unit picker's selects (دانشگاه › بخش); the levels are fixed, see org_levels.py."""
+    return [dict(level) for level in ORG_UNIT_PICKER_LEVELS]
 
 
 def org_unit_level_index(unit):
-    code = str(unit.get('code') or '')
-    if code.startswith('__level:') and '__' in code[8:]:
-        try:
-            return int(code.split('__', 2)[1].split(':', 1)[1])
-        except (IndexError, ValueError):
-            pass
-    return {'university': 1, 'faculty': 2, 'department': 3, 'group': 4}.get(unit.get('type'), 3)
+    """Depth of a unit in the pickers: 1 = university, 2 = department (old faculty/group units count as 2)."""
+    return 1 if unit.get('type') == 'university' else 2
 
 
 def _xlsx_column_name(index):
@@ -1790,13 +1747,17 @@ def super_admin_institution_create(request):
 
 @erd_role_required('academic_manager', 'admin')
 def super_admin_users(request):
+    from . import org_levels
+
     is_admin = _erd_is_admin_request(request)
+    # «مدیران»: level 1 sees every manager, level 2 the department managers under its university (org_levels.py)
+    can_see_managers = org_levels.can_manage_structure(request)
     query = request.GET.get('q', '').strip()
-    active_tab = request.GET.get('tab', 'students').strip()
+    active_tab = request.GET.get('tab', 'teachers').strip()  # tabs: اساتید, دانشجویان, (مدیران)
     if active_tab not in {'managers', 'teachers', 'students'}:
-        active_tab = 'managers'
-    if not is_admin and active_tab == 'managers':
-        active_tab = 'students'
+        active_tab = 'teachers'
+    if not can_see_managers and active_tab == 'managers':
+        active_tab = 'teachers'
     status_filter = request.GET.get('status', '').strip()
     cooperation_filter = request.GET.get('cooperation', '').strip()
     manager_type_filter = request.GET.get('manager_type', '').strip()
@@ -1879,7 +1840,10 @@ def super_admin_users(request):
         ORDER BY CASE ur.role WHEN 'admin' THEN 0 ELSE 1 END, p.full_name
         LIMIT 300
         """
-    ) if is_admin else []
+    ) if can_see_managers else []
+    if not is_admin:
+        manager_role_rows = [row for row in manager_role_rows
+                             if row.get('role') == 'academic_manager' and _erd_manager_under_request(request, row['id'])]
     scopes = erd_rows("SELECT manager_id, org_unit_id FROM academic_manager_scopes")
     scopes_by_manager = {}
     for scope in scopes:
@@ -1895,6 +1859,9 @@ def super_admin_users(request):
         seen_manager_keys.add(key)
         manager_scope_ids = scopes_by_manager.get(str(manager['id']), [])
         scope_paths = [unit_path(scope_id) for scope_id in manager_scope_ids]
+        manager_level = org_levels.SYSTEM if manager_type == 'admin' else min(
+            (org_levels.unit_level(unit_by_id[scope_id]['type']) for scope_id in manager_scope_ids if scope_id in unit_by_id),
+            default=org_levels.DEPARTMENT)
         if manager_type == 'admin':
             primary = {'university': 'کل سامانه', 'faculty': '-', 'department': '-', 'label': 'سراسر سیستم'}
             access_label = 'سراسر سیستم'
@@ -1912,7 +1879,9 @@ def super_admin_users(request):
         decorated = {
             **manager,
             'manager_type': manager_type,
-            'type_label': 'مدیر سیستم' if manager_type == 'admin' else 'مدیر آموزشی',
+            'manager_level': manager_level,
+            'level_key': {org_levels.SYSTEM: 'admin', org_levels.UNIVERSITY: 'university'}.get(manager_level, 'department'),
+            'type_label': f"{org_levels.LEVELS[manager_level]['manager_title']} · سطح {manager_level}",
             'type_tone': 'system' if manager_type == 'admin' else 'academic',
             'scope_ids': manager_scope_ids,
             'scope_labels': [path['label'] for path in scope_paths],
@@ -1932,7 +1901,7 @@ def super_admin_users(request):
 
     filtered_manager_rows = []
     for manager in manager_rows:
-        if manager_type_filter and manager['manager_type'] != manager_type_filter:
+        if manager_type_filter and manager_type_filter not in (manager['manager_type'], manager['level_key']):
             continue
         if status_filter and (manager.get('status') or 'active') != status_filter:
             continue
@@ -1960,6 +1929,9 @@ def super_admin_users(request):
         'total': len(manager_rows),
         'admins': sum(1 for manager in manager_rows if manager['manager_type'] == 'admin'),
         'academic': sum(1 for manager in manager_rows if manager['manager_type'] == 'academic_manager'),
+        'upper': (sum(1 for manager in manager_rows if manager['manager_level'] < org_levels.DEPARTMENT) if is_admin
+                  else sum(1 for unit in org_units if org_levels.unit_level(unit['type']) == org_levels.DEPARTMENT)),
+        'departments': sum(1 for manager in manager_rows if manager['manager_level'] == org_levels.DEPARTMENT),
         'active': sum(1 for manager in manager_rows if (manager.get('status') or 'active') == 'active'),
         'inactive': sum(1 for manager in manager_rows if (manager.get('status') or 'active') == 'inactive'),
     }
@@ -2139,6 +2111,8 @@ def super_admin_users(request):
 
     return render(request, 'super_admin/users.html', {
         'active_tab': active_tab,
+        'is_admin': is_admin,
+        'can_see_managers': can_see_managers,
         'query': query,
         'status_filter': status_filter,
         'cooperation_filter': cooperation_filter,
@@ -2169,8 +2143,6 @@ def super_admin_toggle_account_status(request, kind, user_id):
     if kind not in {'manager', 'teacher', 'student'}:
         raise Http404
     is_admin = _erd_is_admin_request(request)
-    if kind == 'manager' and not is_admin:
-        return HttpResponseForbidden('فقط مدیر سیستم می‌تواند وضعیت مدیران را تغییر دهد.')
     if not is_admin and not _erd_profile_in_manager_scope(request, user_id, kind):
         return HttpResponseForbidden('این کاربر خارج از محدوده‌ی دسترسی شماست.')
     action = request.POST.get('action')
@@ -2219,9 +2191,7 @@ def super_admin_user_profile(request, kind, user_id):
     if kind not in {'manager', 'teacher', 'student'}:
         raise Http404('نوع پروفایل نامعتبر است.')
     is_admin = _erd_is_admin_request(request)
-    if kind == 'manager' and not is_admin:
-        raise Http404('نوع پروفایل نامعتبر است.')
-    if kind in {'teacher', 'student'} and not is_admin and not _erd_profile_in_manager_scope(request, user_id, kind):
+    if not is_admin and not _erd_profile_in_manager_scope(request, user_id, kind):
         raise Http404('کاربر پیدا نشد.')
 
     org_units = erd_rows(
@@ -2292,10 +2262,13 @@ def super_admin_user_profile(request, kind, user_id):
             raise Http404('مدیر پیدا نشد.')
         _profile_moment_labels(user)
         is_system_admin = user.get('role') == 'admin'
-        role_label = 'مدیر سیستم' if is_system_admin else 'مدیر آموزشی'
+        from . import org_levels
+
+        role_label = org_levels.manager_title(user.get('role'), user['id'])
         back_url = f'{reverse("core:super_admin_users")}?tab=managers'
-        edit_url = reverse('core:super_admin_manager_profile_edit', args=[user_id])
-        access_url = reverse('core:super_admin_manager_access', args=[user_id])
+        # editing a manager's profile / access stays with the system admin; a university manager only views
+        edit_url = reverse('core:super_admin_manager_profile_edit', args=[user_id]) if is_admin else ''
+        access_url = reverse('core:super_admin_manager_access', args=[user_id]) if is_admin else ''
         scope_rows = erd_rows(
             """
             SELECT ams.org_unit_id, ou.name, ou.type
@@ -2372,6 +2345,7 @@ def super_admin_user_profile(request, kind, user_id):
             {'label': 'مدیریت دسترسی', 'url': access_url, 'tone': 'ghost', 'icon': 'shield'},
             {'label': 'بازگشت به مدیران', 'url': back_url, 'tone': 'ghost', 'icon': 'back'},
         ]
+        actions = [action for action in actions if action['url']]
     elif kind == 'teacher':
         user = erd_row(
             """
@@ -4093,7 +4067,7 @@ def _course_rows(request, course_id=None, query='', status_filter='', unit_filte
     return rows
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_teacher_create(request):
     step = request.GET.get('step') or request.POST.get('step') or '1'
     try:
@@ -4105,15 +4079,7 @@ def super_admin_teacher_create(request):
     draft = request.session.get(session_key, {})
 
     org_level_config = get_org_level_config()
-    org_units = erd_rows(
-        """
-        SELECT id, parent_id, type, name, code, is_active
-        FROM org_units
-        ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
-        """
-    )
-    for unit in org_units:
-        unit['level_index'] = org_unit_level_index(unit)
+    org_units, placeable = _erd_wizard_units(request)
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -4134,14 +4100,17 @@ def super_admin_teacher_create(request):
             'label': label or '',
         }
 
+    scope_ids = None if placeable is None else sorted(_erd_managed_unit_ids(request))  # a manager: its own courses
     courses = erd_rows(
         """
         SELECT c.id, c.title, c.code, c.credit_units, c.org_unit_id, ou.name AS unit_name
         FROM courses c
         LEFT JOIN org_units ou ON ou.id = c.org_unit_id
+        WHERE %s::text[] IS NULL OR c.org_unit_id::text = ANY(%s::text[])
         ORDER BY c.title
         LIMIT 80
-        """
+        """,
+        [scope_ids, scope_ids],
     )
 
     if request.method == 'POST':
@@ -4201,7 +4170,14 @@ def super_admin_teacher_create(request):
         personnel_code = draft.get('personnel_code') or f'TCH-{uuid.uuid4().hex[:5].upper()}'
         username = draft.get('username') or draft.get('email') or personnel_code
         email = draft.get('login_email') or draft.get('email') or None
-        org_unit_id = draft.get('org_unit_id') or None
+        org_unit_id = _erd_wizard_unit_choice(draft.get('org_unit_id'), placeable)
+        if placeable is not None and not org_unit_id:
+            messages.error(request, 'بخش استاد را از بخش‌های تحت مدیریت خود انتخاب کنید.')
+            return redirect(f'{reverse("core:super_admin_teacher_create")}?step=2')
+        allowed_courses = {str(course['id']) for course in courses}
+        draft['course_ids'] = [item for item in draft.get('course_ids') or [] if str(item) in allowed_courses]
+        if placeable is not None:
+            draft['sub_units'] = [item for item in draft.get('sub_units') or [] if str(item) in placeable]
         primary = unit_path(org_unit_id)
         teacher_id = str(uuid.uuid4())
         existing = erd_row(
@@ -4212,6 +4188,9 @@ def super_admin_teacher_create(request):
             """,
             [personnel_code, username, email, draft.get('national_id') or None],
         )
+        if existing and not _erd_profile_in_manager_scope(request, existing['id'], 'teacher'):
+            messages.error(request, 'این نام کاربری، کد پرسنلی، ایمیل یا کد ملی متعلق به حساب دیگری است.')
+            return redirect(f'{reverse("core:super_admin_teacher_create")}?step=4')
         if existing:
             teacher_id = existing['id']
         status = draft.get('account_status') or ('active' if draft.get('account_active', True) else 'inactive')
@@ -4328,8 +4307,16 @@ def super_admin_teacher_create(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_manager_create(request):
+    """«افزودن مدیر» by level (org_levels.py): the system admin creates managers of level 1 (another system admin),
+    2 (a university) or 3 (a department); a university manager only department managers of its own departments."""
+    from . import org_levels
+
+    if not org_levels.can_manage_structure(request):
+        return HttpResponseForbidden('مدیر بخش نمی‌تواند مدیر تعریف کند.')
+    is_admin = _erd_is_admin_request(request)
+    allowed_levels = [org_levels.SYSTEM, org_levels.UNIVERSITY, org_levels.DEPARTMENT] if is_admin else [org_levels.DEPARTMENT]
     step = request.GET.get('step') or request.POST.get('step') or '1'
     try:
         step = max(1, min(4, int(step)))
@@ -4339,15 +4326,9 @@ def super_admin_manager_create(request):
     session_key = 'super_admin_manager_wizard'
     draft = request.session.get(session_key, {})
     org_level_config = get_org_level_config()
-    org_units = erd_rows(
-        """
-        SELECT id, parent_id, type, name, code, is_active
-        FROM org_units
-        ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name
-        """
-    )
+    org_units, placeable = _erd_wizard_units(request)
     for unit in org_units:
-        unit['level_index'] = org_unit_level_index(unit)
+        unit['access_level'] = org_levels.unit_level(unit['type'])
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -4395,7 +4376,7 @@ def super_admin_manager_create(request):
                 filename = storage.save(f"wizard-{uuid.uuid4().hex[:10]}.{extension}", avatar)
                 draft['avatar_url'] = storage.url(filename)
         elif step == 2:
-            for key in ('manager_role', 'title', 'access_type', 'primary_scope_id'):
+            for key in ('manager_level', 'title', 'access_type', 'primary_scope_id'):
                 draft[key] = request.POST.get(key, '').strip()
             draft['scope_ids'] = request.POST.getlist('scope_ids') or ([draft.get('primary_scope_id')] if draft.get('primary_scope_id') else [])
             draft['include_child_units'] = request.POST.get('include_child_units') == 'on'
@@ -4425,7 +4406,23 @@ def super_admin_manager_create(request):
             messages.error(request, 'برای ثبت نهایی، تایید صحت اطلاعات لازم است.')
             return redirect(f'{reverse("core:super_admin_manager_create")}?step=4')
 
-        manager_role = draft.get('manager_role') if draft.get('manager_role') in {'admin', 'academic_manager'} else 'academic_manager'
+        try:
+            manager_level = int(draft.get('manager_level') or org_levels.DEPARTMENT)
+        except ValueError:
+            manager_level = org_levels.DEPARTMENT
+        if manager_level not in allowed_levels:
+            manager_level = org_levels.DEPARTMENT
+        manager_role = 'admin' if manager_level == org_levels.SYSTEM else 'academic_manager'
+        # the scope: units of exactly the chosen level, inside the creator's own tree (a level-2 creator: its departments)
+        level_units = {str(unit['id']) for unit in org_units if unit['access_level'] == manager_level
+                       and (placeable is None or str(unit['id']) in placeable)}
+        wanted = [draft.get('primary_scope_id')] + list(draft.get('scope_ids') or [])
+        draft['scope_ids'] = [item for item in dict.fromkeys(wanted) if item and str(item) in level_units]
+        if manager_role == 'admin':
+            draft['scope_ids'] = []
+        elif not draft['scope_ids']:
+            messages.error(request, f"واحد مدیر را از «{org_levels.LEVELS[manager_level]['title']}»‌های مجاز انتخاب کنید.")
+            return redirect(f'{reverse("core:super_admin_manager_create")}?step=2')
         manager_id = str(uuid.uuid4())
         first_name = draft.get('first_name', '').strip()
         last_name = draft.get('last_name', '').strip()
@@ -4440,6 +4437,9 @@ def super_admin_manager_create(request):
             "SELECT id FROM profiles WHERE identifier = %s OR username = %s OR email = %s OR national_id = %s LIMIT 1",
             [personnel_code, username, email, draft.get('national_id') or None],
         )
+        if existing and not is_admin and not _erd_manager_under_request(request, existing['id']):
+            messages.error(request, 'این نام کاربری، کد پرسنلی، ایمیل یا کد ملی متعلق به حساب دیگری است.')
+            return redirect(f'{reverse("core:super_admin_manager_create")}?step=4')
         if existing:
             manager_id = existing['id']
 
@@ -4545,13 +4545,19 @@ def super_admin_manager_create(request):
         {'number': 3, 'label': 'دسترسی‌ها'},
         {'number': 4, 'label': 'حساب کاربری'},
     ]
+    level_choices = [org_levels.LEVELS[number] for number in allowed_levels]
+    chosen_level = str(draft.get('manager_level') or allowed_levels[-1])
     return render(request, 'super_admin/manager_wizard.html', {
         'step': step,
         'steps': steps,
         'draft': draft,
         'org_units': org_units,
+        'scope_units': [unit for unit in org_units if placeable is None or str(unit['id']) in placeable],
+        'level_choices': level_choices,
+        'chosen_level': chosen_level,
         'org_level_config': org_level_config,
-        'sub_units': [unit for unit in org_units if unit['type'] in ('faculty', 'department', 'group')],
+        'sub_units': [unit for unit in org_units if unit['access_level'] == org_levels.DEPARTMENT
+                      and (placeable is None or str(unit['id']) in placeable)],
         'scope_ids': scope_ids,
         'selected_scopes': selected_scopes,
         'primary_scope_path': primary_scope_path,
@@ -5014,7 +5020,34 @@ def super_admin_manager_bulk_import(request):
     })
 
 
-@super_admin_required
+def _erd_wizard_units(request):
+    """(units for an account wizard's unit picker, ids a new teacher/student may be placed in or None = any).
+
+    The system admin may use any unit; a university or department manager (levels 2-3, org_levels.py) only the
+    departments of its own scope, so the picker shows its tree (and the parent university for context)."""
+    from . import org_levels
+
+    units = _erd_manager_visible_org_units(request)
+    for unit in units:
+        unit['level_index'] = org_unit_level_index(unit)
+    managed = _erd_managed_unit_ids(request)
+    if managed is None:
+        return units, None
+    return units, {str(unit['id']) for unit in units
+                   if str(unit['id']) in managed and org_levels.unit_level(unit['type']) == org_levels.DEPARTMENT}
+
+
+def _erd_wizard_unit_choice(unit_id, placeable):
+    """The unit a new account goes to: the chosen one when allowed; a manager with one department gets that one."""
+    unit_id = str(unit_id or '')
+    if placeable is None:
+        return unit_id or None
+    if unit_id in placeable:
+        return unit_id
+    return next(iter(placeable)) if len(placeable) == 1 else None
+
+
+@erd_role_required('academic_manager', 'admin')
 def super_admin_student_create(request):
     step = request.GET.get('step') or request.POST.get('step') or '1'
     try:
@@ -5025,9 +5058,7 @@ def super_admin_student_create(request):
     session_key = 'super_admin_student_wizard'
     draft = request.session.get(session_key, {})
     org_level_config = get_org_level_config()
-    org_units = erd_rows("SELECT id, parent_id, type, name, code, is_active FROM org_units ORDER BY CASE type WHEN 'university' THEN 0 WHEN 'faculty' THEN 1 ELSE 2 END, name")
-    for unit in org_units:
-        unit['level_index'] = org_unit_level_index(unit)
+    org_units, placeable = _erd_wizard_units(request)
     unit_by_id = {str(unit['id']): unit for unit in org_units}
 
     def unit_path(unit_id):
@@ -5043,8 +5074,22 @@ def super_admin_student_create(request):
         label = ' / '.join(item['name'] for item in chain)
         return {'university': by_type.get('university') or '', 'faculty': by_type.get('faculty') or '', 'department': by_type.get('department') or by_type.get('group') or '', 'label': label}
 
-    groups = erd_rows("SELECT id, course_id, course_name, group_code, academic_year, semester FROM student_groups ORDER BY academic_year DESC, course_name LIMIT 300")
-    courses = erd_rows("SELECT id, title, code, COALESCE(credit_units, 0) AS credit_units FROM courses ORDER BY title LIMIT 300")
+    if placeable is None:
+        groups = erd_rows("SELECT id, course_id, course_name, group_code, academic_year, semester FROM student_groups ORDER BY academic_year DESC, course_name LIMIT 300")
+        courses = erd_rows("SELECT id, title, code, COALESCE(credit_units, 0) AS credit_units FROM courses ORDER BY title LIMIT 300")
+    else:  # a manager: only the classes and courses of its own units
+        groups = erd_rows(
+            _erd_manager_scope_cte() + f"""
+            SELECT sg.id, sg.course_id, sg.course_name, sg.group_code, sg.academic_year, sg.semester
+            FROM student_groups sg LEFT JOIN courses c ON c.id = sg.course_id
+            WHERE {_erd_group_scope_condition()}
+            ORDER BY sg.academic_year DESC, sg.course_name LIMIT 300
+            """, [request.erd_profile_id])
+        courses = erd_rows(
+            _erd_manager_scope_cte() + """
+            SELECT id, title, code, COALESCE(credit_units, 0) AS credit_units FROM courses
+            WHERE org_unit_id IN (SELECT id FROM managed_units) ORDER BY title LIMIT 300
+            """, [request.erd_profile_id])
 
     if request.method == 'POST':
         action = request.POST.get('wizard_action') or 'next'
@@ -5094,9 +5139,18 @@ def super_admin_student_create(request):
         full_name = f'{first_name} {last_name}'.strip() or 'دانشجو'
         student_number = draft.get('student_number') or f'STU-{uuid.uuid4().hex[:5].upper()}'
         username = draft.get('username') or draft.get('email') or student_number
-        org_unit_id = draft.get('org_unit_id') or None
+        org_unit_id = _erd_wizard_unit_choice(draft.get('org_unit_id'), placeable)
+        if placeable is not None and not org_unit_id:
+            messages.error(request, 'بخش دانشجو را از بخش‌های تحت مدیریت خود انتخاب کنید.')
+            return redirect(f'{reverse("core:super_admin_student_create")}?step=2')
+        allowed_groups, allowed_courses = {str(row['id']) for row in groups}, {str(row['id']) for row in courses}
+        draft['group_ids'] = [item for item in draft.get('group_ids') or [] if str(item) in allowed_groups]
+        draft['course_ids'] = [item for item in draft.get('course_ids') or [] if str(item) in allowed_courses]
         primary = unit_path(org_unit_id)
         existing = erd_row("SELECT id FROM profiles WHERE identifier = %s OR username = %s OR email = %s OR national_id = %s LIMIT 1", [student_number, username, draft.get('email') or None, draft.get('national_id') or None])
+        if existing and not _erd_profile_in_manager_scope(request, existing['id'], 'student'):
+            messages.error(request, 'این نام کاربری، شماره دانشجویی، ایمیل یا کد ملی متعلق به حساب دیگری است.')
+            return redirect(f'{reverse("core:super_admin_student_create")}?step=4')
         if existing:
             student_id = existing['id']
         try:
@@ -10214,352 +10268,153 @@ def super_admin_calendar(request):
     })
 
 
-@super_admin_required
+@erd_role_required('academic_manager', 'admin')
 def super_admin_org_units(request):
-    min_org_levels = ORG_LEVEL_MIN_COUNT
-    level_tones = ['blue', 'purple', 'green', 'orange', 'cyan', 'violet', 'teal', 'amber']
-    max_org_levels = len(level_tones)
+    """«ساختار سازمانی»: the three fixed levels (apps/core/org_levels.py) and the units of levels 2 and 3.
 
-    def save_org_level_config(levels, actor_id=None):
-        erd_execute(
-            """
-            INSERT INTO system_settings (key, value, description, updated_by)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (key) DO UPDATE
-                SET value = EXCLUDED.value,
-                    description = EXCLUDED.description,
-                    updated_by = EXCLUDED.updated_by
-            """,
-            [
-                'org_structure_levels_config',
-                json.dumps(levels, ensure_ascii=False),
-                '\u062a\u0639\u0631\u06cc\u0641 \u0633\u0637\u062d\u200c\u0647\u0627\u06cc \u0633\u0627\u062e\u062a\u0627\u0631 \u0633\u0627\u0632\u0645\u0627\u0646\u06cc',
-                actor_id,
-            ],
-        )
+    The system admin sees and edits every unit; a university manager (level 2) sees its university and edits the
+    departments under it; a department manager (level 3) has no access. A unit that still holds teachers, students
+    or courses cannot be removed (move or delete them first)."""
+    from . import org_levels
 
-    org_level_config = get_org_level_config()
-    org_level_count = len(org_level_config)
+    level = org_levels.request_level(request)
+    if level not in (org_levels.SYSTEM, org_levels.UNIVERSITY):
+        return HttpResponseForbidden('ساختار سازمانی را فقط مدیر سیستم و مدیر دانشگاه می‌بینند.')
+    is_admin = level == org_levels.SYSTEM
+    managed = _erd_managed_unit_ids(request)
 
     units = erd_rows(
-        """
-        SELECT id, parent_id, type, name, code, COALESCE(is_active, true) AS is_active
-        FROM org_units
-        WHERE type IN ('university', 'faculty', 'department', 'group')
-        ORDER BY type, name
-        """
+        "SELECT id, parent_id, type, name, code, COALESCE(is_active, true) AS is_active FROM org_units ORDER BY name"
     )
-    def org_unit_public_code(unit):
-        code = str(unit.get('code') or '')
-        if code.startswith('__level:') and '__' in code[8:]:
-            return code.split('__', 2)[2] or ''
-        return code
+    if managed is not None:
+        units = [unit for unit in units if str(unit['id']) in managed]
+    unit_by_id = {str(unit['id']): unit for unit in units}
+    own_universities = {str(unit['id']) for unit in units if unit['type'] == 'university'}
 
-    for unit in units:
-        level_index = org_unit_level_index(unit)
-        level_def = org_level_config[level_index - 1] if 0 < level_index <= len(org_level_config) else default_org_level(level_index)
-        unit['_level_index'] = level_index
-        unit['_level_title'] = level_def.get('title') or f'سطح {level_index}'
-        unit['_level_label'] = f'سطح {level_index}'
-        unit['_public_code'] = org_unit_public_code(unit)
-    org_action = request.POST.get('org_action', 'save') if request.method == 'POST' else 'save'
+    def branch_ids(unit_id):
+        ids, stack = set(), [str(unit_id)]
+        while stack:
+            current = stack.pop()
+            if current in ids:
+                continue
+            ids.add(current)
+            stack.extend(str(unit['id']) for unit in units if str(unit.get('parent_id') or '') == current)
+        return ids
+
+    def counts(table):
+        return {str(row['unit']): row['n'] for row in erd_rows(
+            f'SELECT org_unit_id AS unit, COUNT(*) AS n FROM {table} WHERE org_unit_id IS NOT NULL GROUP BY org_unit_id')}
+
+    teachers, students, courses = counts('teacher_profiles'), counts('student_profiles'), counts('courses')
+    managers_by_unit = {}
+    for row in erd_rows(
+        """
+        SELECT DISTINCT s.org_unit_id, p.id, p.full_name, p.username
+        FROM academic_manager_scopes s
+        JOIN profiles p ON p.id = s.manager_id
+        JOIN user_roles ur ON ur.user_id = p.id AND ur.role = 'academic_manager'
+        ORDER BY p.full_name
+        """
+    ):
+        managers_by_unit.setdefault(str(row['org_unit_id']), []).append(row)
+
+    if request.method == 'POST' and request.POST.get('org_action') == 'delete':
+        unit = unit_by_id.get(request.POST.get('org_id', '').strip())
+        if not unit or (not is_admin and unit['type'] == 'university'):
+            return HttpResponseForbidden('این واحد خارج از محدوده‌ی دسترسی شماست.')
+        branch = list(branch_ids(unit['id']))
+        held = sum(source.get(unit_id, 0) for source in (teachers, students, courses) for unit_id in branch)
+        if held:
+            messages.error(request, f"«{unit['name']}» هنوز استاد، دانشجو یا درس دارد؛ ابتدا آن‌ها را به واحد دیگری منتقل یا حذف کنید.")
+            return redirect('core:super_admin_org_units')
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute('DELETE FROM academic_manager_scopes WHERE org_unit_id::text = ANY(%s)', [branch])
+            cursor.execute('DELETE FROM org_units WHERE id::text = ANY(%s) AND parent_id IS NOT NULL', [branch])
+            cursor.execute('DELETE FROM org_units WHERE id::text = ANY(%s)', [branch])
+        log_activity(request.user, 'org_unit_deleted', f"واحد سازمانی {unit['name']} حذف شد.", request, {'org_unit_id': str(unit['id'])})
+        messages.success(request, f"«{unit['name']}» حذف شد.")
+        return redirect('core:super_admin_org_units')
+
     org_id = request.POST.get('org_id', '').strip() if request.method == 'POST' else ''
-    if request.method == 'POST' and org_action in ('level_adjust', 'level_save', 'level_delete'):
-        actor = erd_profile_for_user(request.user)
-        actor_id = actor['id'] if actor else None
-        posted_titles = request.POST.getlist('level_title')
-        posted_hints = request.POST.getlist('level_hint')
-        posted_levels = []
-        for index, title in enumerate(posted_titles, start=1):
-            defaults = default_org_level(index)
-            posted_levels.append({
-                'title': title.strip() or defaults['title'],
-                'hint': (posted_hints[index - 1].strip() if index - 1 < len(posted_hints) else '') or defaults['hint'],
-            })
-        current_levels = posted_levels or org_level_config
-        if org_action == 'level_save':
-            save_org_level_config(current_levels or [default_org_level(1)], actor_id)
-            messages.success(request, '\u0639\u0646\u0648\u0627\u0646 \u0648 \u062a\u0648\u0636\u06cc\u062d \u0633\u0637\u062d\u200c\u0647\u0627 \u0630\u062e\u06cc\u0631\u0647 \u0634\u062f.')
-        elif org_action == 'level_delete':
-            try:
-                delete_index = int(request.POST.get('level_index', '0')) - 1
-            except ValueError:
-                delete_index = -1
-            if len(current_levels) <= min_org_levels:
-                messages.info(request, '\u062d\u062f\u0627\u0642\u0644 \u06cc\u06a9 \u0633\u0637\u062d \u0628\u0627\u06cc\u062f \u0628\u0627\u0642\u06cc \u0628\u0645\u0627\u0646\u062f.')
-            elif 0 <= delete_index < len(current_levels):
-                current_levels.pop(delete_index)
-                save_org_level_config(current_levels, actor_id)
-                messages.success(request, '\u0633\u0637\u062d \u0627\u0646\u062a\u062e\u0627\u0628\u06cc \u062d\u0630\u0641 \u0634\u062f.')
-            else:
-                messages.error(request, '\u0633\u0637\u062d \u0627\u0646\u062a\u062e\u0627\u0628\u06cc \u0645\u0639\u062a\u0628\u0631 \u0646\u06cc\u0633\u062a.')
-        elif request.POST.get('direction') == 'increase':
-            current_levels.append(default_org_level(len(current_levels) + 1))
-            save_org_level_config(current_levels, actor_id)
-            messages.success(request, '\u0633\u0637\u062d \u062c\u062f\u06cc\u062f \u0627\u0636\u0627\u0641\u0647 \u0634\u062f.')
-        elif len(current_levels) > min_org_levels:
-            current_levels.pop()
-            save_org_level_config(current_levels, actor_id)
-            messages.success(request, '\u0622\u062e\u0631\u06cc\u0646 \u0633\u0637\u062d \u062d\u0630\u0641 \u0634\u062f.')
-        else:
-            messages.info(request, '\u062d\u062f\u0627\u0642\u0644 \u06cc\u06a9 \u0633\u0637\u062d \u0628\u0627\u06cc\u062f \u0628\u0627\u0642\u06cc \u0628\u0645\u0627\u0646\u062f.')
-        return redirect('core:super_admin_org_units')
-
-    if request.method == 'POST' and org_action == 'level_adjust':
-        direction = request.POST.get('direction')
-        next_level_count = org_level_count + (1 if direction == 'increase' else -1)
-        next_level_count = min(max(next_level_count, min_org_levels), max_org_levels)
-        if next_level_count == org_level_count:
-            messages.info(request, 'تعداد سطح‌ها در محدوده مجاز قرار دارد.')
-        else:
-            actor = erd_profile_for_user(request.user)
-            erd_execute(
-                """
-                INSERT INTO system_settings (key, value, description, updated_by)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (key) DO UPDATE
-                    SET value = EXCLUDED.value,
-                        description = EXCLUDED.description,
-                        updated_by = EXCLUDED.updated_by
-                """,
-                [
-                    'org_structure_levels',
-                    json.dumps(next_level_count),
-                    'تعداد سطح‌های نمایشی ساختار سازمانی',
-                    actor['id'] if actor else None,
-                ],
-            )
-            messages.success(request, 'تعداد سطح‌های ساختار سازمانی بروزرسانی شد.')
-        return redirect('core:super_admin_org_units')
-
-    if request.method == 'POST' and org_action == 'delete':
-        if org_id:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    WITH RECURSIVE branch AS (
-                        SELECT id FROM org_units WHERE id = %s
-                        UNION ALL
-                        SELECT child.id
-                        FROM org_units child
-                        JOIN branch parent ON child.parent_id = parent.id
-                    )
-                    DELETE FROM org_units
-                    WHERE id IN (SELECT id FROM branch)
-                    """,
-                    [org_id],
-                )
-            messages.success(request, '\u0648\u0627\u062d\u062f \u0633\u0627\u0632\u0645\u0627\u0646\u06cc \u062d\u0630\u0641 \u0634\u062f.')
-        return redirect('core:super_admin_org_units')
-
-    form = SuperAdminOrgUnitForm(request.POST or None, org_units=units, unit_id=org_id, org_levels=org_level_config)
+    if org_id and (org_id not in unit_by_id or (not is_admin and unit_by_id[org_id]['type'] == 'university')):
+        return HttpResponseForbidden('این واحد خارج از محدوده‌ی دسترسی شماست.')
+    form = SuperAdminOrgUnitForm(
+        request.POST or None, org_units=units, unit_id=org_id,
+        allow_university=is_admin, parent_ids=None if is_admin else own_universities,
+    )
     if request.method == 'POST':
         if form.is_valid():
             form.save()
-            messages.success(request, '\u0648\u0627\u062d\u062f \u0633\u0627\u0632\u0645\u0627\u0646\u06cc \u0628\u0627 \u0645\u0648\u0641\u0642\u06cc\u062a \u0630\u062e\u06cc\u0631\u0647 \u0634\u062f.')
+            log_activity(request.user, 'org_unit_saved', f"واحد سازمانی {form.cleaned_data['name']} ذخیره شد.", request,
+                         {'org_unit_id': org_id or None})
+            messages.success(request, 'واحد سازمانی ذخیره شد.')
             return redirect('core:super_admin_org_units')
+        messages.error(request, 'واحد ذخیره نشد؛ خطاهای فرم را ببینید.')
 
-    unit_by_id = {str(unit['id']): unit for unit in units}
-    universities = [unit for unit in units if unit['type'] == 'university']
-    faculties_by_university = {}
-    departments_by_faculty = {}
-    for unit in units:
-        parent_id = str(unit['parent_id']) if unit.get('parent_id') else ''
-        if unit['type'] == 'faculty':
-            faculties_by_university.setdefault(parent_id, []).append(unit)
-        elif unit['type'] == 'department':
-            departments_by_faculty.setdefault(parent_id, []).append(unit)
-
-    tree = []
-    for university in universities:
-        faculties = []
-        for faculty in faculties_by_university.get(str(university['id']), []):
-            faculties.append({
-                'unit': faculty,
-                'departments': departments_by_faculty.get(str(faculty['id']), []),
-            })
-        tree.append({
-            'institution': university,
-            'faculties': faculties,
-        })
-
-    faculty_options = [
-        {
+    def row_for(unit):
+        unit_level = org_levels.unit_level(unit['type'])
+        branch = branch_ids(unit['id'])
+        parent = unit_by_id.get(str(unit.get('parent_id') or ''))
+        return {
             'id': str(unit['id']),
             'name': unit['name'],
-            'institution_id': str(unit['parent_id']),
-            'parent_id': str(unit.get('parent_id') or ''),
-            'level_index': unit.get('_level_index') or 1,
-            'level_label': unit.get('_level_label') or '',
+            'code': unit.get('code') or '',
+            'type': 'university' if unit_level == org_levels.UNIVERSITY else 'department',
+            'level': unit_level,
+            'level_title': org_levels.LEVELS[unit_level]['title'],
+            'tone': org_levels.LEVELS[unit_level]['tone'],
+            'parent_id': str(parent['id']) if parent else '',
+            'parent_name': parent['name'] if parent else 'مدیر سیستم',
+            'is_active': unit['is_active'],
+            'managers': managers_by_unit.get(str(unit['id']), []),
+            'teachers': sum(teachers.get(item, 0) for item in branch),
+            'students': sum(students.get(item, 0) for item in branch),
+            'courses': sum(courses.get(item, 0) for item in branch),
+            'departments': len(branch) - 1,
+            'editable': is_admin or unit['type'] != 'university',
         }
-        for unit in units
-    ]
 
-    type_meta = {
-        'university': {'label': 'دانشگاه', 'level': 'سطح ۱', 'tone': 'blue'},
-        'faculty': {'label': 'دانشکده', 'level': 'سطح ۲', 'tone': 'purple'},
-        'department': {'label': 'گروه آموزشی', 'level': 'سطح ۳', 'tone': 'green'},
-        'group': {'label': 'گروه آموزشی', 'level': 'سطح ۳', 'tone': 'green'},
-    }
-    org_table_rows = []
-    from .templatetags.core_extras import _gregorian_to_jalali
-    today = timezone.localdate()
-    jy, jm, jd = _gregorian_to_jalali(today.year, today.month, today.day)
-    org_created_display = f'{jy:04d}/{jm:02d}/{jd:02d}'
-    for unit in units:
-        parent = unit_by_id.get(str(unit.get('parent_id') or ''))
-        level_index = int(unit.get('_level_index') or 1)
-        level_def = org_level_config[level_index - 1] if 0 < level_index <= len(org_level_config) else default_org_level(level_index)
-        meta = {
-            'label': level_def.get('title') or f'سطح {level_index}',
-            'level': f'سطح {level_index}',
-            'tone': level_tones[(level_index - 1) % len(level_tones)],
-        }
-        edit_institution_id = ''
-        edit_parent_id = ''
-        if level_index >= 2:
-            edit_parent_id = str(unit.get('parent_id') or '')
-        if level_index == 2:
-            edit_institution_id = str(unit.get('parent_id') or '')
-        elif level_index >= 3:
-            edit_institution_id = str(parent.get('parent_id') or '') if parent else ''
-        org_table_rows.append({
-            **unit,
-            'parent_name': parent['name'] if parent else '-',
-            'type_label': meta['label'],
-            'level_label': meta['level'],
-            'level_index': level_index,
-            'tone': meta['tone'],
-            'form_type': f'level_{level_index}',
-            'display_code': unit.get('_public_code') or '',
-            'created_display': org_created_display,
-            'edit_institution_id': edit_institution_id,
-            'edit_parent_id': edit_parent_id,
-        })
-    org_table_rows.sort(key=lambda row: (row.get('level_index') or 1, row.get('parent_name') or '', row.get('name') or ''))
-    org_total_rows = len(org_table_rows)
-    org_per_page = 10
-    org_total_pages = max(math.ceil(org_total_rows / org_per_page), 1)
-    try:
-        org_current_page = int(request.GET.get('page', 1))
-    except (TypeError, ValueError):
-        org_current_page = 1
-    org_current_page = min(max(org_current_page, 1), org_total_pages)
-    org_page_start = (org_current_page - 1) * org_per_page
-    org_page_end = org_page_start + org_per_page
-    org_table_page_rows = org_table_rows[org_page_start:org_page_end]
-    org_page_numbers = list(range(1, org_total_pages + 1))
-    org_pagination = {
-        'per_page': org_per_page,
-        'total': org_total_rows,
-        'current_page': org_current_page,
-        'total_pages': org_total_pages,
-        'page_numbers': org_page_numbers,
-        'has_previous': org_current_page > 1,
-        'has_next': org_current_page < org_total_pages,
-        'previous_page': max(org_current_page - 1, 1),
-        'next_page': min(org_current_page + 1, org_total_pages),
-        'start_index': org_page_start + 1 if org_total_rows else 0,
-        'end_index': min(org_page_end, org_total_rows),
-    }
-    org_levels = [
-        {'title': 'دانشگاه', 'level': 'سطح ۱', 'hint': 'ریشه ساختار سازمانی', 'count': len([unit for unit in units if unit['type'] == 'university']), 'tone': 'blue'},
-        {'title': 'دانشکده', 'level': 'سطح ۲', 'hint': 'زیرمجموعه دانشگاه', 'count': len([unit for unit in units if unit['type'] == 'faculty']), 'tone': 'purple'},
-        {'title': 'گروه آموزشی', 'level': 'سطح ۳', 'hint': 'زیرمجموعه دانشکده', 'count': len([unit for unit in units if unit['type'] in ('department', 'group')]), 'tone': 'green'},
-        {'title': 'رشته', 'level': 'سطح ۴', 'hint': 'ریزترین سطح ساختار سازمانی', 'count': 0, 'tone': 'orange'},
-        {'title': 'کلاس / واحد', 'level': 'سطح ۵', 'hint': 'ریزترین سطح ساختار سازمانی', 'count': 0, 'tone': 'cyan'},
-    ]
+    rows = [row_for(unit) for unit in units]
+    rows.sort(key=lambda row: (row['level'], row['parent_name'], row['name']))
+    # tree: each university followed by its departments; a unit whose parent is out of view starts a branch
+    children = {}
+    for row in rows:
+        children.setdefault(row['parent_id'] if row['parent_id'] in unit_by_id else '', []).append(row)
+    tree = []
 
-    org_levels = [
-        org_levels[0],
-        org_levels[1],
-        org_levels[2],
-        {'title': '\u0631\u0634\u062a\u0647', 'level': '\u0633\u0637\u062d \u06f4', 'hint': '\u0631\u06cc\u0632\u062a\u0631\u06cc\u0646 \u0633\u0637\u062d \u0633\u0627\u062e\u062a\u0627\u0631 \u0633\u0627\u0632\u0645\u0627\u0646\u06cc', 'count': 0, 'tone': 'orange'},
-        {'title': '\u06a9\u0644\u0627\u0633 / \u0648\u0627\u062d\u062f', 'level': '\u0633\u0637\u062d \u06f5', 'hint': '\u0631\u06cc\u0632\u062a\u0631\u06cc\u0646 \u0633\u0637\u062d \u0633\u0627\u062e\u062a\u0627\u0631 \u0633\u0627\u0632\u0645\u0627\u0646\u06cc', 'count': 0, 'tone': 'cyan'},
-    ]
+    def add(row, depth):
+        tree.append({**row, 'depth': min(depth, 2)})
+        for child in children.get(row['id'], []):
+            add(child, depth + 1)
 
-    level_templates = [
-        {'title': 'دانشگاه', 'hint': 'ریشه ساختار سازمانی', 'count': len([unit for unit in units if unit['type'] == 'university']), 'tone': 'blue'},
-        {'title': 'دانشکده', 'hint': 'زیرمجموعه دانشگاه', 'count': len([unit for unit in units if unit['type'] == 'faculty']), 'tone': 'purple'},
-        {'title': 'گروه آموزشی', 'hint': 'زیرمجموعه دانشکده', 'count': len([unit for unit in units if unit['type'] in ('department', 'group')]), 'tone': 'green'},
-        {'title': 'رشته', 'hint': 'ریزترین سطح ساختار سازمانی', 'count': 0, 'tone': 'orange'},
-        {'title': 'کلاس / واحد', 'hint': 'ریزترین سطح ساختار سازمانی', 'count': 0, 'tone': 'cyan'},
-        {'title': 'گرایش', 'hint': 'سطح تکمیلی ساختار سازمانی', 'count': 0, 'tone': 'violet'},
-        {'title': 'زیرگروه', 'hint': 'سطح تکمیلی ساختار سازمانی', 'count': 0, 'tone': 'teal'},
-        {'title': 'واحد اجرایی', 'hint': 'سطح تکمیلی ساختار سازمانی', 'count': 0, 'tone': 'amber'},
-    ]
-    org_levels = [
-        {
-            **level,
-            'level': f'سطح {index}',
-        }
-        for index, level in enumerate(level_templates[:org_level_count], start=1)
-    ]
+    for root in children.get('', []):
+        add(root, 0)
 
-    org_level_counts = {}
-    for unit in units:
-        org_level_counts[unit.get('_level_index') or 1] = org_level_counts.get(unit.get('_level_index') or 1, 0) + 1
-    preview_units = []
-    children_by_parent = {}
-    for unit in units:
-        children_by_parent.setdefault(str(unit.get('parent_id') or ''), []).append(unit)
-    for siblings in children_by_parent.values():
-        siblings.sort(key=lambda item: (int(item.get('_level_index') or 1), item.get('name') or ''))
-
-    def add_preview_branch(unit, seen_ids=None):
-        seen_ids = set(seen_ids or ())
-        unit_id = str(unit['id'])
-        if unit_id in seen_ids:
-            return
-        seen_ids.add(unit_id)
-        level_index = int(unit.get('_level_index') or 1)
-        preview_units.append({
-            'name': unit['name'],
-            'level_index': level_index,
-            'level_label': unit.get('_level_label') or f'\u0633\u0637\u062d {level_index}',
-            'level_title': unit.get('_level_title') or f'\u0633\u0637\u062d {level_index}',
-            'tone': level_tones[(level_index - 1) % len(level_tones)],
-        })
-        for child in children_by_parent.get(unit_id, []):
-            add_preview_branch(child, seen_ids)
-
-    preview_roots = children_by_parent.get('', []) or [unit for unit in units if int(unit.get('_level_index') or 1) == 1]
-    if not preview_roots and units:
-        preview_roots = [units[0]]
-    for preview_root in preview_roots:
-        add_preview_branch(preview_root)
-    org_levels = [
-        {
-            'title': level['title'],
-            'hint': level['hint'],
-            'level': f'\u0633\u0637\u062d {index}',
-            'count': org_level_counts.get(index, 0),
-            'tone': level_tones[(index - 1) % len(level_tones)],
-        }
-        for index, level in enumerate(org_level_config, start=1)
-    ]
-    org_level_count = len(org_levels)
-
+    admins = erd_count('user_roles', "role = 'admin'")
+    level_cards = []
+    for number, info in org_levels.LEVELS.items():
+        count = admins if number == org_levels.SYSTEM else sum(1 for row in rows if row['level'] == number)
+        unit_word = 'مدیر' if number == org_levels.SYSTEM else info['unit']
+        level_cards.append({**info, 'count': count, 'count_label': f'{count} {unit_word}', 'is_mine': number == level})
+    scope_label = 'کل سامانه' if is_admin else '، '.join(unit_by_id[item]['name'] for item in own_universities) or '-'
     return render(request, 'super_admin/org_units.html', {
         'title': 'ساختار سازمانی',
-        'kicker': 'مدیر سیستم / ساختار سازمانی',
-        'description': 'دانشگاه، دانشکده و گروه آموزشی را به صورت سلسله مراتبی مدیریت کنید.',
         'form': form,
+        'is_admin': is_admin,
+        'my_level': org_levels.LEVELS[level],
+        'scope_label': scope_label,
+        'level_cards': level_cards,
+        'permission_rows': org_levels.PERMISSIONS,
+        'org_rows': rows,
         'tree': tree,
-        'org_table_rows': org_table_page_rows,
-        'org_pagination': org_pagination,
-        'org_levels': org_levels,
         'org_summary': {
-            'levels_count': org_level_count,
-            'units_count': len(units),
-            'root_label': '\u062f\u0627\u0646\u0634\u06af\u0627\u0647',
-            'updated_label': '\u0627\u0645\u0631\u0648\u0632',
+            'universities': sum(1 for row in rows if row['level'] == org_levels.UNIVERSITY),
+            'departments': sum(1 for row in rows if row['level'] == org_levels.DEPARTMENT),
+            'managers': len({str(manager['id']) for row in rows for manager in row['managers']}),
+            'teachers': sum(teachers.get(str(unit['id']), 0) for unit in units),
+            'students': sum(students.get(str(unit['id']), 0) for unit in units),
         },
-        'preview_units': preview_units,
-        'can_increase_levels': True,
-        'can_decrease_levels': org_level_count > min_org_levels,
         'settings_active_tab': 'org',
-        'faculty_options_json': faculty_options,
     })
 
 
@@ -13271,9 +13126,33 @@ def _erd_profile_in_manager_scope(request, profile_id, kind):
             """,
             [request.erd_profile_id, profile_id],
         )
+    elif kind == 'manager':
+        return _erd_manager_under_request(request, profile_id)
     else:
         return False
     return bool(row)
+
+
+def _erd_manager_under_request(request, manager_id):
+    """A level-2 (university) manager may see / create / switch on-off the level-3 managers of its departments: an
+    academic manager, not itself, with at least one scope and every scope unit inside the requester's tree."""
+    from . import org_levels
+
+    if _erd_is_admin_request(request):
+        return True
+    if str(manager_id) == str(request.erd_profile_id) or org_levels.request_level(request) != org_levels.UNIVERSITY:
+        return False
+    row = erd_row(
+        _erd_manager_scope_cte() + """
+        SELECT COUNT(*) AS scopes, COUNT(*) FILTER (WHERE s.org_unit_id IN (SELECT id FROM managed_units)) AS inside
+        FROM academic_manager_scopes s
+        WHERE s.manager_id = %s
+          AND EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = s.manager_id AND ur.role = 'academic_manager')
+          AND NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = s.manager_id AND ur.role = 'admin')
+        """,
+        [request.erd_profile_id, manager_id],
+    )
+    return bool(row and row['scopes'] and row['scopes'] == row['inside'])
 
 
 def _erd_scoped_count(request, key):
@@ -17229,82 +17108,14 @@ def exam_manager_users(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_student_create(request):
-    units = erd_rows("SELECT id, name FROM org_units WHERE COALESCE(is_active, true) ORDER BY name LIMIT 200")
-    if request.method == 'POST':
-        profile_id = str(uuid.uuid4())
-        first_name = (request.POST.get('first_name') or '').strip()
-        last_name = (request.POST.get('last_name') or '').strip()
-        national_code = (request.POST.get('national_code') or '').strip()
-        student_number = (request.POST.get('student_number') or '').strip()
-        full_name = f'{first_name} {last_name}'.strip() or student_number or national_code or 'دانشجو جدید'
-        erd_execute(
-            """
-            INSERT INTO profiles (id, full_name, first_name, last_name, username, email, phone, national_id, identifier, status, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            """,
-            [profile_id, full_name, first_name, last_name, student_number or national_code or profile_id[:8], request.POST.get('email') or '', request.POST.get('mobile') or '', national_code, student_number],
-        )
-        erd_execute(
-            """
-            INSERT INTO student_profiles (user_id, student_number, field_of_study, degree, academic_status, org_unit_id, entry_year)
-            VALUES (%s, %s, %s, %s, 'active', %s, %s)
-            """,
-            [profile_id, student_number, request.POST.get('field') or '', request.POST.get('education_level') or '', request.POST.get('academic_unit') or None, request.POST.get('entrance_year') or '1403'],
-        )
-        erd_execute(
-            "INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)",
-            [str(uuid.uuid4()), profile_id, 'student'],
-        )
-        username = student_number or national_code or profile_id[:8]
-        _login_user, generated_password = erd_sync_login_account(username, is_active=True)
-        if generated_password:
-            messages.success(request, f'دانشجو با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
-        else:
-            messages.success(request, 'دانشجو با موفقیت ثبت شد.')
-        return redirect(reverse('core:exam_manager_users') + '?tab=students')
-    context = _em_base_context(request, 'student_create', 'افزودن دانشجو جدید', 'users')
-    context.update({'units': units, 'summary_items': ['نام', 'نام خانوادگی', 'کد ملی', 'شماره دانشجویی', 'موبایل', 'ایمیل', 'دانشکده', 'رشته', 'مقطع', 'ورودی', 'وضعیت تحصیلی']})
-    return render(request, 'exam_manager/users.html', context)
+    """Old one-page form: «افزودن دانشجو» is the shared wizard, which keeps a manager inside its own units."""
+    return redirect('core:super_admin_student_create')
 
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_teacher_create(request):
-    units = erd_rows("SELECT id, name FROM org_units WHERE COALESCE(is_active, true) ORDER BY name LIMIT 200")
-    if request.method == 'POST':
-        profile_id = str(uuid.uuid4())
-        first_name = (request.POST.get('first_name') or '').strip()
-        last_name = (request.POST.get('last_name') or '').strip()
-        national_code = (request.POST.get('national_code') or '').strip()
-        personnel_code = (request.POST.get('personnel_code') or '').strip()
-        full_name = f'{first_name} {last_name}'.strip() or personnel_code or national_code or 'استاد جدید'
-        erd_execute(
-            """
-            INSERT INTO profiles (id, full_name, first_name, last_name, username, email, phone, national_id, identifier, status, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            """,
-            [profile_id, full_name, first_name, last_name, personnel_code or national_code or profile_id[:8], request.POST.get('email') or '', request.POST.get('mobile') or '', national_code, personnel_code],
-        )
-        erd_execute(
-            """
-            INSERT INTO teacher_profiles (user_id, personnel_code, department, specialty, approval_status, org_unit_id)
-            VALUES (%s, %s, %s, %s, 'approved', %s)
-            """,
-            [profile_id, personnel_code, request.POST.get('faculty') or '', request.POST.get('specialization') or '', request.POST.get('academic_unit') or None],
-        )
-        erd_execute(
-            "INSERT INTO user_roles (id, user_id, role, created_at) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)",
-            [str(uuid.uuid4()), profile_id, 'teacher'],
-        )
-        username = personnel_code or national_code or profile_id[:8]
-        _login_user, generated_password = erd_sync_login_account(username, is_active=True)
-        if generated_password:
-            messages.success(request, f'استاد با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
-        else:
-            messages.success(request, 'استاد با موفقیت ثبت شد.')
-        return redirect(reverse('core:exam_manager_users') + '?tab=teachers')
-    context = _em_base_context(request, 'teacher_create', 'افزودن استاد جدید', 'users')
-    context.update({'units': units, 'summary_items': ['نام', 'نام خانوادگی', 'کد ملی', 'کد پرسنلی', 'موبایل', 'ایمیل', 'دانشکده', 'گروه آموزشی', 'تخصص', 'مرتبه علمی']})
-    return render(request, 'exam_manager/users.html', context)
+    """Old one-page form: «افزودن استاد» is the shared wizard, which keeps a manager inside its own units."""
+    return redirect('core:super_admin_teacher_create')
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -18195,19 +18006,14 @@ def exam_manager_reports(request):
 
 
 def _em_exam_status_label(row):
+    """(label, tone) on the manager's exam pages: the same publish state + time window as the exam lists, so an exam
+    reads «در حال برگزاری» only between its start and end and «پایان‌یافته» the moment its end passes."""
     raw = str(row.get('lifecycle_status') or '').lower()
-    approval = str(row.get('approval_status') or '').lower()
-    if _em_truthy(row.get('is_cancelled')):
-        return 'لغوشده', 'bad'
-    if raw in {'active', 'in_progress', 'started', 'live'}:
-        return 'در حال برگزاری', 'ok'
-    if raw in {'finished', 'completed', 'closed'}:
-        return 'پایان‌یافته', 'purple'
-    if raw in {'review', 'needs_review'} or approval in {'needs_review', 'pending'}:
-        return 'نیازمند بازبینی', 'warn'
-    if raw in {'published', 'scheduled', 'ready'} or _em_truthy(row.get('is_published')):
-        return 'آماده انتشار', 'blue'
-    return 'پیش‌نویس', 'muted'
+    if raw in {'closed', 'archived', 'finished', 'completed'} and not _em_truthy(row.get('is_cancelled')):
+        return 'پایان یافته', 'purple'
+    key, label = _admin_exam_state(row, timezone.now())
+    tones = {'cancelled': 'bad', 'running': 'ok', 'finished': 'purple', 'scheduled': 'blue', 'pending': 'warn'}
+    return label, tones.get(key, 'muted')
 
 
 def _em_int(value, default=0):
@@ -20085,6 +19891,22 @@ def _sx_attempt_items(rows, attempt_id, locked_ids):
     return items
 
 
+def _sx_render_attempt_page(request, context):
+    """The exam page (student/attempt.html) — also exam_preview's — or, for ``GET ?part=questions``, every question of
+    the attempt with its stored answer in one small response (student/_attempt_questions.html), which the page loads
+    once in the background so moving between questions never waits for the network («Moving between questions» in
+    attempt.html). Served only where the student may open any question and change any answer anyway (one question
+    per page, going back allowed, answers may change, no tutorial feedback); otherwise 404, so a forward-only or
+    locking exam never shows a question early."""
+    if request.GET.get('part') == 'questions':
+        rules = context['page_rules']
+        if (request.method != 'GET' or not rules['one_per_page'] or not rules['back'] or rules['lock_on_leave']
+                or (context.get('practice') or {}).get('tutorial')):
+            raise Http404('این بخش برای این آزمون در دسترس نیست.')
+        return render(request, 'student/_attempt_questions.html', context)
+    return render(request, 'student/attempt.html', context)
+
+
 @never_cache
 @erd_role_required('student')
 def student_attempt(request, attempt_id):
@@ -20188,7 +20010,7 @@ def student_attempt(request, attempt_id):
         exam_lock.unlock(request, attempt_id)
     else:  # a course exam in progress: other pages of the site bring the student back here (exam_lock.py)
         exam_lock.lock(request, attempt_id)
-    return render(request, 'student/attempt.html', {
+    return _sx_render_attempt_page(request, {
         'attempt': attempt,
         'current_answer': current_answer,
         'current_index': current_index,

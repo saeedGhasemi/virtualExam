@@ -46,7 +46,7 @@ def read_filters(get, status_keys=STATE_KEYS) -> dict:
     status = get.get('status') or 'all'
     date = get.get('date') or ''
     sort = get.get('sort') or 'newest'
-    view = get.get('view') or 'cards'
+    view = get.get('view') or 'table'
     return {
         'query': (get.get('q') or '').strip()[:100],
         'status': status if status in status_keys else 'all',
@@ -55,7 +55,7 @@ def read_filters(get, status_keys=STATE_KEYS) -> dict:
         'teacher': (get.get('teacher') or '').strip()[:200],
         'date': date if date in DATE_RANGES else '',
         'sort': sort if sort in SORTS else 'newest',
-        'view': view if view in VIEWS else 'cards',
+        'view': view if view in VIEWS else 'table',
     }
 
 

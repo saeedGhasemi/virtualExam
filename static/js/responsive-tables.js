@@ -10,7 +10,7 @@
 //   instead of scrolling sideways.
 // * A view switch (`[data-rt-switch="key"]` with `[data-rt-view="table|cards"]` buttons, optional
 //   `data-rt-target="selector"`, default: the tables of the switch's closest section) lets the user pick table or
-//   cards. Every page load opens on `data-rt-default` (cards unless set); the choice lasts while the page is open
+//   cards. Every page load opens on `data-rt-default` (table unless set; cards only for summary tiles such as question banks); the choice lasts while the page is open
 //   (live-region filtering/paging keeps it), it is not stored. A table picked this way stays a table whenever it fits
 //   with wrapped text (the "squeezed" check is skipped); only a table that would still stick out becomes cards.
 // * Action buttons (the «عملیات» column) with a known label (ویرایش، مشاهده، حذف، گزارش، نتایج، تصحیح…) become icon
@@ -260,7 +260,7 @@
 
   const applySwitches = () => {
     document.querySelectorAll('[data-rt-switch]').forEach((sw) => {
-      const view = chosen[sw.getAttribute('data-rt-switch')] || sw.getAttribute('data-rt-default') || 'cards';
+      const view = chosen[sw.getAttribute('data-rt-switch')] || sw.getAttribute('data-rt-default') || 'table';
       tablesFor(sw).forEach((t) => { t.dataset.rtView = view; });
       sw.querySelectorAll('[data-rt-view]').forEach((b) => {
         const on = b.getAttribute('data-rt-view') === view;

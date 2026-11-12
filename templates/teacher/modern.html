@@ -107,7 +107,7 @@
         </section>
         {% if question_banks %}
         <section class="question-bank-panel">
-            <header class="question-section-title"><h2>بانک‌های سؤال (هر درس یک بانک)</h2>{% include "partials/rt_view_switch.html" with key="questions-banks" %}</header>
+            <header class="question-section-title"><h2>بانک‌های سؤال (هر درس یک بانک)</h2>{% include "partials/rt_view_switch.html" with key="questions-banks" default="cards" %}</header>
             <table class="teacher-table">
                 <thead><tr><th>بانک / درس</th><th>فعال</th><th>پیش‌نویس</th><th>آرشیو</th><th>آخرین تغییر</th><th>عملیات</th></tr></thead>
                 <tbody>{% for bank in question_banks %}<tr><td>{{ bank.title }}</td><td>{{ bank.active|fa_digits }}</td><td>{{ bank.draft|fa_digits }}</td><td>{{ bank.archived|fa_digits }}</td><td>{{ bank.last_update|to_jalali|default:'-' }}</td><td><a href="{{ bank.url }}">مدیریت بانک</a></td></tr>{% endfor %}</tbody>

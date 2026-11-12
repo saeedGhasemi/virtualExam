@@ -109,9 +109,13 @@
   offline.querySelector('[data-offline-retry]').addEventListener('click', tryReconnect);
   offline.querySelector('[data-offline-reload]').addEventListener('click', () => { if (navigator.onLine) { window.mqAllowLeave?.(); window.location.reload(); } else tryReconnect(); });
   offline.querySelector('[data-offline-close]').addEventListener('click', () => { offline.hidden = true; });
-  // Leaving the question needs the server; while offline, keep the student here with the answer saved locally.
+  // Leaving the question needs the server, except for the page's instant moves (attempt.html «Moving between
+  // questions»: they work offline); otherwise, while offline, keep the student here with the answer saved locally.
   form.addEventListener('submit', (event) => {
     if (navigator.onLine) return;
+    const button = event.submitter;
+    const move = !!button && ((button.name === 'action' && ['next', 'previous'].includes(button.value)) || button.name === 'goto');
+    if (move && window.mqExamOfflineMoves?.()) return;
     event.preventDefault();
     remember();
     showOffline();
@@ -135,6 +139,11 @@
     timeup.querySelector('[data-timeup-label]').textContent = 'در حال ارسال پاسخ‌ها...';
     try {
       await sendCopies();
+      // The page's own outbox (answers of other questions still on their way) goes first too.
+      if (window.mqExamPendingSaves?.()) {
+        await window.mqExamWhenSaved(20000);
+        if (window.mqExamPendingSaves()) throw new Error('answers not sent');
+      }
       progress.classList.add('is-done');
       timeup.querySelector('[data-timeup-label]').textContent = refused ? 'زمان پاسخ‌دهی گذشته بود؛ پاسخ‌های ذخیره‌شده‌ی قبلی ثبت می‌شوند.' : 'پاسخ‌ها ارسال شد؛ در حال ثبت نهایی...';
       window.mqAllowLeave?.();

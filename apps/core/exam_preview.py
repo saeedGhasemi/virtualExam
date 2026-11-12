@@ -43,6 +43,7 @@ from .views import (
     _sx_exam_row,
     _sx_exam_rules,
     _sx_float,
+    _sx_render_attempt_page,
     _sx_json,
     _sx_question_options,
     _sx_type_label,
@@ -557,7 +558,7 @@ def _preview_locked(request, kind, target_id, target, sample):
         # As in the exam: answered questions other than the one on screen were left behind (e.g. via the list).
         _lock(state, [row['question_id'] for index, row in enumerate(rows, start=1) if index != current_index])
         _put_state(request, key, state)
-    return render(request, 'student/attempt.html', _context(request, kind, target, rows, sample, state, rules))
+    return _sx_render_attempt_page(request, _context(request, kind, target, rows, sample, state, rules))
 
 
 def _finish_context(request, kind, target, rows, state, empty=False):

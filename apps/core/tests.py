@@ -170,7 +170,7 @@ class SuperAdminUsersUnificationTests(_ScopedOrgFixture):
         self.client.force_login(self.manager_user)
         response = self.client.get(reverse('core:super_admin_users'), {'tab': 'managers'})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['active_tab'], 'students')
+        self.assertEqual(response.context['active_tab'], 'teachers')
         self.assertEqual(list(response.context['managers']), [])
 
         save_response = self.client.post(reverse('core:super_admin_users'), {'admin_action': 'save', 'full_name': 'نفوذی'})
@@ -3579,7 +3579,8 @@ class TeacherStudentScopeTests(_ScopedOrgFixture):
         cls.other_exam = cls._exam('آزمون استاد دیگر', cls.teacher_out_id, now - 10 * day, now - 9 * day, cls.group_out_id)
         cls._attempt(cls.past_exam, cls.student_in_id, now - 10 * day, 'graded', 15, 20)
         cls._attempt(cls.unfinished_exam, cls.student_in_id, now - 5 * day, 'graded', 12, 20)
-        cls._attempt(cls.unfinished_exam, cls.student2_id, now - 5 * day, 'in_progress')
+        # time ran out without a submit on an exam whose auto-submit is off (an open one would now be auto-submitted)
+        cls._attempt(cls.unfinished_exam, cls.student2_id, now - 5 * day, 'expired')
         cls._attempt(cls.other_exam, cls.student_out_id, now - 10 * day, 'graded', 20, 20)
 
     @staticmethod
@@ -6759,12 +6760,12 @@ class ExamTimedTasksTests(_EnforcedExamFixture):
         _exam, submitted = self._expired_attempt(auto_submit_on_time_end=True)
         _exam, expired = self._expired_attempt(auto_submit_on_time_end=False)
         _exam, legacy = self._expired_attempt(settings_enforced=None)
-        self.assertEqual(set(finalize_expired_attempts()), {submitted, expired})
+        self.assertEqual(set(finalize_expired_attempts()), {submitted, expired, legacy})
         status = lambda attempt_id: self._rows('SELECT status, score FROM exam_attempts WHERE id = %s', [attempt_id])[0]
         self.assertEqual(status(submitted)[0], 'submitted')  # the essay still waits for the teacher
         self.assertEqual(float(status(submitted)[1]), 2.0)
         self.assertEqual(status(expired), ('expired', None))
-        self.assertEqual(status(legacy)[0], 'in_progress')
+        self.assertEqual(status(legacy)[0], 'submitted')  # no wizard settings: the default auto-submit applies too
         self.client.force_login(self.student_user)
         self.client.post(reverse('core:student_attempt_submit', args=[expired]))
         self.assertEqual(status(expired)[0], 'expired')  # a late «پایان آزمون» does not submit it
@@ -9285,3 +9286,129 @@ class AppVersionTests(TestCase):
         self.assertEqual(settings.APP_VERSION, version)
         response = self.client.get(reverse('core:login'))
         self.assertContains(response, f'class="mq-brand-version" dir="ltr" data-latin-digits title="نسخه سامانه">v{version}<')
+
+
+def _scalar(sql, params=None):
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params or [])
+        row = cursor.fetchone()
+    return row[0] if row else None
+
+
+class AccessLevelTests(TestCase):
+    """The three fixed levels (org_levels.py): system admin › university manager › department manager (› teachers)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.university, cls.department, cls.other_university, cls.other_department = (str(uuid.uuid4()) for _ in range(4))
+        _insert('org_units', ['id', 'name', 'type'], [cls.university, 'دانشگاه علوم پزشکی', 'university'])
+        _insert('org_units', ['id', 'name', 'type', 'parent_id'], [cls.department, 'بخش کودکان', 'department', cls.university])
+        _insert('org_units', ['id', 'name', 'type'], [cls.other_university, 'دانشگاه دیگر', 'university'])
+        _insert('org_units', ['id', 'name', 'type', 'parent_id'], [cls.other_department, 'بخش دیگر', 'department', cls.other_university])
+
+        def person(username, role, scope=None):
+            profile_id = str(uuid.uuid4())
+            _insert('profiles', ['id', 'full_name', 'username', 'email'], [profile_id, username, username, f'{username}@example.com'])
+            _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), profile_id, role])
+            if scope:
+                _insert('academic_manager_profiles', ['user_id'], [profile_id])
+                _insert('academic_manager_scopes', ['id', 'manager_id', 'org_unit_id'], [str(uuid.uuid4()), profile_id, scope])
+            return profile_id, User.objects.create_user(username=username, email=f'{username}@example.com', password='x')
+
+        cls.admin_id, cls.admin = person('lvl_admin', 'admin')
+        cls.uni_id, cls.uni = person('lvl_university', 'academic_manager', cls.university)
+        cls.dep_id, cls.dep = person('lvl_department', 'academic_manager', cls.department)
+        cls.other_dep_id, _other = person('lvl_other_department', 'academic_manager', cls.other_department)
+        cls.teacher_id, cls.teacher = person('lvl_teacher', 'teacher')
+        _insert('teacher_profiles', ['user_id', 'org_unit_id'], [cls.teacher_id, cls.department])
+
+    def test_levels(self):
+        from .org_levels import account_level
+
+        self.assertEqual(account_level('admin', self.admin_id), 1)
+        self.assertEqual(account_level('academic_manager', self.uni_id), 2)
+        self.assertEqual(account_level('academic_manager', self.dep_id), 3)
+        self.assertIsNone(account_level('teacher', self.teacher_id))
+
+    def test_org_structure_page_by_level(self):
+        url = reverse('core:super_admin_org_units')
+        self.client.force_login(self.admin)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({row['id'] for row in response.context['org_rows']},
+                         {self.university, self.department, self.other_university, self.other_department})
+        self.assertNotContains(response, 'افزودن سطح جدید')
+        self.client.force_login(self.uni)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({row['id'] for row in response.context['org_rows']}, {self.university, self.department})
+        for user in (self.dep, self.teacher):
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(url).status_code, 403)
+
+    def test_university_manager_adds_departments_only_under_its_university(self):
+        url = reverse('core:super_admin_org_units')
+        self.client.force_login(self.uni)
+        self.client.post(url, {'org_action': 'save', 'unit_type': 'department', 'parent': self.university, 'name': 'بخش نوزادان'})
+        self.assertEqual(_scalar("SELECT COUNT(*) FROM org_units WHERE name = 'بخش نوزادان' AND parent_id = %s", [self.university]), 1)
+        self.client.post(url, {'org_action': 'save', 'unit_type': 'department', 'parent': self.other_university, 'name': 'بخش بیرونی'})
+        self.client.post(url, {'org_action': 'save', 'unit_type': 'university', 'name': 'دانشگاه تازه'})
+        self.assertEqual(_scalar("SELECT COUNT(*) FROM org_units WHERE name IN ('بخش بیرونی', 'دانشگاه تازه')"), 0)
+        response = self.client.post(url, {'org_action': 'delete', 'org_id': self.other_department})
+        self.assertEqual(response.status_code, 403)
+
+    def test_unit_with_people_is_not_deleted(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse('core:super_admin_org_units'), {'org_action': 'delete', 'org_id': self.department})
+        self.assertEqual(_scalar('SELECT COUNT(*) FROM org_units WHERE id = %s', [self.department]), 1)
+
+    def test_managers_tab_by_level(self):
+        users = reverse('core:super_admin_users')
+        self.client.force_login(self.uni)
+        response = self.client.get(users, {'tab': 'managers'})
+        self.assertEqual({str(row['id']) for row in response.context['managers']}, {self.dep_id})
+        self.client.force_login(self.dep)
+        self.assertEqual(self.client.get(users, {'tab': 'managers'}).context['active_tab'], 'teachers')
+        self.assertEqual(self.client.get(reverse('core:super_admin_manager_create')).status_code, 403)
+
+    def test_university_manager_creates_department_managers_of_its_own_departments(self):
+        create = reverse('core:super_admin_manager_create')
+        self.client.force_login(self.uni)
+        self.client.post(create, {'step': '1', 'first_name': 'مدیر', 'last_name': 'نوزادان', 'personnel_code': 'LVL-M1'})
+        # a level-2 manager for someone else's unit is not possible
+        self.client.post(create, {'step': '2', 'manager_level': '2', 'title': 'x', 'access_type': 'selected_units',
+                                  'primary_scope_id': self.other_department})
+        self.client.post(create, {'step': '4', 'username': 'lvl_new_manager', 'confirm_final': '1'})
+        self.assertEqual(_scalar("SELECT COUNT(*) FROM profiles WHERE username = 'lvl_new_manager'"), 0)
+        self.client.post(create, {'step': '2', 'manager_level': '3', 'title': 'x', 'access_type': 'selected_units',
+                                  'primary_scope_id': self.department})
+        self.client.post(create, {'step': '4', 'username': 'lvl_new_manager', 'confirm_final': '1'})
+        self.assertEqual(_scalar(
+            """SELECT COUNT(*) FROM academic_manager_scopes s JOIN profiles p ON p.id = s.manager_id
+               WHERE p.username = 'lvl_new_manager' AND s.org_unit_id = %s""", [self.department]), 1)
+
+    def test_department_manager_creates_teachers_in_its_department(self):
+        create = reverse('core:super_admin_teacher_create')
+        self.client.force_login(self.dep)
+        self.client.post(create, {'step': '1', 'first_name': 'زهرا', 'last_name': 'حسنی', 'personnel_code': 'LVL-T1'})
+        self.client.post(create, {'step': '2', 'org_unit_id': self.other_department})  # outside its scope: its own unit
+        self.client.post(create, {'step': '4', 'username': 'lvl_new_teacher', 'confirm_final': '1'})
+        unit = _scalar("""SELECT tp.org_unit_id FROM teacher_profiles tp JOIN profiles p ON p.id = tp.user_id
+                          WHERE p.username = 'lvl_new_teacher'""")
+        self.assertEqual(str(unit), self.department)
+
+
+class ExamStateFollowsClockTests(TestCase):
+    """وضعیت «در حال برگزاری» فقط بین شروع و پایان آزمون است و با رسیدن زمان پایان بلافاصله «پایان‌یافته» می‌شود."""
+
+    def test_manager_exam_pages_use_the_time_window(self):
+        from apps.core.views import _em_exam_status_label
+        now, minute = timezone.now(), timedelta(minutes=1)
+        exam = lambda **kw: {'lifecycle_status': 'published', 'is_published': True, 'is_cancelled': False, **kw}
+        self.assertEqual(_em_exam_status_label(exam(start_at=now - minute, end_at=now + minute))[0], 'در حال برگزاری')
+        self.assertEqual(_em_exam_status_label(exam(start_at=now - 2 * minute, end_at=now - minute))[0], 'پایان یافته')
+        self.assertEqual(_em_exam_status_label(exam(start_at=now + minute, end_at=now + 2 * minute))[0], 'برنامه‌ریزی شده')
+        self.assertEqual(_em_exam_status_label(exam(lifecycle_status='closed', start_at=now - minute, end_at=now + minute))[0],
+                         'پایان یافته')
+        self.assertEqual(_em_exam_status_label(exam(is_cancelled=True, start_at=now - minute, end_at=now + minute))[0], 'لغو شده')
