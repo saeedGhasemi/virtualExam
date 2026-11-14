@@ -132,6 +132,34 @@ class PersonFieldLengthMiddleware:
         return redirect(back)
 
 
+class ForbiddenPageMiddleware:
+    """A refused request (403) that a person opened in the browser gets the site's styled 403 page (`403.html`, with
+    the refusal text) instead of the bare text the role decorators / scope checks answer with
+    (`HttpResponseForbidden('…')`). Script requests (fetch/XHR, JSON) keep the original short answer."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if response.status_code != 403 or getattr(response, 'streaming', False):
+            return response
+        if not response.get('Content-Type', '').startswith('text/html'):
+            return response
+        if request.headers.get('X-Requested-With') or request.headers.get('Sec-Fetch-Mode', 'navigate') != 'navigate':
+            return response
+        body = response.content.decode(response.charset or 'utf-8', 'replace').strip()
+        if '<' in body or len(body) > 300:  # already a page (e.g. the CSRF failure view)
+            return response
+        from django.shortcuts import render
+
+        try:
+            return render(request, '403.html', {'forbidden_message': body}, status=403)
+        except DatabaseError:  # the page's chrome queries; a broken transaction keeps the plain answer
+            logger.exception('could not render the 403 page')
+            return response
+
+
 class SecurityHeadersMiddleware:
     """Response headers Django's SecurityMiddleware does not set (Hack.md → «هدرها»):
 

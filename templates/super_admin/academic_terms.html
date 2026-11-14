@@ -69,23 +69,31 @@
                     </label>
                     <label>
                         <span>تاریخ شروع</span>
-                        <input name="start_date" placeholder="1404/07/01">
+                        <input name="start_date" data-mq-rule="date" inputmode="numeric" dir="ltr" data-latin-digits>
                     </label>
                     <label>
                         <span>تاریخ پایان</span>
-                        <input name="end_date" placeholder="1404/11/30">
+                        <input name="end_date" data-mq-rule="date" inputmode="numeric" dir="ltr" data-latin-digits>
                     </label>
                     <label class="wide-field">
                         <span>عنوان اختیاری</span>
                         <input name="label" placeholder="نیم‌سال اول 1403-1404">
                     </label>
-                    <label class="terms-check">
+                    <label class="terms-switch">
                         <input type="checkbox" name="is_current">
-                        <span>ترم جاری / پیش‌فرض</span>
+                        <span class="terms-switch-track" aria-hidden="true"><span></span></span>
+                        <span class="terms-switch-text">
+                            <b>ترم جاری</b>
+                            <small>ترمی که الان در حال برگزاری است؛ برای گروه‌ها و آزمون‌های جدید از پیش انتخاب می‌شود (فقط یک ترم).</small>
+                        </span>
                     </label>
-                    <label class="terms-check">
+                    <label class="terms-switch">
                         <input type="checkbox" name="is_active" checked>
-                        <span>فعال</span>
+                        <span class="terms-switch-track" aria-hidden="true"><span></span></span>
+                        <span class="terms-switch-text">
+                            <b>قابل انتخاب در فرم‌ها</b>
+                            <small>اگر خاموش باشد، این ترم در فهرست‌های انتخاب ترم نمایش داده نمی‌شود.</small>
+                        </span>
                     </label>
                     <button type="submit" class="terms-submit">
                         <span aria-hidden="true">+</span>
@@ -102,10 +110,10 @@
                         <thead>
                             <tr>
                                 <th>سال تحصیلی</th>
-                                <th>ترم</th>
+                                <th>نام ترم</th>
                                 <th>تاریخ شروع</th>
                                 <th>تاریخ پایان</th>
-                                <th>پیش‌فرض</th>
+                                <th>وضعیت</th>
                                 <th>عملیات</th>
                             </tr>
                         </thead>
@@ -119,8 +127,8 @@
                                     </td>
                                     <td>{{ term.start_date|default:"-"|fa_digits }}</td>
                                     <td>{{ term.end_date|default:"-"|fa_digits }}</td>
-                                    <td>{% if term.is_current %}<span class="term-current">جاری</span>{% else %}<span class="term-muted">-</span>{% endif %}</td>
-                                    <td class="term-actions">
+                                    <td>{% if term.is_current %}<span class="term-current">ترم جاری</span>{% elif not term.is_active %}<span class="term-off">غیرقابل انتخاب</span>{% else %}<span class="term-muted">-</span>{% endif %}</td>
+                                    <td><div class="term-actions">
                                         <button
                                             type="button"
                                             class="term-edit-button"
@@ -145,7 +153,7 @@
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
                                             </button>
                                         </form>
-                                    </td>
+                                    </div></td>
                                 </tr>
                             {% empty %}
                                 <tr><td colspan="6"><p class="terms-empty">هنوز ترمی تعریف نشده است.</p></td></tr>
@@ -195,8 +203,16 @@
     .academic-terms-screen .terms-form-grid input,.academic-terms-screen .terms-form-grid select{height:2.75rem;min-width:0;border:1px solid #d8e2ef;border-radius:.85rem;background:rgba(255,255,255,.72);padding:0 .85rem;color:#0b1935;font:inherit;font-size:.82rem;font-weight:700;outline:0}
     .academic-terms-screen .terms-form-grid input:focus,.academic-terms-screen .terms-form-grid select:focus{border-color:#9fc2ff;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
     .academic-terms-screen .wide-field{grid-column:span 2}
-    .academic-terms-screen .terms-check{display:flex!important;height:2.75rem;align-items:center;gap:.5rem;border:1px solid #d8e2ef;border-radius:.85rem;background:rgba(255,255,255,.46);padding:0 .85rem;color:#0b1935}
-    .academic-terms-screen .terms-check input{width:1rem;height:1rem;padding:0}
+    .academic-terms-screen .terms-switch{grid-column:span 2;display:flex!important;align-items:flex-start;gap:.7rem;min-width:0;border:1px solid #d8e2ef;border-radius:.85rem;background:rgba(255,255,255,.46);padding:.65rem .85rem;color:#0b1935;cursor:pointer}
+    .academic-terms-screen .terms-switch input{position:absolute;opacity:0;width:1px;height:1px}
+    .academic-terms-screen .terms-switch-track{position:relative;flex:none;width:2.6rem;height:1.45rem;margin-top:.1rem;border-radius:999px;background:#cbd5e1;transition:background .2s}
+    .academic-terms-screen .terms-switch-track>span{position:absolute;top:.2rem;inset-inline-start:.2rem;width:1.05rem;height:1.05rem;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.25);transition:inset-inline-start .2s}
+    .academic-terms-screen .terms-switch input:checked+.terms-switch-track{background:#2563eb}
+    .academic-terms-screen .terms-switch input:checked+.terms-switch-track>span{inset-inline-start:1.35rem}
+    .academic-terms-screen .terms-switch input:focus-visible+.terms-switch-track{outline:2px solid #0f172a;outline-offset:2px}
+    .academic-terms-screen .terms-switch-text{display:grid;gap:.15rem;min-width:0}
+    .academic-terms-screen .terms-switch-text b{font-size:.84rem;font-weight:600}
+    .academic-terms-screen .terms-switch-text small{color:#64748b;font-size:.74rem;font-weight:400;line-height:1.7}
     .academic-terms-screen .terms-submit{display:inline-flex;height:2.85rem;align-items:center;justify-content:center;gap:.55rem;border:0;border-radius:.9rem;background:linear-gradient(135deg,#2563eb,#3f5cff);color:#fff;padding:0 .9rem;font-size:.88rem;font-weight:700;box-shadow:0 16px 30px rgba(37,99,235,.24)}
     .academic-terms-screen .terms-reset{display:inline-flex;height:2.85rem;align-items:center;justify-content:center;border:1px solid rgba(214,226,242,.78);border-radius:.9rem;background:rgba(255,255,255,.56);color:#526582;padding:0 .9rem;font-size:.82rem;font-weight:700}
     .academic-terms-screen .terms-reset[hidden]{display:none}
@@ -212,6 +228,7 @@
     .academic-terms-screen .terms-table strong{color:#0b1935;font-size:.82rem}
     .academic-terms-screen .terms-table small{margin-top:.1rem;color:#64748b;font-size:.7rem}
     .academic-terms-screen .term-current{display:inline-flex;align-items:center;justify-content:center;border-radius:.55rem;background:#d1fae5;padding:.28rem .65rem;color:#059669;font-size:.72rem;font-weight:700}
+    .academic-terms-screen .term-off{display:inline-flex;border-radius:.55rem;background:#f1f5f9;padding:.28rem .65rem;color:#64748b;font-size:.72rem;font-weight:600}
     .academic-terms-screen .term-muted{color:#0b1935;font-weight:700}
     .academic-terms-screen .term-actions{display:flex;align-items:center;justify-content:center;gap:.45rem}
     .academic-terms-screen .term-delete-form{display:inline-flex;margin:0}
@@ -225,7 +242,7 @@
         .academic-terms-screen .settings-layout{grid-template-columns:1fr;padding:0 calc(2.6rem + 72px) 1rem 1rem!important}
         .academic-terms-screen .settings-side-card{display:none}
         .academic-terms-screen .terms-form-grid{grid-template-columns:1fr}
-        .academic-terms-screen .wide-field{grid-column:auto}
+        .academic-terms-screen .wide-field,.academic-terms-screen .terms-switch{grid-column:auto}
         .academic-terms-screen .settings-tabs{height:auto;grid-template-columns:1fr}
     }
     @media (max-width:760px){

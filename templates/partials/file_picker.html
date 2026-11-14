@@ -1,0 +1,18 @@
+{% comment %}
+Persian file picker in place of the browser's «Choose File / No file chosen» (static/js/file-picker.js header comment).
+Parameters: name (required), label, hint, accept, multiple=True, required=True, empty (text while nothing is chosen).
+Once per page: <link css/file-picker.css> + <script js/file-picker.js defer>.
+{% endcomment %}
+<div class="mq-file" data-file-picker>
+    {% if label %}<span class="mq-file-label" id="fp-{{ name }}-label">{{ label }}{% if required %} <b class="mq-file-req" aria-hidden="true">*</b>{% endif %}</span>{% endif %}
+    <div class="mq-file-zone">
+        <input type="file" class="mq-file-input" name="{{ name }}" id="fp-{{ name }}"{% if accept %} accept="{{ accept }}"{% endif %}{% if multiple %} multiple{% endif %}{% if required %} required{% endif %}{% if label %} aria-labelledby="fp-{{ name }}-label"{% endif %}{% if hint %} aria-describedby="fp-{{ name }}-hint"{% endif %}>
+        <span class="mq-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg></span>
+        <span class="mq-file-body">
+            <span class="mq-file-btn" aria-hidden="true">{% if multiple %}انتخاب فایل‌ها{% else %}انتخاب فایل{% endif %}</span>
+            <span class="mq-file-name" data-file-picker-name data-empty="{{ empty|default:'فایلی انتخاب نشده است' }}" aria-live="polite">{{ empty|default:'فایلی انتخاب نشده است' }}</span>
+            <span class="mq-file-drop" aria-hidden="true">یا فایل را اینجا رها کنید</span>
+        </span>
+    </div>
+    {% if hint %}<small class="mq-file-hint" id="fp-{{ name }}-hint">{{ hint }}</small>{% endif %}
+</div>

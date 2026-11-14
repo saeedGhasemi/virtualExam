@@ -565,6 +565,25 @@ class SuperAdminCalendarUnificationTests(_ScopedOrgFixture):
         self.assertIn(self.exam_in_id, event_ids)
         self.assertIn(self.exam_out_id, event_ids)
 
+    def test_calendar_views_and_links_keep_view_and_filters(self):
+        """روز / هفته / ماه / لیست: each renders its own body; navigation and view links keep the view and filters."""
+        self.client.force_login(self.admin_user)
+        url = reverse('core:super_admin_calendar')
+        markers = {'day': 'edu-agenda', 'week': 'edu-week-day', 'month': 'edu-calendar-grid', 'list': 'edu-list'}
+        for view, marker in markers.items():
+            response = self.client.get(url, {'view': view, 'year': 1405, 'month': 8, 'day': 20, 'teacher': 'x'})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.context['view_mode'], view)
+            self.assertContains(response, marker)
+            for key in ('previous_url', 'next_url', 'today_url'):
+                self.assertIn(f'view={view}', response.context[key])
+                self.assertIn('teacher=x', response.context[key])
+            self.assertNotIn('teacher=', response.context['reset_url'])
+        week = self.client.get(url, {'view': 'week', 'year': 1405, 'month': 8, 'day': 20}).context
+        self.assertIn('day=27', week['next_url'])  # one week on, same view
+        self.assertEqual([day['weekday'] for day in week['week_days']][0], 'شنبه')
+        self.assertEqual(self.client.get(url, {'view': 'bogus'}).context['view_mode'], 'month')
+
 
 class SuperAdminSettingsDefaultTabTests(_ScopedOrgFixture):
     """«تنظیمات سامانه» بدون تب، روی تب اول یعنی ساختار سازمانی باز می‌شود."""
@@ -1576,6 +1595,31 @@ class OsceBuilderTests(_ScopedOrgFixture):
                 [osce_id],
             )
             return cursor.fetchall()
+
+    def test_admin_and_manager_build_their_own_osce(self):
+        """Admins and managers keep a question bank, and «ایجاد سؤال» links the OSCE builder: they can use it too."""
+        for user, owner_id in ((self.admin_user, self.admin_id), (self.manager_user, self.manager_id)):
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(reverse('core:teacher_osce_create')).status_code, 200)
+            response = self.client.post(reverse('core:teacher_osce_create'), self._basic(course_id='', code='OSCE-09'))
+            self.assertEqual(response.status_code, 302)
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT id FROM osce_exams WHERE teacher_id = %s', [owner_id])
+                osce_id = str(cursor.fetchone()[0])
+            self.assertEqual(self.client.get(reverse('core:teacher_osce_builder', args=[osce_id])).status_code, 200)
+            self.assertEqual(self.client.get(reverse('core:teacher_osce_list')).status_code, 200)
+        self.client.force_login(self.teacher_user)  # still each owner's own
+        self.assertEqual(self.client.get(reverse('core:teacher_osce_builder', args=[osce_id])).status_code, 404)
+
+    def test_refused_role_gets_the_styled_403_page(self):
+        student = get_user_model().objects.create_user(username='student_in_scope', email='student_in_scope@example.com', password='x')
+        self.client.force_login(student)
+        page = self.client.get(reverse('core:teacher_osce_create'))
+        self.assertEqual(page.status_code, 403)
+        self.assertTemplateUsed(page, '403.html')
+        self.assertContains(page, 'دسترسی برای این نقش مجاز نیست.', status_code=403)
+        script = self.client.get(reverse('core:teacher_osce_create'), headers={'X-Requested-With': 'XMLHttpRequest'})
+        self.assertEqual(script.content.decode(), 'دسترسی برای این نقش مجاز نیست.')  # scripts keep the short answer
 
     def test_structure_page_routes_osce_to_builder(self):
         self.client.force_login(self.teacher_user)
@@ -7745,6 +7789,25 @@ class TeacherPreferencesTakeEffectTests(_EnforcedExamFixture):
         page = self.client.get(reverse('core:teacher_exams'))
         self.assertContains(page, 'آذر')
         self.assertNotContains(page, 'id="tq-help-panel"')
+
+    def test_quick_help_links_follow_the_role(self):
+        """«راهنمای سریع» on console pages admins also open (question bank) points at pages their role can open."""
+        from apps.core.teacher_preferences import QUICK_LINKS
+        self._set_prefs(quick_help=True, show_page_meta=True)
+        self.client.force_login(self.teacher_user)
+        page = self.client.get(reverse('core:teacher_questions'))
+        self.assertContains(page, reverse('core:teacher_reviews'))
+        admin = get_user_model().objects.create_user(username='qh_admin', email='qh_admin@example.com', password='x')
+        admin_id = str(uuid.uuid4())
+        _insert('profiles', ['id', 'full_name', 'username', 'email'], [admin_id, 'مدیر', 'qh_admin', 'qh_admin@example.com'])
+        _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), admin_id, 'admin'])
+        self.client.force_login(admin)
+        page = self.client.get(reverse('core:teacher_questions'))
+        links = page.context['teacher_ui']['quick_links']
+        self.assertEqual([link['url'] for link in links], [reverse(name) for _key, _label, name in QUICK_LINKS['admin']])
+        self.assertNotContains(page, f'href="{reverse("core:teacher_reviews")}"')
+        for link in links:
+            self.assertEqual(self.client.get(link['url'], follow=True).status_code, 200, link)  # settings opens on its first tab
 
     def test_notification_channels(self):
         from django.core import mail

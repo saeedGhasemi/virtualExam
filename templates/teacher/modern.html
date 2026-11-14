@@ -450,22 +450,56 @@
             {% if import_rows is None %}
                 <section class="teacher-panel">
                     <h2>فایل سؤال‌ها را بارگذاری کنید</h2>
-                    <p class="texams-empty" style="text-align:start">فایل Word سؤال‌ها را همان‌طور که برگه‌ی آزمون را می‌نویسید بارگذاری کنید؛ سامانه نوع هر سؤال، گزینه‌ها، پاسخ درست و تصویرها را خودش تشخیص می‌دهد و پیش از ثبت، نتیجه را برای مرور نشان می‌دهد. همه‌ی انواع سؤال پشتیبانی می‌شود (نمونه‌ی هر نوع در فایل نمونه هست).</p>
-                    <ul class="texams-empty" style="text-align:start;margin:0 0 1rem;padding-inline-start:1.2rem;line-height:2">
-                        <li>هر سؤال با شماره شروع شود (مثل «۱- متن سؤال»)؛ شماره‌گذاری خودکار Word هم خوانده می‌شود.</li>
-                        <li><b>تک‌گزینه‌ای / چندپاسخی:</b> گزینه‌ها با «الف)»، «ب)» … یا «۱)»، «۲)» …؛ گزینه‌ی درست با * کنار آن، خط «پاسخ: ب»، کلید پاسخ در انتهای فایل («کلید: ۱-ب ۲-ج») یا هایلایت همان گزینه. چند گزینه‌ی درست = چندپاسخی.</li>
-                        <li><b>درست/نادرست:</b> «پاسخ: درست». <b>پاسخ کوتاه:</b> «پاسخ: …» (چند پاسخ با |). <b>عددی:</b> «پاسخ: 9.8» و اختیاری «تلرانس: 0.1»، «واحد: …». <b>تشریحی:</b> بدون پاسخ (یا «پاسخ نمونه: …»).</li>
-                        <li><b>جای خالی:</b> پاسخ داخل [ ] در متن، مثل «پایتخت ایران [تهران] است». <b>تطبیقی:</b> هر جفت در یک خط «ایران = تهران» یا جدول دوستونه. <b>مرتب‌سازی:</b> موارد + «ترتیب صحیح: ج، الف، ب».</li>
-                        <li><b>ماتریسی:</b> جدول با ردیف اول عنوان ستون‌ها و ✓ در خانه‌های درست. <b>تصویری:</b> تصویر در Word + «نشانه ۱: پاسخ (۳۰، ۴۰)». <b>صوتی/ویدئویی:</b> «فایل: نام.mp3» و همان فایل در «فایل‌های همراه».</li>
-                        <li>تصویرهای داخل متن سؤال، گزینه‌ها، جدول تطبیقی و «توضیح» هم منتقل می‌شوند (PNG، JPG، GIF، WEBP). خط‌های اختیاری: «بارم:»، «دشواری:»، «تگ:»، «مبحث:»، «توضیح:»، «نوع:»، «نمره منفی:».</li>
-                    </ul>
+                    <style>
+                      /* «ورود گروهی سؤالات»: one row per question type (name + its format rule), then the upload form */
+                      .qi-intro.qi-intro{margin:0 0 1rem;font-size:.92rem;line-height:2;color:#475569;font-weight:400}
+                      .qi-rules h3{margin:0 0 .5rem;font-size:.98rem;font-weight:700;color:#0f172a}
+                      /* doubled classes: beat the dashboard-card look of `.teacher-panel dl / dl div / dt / dd` */
+                      .qi-formats.qi-formats{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0 0 1.1rem;border:1px solid #e2e8f0;border-radius:.85rem;overflow:hidden}
+                      .qi-formats.qi-formats>div{display:grid;grid-template-columns:minmax(8.5rem,max-content) minmax(0,1fr);align-items:baseline;gap:.15rem 1rem;margin:0;padding:.5rem .9rem;border:0;font-size:.92rem;line-height:1.9}
+                      .qi-formats.qi-formats>div:nth-child(odd){background:#f8fafc}
+                      .qi-formats.qi-formats>div+div{border-top:1px solid #eef2f7}
+                      .qi-formats.qi-formats dt{margin:0;font-size:inherit;line-height:inherit;font-weight:700;color:#0f172a}
+                      .qi-formats.qi-formats dd{margin:0;font-size:inherit;font-weight:400;color:#334155;overflow-wrap:anywhere}
+                      .qi-notes.qi-notes{margin:0 0 1rem;padding-inline-start:1.2rem;list-style:disc;font-size:.9rem;line-height:2;color:#475569}
+                      .qi-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:1rem;align-items:start;margin-top:1rem;padding:1rem;border:1px solid #d8e3f2;border-radius:.85rem;background:#fff}
+                      .qi-form.qi-form label{font-weight:600}
+                      .qi-form .qi-actions{grid-column:1/-1;display:flex;justify-content:flex-start}
+                      .qi-form.qi-form select{width:100%;min-width:0;height:2.75rem;padding:0 .8rem;border:1px solid #d4dfef;border-radius:.6rem;background:#fff;font-weight:400;color:#1e293b}
+                      .qi-form.qi-form .teacher-primary{border-color:#2563eb;background:#2563eb;color:#fff}
+                      @media (max-width:560px){.qi-formats.qi-formats>div{grid-template-columns:minmax(0,1fr);gap:0}}
+                    </style>
+                    <link rel="stylesheet" href="{% static 'css/file-picker.css' %}?v=20261114b"><script src="{% static 'js/file-picker.js' %}?v=20261114b" defer></script>
+                    <p class="qi-intro">فایل Word سؤال‌ها را همان‌طور که برگه‌ی آزمون را می‌نویسید بارگذاری کنید؛ سامانه نوع هر سؤال، گزینه‌ها، پاسخ درست و تصویرها را خودش تشخیص می‌دهد و پیش از ثبت، نتیجه را برای مرور نشان می‌دهد. همه‌ی انواع سؤال پشتیبانی می‌شود (نمونه‌ی هر نوع در فایل نمونه هست).</p>
+                    <section class="qi-rules" aria-labelledby="qi-rules-title">
+                        <h3 id="qi-rules-title">قالب نوشتن هر نوع سؤال</h3>
+                        <dl class="qi-formats">
+                            <div><dt>تک‌گزینه‌ای / چندپاسخی:</dt><dd>گزینه‌ها با «الف)»، «ب)» … یا «۱)»، «۲)» …؛ گزینه‌ی درست با * کنار آن، خط «پاسخ: ب»، کلید پاسخ در انتهای فایل («کلید: ۱-ب ۲-ج») یا هایلایت همان گزینه. چند گزینه‌ی درست = چندپاسخی.</dd></div>
+                            <div><dt>درست / نادرست:</dt><dd>«پاسخ: درست».</dd></div>
+                            <div><dt>جای خالی:</dt><dd>پاسخ داخل [ ] در متن، مثل «پایتخت ایران [تهران] است».</dd></div>
+                            <div><dt>ماتریسی:</dt><dd>جدول با ردیف اول عنوان ستون‌ها و ✓ در خانه‌های درست.</dd></div>
+                            <div><dt>تطبیقی:</dt><dd>هر جفت در یک خط «ایران = تهران» یا جدول دوستونه.</dd></div>
+                            <div><dt>مرتب‌سازی:</dt><dd>موارد + «ترتیب صحیح: ج، الف، ب».</dd></div>
+                            <div><dt>تصویری:</dt><dd>تصویر در Word + «نشانه ۱: پاسخ (۳۰، ۴۰)».</dd></div>
+                            <div><dt>صوتی / ویدئویی:</dt><dd>«فایل: نام.mp3» و همان فایل در «فایل‌های همراه».</dd></div>
+                            <div><dt>تشریحی:</dt><dd>بدون پاسخ (یا «پاسخ نمونه: …»).</dd></div>
+                            <div><dt>عددی:</dt><dd>«پاسخ: 9.8» و اختیاری «تلرانس: 0.1»، «واحد: …».</dd></div>
+                            <div><dt>پاسخ کوتاه:</dt><dd>«پاسخ: …» (چند پاسخ با |).</dd></div>
+                        </dl>
+                        <h3>نکته‌های همه‌ی سؤال‌ها</h3>
+                        <ul class="qi-notes">
+                            <li>هر سؤال با شماره شروع شود (مثل «۱- متن سؤال»)؛ شماره‌گذاری خودکار Word هم خوانده می‌شود.</li>
+                            <li>تصویرهای داخل متن سؤال، گزینه‌ها، جدول تطبیقی و «توضیح» هم منتقل می‌شوند (PNG، JPG، GIF، WEBP).</li>
+                            <li>خط‌های اختیاری: «بارم:»، «دشواری:»، «تگ:»، «مبحث:»، «توضیح:»، «نوع:»، «نمره منفی:».</li>
+                        </ul>
+                    </section>
                     <p><a class="teacher-primary" href="?template=word">دانلود فایل نمونه (Word)</a></p>
-                    <form method="post" enctype="multipart/form-data" class="teacher-toolbar texams-toolbar" style="flex-wrap:wrap;gap:.8rem">
+                    <form method="post" enctype="multipart/form-data" class="qi-form">
                         {% csrf_token %}
                         <label>درس سؤال‌ها<select name="course_id"><option value="">بدون درس</option>{% for course in import_courses %}<option value="{{ course.id }}">{{ course.title }}</option>{% endfor %}</select></label>
-                        <label>فایل Word (docx، حداکثر ۵۰۰ سؤال)<input type="file" name="import_file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required></label>
-                        <label>فایل‌های همراه (اختیاری؛ صوت/ویدئو/تصویری که در Word با «فایل:» نام برده‌اید)<input type="file" name="media_files" multiple accept=".mp3,.wav,.ogg,.m4a,.mp4,.webm,.jpg,.jpeg,.png,.gif,.webp"></label>
-                        <button class="teacher-primary" type="submit">بررسی فایل</button>
+                        {% include "partials/file_picker.html" with name="import_file" label="فایل Word" hint="فقط docx، حداکثر ۵۰۰ سؤال" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required=True %}
+                        {% include "partials/file_picker.html" with name="media_files" label="فایل‌های همراه (اختیاری)" hint="صوت، ویدئو یا تصویری که در Word با «فایل:» نام برده‌اید" accept=".mp3,.wav,.ogg,.m4a,.mp4,.webm,.jpg,.jpeg,.png,.gif,.webp" multiple=True %}
+                        <div class="qi-actions"><button class="teacher-primary" type="submit">بررسی فایل</button></div>
                     </form>
                     {% if import_error %}<p class="teacher-badge is-danger" role="alert">{{ import_error }}</p>{% endif %}
                 </section>
@@ -891,7 +925,8 @@
 <style>
   {% if teacher_ui.compact_tables %}.teacher-console table th,.teacher-console table td{padding-top:.35rem!important;padding-bottom:.35rem!important;font-size:.84rem}{% endif %}
   .tq-help{position:fixed;left:16px;bottom:16px;z-index:60;font-family:inherit}
-  .tq-help>button{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1rem;border:0;border-radius:999px;background:#1d4ed8;color:#fff;font:inherit;font-weight:700;box-shadow:0 10px 24px rgba(29,78,216,.3);cursor:pointer}
+  .tq-help>button svg{flex:none;width:1.15rem;height:1.15rem}
+  .tq-help>button{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1rem;border:0;border-radius:999px;background:#1d4ed8;color:#fff;font:inherit;font-weight:600;box-shadow:0 10px 24px rgba(29,78,216,.3);cursor:pointer}
   .tq-help-panel{position:absolute;left:0;bottom:3.2rem;width:min(320px,calc(100vw - 32px));padding:1rem;border:1px solid #dbe5f3;border-radius:14px;background:#fff;color:#0f172a;box-shadow:0 20px 50px rgba(15,23,42,.2);direction:rtl}
   .tq-help-panel h3{margin:0 0 .6rem;font-size:.95rem}
   .tq-help-panel a{display:block;padding:.4rem .2rem;color:#1d4ed8;font-weight:600;text-decoration:none}
@@ -901,22 +936,15 @@
 </style>
 {% if teacher_ui.quick_help %}
 <div class="tq-help" data-tq-help>
-  <button type="button" aria-expanded="false" aria-controls="tq-help-panel" data-tq-help-toggle>؟ راهنمای سریع</button>
+  <button type="button" aria-expanded="false" aria-controls="tq-help-panel" data-tq-help-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>راهنمای سریع</button>
+  {# entries follow the viewer's role (teacher_preferences.QUICK_LINKS): admins / managers get their own pages #}
   <div class="tq-help-panel" id="tq-help-panel" hidden>
     <h3>دسترسی سریع</h3>
-    <a href="{% url 'core:teacher_exam_create' %}">ایجاد آزمون جدید</a>
-    <a href="{% url 'core:teacher_questions' %}">بانک سؤال</a>
-    <a href="{% url 'core:teacher_reviews' %}">تصحیح پاسخ‌ها</a>
-    <a href="{% url 'core:teacher_results' %}">نتایج آزمون‌ها</a>
-    <a href="{% url 'core:teacher_settings' %}">تنظیمات</a>
+    {% for link in teacher_ui.quick_links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
     {% if teacher_ui.shortcuts %}
       <h3 style="margin-top:.8rem">میانبرهای صفحه‌کلید</h3>
       <ul>
-        <li><span>ایجاد آزمون</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></span></li>
-        <li><span>بانک سؤال</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd></span></li>
-        <li><span>تصحیح پاسخ‌ها</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></span></li>
-        <li><span>نتایج</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></span></li>
-        <li><span>داشبورد</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></span></li>
+        {% for link in teacher_ui.quick_links %}{% if link.key %}<li><span>{{ link.label }}</span><span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>{{ link.key|upper }}</kbd></span></li>{% endif %}{% endfor %}
         <li><span>جستجو در همین صفحه</span><span><kbd>/</kbd></span></li>
       </ul>
     {% endif %}
@@ -936,10 +964,7 @@
 
   // «میانبرهای صفحه‌کلید»
   if (ui.shortcuts) {
-    const targets = {
-      n: "{% url 'core:teacher_exam_create' %}", q: "{% url 'core:teacher_questions' %}", g: "{% url 'core:teacher_reviews' %}",
-      r: "{% url 'core:teacher_results' %}", h: "{% url 'core:teacher_panel' %}",
-    };
+    const targets = Object.fromEntries((ui.quick_links || []).filter((link) => link.key).map((link) => [link.key, link.url]));
     document.addEventListener('keydown', (event) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable;
       if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey) {

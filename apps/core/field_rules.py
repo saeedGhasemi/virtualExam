@@ -102,6 +102,28 @@ def birth_date_error(value: str) -> str:
     return ''
 
 
+def jalali_date_error(value: str, label: str = 'تاریخ') -> str:
+    """'' when `value` is a real Jalali date yyyy/mm/dd between 1300 and 1500 (the `date` kind of field-rules.js)."""
+    match = re.fullmatch(r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})', latin_digits(value or '').strip())
+    if not match:
+        return f'{label} را فقط با رقم و به شکل سال/ماه/روز شمسی بنویسید، مثلاً ۱۴۰۵/۰۷/۰۱.'
+    year, month, day = (int(part) for part in match.groups())
+    if not 1300 <= year <= 1500:
+        return f'سال {label} باید بین ۱۳۰۰ و ۱۵۰۰ باشد.'
+    if not 1 <= month <= 12:
+        return f'ماه {label} باید بین ۱ تا ۱۲ باشد.'
+    days = 31 if month <= 6 else 30 if month <= 11 else (30 if _jalali_leap(year) else 29)
+    if not 1 <= day <= days:
+        return f'روز {label} در آن ماه وجود ندارد.'
+    return ''
+
+
+def normal_jalali_date(value: str) -> str:
+    """yyyy/mm/dd with two-digit month and day (call only after jalali_date_error returned '')."""
+    year, month, day = re.split(r'[/-]', latin_digits(value).strip())
+    return f'{int(year):04d}/{int(month):02d}/{int(day):02d}'
+
+
 def clean_person_fields(data: dict) -> list:
     errors = []
     if data.get('national_id'):
@@ -284,10 +306,34 @@ PASSWORD_RULES = (
 )
 
 
-def password_missing(password: str) -> list:
-    """Labels of the PASSWORD_RULES this password doesn't meet yet (empty = it meets the standard)."""
+# «سیاست گذرواژه» (admin › تنظیمات امنیتی, system_settings.password_policy): which rules a new password must meet.
+# قوی = the full standard above (default); متوسط = 8+ with an English letter and a digit; ضعیف = 6+ characters.
+# Browser twin: PW_POLICIES in static/js/field-rules.js (the policy reaches it as <html data-mq-pw-policy>).
+PASSWORD_POLICY_RULES = {
+    'strong': PASSWORD_RULES,
+    'medium': (
+        PASSWORD_RULES[0],
+        ('letter', 'حرف انگلیسی', lambda p: re.search(r'[A-Za-z]', p) is not None),
+        PASSWORD_RULES[3],
+    ),
+    'weak': (('length6', '۶ نویسه یا بیشتر', lambda p: len(p) >= 6),),
+}
+
+
+def current_password_policy() -> str:
+    try:
+        from .system_settings import password_policy
+        policy = password_policy()
+    except Exception:  # no settings table yet: the full standard
+        policy = 'strong'
+    return policy if policy in PASSWORD_POLICY_RULES else 'strong'
+
+
+def password_missing(password: str, policy: str | None = None) -> list:
+    """Labels of the rules of the password policy this password doesn't meet yet (empty = it meets it)."""
     password = password or ''
-    return [label for _key, label, ok in PASSWORD_RULES if not ok(password)]
+    rules = PASSWORD_POLICY_RULES.get(policy or current_password_policy(), PASSWORD_RULES)
+    return [label for _key, label, ok in rules if not ok(password)]
 
 
 class PasswordStrengthValidator:
@@ -303,4 +349,5 @@ class PasswordStrengthValidator:
                                   code='password_too_weak')
 
     def get_help_text(self):
-        return 'حداقل ۸ نویسه، با حرف بزرگ و کوچک انگلیسی، رقم و نماد.'
+        return {'medium': 'حداقل ۸ نویسه، با حرف انگلیسی و رقم.', 'weak': 'حداقل ۶ نویسه.'}.get(
+            current_password_policy(), 'حداقل ۸ نویسه، با حرف بزرگ و کوچک انگلیسی، رقم و نماد.')

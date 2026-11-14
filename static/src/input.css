@@ -9624,16 +9624,21 @@
     @apply border-transparent bg-[#5a48f6] text-white;
   }
 
+  /* Same look as the users page tabs (.users-role-tabs), so both pages show the same chosen system colour. */
   .teacher-profile-role-tabs {
-    @apply mx-auto mb-4 grid w-full max-w-[470px] grid-cols-3 gap-0 rounded-2xl border border-[#dbe4f3] bg-white/75 p-1.5 shadow-[0_14px_36px_rgba(33,55,104,0.10)];
+    @apply mx-auto mb-4 grid w-[36rem] max-w-full grid-cols-3 gap-1 rounded-2xl border border-[#dbe4f3] bg-white/75 p-2 shadow-[0_14px_36px_rgba(33,55,104,0.12)];
   }
 
   .teacher-profile-role-tabs a {
-    @apply flex h-12 items-center justify-center rounded-lg text-[13px] font-black text-[#62708a] transition hover:text-[#3159ff];
+    @apply flex h-14 items-center justify-center gap-2.5 rounded-xl text-[15px] font-black text-[#62708a] transition hover:text-[#3159ff];
   }
 
   .teacher-profile-role-tabs a.is-active {
-    @apply bg-[#6b45f6] text-white shadow-[0_14px_28px_rgba(75,70,255,0.26)];
+    @apply bg-[#4b46ff] text-white shadow-[0_14px_28px_rgba(75,70,255,0.28)];
+  }
+
+  .teacher-profile-role-tabs svg {
+    @apply size-6 shrink-0 fill-none stroke-current stroke-2;
   }
 
   .teacher-profile-back {
@@ -12413,7 +12418,7 @@
   }
 
   .tset-totp-setup {
-    @apply grid gap-4 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-4 sm:grid-cols-[180px_1fr];
+    @apply grid gap-4 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-4 sm:grid-cols-[15rem_1fr];
   }
 
   .tset-totp-qr {

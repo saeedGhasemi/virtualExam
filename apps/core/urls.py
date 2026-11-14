@@ -1,5 +1,6 @@
 from django.urls import path
 from .appearance_views import my_appearance_save
+from . import panel_header
 from .exam_preview import exam_preview, exam_preview_finish, question_preview, question_preview_finish
 from .exam_hub import (
     student_attempt_live, super_admin_exam_hub, super_admin_exam_hub_action, teacher_exam_hub, teacher_exam_hub_action,
@@ -340,6 +341,8 @@ urlpatterns = [
     path('teacher/settings/', teacher_settings, name='teacher_settings'),
     path('teacher/security/', teacher_security, name='teacher_security'),
     path('teacher/notifications/feed/', teacher_notification_feed, name='teacher_notification_feed'),
+    path('panel/notifications/', panel_header.notifications, name='panel_notifications'),
+    path('panel/search/', panel_header.search, name='panel_search'),
     path('teacher/assistant-requests/', teacher_assistant_requests, name='teacher_assistant_requests'),
     path('teacher/assistant-requests/questions/<int:submission_id>/', teacher_assistant_question_review, name='teacher_assistant_question_review'),
     path('teacher/assistant-requests/suggestions/<int:suggestion_id>/', teacher_assistant_suggestion_review, name='teacher_assistant_suggestion_review'),

@@ -6,6 +6,10 @@
 .mq-brand span:not(#mq-x){width:auto;height:auto;padding:0;margin:0;border-radius:0;background:none;box-shadow:none;place-items:normal;font-size:inherit;letter-spacing:0}
 .mq-brand .mq-brand-mark:not(#mq-x){position:relative;flex:0 0 auto;display:grid;place-items:center;width:1.85em;height:1.85em;border-radius:.56em;background:linear-gradient(140deg,#4f8bff 0%,#2563eb 48%,#3b3fd8 100%);box-shadow:0 .35em .8em -.3em rgba(37,99,235,.55),inset 0 1px 0 rgba(255,255,255,.35);transition:transform .18s ease}
 .mq-brand .mq-brand-mark:not(#mq-x):after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,0) 55%);pointer-events:none}
+/* uploaded logo (system settings): the image on a plain white tile instead of the blue mark */
+.mq-brand .mq-brand-mark.is-image:not(#mq-x){background:#fff;box-shadow:0 .25em .7em -.35em rgba(15,23,42,.35),inset 0 0 0 1px rgba(15,23,42,.08);overflow:hidden}
+.mq-brand .mq-brand-mark.is-image:not(#mq-x):after{display:none}
+.mq-brand .mq-brand-mark.is-image img{width:86%;height:86%;object-fit:contain;display:block}
 .mq-brand .mq-brand-mark svg:not(#mq-x){position:relative;z-index:1;width:62%;height:62%;display:block}
 .mq-brand .mq-brand-text:not(#mq-x){display:flex;flex-direction:column;justify-content:center;gap:.18em;min-width:0}
 .mq-brand .mq-brand-name:not(#mq-x){display:block;font-family:"MQ Lalezar",Vazirmatn,Tahoma,sans-serif;font-weight:400;font-size:1.22em;line-height:1;color:#0b1a3a;padding-top:.08em}

@@ -15,6 +15,9 @@ a failsafe: the page shows after 2.5s even if a script fails. Without JS the cla
 html.mq-loading body{opacity:0;animation:mq-reveal 0s 2.5s forwards}
 @keyframes mq-reveal{to{opacity:1}}
 </style>
+<script>document.documentElement.setAttribute('data-mq-pw-policy', '{{ mq_pw_policy|default:"strong"|escapejs }}');</script>{# «سیاست گذرواژه» for field-rules.js #}
+{# Browsers without CSS :has() (old Chrome/Firefox) drop every :has rule; this rewrites them (header comment). #}
+<script src="{% static 'js/has-fallback.js' %}?v=20261114h"></script>
 <script>
 (() => {
   const root = document.documentElement;
@@ -23,7 +26,8 @@ html.mq-loading body{opacity:0;animation:mq-reveal 0s 2.5s forwards}
   setTimeout(show, 2500);
   document.addEventListener('DOMContentLoaded', () => {
     const font = document.fonts && document.fonts.load ? document.fonts.load('400 1em Vazirmatn').catch(() => {}) : null;
-    Promise.race([font, new Promise((r) => setTimeout(r, 1200))]).then(() => requestAnimationFrame(show));
+    const wait = (p) => Promise.race([p, new Promise((r) => setTimeout(r, 1200))]);
+    Promise.all([wait(font), wait(window.mqHasReady)]).then(() => requestAnimationFrame(show));
   });
 })();
 </script>

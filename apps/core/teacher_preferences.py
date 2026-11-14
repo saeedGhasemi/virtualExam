@@ -147,9 +147,44 @@ def calendar_for(teacher_id) -> str:
     return 'gregorian' if prefs(teacher_id).get('date_format') == 'میلادی' else 'jalali'
 
 
-def ui_context(teacher_id) -> dict:
+# «راهنمای سریع» (quick links + Alt+Shift shortcuts) on the console pages. Admins and academic managers reach those
+# pages too (question bank, import, OSCE), so every entry points at the page *their* role opens; a role without such a
+# page has no entry. key = the shortcut letter (Alt+Shift+key), None = link only.
+QUICK_LINKS = {
+    'teacher': [
+        ('n', 'ایجاد آزمون جدید', 'core:teacher_exam_create'),
+        ('q', 'بانک سؤال', 'core:teacher_questions'),
+        ('g', 'تصحیح پاسخ‌ها', 'core:teacher_reviews'),
+        ('r', 'نتایج آزمون‌ها', 'core:teacher_results'),
+        (None, 'تنظیمات', 'core:teacher_settings'),
+        ('h', 'داشبورد', 'core:teacher_panel'),
+    ],
+    'admin': [
+        ('n', 'ایجاد آزمون جدید', 'core:super_admin_exam_create'),
+        ('q', 'بانک سؤال', 'core:teacher_questions'),
+        ('r', 'گزارش‌ها و نتایج', 'core:super_admin_reports'),
+        (None, 'تنظیمات سامانه', 'core:super_admin_settings'),
+        ('h', 'داشبورد', 'core:super_admin_dashboard'),
+    ],
+    'academic_manager': [
+        ('n', 'ایجاد آزمون جدید', 'core:super_admin_exam_create'),
+        ('q', 'بانک سؤال', 'core:teacher_questions'),
+        ('r', 'گزارش‌ها و نتایج', 'core:exam_manager_reports'),
+        ('h', 'داشبورد', 'core:exam_manager_dashboard'),
+    ],
+}
+
+
+def quick_links(role) -> list[dict]:
+    from django.urls import reverse
+
+    return [{'key': key or '', 'label': label, 'url': reverse(name)} for key, label, name in QUICK_LINKS.get(role, [])]
+
+
+def ui_context(teacher_id, role='teacher') -> dict:
     values = prefs(teacher_id)
     return {
+        'quick_links': quick_links(role),
         'theme': values.get('theme') if values.get('theme') in ('light', 'dark', 'system') else 'light',
         'compact_tables': bool(values.get('compact_tables')),
         'quick_help': values.get('quick_help', True),

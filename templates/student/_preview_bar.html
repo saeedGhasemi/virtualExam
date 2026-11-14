@@ -10,9 +10,8 @@
   .qx-pv-btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;min-height:2.4rem;padding:0 .9rem;border:1px solid #f59e0b;border-radius:.6rem;background:#fff;color:#92400e;font:inherit;font-size:.84rem;font-weight:700;text-decoration:none;cursor:pointer}
   .qx-pv-btn:hover{background:#fef3c7}
   .qx-pv-btn--exit{border-color:#92400e;background:#92400e;color:#fff}.qx-pv-btn--exit:hover{background:#78350f}
-  .qx-pv-rules{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:0;padding:0;list-style:none;font-size:.78rem;font-weight:600}
-  .qx-pv-rules li{padding:.2rem .65rem;border:1px solid #fde68a;border-radius:999px;background:#fef3c7}
-  .qx-pv-rules li.qx-pv-rules-title{padding:0;border:0;background:none;font-weight:700}
+  .qx-pv-rules{margin:0;font-size:.82rem;font-weight:400;line-height:1.9}
+  .qx-pv-rules b{font-weight:700}
   .qx-pv-note{margin:0;font-size:.76rem;font-weight:600;color:#92400e}
   @media (max-width:460px){.qx-pv-actions{display:grid;grid-template-columns:minmax(0,1fr);width:100%}}
 </style>
@@ -34,11 +33,8 @@
     </div>
   </div>
   {% if preview.rules or preview.practice %}
-    <ul class="qx-pv-rules">
-      <li class="qx-pv-rules-title">قوانین این آزمون:</li>
-      {% if preview.practice %}<li>آزمون آزمایشی</li>{% endif %}
-      {% for label in preview.rules %}<li>{{ label }}</li>{% endfor %}
-    </ul>
+    {# Plain text, not pills (they looked like buttons): «قوانین این آزمون: الف، ب و ج.» #}
+    <p class="qx-pv-rules"><b>قوانین این آزمون:</b> {% if preview.practice %}آزمون آزمایشی{% if preview.rules %}، {% endif %}{% endif %}{% for label in preview.rules %}{{ label }}{% if not forloop.last %}، {% endif %}{% endfor %}.</p>
     {% if preview.idle_rules %}<p class="qx-pv-note">در پیش‌نمایش اجرا نمی‌شود و فقط در آزمون واقعی فعال است: {{ preview.idle_rules }}.</p>{% endif %}
   {% endif %}
 </section>

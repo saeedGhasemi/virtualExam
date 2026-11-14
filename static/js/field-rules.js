@@ -17,7 +17,7 @@
      acyear    سال تحصیلی    name academic_year (data-mq-rule="acyear" elsewhere)  1405-1406 («-» added while typing)
      latin     کد لاتین      name code / course_code / station_code (course, exam join, OSCE codes)  A-Z 0-9 - _
      color     کد رنگ        name settings_primary_color / mqa_color                #RRGGBB
-     ip        محدوده IP     name ip_restriction_range                             IPv4/IPv6 or CIDR, comma separated
+     ip        محدوده IP     name ip_restriction_range, settings_ip_allow_list/_block_list  IPv4/IPv6 or CIDR, comma separated
      decimal   عدد           name numeric_answer / numeric_tolerance (text boxes)   digits, one «.», leading «-»
      clock     ساعت          data-mq-rule="clock" (text boxes such as the OSCE start time)  HH:MM
      number    عدد           every other <input type=number>: digits only (+ «.» when step allows decimals, «-» when
@@ -67,7 +67,7 @@
     acyear: /^academic_year$/i,
     latin: /^(code|course_code|station_code|join_code)$/i,
     color: /^(settings_primary_color|mqa_color)$/i,
-    ip: /^ip_restriction_range$/i,
+    ip: /^(ip_restriction_range|settings_ip_allow_list|settings_ip_block_list)$/i,
     decimal: /^(numeric_answer|numeric_tolerance)$/i
   };
   var TEXT_TYPES = { '': 1, text: 1, tel: 1, email: 1, search: 1 };
@@ -111,9 +111,16 @@
     ['رقم', function (v) { return /[0-9]/.test(v); }],
     ['نماد مثل ! @ # $', function (v) { return /[!-\/:-@\[-`{-~]/.test(v); }]
   ];
+  // «سیاست گذرواژه» chosen by the admin (field_rules.PASSWORD_POLICY_RULES); <html data-mq-pw-policy> from appearance_head.html.
+  var PW_POLICIES = {
+    strong: PW_RULES,
+    medium: [PW_RULES[0], ['حرف انگلیسی', function (v) { return /[A-Za-z]/.test(v); }], PW_RULES[3]],
+    weak: [['۶ نویسه یا بیشتر', function (v) { return v.length >= 6; }]]
+  };
   function pwMissing(v) {
+    var rules = PW_POLICIES[document.documentElement.getAttribute('data-mq-pw-policy')] || PW_RULES;
     var out = [];
-    for (var i = 0; i < PW_RULES.length; i++) if (!PW_RULES[i][1](v)) out.push(PW_RULES[i][0]);
+    for (var i = 0; i < rules.length; i++) if (!rules[i][1](v)) out.push(rules[i][0]);
     return out;
   }
   // The first new-password box of a repeat box's form («تکرار رمز عبور» must equal it).

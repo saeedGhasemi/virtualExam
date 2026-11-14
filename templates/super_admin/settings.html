@@ -126,12 +126,12 @@
                         <div class="summary-tile">
                             <span class="summary-icon blue"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M2 12h20M12 2c2.7 2.9 4 6.2 4 10s-1.3 7.1-4 10c-2.7-2.9-4-6.2-4-10s1.3-7.1 4-10Z"/></svg></span>
                             <small>زبان پیش‌فرض</small>
-                            <strong>{{ settings_lookup.default_language.value }}</strong>
+                            <strong>{{ settings_lookup.default_language.value_label }}</strong>
                         </div>
                         <div class="summary-tile">
                             <span class="summary-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
                             <small>منطقه زمانی</small>
-                            <strong>{{ settings_lookup.timezone.value }}</strong>
+                            <strong data-latin-digits>{{ settings_lookup.timezone.value_label }}</strong>
                         </div>
                         <div class="summary-tile">
                             <span class="summary-icon amber"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.9 4.9 7 7M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></span>
@@ -145,12 +145,12 @@
                         </div>
                     </section>
 
-                    <form method="post" enctype="multipart/form-data" class="general-settings-content" data-general-settings-form>
+                    <form method="post" enctype="multipart/form-data" class="general-settings-content" data-general-settings-form data-dirty-form>
                         {% csrf_token %}
                         <input type="hidden" name="settings_action" value="bulk_save">
                         <div class="settings-action-row">
-                            <button type="submit" class="primary-action"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>ذخیره تغییرات</button>
-                            <button type="reset" class="ghost-action" data-settings-reset><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>بازنشانی</button>
+                            <button type="submit" class="primary-action" data-dirty-submit><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>ذخیره تغییرات</button>
+                            <button type="button" class="ghost-action" data-dirty-reset title="برگرداندن فرم به مقادیر ذخیره‌شده"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>بازنشانی</button>
                             <button type="button" class="ghost-action" data-settings-preview><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>پیش‌نمایش</button>
                         </div>
 
@@ -160,34 +160,60 @@
                                 {% for item in settings_groups.basic %}
                                     {% if item.key != 'system_logo' %}
                                     <div class="compact-setting-row">
-                                        <label>{{ item.label }}</label>
-                                        <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
+                                        <label for="gs-{{ item.key }}">{{ item.label }}</label>
+                                        {% if item.type == 'select' %}
+                                            <select id="gs-{{ item.key }}" name="settings_{{ item.key }}" class="gs-select"{% if item.key == 'timezone' %} data-latin-digits{% endif %}>
+                                                {% for code, label in item.choices %}<option value="{{ code }}"{% if code == item.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                                            </select>
+                                        {% else %}
+                                            <input id="gs-{{ item.key }}" name="settings_{{ item.key }}" value="{{ item.value }}" maxlength="120" placeholder="سامانه آزمون دانشگاه">
+                                        {% endif %}
                                     </div>
                                     {% endif %}
                                 {% endfor %}
-                                <div class="logo-picker">
-                                    <span>لوگو / هویت سامانه</span>
-                                    <input type="hidden" name="settings_system_logo" value="{{ settings_lookup.system_logo.value }}">
-                                    <input type="file" name="system_logo_file" accept="image/*" id="system-logo-file" hidden>
-                                    <button type="button" data-logo-picker>انتخاب لوگو</button>
-                                    <b><svg viewBox="0 0 24 24"><path d="M9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></b>
+                                {# «لوگو»: PNG/JPG/WEBP/GIF up to 2MB, checked and re-encoded on the server (system_settings.store_logo) #}
+                                <div class="logo-picker" data-logo-box>
+                                    <span id="gs-logo-label">لوگو / هویت سامانه</span>
+                                    <input type="hidden" name="settings_system_logo" value="{{ settings_lookup.system_logo.value }}" data-logo-value>
+                                    <input type="file" name="system_logo_file" accept="image/png,image/jpeg,image/webp,image/gif" id="system-logo-file" class="gs-logo-file" aria-labelledby="gs-logo-label">
+                                    <button type="button" data-logo-picker aria-controls="system-logo-file">{% if settings_logo_custom %}تغییر لوگو{% else %}انتخاب لوگو{% endif %}</button>
+                                    <b class="logo-preview" data-mq-keep title="پیش‌نمایش لوگو">{% if settings_logo_custom %}<img src="{{ settings_lookup.system_logo.value }}" alt="لوگوی فعلی" data-logo-preview>{% else %}<img src="{{ settings_logo_default }}" alt="لوگوی پیش‌فرض" data-logo-preview>{% endif %}</b>
+                                    <small class="logo-note" data-logo-note>{% if settings_logo_custom %}لوگوی بارگذاری‌شده در همه‌ی صفحه‌ها نمایش داده می‌شود. <button type="button" class="logo-reset" data-logo-default="{{ settings_logo_default }}">بازگشت به لوگوی پیش‌فرض</button>{% else %}PNG، JPG، WEBP یا GIF، حداکثر ۲ مگابایت.{% endif %}</small>
+                                    <small class="logo-error" data-logo-error role="alert" hidden></small>
                                 </div>
                             </section>
 
                             <section class="settings-panel security-panel">
                                 <h2><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>تنظیمات امنیتی</h2>
                                 {% for item in settings_groups.security %}
+                                    {% if item.type != 'iplist' %}
                                     <div class="compact-setting-row">
-                                        <label>{{ item.label }}</label>
+                                        <label{% if item.type != 'boolean' %} for="gs-{{ item.key }}"{% endif %}>{{ item.label }}</label>
                                         {% if item.type == 'boolean' %}
                                             <input type="hidden" name="settings_{{ item.key }}" value="{% if item.value %}on{% else %}off{% endif %}" data-boolean-value>
-                                            <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}"><span></span></button>
+                                            <button type="button" class="switch-button {% if item.value %}is-on{% endif %}" data-boolean-toggle aria-pressed="{% if item.value %}true{% else %}false{% endif %}" aria-label="{{ item.label }}"{% if item.key == 'ip_restriction' %} aria-controls="gs-ip-panel" data-ip-toggle{% endif %}><span></span></button>
                                         {% elif item.type == 'number' %}
-                                            <input type="number" name="settings_{{ item.key }}" value="{{ item.value }}" min="1" inputmode="numeric">
+                                            <input type="number" id="gs-{{ item.key }}" name="settings_{{ item.key }}" value="{{ item.value }}" min="1" inputmode="numeric">
+                                        {% elif item.type == 'select' %}
+                                            <select id="gs-{{ item.key }}" name="settings_{{ item.key }}" class="gs-select">
+                                                {% for code, label in item.choices %}<option value="{{ code }}"{% if code == item.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                                            </select>
                                         {% else %}
-                                            <input name="settings_{{ item.key }}" value="{{ item.value|fa_digits }}">
+                                            <input id="gs-{{ item.key }}" name="settings_{{ item.key }}" value="{{ item.value }}">
                                         {% endif %}
                                     </div>
+                                    {% if item.key == 'ip_restriction' %}
+                                    {# advanced panel of «محدودیت IP»: enforced for every page by system_settings.IPRestrictionMiddleware #}
+                                    <div class="ip-panel" id="gs-ip-panel" data-ip-panel{% if not item.value %} hidden{% endif %}>
+                                        <p>اگر فهرست «IPهای مجاز» خالی نباشد، فقط از همین نشانی‌ها می‌توان وارد سامانه شد (همه‌ی نقش‌ها)؛ نشانی‌های «مسدود» همیشه رد می‌شوند. هر نشانی یا محدوده (مثل <bdi dir="ltr" data-latin-digits>10.0.0.0/8</bdi>) را با «,» جدا کنید.</p>
+                                        <label for="gs-ip-allow">IPهای مجاز</label>
+                                        <input id="gs-ip-allow" name="settings_ip_allow_list" value="{{ settings_lookup.ip_allow_list.value }}" dir="ltr" autocomplete="off" spellcheck="false" data-latin-digits>
+                                        <label for="gs-ip-block">IPهای مسدود</label>
+                                        <input id="gs-ip-block" name="settings_ip_block_list" value="{{ settings_lookup.ip_block_list.value }}" dir="ltr" autocomplete="off" spellcheck="false" data-latin-digits>
+                                        <small>IP فعلی شما: <bdi dir="ltr" data-latin-digits>{{ settings_client_ip|default:"نامشخص" }}</bdi> — فهرستی که دسترسی خودتان را قطع کند ذخیره نمی‌شود.</small>
+                                    </div>
+                                    {% endif %}
+                                    {% endif %}
                                 {% endfor %}
                             </section>
 
@@ -279,9 +305,15 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr><td>۱</td><td>تنظیمات امنیتی</td><td>زمان انقضای جلسه</td><td>۲۰ دقیقه</td><td>{{ settings_lookup.session_timeout_minutes.value|fa_digits }} دقیقه</td><td>{{ request.user.get_full_name|default:request.user.username }}</td><td><span class="status-pill green">موفق</span></td></tr>
-                                        <tr><td>۲</td><td>تنظیمات اعلان‌ها</td><td>اعلان‌های ایمیلی</td><td>غیرفعال</td><td>{% if settings_lookup.email_notifications.value %}فعال{% else %}غیرفعال{% endif %}</td><td>{{ request.user.get_full_name|default:request.user.username }}</td><td><span class="status-pill green">موفق</span></td></tr>
-                                        <tr><td>۳</td><td>تنظیمات ظاهری</td><td>رنگ اصلی سامانه</td><td>#7C3AED</td><td>{{ settings_lookup.primary_color.value }}</td><td>{{ request.user.get_full_name|default:request.user.username }}</td><td><span class="status-pill green">موفق</span></td></tr>
+                                        {% for change in settings_changes %}
+                                        <tr>
+                                            <td>{{ forloop.counter|fa_digits }}</td><td>{{ change.group }}</td><td>{{ change.label }}</td>
+                                            {% for v in change.values %}<td>{% if v.color %}<span class="gs-swatch" style="--sw:{{ v.color }}" data-mq-keep aria-hidden="true"></span>{% endif %}<span{% if v.latin %} dir="ltr" data-latin-digits{% endif %}>{{ v.text }}</span></td>{% endfor %}
+                                            <td>{{ change.user }}</td><td><span class="status-pill green">موفق</span></td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="7" class="settings-empty">هنوز تغییری در تنظیمات ثبت نشده است.</td></tr>
+                                        {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
@@ -529,6 +561,28 @@
     .settings-screen .settings-layout-other .appearance-panel .ap-label{font-size:.78rem!important;font-weight:600!important}
     .settings-screen .settings-layout-other .appearance-panel .ap-seg span{font-weight:600!important}
     .settings-screen .settings-layout-other .ap-hint{margin:.2rem 0 0!important;font-weight:400!important;line-height:1.7}
+    .settings-screen .settings-layout-other .settings-panel .compact-setting-row>select.gs-select{width:100%;min-width:0;height:2.2rem;margin:0;border:1px solid #d8e2ef;border-radius:.72rem;background-color:rgba(255,255,255,.56);padding:0 .6rem;color:#13223f;font:inherit;font-size:.78rem;font-weight:400;text-align:center}
+    .settings-screen .settings-layout-other .settings-action-row button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;filter:saturate(.6)}
+    .settings-screen .settings-layout-other .logo-picker .gs-logo-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+    .settings-screen .settings-layout-other .logo-picker{position:relative}
+    .settings-screen .settings-layout-other .logo-picker>b.logo-preview{display:grid;place-items:center;overflow:hidden;background:#fff!important;border:1px solid #d8e2ef}
+    .settings-screen .settings-layout-other .logo-picker>b.logo-preview img{width:100%;height:100%;object-fit:contain;display:block}
+    .settings-screen .settings-layout-other .logo-picker>.logo-note{grid-column:1/-1;color:#64748b;font-size:.72rem;font-weight:400;line-height:1.7}
+    .settings-screen .settings-layout-other .logo-picker>.logo-error{grid-column:1/-1;padding:.4rem .6rem;border-radius:.6rem;background:#fff1f2;color:#9f1239;font-size:.72rem;font-weight:600}
+    .settings-screen .settings-layout-other .logo-picker>.logo-error[hidden]{display:none}
+    .settings-screen .settings-layout-other .logo-note .logo-reset{border:0;background:none;padding:0;color:#2563eb;font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
+    .settings-screen .settings-layout-other .ip-panel{display:grid;grid-template-columns:minmax(0,1fr);gap:.35rem;margin:.1rem 0 .3rem;padding:.7rem;border:1px dashed #c7d4e8;border-radius:.8rem;background:rgba(255,255,255,.5)}
+    .settings-screen .settings-layout-other .ip-panel[hidden]{display:none}
+    .settings-screen .settings-layout-other .ip-panel p,.settings-screen .settings-layout-other .ip-panel small{margin:0;color:#64748b;font-size:.72rem;font-weight:400;line-height:1.7}
+    .settings-screen .settings-layout-other .ip-panel label{margin:.2rem 0 0;font-size:.76rem;font-weight:600;color:#54657f}
+    .settings-screen .settings-layout-other .ip-panel input{width:100%;min-width:0;height:2.2rem;border:1px solid #d8e2ef;border-radius:.72rem;background:#fff;padding:0 .7rem;font-size:.78rem;text-align:left}
+    .gs-swatch{display:inline-block;width:.95rem;height:.95rem;margin-inline-end:.35rem;border-radius:.3rem;background:var(--sw);border:1px solid rgba(15,23,42,.18);vertical-align:-.15rem}
+    .settings-changes-panel .settings-table td.settings-empty{text-align:center!important;color:#64748b;font-weight:400}
+    .settings-preview-popover .sp-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+    .settings-preview-popover .sp-head h3{margin:0}
+    .settings-preview-popover .sp-close{width:2rem;height:2rem;border:0;border-radius:.5rem;background:rgba(15,23,42,.06);font-size:1.1rem;line-height:1;cursor:pointer}
+    .settings-preview-popover .sp-logo{display:block;width:2.6rem;height:2.6rem;margin:.5rem 0;object-fit:contain}
+    .settings-preview-popover.settings-preview-popover p{font-weight:400}.settings-preview-popover p b{font-weight:600;color:#334155}
     @media (max-width:1280px){.settings-screen .settings-layout-other .settings-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
     @media (max-width:900px){.settings-screen .settings-layout-other .settings-card-grid{grid-template-columns:minmax(0,1fr)!important}}
     @media (max-width:520px){
@@ -558,6 +612,12 @@
             button.classList.toggle('is-on', isOn);
             button.setAttribute('aria-pressed', isOn ? 'true' : 'false');
         };
+        // «محدودیت IP»: its switch opens the panel of allowed / blocked addresses
+        const ipToggle = document.querySelector('[data-ip-toggle]');
+        const ipPanel = document.querySelector('[data-ip-panel]');
+        const syncIpPanel = () => {
+            if (ipToggle && ipPanel) ipPanel.hidden = ipToggle.getAttribute('aria-pressed') !== 'true';
+        };
         document.querySelectorAll('[data-boolean-toggle]').forEach((button) => {
             syncSwitch(button);
             button.addEventListener('click', () => {
@@ -567,18 +627,48 @@
                 if (!input) return;
                 input.value = input.value === 'on' ? 'off' : 'on';
                 syncSwitch(button);
+                if (button === ipToggle) {
+                    syncIpPanel();
+                    if (!ipPanel.hidden) ipPanel.querySelector('input')?.focus();
+                }
             });
         });
 
-        document.querySelector('[data-logo-picker]')?.addEventListener('click', () => {
-            document.getElementById('system-logo-file')?.click();
-        });
-
-        document.getElementById('system-logo-file')?.addEventListener('change', (event) => {
-            const file = event.target.files?.[0];
-            if (!file) return;
-            const picker = document.querySelector('[data-logo-picker]');
-            if (picker) picker.textContent = file.name;
+        // «لوگو / هویت سامانه»: choose a file → preview it here; stored by «ذخیره تغییرات»
+        const logoFile = document.getElementById('system-logo-file');
+        const logoPicker = document.querySelector('[data-logo-picker]');
+        const logoPreview = document.querySelector('[data-logo-preview]');
+        const logoValue = document.querySelector('[data-logo-value]');
+        const logoError = document.querySelector('[data-logo-error]');
+        const logoSaved = { src: logoPreview?.getAttribute('src') || '', label: logoPicker?.textContent || '' };
+        let logoObjectUrl = '';
+        const showLogo = () => {
+            const file = logoFile?.files?.[0];
+            if (logoObjectUrl) { URL.revokeObjectURL(logoObjectUrl); logoObjectUrl = ''; }
+            if (file) {
+                if (file.size > 2 * 1024 * 1024 || !/^image\/(png|jpeg|webp|gif)$/.test(file.type)) {
+                    logoFile.value = '';
+                    if (logoError) { logoError.textContent = 'لوگو باید تصویر PNG، JPG، WEBP یا GIF و حداکثر ۲ مگابایت باشد.'; logoError.hidden = false; }
+                    showLogo();
+                    return;
+                }
+                if (logoError) logoError.hidden = true;
+                logoObjectUrl = URL.createObjectURL(file);
+                logoPreview?.setAttribute('src', logoObjectUrl);
+                if (logoPicker) logoPicker.textContent = file.name;
+                return;
+            }
+            const isDefault = logoValue?.value === document.querySelector('[data-logo-default]')?.dataset.logoDefault;
+            logoPreview?.setAttribute('src', isDefault ? logoValue.value : logoSaved.src);
+            if (logoPicker) logoPicker.textContent = logoSaved.label;
+        };
+        logoPicker?.addEventListener('click', () => logoFile?.click());
+        logoFile?.addEventListener('change', showLogo);
+        document.querySelector('[data-logo-default]')?.addEventListener('click', (event) => {
+            if (!logoValue) return;
+            logoValue.value = event.currentTarget.dataset.logoDefault;
+            if (logoFile) logoFile.value = '';
+            showLogo();
         });
 
         // «تنظیمات ظاهری»: every change previews on this page (appearance.js); «ذخیره تغییرات» applies it everywhere
@@ -639,32 +729,89 @@
             apHex.value = hex;
         });
 
-        document.querySelector('[data-settings-reset]')?.addEventListener('click', () => {
-            window.setTimeout(() => {
-                document.querySelectorAll('[data-boolean-toggle]').forEach(syncSwitch);
-                const hex = normHex(apHex?.value);
-                if (hex) markColor(hex);
-                apPreview();
-            }, 0);
+        // «بازنشانی» (dirty-form.js) put the saved values back: bring switches, logo and the appearance preview along
+        form?.addEventListener('mq:dirty-reset', () => {
+            document.querySelectorAll('[data-boolean-toggle]').forEach(syncSwitch);
+            syncIpPanel();
+            showLogo();
+            const hex = normHex(apHex?.value);
+            if (hex) markColor(hex);
+            apPreview();
         });
 
-        document.querySelector('[data-settings-preview]')?.addEventListener('click', () => {
+        // «پیش‌نمایش»: the values now in the form (saved or not), as plain text; closes with ×, Esc or a click outside
+        const closePreview = () => document.querySelector('.settings-preview-popover')?.remove();
+        document.querySelector('[data-settings-preview]')?.addEventListener('click', (event) => {
             if (!form) return;
-            document.querySelector('.settings-preview-popover')?.remove();
-            const data = new FormData(form);
+            event.stopPropagation();
+            if (document.querySelector('.settings-preview-popover')) { closePreview(); return; }
+            const field = (name) => form.querySelector(`[name="${name}"]`);
+            const shown = (name) => {
+                const el = field(name);
+                if (!el) return '-';
+                if (el.tagName === 'SELECT') return el.selectedOptions[0]?.textContent.trim() || '-';
+                return form.querySelector(`[name="${name}"]:checked`)?.value || el.value || '-';
+            };
             const preview = document.createElement('section');
             preview.className = 'settings-preview-popover';
-            preview.innerHTML = `
-                <h3>پیش‌نمایش تنظیمات</h3>
-                <p>نام سامانه: ${data.get('settings_site_name') || '-'}</p>
-                <p>زبان: ${data.get('settings_default_language') || '-'}</p>
-                <p>تم: ${data.get('settings_theme_mode') || '-'}</p>
-                <p>رنگ اصلی: ${data.get('settings_primary_color') || '-'}</p>
-                <p>اندازه فونت: ${data.get('settings_font_size') || '-'}</p>
-            `;
+            preview.setAttribute('role', 'dialog');
+            preview.setAttribute('aria-label', 'پیش‌نمایش تنظیمات');
+            const head = document.createElement('div');
+            head.className = 'sp-head';
+            const title = document.createElement('h3');
+            title.textContent = 'پیش‌نمایش تنظیمات';
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'sp-close';
+            close.setAttribute('aria-label', 'بستن');
+            close.textContent = '×';
+            close.addEventListener('click', closePreview);
+            head.append(title, close);
+            preview.appendChild(head);
+            if (logoPreview) {
+                const logo = document.createElement('img');
+                logo.className = 'sp-logo';
+                logo.alt = 'لوگو';
+                logo.src = logoPreview.getAttribute('src');
+                preview.appendChild(logo);
+            }
+            const rows = [
+                ['نام سامانه', shown('settings_site_name')],
+                ['زبان', shown('settings_default_language')],
+                ['منطقه زمانی', shown('settings_timezone'), false, true],
+                ['فرمت تاریخ', shown('settings_date_format')],
+                ['سیاست گذرواژه', shown('settings_password_policy')],
+                ['تم', shown('settings_theme_mode')],
+                ['رنگ اصلی', normHex(shown('settings_primary_color')) || shown('settings_primary_color'), true],
+                ['اندازه فونت', shown('settings_font_size')],
+            ];
+            rows.forEach(([label, value, isColor, latin]) => {
+                const p = document.createElement('p');
+                const b = document.createElement('b');
+                b.textContent = `${label}: `;
+                p.appendChild(b);
+                if (isColor && normHex(value)) {
+                    const sw = document.createElement('span');
+                    sw.className = 'gs-swatch';
+                    sw.setAttribute('data-mq-keep', '');
+                    sw.style.setProperty('--sw', normHex(value));
+                    p.appendChild(sw);
+                }
+                const v = document.createElement('span');
+                v.textContent = value;
+                if (isColor) v.dir = 'ltr';
+                if (isColor || latin) v.setAttribute('data-latin-digits', '');
+                p.appendChild(v);
+                preview.appendChild(p);
+            });
             document.body.appendChild(preview);
-            window.setTimeout(() => preview.remove(), 5000);
+            close.focus();
         });
+        document.addEventListener('click', (event) => {
+            const open = document.querySelector('.settings-preview-popover');
+            if (open && !open.contains(event.target)) closePreview();
+        });
+        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePreview(); });
     })();
 </script>
 </div>

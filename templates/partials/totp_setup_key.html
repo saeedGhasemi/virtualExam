@@ -1,0 +1,50 @@
+{% load core_extras %}{# 2FA set-up: large QR code + the secret key in its own box with a copy button (admin profile, teacher and student settings). Needs two_factor.setup_qr / setup_secret. #}
+<div class="mq-totp">
+    <div class="mq-totp-qr" role="img" aria-label="کد QR برای برنامه‌ی Authenticator">{{ two_factor.setup_qr }}</div>
+    <div class="mq-totp-key">
+        <span class="mq-totp-key-label">کلید دستی (اگر اسکن ممکن نیست)</span>
+        <div class="mq-totp-key-box">
+            <code dir="ltr" data-latin-digits>{{ two_factor.setup_secret }}</code>
+            <button type="button" class="mq-totp-copy" data-totp-copy="{{ two_factor.setup_secret|cut:' ' }}" aria-label="کپی کلید" title="کپی کلید">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>
+            </button>
+        </div>
+        <small class="mq-totp-copied" data-totp-copied aria-live="polite"></small>
+    </div>
+</div>
+<style>
+    .mq-totp{display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;gap:.8rem;margin:0 0 .9rem}
+    .mq-totp-qr{width:min(13rem,100%);padding:.6rem;border:1px solid #e2e8f0;border-radius:.9rem;background:#fff}
+    .mq-totp-qr svg{display:block;width:100%!important;height:auto!important}
+    .mq-totp-key{display:grid;gap:.35rem;width:100%;min-width:0}
+    .mq-totp-key-label{color:#54657f;font-size:.8rem;font-weight:600}
+    .mq-totp-key-box{display:flex;align-items:center;gap:.4rem;min-width:0;min-height:2.8rem;padding:.3rem .35rem .3rem .8rem;border:1px solid #d8e2ef;border-radius:.6rem;background:#f8fafc}
+    .mq-totp-key-box code{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;color:#0f172a;font-family:Consolas,"Courier New",monospace;font-size:.9rem;font-weight:700;letter-spacing:.04em;text-align:left;user-select:all}
+    .mq-totp-copy{flex:none;display:grid;width:2.2rem;height:2.2rem;place-items:center;border:1px solid #d8e2ef;border-radius:.5rem;background:#fff;color:#334155;cursor:pointer;padding:0}
+    .mq-totp-copy:hover{color:#2563eb;border-color:#93c5fd}
+    .mq-totp-copy:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+    .mq-totp-copy svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .mq-totp-copied{min-height:1em;color:#047857;font-size:.76rem;font-weight:600}
+</style>
+<script>
+(() => {
+    if (window.__mqTotpCopy) return;
+    window.__mqTotpCopy = true;
+    document.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-totp-copy]');
+        if (!button) return;
+        const key = button.dataset.totpCopy;
+        const note = button.closest('.mq-totp-key')?.querySelector('[data-totp-copied]');
+        const done = (ok) => { if (note) note.textContent = ok ? 'کلید کپی شد.' : 'کپی ممکن نشد؛ کلید را انتخاب و کپی کنید.'; };
+        const fallback = () => {
+            const area = document.createElement('textarea');
+            area.value = key; area.setAttribute('readonly', ''); area.style.position = 'fixed'; area.style.opacity = '0';
+            document.body.appendChild(area); area.select();
+            let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            area.remove(); done(ok);
+        };
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(key).then(() => done(true), fallback);
+        else fallback();
+    });
+})();
+</script>

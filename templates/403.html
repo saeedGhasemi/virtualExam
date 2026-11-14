@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %}دسترسی مجاز نیست | متاکوییز{% endblock %}
+{% block page_title %}خطای ۴۰۳{% endblock %}
+
+{% block content %}
+{# Every refused request a person opens in the browser lands here (middleware.ForbiddenPageMiddleware), never on bare text. #}
+<section class="empty-state">
+    <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 text-2xl text-rose-800" style="font-weight:700">۴۰۳</div>
+    <h2 class="mt-5 text-2xl text-ink" style="font-weight:700">دسترسی به این صفحه مجاز نیست</h2>
+    <p class="mx-auto mt-3 max-w-md text-sm leading-7 text-muted">
+        {{ forbidden_message|default:"حساب شما اجازه‌ی باز کردن این صفحه را ندارد." }}
+    </p>
+    <a href="{% url 'core:dashboard' %}" class="btn-primary mt-6">بازگشت به داشبورد</a>
+</section>
+{% endblock %}

@@ -1,6 +1,6 @@
 {% load core_extras %}{% with s=settings %}
 <div class="xh-split">
-    <form method="post" action="{{ urls.action }}" class="xh-main">
+    <form method="post" action="{{ urls.action }}" class="xh-main" data-dirty-form>
         {% csrf_token %}<input type="hidden" name="action" value="settings"><input type="hidden" name="back" value="?tab=settings">
         <div class="xh-card">
             <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='doc' %}اطلاعات کلی آزمون</h3></div>
@@ -40,12 +40,12 @@
             <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='sliders' %}گزینه‌های پیشرفته</h3></div>
             <div class="xh-halves">
                 <div class="xh-opt">
-                    <span>تصادفی‌سازی ترتیب سؤالات <span class="xh-help" title="هر دانشجو سؤال‌ها را به ترتیب متفاوتی می‌بیند.">?</span></span>
+                    <span>تصادفی‌سازی ترتیب سؤالات <button type="button" class="xh-help" aria-label="راهنمای تصادفی‌سازی ترتیب سؤالات" data-help-tip="اگر روشن باشد، سؤال‌ها برای هر دانشجو با ترتیبی جداگانه و تصادفی نمایش داده می‌شوند تا دانشجویانی که کنار هم نشسته‌اند سؤال‌ها را به یک ترتیب نبینند. متن، گزینه‌ها و بارم سؤال‌ها تغییری نمی‌کند. وقتی آزمون منتشر شد یا دانشجویی در آن شرکت کرد، فقط مدیر آموزشی می‌تواند آن را تغییر دهد.">?</button></span>
                     <label class="xh-switch"><input type="checkbox" name="shuffle_questions" value="1"{% if s.shuffle %} checked{% endif %} {% if not exam.can.schedule %}disabled{% endif %} aria-label="تصادفی‌سازی ترتیب سؤالات"><i></i></label>
                 </div>
                 <span class="xh-vsep"></span>
                 <div class="xh-opt">
-                    <span>ذخیره خودکار پاسخ‌ها <span class="xh-help" title="{% if s.settings_enforced %}فاصله‌ی ذخیره‌ی خودکار پاسخ‌های دانشجو.{% else %}این آزمون با تنظیمات پیش‌فرض اجرا می‌شود؛ این مقدار از ویرایش کامل آزمون تنظیم می‌شود.{% endif %}">?</span></span>
+                    <span>ذخیره خودکار پاسخ‌ها <button type="button" class="xh-help" aria-label="راهنمای ذخیره خودکار پاسخ‌ها" data-help-tip="{% if s.settings_enforced %}پاسخ‌های دانشجو در این فاصله خودکار روی سرور ذخیره می‌شوند تا با قطع اینترنت یا بسته شدن مرورگر از دست نروند. «پس از هر تغییر» یعنی هر پاسخ بلافاصله ذخیره می‌شود.{% else %}این آزمون با تنظیمات پیش‌فرض اجرا می‌شود (هر پاسخ بلافاصله ذخیره می‌شود)؛ این مقدار را از «ویرایش کامل آزمون» تنظیم کنید.{% endif %}">?</button></span>
                     <select class="xh-select" name="autosave_interval_seconds" style="width:auto;min-width:9rem" aria-label="ذخیره خودکار پاسخ‌ها" {% if not exam.can.schedule or not s.settings_enforced or not s.autosave_on %}disabled{% endif %}>
                         {% for v, label in s.autosave_choices %}<option value="{{ v }}"{% if s.autosave == v %} selected{% endif %}>{{ label }}</option>{% endfor %}
                     </select>
@@ -56,14 +56,14 @@
         <div class="xh-card">
             <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='lock' %}انتشار و نمایش نتایج</h3></div>
             <div class="xh-halves">
-                <div class="xh-field" style="gap:.7rem"><span style="display:inline-flex;align-items:center;gap:.4rem">انتشار آزمون <span class="xh-help" title="نمره‌ی دانشجو کی نمایش داده شود.">?</span></span>
+                <div class="xh-field" style="gap:.7rem"><span style="display:inline-flex;align-items:center;gap:.4rem">انتشار آزمون <button type="button" class="xh-help" aria-label="راهنمای انتشار آزمون" data-help-tip="تعیین می‌کند دانشجو نمره‌اش را کی ببیند. «پس از تأیید من»: نمره تا وقتی شما در «نتایج و تحلیل» نتایج را منتشر نکرده‌اید به دانشجو نشان داده نمی‌شود. «بلافاصله پس از ذخیره»: دانشجو نمره را همان وقت ثبت پاسخ‌هایش می‌بیند (نمره‌ی سؤال‌های تشریحی پس از تصحیح اضافه می‌شود).">?</button></span>
                     <div class="xh-radio-list">
                         <label><input type="radio" name="score_display_mode" value="after_publish"{% if s.score_mode != 'immediate' %} checked{% endif %}>پس از تأیید من</label>
                         <label><input type="radio" name="score_display_mode" value="immediate"{% if s.score_mode == 'immediate' %} checked{% endif %}>بلافاصله پس از ذخیره</label>
                     </div>
                 </div>
                 <span class="xh-vsep"></span>
-                <div class="xh-field" style="gap:.7rem"><span style="display:inline-flex;align-items:center;gap:.4rem">نمایش کلید سؤالات (پاسخ صحیح) <span class="xh-help" title="پس از انتشار نتایج، پاسخ صحیح هر سؤال به دانشجو نشان داده شود یا نه.">?</span></span>
+                <div class="xh-field" style="gap:.7rem"><span style="display:inline-flex;align-items:center;gap:.4rem">نمایش کلید سؤالات (پاسخ صحیح) <button type="button" class="xh-help" aria-label="راهنمای نمایش کلید سؤالات" data-help-tip="اگر روشن باشد، پس از انتشار نتایج پاسخ صحیح هر سؤال در کارنامه‌ی دانشجو کنار پاسخ خودش نمایش داده می‌شود. اگر خاموش باشد، دانشجو فقط نمره و پاسخ خودش را می‌بیند و کلید سؤال‌ها مخفی می‌ماند (برای وقتی که می‌خواهید سؤال‌ها را دوباره استفاده کنید).">?</button></span>
                     <label class="xh-switch"><input type="checkbox" name="show_key" value="1"{% if s.key_shown %} checked{% endif %} data-xh-switch-text><i></i><small data-on="نمایش کلید پس از انتشار" data-off="عدم نمایش کلید (مخفی)">{% if s.key_shown %}نمایش کلید پس از انتشار{% else %}عدم نمایش کلید (مخفی){% endif %}</small></label>
                 </div>
             </div>
@@ -72,14 +72,14 @@
         {% if not exam.can.schedule %}<div class="xh-note is-amber">{% include 'exam_hub/_icon.html' with i='info' %}این آزمون منتشر شده یا دانشجویان در آن شرکت کرده‌اند؛ عنوان و زمان‌بندی را فقط مدیر آموزشی می‌تواند تغییر دهد. تنظیمات نمایش نتایج همچنان قابل تغییر است.</div>{% endif %}
         <div class="xh-form-foot">
             {% if s.can_full_edit %}<a class="xh-btn is-ghost" href="{{ s.edit_url }}" data-live-skip>{% include 'exam_hub/_icon.html' with i='edit' %}ویرایش کامل آزمون</a>{% endif %}
-            <button class="xh-btn is-solid" style="min-width:10rem">{% include 'exam_hub/_icon.html' with i='save' %}ذخیره تنظیمات</button>
+            <button class="xh-btn is-solid" style="min-width:10rem" data-dirty-submit>{% include 'exam_hub/_icon.html' with i='save' %}ذخیره تنظیمات</button>
             <a class="xh-btn is-ghost" href="?tab=overview" style="min-width:5.5rem">لغو</a>
         </div>
     </form>
 
     <aside class="xh-side">
         <div class="xh-card">
-            <div class="xh-card-head"><h3>خلاصه تنظیمات آزمون</h3><span class="xh-help" title="خلاصه‌ی تنظیمات فعلی آزمون">i</span></div>
+            <div class="xh-card-head"><h3>خلاصه تنظیمات آزمون</h3><button type="button" class="xh-help" aria-label="راهنمای خلاصه تنظیمات آزمون" data-help-tip="این خلاصه تنظیماتی را نشان می‌دهد که الان برای آزمون ذخیره شده و هنگام برگزاری اعمال می‌شود. تغییرات فرم کناری تا «ذخیره تنظیمات» را نزنید در اینجا دیده نمی‌شوند.">i</button></div>
             <dl class="xh-kv">
                 <div><dt>{% include 'exam_hub/_icon.html' with i='doc' %}عنوان آزمون</dt><dd>{{ exam.title }}</dd></div>
                 <div><dt>{% include 'exam_hub/_icon.html' with i='book' %}درس</dt><dd>{{ exam.course_title|default:"—" }}</dd></div>

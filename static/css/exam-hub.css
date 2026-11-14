@@ -168,6 +168,11 @@
 .xh-textbox .xh-count{position:absolute;left:.75rem;bottom:.5rem}
 .xh-textbox .xh-textarea{padding-bottom:1.7rem}
 .xh-help{display:inline-grid;place-items:center;width:1.05rem;height:1.05rem;border:1.5px solid #8a95ab;border-radius:50%;color:#8a95ab;font-size:.66rem;font-weight:700;cursor:help;flex:none;line-height:1}
+/* «؟» / «i» help buttons (bubble: static/js/help-tip.js); a wider invisible hit area for fingers */
+button.xh-help{position:relative;margin:0;padding:0;background:none;font-family:inherit;-webkit-appearance:none;appearance:none}
+button.xh-help::before{content:"";position:absolute;inset:-.55rem}
+button.xh-help:hover,button.xh-help[aria-expanded="true"]{border-color:var(--xh-blue,#2563eb);color:var(--xh-blue,#2563eb)}
+button.xh-help:focus-visible{outline:2px solid var(--xh-blue,#2563eb);outline-offset:2px}
 
 .xh-seg{display:flex;flex-wrap:wrap;gap:.5rem}
 .xh-seg a{flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;min-height:2.6rem;padding:0 .9rem;border:1.5px solid var(--xh-blue);border-radius:.6rem;color:var(--xh-blue);font-size:.84rem;font-weight:600;white-space:nowrap}

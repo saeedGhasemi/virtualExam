@@ -7116,7 +7116,7 @@ def super_admin_group_create(request):
         student.setdefault('class_group', '-')
         if not student.get('field_of_study'):
             student['field_of_study'] = '-'
-    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms ORDER BY year DESC, semester LIMIT 100')
+    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms WHERE COALESCE(is_active, true) OR is_current ORDER BY year DESC, semester LIMIT 100')
     years = _academic_year_options(terms) or ['1405-1406']
     current_term = _current_academic_term()
     student_fields = sorted({s.get('field_of_study') for s in students if s.get('field_of_study') and s.get('field_of_study') != '-'})
@@ -7389,7 +7389,7 @@ def super_admin_group_edit(request, group_id):
         student.setdefault('class_group', '-')
         if not student.get('field_of_study'):
             student['field_of_study'] = '-'
-    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms ORDER BY year DESC, semester LIMIT 100')
+    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms WHERE COALESCE(is_active, true) OR is_current ORDER BY year DESC, semester LIMIT 100')
     years = _academic_year_options(terms) or ['1405-1406']
     student_fields = sorted({s.get('field_of_study') for s in students if s.get('field_of_study') and s.get('field_of_study') != '-'})
     student_entry_years = sorted({s.get('entry_year') for s in students if s.get('entry_year')}, reverse=True)
@@ -7739,7 +7739,7 @@ def super_admin_groups(request):
         LIMIT 300
         """
     )
-    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms ORDER BY year DESC, semester LIMIT 100')
+    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms WHERE COALESCE(is_active, true) OR is_current ORDER BY year DESC, semester LIMIT 100')
     for term in terms:
         term['value'] = f"{term.get('year') or ''}|{term.get('semester') or ''}"
     years = _academic_year_options(terms)
@@ -8230,7 +8230,7 @@ def _exam_wizard_resources(request, scope=None, exam_id=None) -> dict:
         question['ordering_items'] = _erd_parse_json_field(question.get('ordering_items')) or []
         question['question_media'] = _sx_question_media(question.get('question_media'))
         question['accepted_answers'] = _erd_parse_json_field(question.get('accepted_answers')) or []
-    terms = erd_rows('SELECT id, year, semester, COALESCE(label, semester, year) AS label FROM academic_terms ORDER BY year DESC, semester LIMIT 50')
+    terms = erd_rows('SELECT id, year, semester, COALESCE(label, semester, year) AS label FROM academic_terms WHERE COALESCE(is_active, true) OR is_current ORDER BY year DESC, semester LIMIT 50')
     is_teacher = getattr(request, 'erd_role', None) == 'teacher'
     return {
         'groups': groups,
@@ -10124,10 +10124,20 @@ def super_admin_calendar(request):
     event_type_filter = request.GET.get('type', '').strip()
     course_filter = request.GET.get('course', '').strip()
     teacher_filter = request.GET.get('teacher', '').strip()
+    group_filter = request.GET.get('group', '').strip()
     days_in_month = shown['length']
-    # The shown month, plus today's events and the next two months for «رویدادهای پیش رو».
-    window_start = min(shown['first'], today) - timedelta(days=1)
-    window_end = max(shown['end'], today + timedelta(days=62))
+    # View: روز / هفته / ماه / لیست (?view=), around the focus day (?day= in the shown month; default today in the
+    # current month, else the 1st). Every link keeps the view and the filters.
+    view_mode = request.GET.get('view', '').strip()
+    if view_mode not in ('day', 'week', 'month', 'list'):
+        view_mode = 'month'
+    is_current_month = (selected_year, selected_month) == (current_jy, current_jm)
+    focus_day = min(max(_em_int(request.GET.get('day'), current_jd if is_current_month else 1), 1), days_in_month)
+    focus_date = shown['first'] + timedelta(days=focus_day - 1)
+    week_start = focus_date - timedelta(days=(focus_date.weekday() + 2) % 7)  # Saturday
+    # The shown month and week, plus today's events and the next two months for «رویدادهای پیش رو».
+    window_start = min(shown['first'], today, week_start) - timedelta(days=1)
+    window_end = max(shown['end'], today + timedelta(days=62), week_start + timedelta(days=8))
 
     is_admin = _erd_is_admin_request(request)
     scope_cte = '' if is_admin else _erd_manager_scope_cte()
@@ -10146,7 +10156,7 @@ def super_admin_calendar(request):
                COALESCE(e.is_cancelled, false) AS is_cancelled,
                COALESCE(c.title, '-') AS course,
                COALESCE(p.full_name, '-') AS teacher,
-               'exam' AS event_type
+               'exam' AS event_type, 'exam' AS source
         FROM exams e
         LEFT JOIN courses c ON c.id = e.course_id
         LEFT JOIN profiles p ON p.id = e.teacher_id
@@ -10173,7 +10183,8 @@ def super_admin_calendar(request):
                false AS is_cancelled,
                COALESCE(c.title, '-') AS course,
                '-' AS teacher,
-               COALESCE(ace.event_type, 'session') AS event_type
+               COALESCE(ace.event_type, 'session') AS event_type, 'event' AS source,
+               sg.id AS group_id, sg.group_code, sg.course_name AS group_course
         FROM academic_calendar_events ace
         LEFT JOIN courses c ON {calendar_course_join}
         LEFT JOIN student_groups sg ON {calendar_group_join}
@@ -10184,6 +10195,28 @@ def super_admin_calendar(request):
         [*scope_params, window_start, window_end],
     )
     exams = exams + calendar_events
+    # «گروه» filter: the groups an exam is assigned to (exam_assignments), a calendar event's own group.
+    group_labels, exam_group_ids = {}, {}
+    exam_ids = [str(row['id']) for row in exams if row.get('source') == 'exam']
+    if exam_ids and erd_has_column('exam_assignments', 'group_id'):
+        marks = ', '.join(['%s'] * len(exam_ids))
+        for item in erd_rows(
+                f"""
+                SELECT ea.exam_id, sg.id AS group_id, sg.group_code, sg.course_name
+                FROM exam_assignments ea JOIN student_groups sg ON sg.id = ea.group_id
+                WHERE ea.exam_id IN ({marks})
+                """, exam_ids):
+            exam_group_ids.setdefault(str(item['exam_id']), set()).add(str(item['group_id']))
+            group_labels[str(item['group_id'])] = item
+    for row in calendar_events:
+        if row.get('group_id'):
+            group_labels[str(row['group_id'])] = {'group_code': row.get('group_code'), 'course_name': row.get('group_course')}
+
+    def group_label(item):
+        course_name, code = (item.get('course_name') or '').strip(), str(item.get('group_code') or '').strip()
+        return f'{course_name} – گروه {code}' if course_name and code else course_name or (f'گروه {code}' if code else 'گروه')
+
+    groups = sorted(((key, group_label(item)) for key, item in group_labels.items()), key=lambda pair: pair[1])
     terms = erd_rows(
         """
         SELECT id, year, semester, COALESCE(label, semester, year) AS label, COALESCE(is_current, false) AS is_current
@@ -10196,23 +10229,38 @@ def super_admin_calendar(request):
     courses = sorted({row['course'] for row in exams if row['course'] and row['course'] != '-'})
     teachers = sorted({row['teacher'] for row in exams if row['teacher'] and row['teacher'] != '-'})
 
-    events_by_day = {day: [] for day in range(1, days_in_month + 1)}
+    # Colours follow «راهنمای رنگ‌ها»: exam blue, class session green, deadline orange, holiday red, other purple.
+    tone_by_type = {'exam': 'blue', 'session': 'green', 'class': 'green', 'deadline': 'orange', 'holiday': 'red'}
+    events_by_date = {}
     normalized_events = []
     for exam in exams:
         start_at = erd_datetime(exam['start_at'])  # calendar events are naive UTC on PostgreSQL; exams are aware
         if not start_at:
             continue
-        if event_type_filter and event_type_filter != exam.get('event_type', 'exam'):
+        event_type = exam.get('event_type') or 'exam'
+        if event_type_filter and event_type_filter != event_type:
             continue
         if course_filter and course_filter != exam['course']:
             continue
         if teacher_filter and teacher_filter != exam['teacher']:
             continue
+        is_exam = exam.get('source') == 'exam'
+        if group_filter:
+            event_groups = exam_group_ids.get(str(exam['id']), set()) if is_exam else {str(exam.get('group_id') or '')}
+            if group_filter not in event_groups:
+                continue
         jy, jm, jd, local_time = _calendar_event_day(start_at)
-        if exam.get('event_type', 'exam') == 'exam':
-            tone = 'danger' if exam['is_cancelled'] else 'success' if exam['is_published'] else 'purple'
-        else:
-            _, tone = _em_calendar_type_meta(exam.get('event_type'))
+        end_at = erd_datetime(exam['end_at']) if exam.get('end_at') else None
+        if not end_at and exam.get('duration_minutes'):
+            end_at = start_at + timedelta(minutes=int(exam['duration_minutes']))
+        end_time = _calendar_event_day(end_at)[3] if end_at and end_at > start_at else ''
+        type_label = 'آزمون' if event_type == 'exam' else _em_calendar_type_meta(event_type)[0]
+        status = 'لغو شده' if exam.get('is_cancelled') else ('' if exam.get('is_published') else 'پیش‌نویس')
+        time_range = f'{local_time} تا {end_time}' if end_time else local_time
+        tip = ' — '.join(part for part in (
+            exam['title'], f"{type_label}{f' ({status})' if status else ''}",
+            f"{jy}/{jm:02d}/{jd:02d} ساعت {time_range}",
+            exam['course'] if exam['course'] != '-' else '', exam['teacher'] if exam['teacher'] != '-' else '') if part)
         event = {
             **exam,
             'start_at': start_at,
@@ -10220,24 +10268,83 @@ def super_admin_calendar(request):
             'jalali_month': jm,
             'jalali_day': jd,
             'time': local_time,
-            'tone': tone,
+            'end_time': end_time,
+            'tone': tone_by_type.get(event_type, 'purple'),
+            'type_label': type_label,
+            'status_label': status,
+            'is_draft': is_exam and not exam.get('is_published') and not exam.get('is_cancelled'),
+            'tip': tip,
+            'url': reverse('core:super_admin_exam_detail', args=[exam['id']]) if is_exam else '',
         }
         normalized_events.append(event)
-        if jy == selected_year and jm == selected_month and jd in events_by_day:
-            events_by_day[jd].append(event)
+        events_by_date.setdefault((jy, jm, jd), []).append(event)
+    for items in events_by_date.values():
+        items.sort(key=lambda event: (event['start_at'], event['title']))
 
-    calendar_days = []
-    for _ in range(shown['leading_blanks']):
-        calendar_days.append({'day': '', 'events': [], 'is_today': False})
+    filter_params = [(key, value) for key, value in (('type', event_type_filter), ('course', course_filter),
+                                                     ('group', group_filter), ('teacher', teacher_filter)) if value]
+
+    def calendar_url(view, jalali=None, with_day=True):
+        params = [('view', view)]
+        if jalali:
+            params += [('year', jalali[0]), ('month', jalali[1])] + ([('day', jalali[2])] if with_day else [])
+        return '?' + urlencode(params + filter_params)
+
+    from .templatetags.core_extras import _gregorian_to_jalali
+
+    def jalali_of(day_value):
+        return _gregorian_to_jalali(day_value.year, day_value.month, day_value.day)
+
+    def day_info(day_value):
+        jalali = jalali_of(day_value)
+        return {
+            'date': day_value, 'jalali': jalali, 'day': jalali[2], 'month_name': JALALI_MONTH_NAMES[jalali[1] - 1],
+            'weekday': weekday_names[(day_value.weekday() + 2) % 7],
+            'is_today': jalali == (current_jy, current_jm, current_jd),
+            'events': events_by_date.get(jalali, []),
+            'url': calendar_url('day', jalali),
+        }
+
+    month_cap = 3  # chips per month cell; the rest is «+N مورد دیگر» (opens that day)
+    calendar_days = [{'day': '', 'events': [], 'is_today': False} for _ in range(shown['leading_blanks'])]
     for day in range(1, days_in_month + 1):
-        calendar_days.append({
-            'day': day,
-            'events': events_by_day.get(day, [])[:2],
-            'more_count': max(0, len(events_by_day.get(day, [])) - 2),
-            'is_today': selected_year == current_jy and selected_month == current_jm and day == current_jd,
-        })
+        info = day_info(shown['first'] + timedelta(days=day - 1))
+        info['more_count'] = max(0, len(info['events']) - month_cap)
+        info['events'] = info['events'][:month_cap]
+        calendar_days.append(info)
+    week_days = [day_info(week_start + timedelta(days=offset)) for offset in range(7)]
+    focus_info = day_info(focus_date)
+    list_days = [info for info in (day_info(shown['first'] + timedelta(days=offset)) for offset in range(days_in_month))
+                 if info['events']]
 
-    today_events = [event for event in normalized_events if event['jalali_year'] == current_jy and event['jalali_month'] == current_jm and event['jalali_day'] == current_jd][:3]
+    month_name = JALALI_MONTH_NAMES[selected_month - 1]
+    if view_mode == 'day':
+        heading = f"{focus_info['weekday']} {focus_day} {month_name} {selected_year}"
+        previous_url = calendar_url('day', jalali_of(focus_date - timedelta(days=1)))
+        next_url = calendar_url('day', jalali_of(focus_date + timedelta(days=1)))
+    elif view_mode == 'week':
+        first_info, last_info = week_days[0], week_days[-1]
+        first_year, last_year = first_info['jalali'][0], last_info['jalali'][0]
+        if first_info['jalali'][:2] == last_info['jalali'][:2]:
+            heading = f"{first_info['day']} تا {last_info['day']} {last_info['month_name']} {last_year}"
+        else:
+            heading = (f"{first_info['day']} {first_info['month_name']}{'' if first_year == last_year else f' {first_year}'}"
+                       f" تا {last_info['day']} {last_info['month_name']} {last_year}")
+        previous_url = calendar_url('week', jalali_of(focus_date - timedelta(days=7)))
+        next_url = calendar_url('week', jalali_of(focus_date + timedelta(days=7)))
+    else:
+        heading = f'{month_name} {selected_year}'
+        previous_url = calendar_url(view_mode, (*shown['previous'], 1), with_day=False)
+        next_url = calendar_url(view_mode, (*shown['next'], 1), with_day=False)
+    previous_label, next_label = {'day': ('روز قبل', 'روز بعد'), 'week': ('هفته قبل', 'هفته بعد')}.get(
+        view_mode, ('ماه قبل', 'ماه بعد'))
+    view_links = [{'key': key, 'label': label, 'url': calendar_url(key, (selected_year, selected_month, focus_day)),
+                   'active': key == view_mode}
+                  for key, label in (('day', 'روز'), ('week', 'هفته'), ('month', 'ماه'), ('list', 'لیست'))]
+    events_by_day = {day: events_by_date.get((selected_year, selected_month, day), []) for day in range(1, days_in_month + 1)}
+
+    all_today_events = events_by_date.get((current_jy, current_jm, current_jd), [])
+    today_events = all_today_events[:3]
     upcoming_events = sorted((event for event in normalized_events if event['start_at'] and event['start_at'] >= timezone.now()),
                              key=lambda event: event['start_at'])[:4]
     monthly_events_count = sum(len(items) for items in events_by_day.values())
@@ -10270,7 +10377,25 @@ def super_admin_calendar(request):
         'next_month': shown['next'],
         'weekday_names': weekday_names,
         'calendar_days': calendar_days,
+        'view_mode': view_mode,
+        'view_links': view_links,
+        'focus_day': focus_day,
+        'focus_info': focus_info,
+        'week_days': week_days,
+        'list_days': list_days,
+        'heading': heading,
+        'previous_url': previous_url,
+        'next_url': next_url,
+        'previous_label': previous_label,
+        'next_label': next_label,
+        'today_url': calendar_url(view_mode),
+        'today_day_url': calendar_url('day'),
+        'reset_url': '?' + urlencode([('view', view_mode), ('year', selected_year), ('month', selected_month), ('day', focus_day)]),
+        'groups': groups,
+        'group_filter': group_filter,
+        'has_filters': bool(filter_params),
         'events': normalized_events,
+        'all_today_count': len(all_today_events),
         'today_events': today_events,
         'upcoming_events': upcoming_events,
         'important_events': important_events,
@@ -10890,8 +11015,20 @@ def super_admin_academic_terms(request):
             return redirect('core:super_admin_academic_terms')
         start_date = request.POST.get('start_date', '').strip()
         end_date = request.POST.get('end_date', '').strip()
+        # Dates are Jalali yyyy/mm/dd typed as digits only (field-rules.js `date` kind); words are refused.
+        from apps.core import field_rules
+        for value, label in ((start_date, 'تاریخ شروع'), (end_date, 'تاریخ پایان')):
+            error = field_rules.jalali_date_error(value, label) if value else ''
+            if error:
+                messages.error(request, error)
+                return redirect('core:super_admin_academic_terms')
+        start_date = field_rules.normal_jalali_date(start_date) if start_date else ''
+        end_date = field_rules.normal_jalali_date(end_date) if end_date else ''
+        if start_date and end_date and end_date < start_date:
+            messages.error(request, 'تاریخ پایان ترم نمی‌تواند پیش از تاریخ شروع باشد.')
+            return redirect('core:super_admin_academic_terms')
         description = request.POST.get('description', '').strip()
-        is_active = request.POST.get('is_active', 'on') == 'on'
+        is_active = request.POST.get('is_active') == 'on'  # an unticked box sends nothing
         is_current = request.POST.get('is_current') == 'on' or request.POST.get('is_default') == 'on'
         term_id = request.POST.get('term_id', '').strip()
         if year and semester:
@@ -11261,6 +11398,16 @@ def super_admin_settings(request):
         if item.get('type') == 'text':
             item['default'] = repair_setting_text(item.get('default'))
 
+    # «زبان / منطقه زمانی / فرمت تاریخ / سیاست گذرواژه» are lists of options (codes), the IP lists belong to «محدودیت IP»
+    from apps.core import system_settings as general
+    for item in settings_schema:
+        if item['key'] in general.CHOICE_DEFAULTS:
+            item.update(type='select', default=general.CHOICE_DEFAULTS[item['key']], choices=general.choices_for(item['key']))
+    ip_index = next(index for index, item in enumerate(settings_schema) if item['key'] == 'ip_restriction') + 1
+    settings_schema[ip_index:ip_index] = [
+        {'key': 'ip_allow_list', 'label': 'IPهای مجاز', 'type': 'iplist', 'default': '', 'group': 'security'},
+        {'key': 'ip_block_list', 'label': 'IPهای مسدود', 'type': 'iplist', 'default': '', 'group': 'security'},
+    ]
     settings_by_key = {item['key']: item for item in settings_schema}
 
     def _stored_setting_value(raw_value, fallback):
@@ -11292,9 +11439,16 @@ def super_admin_settings(request):
             ],
         )
 
-    def cleaned_setting_value(setting_meta, raw_value):
+    def cleaned_setting_value(setting_meta, raw_value, stored=None):
         if setting_meta['key'] in APPEARANCE_DEFAULTS:
             return clean_appearance_value(setting_meta['key'], raw_value)
+        if setting_meta['type'] == 'select':
+            return general.clean_choice(setting_meta['key'], raw_value)
+        if setting_meta['type'] == 'iplist':
+            normalized = general.normalize_ip_list(raw_value)
+            return stored if normalized is None else normalized
+        if setting_meta['key'] == 'system_logo':
+            return general.clean_logo_value(raw_value, stored)
         if setting_meta['type'] == 'boolean':
             return raw_value == 'on'
         if setting_meta['type'] == 'number':
@@ -11304,8 +11458,54 @@ def super_admin_settings(request):
                 return setting_meta['default']
         return (raw_value or setting_meta['default']).strip()
 
+    def current_values():
+        values = {}
+        for row in erd_rows('SELECT key, value FROM system_settings'):
+            meta = settings_by_key.get(row.get('key'))
+            if not meta:
+                continue
+            value = _stored_setting_value(row['value'], meta['default'])
+            if meta['key'] in APPEARANCE_DEFAULTS:
+                value = clean_appearance_value(meta['key'], value)
+            elif meta['type'] == 'select':
+                value = general.clean_choice(meta['key'], value)
+            elif meta['type'] == 'iplist':
+                value = general.normalize_ip_list(value) or ''
+            elif meta['type'] == 'boolean':
+                value = value is True or value in ('on', 'true', '1')
+            elif meta['type'] == 'number':
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    value = meta['default']
+            values[meta['key']] = value
+        return {key: values.get(key, meta['default']) for key, meta in settings_by_key.items()}
+
+    def save_changes(posted, actor, action, description):
+        """Saves only the settings whose value differs from what is stored; returns [{key, old, new}]."""
+        changes = []
+        for setting_key, setting_value in posted.items():
+            old_value = stored_now[setting_key]
+            if setting_value == old_value:
+                continue
+            save_setting(setting_key, setting_value, settings_by_key[setting_key], actor)
+            changes.append({'key': setting_key, 'old': old_value, 'new': setting_value})
+        if changes:
+            log_activity(request.user, action, description, request, {'changes': changes})
+            if any(change['key'] in ('ip_restriction',) + general.IP_LIST_KEYS for change in changes):
+                general.forget_ip_rule()
+        return changes
+
+    def changes_message(changes):
+        if not changes:
+            return 'تغییری ثبت نشد؛ مقدارها همان مقادیر ذخیره‌شده‌اند.'
+        names = '، '.join('«' + re.sub(r'\s*\([^)]*\)\s*$', '', settings_by_key[change['key']]['label']) + '»'
+                          for change in changes)
+        return f'{len(changes)} تنظیم ذخیره شد: {names}.'
+
     if request.method == 'POST':
         actor = erd_profile_for_user(request.user)
+        stored_now = current_values()
         settings_action = request.POST.get('settings_action')
         if settings_action in ('db_backup', 'db_restore'):
             from apps.core import db_backup
@@ -11334,55 +11534,52 @@ def super_admin_settings(request):
             response['Content-Disposition'] = 'attachment; filename="metaquiz-settings.json"'
             return response
 
+        back = f"{reverse('core:super_admin_settings')}?tab=other"
         if settings_action == 'bulk_save':
-            uploaded_logo = request.FILES.get('system_logo_file')
-            if uploaded_logo:
-                storage = FileSystemStorage(
-                    location=settings.MEDIA_ROOT / 'settings',
-                    base_url=settings.MEDIA_URL + 'settings/',
-                )
-                filename = storage.save(uploaded_logo.name, uploaded_logo)
-                logo_meta = settings_by_key.get('system_logo')
-                if logo_meta:
-                    save_setting('system_logo', storage.url(filename), logo_meta, actor)
-
-            saved_count = 0
+            posted = {}
             for setting_key, setting_meta in settings_by_key.items():
                 field_name = f'settings_{setting_key}'
-                if field_name not in request.POST:
-                    continue
-                if uploaded_logo and setting_key == 'system_logo':
-                    continue
-                setting_value = cleaned_setting_value(setting_meta, request.POST.get(field_name))
-                save_setting(setting_key, setting_value, setting_meta, actor)
-                saved_count += 1
-            messages.success(request, f'{saved_count} تنظیم عمومی ذخیره شد.')
-            log_activity(request.user, 'system_settings_bulk_updated', 'تنظیمات عمومی سامانه ذخیره شد.', request)
-            return redirect(f"{reverse('core:super_admin_settings')}?tab=other")
+                if field_name in request.POST:
+                    posted[setting_key] = cleaned_setting_value(setting_meta, request.POST.get(field_name), stored_now[setting_key])
+            # the IP lists must be valid and must not shut out the admin who saves them (system_settings.py)
+            if any(key in posted for key in ('ip_restriction',) + general.IP_LIST_KEYS):
+                lockout = general.ip_lockout_error(
+                    posted.get('ip_restriction', stored_now['ip_restriction']),
+                    request.POST.get('settings_ip_allow_list', stored_now['ip_allow_list']),
+                    request.POST.get('settings_ip_block_list', stored_now['ip_block_list']),
+                    client_ip(request),
+                )
+                if lockout:
+                    messages.error(request, f'تنظیمات ذخیره نشد. {lockout}')
+                    return redirect(back)
+            uploaded_logo = request.FILES.get('system_logo_file')
+            if uploaded_logo:
+                logo_url, logo_error = general.store_logo(uploaded_logo)
+                if logo_error:
+                    messages.error(request, f'تنظیمات ذخیره نشد. {logo_error}')
+                    return redirect(back)
+                posted['system_logo'] = logo_url
+            changes = save_changes(posted, actor, 'system_settings_bulk_updated', 'تنظیمات عمومی سامانه ذخیره شد.')
+            (messages.success if changes else messages.info)(request, changes_message(changes))
+            return redirect(back)
 
         setting_key = request.POST.get('setting_key')
         setting_meta = settings_by_key.get(setting_key)
-        if setting_meta:
-            setting_value = cleaned_setting_value(setting_meta, request.POST.get('value'))
-            save_setting(setting_key, setting_value, setting_meta, actor)
-            messages.success(request, '\u062a\u0646\u0638\u06cc\u0645\u0627\u062a \u0630\u062e\u06cc\u0631\u0647 \u0634\u062f.')
-            log_activity(request.user, 'system_settings_updated', f'{setting_key} \u0630\u062e\u06cc\u0631\u0647 \u0634\u062f.', request)
-        return redirect(f"{reverse('core:super_admin_settings')}?tab=other")
+        # one setting at a time (old per-row forms); the IP restriction is saved only with its lists (bulk_save)
+        if setting_meta and setting_meta['type'] != 'iplist' and setting_key != 'ip_restriction':
+            setting_value = cleaned_setting_value(setting_meta, request.POST.get('value'), stored_now[setting_key])
+            changes = save_changes({setting_key: setting_value}, actor, 'system_settings_updated', f'{setting_key} ذخیره شد.')
+            (messages.success if changes else messages.info)(request, changes_message(changes))
+        return redirect(back)
 
-    setting_keys = set(settings_by_key)
-    rows = erd_rows('SELECT key, value FROM system_settings')
-    stored_values = {
-        row['key']: _stored_setting_value(row['value'], settings_by_key[row['key']]['default'])
-        for row in rows
-        if row.get('key') in setting_keys
-    }
-    for key in APPEARANCE_DEFAULTS:
-        if key in stored_values:
-            stored_values[key] = clean_appearance_value(key, stored_values[key])
+    stored_values = current_values()
     settings_items = [
         {**item, 'value': stored_values.get(item['key'], item['default'])}
         for item in settings_schema
     ]
+    for item in settings_items:
+        if item['type'] == 'select':
+            item['value_label'] = general.choice_label(item['key'], item['value'])
     settings_lookup = {item['key']: item for item in settings_items}
     settings_groups = {
         group: [item for item in settings_items if item.get('group') == group]
@@ -11451,6 +11648,10 @@ def super_admin_settings(request):
         },
         'terms': decorated_terms,
         'current_term': current_term,
+        'settings_changes': general.recent_changes(settings_by_key) if settings_tab == 'other' else [],
+        'settings_client_ip': client_ip(request),
+        'settings_logo_custom': general.logo_url_ok(settings_lookup['system_logo']['value']),
+        'settings_logo_default': general.LOGO_DEFAULT,
         'settings_summary': {
             'active_terms_count': len([term for term in decorated_terms if term.get('is_active')]),
             'archived_years_count': max(len({term.get('year') for term in decorated_terms}) - 1, 0),
@@ -14434,7 +14635,7 @@ def _teacher_modern_context(request, page, **extra):
         question_bank = question_bank_context(request, teacher_id)
     return {
         'page': page,
-        'teacher_ui': ui_context(teacher_id) if teacher_id else {},
+        'teacher_ui': ui_context(teacher_id, getattr(request, 'erd_role', None) or 'teacher') if teacher_id else {},
         'teacher_default_structure': prefs(teacher_id).get('bank_default_structure', 'independent') if page == 'question_type' and teacher_id else '',
         'teacher_profile': _teacher_modern_profile(request),
         # Only the dashboard shows it; the other numbers it used to carry (with invented fallbacks) were never shown.

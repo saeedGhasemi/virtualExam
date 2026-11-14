@@ -56,6 +56,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'apps.core.system_settings.IPRestrictionMiddleware',  # «محدودیت IP» of the system settings
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -67,6 +68,7 @@ MIDDLEWARE = [
     'apps.core.middleware.PersonFieldLengthMiddleware',
     'apps.core.exam_lock.ExamLockMiddleware',
     'apps.core.middleware.SecurityHeadersMiddleware',
+    'apps.core.middleware.ForbiddenPageMiddleware',  # inside SecurityHeaders, so the styled 403 page still gets its headers
     'apps.core.auto_backup.AutoBackupSchedulerMiddleware',
 ]
 

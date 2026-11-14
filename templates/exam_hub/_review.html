@@ -1,8 +1,8 @@
 {% load core_extras %}{% with v=review %}
 <div class="xh-split is-right is-narrow">
     <aside class="xh-side">
-        <form method="get" class="xh-card">
-            <input type="hidden" name="tab" value="review">
+        <form method="get" class="xh-card" data-dirty-form>
+            <input type="hidden" name="tab" value="review">{% if v.filters.q %}<input type="hidden" name="q" value="{{ v.filters.q }}">{% endif %}
             <div class="xh-card-head" style="margin:0 0 .2rem"><h3>فیلتر موارد</h3></div>
             <div class="xh-filter-group"><h4>نوع مورد</h4>
                 <div class="xh-checklist">
@@ -17,8 +17,10 @@
             <div class="xh-filter-group"><label class="xh-field">شماره سؤال<input class="xh-input" name="question" value="{{ v.filters.question }}" inputmode="numeric" placeholder="۱۴ یا ۲۳"></label></div>
             <div class="xh-filter-group is-last"><label class="xh-field">نام/شماره دانشجو<input class="xh-input" name="student" value="{{ v.filters.student }}" placeholder="جستجو..."></label></div>
             <div class="xh-cols" style="gap:.6rem;margin-top:.4rem">
-                <button class="xh-btn is-solid">{% include 'exam_hub/_icon.html' with i='filter' %}اعمال فیلتر</button>
-                <a class="xh-btn is-ghost" href="?tab=review">{% include 'exam_hub/_icon.html' with i='refresh' %}پاکسازی</a>
+                <button class="xh-btn is-solid" data-dirty-submit>{% include 'exam_hub/_icon.html' with i='filter' %}اعمال فیلتر</button>
+                {# «پاکسازی»: with a filter applied it opens the unfiltered list; otherwise it only undoes unapplied changes (disabled when there are none) #}
+                {% if v.is_filtered %}<a class="xh-btn is-ghost" href="?tab=review">{% include 'exam_hub/_icon.html' with i='refresh' %}پاکسازی</a>
+                {% else %}<button type="button" class="xh-btn is-ghost" data-dirty-reset>{% include 'exam_hub/_icon.html' with i='refresh' %}پاکسازی</button>{% endif %}
             </div>
         </form>
     </aside>

@@ -198,10 +198,8 @@
                         <button class="sap-btn is-danger" type="submit" form="sap-security-form" name="security_action" value="totp_disable">غیرفعال‌سازی</button>
                     </div>
                 {% elif two_factor.setup_secret %}
-                    <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start">
-                        <div style="width:140px" aria-label="کد QR برای برنامه‌ی Authenticator">{{ two_factor.setup_qr }}</div>
-                        <p style="margin:0;color:var(--muted);font-weight:600;font-size:.82rem;line-height:1.9">کد QR را با برنامه‌ی Authenticator اسکن کنید، یا این کلید را دستی وارد کنید: <bdi dir="ltr">{{ two_factor.setup_secret }}</bdi></p>
-                    </div>
+                    <p style="margin:0 0 .7rem;color:var(--muted);font-weight:400;font-size:.82rem;line-height:1.9">کد QR را با برنامه‌ی Authenticator (مثل Google Authenticator) اسکن کنید، یا کلید زیر را دستی در برنامه وارد کنید.</p>
+                    {% include "partials/totp_setup_key.html" %}
                     <label class="sap-field">کد ۶ رقمی برنامه<input name="totp_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" form="sap-security-form"></label>
                     <label class="sap-field">رمز عبور فعلی<input type="password" name="security_password" autocomplete="current-password" form="sap-security-form"></label>
                     <button class="sap-btn is-block" type="submit" form="sap-security-form" name="security_action" value="totp_confirm">تأیید و فعال‌سازی</button>

@@ -1,0 +1,14 @@
+{# Users / اساتید / دانشجویان / مدیران tabs on a teacher's profile pages: same order, icons and look as the users page (super_admin/users.html). #}
+<nav class="teacher-profile-role-tabs" style="{% if role_code != 'super_admin' %}grid-template-columns:repeat(2,minmax(0,1fr));width:24rem{% endif %}" aria-label="تب‌های کاربران">
+    <a class="{% if active == 'teachers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=teachers"{% if active == 'teachers' %} aria-current="page"{% endif %}>
+        اساتید <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+    </a>
+    <a class="{% if active == 'students' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=students"{% if active == 'students' %} aria-current="page"{% endif %}>
+        دانشجویان <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>
+    </a>
+    {% if role_code == 'super_admin' %}
+    <a class="{% if active == 'managers' %}is-active{% endif %}" href="{% url 'core:super_admin_users' %}?tab=managers"{% if active == 'managers' %} aria-current="page"{% endif %}>
+        مدیران <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </a>
+    {% endif %}
+</nav>

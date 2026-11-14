@@ -173,7 +173,7 @@ def generate_temporary_password() -> str:
         chars = [secrets.choice(TEMPORARY_PASSWORD_ALPHABET) for _ in range(11)]
         chars.insert(secrets.randbelow(12), secrets.choice(TEMPORARY_PASSWORD_SYMBOLS))
         password = ''.join(chars)
-        if not password_missing(password):
+        if not password_missing(password, 'strong'):  # generated ones always meet the full standard
             return password
 
 

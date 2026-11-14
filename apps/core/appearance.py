@@ -222,11 +222,16 @@ def appearance_context(request):
     cached = getattr(request, '_mq_appearance', None)
     if cached is None:
         profile_id = _request_profile_id(request)
-        keys = list(APPEARANCE_DEFAULTS) + (_personal_keys(profile_id) if profile_id else [])
+        keys = list(APPEARANCE_DEFAULTS) + ['system_logo', 'password_policy'] + (_personal_keys(profile_id) if profile_id else [])
         rows = _load_settings(keys)
         system = appearance_attrs(_system_values(rows))
         personal = _personal_values(rows, profile_id) if profile_id else dict(PERSONAL_EMPTY)
-        cached = {'effective': merged_attrs(system, personal), 'system': system, 'personal': personal}
+        from .system_settings import clean_choice, logo_url_ok  # the admin's uploaded logo (system settings → «لوگو / هویت سامانه»)
+
+        logo = rows.get('system_logo')
+        cached = {'effective': merged_attrs(system, personal), 'system': system, 'personal': personal,
+                  'logo': logo if logo_url_ok(logo) else '',
+                  'pw_policy': clean_choice('password_policy', rows.get('password_policy'))}
         try:
             request._mq_appearance = cached
         except AttributeError:
@@ -236,4 +241,6 @@ def appearance_context(request):
         'mq_system_appearance': cached['system'],
         'mq_personal_appearance': cached['personal'],
         'mq_personal_choices': PERSONAL_CHOICES,
+        'mq_brand_logo': cached['logo'],  # partials/brand_logo.html shows it in place of the built-in mark
+        'mq_pw_policy': cached['pw_policy'],  # «سیاست گذرواژه» for field-rules.js (<html data-mq-pw-policy>)
     }

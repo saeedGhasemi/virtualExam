@@ -130,10 +130,12 @@
                         <span>فایل پشتیبان (<span dir="ltr">.dump</span>)</span>
                         <input type="file" name="backup_file" accept=".dump,.backup" required data-bk-file>
                     </label>
+                    {# The browser fills a saved username into the text box just before a password box; give it this one so the database-name box stays empty. #}
+                    <input type="text" name="account_username" value="{{ request.user.get_username }}" autocomplete="username" tabindex="-1" aria-hidden="true" style="display:none">
                     <div class="bk-restore-fields">
                         <label class="bk-field">
-                            <span>نام پایگاه داده (<b dir="ltr" data-latin-digits>{{ backup_info.name }}</b>)</span>
-                            <input type="text" name="confirm_name" autocomplete="off" spellcheck="false" dir="ltr" required data-latin-digits data-bk-name data-expected="{{ backup_info.name }}">
+                            <span>برای تأیید، نام پایگاه داده را بنویسید: <b dir="ltr" data-latin-digits>{{ backup_info.name }}</b></span>
+                            <input type="text" name="confirm_name" autocomplete="off" spellcheck="false" dir="ltr" required data-latin-digits data-bk-name data-expected="{{ backup_info.name }}" data-mq-rule="off" placeholder="{{ backup_info.name }}" data-keep-placeholder>
                         </label>
                         <label class="bk-field">
                             <span>گذرواژه فعلی شما</span>
@@ -144,6 +146,7 @@
                         <input type="checkbox" name="confirm_understand" value="on" required data-bk-check>
                         <span>آگاهم که همه داده‌های فعلی حذف و با محتوای این فایل جایگزین می‌شود.</span>
                     </label>
+                    <ul class="bk-missing" data-bk-missing aria-live="polite"></ul>
                     <div class="bk-actions bk-actions-end">
                         {% if not backup_info.pg_restore %}<small class="bk-bad">ابزار pg_restore روی سرور پیدا نشد.</small>{% endif %}
                         <button type="submit" class="bk-btn bk-btn-danger" disabled data-bk-submit{% if not backup_info.pg_restore %} data-bk-blocked{% endif %}>
@@ -261,6 +264,10 @@
     .bk-check{display:flex;align-items:flex-start;gap:.55rem;margin:0;color:#7f1d1d;font-size:.82rem;font-weight:600;line-height:1.8;cursor:pointer}
     .bk-check input{flex:none;width:1.05rem;height:1.05rem;margin-top:.3rem;accent-color:#dc2626}
 
+    .bk-missing{display:grid;gap:.25rem;margin:0;padding:.6rem .8rem;border:1px dashed #fca5a5;border-radius:.75rem;background:rgba(255,255,255,.6);list-style:none;color:#7f1d1d;font-size:.8rem;font-weight:400;line-height:1.8}
+    .bk-missing:empty{display:none}
+    .bk-missing li::before{content:"•";margin-inline-end:.4rem;color:#dc2626}
+    .bk-missing b{font-weight:700}
     .bk-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
     .bk-actions-end{justify-content:flex-end;margin-top:auto}
     .bk-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.75rem;padding:0 1.1rem;border:1px solid transparent;border-radius:.85rem;font:inherit;font-size:.86rem;font-weight:600;white-space:nowrap;cursor:pointer;transition:filter .15s,background .15s}
@@ -344,9 +351,27 @@
     const name = form.querySelector('[data-bk-name]');
     const check = form.querySelector('[data-bk-check]');
     const submit = form.querySelector('[data-bk-submit]');
-    const ready = () => !submit.hasAttribute('data-bk-blocked') && file.files.length > 0
-        && name.value.trim() === name.dataset.expected && check.checked;
-    const refresh = () => { submit.disabled = !ready(); };
+    const missingList = form.querySelector('[data-bk-missing]');
+    const missing = () => {
+        const out = [];
+        if (submit.hasAttribute('data-bk-blocked')) out.push('ابزار pg_restore روی سرور نصب نیست.');
+        if (!file.files.length) out.push('فایل پشتیبان (‎.dump‎) را انتخاب کنید.');
+        const typed = name.value.trim();
+        if (typed !== name.dataset.expected) {
+            out.push(typed ? `نام پایگاه داده درست نیست؛ دقیقاً «<b dir="ltr">${name.dataset.expected}</b>» را بنویسید.`
+                           : `نام پایگاه داده «<b dir="ltr">${name.dataset.expected}</b>» را بنویسید.`);
+        }
+        if (!form.querySelector('[name=current_password]').value) out.push('گذرواژه فعلی خود را وارد کنید.');
+        if (!check.checked) out.push('گزینه «آگاهم که همه داده‌های فعلی حذف …» را تیک بزنید.');
+        return out;
+    };
+    const ready = () => missing().length === 0;
+    const refresh = () => {
+        const out = missing();
+        submit.disabled = out.length > 0;
+        if (missingList) missingList.innerHTML = out.map((t) => `<li>${t}</li>`).join('');
+    };
+    form.querySelector('[name=current_password]').addEventListener('input', refresh);
     [file, name, check].forEach((el) => { el.addEventListener('input', refresh); el.addEventListener('change', refresh); });
     form.addEventListener('submit', (event) => {
         if (!ready()) {

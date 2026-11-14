@@ -27,12 +27,21 @@
     .groups-title p{margin:.3rem 0 0;color:#53617b;font-weight:600}
     .groups-card{border:1px solid rgba(205,218,236,.95);border-radius:.95rem;background:var(--panel);box-shadow:0 18px 42px rgba(30,55,95,.08),inset 0 1px 0 rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(145%);-webkit-backdrop-filter:blur(20px) saturate(145%)}
     .groups-filter-card{padding:1rem 1.1rem;margin-bottom:1rem}
-    .group-filters{display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr)) minmax(0,1.6fr);gap:.75rem;align-items:center}
+    .group-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12.5rem),1fr));gap:.75rem;align-items:center}
+    .group-filters .group-search{grid-column:span 2}
+    .group-filters .group-clear-btn{justify-content:center}
     .group-clear-btn{display:inline-flex;align-items:center;gap:.4rem;height:2.9rem;padding:0 1rem;border:1px dashed #cbd9ec;border-radius:.65rem;background:#f8fbff;color:#5a6b8a;font-size:.82rem;font-weight:700;white-space:nowrap}
     .group-clear-btn:hover{border-color:#315cff;color:#315cff}
     .group-clear-btn svg{width:1rem;height:1rem}
     .group-search,.group-filter{display:flex;height:2.9rem;align-items:center;gap:.6rem;border:1px solid #cbd9ec;border-radius:.65rem;background:#fff;padding:0 .8rem;color:#50607a}
-    .group-search input,.group-filter select{width:100%;min-width:0;border:0;background:transparent;outline:0;color:#071936;font-weight:600}
+    .group-search input{width:100%;min-width:0;border:0;background:transparent;outline:0;color:#071936;font-weight:600}
+    .group-filter{position:relative;padding:0}
+    .group-filter select{width:100%;min-width:0;height:100%;border:0;border-radius:inherit;background:transparent;outline:0;padding:0 .9rem 0 2.2rem;color:#071936;font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;-webkit-appearance:none;-moz-appearance:none;appearance:none;text-overflow:ellipsis}
+    .group-filter::after{content:"";position:absolute;left:.9rem;top:50%;width:.45rem;height:.45rem;margin-top:-.32rem;border-left:2px solid #64748b;border-bottom:2px solid #64748b;transform:rotate(-45deg);pointer-events:none}
+    .group-filter:focus-within{border-color:#315cff;box-shadow:0 0 0 3px rgba(49,92,255,.12)}
+    .avatar-stack-link{color:inherit;text-decoration:none;border-radius:.6rem;padding:.2rem .3rem;transition:background .15s}
+    .avatar-stack-link:hover,.avatar-stack-link:focus-visible{background:#eef2ff;outline:0}
+    .avatar-stack-link:hover small{color:#315cff}
     .group-search svg,.group-filter svg{flex:0 0 auto;color:#8b9ab5}
     .group-search button{flex:0 0 auto;display:grid;place-items:center;border:0;background:transparent;color:#8b9ab5;cursor:pointer}
     .groups-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1rem}
@@ -74,7 +83,7 @@
     .groups-pagination{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:1rem;color:#25344f;font-weight:600}
     .groups-pagination .pager{display:flex;align-items:center;gap:.5rem;justify-self:center}.pager a,.pager b,.pager span.is-ellipsis{display:grid;min-width:2.45rem;height:2.45rem;place-items:center;border:1px solid #cbd9ec;border-radius:.6rem;background:#fff}.pager b{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border-color:transparent}.pager a.is-disabled{opacity:.4;pointer-events:none}.pager span.is-ellipsis{border:0;background:transparent}
     .group-empty{text-align:center;color:#7a8597!important;height:5rem!important}
-    @media (max-width:1120px){.groups-hero{grid-template-columns:1fr}.groups-title{justify-self:start;justify-content:flex-start}.groups-stat-grid{grid-template-columns:repeat(2,1fr)}.group-filters{grid-template-columns:1fr 1fr}.groups-table-card{overflow:auto}.groups-table{min-width:1020px}}
+    @media (max-width:1120px){.groups-hero{grid-template-columns:1fr}.groups-title{justify-self:start;justify-content:flex-start}.groups-stat-grid{grid-template-columns:repeat(2,1fr)}.group-filters .group-search{grid-column:1/-1}.groups-table-card{overflow:auto}.groups-table{min-width:1020px}}
     @media (max-width:680px){.groups-stat-grid,.group-filters{grid-template-columns:1fr}.groups-actions{flex-direction:column;align-items:stretch}.group-primary,.group-secondary{width:100%}.groups-pagination{grid-template-columns:1fr;gap:.8rem}}
 </style>
 
@@ -137,13 +146,14 @@
                                 <td><div class="teacher-cell"><b>{% if row.teacher_avatar %}<img src="{{ row.teacher_avatar }}" alt="">{% else %}{{ row.primary_teacher|default:"-"|slice:":1" }}{% endif %}</b><span>{{ row.primary_teacher|default:"-"|fa_digits }}</span></div></td>
                                 <td><div class="term-cell"><strong>{{ row.academic_year|fa_digits }}</strong><small>نیمسال {{ row.semester_label|fa_digits }}</small></div></td>
                                 <td>
-                                    <div class="avatar-stack-wrap">
+                                    {% if request.resolver_match.url_name == 'exam_manager_groups' %}{% url 'core:exam_manager_group_students_manage' row.id as students_url %}{% else %}{% url 'core:super_admin_group_students_manage' row.id as students_url %}{% endif %}
+                                    <a class="avatar-stack-wrap avatar-stack-link" href="{{ students_url }}" title="فهرست دانشجویان این گروه" aria-label="فهرست دانشجویان این گروه ({{ row.members_count|fa_digits }} نفر)">
                                         <small>{{ row.members_count|fa_digits }} نفر</small>
                                         <div class="avatar-stack">
                                             {% if row.members_count > 3 %}<span class="avatar-more">+{{ row.members_count|add:"-3"|fa_digits }}</span>{% endif %}
                                             {% for student in row.students_json|slice:":3" %}<span title="{{ student.full_name|fa_digits }}">{% if student.avatar_url %}<img src="{{ student.avatar_url }}" alt="">{% else %}{{ student.full_name|default:"-"|slice:":1" }}{% endif %}</span>{% endfor %}
                                         </div>
-                                    </div>
+                                    </a>
                                 </td>
                                 <td><div class="capacity-cell"><span>{{ row.members_count|fa_digits }} / {{ row.capacity|fa_digits }}</span><div class="capacity-bar {% if row.fill_percent > 90 %}is-full{% endif %}"><i style="width:{{ row.fill_percent }}%"></i></div></div></td>
                                 <td>
@@ -155,8 +165,9 @@
                                 </td>
                                 <td>
                                     <div class="row-actions">
-                                        <a class="row-icon-btn" href="{% url 'core:super_admin_group_detail' row.id %}" title="ویرایش گروه"><svg viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5L16 3Z"/></svg></a>
-                                        <a class="row-icon-btn is-danger" href="{% url 'core:super_admin_group_archive' row.id %}" title="حذف یا بایگانی گروه"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></a>
+                                        {% if request.resolver_match.url_name == 'exam_manager_groups' %}{% url 'core:exam_manager_group_edit' row.id as edit_url %}{% else %}{% url 'core:super_admin_group_edit' row.id as edit_url %}{% endif %}
+                                        <a class="row-icon-btn" href="{{ edit_url }}" title="ویرایش گروه" aria-label="ویرایش گروه"><svg viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5L16 3Z"/></svg></a>
+                                        <a class="row-icon-btn is-danger" href="{% url 'core:super_admin_group_archive' row.id %}" title="حذف یا بایگانی گروه" aria-label="حذف یا بایگانی گروه"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></a>
                                     </div>
                                 </td>
                             </tr>

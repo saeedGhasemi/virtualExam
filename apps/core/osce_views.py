@@ -33,6 +33,11 @@ from .views import (
 
 logger = logging.getLogger(__name__)
 
+# Who may build OSCE exams: the same people who keep a question bank (the builder is linked from «ایجاد سؤال»).
+# Owners are profiles, not only teachers (migration 0066); the org-unit examiner list / template library stay
+# teacher-scoped, so an admin or manager sees just their own items there.
+OSCE_ROLES = ('teacher', 'academic_manager', 'admin')
+
 STATION_TYPES = {
     'clinical': {'label': 'ایستگاه بالینی', 'description': 'شرح حال و معاینه بیمار و مهارت‌های بالینی'},
     'skill': {'label': 'ایستگاه مهارتی', 'description': 'اجرای یک مهارت عملی روی بیمار، مانکن یا شبیه‌ساز'},
@@ -918,7 +923,7 @@ def _builder_url(osce_id, station_id=None, tab='basic'):
     return url
 
 
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_list(request):
     rows = erd_rows(
         """
@@ -936,7 +941,7 @@ def teacher_osce_list(request):
     return render(request, 'teacher/modern.html', _teacher_modern_context(request, 'osce_list', osce_page=page))
 
 
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_create(request):
     """Create the OSCE exam together with its first station (the «اطلاعات پایه» tab)."""
     teacher_id = request.erd_profile_id
@@ -980,7 +985,7 @@ def teacher_osce_create(request):
     return render(request, 'teacher/modern.html', _builder_context(request, osce, [], None, 'basic', form, is_new=True))
 
 
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_builder(request, osce_id):
     osce = _owned_osce(request.erd_profile_id, osce_id)
     stations = _stations(osce['id'])
@@ -1097,7 +1102,7 @@ def teacher_osce_builder(request, osce_id):
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_station_add(request, osce_id):
     osce = _owned_osce(request.erd_profile_id, osce_id)
     if _reject_if_published(request, osce):
@@ -1120,7 +1125,7 @@ def teacher_osce_station_add(request, osce_id):
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_station_delete(request, osce_id, station_id):
     osce = _owned_osce(request.erd_profile_id, osce_id)
     if _reject_if_published(request, osce):
@@ -1137,7 +1142,7 @@ def teacher_osce_station_delete(request, osce_id, station_id):
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_station_reorder(request, osce_id):
     osce = _owned_osce(request.erd_profile_id, osce_id)
     if osce['status'] == 'published':
@@ -1156,7 +1161,7 @@ def teacher_osce_station_reorder(request, osce_id):
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_settings(request, osce_id):
     osce = _owned_osce(request.erd_profile_id, osce_id)
     if _reject_if_published(request, osce):
@@ -1181,7 +1186,7 @@ def teacher_osce_settings(request, osce_id):
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_template_save(request):
     """Save the current checklist as one of the teacher's own templates (JSON in, JSON out)."""
     teacher_id = request.erd_profile_id
@@ -1216,7 +1221,7 @@ def teacher_osce_template_save(request):
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_template_delete(request, template_id):
     row = erd_row('SELECT id FROM osce_criteria_templates WHERE id = %s AND teacher_id = %s', [str(template_id), request.erd_profile_id])
     if not row:
@@ -1225,7 +1230,7 @@ def teacher_osce_template_delete(request, template_id):
     return JsonResponse({'ok': True})
 
 
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_preview(request, osce_id):
     """Read-only summary of the whole exam plus the publish readiness check."""
     osce = _owned_osce(request.erd_profile_id, osce_id)
@@ -1249,7 +1254,7 @@ def teacher_osce_preview(request, osce_id):
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_publish(request, osce_id):
     osce = _owned_osce(request.erd_profile_id, osce_id)
     if request.POST.get('action') == 'unpublish':
@@ -1271,7 +1276,7 @@ LIBRARY_LIMIT = 50
 
 
 @require_POST
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_template_share(request, template_id):
     """Owner shares or unshares a template with the org-unit library."""
     try:
@@ -1286,7 +1291,7 @@ def teacher_osce_template_share(request, template_id):
     return JsonResponse({'ok': True, 'shared': shared})
 
 
-@erd_role_required('teacher')
+@erd_role_required(*OSCE_ROLES)
 def teacher_osce_template_library(request):
     """Templates shared by other teachers of the same org unit (searchable, capped)."""
     query = (request.GET.get('q') or '').replace('%', '').replace('_', '').strip()[:100]

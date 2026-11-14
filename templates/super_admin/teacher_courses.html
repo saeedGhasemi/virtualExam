@@ -5,11 +5,7 @@
 
 {% block content %}
 <section class="super-admin-page teacher-course-management-page" dir="rtl">
-    <nav class="teacher-profile-role-tabs" aria-label="تب کاربران">
-        <a href="{% url 'core:super_admin_users' %}?tab=managers">مدیران</a>
-        <a class="is-active" href="{% url 'core:super_admin_users' %}?tab=teachers">اساتید</a>
-        <a href="{% url 'core:super_admin_users' %}?tab=students">دانشجویان</a>
-    </nav>
+    {% include "partials/user_role_tabs.html" with active="teachers" %}
 
     <a class="teacher-profile-back teacher-course-back" href="{{ profile_url }}">
         <svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>

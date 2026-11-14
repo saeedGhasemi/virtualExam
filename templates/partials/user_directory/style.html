@@ -63,6 +63,10 @@
     .ud-table td[data-style~="ltr"] .ud-v{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
     .ud-table td[data-style~="latin"] .ud-v{font-family:Tahoma,Arial,sans-serif;font-size:.78rem;color:#1d4ed8}
     .ud-table td[data-style~="latin"] a.ud-v{text-decoration:underline;text-underline-offset:2px}
+    /* Long values without spaces (a long name, e-mail or code) break inside their cell / card instead of running out of it. */
+    .ud-table td,.ud-table td .ud-v,.ud-table td a{overflow-wrap:anywhere;word-break:break-word}
+    .ud-table td[data-style~="name"],.ud-table td[data-style~="ltr"] .ud-v{white-space:normal}
+    .ud-table td .ud-v{max-width:100%}
     .ud-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     .ud-table .is-col-hidden,.ud-table tr>.is-col-hidden.is-col-hidden{display:none}
     .ud-dash{color:#b6c0cf}
@@ -85,7 +89,7 @@
         .ud-table.is-cards td[data-style~="name"]{font-size:.95rem;border-bottom:1px solid #e3eaf5}
         .ud-table.is-cards td[data-style~="latin"],.ud-table.is-cards td[data-wide]{grid-column:1/-1}
         .ud-table.is-cards td .ud-v{display:inline-block;max-width:100%;overflow-wrap:anywhere;white-space:normal}
-        .ud-table.is-cards td[data-style~="ltr"] .ud-v{white-space:nowrap}
+        .ud-table.is-cards td[data-style~="ltr"] .ud-v{white-space:normal}
         .ud-table.is-cards td[data-style~="latin"] .ud-v{white-space:normal;word-break:break-all}
         .ud-table.is-cards tbody tr>td.is-col-hidden.is-col-hidden{display:none}
     }

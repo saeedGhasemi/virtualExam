@@ -55,11 +55,11 @@
         </span>
         {% if two_factor.setup_secret %}
           <div class="sst-panel sst-totp">
-            <div class="sst-totp-qr" aria-label="کد QR برای برنامه‌ی Authenticator">{{ two_factor.setup_qr }}</div>
+            <div class="sst-totp-qr">{% include "partials/totp_setup_key.html" %}</div>
             <div class="sst-totp-body">
               <ol>
                 <li>برنامه‌ی Authenticator را روی گوشی باز کنید و این کد QR را اسکن کنید.</li>
-                <li>اگر اسکن ممکن نیست، این کلید را دستی وارد کنید: <bdi dir="ltr" class="sst-key">{{ two_factor.setup_secret }}</bdi></li>
+                <li>اگر اسکن ممکن نیست، کلید دستی را با دکمه‌ی کپی بردارید و در برنامه وارد کنید.</li>
                 <li>کد ۶ رقمی برنامه و رمز عبور خود را وارد کنید.</li>
               </ol>
               <div class="sst-fields">

@@ -4,15 +4,16 @@ Params (all optional): size = CSS font-size of the wordmark (default 1.35rem);
 tagline = show «سامانه آزمون آنلاین» (or tagline_text) under the name; label_class = extra class on the text block
 (e.g. "profile-sidebar-label" so a collapsed sidebar hides it); extra = extra class on the root.
 The running release (`app_version`, from the VERSION file) is always shown under the name.
+A logo uploaded in system settings («لوگو / هویت سامانه», `mq_brand_logo` from appearance.appearance_context) replaces the mark.
 {% endcomment %}<span class="mq-brand{% if extra %} {{ extra }}{% endif %}"{% if size %} style="font-size:{{ size }}"{% endif %}>
-    <span class="mq-brand-mark" aria-hidden="true">
+    {% if mq_brand_logo %}<span class="mq-brand-mark is-image" aria-hidden="true" data-mq-keep><img src="{{ mq_brand_logo }}" alt=""></span>{% else %}<span class="mq-brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false">
             <rect x="3.6" y="3.6" width="6.8" height="6.8" rx="2" fill="none" stroke="#fff" stroke-width="1.9"/>
             <rect x="13.2" y="3.2" width="7.6" height="7.6" rx="2.2" fill="#fff"/>
             <circle cx="7" cy="17" r="3.8" fill="#fff" fill-opacity=".92"/>
             <path d="M13.4 17.1l2.4 2.4 4.6-5" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-    </span>
+    </span>{% endif %}
     <span class="mq-brand-text{% if label_class %} {{ label_class }}{% endif %}">
         <span class="mq-brand-name">متاکوییز</span>
         {% if tagline %}<span class="mq-brand-tagline">{% if tagline_text %}{{ tagline_text }}{% else %}سامانه آزمون آنلاین{% endif %}</span>{% endif %}

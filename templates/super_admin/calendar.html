@@ -5,6 +5,151 @@
 
 {% block content %}
 {% include 'partials/super_admin_chrome.html' %}
+{% comment %}
+«تقویم آموزشی» (views.super_admin_calendar). One live region (#admin-calendar-main) holds the filter toolbar, the
+calendar (?view=day|week|month|list, focus ?year=&month=&day=) and the side cards: every link and filter there keeps the
+view + filters and swaps the page without a reload (static/js/live-region.js). Colours follow «راهنمای رنگ‌ها»
+(views: tone_by_type). Styles: the base look is in static/src/input.css (.edu-*); this block lays out the toolbar,
+views and chips and loads before the markup, so nothing jumps.
+{% endcomment %}
+<style>
+    .education-calendar-page{--cal-line:#e3eaf3}
+    .education-calendar-page .is-blue{--tone:#2f56e6;--tint:#e8f0ff}
+    .education-calendar-page .is-green{--tone:#15803d;--tint:#dcfce7}
+    .education-calendar-page .is-orange{--tone:#c2410c;--tint:#fff0df}
+    .education-calendar-page .is-red{--tone:#dc2626;--tint:#ffe4e6}
+    .education-calendar-page .is-purple{--tone:#6d4aff;--tint:#efe9ff}
+    /* layout: side cards + the calendar, which gets the rest of the width */
+    .edu-cal-layout.edu-cal-layout{grid-template-columns:13.5rem minmax(0,1fr);align-items:start}
+    .edu-cal-left.edu-cal-left{align-content:start}
+    @media (max-width:1180px){
+        .edu-cal-layout.edu-cal-layout{grid-template-columns:minmax(0,1fr)}
+        .edu-cal-left.edu-cal-left{order:2;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));align-items:stretch}
+    }
+    /* side cards: tone colours, links */
+    .edu-cal-left .edu-event-card>span,.edu-cal-left .edu-important>span{background:var(--tint,#efe9ff);color:var(--tone,#6d4aff)}
+    .edu-cal-left .edu-upcoming>span,.edu-legend.edu-legend span{background:var(--tone,#6d4aff)}
+    .edu-cal-left .edu-event-card strong,.edu-cal-left .edu-important strong,.edu-cal-left .edu-upcoming strong{font-size:.8rem;line-height:1.45;overflow-wrap:anywhere}
+    .edu-cal-left .edu-event-card small,.edu-cal-left .edu-important small,.edu-cal-left .edu-upcoming small,.edu-cal-left .edu-empty{font-size:.72rem;line-height:1.5}
+    .edu-cal-left .edu-event-card,.edu-cal-left .edu-important{grid-template-columns:2.9rem minmax(0,1fr)}
+    .edu-cal-left .edu-upcoming{grid-template-columns:.6rem minmax(0,1fr)}
+    .edu-cal-left .edu-empty{text-align:center;padding:.5rem 0}
+    .edu-cal-left a.edu-side-link{display:block;margin-top:.6rem;padding:.35rem .5rem;border-radius:.5rem;color:#6d4aff;font-size:.78rem;font-weight:600;text-align:center;text-decoration:none}
+    .edu-cal-left a.edu-side-link:hover,.edu-cal-left a.edu-side-link:focus-visible{background:#f3f0ff}
+    .edu-legend.edu-legend{font-size:.78rem;gap:.55rem}
+    .edu-legend .edu-legend-draft{background:repeating-linear-gradient(135deg,#2f56e6 0 3px,#93a8f4 3px 6px)!important;border-radius:3px!important;width:.9rem!important}
+    .edu-legend .edu-legend-cancel{background:#94a3b8!important}
+    .edu-legend-card{scroll-margin:1rem;transition:box-shadow .25s ease,border-color .25s ease}
+    .edu-legend-card.is-flash{border-color:#6d4aff!important;box-shadow:0 0 0 3px rgba(109,74,255,.28)!important}
+    .edu-legend-card:focus{outline:none}
+
+    /* filter toolbar (top of the calendar card) */
+    .edu-cal-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;padding:.65rem .85rem;border-bottom:1px solid var(--cal-line);background:#fbfcfe}
+    .edu-cal-toolbar>svg{flex:none;width:1.1rem;height:1.1rem;fill:none;stroke:#64748b;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .edu-cal-toolbar select{flex:1 1 9.5rem;min-width:0;max-width:100%;min-height:2.2rem;border:1px solid #d8e2ef;border-radius:.55rem;background-color:#fff;color:#07152f;padding:0 .65rem;font-size:.8rem;font-weight:400}
+    .edu-cal-toolbar select.is-set{border-color:#6d4aff;background-color:#f6f3ff}
+    .edu-cal-toolbar .edu-cal-reset{flex:0 0 auto;display:inline-flex;align-items:center;min-height:2.2rem;padding:0 .8rem;border:1px solid #d8e2ef;border-radius:.55rem;background:#fff;color:#142a5f;font-size:.78rem;font-weight:600;text-decoration:none;white-space:nowrap}
+    .edu-cal-toolbar .edu-cal-reset[aria-disabled="true"]{color:#94a3b8;pointer-events:none}
+    /* head: today + prev/next · title · view switch */
+    .edu-calendar-card.edu-calendar-card>header{grid-template-columns:auto minmax(0,1fr) auto}
+    .edu-calendar-card h2{font-size:1.05rem}
+    .edu-cal-btn{display:inline-grid;place-items:center;min-height:2rem;min-width:2rem;padding:0 .75rem;border:1px solid #d8e2ef;border-radius:.5rem;background:#fff;color:#142a5f;font-size:.78rem;font-weight:600;text-decoration:none;white-space:nowrap}
+    .edu-cal-btn:hover{border-color:#b9c7da;background:#f8fbff}
+    .edu-cal-btn svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+    .edu-cal-btn.is-icon{padding:0 .4rem}
+    .edu-cal-view .edu-cal-btn.is-active{border-color:#6d4aff;background:#6d4aff;color:#fff}
+
+    /* month grid */
+    .edu-calendar-grid.edu-calendar-grid>b{font-size:.78rem}
+    .edu-calendar-grid>b>span{display:inline;margin:0;padding:0;border-radius:0;background:none;color:inherit;font:inherit;overflow:visible;white-space:nowrap}
+    .edu-calendar-grid>b>.edu-wd-short{display:none}
+    .edu-calendar-grid.edu-calendar-grid article{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:.25rem;min-width:0;min-height:6.75rem;padding:.4rem}
+    .edu-calendar-grid article.is-empty{background:#fafcfe}
+    .edu-day-link{align-self:flex-start;display:inline-grid;place-items:center;min-width:1.6rem;height:1.6rem;padding:0 .25rem;border-radius:999px;color:#475569;font-size:.8rem;font-weight:700;text-decoration:none}
+    .edu-day-link::after{content:"";position:absolute;inset:0;z-index:0}
+    .edu-day-link:hover,.edu-day-link:focus-visible{background:#eef2f7}
+    .is-today>.edu-day-link{background:#6d4aff;color:#fff}
+    .edu-chip.edu-chip{position:relative;z-index:1;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;text-overflow:clip;max-width:none;margin:0;padding:0 .4rem;border:.25rem solid transparent;border-inline-width:0;border-radius:.4rem;background:var(--tone,#6d4aff);color:#fff;font-size:.76rem;font-weight:600;line-height:1.4;overflow-wrap:anywhere;text-decoration:none;cursor:pointer}
+    .edu-chip.edu-chip:hover,.edu-chip.edu-chip:focus-visible{filter:brightness(1.08);outline:2px solid #0b1a3b;outline-offset:1px}
+    /* the vertical padding is a transparent border: overflow clips at the padding box, so a clamped 3rd line can't peek out */
+    .edu-chip time{font-weight:700;opacity:.92;margin-inline-end:.25em}
+    .edu-chip.is-draft,.edu-agenda-item.is-draft .edu-agenda-bar{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.2) 0 6px,transparent 6px 12px)}
+    .edu-chip.is-cancelled{background:#94a3b8;text-decoration:line-through}
+    .edu-more{position:relative;z-index:1;align-self:flex-start;padding:.1rem .35rem;border-radius:.35rem;color:#4b3bd1;font-size:.74rem;font-weight:600;text-decoration:none}
+    .edu-more:hover,.edu-more:focus-visible{background:#f3f0ff}
+    .edu-calendar-grid .edu-more-text{display:inline;margin:0;padding:0;border-radius:0;background:none;color:inherit;font:inherit;overflow:visible;white-space:normal}
+
+    /* week */
+    .edu-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+    .edu-week-day{display:flex;flex-direction:column;gap:.3rem;min-width:0;min-height:12rem;padding:.45rem;border-left:1px solid #edf2f7;background:#fff}
+    .edu-week-day:last-child{border-left:0}
+    .edu-week-day.is-today{background:#f7f5ff}
+    .edu-week-head{display:grid;justify-items:center;gap:.1rem;margin:-.45rem -.45rem .25rem;padding:.5rem .25rem;border-bottom:1px solid #edf2f7;color:#475569;text-decoration:none}
+    .edu-week-head small{font-size:.74rem;font-weight:600}
+    .edu-week-head b{font-size:.95rem;font-weight:700;color:#0b1a3b}
+    .is-today .edu-week-head b{color:#6d4aff}
+    .edu-week-head:hover,.edu-week-head:focus-visible{background:#f8fbff}
+    .edu-week .edu-chip.edu-chip{-webkit-line-clamp:3}
+    .edu-week-empty{display:none;color:#94a3b8;font-size:.76rem}
+    @media (max-width:900px){
+        .edu-week{grid-template-columns:minmax(0,1fr)}
+        .edu-week-day{min-height:0;border-left:0;border-bottom:1px solid #edf2f7}
+        .edu-week-head{grid-template-columns:auto auto;justify-content:start;gap:.5rem;margin-bottom:0}
+        .edu-week-empty{display:block}
+        .edu-week .edu-chip.edu-chip{-webkit-line-clamp:2}
+    }
+
+    /* day + list: agenda rows */
+    .edu-agenda{display:grid;gap:.5rem;padding:.85rem}
+    .edu-agenda-item{display:grid;grid-template-columns:5.5rem .3rem minmax(0,1fr);gap:.75rem;align-items:stretch;padding:.6rem .7rem;border:1px solid #e7edf5;border-radius:.7rem;background:#fff;color:#0b1a3b;text-decoration:none}
+    a.edu-agenda-item:hover,a.edu-agenda-item:focus-visible{border-color:#c7d3e3;background:#f8fbff}
+    .edu-agenda-time{display:grid;align-content:center;gap:.1rem;color:#334155;font-size:.8rem;font-weight:700;text-align:center}
+    .edu-agenda-time small{color:#64748b;font-size:.72rem;font-weight:400}
+    .edu-agenda-bar{border-radius:999px;background:var(--tone,#6d4aff)}
+    .edu-agenda-item.is-cancelled .edu-agenda-bar{background:#94a3b8}
+    .edu-agenda-body{display:grid;gap:.2rem;min-width:0}
+    .edu-agenda-body b{font-size:.88rem;font-weight:700;line-height:1.5;overflow-wrap:anywhere}
+    .edu-agenda-item.is-cancelled .edu-agenda-body b{text-decoration:line-through;color:#64748b}
+    .edu-agenda-meta{display:flex;flex-wrap:wrap;gap:.3rem .6rem;color:#64748b;font-size:.74rem}
+    .edu-agenda-pill{display:inline-flex;align-items:center;padding:.05rem .45rem;border-radius:999px;background:var(--tint,#efe9ff);color:var(--tone,#6d4aff);font-size:.7rem;font-weight:600}
+    .edu-agenda-empty{padding:2.5rem 1rem;color:#64748b;font-size:.85rem;text-align:center}
+    .edu-list{display:grid;gap:1rem;padding:.85rem}
+    .edu-list>section{display:grid;gap:.5rem;min-width:0}
+    .edu-list h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;margin:0;font-size:.88rem;font-weight:700}
+    .edu-list h3 a{color:#0b1a3b;text-decoration:none}
+    .edu-list h3 a:hover{color:#6d4aff}
+    .edu-list h3 small{color:#64748b;font-size:.74rem;font-weight:400}
+    .edu-list .is-today h3 a{color:#6d4aff}
+    .edu-list .edu-agenda{padding:0}
+    @media (max-width:480px){
+        .edu-agenda-item{grid-template-columns:.3rem minmax(0,1fr);gap:.55rem}
+        .edu-agenda-time{grid-column:2;grid-row:1;display:flex;gap:.4rem;justify-content:flex-start;text-align:start}
+        .edu-agenda-bar{grid-column:1;grid-row:1 / span 2}
+        .edu-agenda-body{grid-column:2}
+    }
+
+    /* phones: month cells too narrow for titles — chips become coloured bars (title on tap/hover), tap a day to open it */
+    @media (max-width:640px){
+        .edu-calendar-grid.edu-calendar-grid article{min-height:3.9rem;padding:.2rem;gap:.15rem}
+        .edu-calendar-grid .edu-chip.edu-chip{display:block;height:.4rem;padding:0;border:0;border-radius:999px;font-size:0;line-height:0;color:transparent}
+        .edu-calendar-grid .edu-chip.edu-chip:focus-visible{outline-offset:0}
+        .edu-day-link{min-width:1.35rem;height:1.35rem;font-size:.72rem}
+        .edu-more{padding:0;font-size:.68rem}
+        .edu-more .edu-more-text{display:none}
+        .edu-calendar-grid.edu-calendar-grid>b{font-size:.74rem;letter-spacing:0}
+        .edu-calendar-grid>b>.edu-wd-full{display:none}
+        .edu-calendar-grid>b>.edu-wd-short{display:inline}
+    }
+    @media (max-width:560px){
+        .edu-cal-toolbar{padding:.55rem}
+        .edu-cal-toolbar select{flex-basis:8rem}
+    }
+    @media (max-width:360px){
+        .edu-cal-toolbar>svg{display:none}
+        .edu-cal-toolbar select,.edu-cal-toolbar .edu-cal-reset{flex:1 1 100%;justify-content:center}
+        .edu-cal-btn{padding:0 .45rem}
+    }
+</style>
 <section class="super-admin-page education-calendar-page super-admin-workspace" dir="rtl" data-fixed-scroll-page>
     <header class="edu-cal-header">
         <div>
@@ -48,7 +193,7 @@
             <section>
                 <h2>رویدادهای امروز</h2>
                 {% for event in today_events %}
-                    <article class="edu-event-card is-{{ event.tone }}">
+                    <article class="edu-event-card is-{{ event.tone }}" title="{{ event.tip|fa_digits }}">
                         <span>{{ event.time|fa_digits }}</span>
                         <div>
                             <strong>{{ event.title|fa_digits }}</strong>
@@ -58,7 +203,7 @@
                 {% empty %}
                     <p class="edu-empty">امروز رویدادی ثبت نشده است.</p>
                 {% endfor %}
-                <a href="#">مشاهده همه</a>
+                <a class="edu-side-link" href="{{ today_day_url }}">{% if all_today_count %}مشاهده همه ({{ all_today_count|fa_digits }}){% else %}نمایش روز امروز{% endif %}</a>
             </section>
 
             <section>
@@ -67,108 +212,33 @@
                     <article class="edu-important is-{{ item.tone }}">
                         <span>☆</span>
                         <div>
-                            <strong>{{ item.title }}</strong>
+                            <strong>{{ item.title|fa_digits }}</strong>
                             <small>{{ item.date|fa_digits }}</small>
                         </div>
                     </article>
+                {% empty %}
+                    <p class="edu-empty">در این ماه رویداد مهمی نیست.</p>
                 {% endfor %}
-                <a href="#">راهنمای رنگ‌ها</a>
+                <a class="edu-side-link" href="#edu-cal-legend" data-legend-jump data-live-skip data-no-loader>راهنمای رنگ‌ها</a>
             </section>
 
-            <section>
+            <section class="edu-legend-card" id="edu-cal-legend" tabindex="-1">
                 <h2>راهنمای رنگ‌ها</h2>
                 <ul class="edu-legend">
-                    <li><span class="is-purple"></span>رویداد آموزشی</li>
                     <li><span class="is-blue"></span>آزمون</li>
-                    <li><span class="is-orange"></span>ضرب‌الاجل</li>
-                    <li><span class="is-green"></span>کلاس برنامه‌ریزی شده</li>
+                    <li><span class="is-green"></span>کلاس / جلسه</li>
+                    <li><span class="is-orange"></span>ضرب‌الاجل و مهلت</li>
+                    <li><span class="is-red"></span>تعطیلی</li>
+                    <li><span class="is-purple"></span>سایر رویدادهای آموزشی</li>
+                    <li><span class="edu-legend-draft"></span>آزمون پیش‌نویس (راه‌راه)</li>
+                    <li><span class="edu-legend-cancel"></span>لغو شده (خط‌خورده)</li>
                 </ul>
-            </section>
-        </aside>
-
-        <main class="edu-cal-main">
-            <div class="edu-calendar-card">
-                <header>
-                    <button type="button">امروز</button>
-                    <div class="edu-cal-nav"><a class="edu-cal-nav-btn" style="display:inline-grid;place-items:center;min-height:32px;border:1px solid #d8e2ef;border-radius:8px;background:white;color:#142a5f;padding:0 12px;font-size:11px;font-weight:700;text-decoration:none" href="?year={{ previous_month.0 }}&month={{ previous_month.1 }}" aria-label="ماه قبل">‹</a><a class="edu-cal-nav-btn" style="display:inline-grid;place-items:center;min-height:32px;border:1px solid #d8e2ef;border-radius:8px;background:white;color:#142a5f;padding:0 12px;font-size:11px;font-weight:700;text-decoration:none" href="?year={{ next_month.0 }}&month={{ next_month.1 }}" aria-label="ماه بعد">›</a></div>
-                    <h2>{{ month_title|fa_digits }}</h2>
-                    <div class="edu-cal-view">
-                        <button type="button">روز</button>
-                        <button type="button">هفته</button>
-                        <button type="button" class="is-active">ماه</button>
-                        <button type="button">لیست</button>
-                    </div>
-                </header>
-
-                <div class="edu-calendar-grid">
-                    {% for day_name in weekday_names %}
-                        <b>{{ day_name }}</b>
-                    {% endfor %}
-                    {% for item in calendar_days %}
-                        <article class="{% if item.is_today %}is-today{% endif %}">
-                            {% if item.day %}
-                                <strong>{{ item.day|fa_digits }}</strong>
-                                {% for event in item.events %}
-                                    <span class="is-{{ event.tone }}">{{ event.title|truncatechars:18|fa_digits }}</span>
-                                {% endfor %}
-                                {% if item.more_count %}
-                                    <em>{{ item.more_count|fa_digits }} مورد دیگر</em>
-                                {% endif %}
-                            {% endif %}
-                        </article>
-                    {% endfor %}
-                </div>
-            </div>
-        </main>
-
-        <aside class="edu-cal-right">
-            <section class="edu-filter-card">
-                <h2>فیلتر و نمایش</h2>
-                <form method="get">
-                    <label>
-                        نوع رویداد
-                        <select name="type">
-                            <option value="" {% if not event_type_filter %}selected{% endif %}>همه رویدادها</option>
-                            <option value="exam" {% if event_type_filter == 'exam' %}selected{% endif %}>آزمون‌ها</option>
-                        </select>
-                    </label>
-                    <label>
-                        درس
-                        <select name="course">
-                            <option value="">همه دروس</option>
-                            {% for course in courses %}
-                                <option value="{{ course }}" {% if course_filter == course %}selected{% endif %}>{{ course|fa_digits }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                    <label>
-                        گروه
-                        <select name="group">
-                            <option>همه گروه‌ها</option>
-                        </select>
-                    </label>
-                    <label>
-                        استاد
-                        <select name="teacher">
-                            <option value="">همه استادها</option>
-                            {% for teacher in teachers %}
-                                <option value="{{ teacher }}" {% if teacher_filter == teacher %}selected{% endif %}>{{ teacher|fa_digits }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                    <div>
-                        <button type="button" class="is-active">ماه</button>
-                        <button type="button">هفته</button>
-                        <button type="button">لیست</button>
-                    </div>
-                    <button type="submit">پاکسازی فیلترها</button>
-                </form>
             </section>
 
             <section>
-                <h2>بازه زمانی رویدادهای پیش‌رو</h2>
+                <h2>رویدادهای پیش‌رو</h2>
                 {% for event in upcoming_events %}
-                    <article class="edu-upcoming is-{{ event.tone }}">
+                    <article class="edu-upcoming is-{{ event.tone }}" title="{{ event.tip|fa_digits }}">
                         <span></span>
                         <div>
                             <strong>{{ event.title|fa_digits }}</strong>
@@ -180,6 +250,139 @@
                 {% endfor %}
             </section>
         </aside>
+
+        <main class="edu-cal-main">
+            <div class="edu-calendar-card">
+                <form class="edu-cal-toolbar" method="get" aria-label="فیلتر رویدادها">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></svg>
+                    <input type="hidden" name="view" value="{{ view_mode }}">
+                    <input type="hidden" name="year" value="{{ selected_year }}">
+                    <input type="hidden" name="month" value="{{ selected_month }}">
+                    <input type="hidden" name="day" value="{{ focus_day }}">
+                    <select name="type" aria-label="نوع رویداد" onchange="this.form.requestSubmit()"{% if event_type_filter %} class="is-set"{% endif %}>
+                        <option value="">همه رویدادها</option>
+                        <option value="exam" {% if event_type_filter == 'exam' %}selected{% endif %}>آزمون‌ها</option>
+                        <option value="session" {% if event_type_filter == 'session' %}selected{% endif %}>کلاس‌ها و جلسه‌ها</option>
+                        <option value="deadline" {% if event_type_filter == 'deadline' %}selected{% endif %}>مهلت‌ها</option>
+                        <option value="holiday" {% if event_type_filter == 'holiday' %}selected{% endif %}>تعطیلات</option>
+                    </select>
+                    <select name="course" aria-label="درس" onchange="this.form.requestSubmit()"{% if course_filter %} class="is-set"{% endif %}>
+                        <option value="">همه دروس</option>
+                        {% for course in courses %}
+                            <option value="{{ course }}" {% if course_filter == course %}selected{% endif %}>{{ course|fa_digits }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="group" aria-label="گروه" onchange="this.form.requestSubmit()"{% if group_filter %} class="is-set"{% endif %}>
+                        <option value="">همه گروه‌ها</option>
+                        {% for group_id, group_name in groups %}
+                            <option value="{{ group_id }}" {% if group_filter == group_id %}selected{% endif %}>{{ group_name|fa_digits }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="teacher" aria-label="استاد" onchange="this.form.requestSubmit()"{% if teacher_filter %} class="is-set"{% endif %}>
+                        <option value="">همه استادها</option>
+                        {% for teacher in teachers %}
+                            <option value="{{ teacher }}" {% if teacher_filter == teacher %}selected{% endif %}>{{ teacher|fa_digits }}</option>
+                        {% endfor %}
+                    </select>
+                    <a class="edu-cal-reset" href="{{ reset_url }}"{% if not has_filters %} aria-disabled="true" tabindex="-1"{% endif %}>بازنشانی فیلترها</a>
+                </form>
+
+                <header>
+                    <div class="edu-cal-nav">
+                        <a class="edu-cal-btn" href="{{ today_url }}">امروز</a>
+                        <a class="edu-cal-btn is-icon" href="{{ previous_url }}" aria-label="{{ previous_label }}" title="{{ previous_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a>
+                        <a class="edu-cal-btn is-icon" href="{{ next_url }}" aria-label="{{ next_label }}" title="{{ next_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></a>
+                    </div>
+                    <h2>{{ heading|fa_digits }}</h2>
+                    <nav class="edu-cal-view" aria-label="نوع نمایش">
+                        {% for link in view_links %}
+                            <a class="edu-cal-btn{% if link.active %} is-active{% endif %}" href="{{ link.url }}"{% if link.active %} aria-current="page"{% endif %}>{{ link.label }}</a>
+                        {% endfor %}
+                    </nav>
+                </header>
+
+                {% if view_mode == 'month' %}
+                    <div class="edu-calendar-grid">
+                        {% for day_name in weekday_names %}
+                            <b title="{{ day_name }}"><span class="edu-wd-full">{{ day_name }}</span><span class="edu-wd-short">{{ day_name|slice:":1" }}</span></b>
+                        {% endfor %}
+                        {% for item in calendar_days %}
+                            {% if item.day %}
+                                <article class="{% if item.is_today %}is-today{% endif %}">
+                                    <a class="edu-day-link" href="{{ item.url }}" aria-label="{{ item.weekday }} {{ item.day|fa_digits }} {{ item.month_name }}">{{ item.day|fa_digits }}</a>
+                                    {% for event in item.events %}
+                                        {% if event.url %}<a href="{{ event.url }}"{% else %}<span tabindex="0"{% endif %} class="edu-chip is-{{ event.tone }}{% if event.is_draft %} is-draft{% endif %}{% if event.is_cancelled %} is-cancelled{% endif %}" title="{{ event.tip|fa_digits }}" aria-label="{{ event.tip|fa_digits }}"><time>{{ event.time|fa_digits }}</time>{{ event.title|fa_digits }}{% if event.url %}</a>{% else %}</span>{% endif %}
+                                    {% endfor %}
+                                    {% if item.more_count %}
+                                        <a class="edu-more" href="{{ item.url }}" title="همه رویدادهای این روز"><bdi dir="ltr">+{{ item.more_count|fa_digits }}</bdi><span class="edu-more-text"> مورد دیگر</span></a>
+                                    {% endif %}
+                                </article>
+                            {% else %}
+                                <article class="is-empty" aria-hidden="true"></article>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% elif view_mode == 'week' %}
+                    <div class="edu-week">
+                        {% for item in week_days %}
+                            <section class="edu-week-day{% if item.is_today %} is-today{% endif %}">
+                                <a class="edu-week-head" href="{{ item.url }}"><small>{{ item.weekday }}</small><b>{{ item.day|fa_digits }} {{ item.month_name }}</b></a>
+                                {% for event in item.events %}
+                                    {% if event.url %}<a href="{{ event.url }}"{% else %}<span tabindex="0"{% endif %} class="edu-chip is-{{ event.tone }}{% if event.is_draft %} is-draft{% endif %}{% if event.is_cancelled %} is-cancelled{% endif %}" title="{{ event.tip|fa_digits }}" aria-label="{{ event.tip|fa_digits }}"><time>{{ event.time|fa_digits }}</time>{{ event.title|fa_digits }}{% if event.url %}</a>{% else %}</span>{% endif %}
+                                {% empty %}
+                                    <p class="edu-week-empty">رویدادی نیست.</p>
+                                {% endfor %}
+                            </section>
+                        {% endfor %}
+                    </div>
+                {% elif view_mode == 'day' %}
+                    <div class="edu-agenda">
+                        {% for event in focus_info.events %}
+                            {% if event.url %}<a href="{{ event.url }}"{% else %}<div{% endif %} class="edu-agenda-item is-{{ event.tone }}{% if event.is_draft %} is-draft{% endif %}{% if event.is_cancelled %} is-cancelled{% endif %}" title="{{ event.tip|fa_digits }}">
+                                <span class="edu-agenda-time">{{ event.time|fa_digits }}{% if event.end_time %}<small>تا {{ event.end_time|fa_digits }}</small>{% endif %}</span>
+                                <span class="edu-agenda-bar" aria-hidden="true"></span>
+                                <span class="edu-agenda-body">
+                                    <b>{{ event.title|fa_digits }}</b>
+                                    <span class="edu-agenda-meta">
+                                        <span class="edu-agenda-pill">{{ event.type_label }}{% if event.status_label %} · {{ event.status_label }}{% endif %}</span>
+                                        {% if event.course != '-' %}<span>{{ event.course|fa_digits }}</span>{% endif %}
+                                        {% if event.teacher != '-' %}<span>{{ event.teacher|fa_digits }}</span>{% endif %}
+                                    </span>
+                                </span>
+                            {% if event.url %}</a>{% else %}</div>{% endif %}
+                        {% empty %}
+                            <p class="edu-agenda-empty">در این روز رویدادی ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="edu-list" data-pager>
+                        {% for item in list_days %}
+                            <section class="{% if item.is_today %}is-today{% endif %}">
+                                <h3><a href="{{ item.url }}">{{ item.weekday }} {{ item.day|fa_digits }} {{ item.month_name }}</a><small>{{ item.events|length|fa_digits }} رویداد</small></h3>
+                                <div class="edu-agenda">
+                                    {% for event in item.events %}
+                                        {% if event.url %}<a href="{{ event.url }}"{% else %}<div{% endif %} class="edu-agenda-item is-{{ event.tone }}{% if event.is_draft %} is-draft{% endif %}{% if event.is_cancelled %} is-cancelled{% endif %}" title="{{ event.tip|fa_digits }}">
+                                            <span class="edu-agenda-time">{{ event.time|fa_digits }}{% if event.end_time %}<small>تا {{ event.end_time|fa_digits }}</small>{% endif %}</span>
+                                            <span class="edu-agenda-bar" aria-hidden="true"></span>
+                                            <span class="edu-agenda-body">
+                                                <b>{{ event.title|fa_digits }}</b>
+                                                <span class="edu-agenda-meta">
+                                                    <span class="edu-agenda-pill">{{ event.type_label }}{% if event.status_label %} · {{ event.status_label }}{% endif %}</span>
+                                                    {% if event.course != '-' %}<span>{{ event.course|fa_digits }}</span>{% endif %}
+                                                    {% if event.teacher != '-' %}<span>{{ event.teacher|fa_digits }}</span>{% endif %}
+                                                </span>
+                                            </span>
+                                        {% if event.url %}</a>{% else %}</div>{% endif %}
+                                    {% endfor %}
+                                </div>
+                            </section>
+                        {% empty %}
+                            <p class="edu-agenda-empty">در این ماه رویدادی ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </main>
     </div>
 
     <section class="edu-cal-bottom" id="admin-calendar-bottom" data-live-region>
@@ -216,4 +419,21 @@
         </article>
     </section>
 </section>
+<script>
+/* «راهنمای رنگ‌ها» link: scroll to the colour legend card and highlight it (delegated: the link sits in a live region). */
+document.addEventListener('click', (event) => {
+    const link = event.target.closest && event.target.closest('[data-legend-jump]');
+    if (!link) return;
+    const card = document.getElementById('edu-cal-legend');
+    if (!card) return;
+    event.preventDefault();
+    card.scrollIntoView({behavior: 'smooth', block: 'center'});
+    card.focus({preventScroll: true});
+    card.classList.remove('is-flash');
+    void card.offsetWidth;
+    card.classList.add('is-flash');
+    clearTimeout(card._mqFlash);
+    card._mqFlash = setTimeout(() => card.classList.remove('is-flash'), 1800);
+});
+</script>
 {% endblock %}

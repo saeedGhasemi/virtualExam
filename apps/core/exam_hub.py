@@ -1138,6 +1138,8 @@ def _review(exam, request):
         'state_counts': {s: sum(1 for r in out if r['status'] == s) for s in REVIEW_ITEM_STATES},
         'filters': {'kinds': kinds if len(kinds) < len(REVIEW_KINDS) or any(get.get(f'k_{k}') for k in REVIEW_KINDS) else list(REVIEW_KINDS),
                     'states': states, 'question': question, 'student': student, 'q': q},
+        # «پاکسازی» has something to clear (the panel's «اعمال فیلتر» / «پاکسازی» buttons: dirty-form.js)
+        'is_filtered': len(kinds) < len(REVIEW_KINDS) or bool(states or question or student or q),
         'note_max': NOTE_MAX,
     }
 
@@ -1435,10 +1437,12 @@ def _save_settings(request, exam, done):
     from .views import _parse_exam_wizard_datetime
 
     post = request.POST
+    current = _settings(exam)
     updates = {}
-    if post.get('score_display_mode') in RESULT_DISPLAY_MODES:
+    if post.get('score_display_mode') in RESULT_DISPLAY_MODES and post['score_display_mode'] != current['score_mode']:
         updates['score_display_mode'] = post['score_display_mode']
-    updates['correct_answer_display_mode'] = 'after_publish' if post.get('show_key') else 'manual'
+    if bool(post.get('show_key')) != current['key_shown']:  # an 'immediate' key stays as it is while the box stays on
+        updates['correct_answer_display_mode'] = 'after_publish' if post.get('show_key') else 'manual'
     if exam['can']['schedule']:
         title = ' '.join((post.get('title') or '').split())[:TITLE_MAX]
         if not title:
@@ -1453,15 +1457,35 @@ def _save_settings(request, exam, done):
             end = start + timedelta(minutes=duration)
         if start and end and end <= start:
             return done('پایان آزمون باید بعد از شروع آن باشد.', ok=False)
-        updates.update({'title': title, 'duration_minutes': duration, 'start_at': start, 'end_at': end,
-                        'max_attempts': _posted_max_attempts(post), 'shuffle_questions': bool(post.get('shuffle_questions'))})
-        rules = _sx_exam_rules(exam['id'])
-        if rules['settings_enforced']:
+
+        def minute(value):
+            return timezone.localtime(value).replace(second=0, microsecond=0) if value else None
+
+        scheduled = {'title': title, 'duration_minutes': duration, 'start_at': start, 'end_at': end,
+                     'max_attempts': _posted_max_attempts(post), 'shuffle_questions': bool(post.get('shuffle_questions'))}
+        saved = {'title': exam.get('title') or '', 'duration_minutes': exam.get('duration_minutes') or 90,  # the form's default
+                 'start_at': exam.get('start_at'), 'end_at': exam.get('end_at'),
+                 'max_attempts': current['max_attempts'], 'shuffle_questions': current['shuffle']}
+        for column, value in scheduled.items():
+            old = saved[column]
+            same = minute(value) == minute(old) if column in ('start_at', 'end_at') else value == old
+            unposted_end = not old and not (post.get('end_at') or '').strip()
+            if column == 'end_at' and unposted_end and 'start_at' not in updates and 'duration_minutes' not in updates:
+                same = True  # no end stored and none posted: the end filled in from the duration is not a change
+            if not same:
+                updates[column] = value
+        if current['settings_enforced'] and post.get('autosave_interval_seconds') is not None:
             try:
-                updates['autosave_interval_seconds'] = max(0, min(int(post.get('autosave_interval_seconds') or 0), 300))
+                autosave = max(0, min(int(post.get('autosave_interval_seconds') or 0), 300))
             except ValueError:
-                pass
+                autosave = current['autosave']
+            if autosave != current['autosave']:
+                updates['autosave_interval_seconds'] = autosave
     columns = [column for column in updates if erd_has_column('exams', column)]
+    if not columns:
+        # nothing differs from what is saved: say so instead of claiming a save (the button is disabled until a change)
+        messages.info(request, 'تغییری ثبت نشد؛ تنظیمات آزمون همان مقادیر قبلی است.')
+        return redirect(f"{_urls(exam['role'], exam['id'])['hub']}?tab=settings")
     erd_execute(f"UPDATE exams SET {', '.join(f'{c} = %s' for c in columns)} WHERE id = %s",
                 [updates[c] for c in columns] + [exam['id']])
     log_activity(request.user, 'exam_settings_updated', 'تنظیمات آزمون از صفحه‌ی مدیریت آزمون ذخیره شد.', request,
