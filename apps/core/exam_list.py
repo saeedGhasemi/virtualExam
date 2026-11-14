@@ -1,7 +1,7 @@
 """Shared exam listing: teacher «آزمون‌های من» and manager/admin «آزمون‌ها» look and work the same.
 
-Page = header («+ آزمون جدید»), status tabs with counts, filter bar (search title/code, course, group, date range,
-sort, table/card switch), the list as a table or as cards, server pager (10 per page).
+Page = header («+ آزمون جدید»), status tabs with counts, filter bar (search title/code, course, group, and for
+managers/admin «مدیر بخش» / «استاد» / «دانشجو» (apps/core/people_filters.py), date range, sort, table/card switch), the list as a table or as cards, server pager (10 per page).
 * Data: views.py `_teacher_exam_list` (SQL) and `super_admin_exams` (Python filtering) build `rows` with the
   fields `present()` fills in, then `listing()` adds tabs and filter options.
 * Template: templates/partials/exam_list/list.html (include with `xl=...`); styles static/css/exam-list.css;
@@ -52,7 +52,9 @@ def read_filters(get, status_keys=STATE_KEYS) -> dict:
         'status': status if status in status_keys else 'all',
         'course': (get.get('course') or '').strip()[:64],
         'group': (get.get('group') or '').strip()[:64],
-        'teacher': (get.get('teacher') or '').strip()[:200],
+        'teacher': (get.get('teacher') or '').strip()[:64],  # profile id (people_filters)
+        'manager': (get.get('manager') or '').strip()[:64],
+        'student': (get.get('student') or '').strip()[:100],
         'date': date if date in DATE_RANGES else '',
         'sort': sort if sort in SORTS else 'newest',
         'view': view if view in VIEWS else 'table',
@@ -130,14 +132,18 @@ def present(row, *, state, primary, preview_url, report_url, menu, code):
     return row
 
 
-def listing(*, rows, page, counts, filters, courses, groups, teachers=None, **extra) -> dict:
-    """Everything templates/partials/exam_list/list.html needs."""
+def listing(*, rows, page, counts, filters, courses, groups, teachers=None, managers=None, student_filter=False,
+            **extra) -> dict:
+    """Everything templates/partials/exam_list/list.html needs. teachers / managers: [{'value', 'label'}] (the
+    «استاد» / «مدیر بخش» selects, hidden when empty); student_filter: show the «دانشجو» search box (people_filters)."""
     return {
         'rows': rows, 'page': page, 'total': page.paginator.count if page else len(rows),
         'tabs': tabs(counts, filters['status']), **filters,
-        'courses': courses, 'groups': groups, 'teachers': teachers or [],
+        'courses': courses, 'groups': groups, 'teachers': teachers or [], 'managers': managers or [],
+        'student_filter': student_filter,
         'date_ranges': DATE_RANGES, 'sorts': SORTS,
         'filtered': bool(filters['query'] or filters['course'] or filters['group'] or filters['date']
-                         or filters['teacher'] or filters['status'] != 'all'),
+                         or filters['teacher'] or filters.get('manager') or filters.get('student')
+                         or filters['status'] != 'all'),
         **extra,
     }

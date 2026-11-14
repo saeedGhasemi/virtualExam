@@ -1188,3 +1188,12 @@ table td.rt-act .rt-ico.rt-ico.rt-ico > svg { width: 1rem; height: 1rem; }
 .mq-row-link, [data-row-href] { cursor: pointer; }
 table:not(.rt-cards) > tbody > tr.mq-row-link:hover > td { background-color: rgba(37, 99, 235, .045); }
 table.rt-cards > tbody > tr.mq-row-link:hover, [data-row-href]:not(tr):hover { border-color: #bfd3f5; box-shadow: 0 10px 26px rgba(37, 99, 235, .09); }
+/* Question bank filters of managers/admin: «مدیر بخش» / «استاد» / «دانشجو» (apps/core/people_filters.py) on a
+   full-width row under the usual grid, fields growing to fill it */
+.question-bank-filters > .question-bank-people { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .75rem; min-width: 0; }
+.question-bank-people > * { flex: 1 1 13rem; min-width: 0; }
+.question-bank-people > .question-bank-student { flex: 1.4 1 16rem; }
+/* long placeholders end in «…»; on the narrowest phones the boxes keep less side padding */
+.question-bank-filters input { text-overflow: ellipsis; }
+@media (max-width: 360px) { .question-bank-filters.question-bank-filters input { padding-left: 2.6rem; padding-right: .75rem; } .question-bank-filters svg { left: .8rem; } }
+@media (max-width: 1180px) { .question-bank-filters > button { order: 1; } } /* stacked: «اعمال فیلتر» after every field */

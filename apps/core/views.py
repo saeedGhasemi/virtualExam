@@ -9023,6 +9023,7 @@ def super_admin_exams(request):
                COALESCE(e.is_cancelled, false) AS is_cancelled,
                COALESCE(c.title, '-') AS course,
                COALESCE(c.code, '-') AS course_code,
+               e.teacher_id,
                COALESCE(p.full_name, '-') AS teacher,
                COALESCE(p.avatar_url, '') AS teacher_avatar,
                COALESCE(eq.question_count, 0) AS question_count,
@@ -9076,6 +9077,21 @@ def super_admin_exams(request):
             """, [str(row['id']) for row in exams]):
             exam_groups.setdefault(str(item['exam_id']), []).append(item)
     code_query = _normalize_exam_code(query)
+    # «مدیر بخش» / «استاد» / «دانشجو» filters (people_filters header): unknown ids are dropped
+    from . import people_filters
+    shown = people_filters.visible(request)
+    manager_options = people_filters.manager_options(request)
+    filters['manager'] = people_filters.valid_manager(request, filters['manager'], manager_options)
+    if not shown['student']:
+        filters['student'] = ''
+    manager_exams = people_filters.manager_exam_ids(filters['manager']) if filters['manager'] else None
+    student_exams = (people_filters.student_exam_ids(people_filters.student_ids(request, filters['student']))
+                     if filters['student'] else None)
+    teacher_options = sorted({(str(row['teacher_id']), row['teacher']) for row in exams
+                              if row.get('teacher_id') and (manager_exams is None or str(row['id']) in manager_exams)},
+                             key=lambda item: (item[1] or '', item[0]))
+    if filters['teacher'] not in {value for value, _label in teacher_options}:
+        filters['teacher'] = ''
     rows, counts = [], {}
     for row in exams:
         status_key, status_label = exam_state(row)
@@ -9088,7 +9104,11 @@ def super_admin_exams(request):
             continue
         if filters['group'] and filters['group'] not in {str(item['group_id']) for item in exam_groups.get(str(row['id']), [])}:
             continue
-        if filters['teacher'] and filters['teacher'] != row['teacher']:
+        if filters['teacher'] and filters['teacher'] != str(row.get('teacher_id') or ''):
+            continue
+        if manager_exams is not None and str(row['id']) not in manager_exams:
+            continue
+        if student_exams is not None and str(row['id']) not in student_exams:
             continue
         if not exam_list.in_date_range(row['start_at'], filters['date'], now):
             continue
@@ -9123,7 +9143,8 @@ def super_admin_exams(request):
         rows=page_rows, page=page, counts=counts, filters=filters,
         courses=[{'value': value, 'label': label} for value, label in courses],
         groups=[{'value': value, 'label': label} for value, label in group_options],
-        teachers=sorted({row['teacher'] for row in exams if row['teacher'] and row['teacher'] != '-'}),
+        teachers=[{'value': value, 'label': label} for value, label in teacher_options] if shown['teacher'] else [],
+        managers=manager_options, student_filter=shown['student'],
     )
     list_url = reverse('core:exam_manager_exams') if request.path.startswith(reverse('core:exam_manager_exams')) else reverse('core:super_admin_exams')
 

@@ -2150,5 +2150,5 @@ window.formatJalaliDateTime = (isoString) => {
 window.dispatchEvent(new Event('jalali-helpers-ready'));
 </script>
 <script>/* Clicking anywhere on a list row ticks its checkbox (not only the small box itself); question-bank rows open the question detail instead. */document.addEventListener('click', (e) => {  const row = e.target.closest('tbody tr');  if (!row || row.matches('[data-question-row]') || e.target.closest('input,a,button,label,select,textarea,summary,details,[contenteditable]')) return;  const boxes = row.querySelectorAll('input[type=checkbox]');  if (boxes.length !== 1 || boxes[0].disabled) return;  boxes[0].click();});</script>
-<link rel="stylesheet" href="{% static 'css/type-multiselect.css' %}?v=20261111b"><script src="{% static 'js/type-multiselect.js' %}?v=20261111d" defer></script>
+<link rel="stylesheet" href="{% static 'css/type-multiselect.css' %}?v=20261111b"><script src="{% static 'js/type-multiselect.js' %}?v=20261114as" defer></script>
 {% endblock %}

@@ -50,6 +50,11 @@
 .xl .xl-filters > .xl-search{flex:2 1 15rem}
 .xl .xl-filters > .xl-select{flex:1 1 11rem}
 .xl .xl-filters > .xl-switch{flex:none}
+/* managers/admin: «مدیر بخش» / «استاد» / «دانشجو» on a row of their own (apps/core/people_filters.py) */
+.xl .xl-filters > .xl-people{display:flex;flex:1 1 100%;flex-wrap:wrap;gap:.6rem;min-width:0}
+.xl .xl-people > .xl-select{flex:1 1 13rem}
+.xl .xl-people > .xl-search{flex:1.4 1 15rem}
+.xl-search input{text-overflow:ellipsis}
 .xl-search input,.xl-select select{width:100%;min-width:0;height:100%;min-height:0;margin:0;padding:0;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;outline:0;color:var(--xl-ink);font:inherit;font-size:.86rem}
 .xl-search input::placeholder{color:#97a2b6}
 .xl-select span{flex:none;color:var(--xl-muted);white-space:nowrap}
@@ -169,7 +174,7 @@
 }
 @media (max-width:420px){
     .xl .xl-tab{padding-inline:.5rem;font-size:.86rem}
-    .xl .xl-filters > .xl-select{flex-basis:100%}
+    .xl .xl-filters > .xl-select,.xl .xl-people > .xl-select,.xl .xl-people > .xl-search{flex-basis:100%}
     .xl-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
     .xl-card{padding:.85rem}
 }

@@ -9693,3 +9693,85 @@ class FieldRulesTests(SimpleTestCase):
         request.user = type('SignedIn', (), {'is_authenticated': True})()
         response = PersonFieldLengthMiddleware(lambda r: None).process_view(request, lambda r: None, (), {})
         self.assertEqual(response.status_code, 400)
+
+
+class PeopleFiltersTests(_ScopedOrgFixture):
+    """«مدیر بخش» / «استاد» / «دانشجو» filters of the manager/admin exam list and question bank (people_filters.py)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE student_profiles SET student_number = '98123' WHERE user_id = %s", [cls.student_out_id])
+        _insert('student_group_members', ['id', 'group_id', 'student_user_id', 'full_name', 'national_id', 'student_number'],
+                [str(uuid.uuid4()), cls.group_in_id, cls.student_in_id, 'دانشجوی داخل محدوده', '0012345679', '97001'])
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), cls.exam_in_id, cls.group_in_id])
+        _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), cls.exam_out_id, cls.student_out_id])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                [str(uuid.uuid4()), cls.exam_in_id, cls.question_in_id, 1, 1])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                [str(uuid.uuid4()), cls.exam_out_id, cls.question_out_id, 1, 1])
+        cls.teacher_user = get_user_model().objects.create_user(
+            username='teacher_in_scope', email='teacher_in_scope@example.com', password='x')
+
+    def _exams(self, **params):
+        listing = self.client.get(reverse('core:super_admin_exams'), params).context['exam_list']
+        return listing, {row['title'] for row in listing['rows']}
+
+    def _questions(self, **params):
+        page = self.client.get(reverse('core:teacher_questions'), params)
+        return page, {row['text'] for row in page.context['questions']}
+
+    def test_admin_exam_list_filters_by_manager_teacher_and_student(self):
+        self.client.force_login(self.admin_user)
+        listing, titles = self._exams()
+        self.assertEqual(titles, {'آزمون داخل محدوده', 'آزمون خارج محدوده'})
+        self.assertIn(self.manager_id, [item['value'] for item in listing['managers']])
+        self.assertTrue(listing['student_filter'])
+        self.assertEqual(self._exams(manager=self.manager_id)[1], {'آزمون داخل محدوده'})
+        self.assertEqual(self._exams(teacher=self.teacher_out_id)[1], {'آزمون خارج محدوده'})
+        self.assertEqual(self._exams(student='دانشجوی خارج')[1], {'آزمون خارج محدوده'})
+        self.assertEqual(self._exams(student='۹۸۱۲۳')[1], {'آزمون خارج محدوده'})  # Persian digits, student number
+        self.assertEqual(self._exams(student='دانشجوی داخل')[1], {'آزمون داخل محدوده'})  # through its group
+        self.assertEqual(self._exams(student='کسی نیست')[1], set())
+        # an unknown id is dropped, not an empty list
+        self.assertEqual(len(self._exams(manager=str(uuid.uuid4()), teacher='x')[1]), 2)
+
+    def test_department_manager_filters_by_teacher_and_in_scope_students_only(self):
+        self.client.force_login(self.manager_user)
+        listing, titles = self._exams()
+        self.assertEqual(listing['managers'], [])  # level 3: no «مدیر بخش» filter
+        self.assertEqual([item['value'] for item in listing['teachers']], [self.teacher_in_id])
+        self.assertTrue(listing['student_filter'])
+        self.assertEqual(self._exams(student='دانشجوی داخل')[1], {'آزمون داخل محدوده'})
+        _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), self.exam_in_id, self.student_out_id])
+        self.assertEqual(self._exams(student='دانشجوی خارج')[1], set())  # a student outside the unit is not matched
+        self.assertEqual(len(self._exams(manager=self.manager_id)[1]), 1)  # ignored for level 3
+
+    def test_admin_question_bank_filters_by_manager_teacher_and_student(self):
+        self.client.force_login(self.admin_user)
+        page, texts = self._questions()
+        self.assertEqual(len(texts), 3)
+        self.assertContains(page, 'name="manager"')
+        self.assertContains(page, 'name="student"')
+        self.assertEqual(self._questions(manager=self.manager_id)[1], {'سوال داخل محدوده', 'آ - سوال دوم داخل محدوده'})
+        self.assertEqual(self._questions(teacher=self.teacher_out_id)[1], {'سوال خارج محدوده'})
+        self.assertEqual(self._questions(student='دانشجوی داخل')[1], {'سوال داخل محدوده'})
+        self.assertEqual(self._questions(student='کسی نیست')[1], set())
+        # with a manager chosen, the «استاد» select lists only that manager's teachers
+        teachers = self._questions(manager=self.manager_id)[0].context['question_people']['teachers']
+        self.assertEqual([item['value'] for item in teachers], [self.teacher_in_id])
+
+    def test_department_manager_question_bank_filters(self):
+        self.client.force_login(self.manager_user)
+        page, texts = self._questions()
+        self.assertNotContains(page, 'name="manager"')
+        self.assertContains(page, 'name="teacher"')
+        self.assertEqual(self._questions(teacher=self.teacher_in_id, student='دانشجوی داخل')[1], {'سوال داخل محدوده'})
+        self.assertEqual(len(self._questions(teacher=self.teacher_out_id)[1]), 2)  # out of scope id: dropped
+
+    def test_teacher_gets_no_people_filters(self):
+        self.client.force_login(self.teacher_user)
+        page, texts = self._questions(student='دانشجوی خارج', teacher=self.teacher_out_id)
+        self.assertNotContains(page, 'name="student"')
+        self.assertEqual(texts, {'سوال داخل محدوده', 'آ - سوال دوم داخل محدوده'})

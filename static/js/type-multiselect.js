@@ -1,7 +1,9 @@
 /* Multi-select dropdown of question types; markup and styles in static/css/type-multiselect.css.
    Ticking a type updates the summary text and fires a bubbling "mq:type-ms-change" event
    (event.detail.keys = Set of picked values) on the <details>. Inside a form the checkboxes
-   submit as repeated name=value pairs. All listeners are delegated, so it also works in live regions. */
+   submit as repeated name=value pairs. All listeners are delegated, so it also works in live regions.
+   data-submit-on-close (filter forms): when the dropdown closes with a different pick than it opened with, its form
+   is submitted (requestSubmit, so live regions apply it without a reload); ticking several types stays one request. */
 (() => {
     const ALL = 'همه انواع سؤال';
     const fa = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -16,6 +18,16 @@
         }
         ms.dispatchEvent(new CustomEvent('mq:type-ms-change', {bubbles: true, detail: {keys: new Set(picked.map((o) => o.value))}}));
     };
+    const picks = (ms) => [...ms.querySelectorAll('[data-type-option]:checked')].map((o) => o.value).join(',');
+    document.addEventListener('toggle', (event) => {  // <details> toggle does not bubble: listen in the capture phase
+        const ms = event.target;
+        if (!ms.matches || !ms.matches('[data-type-ms][data-submit-on-close]')) return;
+        if (ms.open) { ms.dataset.openPicks = picks(ms); return; }
+        const before = ms.dataset.openPicks;
+        delete ms.dataset.openPicks;
+        const form = ms.closest('form');
+        if (before !== undefined && before !== picks(ms) && form) form.requestSubmit();
+    }, true);
     document.addEventListener('change', (event) => {
         const ms = event.target.closest && event.target.matches('[data-type-option]') && event.target.closest('[data-type-ms]');
         if (ms) sync(ms);

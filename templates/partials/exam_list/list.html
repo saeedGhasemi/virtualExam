@@ -1,9 +1,10 @@
 {% load core_extras static %}{% comment %}
 Shared exam list (teacher «آزمون‌های من», manager/admin «آزمون‌ها»), see apps/core/exam_list.py.
 Include with: xl (exam_list.listing()), xl_title, xl_subtitle, xl_new_url, xl_list_url, optional xl_region (live-region id),
-xl_teacher_col (show the teacher under the course), and a block of extra header links via xl_head_links (list of {url,label}).
+xl_teacher_col (show the teacher under the course), and (managers/admin) the «مدیر بخش» / «استاد» selects and the «دانشجو»
+search box from xl.managers / xl.teachers / xl.student_filter (apps/core/people_filters.py), and a block of extra header links via xl_head_links (list of {url,label}).
 {% endcomment %}
-<link rel="stylesheet" href="{% static 'css/exam-list.css' %}?v=xl-20261112b">
+<link rel="stylesheet" href="{% static 'css/exam-list.css' %}?v=xl-20261114rs">
 {% include 'partials/exam_list/sprite.html' %}
 <div class="xl" data-xl dir="rtl">
     <header class="xl-head">
@@ -32,13 +33,17 @@ xl_teacher_col (show the teacher under the course), and a block of extra header 
             <label class="xl-search"><svg aria-hidden="true"><use href="#xl-i-search"/></svg><span class="sr-only">جستجو</span><input type="search" name="q" value="{{ xl.query }}" maxlength="100" placeholder="جستجو در عنوان یا کد آزمون..."></label>
             <label class="xl-select"><span>درس:</span><select name="course" onchange="this.form.requestSubmit()"><option value="">همه درس‌ها</option>{% for item in xl.courses %}<option value="{{ item.value }}"{% if item.value == xl.course %} selected{% endif %}>{{ item.label|fa_digits }}</option>{% endfor %}</select></label>
             <label class="xl-select"><span>گروه:</span><select name="group" onchange="this.form.requestSubmit()"><option value="">همه گروه‌ها</option>{% for item in xl.groups %}<option value="{{ item.value }}"{% if item.value == xl.group %} selected{% endif %}>{{ item.label|fa_digits }}</option>{% endfor %}</select></label>
-            {% if xl.teachers %}<label class="xl-select"><span>استاد:</span><select name="teacher" onchange="this.form.requestSubmit()"><option value="">همه استادان</option>{% for item in xl.teachers %}<option value="{{ item }}"{% if item == xl.teacher %} selected{% endif %}>{{ item|fa_digits }}</option>{% endfor %}</select></label>{% endif %}
             <label class="xl-select"><svg aria-hidden="true"><use href="#xl-i-calendar"/></svg><span>بازه تاریخ:</span><select name="date" onchange="this.form.requestSubmit()">{% for key, label in xl.date_ranges.items %}<option value="{{ key }}"{% if key == xl.date %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
             <label class="xl-select"><span>مرتب‌سازی:</span><select name="sort" onchange="this.form.requestSubmit()">{% for key, label in xl.sorts.items %}<option value="{{ key }}"{% if key == xl.sort %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
             <div class="xl-switch" role="group" aria-label="نوع نمایش">
                 <button type="button" data-xl-view="table" class="{% if xl.view == 'table' %}is-active{% endif %}" aria-pressed="{% if xl.view == 'table' %}true{% else %}false{% endif %}" title="نمایش جدولی" aria-label="نمایش جدولی"><svg aria-hidden="true"><use href="#xl-i-table"/></svg></button>
                 <button type="button" data-xl-view="cards" class="{% if xl.view == 'cards' %}is-active{% endif %}" aria-pressed="{% if xl.view == 'cards' %}true{% else %}false{% endif %}" title="نمایش کارتی" aria-label="نمایش کارتی"><svg aria-hidden="true"><use href="#xl-i-cards"/></svg></button>
             </div>
+            {% if xl.managers or xl.teachers or xl.student_filter %}<div class="xl-people">
+                {% if xl.managers %}<label class="xl-select"><span>مدیر بخش:</span><select name="manager" onchange="this.form.requestSubmit()"><option value="">همه مدیران بخش</option>{% for item in xl.managers %}<option value="{{ item.value }}"{% if item.value == xl.manager %} selected{% endif %}>{{ item.label|fa_digits }}</option>{% endfor %}</select></label>{% endif %}
+                {% if xl.teachers %}<label class="xl-select"><span>استاد:</span><select name="teacher" onchange="this.form.requestSubmit()"><option value="">همه استادان</option>{% for item in xl.teachers %}<option value="{{ item.value }}"{% if item.value == xl.teacher %} selected{% endif %}>{{ item.label|fa_digits }}</option>{% endfor %}</select></label>{% endif %}
+                {% if xl.student_filter %}<label class="xl-search xl-student"><svg aria-hidden="true"><use href="#xl-i-users"/></svg><span class="sr-only">جستجوی دانشجو (نام، نام کاربری، شماره دانشجویی یا کد ملی)</span><input type="search" name="student" value="{{ xl.student }}" maxlength="100" placeholder="دانشجو: نام یا شماره دانشجویی"></label>{% endif %}
+            </div>{% endif %}
             <noscript><button type="submit">جستجو</button></noscript>
         </form>
 

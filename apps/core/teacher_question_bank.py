@@ -8,6 +8,8 @@ Who sees what (bank_owner):
 - system admin («مدیر کل»): every question in the system (owner None).
 Managers and the admin may open, edit (saved under the original author) and archive what they see
 (views.question_for_editor), as a department head / site manager can in common LMSs.
+Their «همه سؤال‌ها» list also filters by «مدیر بخش» / «استاد» (author) / «دانشجو» (questions of that student's
+exams): people_filters.py (who gets which, what each keeps), applied in people_filter().
 """
 import json
 import uuid
@@ -78,7 +80,56 @@ def _filters(request) -> dict:
         'course': (request.GET.get('course') or '').strip()[:64],
         'subject': (request.GET.get('subject') or '').strip()[:160],
         'tag': (request.GET.get('tag') or '').strip()[:80],
+        # «مدیر بخش» / «استاد» / «دانشجو» (managers/admin only; checked by people_filter)
+        'manager': (request.GET.get('manager') or '').strip()[:64],
+        'teacher': (request.GET.get('teacher') or '').strip()[:64],
+        'student': (request.GET.get('student') or '').strip()[:100],
+        'people_sql': [],
     }
+
+
+def people_filter(request, owner, filters) -> dict:
+    """Check the «مدیر بخش» / «استاد» / «دانشجو» filters of a manager/admin bank, put their SQL conditions in
+    filters['people_sql'] and return the options of the selects. Teachers: the three are cleared."""
+    from . import people_filters
+
+    shown = people_filters.visible(request)
+    if not (owner is None or isinstance(owner, ManagerScope)) or not shown['teacher']:
+        filters.update(manager='', teacher='', student='', people_sql=[])
+        return {'managers': [], 'teachers': [], 'student': False}
+    managers = people_filters.manager_options(request)
+    filters['manager'] = people_filters.valid_manager(request, filters['manager'], managers)
+    clauses = []
+    if filters['manager']:
+        clauses.append(ManagerScope(filters['manager'], people_filters.manager_unit_ids(filters['manager'])).sql())
+    owner_sql, owner_params = _owner(owner)
+    narrow_sql = ''.join(f' AND {sql}' for sql, _params in clauses)
+    teachers = [
+        {'value': str(row['id']), 'label': row['name']}
+        for row in erd_rows(
+            f"""
+            SELECT DISTINCT q.teacher_id AS id, COALESCE(NULLIF(TRIM(p.full_name), ''), p.username, '-') AS name
+            FROM questions q JOIN profiles p ON p.id = q.teacher_id
+            WHERE {owner_sql}{narrow_sql}
+            ORDER BY 2, 1
+            """,
+            [*owner_params, *(param for _sql, params in clauses for param in params)],
+        )
+    ]
+    if filters['teacher'] in {item['value'] for item in teachers}:
+        clauses.append(('q.teacher_id = %s', [filters['teacher']]))
+    else:
+        filters['teacher'] = ''
+    if filters['student']:
+        exam_ids = sorted(people_filters.student_exam_ids(people_filters.student_ids(request, filters['student'])))
+        if exam_ids:
+            marks = ', '.join(['%s'] * len(exam_ids))
+            clauses.append((f'q.id IN (SELECT eq.question_id FROM exam_questions eq WHERE eq.exam_id::text IN ({marks}))',
+                            exam_ids))
+        else:
+            clauses.append(('1 = 0', []))
+    filters['people_sql'] = clauses
+    return {'managers': managers, 'teachers': teachers, 'student': True}
 
 
 class ManagerScope:
@@ -159,6 +210,9 @@ def _where(teacher_id, filters, archived=False) -> tuple:
     if filters['tag']:
         clauses.append(f"{TAGS_SQL} LIKE %s ESCAPE '\\'")
         params.append(f"%,{_like(filters['tag'])[1:-1]},%")
+    for sql, sql_params in filters.get('people_sql') or ():
+        clauses.append(sql)
+        params += list(sql_params)
     return ' AND '.join(clauses), params
 
 
@@ -180,9 +234,9 @@ def _row(row) -> dict:
     }
 
 
-def question_page(request, teacher_id, archived=False, status=None):
+def question_page(request, teacher_id, archived=False, status=None, filters=None):
     """(page of question rows, Paginator page) for the filtered list, fetched with LIMIT/OFFSET."""
-    filters = _filters(request)
+    filters = dict(filters or _filters(request))
     if status:
         filters['status'] = status
     where, params = _where(teacher_id, filters, archived)
@@ -399,13 +453,15 @@ def shared_page(request, teacher_id):
 def question_bank_context(request, teacher_id) -> dict:
     owner = bank_owner(request)
     view = request.GET.get('view') if request.GET.get('view') in VIEWS else 'all'
+    filters = _filters(request)
+    people = people_filter(request, owner, filters)
     if view == 'shared':
         questions, page = shared_page(request, owner)
     else:
         questions, page = question_page(
             request, owner, archived=view == 'archive', status='unpublished' if view == 'drafts' else None,
+            filters=filters,
         )
-    filters = _filters(request)
     banks = course_banks(owner) if view in ('all', 'banks') else []
     return {
         'questions': questions,
@@ -425,6 +481,7 @@ def question_bank_context(request, teacher_id) -> dict:
         'question_type_options': [{'key': key, 'label': label, 'checked': key in filters['types']} for key, label in FILTER_TYPES],
         'question_type_summary': _type_summary(filters['types']),
         'question_filter_course': _course_title(filters['course']),
+        'question_people': people,  # «مدیر بخش» / «استاد» selects + «دانشجو» box (managers/admin)
         'question_banks': banks,
         'question_categories': categories(owner) if view == 'tags' else {},
         'recent_questions': recent_questions(owner) if view == 'all' else [],
