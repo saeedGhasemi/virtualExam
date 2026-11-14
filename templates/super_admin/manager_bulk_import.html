@@ -150,7 +150,7 @@
                             <tr class="is-{{ record.level }}" data-review-row data-level="{{ record.level }}" data-search="{{ record.full_name }} {{ record.personnel_code }} {{ record.org_unit_label }}">
                                 <td>{{ forloop.counter|fa_digits }}</td>
                                 <td>{{ record.full_name }}</td>
-                                <td>{{ record.personnel_code|fa_digits }}</td>
+                                <td><bdi data-latin-digits>{{ record.personnel_code }}</bdi></td>
                                 <td>{{ record.manager_type_label }}</td>
                                 <td>{{ record.org_unit_label }}</td>
                                 <td>{{ record.access_template }}</td>

@@ -31,26 +31,21 @@
             </div>
 
             <div class="student-edit-summary">
-                <div class="student-edit-avatar">
-                    {% if student.avatar_url %}
-                        <img src="{{ student.avatar_url }}" alt="{{ student.full_name }}">
-                    {% else %}
-                        <span>{{ student.full_name|default:"ن"|slice:":1" }}</span>
-                    {% endif %}
-                    <label>
+                {# One photo picker (the camera on the circle); the chosen image shows at once and is stored with «ذخیره تغییرات». #}
+                <div class="student-edit-avatar" data-avatar-picker>
+                    <img src="{{ student.avatar_url|default:'' }}" alt="{{ student.full_name }}" {% if not student.avatar_url %}hidden{% endif %}>
+                    <span {% if student.avatar_url %}hidden{% endif %}>{{ student.full_name|default:"ن"|slice:":1" }}</span>
+                    <label title="تغییر تصویر (JPG، PNG یا WebP)">
                         <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp">
                         <svg viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+                        <span class="sr-only">تغییر تصویر</span>
                     </label>
                 </div>
-                <label class="student-edit-photo-btn">
-                    <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp">
-                    <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                    تغییر تصویر
-                </label>
                 <div>
-                    <h2>{{ student.full_name|default:"نگار احمدی" }}</h2>
-                    <p>دانشجوی {{ student.degree|default:"کارشناسی" }}</p>
-                    <small>شماره دانشجویی: {{ student.student_number|default:student.identifier|default:"981234567" }}</small>
+                    <h2>{{ student.full_name|default:"-" }}</h2>
+                    <p>{% if student.degree %}دانشجوی {{ student.degree }}{% else %}دانشجو{% endif %}</p>
+                    <small>شماره دانشجویی: <bdi data-latin-digits>{{ student.student_number|default:student.identifier|default:"-" }}</bdi></small>
+                    <small class="student-edit-avatar-note" data-avatar-note hidden>تصویر جدید انتخاب شد؛ برای ثبت آن «ذخیره تغییرات» را بزنید.</small>
                 </div>
             </div>
         </header>
@@ -72,19 +67,19 @@
                     </label>
                     <label>
                         <span>کد ملی</span>
-                        <input name="national_id" value="{{ student.national_id|default:'0012345678' }}" inputmode="numeric">
+                        <input name="national_id" value="{{ student.national_id|default:'' }}" inputmode="numeric">
                     </label>
                     <label>
                         <span>تاریخ تولد</span>
-                        <input name="birth_date" value="1380/03/15" disabled>
+                        <input name="birth_date" value="{{ student.birth_date|default:'' }}" disabled>
                     </label>
                     <label>
                         <span>شماره تماس</span>
-                        <input name="phone" value="{{ student.phone|default:'09123456789' }}" inputmode="tel">
+                        <input name="phone" value="{{ student.phone|default:'' }}" inputmode="tel">
                     </label>
                     <label>
                         <span>ایمیل</span>
-                        <input name="email" value="{{ student.email|default:'negar.ahmadi@univ.ac.ir' }}" type="email" dir="ltr">
+                        <input name="email" value="{{ student.email|default:'' }}" type="email" dir="ltr">
                     </label>
                     <input type="hidden" name="username" value="{{ student.username|default:'' }}">
                 </div>
@@ -98,16 +93,17 @@
                 <div class="manager-edit-fields">
                     <label>
                         <span>شماره دانشجویی</span>
-                        <input name="student_number" value="{{ student.student_number|default:student.identifier|default:'981234567' }}" inputmode="numeric">
+                        <input name="student_number" value="{{ student.student_number|default:student.identifier|default:'' }}" inputmode="numeric">
                     </label>
                     <label>
                         <span>سال ورود</span>
-                        <input name="semester" value="{{ student.semester|default:'1402' }}">
+                        <input name="semester" value="{{ student.semester|default:'' }}" data-mq-rule="year">
                     </label>
                     <label>
                         <span>مقطع</span>
                         <select name="degree">
-                            <option value="کارشناسی" {% if student.degree == "کارشناسی" or not student.degree %}selected{% endif %}>کارشناسی</option>
+                            <option value="" {% if not student.degree %}selected{% endif %}>انتخاب نشده</option>
+                            <option value="کارشناسی" {% if student.degree == "کارشناسی" %}selected{% endif %}>کارشناسی</option>
                             <option value="کارشناسی ارشد" {% if student.degree == "کارشناسی ارشد" %}selected{% endif %}>کارشناسی ارشد</option>
                             <option value="دکتری" {% if student.degree == "دکتری" %}selected{% endif %}>دکتری</option>
                         </select>
@@ -129,11 +125,11 @@
                                 <option value="{{ unit.id }}" {% if student.org_unit_id == unit.id %}selected{% endif %}>{{ unit.name }}{% if unit.code %} - {{ unit.code }}{% endif %}</option>
                             {% endfor %}
                         </select>
-                        <small class="student-edit-path">{{ primary_path.label|default:"دانشگاه ← دانشکده پرستاری ← گروه داخلی جراحی" }}</small>
+                        <small class="student-edit-path">{{ primary_path.label|default:"-" }}</small>
                     </label>
                     <label class="is-wide">
                         <span>رشته / گروه</span>
-                        <input name="field_of_study" value="{{ student.field_of_study|default:'پرستاری داخلی جراحی' }}">
+                        <input name="field_of_study" value="{{ student.field_of_study|default:'' }}" placeholder="پرستاری">
                     </label>
                     <input type="hidden" name="class_group" value="{{ student.class_group|default:'' }}">
                 </div>
@@ -181,4 +177,42 @@
     </form>
     {% admin_password_card 'student' student.id %}
 </section>
+<style>
+    .student-edit-avatar > [hidden], .student-edit-avatar-note[hidden] { display: none !important; }
+    .student-edit-summary .student-edit-avatar-note { color: #3159ff; font-weight: 600; }
+</style>
+<script>
+/* Profile photo: show the chosen file in the circle at once (it is uploaded with the form); «بازنشانی فرم» puts the old one back. */
+(function () {
+    var box = document.querySelector('[data-avatar-picker]');
+    if (!box) return;
+    var input = box.querySelector('input[type=file]'), img = box.querySelector('img'), letter = box.querySelector(':scope > span');
+    var note = document.querySelector('[data-avatar-note]');
+    var original = img.getAttribute('src') || '', objectUrl = null;
+    var noteText = note ? note.textContent : '';
+    function show(src, message, isError) {
+        if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+        if (src) img.setAttribute('src', src); else img.removeAttribute('src');
+        img.hidden = !src; letter.hidden = !!src;
+        if (note) {
+            note.hidden = !message;
+            note.textContent = message || noteText;
+            note.style.color = isError ? '#c62828' : '';
+        }
+    }
+    input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        if (!file) { show(original, ''); return; }
+        if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+            input.value = '';
+            show(original, 'فرمت تصویر باید JPG، PNG یا WebP باشد.', true);
+            return;
+        }
+        var url = URL.createObjectURL(file);
+        show(url, noteText);
+        objectUrl = url;
+    });
+    input.form.addEventListener('reset', function () { show(original, ''); });
+})();
+</script>
 {% endblock %}

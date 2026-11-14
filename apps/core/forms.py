@@ -1,4 +1,5 @@
-﻿import uuid
+﻿import re
+import uuid
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
@@ -87,9 +88,22 @@ class StyledAuthenticationForm(AuthenticationForm):
             matches = list(User.objects.filter(**lookup).values_list('username', flat=True)[:2])
             if len(matches) == 1:
                 return matches[0]
+        if '@' in typed:
+            # accounts made by the admin's wizards keep the e-mail on the profile only (auth_user.email is empty)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT p.username FROM profiles p JOIN auth_user u ON u.username = p.username "
+                    "WHERE p.email <> '' AND lower(p.email) = lower(%s) LIMIT 2",
+                    [typed],
+                )
+                matches = [row[0] for row in cursor.fetchall()]
+            if len(matches) == 1:
+                return matches[0]
         return typed
 
     def confirm_login_allowed(self, user):
+        """Runs only after a correct password. A refusal here is about the account's state, not the password:
+        `refused` tells SecureLoginView.form_invalid to show this reason and not count a wrong password."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT status FROM profiles WHERE username = %s OR (email <> '' AND lower(email) = lower(%s)) "
@@ -97,15 +111,22 @@ class StyledAuthenticationForm(AuthenticationForm):
                 [user.username, user.email or '', user.username],
             )
             row = cursor.fetchone()
-        status = row[0] if row else 'active'
-        if status == 'blocked':
-            raise forms.ValidationError('حساب شما مسدود است و امکان ورود وجود ندارد.')
-        if status == 'pending':
-            raise forms.ValidationError('ثبت‌نام شما هنوز توسط مدیر سیستم بررسی نشده است.')
-        if status == 'rejected':
-            raise forms.ValidationError('درخواست ثبت‌نام شما رد شده است. برای اطلاعات بیشتر با مدیر سامانه تماس بگیرید.')
-        if status == 'inactive':
-            raise forms.ValidationError('حساب شما غیرفعال است. با مدیر سامانه تماس بگیرید.')
+        if row is None and not user.is_superuser:
+            status = 'deleted'  # a login left behind by a deleted account
+        else:
+            status = (row[0] if row else '') or 'active'
+        reasons = {
+            'blocked': 'حساب شما مسدود است و امکان ورود وجود ندارد.',
+            'pending': 'ثبت‌نام شما هنوز توسط مدیر سیستم بررسی نشده است.',
+            'rejected': 'درخواست ثبت‌نام شما رد شده است. برای اطلاعات بیشتر با مدیر سامانه تماس بگیرید.',
+            'inactive': 'حساب شما غیرفعال است. با مدیر سامانه تماس بگیرید.',
+            'deleted': 'این حساب حذف شده است. با مدیر سامانه تماس بگیرید.',
+        }
+        if status not in reasons and not user.is_active:
+            status = 'inactive'
+        if status in reasons:
+            self.refused = status
+            raise forms.ValidationError(reasons[status], code=status)
         super().confirm_login_allowed(user)
         return
         profile = getattr(user, 'profile', None)
@@ -133,9 +154,9 @@ class StyledAuthenticationForm(AuthenticationForm):
 
 
 class PublicRegistrationForm(forms.Form):
-    full_name = forms.CharField(label='نام و نام خانوادگی', max_length=150)  # auth_user.first_name holds 150
+    full_name = forms.CharField(label='نام و نام خانوادگی', max_length=80)  # same cap as field-rules.js «name»
     username = forms.CharField(label='نام کاربری', max_length=150, required=False)
-    student_number = forms.CharField(label='شماره دانشجویی / کد پرسنلی', max_length=50, required=False)
+    student_number = forms.CharField(label='شماره دانشجویی / کد پرسنلی', max_length=30, required=False)
     email = forms.EmailField(label='ایمیل', max_length=254)
     password = forms.CharField(label='رمز عبور', min_length=8, max_length=128, widget=forms.PasswordInput)
     role = forms.ChoiceField(
@@ -150,13 +171,23 @@ class PublicRegistrationForm(forms.Form):
         full_name = ' '.join(self.cleaned_data.get('full_name', '').split())
         if len(full_name) < 3 or not any(char.isalpha() for char in full_name):
             raise forms.ValidationError('نام و نام خانوادگی را کامل وارد کنید.')
+        from .field_rules import _NAME
+        if not _NAME.fullmatch(full_name):
+            raise forms.ValidationError('نام و نام خانوادگی فقط حروف فارسی یا انگلیسی است (بدون رقم و نماد).')
         return full_name
 
     def clean_username(self):
         username = latin_digits(self.cleaned_data.get('username', '')).strip()
         if not username:
             return ''
-        if User.objects.filter(username__iexact=username).exists():
+        with connection.cursor() as cursor:  # a deleted account's leftover login doesn't hold the name (see clean_email)
+            cursor.execute(
+                "SELECT 1 FROM auth_user u WHERE lower(u.username) = lower(%s) "
+                "AND (u.is_superuser OR EXISTS (SELECT 1 FROM profiles p WHERE p.username = u.username)) LIMIT 1",
+                [username],
+            )
+            taken = cursor.fetchone()
+        if taken:
             raise forms.ValidationError('این نام کاربری قبلا ثبت شده است.')
         return username
 
@@ -170,7 +201,14 @@ class PublicRegistrationForm(forms.Form):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1 FROM profiles WHERE lower(email) = %s LIMIT 1", [email])
             in_profiles = cursor.fetchone()
-        if in_profiles or User.objects.filter(email__iexact=email).exists():
+            # a login whose account was deleted (no profile left) doesn't hold the e-mail; register() removes it
+            cursor.execute(
+                "SELECT 1 FROM auth_user u WHERE lower(u.email) = %s "
+                "AND EXISTS (SELECT 1 FROM profiles p WHERE p.username = u.username) LIMIT 1",
+                [email],
+            )
+            in_logins = cursor.fetchone()
+        if in_profiles or in_logins:
             raise forms.ValidationError('این ایمیل قبلا ثبت شده است.')
         return email
 
@@ -178,6 +216,12 @@ class PublicRegistrationForm(forms.Form):
         cleaned = super().clean()
         number = cleaned.get('student_number')
         role = cleaned.get('role')
+        if number and role == SystemRole.RoleCode.STUDENT and not re.fullmatch(r'\d{1,20}', number):
+            self.add_error('student_number', 'شماره دانشجویی فقط رقم است (حداکثر ۲۰ رقم)، مثلاً ۴۰۳۱۲۳۴۵۶.')
+            number = None
+        elif number and role and not re.fullmatch(r'[A-Za-z0-9\-]{1,30}', number):
+            self.add_error('student_number', 'کد پرسنلی فقط رقم، حروف انگلیسی و «-» است (حداکثر ۳۰ نویسه).')
+            number = None
         if number and role:
             # a student number is unique among students, a personnel code among teachers
             sql = ("SELECT 1 FROM student_profiles WHERE student_number = %s LIMIT 1" if role == SystemRole.RoleCode.STUDENT
@@ -263,6 +307,16 @@ class SuperAdminInstitutionForm(forms.ModelForm):
         return code
 
 
+
+def _validated_new_password(value, username=''):
+    """An admin-typed new password (optional field): checked against AUTH_PASSWORD_VALIDATORS like every other."""
+    from django.contrib.auth.password_validation import validate_password
+
+    if value:
+        validate_password(value, get_user_model()(username=username or ''))
+    return value
+
+
 class SuperAdminUserActionForm(forms.Form):
     ACTION_ACTIVE = 'activate'
     ACTION_INACTIVE = 'deactivate'
@@ -287,6 +341,9 @@ class SuperAdminUserActionForm(forms.Form):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'super-admin-input')
+
+    def clean_temporary_password(self):
+        return _validated_new_password(self.cleaned_data.get('temporary_password'))
 
     def clean(self):
         cleaned = super().clean()
@@ -580,6 +637,9 @@ class InstitutionUserCreateForm(forms.Form):
         if get_user_model().objects.filter(username=username).exists():
             raise forms.ValidationError('نام کاربری تکراری است.')
         return username
+
+    def clean_password(self):
+        return _validated_new_password(self.cleaned_data.get('password'), self.data.get('username', ''))
 
     def clean_national_code(self):
         code = self.cleaned_data.get('national_code', '').strip()

@@ -58,8 +58,9 @@ python -c "import secrets; print(secrets.token_urlsafe(64))"
   - **Argon2id**: اگر بسته‌ی `argon2-cffi` نصب باشد و `PASSWORD_HASHER=argon2` در `.env` باشد، الگوریتم اصلی می‌شود.
     (طبق قاعده‌ی «روی سرور چیزی نصب نکن»، تا وقتی بسته نصب نشده PBKDF2 اصلی می‌ماند.)
   - بقیه‌ی موارد فهرست فقط هش‌های قدیمی را بررسی می‌کنند و در ورود بعدی به الگوریتم اصلی ارتقا می‌یابند.
-- اعتبارسنجی رمز: حداقل ۸ نویسه، شبیه نام کاربری نباشد، جزو رمزهای رایج نباشد، فقط عدد نباشد
-  (`AUTH_PASSWORD_VALIDATORS`).
+- استاندارد رمز (`AUTH_PASSWORD_VALIDATORS`): حداقل ۸ نویسه با حرف بزرگ و کوچک انگلیسی، رقم و نماد
+  (`field_rules.PasswordStrengthValidator` / `PASSWORD_RULES`؛ همتای مرورگر: `PW_RULES` در `field-rules.js`)،
+  فقط حروف انگلیسی/رقم/نماد، شبیه نام کاربری نباشد، جزو رمزهای رایج نباشد.
 - رمز موقت که مدیر می‌سازد از CSPRNG است (`generate_temporary_password`) و کاربر را تا تعیین رمز جدید به صفحه‌ی
   تغییر رمز می‌برد (`PasswordChangeRequiredMiddleware`).
 - رمز در لاگ، پیام، ایمیل یا URL نوشته نمی‌شود.

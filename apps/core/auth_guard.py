@@ -5,9 +5,11 @@ auth_user id, client IP and browser. The same rows drive the login throttle, so 
 worker (the old per-process cache counter was not) and survives a restart:
 
 - one account: LOGIN_MAX_FAILED_PER_USER failed passwords within LOGIN_LOCK_MINUTES lock it until the oldest of them
-  leaves the window; a correct password (event `password_ok`) or a sign-in starts the count again;
+  leaves the window; a correct password (event `password_ok`), a sign-in, a correct password on an account that may
+  not sign in (`login_refused`: pending / inactive / blocked / deleted — never counted as a wrong password) or a new
+  password / a new or deleted login with that username (`account_reset`) starts the count again;
 - second step: 2 × LOGIN_MAX_FAILED_PER_USER wrong authenticator codes within the window (a correct password does not
-  reset these, only a completed sign-in) lock the account the same way;
+  reset these, only a completed sign-in or `account_reset`) lock the account the same way;
 - one IP: LOGIN_MAX_FAILED_PER_IP failed attempts (any usernames) within the same window block that IP's attempts.
   Kept high because a whole campus can share one NAT address.
 Attempts refused because of a lock are logged as `login_blocked` and do not extend the lock.
@@ -23,7 +25,11 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-EVENTS = ('login_success', 'login_failed', 'login_blocked', 'password_ok', 'two_factor_failed', 'logout')
+EVENTS = ('login_success', 'login_failed', 'login_blocked', 'login_refused', 'password_ok', 'account_reset',
+          'two_factor_failed', 'logout')
+# events after which an account's earlier wrong passwords / wrong authenticator codes no longer count
+PASSWORD_RESETS = ('login_success', 'password_ok', 'login_refused', 'account_reset')
+CODE_RESETS = ('login_success', 'account_reset')
 
 
 def max_failed_per_user() -> int:
@@ -87,9 +93,9 @@ def failed_for_user(username: str) -> int:
             SELECT COUNT(*) FROM auth_events
             WHERE username = %s AND event = 'login_failed' AND created_at > %s
               AND created_at > COALESCE((SELECT MAX(created_at) FROM auth_events
-                                         WHERE username = %s AND event IN ('login_success', 'password_ok')), %s)
+                                         WHERE username = %s AND event = ANY(%s)), %s)
             """,
-            [username, _window_start(), username, _window_start()],
+            [username, _window_start(), username, list(PASSWORD_RESETS), _window_start()],
         )
         return cursor.fetchone()[0]
 
@@ -105,9 +111,9 @@ def failed_two_factor_for_user(username: str) -> int:
             SELECT COUNT(*) FROM auth_events
             WHERE username = %s AND event = 'two_factor_failed' AND created_at > %s
               AND created_at > COALESCE((SELECT MAX(created_at) FROM auth_events
-                                         WHERE username = %s AND event = 'login_success'), %s)
+                                         WHERE username = %s AND event = ANY(%s)), %s)
             """,
-            [username, _window_start(), username, _window_start()],
+            [username, _window_start(), username, list(CODE_RESETS), _window_start()],
         )
         return cursor.fetchone()[0]
 

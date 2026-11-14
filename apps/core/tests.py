@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db import connection
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -4035,10 +4035,29 @@ class TeacherSecurityTabTests(_ScopedOrgFixture):
     def _security(self, client, **data):
         return client.post(reverse('core:teacher_settings'), {'settings_tab': 'security', **data})
 
+    def _extra_session(self, user):
+        """A second live session of the user made without signing in (signing in now ends the others), like one
+        left over from before the one-device rule."""
+        from importlib import import_module
+
+        from django.conf import settings
+        from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
+        from django.db import connection
+        from django.test import Client
+        store = import_module(settings.SESSION_ENGINE).SessionStore()
+        store[SESSION_KEY], store[BACKEND_SESSION_KEY] = str(user.pk), 'django.contrib.auth.backends.ModelBackend'
+        store[HASH_SESSION_KEY] = user.get_session_auth_hash()
+        store.save()
+        with connection.cursor() as cursor:
+            cursor.execute('INSERT INTO user_sessions (session_key, user_id) VALUES (%s, %s)', [store.session_key, user.pk])
+        client = Client()
+        client.cookies[settings.SESSION_COOKIE_NAME] = store.session_key
+        return client
+
     def test_sessions_are_listed_and_only_own_sessions_can_be_ended(self):
         from django.test import Client
         main = self._login(self.teacher_user)
-        other = self._login(self.teacher_user, Client())
+        other = self._extra_session(self.teacher_user)
         stranger = self._login(self.teacher_out_user, Client())
         page = main.get(reverse('core:teacher_settings'), {'tab': 'security'})
         sessions = page.context['sessions']
@@ -4054,12 +4073,31 @@ class TeacherSecurityTabTests(_ScopedOrgFixture):
         self.assertEqual(main.get(reverse('core:teacher_settings')).status_code, 200)
 
     def test_end_other_sessions_keeps_the_current_one(self):
-        from django.test import Client
         main = self._login(self.teacher_user)
-        other = self._login(self.teacher_user, Client())
+        other = self._extra_session(self.teacher_user)
         self._security(main, security_action='end_other_sessions')
         self.assertEqual(other.get(reverse('core:teacher_settings')).status_code, 302)
         self.assertEqual(main.get(reverse('core:teacher_settings')).status_code, 200)
+
+    def test_signing_in_on_another_device_signs_the_first_one_out(self):
+        from django.test import Client
+        from apps.core.account_security import REPLACED_SESSION_MESSAGE
+        laptop = self._login(self.teacher_user)
+        stranger = self._login(self.teacher_out_user, Client())
+        phone = self._login(self.teacher_user, Client())
+        self.assertEqual(phone.get(reverse('core:teacher_settings')).status_code, 200)
+        self.assertEqual(len(phone.get(reverse('core:teacher_settings'), {'tab': 'security'}).context['sessions']), 1)
+        response = laptop.get(reverse('core:teacher_settings'), follow=True)
+        self.assertEqual(response.redirect_chain[0][1], 302)
+        self.assertIn(REPLACED_SESSION_MESSAGE, response.content.decode())  # told why, once
+        self.assertNotIn(REPLACED_SESSION_MESSAGE, laptop.get(reverse('core:login')).content.decode())
+        self.assertEqual(stranger.get(reverse('core:teacher_settings')).status_code, 200)  # other accounts untouched
+
+    def test_signing_out_shows_no_other_device_notice(self):
+        from apps.core.account_security import REPLACED_SESSION_MESSAGE
+        client = self._login(self.teacher_user)
+        client.post(reverse('core:logout'))
+        self.assertNotIn(REPLACED_SESSION_MESSAGE, client.get(reverse('core:login')).content.decode())
 
     def test_deletion_request_needs_password_and_confirmation(self):
         client = self._login(self.teacher_user)
@@ -5033,15 +5071,15 @@ class ExamManagerUserImportPageTests(_ScopedOrgFixture):
                              reverse('core:super_admin_teacher_bulk_import'), fetch_redirect_response=False)
         row = lambda code, unit, national: ['سارا', 'نمونه', national, code, '1403', 'کارشناسی', 'پزشکی', unit, '09120000000', '', '', '', 'فعال']
         self._import(row('S-1001', 'واحد دیگر', '0012345671'))  # another unit: the whole import stops
-        self.assertEqual(self._usernames('S-1001'), [])
-        self._import(row('student_out_scope', 'واحد تحت مدیریت', '0012345672'))  # would overwrite a student of another unit
+        self.assertEqual(self._usernames('401001'), [])
+        self._import(row('student_out_scope', 'واحد تحت مدیریت', '0012345687'))  # would overwrite a student of another unit
         with connection.cursor() as cursor:
             cursor.execute('SELECT full_name FROM profiles WHERE id = %s', [self.student_out_id])
             self.assertEqual(cursor.fetchone()[0], 'دانشجوی خارج محدوده')
-        self._import(row('S-1002', 'واحد تحت مدیریت', '0012345673'))
-        self.assertEqual(self._usernames('S-1002'), ['S-1002'])
+        self._import(row('401002', 'واحد تحت مدیریت', '0012345695'))
+        self.assertEqual(self._usernames('401002'), ['401002'])
         with connection.cursor() as cursor:
-            cursor.execute("SELECT sp.org_unit_id FROM student_profiles sp JOIN profiles p ON p.id = sp.user_id WHERE p.username = 'S-1002'")
+            cursor.execute("SELECT sp.org_unit_id FROM student_profiles sp JOIN profiles p ON p.id = sp.user_id WHERE p.username = '401002'")
             self.assertEqual(str(cursor.fetchone()[0]), self.ou_scoped)
 
 class SuperAdminManagerBulkImportTests(_ScopedOrgFixture):
@@ -5053,8 +5091,8 @@ class SuperAdminManagerBulkImportTests(_ScopedOrgFixture):
         buffer = io.StringIO()
         writer = csv.writer(buffer)
         writer.writerow(['نام', 'نام خانوادگی', 'کد ملی', 'شماره پرسنلی', 'شماره همراه', 'نوع مدیر', 'واحد سازمانی', 'الگوی دسترسی', 'ایمیل', 'وضعیت حساب'])
-        writer.writerow(['سارا', 'مدیری', '0011223344', 'P-9001', '09120000001', 'مدیر سیستم', 'واحد تحت مدیریت', '', 'p9001@example.com', 'فعال'])
-        writer.writerow(['رضا', 'آموزشی', '0011223355', 'P-9002', '09120000002', 'مدیر آموزشی', 'واحد تحت مدیریت', '', 'p9002@example.com', 'فعال'])
+        writer.writerow(['سارا', 'مدیری', '0011223340', 'P-9001', '09120000001', 'مدیر سیستم', 'واحد تحت مدیریت', '', 'p9001@example.com', 'فعال'])
+        writer.writerow(['رضا', 'آموزشی', '0011223359', 'P-9002', '09120000002', 'مدیر آموزشی', 'واحد تحت مدیریت', '', 'p9002@example.com', 'فعال'])
         self.client.force_login(self.admin_user)
         url = reverse('core:super_admin_manager_bulk_import')
         self.client.post(url, {'step': '1', 'excel_file': SimpleUploadedFile('m.csv', buffer.getvalue().encode('utf-8-sig'))})
@@ -5192,7 +5230,9 @@ class StudentExamIntegrityTests(_ScopedOrgFixture):
             self.assertIsNone(cursor.fetchone()[0])
         other.post(url, {'action': 'take_over'})
         self.assertEqual(other.get(url).status_code, 200)
-        self.assertEqual(self.client.post(url, {'x': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest').status_code, 423)  # the first device is out
+        # the first device is out: signed out by the second sign-in (one device per account); answers it still holds
+        # stay in its outbox and are sent after signing in again
+        self.assertEqual(self.client.post(url, {'x': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest').status_code, 302)
         with connection.cursor() as cursor:
             cursor.execute("SELECT COUNT(*) FROM activity_audit_log WHERE action = 'attempt_device_takeover'")
             self.assertEqual(cursor.fetchone()[0], 1)
@@ -6426,6 +6466,8 @@ class ExamWizardSettingsSavedTests(_ScopedOrgFixture):
             ({'registration_start_at': '2026-12-10T10:00'}, 'شروع دسترسی'),
             ({'start_at': ''}, 'تاریخ و زمان شروع آزمون'),
             ({'min_passing_percent': '130'}, 'نمره قبولی'),
+            ({'negative_factor': '-0.74'}, 'مقدار جریمه'),  # a wrong answer must never add points
+            ({'passing_score_total': '-20'}, 'مجموع نمرات کل آزمون'),
             ({'ip_restriction_enabled': '1', 'ip_restriction_range': 'not-an-ip'}, 'محدودیت IP'),
         ):
             response = self._post(**overrides)
@@ -8003,6 +8045,41 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         self.assertContains(after, 'حذف شد')
         self.assertNotContains(after, 'data-full-name="کاربر تازه newstudent"')  # no longer a row in the list
 
+    def test_new_accounts_profiles_show_real_figures_only(self):
+        """A brand-new account's profile shows zeros / «-», never sample values (GPA 17.68, 88 units, fake courses…)."""
+        self._register('student', 'freshstudent', '40188888')
+        self._register('teacher', 'freshteacher')
+        student_id, teacher_id = self._profile_id('freshstudent'), self._profile_id('freshteacher')
+        self.client.force_login(self.admin_user)
+        fakes = ('۱۷.۶۸', '۱۷.۲۵', '۸۶٪', '۶۸٪', 'STU-1001', '0012345678', '09123456789', 'student@demo.ir', 'نیمسال دوم ۱۴۰۳',
+                 'پرستاری داخلی جراحی', 'دکتر مهدوی', 'دانش‌آموز', 'دکتر امیرحسین رضایی', 'amir.rezaei', 'arezaei1024',
+                 '۱۰۲۴', '۸۴٪', '۱۸۶', '۲۷۳', '۱۳۹۵/۰۷/۱۵', 'ساختمان آموزشی', 'نمونه')
+        profile = reverse('core:super_admin_user_profile', args=['student', student_id])
+        for section in ('overview', 'courses', 'exams', 'activity'):
+            page = self.client.get(profile, {'section': section})
+            self.assertEqual(page.status_code, 200, section)
+            if section != 'activity':
+                self.assertLessEqual({stat['value'] for stat in page.context['stats']}, {'۰', '۰٪'}, section)
+            for fake in fakes:
+                self.assertNotContains(page, fake, msg_prefix=section)
+        teacher_pages = [
+            reverse('core:super_admin_user_profile', args=['teacher', teacher_id]),
+            reverse('core:super_admin_teacher_profile_edit', args=[teacher_id]),
+            reverse('core:super_admin_teacher_courses', args=[teacher_id]),
+            reverse('core:super_admin_student_profile_edit', args=[student_id]),
+        ]
+        for url in teacher_pages:
+            page = self.client.get(url)
+            self.assertEqual(page.status_code, 200, url)
+            for fake in fakes:
+                self.assertNotContains(page, fake, msg_prefix=url)
+        self.assertNotContains(self.client.get(teacher_pages[0]), 'دانشیار')  # no invented academic rank
+        teacher_stats = self.client.get(teacher_pages[0]).context['stats']
+        self.assertLessEqual({stat['value'] for stat in teacher_stats}, {'۰', '۰٪'})
+        # saving the teacher form keeps the approval state (it used to be overwritten with «نوع همکاری»)
+        self.client.post(teacher_pages[1], {'first_name': 'تازه', 'last_name': 'استاد', 'username': 'freshteacher', 'status': 'inactive'})
+        self.assertEqual(self._rows('SELECT approval_status FROM teacher_profiles WHERE user_id = %s', [teacher_id]), [('pending',)])
+
     def test_new_teacher_is_approved_with_activation(self):
         self._register('teacher', 'newteacher')
         teacher_id = self._profile_id('newteacher')
@@ -8087,13 +8164,21 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
 
     def test_sign_up_rejects_bad_input_without_crashing(self):
         self._sign_up(email='taken@example.com', student_number='40100001')
-        self._sign_up(email='teacher@example.com', student_number='P-77', role='teacher')
+        self._sign_up(email='teacher@example.com', student_number='7700', role='teacher')
         cases = (
             ({'email': 'TAKEN@example.com'}, 'email'),             # same e-mail, other letter case
             ({'email': 'n1@example.com', 'student_number': '۴۰۱۰۰۰۰۱'}, 'student_number'),  # same number, Persian digits
-            ({'email': 'n2@example.com', 'student_number': 'P-77', 'role': 'teacher'}, 'student_number'),  # personnel code
+            ({'email': 'n2@example.com', 'student_number': '7700', 'role': 'teacher'}, 'student_number'),  # personnel code
+            ({'email': 'n9@example.com', 'student_number': '23eraeer23edsae23we23'}, 'student_number'),  # letters (teacher's report)
+            ({'email': 'n10@example.com', 'student_number': '4' * 21}, 'student_number'),  # longer than 20 digits
+            ({'email': 'n11@example.com', 'student_number': 'P-77/x', 'role': 'teacher'}, 'student_number'),  # personnel code charset
+            ({'email': 'n12@example.com', 'full_name': 'adsad123 ۴۵۶'}, 'full_name'),  # digits in a name
             ({'email': 'n3@example.com', 'password': '12345678'}, 'password'),
             ({'email': 'n4@example.com', 'password': 'password1'}, 'password'),
+            ({'email': 'n13@example.com', 'password': '........'}, 'password'),  # teacher's report: dots / slashes passed
+            ({'email': 'n14@example.com', 'password': '////////'}, 'password'),
+            ({'email': 'n15@example.com', 'password': 'abcdefgh12'}, 'password'),  # no uppercase, no symbol
+            ({'email': 'n16@example.com', 'password': 'ABCDEFGH#1'}, 'password'),  # no lowercase
             ({'email': 'n5@example.com', 'full_name': 'ا' * 170}, 'full_name'),  # was a database error (500)
             ({'email': 'n6@example.com', 'full_name': ' .. '}, 'full_name'),
             ({'email': 'n7@example.com', 'role': 'admin'}, 'role'),
@@ -8103,7 +8188,7 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
             self.assertEqual(response.status_code, 200, fields)
             self.assertIn(field, response.context['form'].errors, fields)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self._sign_up(email='n8@example.com', student_number='P-77').status_code, 302)  # a teacher's code is no student number
+        self.assertEqual(self._sign_up(email='n8@example.com', student_number='7700').status_code, 302)  # a teacher's code is no student number
         self.assertEqual(self._rows("SELECT count(*) FROM profiles WHERE email LIKE 'n%%@example.com'", []), [(1,)])
 
     def test_dashboard_card_opens_the_tab_with_waiting_teachers(self):
@@ -8514,6 +8599,31 @@ class JalaliCalendarTests(_ScopedOrgFixture):
         self.assertContains(response, reverse('core:student_calendar'))  # the menu link
 
 
+class PasswordStandardTests(TestCase):
+    """The password standard (field_rules.PASSWORD_RULES = field-rules.js PW_RULES): ≥ 8 with upper + lower English
+    letter, digit and symbol, enforced by AUTH_PASSWORD_VALIDATORS; generated temporary passwords meet it."""
+
+    def test_weak_passwords_are_refused_and_strong_ones_pass(self):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
+        for weak in ('........', '////////', '12345678', 'abcdefgh', 'Abcdefgh1', 'abcdefg#1', 'ABCDEFG#1', 'Ab#1xyz'):
+            with self.assertRaises(ValidationError, msg=weak):
+                validate_password(weak)
+        for strong in ('Sara#1403', 'N3w-pass-Strong!', 'Test@12345'):
+            validate_password(strong)
+        from apps.core import field_rules
+
+        self.assertEqual(field_rules.password_missing('........'),
+                         ['حرف بزرگ انگلیسی (A-Z)', 'حرف کوچک انگلیسی (a-z)', 'رقم'])
+
+    def test_generated_temporary_passwords_meet_the_standard(self):
+        from django.contrib.auth.password_validation import validate_password
+
+        for _ in range(50):
+            validate_password(account_security.generate_temporary_password())
+
+
 class AccountPasswordTests(_ScopedOrgFixture):
     """رمز عبور در «اطلاعات شخصی»: فقط ••••••••، تاریخ آخرین تغییر و فرم تغییر؛ تعیین رمز جدید توسط مدیر کل و اجبار تغییر رمز موقت."""
 
@@ -8579,8 +8689,9 @@ class AccountPasswordTests(_ScopedOrgFixture):
         page = self.client.get(edit_url)
         temporary = page.context['reveal']
         self.assertEqual(len(temporary), 12)
-        self.assertContains(page, temporary)
-        self.assertNotContains(self.client.get(edit_url), temporary)  # only once
+        from django.utils.html import escape as _html_escape
+        self.assertContains(page, _html_escape(temporary))  # may contain & < >
+        self.assertNotContains(self.client.get(edit_url), _html_escape(temporary))  # only once
         self.teacher_user.refresh_from_db()
         self.assertTrue(self.teacher_user.check_password(temporary))
         changed_at, required = self._state(self.teacher_in_id)
@@ -9416,3 +9527,106 @@ class ExamStateFollowsClockTests(TestCase):
         self.assertEqual(_em_exam_status_label(exam(lifecycle_status='closed', start_at=now - minute, end_at=now + minute))[0],
                          'پایان یافته')
         self.assertEqual(_em_exam_status_label(exam(is_cancelled=True, start_at=now - minute, end_at=now + minute))[0], 'لغو شده')
+
+
+class StoredValuesKeepTheirFormatTests(TestCase):
+    """A personal value saved before the format rules (seed code «MQTEST-S01») doesn't block editing that account;
+    a new or changed value must still fit, and the length caps have no exception."""
+
+    def test_unchanged_old_value_passes_new_value_must_fit(self):
+        from apps.core.field_rules import format_error, too_long_error
+        profile_id = str(uuid.uuid4())
+        _insert('profiles', ['id', 'full_name', 'username', 'email'], [profile_id, 'دانشجو قدیمی', 'old_student', 'old@example.com'])
+        _insert('student_profiles', ['user_id', 'student_number'], [profile_id, 'MQTEST-S01'])
+        self.assertEqual(format_error({'student_number': 'MQTEST-S01'}), '')
+        self.assertIn('شماره دانشجویی', format_error({'student_number': 'MQTEST-S02'}))
+        self.assertIn('شماره دانشجویی', format_error({'student_number': '23eraeer23ed'}))
+        self.assertIn('شماره دانشجویی', too_long_error({'student_number': 'MQTEST-S01' * 3}))
+
+    def test_excel_rows_get_the_same_rules(self):
+        from apps.core.field_rules import record_issues
+        row = {'first_name': 'علی', 'national_id': '12345679.0', 'phone': '9121234567', 'student_number': '23eraeer',
+               'field_of_study': 'x' * 200, 'org_unit': 'دانشکده'}
+        self.assertEqual([key for key, _message in record_issues(row)], ['student_number', 'field_of_study'])
+        self.assertEqual((row['national_id'], row['phone']), ('0012345679', '09121234567'))  # Excel lost the zeros
+
+
+class FieldRulesTests(SimpleTestCase):
+    """apps/core/field_rules.py: the server-side twin of static/js/field-rules.js."""
+
+    def test_valid_values_are_normalised(self):
+        from apps.core.field_rules import clean_person_fields
+        data = {'national_id': '۰۴۹۹-۳۷۰۸۹۹', 'phone': '+98 912 345 6789', 'birth_date': '۱۳۷۸/۶/۲', 'email': 'a.b@uni.ac.ir'}
+        self.assertEqual(clean_person_fields(data), [])
+        self.assertEqual(data, {'national_id': '0499370899', 'phone': '09123456789', 'birth_date': '1378/06/02', 'email': 'a.b@uni.ac.ir'})
+
+    def test_invalid_values_are_reported(self):
+        from apps.core.field_rules import clean_person_fields
+        self.assertEqual(len(clean_person_fields({'national_id': '0012345678', 'phone': '0812', 'birth_date': '1404/12/30', 'email': 'علی@x'})), 4)
+        self.assertEqual(clean_person_fields({'birth_date': '1403/12/30'}), [])  # 1403 is a leap year
+        self.assertEqual(clean_person_fields({'national_id': '', 'phone': ''}), [])
+
+    def test_too_long_fields_are_refused_on_every_post(self):
+        # Teacher's report: a 300-character student number was saved and ran across the profile pages.
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.contrib.sessions.backends.db import SessionStore
+        from django.test import RequestFactory
+        from apps.core.field_rules import too_long_error
+        from apps.core.middleware import PersonFieldLengthMiddleware
+
+        self.assertEqual(too_long_error({'student_number': '4031234567', 'specialty': 'کودکان'}), '')
+        self.assertIn('شماره دانشجویی', too_long_error({'student_number': 'a1' * 40}))
+        self.assertIn('تخصص', too_long_error({'specialty': 'x' * 151}))
+
+        view = lambda request: None
+        guard = PersonFieldLengthMiddleware(lambda request: None)
+        factory = RequestFactory()
+        anonymous = factory.post('/register/', {'full_name': 'ا' * 300})
+        anonymous.user = type('Anonymous', (), {'is_authenticated': False})()
+        self.assertIsNone(guard.process_view(anonymous, view, (), {}))  # sign-up's own form reports it
+        real_post = factory.post
+
+        def signed_in_post(*args, **kwargs):
+            request = real_post(*args, **kwargs)
+            request.user = type('SignedIn', (), {'is_authenticated': True})()
+            return request
+        factory.post = signed_in_post
+        self.assertIsNone(guard.process_view(factory.post('/x/', {'student_number': '403123'}), view, (), {}))
+        self.assertIsNone(guard.process_view(factory.get('/x/', {'student_number': '9' * 99}), view, (), {}))
+        ajax = factory.post('/x/', {'national_id': '1' * 50}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(guard.process_view(ajax, view, (), {}).status_code, 400)
+        form = factory.post('/super-admin/users/student/1/profile/edit/', {'phone': '0' * 40}, HTTP_REFERER='http://testserver/back/')
+        form.session = SessionStore()
+        form._messages = FallbackStorage(form)
+        response = guard.process_view(form, view, (), {})
+        self.assertEqual((response.status_code, response['Location']), (302, 'http://testserver/back/'))
+
+    def test_new_passwords_take_only_latin_letters_digits_and_symbols(self):
+        # User's requirement: a password box can't take Persian letters / spaces (wrong keyboard layout).
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        validate_password('Sara#1403')
+        for bad in ('سارا#1403x', 'Sara 1403x'):
+            with self.assertRaises(ValidationError, msg=bad):
+                validate_password(bad)
+
+    def test_wrong_format_personal_fields_are_refused_on_every_post(self):
+        # User's requirement: a box only holds what fits it (letters in a birth date / phone, digits in a name).
+        from django.test import RequestFactory
+        from apps.core.field_rules import format_error
+        from apps.core.middleware import PersonFieldLengthMiddleware
+
+        good = {'national_id': '۰۴۹۹۳۷۰۸۹۹', 'phone': '0912 345 6789', 'birth_date': '1378/6/2', 'first_name': 'علی',
+                'last_name': '[آزمایشی] محمدی', 'student_number': '403123', 'personnel_code': 'ADM-1024',
+                'email': 'a.b@uni.ac.ir', 'entry_year': '1403', 'specialty': 'کودکان ۲'}
+        self.assertEqual(format_error(good), '')
+        self.assertEqual(format_error({'phone': '', 'birth_date': '  '}), '')
+        for field, value, label in (('birth_date', '13ab/01/01', 'تاریخ تولد'), ('phone', '0912abc4567', 'شماره تماس'),
+                                    ('first_name', 'Ali2', 'نام'), ('student_number', '40A123', 'شماره دانشجویی'),
+                                    ('national_id', '0012345678', 'کد ملی'), ('email', 'علی@x', 'ایمیل'),
+                                    ('personnel_code', 'کد۱', 'کد پرسنلی'), ('entry_year', '۹۹', 'سال ورود')):
+            self.assertIn(f'«{label}»', format_error({field: value}), field)
+        request = RequestFactory().post('/x/', {'first_name': 'Ali2'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        request.user = type('SignedIn', (), {'is_authenticated': True})()
+        response = PersonFieldLengthMiddleware(lambda r: None).process_view(request, lambda r: None, (), {})
+        self.assertEqual(response.status_code, 400)

@@ -125,7 +125,7 @@
                                 {% endfor %}
                             </select>
                         </label>
-                        <label><span>سمت سازمانی</span><input name="department" value="{{ manager.department|default:'' }}" placeholder="مثلا مدیر آموزش"></label>
+                        <label><span>سمت سازمانی</span><input name="department" value="{{ manager.department|default:'' }}" placeholder="مدیر آموزش"></label>
                         <label><span>کد پرسنلی</span><input name="personnel_code" value="{{ manager.personnel_code|default:manager.identifier|default:'' }}" placeholder="ADM-1042" dir="ltr"></label>
                         <label class="is-wide">
                             <span>واحدهای فرعی (دسترسی)</span>
@@ -135,7 +135,7 @@
                                 {% endfor %}
                             </select>
                         </label>
-                        <label class="is-wide"><span>حوزه مسئولیت</span><input name="responsibility_area" value="{{ manager.responsibility_area|default:'' }}" placeholder="مثلا مدیریت دانشکده پرستاری"></label>
+                        <label class="is-wide"><span>حوزه مسئولیت</span><input name="responsibility_area" value="{{ manager.responsibility_area|default:'' }}" placeholder="مدیریت دانشکده پرستاری"></label>
                     </div>
 
                     <div class="manager-edit-access">

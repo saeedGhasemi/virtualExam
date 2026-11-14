@@ -105,7 +105,7 @@
                             data-status="{{ row.status }}"
                             data-search="{{ row.title }} {{ row.code }} {{ row.university }} {{ row.faculty }} {{ row.department }}">
                             <td><strong>{{ row.title|fa_digits }}</strong></td>
-                            <td>{{ row.code|default:"-"|fa_digits }}</td>
+                            <td><bdi data-latin-digits>{{ row.code|default:"-" }}</bdi></td>
                             <td>{{ row.credit_units|fa_digits }}</td>
                             <td>{{ row.university|fa_digits }}</td>
                             <td>{{ row.faculty|fa_digits }}</td>

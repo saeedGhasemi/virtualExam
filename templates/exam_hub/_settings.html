@@ -6,7 +6,7 @@
             <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='doc' %}اطلاعات کلی آزمون</h3></div>
             <div class="xh-grid-fields is-2-1">
                 <label class="xh-field"><span>عنوان آزمون <i class="xh-req">*</i></span>
-                    <input class="xh-input" name="title" value="{{ exam.title }}" maxlength="{{ s.title_max }}" required data-xh-counter {% if not exam.can.schedule %}disabled{% endif %}>
+                    <input class="xh-input" name="title" value="{{ exam.title }}" maxlength="{{ s.title_max }}" placeholder="میان‌ترم آناتومی ۱" required data-xh-counter {% if not exam.can.schedule %}disabled{% endif %}>
                     <span class="xh-count"><span data-xh-count>0</span> / {{ s.title_max }} کاراکتر</span>
                 </label>
                 <label class="xh-field"><span>درس <i class="xh-req">*</i></span>

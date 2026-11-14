@@ -47,7 +47,7 @@
                 <select class="xh-select" name="minutes" {% if not d.open %}disabled{% endif %}>{% for m in d.add_time_choices %}<option value="{{ m }}"{% if m == 10 %} selected{% endif %}>{{ m }} دقیقه</option>{% endfor %}</select>
             </label>
             <label class="xh-field"><span>دلیل افزودن زمان <i class="xh-req">*</i></span>
-                <span class="xh-textbox"><textarea class="xh-textarea" name="reason" maxlength="{{ d.reason_max }}" required data-xh-counter placeholder="مثلاً: گزارش مشکل موقت در اتصال اینترنت و همگام‌سازی مجدد." {% if not d.open %}disabled{% endif %}></textarea><span class="xh-count"><span data-xh-count>0</span> / {{ d.reason_max }}</span></span>
+                <span class="xh-textbox"><textarea class="xh-textarea" name="reason" maxlength="{{ d.reason_max }}" required data-xh-counter placeholder="گزارش مشکل موقت در اتصال اینترنت و همگام‌سازی مجدد." {% if not d.open %}disabled{% endif %}></textarea><span class="xh-count"><span data-xh-count>0</span> / {{ d.reason_max }}</span></span>
             </label>
             <button class="xh-btn is-solid is-block" {% if not d.open %}disabled{% endif %}>{% include 'exam_hub/_icon.html' with i='clockplus' %}افزودن زمان</button>
         </form>

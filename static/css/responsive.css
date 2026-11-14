@@ -43,6 +43,19 @@ pre { max-width: 100%; overflow-x: auto; }
 /* ---------- User profile (student) ---------- */
 .student-profile-grid > *, .student-profile-aside > *, .student-profile-tab-layout > * { min-width: 0; }
 .student-profile-card { overflow-wrap: anywhere; }
+/* Long unbroken values (a code, number, e-mail or pasted text with no spaces) wrap inside their box instead of
+   running out of it (teacher's report: a long student number ran across the profile header). Not inside tables: there
+   a long value makes static/js/responsive-tables.js switch to cards. */
+[data-latin-digits], dd, .user-profile-hero h1, .student-profile-aside { overflow-wrap: anywhere; }
+/* The profile header has a fixed height: its code lines and badges stay one line and end in «…». */
+.user-profile-identity, .user-profile-identity > div, .user-profile-badges { min-width: 0; max-width: 100%; }
+.student-profile-idline, .teacher-profile-code-line, .user-profile-badges > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-profile-hero bdi[data-latin-digits] { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.student-profile-idline bdi[data-latin-digits], .teacher-profile-code-line bdi[data-latin-digits] { display: inline; }
+/* Admin edit pages' headers (student / teacher / manager): a long name or code wraps inside the header. */
+.student-edit-hero > *, .student-edit-summary > div:not(.student-edit-avatar), .teacher-edit-hero-copy, .manager-edit-head > * { min-width: 0; }
+:is(.student-edit-hero, .teacher-edit-hero, .manager-edit-head) :is(h1, h2, p, small, span, bdi) { overflow-wrap: anywhere; }
+table [data-latin-digits], table dd { overflow-wrap: normal; }
 .student-course-cards, .student-exam-cards { grid-template-columns: minmax(0, 1fr); }
 /* course / exam rows are a fixed ~840px grid: below wide desktops they wrap (icon + title row, then the values) */
 @media (max-width: 1439px) {

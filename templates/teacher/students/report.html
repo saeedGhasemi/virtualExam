@@ -48,7 +48,7 @@
         <header class="rc-head">
             <div>
                 <h1>کارنامه‌ی {{ student.name }}</h1>
-                <p>شماره دانشجویی: {{ student.code|default:"-"|fa_digits }}</p>
+                <p>شماره دانشجویی: <bdi data-latin-digits>{{ student.code|default:"-" }}</bdi></p>
                 {% if student.field_of_study or student.degree %}<p>{{ student.degree }} {{ student.field_of_study }}</p>{% endif %}
                 <p>کلاس‌ها: {% for group in groups %}{{ group.label }}{% if not forloop.last %}، {% endif %}{% empty %}-{% endfor %}</p>
             </div>

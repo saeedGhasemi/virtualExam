@@ -52,7 +52,7 @@
                 <label class="ob-field">تعداد گروه‌های دانشجو<input type="number" name="groups_count" min="1" max="50" value="{{ rot.groups_count|default:'4' }}"></label>
                 <label class="ob-field" style="margin-top:.5rem">تعداد دانشجو در هر گروه<input type="number" name="students_per_group" min="1" max="50" value="{{ rot.students_per_group|default:'6' }}"></label>
                 <label class="ob-field" style="margin-top:.5rem">ظرفیت همزمان ایستگاه<input type="number" name="capacity" min="1" max="50" value="{{ tm.capacity|default:'1' }}"></label>
-                <label class="ob-field" style="margin-top:.5rem">ساعت شروع آزمون<input type="text" name="start_time" maxlength="5" dir="ltr" placeholder="09:00" pattern="[0-2][0-9]:[0-5][0-9]" value="{{ rot.start_time|default:'09:00' }}"></label>
+                <label class="ob-field" style="margin-top:.5rem">ساعت شروع آزمون<input type="text" name="start_time" maxlength="5" dir="ltr" placeholder="09:00" data-mq-rule="clock" pattern="[0-2][0-9]:[0-5][0-9]" value="{{ rot.start_time|default:'09:00' }}"></label>
                 <p class="ob-aside-hint" style="margin:.4rem 0 0">تعداد گروه‌ها، دانشجو در هر گروه و ساعت شروع برای کل آزمون مشترک است.</p>
             </section>
         </div>

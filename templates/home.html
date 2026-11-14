@@ -141,7 +141,7 @@
             <h2>با کد آزمون وارد شوید</h2>
             <p>کد آزمون را از استاد خود دریافت کرده و در یک کلیک وارد آزمون شوید.</p>
             <form action="{% url 'core:exam_join' %}" method="get">
-                <input type="text" name="code" value="{{ join_code }}" placeholder="مثلاً MQ-1A2B3C" aria-label="کد آزمون" dir="ltr" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+                <input type="text" name="code" value="{{ join_code }}" placeholder="MQ-1A2B3C" aria-label="کد آزمون" dir="ltr" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
                 <button type="submit">ورود به آزمون</button>
             </form>
             {% if join_error %}<p class="landing-code-error" role="alert" style="margin-top:12px;padding:10px 14px;border-radius:12px;background:#fff1f0;color:#a8071a;font-weight:600;line-height:1.9">{{ join_error }}</p>{% endif %}

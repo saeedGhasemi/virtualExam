@@ -5,7 +5,7 @@
             <h2>عملکرد دانشجو</h2>
             <div class="xh-profile">
                 <span class="xh-avatar ch-avatar is-lg">{% if st.avatar_url %}<img src="{{ st.avatar_url }}" alt="">{% else %}{% include 'teacher/class/_icon.html' with i='user' %}{% endif %}</span>
-                <div><h3>{{ st.name }}</h3><p>شماره دانشجویی: {{ st.code|fa_digits|default:'—' }}</p></div>
+                <div><h3>{{ st.name }}</h3><p>شماره دانشجویی: <bdi data-latin-digits>{{ st.code|default:'—' }}</bdi></p></div>
             </div>
         </div>
         <div class="ch-panel-nav">

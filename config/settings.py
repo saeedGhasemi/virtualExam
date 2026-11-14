@@ -59,10 +59,12 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'apps.core.middleware.ReplacedSessionNoticeMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.core.middleware.MalformedIdNotFoundMiddleware',
     'apps.core.exam_schedule.ScheduledPublishMiddleware',
     'apps.core.middleware.PasswordChangeRequiredMiddleware',
+    'apps.core.middleware.PersonFieldLengthMiddleware',
     'apps.core.exam_lock.ExamLockMiddleware',
     'apps.core.middleware.SecurityHeadersMiddleware',
     'apps.core.auto_backup.AutoBackupSchedulerMiddleware',
@@ -188,9 +190,10 @@ EXAM_MAX_CONCURRENT_TEACHERS = int(os.getenv('EXAM_MAX_CONCURRENT_TEACHERS', '30
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {'NAME': 'apps.core.field_rules.LatinPasswordValidator'},  # English letters, digits, symbols only (field-rules.js twin)
+    # ≥ 8 with upper + lower English letter, digit and symbol (replaces Django's length / all-digits validators)
+    {'NAME': 'apps.core.field_rules.PasswordStrengthValidator'},
 ]
 
 # Passwords are stored only as salted, slow hashes (Security.md). PBKDF2-SHA256 (Django's default, 870k+ iterations)

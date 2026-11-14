@@ -62,7 +62,7 @@
                         <div class="teacher-wizard-grid">
                             <label><span>نام خانوادگی <b class="req">*</b></span><input name="last_name" value="{{ draft.last_name|default:'' }}" required></label>
                             <label><span>نام <b class="req">*</b></span><input name="first_name" value="{{ draft.first_name|default:'' }}" required></label>
-                            <label><span>کد استادی <b class="req">*</b></span><input name="personnel_code" value="{{ draft.personnel_code|default:'' }}" placeholder="مثلا 1405112" required></label>
+                            <label><span>کد استادی <b class="req">*</b></span><input name="personnel_code" value="{{ draft.personnel_code|default:'' }}" placeholder="1405112" required></label>
                             <label><span>کد ملی <b class="req">*</b></span><input name="national_id" value="{{ draft.national_id|default:'' }}" required></label>
                             <label><span>ایمیل <b class="req">*</b></span><input type="email" name="email" value="{{ draft.email|default:'' }}" required></label>
                             <label><span>شماره موبایل <b class="req">*</b></span><input name="phone" value="{{ draft.phone|default:'' }}" required></label>
@@ -83,7 +83,7 @@
                     </div>
                     <div class="teacher-wizard-subhead">اطلاعات تکمیلی</div>
                     <div class="teacher-wizard-grid">
-                        <label>تخصص <input name="specialty" value="{{ draft.specialty|default:'' }}" placeholder="تخصص خود را وارد کنید"></label>
+                        <label>تخصص <input name="specialty" value="{{ draft.specialty|default:'' }}" placeholder="داخلی جراحی"></label>
                         <label>مرتبه علمی
                             <select name="academic_rank">
                                 <option value="">انتخاب کنید</option>
@@ -200,7 +200,7 @@
                                 {% for course in courses|slice:":8" %}
                                     <tr data-course-row>
                                         <td><label class="teacher-wizard-check"><input type="checkbox" name="course_ids" value="{{ course.id }}" {% if course.id|stringformat:"s" in selected_course_ids %}checked{% endif %}> {{ course.title }}</label></td>
-                                        <td>{{ course.code|default:"-"|fa_digits }}</td>
+                                        <td><bdi data-latin-digits>{{ course.code|default:"-" }}</bdi></td>
                                         <td>{{ course.unit_name|default:"-" }}</td>
                                         <td>مدرس اصلی</td>
                                         <td><span class="teacher-wizard-status">فعال</span></td>
@@ -244,7 +244,7 @@
                             </div>
                             <div>
                                 <h2>{{ draft.first_name }} {{ draft.last_name }}</h2>
-                                <small>کد استادی: {{ draft.personnel_code|default:"ایجاد خودکار"|fa_digits }}</small>
+                                <small>کد استادی: <bdi data-latin-digits>{{ draft.personnel_code|default:"ایجاد خودکار" }}</bdi></small>
                             </div>
                         </div>
                         <dl>
@@ -288,7 +288,7 @@
         if (!file) return;
         img.src = URL.createObjectURL(file);
         img.hidden = false;
-        icon.hidden = true;
+        icon.setAttribute('hidden', '');  // <svg> has no .hidden property
     });
 })();
 

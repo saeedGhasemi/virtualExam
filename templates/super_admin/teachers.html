@@ -65,7 +65,7 @@
                             <td>
                                 <div class="am-manager-name">
                                     <b>{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="{{ row.full_name|default:'استاد' }}" onerror="this.replaceWith(document.createTextNode((this.alt || 'ا').trim().slice(0, 1)))">{% else %}{{ row.full_name|default:"استاد"|fa_digits|slice:":1" }}{% endif %}</b>
-                                    <div><strong>{{ row.full_name|default:"استاد"|fa_digits }}</strong><small>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</small></div>
+                                    <div><strong>{{ row.full_name|default:"استاد"|fa_digits }}</strong><small><bdi data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</bdi></small></div>
                                 </div>
                             </td>
                             <td><span class="am-pill">{{ row.university|fa_digits }}</span></td>
@@ -124,9 +124,9 @@
                     </div>
                     <div class="am-card-avatar">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="{{ row.full_name|default:'استاد' }}" onerror="this.replaceWith(Object.assign(document.createElement('span'), {textContent: (this.alt || 'ا').trim().slice(0, 1)}))">{% else %}<span>{{ row.full_name|default:"استاد"|fa_digits|slice:":1" }}</span>{% endif %}</div>
                     <h3>{{ row.full_name|default:"استاد"|fa_digits }}</h3>
-                    <p>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</p>
+                    <p><bdi data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</bdi></p>
                     <div class="am-card-details">
-                        <span><b>#</b><em data-card-field="code">{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</em></span>
+                        <span><b>#</b><em data-card-field="code" data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</em></span>
                         <span><b>دانشگاه</b><em data-card-field="university">{{ row.university|fa_digits }}</em></span>
                         <span><b>دانشکده</b><em data-card-field="faculty">{{ row.faculty|fa_digits }}</em></span>
                         <span><b>گروه</b><em data-card-field="department">{{ row.department_name|fa_digits }}</em></span>
@@ -195,7 +195,7 @@
             <section class="am-tab-panel" data-teacher-panel="security">
                 <div class="am-form-grid is-single">
                     <label>ایمیل (نام کاربری ورود)<input name="email"></label>
-                    <label>رمز عبور جدید (اختیاری)<input name="password" placeholder="در صورت تغییر، حداقل ۶ کاراکتر"></label>
+                    <label>رمز عبور جدید (اختیاری)<input type="password" name="password" autocomplete="new-password"></label>
                     <label>وضعیت حساب<select name="status"><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
                 </div>
             </section>
@@ -436,7 +436,7 @@
             card = document.createElement('article');
             card.className = 'am-person-card';
             card.dataset.teacherCard = data.teacher_id;
-            card.innerHTML = `<div class="am-card-top"><span class="am-status"></span><div class="am-card-action-icons"><button type="button" class="am-card-menu is-danger" data-delete-teacher="" data-teacher-name="" title="حذف استاد"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button><button type="button" class="am-card-menu" data-card-teacher-details="" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button><button type="button" class="am-card-menu" data-card-teacher-edit="" title="ویرایش اطلاعات">✎</button></div></div><div class="am-card-avatar"></div><h3></h3><p></p><div class="am-card-details"><span><b>#</b><em data-card-field="code"></em></span><span><b>دانشگاه</b><em data-card-field="university"></em></span><span><b>دانشکده</b><em data-card-field="faculty"></em></span><span><b>گروه</b><em data-card-field="department"></em></span><span><b>دروس</b><em data-card-field="courses"></em></span><span><b>ایمیل</b><em data-card-field="email"></em></span><span><b>موبایل</b><em data-card-field="phone"></em></span></div><footer><small>ثبت: -</small></footer>`;
+            card.innerHTML = `<div class="am-card-top"><span class="am-status"></span><div class="am-card-action-icons"><button type="button" class="am-card-menu is-danger" data-delete-teacher="" data-teacher-name="" title="حذف استاد"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button><button type="button" class="am-card-menu" data-card-teacher-details="" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button><button type="button" class="am-card-menu" data-card-teacher-edit="" title="ویرایش اطلاعات">✎</button></div></div><div class="am-card-avatar"></div><h3></h3><p></p><div class="am-card-details"><span><b>#</b><em data-card-field="code" data-latin-digits></em></span><span><b>دانشگاه</b><em data-card-field="university"></em></span><span><b>دانشکده</b><em data-card-field="faculty"></em></span><span><b>گروه</b><em data-card-field="department"></em></span><span><b>دروس</b><em data-card-field="courses"></em></span><span><b>ایمیل</b><em data-card-field="email"></em></span><span><b>موبایل</b><em data-card-field="phone"></em></span></div><footer><small>ثبت: -</small></footer>`;
             cardGrid.prepend(card);
         }
         const status = card.querySelector('.am-status');

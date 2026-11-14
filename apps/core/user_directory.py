@@ -356,7 +356,9 @@ def super_admin_user_directory(request):
             'key': key, 'label': label, 'default': default, 'style': style,
             'text': _cell_text(row.get(key)),
             'tone': row[key][1] if isinstance(row.get(key), tuple) else '',
-            'latin': 'ltr' in style and any('a' <= ch.lower() <= 'z' for ch in _cell_text(row.get(key))),
+            # digits stay 0-9 in codes and in anything with Latin letters
+            'latin': 'ltr' in style and (key in ('national_id', 'personnel_code', 'student_number')
+                                         or any('a' <= ch.lower() <= 'z' for ch in _cell_text(row.get(key)))),
         } for key, label, default, style in columns],
     } for row in rows]
 

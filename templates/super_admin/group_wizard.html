@@ -79,7 +79,7 @@
                             <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>ترم *</span><select name="semester" data-summary-source="semester"><option value="اول" {% if group.semester|default:default_semester == "اول" %}selected{% endif %}>نیمسال اول</option><option value="دوم" {% if group.semester|default:default_semester == "دوم" %}selected{% endif %}>نیمسال دوم</option><option value="تابستان" {% if group.semester|default:default_semester == "تابستان" %}selected{% endif %}>تابستان</option></select></label>
                             <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>درس *</span><select name="course_id" data-course-select required>{% for course in courses %}<option value="{{ course.id }}" data-code="{{ course.code|default:'' }}" data-units="{{ course.credit_units|default:'3' }}" {% if current_course.id == course.id %}selected{% endif %}>{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
                             <div class="unit-box">
-                                <div><svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l3.59-3.59a2 2 0 0 0 0-2.59Z"/><circle cx="8.5" cy="8.5" r="1"/></svg><div><span>کد درس:</span><strong data-course-code-text>{{ current_course.code|default:"-"|fa_digits }}</strong></div></div>
+                                <div><svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l3.59-3.59a2 2 0 0 0 0-2.59Z"/><circle cx="8.5" cy="8.5" r="1"/></svg><div><span>کد درس:</span><strong data-course-code-text data-latin-digits>{{ current_course.code|default:"-" }}</strong></div></div>
                                 <div><svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5-10-5Z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg><div><span>تعداد واحد:</span><strong data-course-units-text>{{ current_course.credit_units|default:'3'|fa_digits }} واحد</strong></div></div>
                             </div>
                             <input type="hidden" name="course_code" data-course-code value="{{ current_course.code|default:'-' }}">
@@ -204,7 +204,7 @@
                                                     <tr data-student-row data-search="{{ student.full_name }} {{ student.student_number }}" data-field="{{ student.field_of_study }}" data-entry="{{ student.entry_year }}" data-status="{{ student.status }}">
                                                         <td><input type="checkbox" name="student_ids" value="{{ student.id }}" data-student-check data-name="{{ student.full_name }}" data-code="{{ student.student_number }}" data-avatar="{{ student.avatar_url|default:'' }}" {% if is_edit and student.id|stringformat:"s" in selected_student_ids %}checked{% endif %}></td>
                                                         <td><span class="student-name-cell">{% if student.avatar_url %}<img class="avatar" src="{{ student.avatar_url }}" alt="">{% else %}<i class="avatar">{{ student.full_name|slice:":1"|default:"د" }}</i>{% endif %}<span>{{ student.full_name|fa_digits }}</span></span></td>
-                                                        <td>{{ student.student_number|fa_digits }}</td>
+                                                        <td><bdi data-latin-digits>{{ student.student_number }}</bdi></td>
                                                         <td>{{ student.field_of_study|fa_digits }}</td>
                                                         <td>{{ student.entry_year|default:"-"|fa_digits }}</td>
                                                         <td><span class="status {% if student.status != 'active' %}is-inactive{% endif %}">{% if student.status == 'active' %}فعال{% elif student.status == 'inactive' %}غیرفعال{% elif student.status == 'blocked' %}مسدود{% elif student.status == 'pending' %}در انتظار{% else %}{{ student.status }}{% endif %}</span></td>
@@ -272,7 +272,7 @@
         }
         setAllText('[data-banner-selected]', selected);
         setAllText('[data-banner-capacity]', capacity);
-        setText('[data-course-code-text]', selectedCourse?.dataset.code || '-');
+        document.querySelector('[data-course-code-text]').textContent = selectedCourse?.dataset.code || '-';  // a code: keeps 0-9
         setText('[data-course-units-text]', `${selectedCourse?.dataset.units || 3} واحد`);
         document.querySelector('[data-course-code]').value = selectedCourse?.dataset.code || '-';
         document.querySelector('[data-course-units]').value = selectedCourse?.dataset.units || 3;
@@ -398,7 +398,7 @@
                 const row = document.createElement('div');
                 row.className = 'efound-row';
                 const avatar = s.avatar_url ? `<img class="avatar" src="${s.avatar_url}" alt="">` : `<i class="avatar">${(s.full_name || 'د').slice(0,1)}</i>`;
-                row.innerHTML = `<button type="button">×</button>${avatar}<div><strong>${s.full_name}</strong><small>${fa(s.student_number || s.national_id || '-')}</small></div><span class="status-pill">یافت شد در سامانه</span>`;
+                row.innerHTML = `<button type="button">×</button>${avatar}<div><strong>${s.full_name}</strong><small data-latin-digits>${s.student_number || s.national_id || '-'}</small></div><span class="status-pill">یافت شد در سامانه</span>`;
                 row.querySelector('button').addEventListener('click', () => {
                     s.removed = true;
                     removedCount += 1;
@@ -474,5 +474,5 @@
     setStep(1);
 })();
 </script>
-<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108l"></script>
+<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261114c"></script>
 {% endblock %}

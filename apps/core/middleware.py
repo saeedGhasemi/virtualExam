@@ -11,6 +11,26 @@ from django.urls import reverse
 logger = logging.getLogger(__name__)
 
 
+class ReplacedSessionNoticeMiddleware:
+    """A device signed out because the account signed in elsewhere (account_security: one device per account) gets
+    a toast saying so on the page it lands on (the sign-in page)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.contrib import messages
+
+        from . import account_security
+
+        try:
+            if account_security.replaced_session_notice(request):
+                messages.warning(request, account_security.REPLACED_SESSION_MESSAGE)
+        except DatabaseError:
+            logger.exception('could not check for a replaced session')
+        return self.get_response(request)
+
+
 class MalformedIdNotFoundMiddleware:
     """A URL id that is not a UUID makes PostgreSQL reject the query on the ERD uuid columns.
 
@@ -61,6 +81,55 @@ class PasswordChangeRequiredMiddleware:
         except DatabaseError:
             return False
         return bool(profile and profile.get('password_change_required'))
+
+
+class PersonFieldLengthMiddleware:
+    """No POST may store a personal / basic-info field longer than field_rules.FIELD_MAX (student number, national ID,
+    phone, names, codes, field of study …), whichever page or dialog sends it. The browser already stops typing at that
+    length and refuses keys that don't fit (static/js/field-rules.js); this is the server-side guard. A too-long value, or
+    a personal field in the wrong format (field_rules.format_error: national ID, mobile, birth date, names, codes,
+    e-mail …), is refused before the view runs:
+    JSON 400 for scripts, else the message as a toast and back to the form."""
+
+    # Pages that check these formats themselves and show the error on the form with the typed values kept (nicer than
+    # a toast + redirect); the length caps still apply to them.
+    SELF_VALIDATING = {'profile', 'teacher_settings', 'student_settings', 'super_admin_teacher_create',
+                       'super_admin_student_create', 'super_admin_manager_create'}
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        if request.method != 'POST' or getattr(view_func, 'csrf_exempt', False):
+            return None
+        user = getattr(request, 'user', None)
+        if user is None or not user.is_authenticated:  # sign-up / sign-in: their Django forms check lengths themselves
+            return None
+        from .field_rules import format_error, too_long_error
+
+        try:
+            error = too_long_error(request.POST)
+            match = getattr(request, 'resolver_match', None)
+            if not error and getattr(match, 'url_name', None) not in self.SELF_VALIDATING:
+                error = format_error(request.POST)
+        except Exception:  # unreadable body: the view / CSRF check reports it
+            return None
+        if not error:
+            return None
+        logger.info('Too-long / malformed field refused on %s', request.path)
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('accept', ''):
+            return JsonResponse({'ok': False, 'error': error, 'message': error}, status=400)
+        from django.contrib import messages
+        from django.utils.http import url_has_allowed_host_and_scheme
+
+        messages.error(request, error)
+        back = request.headers.get('referer', '')
+        if not url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+            back = request.get_full_path()
+        return redirect(back)
 
 
 class SecurityHeadersMiddleware:

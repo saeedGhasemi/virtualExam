@@ -16,7 +16,7 @@
         <article class="tset-card tchg-item">
             <header class="tchg-head">
                 <span class="tchg-face">{% if item.avatar_url %}<img src="{{ item.avatar_url }}" alt="">{% else %}{{ item.full_name|slice:":1" }}{% endif %}</span>
-                <div><b>{{ item.full_name }}</b><small>کد پرسنلی {{ item.personnel_code|default:"-"|fa_digits }} · ثبت {{ item.created_label }}</small></div>
+                <div><b>{{ item.full_name }}</b><small>کد پرسنلی <bdi data-latin-digits>{{ item.personnel_code|default:"-" }}</bdi> · ثبت {{ item.created_label }}</small></div>
                 {% if item.status == 'approved' %}<span class="tchg-status is-ok">تأیید شد</span>{% elif item.status == 'rejected' %}<span class="tchg-status is-bad">رد شد</span>{% else %}<span class="tchg-status">در انتظار</span>{% endif %}
             </header>
             <ul class="tchg-changes">

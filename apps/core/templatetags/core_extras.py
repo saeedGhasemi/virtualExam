@@ -12,11 +12,19 @@ register = template.Library()
 PERSIAN_DIGITS = str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹')
 
 
+_LATIN_TOKEN = re.compile(r'[A-Za-z0-9_.@+\-]+')
+
+
 @register.filter
 def fa_digits(value):
+    """Persian digits, except inside a Latin word (codes such as MQTEST-T02, e-mails): those keep 0-9.
+    Same rule as the global converter in base.html / base_standalone.html."""
     if value is None:
         return ''
-    return str(value).translate(PERSIAN_DIGITS)
+    return _LATIN_TOKEN.sub(
+        lambda m: m.group(0) if re.search('[A-Za-z]', m.group(0)) else m.group(0).translate(PERSIAN_DIGITS),
+        str(value),
+    )
 
 
 _RTL_CHARS = re.compile(r'[\u0590-\u065f\u066a-\u06ef\u06fa-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]')  # letters only: Arabic-Indic / Persian digits are neutral like 0-9

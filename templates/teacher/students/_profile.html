@@ -17,7 +17,7 @@
                 {% if s.avatar_url %}<img src="{{ s.avatar_url }}" alt="تصویر {{ s.name }}">{% else %}<span>{{ s.initial }}</span>{% endif %}
             </div>
             <dl class="tstu-facts">
-                <div class="is-code"><dt>شماره دانشجویی</dt><dd>{{ s.code|default:"-"|fa_digits }}</dd>
+                <div class="is-code"><dt>شماره دانشجویی</dt><dd><bdi data-latin-digits>{{ s.code|default:"-" }}</bdi></dd>
                     <p><span class="tstu-badge {{ s.status_tone }}">{{ s.status_label|default:"فعال" }}</span>{% if s.degree %}<span class="tstu-badge is-blue">{{ s.degree }}</span>{% endif %}</p>
                 </div>
                 <div><dt>نام و نام خانوادگی</dt><dd>{{ s.name }}</dd></div>
@@ -57,7 +57,7 @@
                     <article class="tstu-card tstu-course">
                         <i aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></i>
                         <div>
-                            <h3>{{ group.course_name }}{% if group.course_code %} <em>{{ group.course_code }}</em>{% endif %}</h3>
+                            <h3>{{ group.course_name }}{% if group.course_code %} <em><bdi data-latin-digits>{{ group.course_code }}</bdi></em>{% endif %}</h3>
                             <p>{{ group.term_label|default:"-" }}</p>
                             <p>گروه: {{ group.group_code|default:"-"|fa_digits }}</p>
                             <p>استاد: {{ group.owner_name|default:"-" }}</p>
@@ -72,7 +72,7 @@
                         <tbody>
                             {% for group in p.groups %}
                                 <tr>
-                                    <td class="is-title">{{ group.course_name }}{% if group.course_code %} ({{ group.course_code }}){% endif %}</td>
+                                    <td class="is-title">{{ group.course_name }}{% if group.course_code %} (<bdi data-latin-digits>{{ group.course_code }}</bdi>){% endif %}</td>
                                     <td>{{ group.term_label|default:"-" }}</td>
                                     <td>{{ group.group_code|default:"-"|fa_digits }}</td>
                                     <td>{{ group.owner_name|default:"-" }}</td>
@@ -308,7 +308,7 @@
 </div>
 {% include 'teacher/students/_message_dialog.html' %}
 {# tabs are swapped in place by live-region.js: page-wide helpers live outside #teacher-student-profile #}
-<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108l"></script>
+<script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261114c"></script>
 <script>
 (() => {
   if (window.__tstuProfileJs) return;

@@ -65,8 +65,8 @@
                 {% for level in crit.scale_levels|default:osce_default_levels %}
                     <div class="ob-level-row">
                         <span class="ob-level-num is-l{{ forloop.revcounter }}">{{ forloop.revcounter|fa_digits }}</span>
-                        <label class="ob-field">عنوان سطح<input type="text" name="level_label" maxlength="40" required value="{{ level.label }}" data-level-input="{{ forloop.counter0 }}"></label>
-                        <label class="ob-field">توضیح کوتاه<input type="text" name="level_description" maxlength="120" value="{{ level.description }}" data-level-desc-input="{{ forloop.counter0 }}"></label>
+                        <label class="ob-field">عنوان سطح<input type="text" name="level_label" maxlength="40" required value="{{ level.label }}" placeholder="عالی" data-level-input="{{ forloop.counter0 }}"></label>
+                        <label class="ob-field">توضیح کوتاه<input type="text" name="level_description" maxlength="120" value="{{ level.description }}" placeholder="همه مراحل کامل و درست" data-level-desc-input="{{ forloop.counter0 }}"></label>
                     </div>
                 {% endfor %}
             </div>

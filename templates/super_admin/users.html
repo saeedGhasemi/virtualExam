@@ -185,7 +185,7 @@
                                         {% endif %}
                                         <div>
                                             <strong>{{ row.full_name|default:"مدیر" }}</strong>
-                                            <small>{{ row.personnel_code|default:row.identifier|default:"-" }}</small>
+                                            <small><bdi data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</bdi></small>
                                         </div>
                                     </div>
                                 </td>
@@ -258,7 +258,7 @@
                     {% endif %}
                     <div>
                         <strong data-feature-name>{{ featured_manager.full_name }}</strong>
-                        <small data-feature-code>{{ featured_manager.personnel_code|default:featured_manager.identifier|default:"-" }}</small>
+                        <small data-feature-code data-latin-digits>{{ featured_manager.personnel_code|default:featured_manager.identifier|default:"-" }}</small>
                         <small data-feature-contact>{{ featured_manager.email|default:"-" }} · {{ featured_manager.phone|default:"-" }}</small>
                     </div>
                     <em data-feature-status>{{ featured_manager.status_label }}</em>
@@ -424,7 +424,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td>{{ row.student_number|default:row.identifier|default:"-" }}</td>
+                                <td><bdi data-latin-digits>{{ row.student_number|default:row.identifier|default:"-" }}</bdi></td>
                                 <td>{{ row.unit_path }}</td>
                                 <td>{{ row.entry_year }} / {{ row.degree|default:"-" }}</td>
                                 <td><mark>{{ row.groups_label }}</mark></td>
@@ -490,7 +490,7 @@
                     {% endif %}
                     <div>
                         <strong data-student-feature-name>{{ featured_student.full_name }}</strong>
-                        <small data-student-feature-code>شماره دانشجویی: {{ featured_student.student_number|default:featured_student.identifier|default:"-" }}</small>
+                        <small data-student-feature-code data-latin-digits>شماره دانشجویی: {{ featured_student.student_number|default:featured_student.identifier|default:"-" }}</small>
                         <small data-student-feature-contact>{{ featured_student.email|default:"-" }} · {{ featured_student.phone|default:"-" }}</small>
                     </div>
                     <em data-student-feature-status>{{ featured_student.status_label }}</em>
@@ -634,7 +634,7 @@
                                         {% endif %}
                                         <div>
                                             <strong>{{ row.full_name|default:"استاد" }}</strong>
-                                            <small>{{ row.personnel_code|default:row.identifier|default:"-" }}</small>
+                                            <small><bdi data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</bdi></small>
                                         </div>
                                     </div>
                                 </td>
@@ -692,7 +692,7 @@
                 <div class="users-feature-metrics">
                     <div><b data-teacher-feature-students>{{ featured_teacher.students_count }}</b><span>دانشجو</span></div>
                     <div><b data-teacher-feature-courses>{{ featured_teacher.courses_count }}</b><span>درس فعال</span></div>
-                    <div><b data-teacher-feature-code>{{ featured_teacher.personnel_code|default:featured_teacher.identifier|default:"-" }}</b><span>کد استادی</span></div>
+                    <div><b data-teacher-feature-code data-latin-digits>{{ featured_teacher.personnel_code|default:featured_teacher.identifier|default:"-" }}</b><span>کد استادی</span></div>
                 </div>
                 <div class="users-feature-actions">
                     <a href="{% url 'core:super_admin_user_profile' 'teacher' featured_teacher.id %}" data-teacher-feature-profile-link>مشاهده پروفایل</a>

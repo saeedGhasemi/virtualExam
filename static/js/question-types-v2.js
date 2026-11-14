@@ -182,7 +182,7 @@
     labelTexts.forEach((item, index) => {
       const row = el('div', 'qb2-text-row');
       const input = el('input');
-      input.type = 'text'; input.maxLength = 60; input.value = item.text; input.placeholder = 'مثلاً چپ';
+      input.type = 'text'; input.maxLength = 60; input.value = item.text; input.placeholder = 'چپ';
       input.addEventListener('input', () => {
         item.text = input.value;
         const node = form.querySelector(`.qb2-text[data-text-index="${index}"]`);
@@ -517,7 +517,7 @@
         numberCell.append(el('span', 'qb2-num', toFa(index + 1)));
         const nameCell = el('td');
         const name = el('input');
-        name.type = 'text'; name.maxLength = 120; name.value = item.name; name.placeholder = 'مثلاً دریچه میترال';
+        name.type = 'text'; name.maxLength = 120; name.value = item.name; name.placeholder = 'دریچه میترال';
         name.dataset.hotName = '';
         name.addEventListener('input', () => { item.name = name.value; syncHot(); });
         nameCell.append(name);

@@ -19,7 +19,7 @@
                     <tr{% if row.id == s.panel.student.id %} class="is-selected" aria-current="true"{% endif %}>
                         <td>{{ row.row_no|fa_digits }}</td>
                         <td><a class="ch-strong" href="{{ row.url }}">{{ row.name }}</a></td>
-                        <td>{{ row.code|fa_digits|default:'—' }}</td>
+                        <td><bdi data-latin-digits>{{ row.code|default:'—' }}</bdi></td>
                         <td>{% if row.is_absent %}<span class="xh-pill is-red">غایب</span>{% else %}<span class="xh-pill is-green">فعال</span>{% endif %}</td>
                     </tr>
                     {% empty %}
@@ -54,7 +54,7 @@
             {% for row in s.rows %}
             <tr data-row-href="{{ row.url }}">
                 <td><span class="xh-person ch-person"><span class="xh-avatar is-sm ch-avatar">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="">{% else %}{% include 'teacher/class/_icon.html' with i='user' %}{% endif %}</span><b>{{ row.name }}</b></span></td>
-                <td><span class="ch-strong">{{ row.code|fa_digits|default:'—' }}</span></td>
+                <td><span class="ch-strong"><bdi data-latin-digits>{{ row.code|default:'—' }}</bdi></span></td>
                 <td>{% if row.total %}{{ row.taken|fa_digits }} از {{ row.total|fa_digits }}{% else %}—{% endif %}</td>
                 <td>{% with last=row.last %}{% if not last %}—{% elif last.state == 'done' %}<b class="ch-score">{{ last.score|fa_digits }}</b>{% elif last.state == 'grading' %}<span class="xh-pill is-grey">ثبت نشده</span>{% else %}<span class="xh-pill is-{{ last.state_tone }}">{{ last.state_label }}</span>{% endif %}{% endwith %}</td>
                 <td><span class="xh-pill is-{{ row.learning_tone }}">{% include 'teacher/class/_icon.html' with i=row.learning_icon %}{{ row.learning_label }}</span></td>

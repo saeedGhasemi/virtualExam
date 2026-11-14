@@ -74,7 +74,7 @@
                                 <label class="tset-field"><span class="tset-label">رمز عبور جدید</span><input class="tset-input" type="password" name="new_password1" autocomplete="new-password" dir="ltr" form="tset-security-form"></label>
                                 <label class="tset-field"><span class="tset-label">تکرار رمز عبور جدید</span><input class="tset-input" type="password" name="new_password2" autocomplete="new-password" dir="ltr" form="tset-security-form"></label>
                             </div>
-                            <small class="tset-hint">حداقل ۸ نویسه، فقط عدد نباشد و شبیه نام کاربری نباشد. پس از تغییر، نشست‌های دیگر شما بسته می‌شوند.</small>
+                            <small class="tset-hint">پس از تغییر، نشست‌های دیگر شما بسته می‌شوند.</small>
                             <div class="tset-request-actions"><button class="tset-save" type="submit" form="tset-security-form" name="security_action" value="password_change">ثبت رمز جدید</button></div>
                         </div>
                     </div>
@@ -165,7 +165,7 @@
                 <div class="tset-request-panel tset-danger-panel" id="tset-deletion-panel" data-tset-request-panel{% if security_failed_action != 'deletion_request' %} hidden{% endif %}>
                     <div class="tset-row is-2">
                         <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="key" %}رمز عبور فعلی <b class="tset-req">*</b></span><input class="tset-input" type="password" name="deletion_password" autocomplete="current-password" form="tset-security-form"></label>
-                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="message" %}دلیل (اختیاری)</span><input class="tset-input is-text" name="deletion_reason" maxlength="500" form="tset-security-form"></label>
+                        <label class="tset-field"><span class="tset-label">{% include "teacher/_qb_icon.html" with name="message" %}دلیل (اختیاری)</span><input class="tset-input is-text" name="deletion_reason" maxlength="500" form="tset-security-form" placeholder="دیگر از سامانه استفاده نمی‌کنم"></label>
                     </div>
                     <label class="tset-check"><input type="checkbox" name="deletion_confirm" form="tset-security-form"> می‌دانم که پس از تأیید، دیگر به حساب خود دسترسی نخواهم داشت.</label>
                     <div class="tset-request-actions"><button class="tset-save is-danger" type="submit" form="tset-security-form" name="security_action" value="deletion_request">ثبت درخواست حذف حساب</button></div>
@@ -207,7 +207,7 @@
                 <small class="tset-hint" data-browser-permission hidden></small>
                 <label class="tset-field">
                     <span class="tset-label">{% include "teacher/_qb_icon.html" with name="mail" %}ایمیل اعلان‌ها</span>
-                    <input class="tset-input" type="email" name="notification_email" value="{{ teacher_settings.notification_email }}" maxlength="254" dir="ltr" placeholder="{{ request.user.email|default:'name@university.ac.ir' }}">
+                    <input class="tset-input" type="email" name="notification_email" data-keep-placeholder value="{{ teacher_settings.notification_email }}" maxlength="254" dir="ltr" placeholder="{{ request.user.email|default:'name@university.ac.ir' }}">
                     {% if not teacher_ui.email_ready %}<small class="tset-hint">ارسال ایمیل وقتی انجام می‌شود که سرور ایمیل سامانه تنظیم شده باشد؛ فعلاً تنظیم نشده است.</small>{% endif %}
                 </label>
             </div>

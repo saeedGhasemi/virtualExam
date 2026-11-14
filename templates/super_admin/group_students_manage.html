@@ -96,7 +96,7 @@
                                             <span>{{ member.full_name|fa_digits }}</span>
                                         </div>
                                     </td>
-                                    <td>{{ member.student_number|fa_digits }}</td>
+                                    <td><bdi data-latin-digits>{{ member.student_number }}</bdi></td>
                                     <td>{{ member.field_of_study|fa_digits }}</td>
                                     <td>{{ member.entry_year|default:"-"|fa_digits }}</td>
                                     <td><span class="status {% if member.status != 'active' %}is-inactive{% endif %}">{{ member.status_label|fa_digits }}</span></td>

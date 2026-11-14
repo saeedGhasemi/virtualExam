@@ -83,18 +83,18 @@
                 <h1>{{ user_profile.full_name|default:"کاربر سامانه" }}</h1>
                 <p>{{ role_label }}</p>
                 {% if kind == "student" %}
-                    <small class="student-profile-idline">شماره دانشجویی: {{ user_profile.student_number|default:user_profile.identifier|default:"-" }}</small>
+                    <small class="student-profile-idline">شماره دانشجویی: <bdi data-latin-digits>{{ user_profile.student_number|default:user_profile.identifier|default:"-" }}</bdi></small>
                 {% elif kind == "teacher" %}
-                    <small class="teacher-profile-code-line">استاد {{ user_profile.personnel_code|default:user_profile.identifier|default:"۱۰۲۴" }}</small>
+                    <small class="teacher-profile-code-line">استاد <bdi data-latin-digits>{{ user_profile.personnel_code|default:user_profile.identifier|default:"-" }}</bdi></small>
                 {% endif %}
                 <div class="user-profile-badges">
                     <span class="is-{{ status_tone }}">{{ status_label }}</span>
                     {% if kind == "student" %}
-                        <span>{{ user_profile.student_number|default:user_profile.identifier|default:"-" }}</span>
+                        <span><bdi data-latin-digits>{{ user_profile.student_number|default:user_profile.identifier|default:"-" }}</bdi></span>
                     {% elif kind == "teacher" %}
-                        <span>{{ teacher_rank|default:"دانشیار" }}</span>
+                        {% if teacher_rank %}<span>{{ teacher_rank }}</span>{% endif %}
                     {% else %}
-                        <span>{{ user_profile.personnel_code|default:user_profile.identifier|default:"ADM" }}</span>
+                        <span><bdi data-latin-digits>{{ user_profile.personnel_code|default:user_profile.identifier|default:"-" }}</bdi></span>
                     {% endif %}
                 </div>
                 <small>{{ primary_unit.label }}</small>
@@ -214,6 +214,8 @@
                                     <small>{{ item.meta }}</small>
                                 </div>
                             </article>
+                        {% empty %}
+                            <p class="user-profile-empty">فعالیتی ثبت نشده است.</p>
                         {% endfor %}
                     </div>
                 </section>
@@ -347,14 +349,14 @@
                 <aside class="student-profile-tab-side">
                     <section class="student-profile-card student-unit-summary">
                         <h2>خلاصه انتخاب واحد</h2>
-                        <div class="student-donut" style="--value: 68">
-                            <strong>۶۸٪</strong>
+                        <div class="student-donut" style="--value: {{ unit_summary.progress }}">
+                            <strong>{{ unit_summary.progress_label }}</strong>
                             <span>پیشرفت کلی</span>
                         </div>
                         <dl>
-                            <div><dt>واحد اخذشده</dt><dd>۱۴</dd></div>
-                            <div><dt>واحد در حال گذراندن</dt><dd>۱۱</dd></div>
-                            <div><dt>واحد تکمیل‌شده</dt><dd>۳</dd></div>
+                            <div><dt>واحد اخذشده</dt><dd>{{ unit_summary.taken }}</dd></div>
+                            <div><dt>واحد در حال گذراندن</dt><dd>{{ unit_summary.current }}</dd></div>
+                            <div><dt>واحد تکمیل‌شده</dt><dd>{{ unit_summary.done }}</dd></div>
                         </dl>
                     </section>
                     <section class="student-profile-card student-near-plan">
@@ -379,10 +381,6 @@
                         <h2>درس‌های ترم جاری</h2>
                         <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
                     </header>
-                    <div class="student-tab-filters">
-                        <button type="button">نیمسال دوم ۱۴۰۳-۱۴۰۴</button>
-                        <button type="button">همه درس‌ها</button>
-                    </div>
                     <div class="student-course-cards">
                         {% for course in courses %}
                             <article>
@@ -422,24 +420,24 @@
                 <aside class="student-profile-tab-side">
                     <section class="student-profile-card student-exam-performance">
                         <h2>خلاصه عملکرد</h2>
-                        <div class="student-donut" style="--value: 86">
-                            <strong>۸۶٪</strong>
+                        <div class="student-donut" style="--value: {{ exam_summary.success_rate }}">
+                            <strong>{{ exam_summary.success_label }}</strong>
                             <span>موفقیت</span>
                         </div>
                         <dl>
-                            <div><dt>میانگین نمره</dt><dd>۱۷.۲۵</dd></div>
-                            <div><dt>بالاترین نمره</dt><dd>۱۹.۵</dd></div>
-                            <div><dt>آزمون ناموفق</dt><dd>۱</dd></div>
+                            <div><dt>میانگین نمره</dt><dd>{{ exam_summary.average }}</dd></div>
+                            <div><dt>بالاترین نمره</dt><dd>{{ exam_summary.best }}</dd></div>
+                            <div><dt>آزمون ناموفق</dt><dd>{{ exam_summary.failed }}</dd></div>
                         </dl>
                     </section>
                     <section class="student-profile-card student-recent-results">
                         <h2>نتایج اخیر</h2>
-                        {% for exam in student_exams|slice:":2" %}
+                        {% for result in recent_results %}
                             <article>
                                 <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
-                                <strong>{{ exam.course_title|default:exam.title }}</strong>
-                                <span>{{ exam.score_label|default:"-" }} نمره</span>
-                                <b>قبول</b>
+                                <strong>{{ result.title }}</strong>
+                                <span>{{ result.score_label }} نمره</span>
+                                <b>{% if result.passed %}قبول{% else %}مردود{% endif %}</b>
                             </article>
                         {% empty %}
                             <p class="user-profile-empty">نتیجه‌ای ثبت نشده است.</p>
@@ -453,10 +451,6 @@
                         <h2>آزمون‌های پیش‌رو</h2>
                         <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
                     </header>
-                    <div class="student-tab-filters">
-                        <button type="button">نیمسال دوم ۱۴۰۳-۱۴۰۴</button>
-                        <button type="button">همه آزمون‌ها</button>
-                    </div>
                     <div class="student-exam-cards">
                         {% for exam in student_exams %}
                             <article>
@@ -491,7 +485,7 @@
                 </div>
                 <section>
                     <h2>تاریخچه فعالیت‌ها</h2>
-                    <div class="student-activity-list">
+                    <div class="student-activity-list" data-pager>
                         {% for item in activity_items %}
                             <article>
                                 <span class="is-{{ item.tone }}"></span>
@@ -500,16 +494,10 @@
                                 <strong>{{ item.title }}</strong>
                                 <small>{{ item.meta }}</small>
                             </article>
+                        {% empty %}
+                            <p class="user-profile-empty">فعالیتی برای این دانشجو ثبت نشده است.</p>
                         {% endfor %}
                     </div>
-                    <footer>
-                        <span>نمایش ۱ تا {{ activity_items|length }} از {{ activity_total }} فعالیت</span>
-                        <div>
-                            <a class="is-active" href="#">۱</a>
-                            <a href="#">۲</a>
-                            <a href="#">۳</a>
-                        </div>
-                    </footer>
                 </section>
             </div>
         {% endif %}
@@ -560,7 +548,7 @@
                             <em class="is-{{ course.status_tone }}">{{ course.status_label }}</em>
                             <div>
                                 <strong>{{ course.title }}</strong>
-                                <small>{{ course.code|default:"-" }}</small>
+                                <small><bdi data-latin-digits>{{ course.code|default:"-" }}</bdi></small>
                             </div>
                             <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H21"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H21v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/></svg>
                         </article>
@@ -585,6 +573,8 @@
                                 <small>{{ item.meta }}</small>
                             </div>
                         </article>
+                    {% empty %}
+                        <p class="user-profile-empty">فعالیتی ثبت نشده است.</p>
                     {% endfor %}
                 </div>
                 <a href="#activity">مشاهده همه فعالیت‌ها</a>
@@ -653,7 +643,7 @@
                             <article>
                                 <div>
                                     <strong>{{ course.title }}</strong>
-                                    <small>{{ course.code|default:course.teacher_name|default:"-" }}</small>
+                                    <small><bdi data-latin-digits>{{ course.code|default:course.teacher_name|default:"-" }}</bdi></small>
                                 </div>
                                 <span>{% if course.is_active %}فعال{% else %}غیرفعال{% endif %}</span>
                                 {% if kind == "teacher" %}
@@ -680,6 +670,8 @@
                                 <small>{{ item.meta }}</small>
                             </div>
                         </article>
+                    {% empty %}
+                        <p class="user-profile-empty">فعالیتی ثبت نشده است.</p>
                     {% endfor %}
                 </div>
             </section>

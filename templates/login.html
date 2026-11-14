@@ -9,10 +9,19 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}?v=20260826b">
     <link rel="shortcut icon" href="/favicon.ico?v=20260826b">
     <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=20260826b">
-    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=classes-20261112">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261112rl">
+    <link rel="stylesheet" href="{% static 'dist/styles.css' %}?v=classes-20261114pw">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}?v=responsive-20261114lw2">
     <link rel="stylesheet" href="{% static 'css/brand.css' %}?v=brand-20261112v">
     {% include "partials/appearance_head.html" %}
+    <style>
+        /* Typed username/password in exactly the font Chrome draws its autofill preview with (UA rule
+           `font: -webkit-small-control !important`, 13.33px system font, not scaled by the text-size setting), so the
+           text doesn't change when the field is focused (user's choice). The shorthand also keeps appearance.js from
+           scaling it (it rewrites only `font-size: …px`). Other browsers fall back to the first line. The Persian
+           placeholder keeps the page font. */
+        .auth-field input { font: 400 13.333px "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; font: -webkit-small-control; }
+        .auth-field input::placeholder { font-family: "B Yekan", BYekan, "B Yekan+", Vazirmatn, Tahoma, Arial, sans-serif; font-weight: 600; font-size: .875rem; }
+    </style>
 </head>
 <body class="auth-page">
     <main class="auth-card">
@@ -46,7 +55,7 @@
 
                 <label class="auth-field">
                     <span>نام کاربری یا ایمیل</span>
-                    <input type="text" dir="ltr" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" placeholder="نام کاربری، ایمیل یا شماره دانشجویی" required>
+                    <input type="text" dir="ltr" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" placeholder="نام کاربری، ایمیل یا شماره دانشجویی" required data-keep-placeholder>
                 </label>
 
                 <label class="auth-field">
@@ -103,5 +112,7 @@
             });
         });
     </script>
+    <script src="{% static 'js/password-toggle.js' %}?v=20261114b" defer></script>
+    <script src="{% static 'js/field-rules.js' %}?v=20261114pw3" defer></script>
 </body>
 </html>

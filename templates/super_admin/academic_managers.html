@@ -84,7 +84,7 @@
                                     </b>
                                     <div>
                                         <strong>{{ row.full_name|default:"مدیر آموزشی"|fa_digits }}</strong>
-                                        <small>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</small>
+                                        <small><bdi data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</bdi></small>
                                     </div>
                                 </div>
                             </td>
@@ -178,9 +178,9 @@
                         {% endif %}
                     </div>
                     <h3>{{ row.full_name|default:"مدیر آموزشی"|fa_digits }}</h3>
-                    <p>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</p>
+                    <p><bdi data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</bdi></p>
                     <div class="am-card-details">
-                        <span><b>#</b>{{ row.personnel_code|default:row.identifier|default:"-"|fa_digits }}</span>
+                        <span><b>#</b><bdi data-latin-digits>{{ row.personnel_code|default:row.identifier|default:"-" }}</bdi></span>
                         <span><b>دانشگاه</b>{{ row.university|fa_digits }}</span>
                         <span><b>دانشکده</b>{{ row.faculty|fa_digits }}</span>
                         <span><b>گروه</b>{{ row.department_name|fa_digits }}</span>
@@ -279,7 +279,7 @@
             <section class="am-tab-panel" data-tab-panel="security">
                 <div class="am-form-grid is-single">
                     <label>ایمیل (نام کاربری ورود)<input name="email"></label>
-                    <label>رمز عبور جدید (اختیاری)<input name="password" placeholder="در صورت تغییر، حداقل ۶ کاراکتر"></label>
+                    <label>رمز عبور جدید (اختیاری)<input type="password" name="password" autocomplete="new-password"></label>
                     <label>وضعیت حساب
                         <select name="status">
                             <option value="active">فعال</option>

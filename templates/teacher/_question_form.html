@@ -519,7 +519,7 @@
                         {% for blank in qf.blanks %}
                             <article class="qb-blank">
                                 <b class="qb-badge" data-row-number>{{ forloop.counter|fa_digits }}</b>
-                                <input type="text" data-blank-answers value="{{ blank.answers }}" placeholder="مثلاً نوروکرانیوم، neurocranium">
+                                <input type="text" data-blank-answers value="{{ blank.answers }}" placeholder="نوروکرانیوم، neurocranium">
                                 <input type="number" class="qb-mini" data-blank-points value="{{ blank.points }}" step="0.5" min="0" title="وزن این جای خالی در نمره">
                                 <label title="حساس به حروف بزرگ/کوچک"><input type="checkbox" data-blank-case {% if blank.case_sensitive %}checked{% endif %}></label>
                                 <label title="نادیده گرفتن فاصله‌ها"><input type="checkbox" data-blank-spaces {% if blank.ignore_spaces %}checked{% endif %}></label>
@@ -614,7 +614,7 @@
             {% elif qf.type == 'essay' %}
                 <section class="qb-card">
                     <div class="qb-card-head"><h3>دستورالعمل برای دانشجو</h3><small>در صفحه آزمون زیر صورت سؤال نمایش داده می‌شود.</small></div>
-                    <textarea name="student_instructions" rows="3" maxlength="1000" data-count-source placeholder="مثلاً: پاسخ خود را با استناد به منابع درسی ارائه دهید. توضیحات باید منظم، کامل و مبتنی بر شواهد فیزیولوژیک باشد.">{{ qf.essay.student_instructions }}</textarea>
+                    <textarea name="student_instructions" rows="3" maxlength="1000" data-count-source placeholder="پاسخ خود را با استناد به منابع درسی ارائه دهید. توضیحات باید منظم، کامل و مبتنی بر شواهد فیزیولوژیک باشد.">{{ qf.essay.student_instructions }}</textarea>
                     <small class="qb-count" data-count-out></small>
                 </section>
                 <section class="qb-card">
@@ -634,7 +634,7 @@
                                 <thead><tr><th>معیار</th><th>عملکرد ضعیف<small>تا ۲۰٪ نمره</small></th><th>عملکرد متوسط<small>تا ۶۵٪ نمره</small></th><th>عملکرد عالی<small>تا نمره کامل</small></th><th>نمره</th></tr></thead>
                                 <tbody data-row-list="rubric">
                                     {% for row in qf.rubric %}
-                                        <tr><td><input data-rubric-criterion value="{{ row.criterion }}" placeholder="مثلاً دقت علمی"></td><td><input data-rubric-weak value="{{ row.weak }}" placeholder="توصیف عملکرد ضعیف"><small data-rubric-range="weak"></small></td><td><input data-rubric-average value="{{ row.average }}" placeholder="توصیف عملکرد متوسط"><small data-rubric-range="average"></small></td><td><input data-rubric-excellent value="{{ row.excellent }}" placeholder="توصیف عملکرد عالی"><small data-rubric-range="excellent"></small></td><td><input type="number" data-rubric-points value="{{ row.points }}" step="0.5" min="0"></td></tr>
+                                        <tr><td><input data-rubric-criterion value="{{ row.criterion }}" placeholder="دقت علمی"></td><td><input data-rubric-weak value="{{ row.weak }}" placeholder="توصیف عملکرد ضعیف"><small data-rubric-range="weak"></small></td><td><input data-rubric-average value="{{ row.average }}" placeholder="توصیف عملکرد متوسط"><small data-rubric-range="average"></small></td><td><input data-rubric-excellent value="{{ row.excellent }}" placeholder="توصیف عملکرد عالی"><small data-rubric-range="excellent"></small></td><td><input type="number" data-rubric-points value="{{ row.points }}" step="0.5" min="0"></td></tr>
                                     {% endfor %}
                                 </tbody>
                                 <tfoot><tr><td colspan="4">جمع کل</td><td data-rubric-total>۰</td></tr></tfoot>
@@ -701,7 +701,7 @@
                     </select>
                     {% if not question_course_options %}<small>درسی به شما تخصیص داده نشده است؛ سؤال بدون درس ذخیره می‌شود.</small>{% endif %}
                 </label>
-                <label class="qb-field">مبحث<input type="text" name="subject" value="{{ qf.subject }}" placeholder="مثلاً قلب و عروق"></label>
+                <label class="qb-field">مبحث<input type="text" name="subject" value="{{ qf.subject }}" placeholder="قلب و عروق"></label>
                 <div class="qb-field">تگ‌ها
                     <div class="qb-tags" data-tags>
                         <input type="hidden" name="tags" value="{{ qf.tags }}" data-tags-value>
@@ -747,7 +747,7 @@
                     <p class="qb-help">بازخورد فقط یک رسانه دارد؛ فایل جدید جایگزین فایل قبلی می‌شود. متن بازخورد در زبانه‌ی «متن» حفظ می‌شود.</p>
                 </div>
                 <div class="qb-card-head" style="margin-top:1rem"><h3>منبع مطالعه (اختیاری)</h3></div>
-                <label class="qb-field">عنوان منبع<input name="resource_title" maxlength="120" value="{{ qf.resource_title }}" placeholder="مثلاً: مرور مبحث ایمنی دارویی"></label>
+                <label class="qb-field">عنوان منبع<input name="resource_title" maxlength="120" value="{{ qf.resource_title }}" placeholder="مرور مبحث ایمنی دارویی"></label>
                 <label class="qb-field">لینک منبع<input name="resource_url" type="url" dir="ltr" maxlength="500" value="{{ qf.resource_url }}" placeholder="https://..."></label>
                 <p class="qb-help">در آزمون آزمایشی، همراه بازخورد سؤال و در کارنامه به دانشجو نمایش داده می‌شود.</p>
             </section>
@@ -840,7 +840,7 @@
 {% include "teacher/_qf_exam_preview.html" %}
 <script src="{% static 'js/vendor/quill-2.0.3/quill.js' %}"></script>
 <script src="{% static 'js/waveform-player.js' %}?v=media-20261111l" defer></script>
-<script src="{% static 'js/question-types-v2.js' %}?v=media-20261107e"></script>
+<script src="{% static 'js/question-types-v2.js' %}?v=media-20261114p"></script>
 <script>
 (() => {
   const createForm = document.querySelector('[data-question-create-form]');

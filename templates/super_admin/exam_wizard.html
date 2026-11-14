@@ -286,7 +286,7 @@
                 <section class="wizard-pane is-active" data-pane="1">
                     <div class="section-title"><h2>مشخصات پایه آزمون</h2><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3v4M15 3v4"/></svg></div>
                     <div class="form-grid two">
-                        <label class="field">عنوان آزمون *<input name="title" maxlength="100" required data-summary="title"></label>
+                        <label class="field">عنوان آزمون *<input name="title" maxlength="100" placeholder="میان‌ترم آناتومی ۱" required data-summary="title"></label>
                         <label class="field">درس *<select name="course_id" required data-summary="course"><option value="">انتخاب کنید</option>{% for course in courses %}<option value="{{ course.id }}">{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
                         <label class="field">نوع آزمون<div class="mode-pills">
                             <label class="mode-pill"><input type="radio" name="exam_mode" value="practice"><span>آزمون آزمایشی</span></label>
@@ -318,7 +318,7 @@
                         </label>
                     </div>
                     <div class="subgrid">
-                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid two"><label class="field">نمره کل آزمون<input type="number" step="0.25" placeholder="مثلا ۲۰" data-total-mirror aria-describedby="total-mirror-hint"><small id="total-mirror-hint" class="field-hint">همان «مجموع نمرات کل آزمون» در مرحله‌ی نمره‌دهی است.</small></label><label class="field">قالب نمره‌دهی<select name="grading_template"><option value="detailed_score">کارنامه‌ی تفصیلی (نمره‌ی هر سؤال)</option><option value="total_score">فقط نمره‌ی کل</option></select></label></div></div>
+                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid two"><label class="field">نمره کل آزمون<input type="number" step="0.25" min="0.5" placeholder="۲۰" data-total-mirror aria-describedby="total-mirror-hint"><small id="total-mirror-hint" class="field-hint">همان «مجموع نمرات کل آزمون» در مرحله‌ی نمره‌دهی است.</small></label><label class="field">قالب نمره‌دهی<select name="grading_template"><option value="detailed_score">کارنامه‌ی تفصیلی (نمره‌ی هر سؤال)</option><option value="total_score">فقط نمره‌ی کل</option></select></label></div></div>
                         <div class="mini-card"><h3>تنظیمات اولیه</h3><label class="toggle-row"><input type="checkbox" name="show_instructions_before_start" checked><span class="switch"></span><span>نمایش دستورالعمل پیش از شروع</span></label></div>
                     </div>
                 </section>
@@ -331,7 +331,7 @@
                                 <input type="hidden" name="start_at" data-jalali-value required data-summary="start_at">
                             </div>
                         </label>
-                        <label class="field">مدت زمان آزمون (دقیقه) *<input name="duration_minutes" type="number" value="90" required data-duration></label>
+                        <label class="field">مدت زمان آزمون (دقیقه) *<input name="duration_minutes" type="number" min="1" value="90" required data-duration></label>
                         <label class="field">زمان پایان (تقریبی)<input type="text" disabled placeholder="بر اساس مدت زمان وارد شده محاسبه می‌شود" data-computed-end></label>
                     </div></div>
                     <div class="mini-card" style="margin-top:1rem"><h3>بازه ثبت‌نام و دسترسی</h3><div class="form-grid four">
@@ -342,10 +342,11 @@
                             </div>
                         </label>
                         <label class="field">آخرین زمان مجاز ورود
-                            <div class="jalali-field" data-jalali-field>
-                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
+                            <div class="jalali-field" data-jalali-field data-jalali-default-from="start_at">
+                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی" aria-describedby="last-entry-hint">
                                 <input type="hidden" name="last_entry_at" data-jalali-value>
                             </div>
+                            <small id="last-entry-hint" class="field-hint">بین شروع و پایان آزمون؛ خالی یعنی تا پایان آزمون.</small>
                         </label>
                         <label class="field">پایان دسترسی
                             <div class="jalali-field" data-jalali-field>
@@ -564,10 +565,10 @@
 
                 <section class="wizard-pane" data-pane="5">
                     <div class="mini-card"><h3>تنظیمات نمره‌دهی و ارزیابی</h3><div class="form-grid five">
-                        <label class="field field-unit">مجموع نمرات کل آزمون *<input type="number" name="passing_score_total" step="0.5" placeholder="مثلا ۱۰۰" required><span class="unit">نمره</span></label>
-                        <label class="field">نمره قبولی (حداقل درصد) *<input type="number" name="min_passing_percent" placeholder="مثلا ۶۰" required></label>
+                        <label class="field field-unit">مجموع نمرات کل آزمون *<input type="number" name="passing_score_total" step="0.5" min="0.5" placeholder="۱۰۰" required><span class="unit">نمره</span></label>
+                        <label class="field">نمره قبولی (حداقل درصد) *<input type="number" name="min_passing_percent" min="0" max="100" placeholder="۶۰" required></label>
                         <div class="field field-toggle"><span>نمره منفی (جریمه)<svg class="info-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span><label class="switch-only"><input type="checkbox" name="negative_marking" checked><span class="switch"></span></label></div>
-                        <label class="field">مقدار جریمه برای پاسخ غلط<input type="number" name="negative_factor" step="0.01" value="0.25"></label>
+                        <label class="field">مقدار جریمه برای پاسخ غلط<input type="number" name="negative_factor" step="0.01" min="0" max="1" value="0.25" aria-describedby="negative-factor-hint"><small id="negative-factor-hint" class="field-hint">سهمی از نمره‌ی همان سؤال که کم می‌شود (۰ تا ۱).</small></label>
                         <label class="field">روش نمره‌دهی کل *<select name="grading_method" required><option value="weighted_by_type">نمره‌دهی وزنی بر اساس نوع سوال</option><option value="uniform">یکسان برای همه سوالات</option></select></label>
                     </div>
                     <div class="grading-toggle-row">
@@ -1162,7 +1163,16 @@
         const lastEntry = time('last_entry_at');
         const accessEnd = time('registration_end_at');
         if (accessStart && accessStart > start) return ['registration_start_at', '«شروع دسترسی» نباید بعد از شروع آزمون باشد.'];
-        if (lastEntry && (lastEntry < start || lastEntry > end)) return ['last_entry_at', '«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد.'];
+        if (lastEntry && (lastEntry < start || lastEntry > end)) {
+            const from = window.formatJalaliDateTime?.(value('start_at')) || '';
+            const to = document.querySelector('[data-computed-end]')?.value || '';
+            const range = from && to ? ` (از ${from} تا ${to})` : '';
+            return ['last_entry_at', `«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد${range}؛ اگر محدودیتی نمی‌خواهید، آن را با «پاک کردن» خالی کنید.`];
+        }
+        const factor = value('negative_factor');
+        if (factor !== '' && (Number(factor) < 0 || Number(factor) > 1)) return ['negative_factor', '«مقدار جریمه برای پاسخ غلط» باید عددی بین ۰ تا ۱ باشد؛ پاسخ غلط نمره اضافه نمی‌دهد.'];
+        const total = value('passing_score_total');
+        if (total !== '' && !(Number(total) > 0)) return ['passing_score_total', '«مجموع نمرات کل آزمون» باید بیشتر از صفر باشد.'];
         if (accessEnd && accessEnd < start) return ['registration_end_at', '«پایان دسترسی» نباید قبل از شروع آزمون باشد.'];
         const percent = value('min_passing_percent');
         if (percent !== '' && (Number(percent) < 0 || Number(percent) > 100)) return ['min_passing_percent', 'نمره قبولی باید درصدی بین ۰ تا ۱۰۰ باشد.'];
@@ -1985,8 +1995,8 @@
                         <td>${fa(index + 1)}</td>
                         <td class="avatar-cell">${avatar}</td>
                         <td>${student.full_name}</td>
-                        <td>${fa(student.national_id || '-')}</td>
-                        <td>${fa(student.student_number || '-')}</td>
+                        <td data-latin-digits>${student.national_id || '-'}</td>
+                        <td data-latin-digits>${student.student_number || '-'}</td>
                         <td><span class="status-pill ok">یافت شد در سامانه</span></td>
                         <td><button type="button" class="link-danger" data-toggle-excel-row>حذف</button></td>
                     `;
@@ -2105,7 +2115,7 @@
 </script>
 <script type="module">
 // one import = the date pickers start too (the same URL is one module, so they never start twice)
-import { wallParts } from "{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108l";
+import { wallParts } from "{% static 'js/jalali-datepicker.js' %}?v=tehran-20261114c";
 import { toJalaali } from "{% static 'js/vendor/jalaali.js' %}";
 const FA_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 const toFaDigits = (value) => String(value).replace(/[0-9]/g, (d) => FA_DIGITS[d]);

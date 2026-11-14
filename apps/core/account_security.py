@@ -44,6 +44,41 @@ def record_session(sender, request, user, **kwargs):
             )
     except DatabaseError:  # login must not fail because the list of sessions could not be updated
         logger.exception('could not record the session of user %s', user.pk)
+        return
+    try:
+        end_replaced_sessions(user, request.session.session_key)
+    except DatabaseError:
+        logger.exception('could not end the earlier sessions of user %s', user.pk)
+
+
+# --- One device per account (user's choice, every role) -------------------------------------------------------
+# A sign-in ends the account's other sessions. Their user_sessions rows are kept (the session itself is gone),
+# so the next request from a signed-out device is recognised and told why (replaced_session_notice); the row is
+# dropped then, or by purge_expired_data. A password change needs nothing extra: there is only one session.
+REPLACED_SESSION_MESSAGE = ('با این حساب از دستگاه دیگری وارد شدند، برای همین از این دستگاه خارج شدید. '
+                            'هر حساب هم‌زمان فقط روی یک دستگاه باز می‌ماند.')
+
+
+def end_replaced_sessions(user, current_key: str | None) -> int:
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT session_key FROM user_sessions WHERE user_id = %s AND session_key <> %s',
+                       [user.pk, current_key or ''])
+        keys = [row[0] for row in cursor.fetchall()]
+    store = _session_store()
+    for key in keys:
+        store(session_key=key).delete()  # through the store, so a cached session engine forgets it too
+    return len(keys)
+
+
+def replaced_session_notice(request) -> bool:
+    """True once for a request whose session cookie names a session ended by a sign-in on another device."""
+    key = request.COOKIES.get(settings.SESSION_COOKIE_NAME)
+    if not key or len(key) > 40 or request.user.is_authenticated or request.session.session_key is not None:
+        return False  # no cookie, or its session still exists (load() clears session_key only when it is missing)
+    with connection.cursor() as cursor:
+        cursor.execute('DELETE FROM user_sessions WHERE session_key = %s AND NOT EXISTS '
+                       '(SELECT 1 FROM django_session ds WHERE ds.session_key = %s)', [key, key])
+        return cursor.rowcount > 0
 
 
 @receiver(user_logged_out)
@@ -108,29 +143,52 @@ def end_all_sessions(user) -> int:
     return end_other_sessions(user, None)
 
 
+def forget_login(user) -> None:
+    """Everything tied to this auth_user besides the row itself: its sessions, authenticator and recovery codes.
+    Used when its account is deleted (deletion.py) and when a leftover login of a deleted account is handed to a
+    new account with the same username (views.erd_sync_login_account): the new owner must not inherit any of it."""
+    end_all_sessions(user)
+    with connection.cursor() as cursor:
+        tables = set(connection.introspection.table_names(cursor))
+        for table in ('user_sessions', 'user_two_factor', 'user_recovery_codes'):
+            if table in tables:
+                cursor.execute(f'DELETE FROM {connection.ops.quote_name(table)} WHERE user_id = %s', [user.pk])
+
+
 # --- Password state (profiles.password_changed_at / password_change_required, migration 0062) -----------------
 # Passwords are only ever stored as Django hashes; nobody (user, admin or us) can read one back. Pages show
 # «••••••••» plus when it was last changed, and offer a change form instead.
 
 # No 0/O/1/l/I so a temporary password can be read out or copied by hand.
 TEMPORARY_PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+TEMPORARY_PASSWORD_SYMBOLS = '@#$%&*!?'  # one is put in: the standard needs a symbol
 
 
 def generate_temporary_password() -> str:
-    """A 12-character random password from a CSPRNG; it always has letters and digits, so it passes the validators."""
+    """A 12-character random password from a CSPRNG that meets field_rules.PASSWORD_RULES (upper + lower letter, digit,
+    symbol), so it passes the validators."""
+    from .field_rules import password_missing
+
     while True:
-        password = ''.join(secrets.choice(TEMPORARY_PASSWORD_ALPHABET) for _ in range(12))
-        if any(ch.isdigit() for ch in password) and any(ch.isalpha() for ch in password):
+        chars = [secrets.choice(TEMPORARY_PASSWORD_ALPHABET) for _ in range(11)]
+        chars.insert(secrets.randbelow(12), secrets.choice(TEMPORARY_PASSWORD_SYMBOLS))
+        password = ''.join(chars)
+        if not password_missing(password):
             return password
 
 
 def mark_password_set(user, *, change_required: bool = False) -> None:
-    """Stamps when this login's password was set and whether its owner must replace it before using the site."""
+    """Stamps when this login's password was set and whether its owner must replace it before using the site.
+    A new password also starts the failed sign-in count again (auth_guard: earlier wrong passwords were tried
+    against the old one), so a locked account is unlocked by giving it a new password."""
+    from . import auth_guard
+
     with connection.cursor() as cursor:
         cursor.execute(
             'UPDATE profiles SET password_changed_at = CURRENT_TIMESTAMP, password_change_required = %s WHERE username = %s',
             [bool(change_required), user.username],
         )
+    auth_guard.record('account_reset', user=user)
 
 
 # --- Two-step sign-in with an authenticator app (TOTP, RFC 6238 via pyotp) -----------------------------------

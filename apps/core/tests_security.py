@@ -167,6 +167,168 @@ class LoginThrottleTests(TestCase):
         self.assertTrue(all(user_id == self.user.pk and created >= before for _, _, user_id, created in rows[1:]))
 
 
+@override_settings(LOGIN_MAX_FAILED_PER_USER=3)
+class DeletedAccountSignInTests(TestCase):
+    """Teacher's report: an account was deleted, a new one made with the same e-mail, and signing in with it kept
+    failing until «قفل شده … ۱۵ دقیقه». Every way of deleting a person removes the login too, a leftover login of an
+    older delete is not handed to the new account, and a refusal for the account's state never counts as a wrong
+    password."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.admin_id = str(uuid.uuid4())
+        _insert('profiles', ['id', 'full_name', 'username', 'email', 'status'], [cls.admin_id, 'مدیر', 'del_admin', 'del_admin@example.com', 'active'])
+        _insert('user_roles', ['id', 'user_id', 'role'], [str(uuid.uuid4()), cls.admin_id, 'admin'])
+        cls.admin = User.objects.create_user(username='del_admin', password='x')
+        cls.unit = str(uuid.uuid4())
+        _insert('org_units', ['id', 'name', 'type'], [cls.unit, 'دانشگاه', 'university'])
+        cls.department = str(uuid.uuid4())
+        _insert('org_units', ['id', 'name', 'type', 'parent_id'], [cls.department, 'بخش', 'department', cls.unit])
+
+    def _login(self, username, password):
+        self.client.logout()
+        response = self.client.post(reverse('core:login'), {'username': username, 'password': password})
+        signed_in = '_auth_user_id' in self.client.session
+        self.client.logout()
+        return response, signed_in
+
+    def _create(self, kind, email):
+        """The admin's «افزودن …» wizard with only the e-mail typed; returns the password it shows."""
+        self.client.force_login(self.admin)
+        url = reverse(f'core:super_admin_{kind}_create')
+        self.client.post(url, {'step': '1', 'first_name': 'زهرا', 'last_name': 'حسنی', 'email': email, 'student_number': '4001'})
+        if kind == 'manager':
+            self.client.post(url, {'step': '2', 'manager_level': '3', 'title': 'x', 'access_type': 'selected_units', 'primary_scope_id': self.department})
+        else:
+            self.client.post(url, {'step': '2', 'org_unit_id': self.department})
+        self.client.post(url, {'step': '3'})
+        response = self.client.post(url, {'step': '4', 'confirm_final': '1', 'account_status': 'active'}, follow=True)
+        self.client.logout()
+        found = [m for m in (str(message) for message in response.context['messages']) if 'رمز عبور اولیه' in m]
+        self.assertTrue(found, f'no password shown for the new {kind}')
+        return found[0].rsplit(' ', 1)[-1]
+
+    def _profile_id(self, email):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id FROM profiles WHERE email = %s', [email])
+            return str(cursor.fetchone()[0])
+
+    def test_deactivated_account_is_told_it_is_inactive(self):
+        """User's report: an account the admin made «غیرفعال» got «نام کاربری یا رمز عبور درست نیست»."""
+        for kind in ('teacher', 'student', 'manager'):
+            email = f'off-{kind}@uni.ac.ir'
+            with self.subTest(kind=kind):
+                password = self._create(kind, email)
+                self.client.force_login(self.admin)
+                self.client.post(reverse('core:super_admin_toggle_account_status', args=[kind, self._profile_id(email)]),
+                                 {'action': 'deactivate'})
+                for typed in (email, email.upper()):
+                    for _ in range(4):  # more than LOGIN_MAX_FAILED_PER_USER: never locks
+                        response, signed_in = self._login(typed, password)
+                        self.assertFalse(signed_in)
+                        self.assertContains(response, 'حساب شما غیرفعال است')
+                        self.assertNotContains(response, 'نام کاربری یا رمز عبور درست نیست')
+                response, _ = self._login(email, 'wrong-password')  # a wrong password doesn't reveal the state
+                self.assertContains(response, 'نام کاربری یا رمز عبور درست نیست')
+                self.assertNotContains(response, 'غیرفعال است')
+                self.client.force_login(self.admin)
+                self.client.post(reverse('core:super_admin_toggle_account_status', args=[kind, self._profile_id(email)]),
+                                 {'action': 'activate'})
+                self.assertTrue(self._login(email, password)[1])
+
+    def test_delete_and_recreate_with_the_same_e_mail_through_every_delete_button(self):
+        cases = [
+            ('teacher', lambda pid: self.client.post(reverse('core:super_admin_delete_account', args=['teacher', pid]), {'mode': 'only'})),
+            ('student', lambda pid: self.client.post(reverse('core:super_admin_delete_account', args=['student', pid]), {'mode': 'all'})),
+            ('manager', lambda pid: self.client.post(reverse('core:super_admin_delete_account', args=['manager', pid]), {'mode': 'only'})),
+            ('teacher', lambda pid: self.client.post(reverse('core:super_admin_teachers'), {'teacher_action': 'delete', 'teacher_id': pid},
+                                                     HTTP_X_REQUESTED_WITH='XMLHttpRequest')),
+            ('student', lambda pid: self.client.post(reverse('core:super_admin_students'), {'student_action': 'delete', 'student_id': pid},
+                                                     HTTP_X_REQUESTED_WITH='XMLHttpRequest')),
+            ('manager', lambda pid: self.client.post(reverse('core:super_admin_academic_managers'), {'manager_action': 'delete', 'manager_id': pid},
+                                                     HTTP_X_REQUESTED_WITH='XMLHttpRequest')),
+        ]
+        for index, (kind, delete) in enumerate(cases):
+            email = f'same-{index}@uni.ac.ir'
+            with self.subTest(kind=kind, button=index):
+                first = self._create(kind, email)
+                self.assertTrue(self._login(email, first)[1])  # it has worked (sign-in history, audit rows)
+                self.client.force_login(self.admin)
+                response = delete(self._profile_id(email))
+                self.assertLess(response.status_code, 400)
+                self.assertFalse(get_user_model().objects.filter(username=email).exists())
+                self.assertEqual(_events_count(email, 'account_reset'), 2)  # password set, login removed
+                second = self._create(kind, email)
+                self.assertFalse(self._login(email, first)[1])
+                response, signed_in = self._login(email, second)
+                self.assertTrue(signed_in)
+                self.assertEqual(response.status_code, 302)
+
+    def test_a_leftover_login_of_an_older_delete_is_not_reused(self):
+        from apps.core import account_security
+        User = get_user_model()
+        email = 'leftover@uni.ac.ir'
+        old = User.objects.create_user(username=email, password='Old-Pass-123')
+        old.date_joined = timezone.now() - timedelta(days=30)
+        old.save()
+        with connection.cursor() as cursor:  # the old owner had turned on the authenticator
+            cursor.execute('INSERT INTO user_two_factor (user_id, secret, enabled) VALUES (%s, %s, %s)', [old.pk, 'JBSWY3DPEHPK3PXP', True])
+        for _ in range(3):
+            self._login(email, 'wrong')  # the old account was locked when it was deleted
+        new_password = self._create('teacher', email)
+        self.assertFalse(self._login(email, 'Old-Pass-123')[1])
+        self.assertFalse(account_security.two_factor_enabled(User.objects.get(username=email)))
+        self.assertTrue(self._login(email, new_password)[1])
+
+    def test_pending_registration_is_explained_and_never_locks(self):
+        self.client.post(reverse('core:register'), {'full_name': 'سارا احمدی', 'email': 'pending@uni.ac.ir',
+                                                    'password': 'Pending-Pass-98', 'role': 'student'})
+        for _ in range(5):
+            response, signed_in = self._login('pending@uni.ac.ir', 'Pending-Pass-98')
+            self.assertFalse(signed_in)
+            self.assertContains(response, 'بررسی نشده')
+            self.assertNotContains(response, 'رمز عبور درست نیست')
+        username = get_user_model().objects.get(email='pending@uni.ac.ir').username
+        self.assertEqual(auth_guard.lock_reason(username), '')
+        self.client.force_login(self.admin)
+        self.client.post(reverse('core:super_admin_toggle_account_status', args=['student', self._profile_id('pending@uni.ac.ir')]),
+                         {'action': 'activate'})
+        self.assertTrue(self._login('pending@uni.ac.ir', 'Pending-Pass-98')[1])
+
+    def test_re_registering_an_e_mail_whose_account_was_deleted_long_ago(self):
+        User = get_user_model()
+        User.objects.create_user(username='oldname', email='again@uni.ac.ir', password='Old-Pass-123')  # no profile left
+        self.client.post(reverse('core:register'), {'full_name': 'سارا احمدی', 'email': 'again@uni.ac.ir',
+                                                    'password': 'Again-Pass-98', 'role': 'student'})
+        self.assertFalse(User.objects.filter(username='oldname').exists())
+        self.assertEqual(User.objects.filter(email__iexact='again@uni.ac.ir').count(), 1)
+
+    def test_a_login_without_any_account_cannot_sign_in(self):
+        get_user_model().objects.create_user(username='ghost', password='Ghost-Pass-123')
+        response, signed_in = self._login('ghost', 'Ghost-Pass-123')
+        self.assertFalse(signed_in)
+        self.assertContains(response, 'حذف شده است')
+        self.assertEqual(auth_guard.failed_for_user('ghost'), 0)
+
+    def test_wizard_account_with_its_own_username_signs_in_with_its_e_mail(self):
+        self.client.force_login(self.admin)
+        url = reverse('core:super_admin_teacher_create')
+        self.client.post(url, {'step': '1', 'first_name': 'زهرا', 'last_name': 'حسنی', 'email': 'own@uni.ac.ir'})
+        self.client.post(url, {'step': '2', 'org_unit_id': self.department})
+        self.client.post(url, {'step': '3'})
+        response = self.client.post(url, {'step': '4', 'username': 'zahra_own', 'confirm_final': '1', 'account_status': 'active'}, follow=True)
+        password = [str(m) for m in response.context['messages'] if 'رمز عبور اولیه' in str(m)][0].rsplit(' ', 1)[-1]
+        self.assertTrue(self._login('own@uni.ac.ir', password)[1])
+        self.assertTrue(self._login('zahra_own', password)[1])
+
+
+def _events_count(username, event):
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) FROM auth_events WHERE username = %s AND event = %s', [username.lower(), event])
+        return cursor.fetchone()[0]
+
+
 class ClientIpTests(TestCase):
     def _request(self, forwarded=None, remote='127.0.0.1'):
         extra = {'REMOTE_ADDR': remote}

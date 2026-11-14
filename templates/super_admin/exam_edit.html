@@ -200,12 +200,12 @@
                         <article class="panel glass">
                             <h2>اطلاعات پایه آزمون</h2>
                             <div class="form-grid">
-                                <label class="field">عنوان آزمون *<input name="title" value="{{ exam.title|fa_digits }}" required></label>
+                                <label class="field">عنوان آزمون *<input name="title" value="{{ exam.title|fa_digits }}" placeholder="میان‌ترم آناتومی ۱" required></label>
                                 <label class="field">درس *<select name="course_id">{% for course in courses %}<option value="{{ course.id }}" {% if course.id == exam.course_id %}selected{% endif %}>{{ course.title|fa_digits }}</option>{% endfor %}</select></label>
                                 <label class="field">استاد *<select name="teacher_id">{% for teacher in teachers %}<option value="{{ teacher.id }}" {% if teacher.id == exam.teacher_id %}selected{% endif %}>{{ teacher.full_name|fa_digits }}</option>{% endfor %}</select></label>
                                 <label class="field">نوع آزمون<select name="exam_type"><option value="standard" {% if exam.exam_type == 'standard' or not exam.exam_type %}selected{% endif %}>عادی</option><option value="midterm" {% if exam.exam_type == 'midterm' %}selected{% endif %}>میان‌ترم</option><option value="final" {% if exam.exam_type == 'final' %}selected{% endif %}>پایان‌ترم</option><option value="quiz" {% if exam.exam_type == 'quiz' %}selected{% endif %}>کوییز</option></select></label>
-                                <label class="field">سال تحصیلی<input name="academic_year" value="{{ exam.academic_year|default:'1405-1404'|fa_digits }}"></label>
-                                <label class="field">نیمسال<input name="semester" value="{{ exam.semester|default:'نیمسال اول'|fa_digits }}"></label>
+                                <label class="field">سال تحصیلی<input name="academic_year" value="{{ exam.academic_year|default:'' }}" placeholder="۱۴۰۵-۱۴۰۶"></label>
+                                <label class="field">نیمسال<input name="semester" value="{{ exam.semester|default:''|fa_digits }}" placeholder="نیمسال اول"></label>
                                 <label class="field">مدت آزمون<input type="number" name="duration_minutes" value="{{ exam.duration_minutes|default:90 }}"></label>
                                 <label class="field">نمره قبولی<input type="number" step="0.25" name="passing_score" value="{{ exam.passing_score|default:10 }}"></label>
                                 <label class="field full">توضیحات<textarea name="description">{{ exam.description|default:''|fa_digits }}</textarea></label>
@@ -244,7 +244,7 @@
                             <h2>دانشجویان منتخب مستقیم</h2>
                             <table class="data-table">
                                 <thead><tr><th></th><th>دانشجو</th><th>شماره دانشجویی</th><th>رشته</th></tr></thead>
-                                <tbody>{% for student in students %}<tr><td><input type="checkbox" name="student_ids" value="{{ student.id }}" {% if student.id in assigned_students %}checked{% endif %}></td><td>{{ student.full_name|fa_digits }}</td><td>{{ student.student_number|fa_digits }}</td><td>{{ student.field_of_study|fa_digits }}</td></tr>{% endfor %}</tbody>
+                                <tbody>{% for student in students %}<tr><td><input type="checkbox" name="student_ids" value="{{ student.id }}" {% if student.id in assigned_students %}checked{% endif %}></td><td>{{ student.full_name|fa_digits }}</td><td><bdi data-latin-digits>{{ student.student_number }}</bdi></td><td>{{ student.field_of_study|fa_digits }}</td></tr>{% endfor %}</tbody>
                             </table>
                             </div>
                             <script>
@@ -325,14 +325,14 @@
                                 <label class="field">دفعات مجاز شرکت<input type="number" name="max_attempts" value="{{ exam.max_attempts|default:1 }}"></label>
                             </div>
                             <div class="notice" style="margin:1rem 0 0">آزمون در بازه تعیین‌شده برای شرکت‌کنندگان در دسترس خواهد بود.</div>
-                            <script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261108l"></script>
+                            <script type="module" src="{% static 'js/jalali-datepicker.js' %}?v=tehran-20261114c"></script>
                         </article>
                         <article class="panel glass">
                             <h2>قوانین و رفتار آزمون‌دهنده</h2>
                             <label class="toggle-row">ترتیب نمایش سؤال‌ها تصادفی <span class="toggle"><input name="shuffle_questions" type="checkbox" {% if exam.shuffle_questions %}checked{% endif %}><span></span></span></label>
                             <label class="toggle-row">ترتیب گزینه‌ها تصادفی <span class="toggle"><input name="shuffle_options" type="checkbox" {% if exam.shuffle_options %}checked{% endif %}><span></span></span></label>
                             <label class="toggle-row">نمره منفی <span class="toggle"><input name="negative_marking" type="checkbox" {% if exam.negative_marking %}checked{% endif %}><span></span></span></label>
-                            <label class="field">ضریب نمره منفی<input type="number" step="0.05" name="negative_factor" value="{{ exam.negative_factor|default:0.25 }}"></label>
+                            <label class="field">ضریب نمره منفی<input type="number" step="0.05" min="0" max="1" name="negative_factor" value="{{ exam.negative_factor|default:0.25 }}"></label>
                             <label class="toggle-row">ذخیره خودکار پاسخ‌ها <span class="toggle"><input name="autosave_enabled" type="checkbox" {% if exam.autosave_enabled %}checked{% endif %}><span></span></span></label>
                             <label class="toggle-row">نمایش بازخورد به دانشجو <span class="toggle"><input name="show_feedback" type="checkbox" {% if exam.show_feedback %}checked{% endif %}><span></span></span></label>
                         </article>

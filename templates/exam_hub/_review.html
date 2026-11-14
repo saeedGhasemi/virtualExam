@@ -14,7 +14,7 @@
             <div class="xh-filter-group"><h4>وضعیت رسیدگی</h4>
                 <div class="xh-checklist">{% for key, label in v.states.items %}<label><input type="checkbox" name="s_{{ key }}" value="1"{% if key in v.filters.states %} checked{% endif %}>{{ label }} <span class="xh-muted">({{ v.state_counts|get_item:key }})</span></label>{% endfor %}</div>
             </div>
-            <div class="xh-filter-group"><label class="xh-field">شماره سؤال<input class="xh-input" name="question" value="{{ v.filters.question }}" inputmode="numeric" placeholder="مثلاً ۱۴ یا ۲۳"></label></div>
+            <div class="xh-filter-group"><label class="xh-field">شماره سؤال<input class="xh-input" name="question" value="{{ v.filters.question }}" inputmode="numeric" placeholder="۱۴ یا ۲۳"></label></div>
             <div class="xh-filter-group is-last"><label class="xh-field">نام/شماره دانشجو<input class="xh-input" name="student" value="{{ v.filters.student }}" placeholder="جستجو..."></label></div>
             <div class="xh-cols" style="gap:.6rem;margin-top:.4rem">
                 <button class="xh-btn is-solid">{% include 'exam_hub/_icon.html' with i='filter' %}اعمال فیلتر</button>

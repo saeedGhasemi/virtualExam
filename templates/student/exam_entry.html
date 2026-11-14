@@ -22,7 +22,7 @@
       {% if needs_identity %}<p>کدی که وارد می‌کنید با اطلاعات ثبت‌شده‌ی شما در سامانه مقایسه می‌شود.</p>{% endif %}
       <div class="sx-id-table">
         <div class="sx-id-row"><span>نام و نام خانوادگی:</span><strong>{{ student.profile.full_name|default:request.user.username }}</strong></div>
-        <div class="sx-id-row"><span>شماره دانشجویی:</span><strong>{{ student.student_number|default:"-"|fa_digits }}</strong></div>
+        <div class="sx-id-row"><span>شماره دانشجویی:</span><strong><bdi data-latin-digits>{{ student.student_number|default:"-" }}</bdi></strong></div>
         <div class="sx-id-row"><span>کد آزمون:</span><strong dir="ltr" data-latin-digits>{{ exam.code }}</strong></div>
         <div class="sx-id-row"><span>وضعیت:</span><strong>{% if can_start %}تأیید شده{% else %}در انتظار {% if needs_identity %}تأیید هویت{% else %}پذیرش قوانین{% endif %}{% endif %}</strong></div>
       </div>

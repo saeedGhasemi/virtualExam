@@ -171,7 +171,7 @@ table card with a table/card switch and «مشاهده کامل اطلاعات �
                                     </div>
                                 </a>
                             </td>
-                            <td>{{ row.code|default:"-" }}</td>
+                            <td><bdi data-latin-digits>{{ row.code|default:"-" }}</bdi></td>
                             <td>
                                 {% with first=row.groups.0 %}<span class="tstu-cell-main">{{ first.label|default:"-" }}</span>{% endwith %}
                                 {% if row.groups|length > 1 %}<small class="tstu-cell-sub">و {{ row.groups|length|add:"-1"|fa_digits }} کلاس دیگر</small>{% endif %}

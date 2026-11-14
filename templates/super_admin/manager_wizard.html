@@ -237,7 +237,7 @@
                             </div>
                             <div>
                                 <h2>{{ draft.first_name }} {{ draft.last_name }}</h2>
-                                <small>شماره پرسنلی: {{ draft.personnel_code|default:"ایجاد خودکار"|fa_digits }}</small>
+                                <small>شماره پرسنلی: <bdi data-latin-digits>{{ draft.personnel_code|default:"ایجاد خودکار" }}</bdi></small>
                             </div>
                         </div>
                         <dl>
@@ -281,7 +281,7 @@
         if (!file) return;
         img.src = URL.createObjectURL(file);
         img.hidden = false;
-        icon.hidden = true;
+        icon.setAttribute('hidden', '');  // <svg> has no .hidden property
     });
 })();
 

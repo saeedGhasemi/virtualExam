@@ -81,7 +81,7 @@
                     <div class="teacher-wizard-grid">
                         <label>نیمسال ورود <select name="semester" required><option value="">انتخاب نیمسال</option><option {% if draft.semester == "نیمسال اول" %}selected{% endif %}>نیمسال اول</option><option {% if draft.semester == "نیمسال دوم" %}selected{% endif %}>نیمسال دوم</option><option {% if draft.semester == "تابستان" %}selected{% endif %}>تابستان</option></select></label>
                         <label><span>سال ورود <b class="req">*</b></span><input name="entry_year" value="{{ draft.entry_year|default:'' }}" placeholder="1403" required></label>
-                        <label><span>رشته تحصیلی <b class="req">*</b></span><input name="field_of_study" value="{{ draft.field_of_study|default:'' }}" required></label>
+                        <label><span>رشته تحصیلی <b class="req">*</b></span><input name="field_of_study" value="{{ draft.field_of_study|default:'' }}" placeholder="پرستاری" required></label>
                         <label><span>مقطع تحصیلی <b class="req">*</b></span><select name="degree" required><option value="">انتخاب مقطع</option><option {% if draft.degree == "کارشناسی" %}selected{% endif %}>کارشناسی</option><option {% if draft.degree == "کارشناسی ارشد" %}selected{% endif %}>کارشناسی ارشد</option><option {% if draft.degree == "دکتری" %}selected{% endif %}>دکتری</option></select></label>
                         <label>وضعیت تحصیلی
                             <select name="academic_status">
@@ -169,7 +169,7 @@
                             <thead><tr><th>انتخاب</th><th>نام درس</th><th>کد درس</th><th>واحد</th></tr></thead>
                             <tbody>
                                 {% for course in courses %}
-                                    <tr data-course-row data-label="{{ course.title }} {{ course.code }}"><td><input type="checkbox" name="course_ids" value="{{ course.id }}" data-course-check {% if course.id|stringformat:"s" in selected_course_ids %}checked{% endif %}></td><td>{{ course.title|fa_digits }}</td><td>{{ course.code|default:"-"|fa_digits }}</td><td>{{ course.credit_units|default:"-"|fa_digits }}</td></tr>
+                                    <tr data-course-row data-label="{{ course.title }} {{ course.code }}"><td><input type="checkbox" name="course_ids" value="{{ course.id }}" data-course-check {% if course.id|stringformat:"s" in selected_course_ids %}checked{% endif %}></td><td>{{ course.title|fa_digits }}</td><td><bdi data-latin-digits>{{ course.code|default:"-" }}</bdi></td><td>{{ course.credit_units|default:"-"|fa_digits }}</td></tr>
                                 {% empty %}
                                     <tr><td colspan="4">درسی برای انتخاب ثبت نشده است.</td></tr>
                                 {% endfor %}
@@ -199,7 +199,7 @@
                             </div>
                             <div>
                                 <h2>{{ draft.first_name }} {{ draft.last_name }}</h2>
-                                <small>کد دانشجویی: {{ draft.student_number|fa_digits }}</small>
+                                <small>کد دانشجویی: <bdi data-latin-digits>{{ draft.student_number }}</bdi></small>
                             </div>
                         </div>
                         <dl>
@@ -238,7 +238,7 @@
         if (!file) return;
         img.src = URL.createObjectURL(file);
         img.hidden = false;
-        icon.hidden = true;
+        icon.setAttribute('hidden', '');  // <svg> has no .hidden property
     });
 })();
 

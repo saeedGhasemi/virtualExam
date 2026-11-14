@@ -91,12 +91,30 @@ class JalaliDateTimeField {
         else this.open();
     }
 
+    // An empty field opens on another field's value (data-jalali-default-from="<name>", e.g. «آخرین زمان مجاز ورود»
+    // opens on the exam's start), else on today at 00:00 — as {jy, jm, jd, hh, mm}; nothing is written until «تأیید».
+    fallback() {
+        const name = this.root.dataset.jalaliDefaultFrom;
+        const source = name ? this.root.closest('form, body')?.querySelector(`[name="${name}"]`) : null;
+        const from = source?.value ? wallParts(source.value) : null;
+        const base = from || { ...tehranParts(), hh: 0, mm: 0 };
+        const j = toJalaali(base.gy, base.gm, base.gd);
+        return { jy: j.jy, jm: j.jm, jd: j.jd, hh: base.hh, mm: base.mm };
+    }
+
+    clear() {
+        this.selected = null;
+        this.display.value = '';
+        this.hidden.value = '';
+        this.hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        this.close();
+    }
+
     open() {
         if (this.popup) return;
-        const now = tehranParts();
-        const nowJ = toJalaali(now.gy, now.gm, now.gd);
-        this.viewJy = this.selected ? this.selected.jy : nowJ.jy;
-        this.viewJm = this.selected ? this.selected.jm : nowJ.jm;
+        const base = this.selected || this.fallback();
+        this.viewJy = base.jy;
+        this.viewJm = base.jm;
         this.popup = document.createElement('div');
         this.popup.className = 'jalali-popup';
         this.root.appendChild(this.popup);
@@ -128,8 +146,9 @@ class JalaliDateTimeField {
         const monthLen = jalaaliMonthLength(this.viewJy, this.viewJm);
         const g1 = toGregorian(this.viewJy, this.viewJm, 1);
         const startWeekday = jalaaliWeekday(g1.gy, g1.gm, g1.gd);
-        const hh = this.selected ? this.selected.hh : 0;
-        const mm = this.selected ? this.selected.mm : 0;
+        const fallback = this.selected ? null : this.fallback();
+        const hh = this.selected ? this.selected.hh : fallback.hh;
+        const mm = this.selected ? this.selected.mm : fallback.mm;
 
         let cells = '';
         for (let i = 0; i < startWeekday; i += 1) cells += '<span></span>';
@@ -154,7 +173,9 @@ class JalaliDateTimeField {
                 <label>دقیقه<input type="number" min="0" max="59" value="${pad2(mm)}" data-minute></label>
             </div>
             <button type="button" class="jalali-confirm" data-confirm>تأیید</button>
+            ${this.hidden.required || !this.hidden.value ? '' : '<button type="button" class="jalali-confirm" data-clear style="margin-top:.4rem;background:#fff;color:#4b46ff;border:1px solid #d7dfea">پاک کردن</button>'}
         `;
+        this.popup.querySelector('[data-clear]')?.addEventListener('click', () => this.clear());
 
         this.popup.querySelector('[data-nav="next"]').addEventListener('click', () => this.changeMonth(1));
         this.popup.querySelector('[data-nav="prev"]').addEventListener('click', () => this.changeMonth(-1));
@@ -175,7 +196,8 @@ class JalaliDateTimeField {
         });
         this.popup.querySelector('[data-confirm]').addEventListener('click', () => {
             if (!this.selected) {
-                this.selected = { jy: this.viewJy, jm: this.viewJm, jd: 1, hh: 0, mm: 0 };
+                // no day clicked: the default day (see fallback), not the 1st of the month shown
+                this.selected = this.fallback();
             }
             const hourInput = this.popup.querySelector('[data-hour]');
             const minuteInput = this.popup.querySelector('[data-minute]');

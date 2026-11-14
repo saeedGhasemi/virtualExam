@@ -287,7 +287,7 @@
                     <div class="er-sheet-title">
                         <small>شناسنامه و مشخصات آزمون</small>
                         <h2>{{ exam.title }}</h2>
-                        <p>{{ exam.course_title }}{% if exam.course_code %} ({{ exam.course_code }}){% endif %} · استاد: {{ exam.teacher_name }}</p>
+                        <p>{{ exam.course_title }}{% if exam.course_code %} (<bdi data-latin-digits>{{ exam.course_code }}</bdi>){% endif %} · استاد: {{ exam.teacher_name }}</p>
                     </div>
                     <div class="er-sheet-meta">
                         <div>کد آزمون: <span class="er-code" data-latin-digits>{{ exam_code }}</span></div>

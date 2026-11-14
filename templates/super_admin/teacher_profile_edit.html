@@ -37,9 +37,9 @@
                 </button>
             </div>
             <div class="teacher-edit-hero-copy">
-                <h2>{{ teacher.full_name|default:"دکتر امیرحسین رضایی"|fa_digits }}</h2>
-                <p>استاد {{ teacher.personnel_code|default:"۱۰۲۴"|fa_digits }}</p>
-                <span><small></small> فعال</span>
+                <h2>{{ teacher.full_name|default:"-"|fa_digits }}</h2>
+                <p>استاد <bdi data-latin-digits>{{ teacher.personnel_code|default:"-" }}</bdi></p>
+                <span><small></small> {% if teacher.status == "active" %}فعال{% else %}غیرفعال{% endif %}</span>
             </div>
         </section>
 
@@ -67,7 +67,7 @@
                 </div>
                 <label>
                     <span>نام کاربری</span>
-                    <input name="username" value="{{ teacher.username|default:'arezaei1024'|fa_digits }}">
+                    <input name="username" value="{{ teacher.username|default:'' }}" data-latin-digits>
                 </label>
                 <div class="teacher-edit-switch is-on">
                     <span>ارسال اعلان‌ها</span>
@@ -90,18 +90,11 @@
                         <button type="button">انتخاب مسیر</button>
                     </div>
                 </label>
-                <div class="teacher-edit-row two">
-                    <label>
-                        <span>نوع همکاری</span>
-                        <select name="cooperation_type">
-                            <option value="رسمی" {% if teacher.approval_status == 'رسمی' %}selected{% endif %}>رسمی</option>
-                            <option value="قراردادی" {% if teacher.approval_status == 'قراردادی' %}selected{% endif %}>قراردادی</option>
-                            <option value="مدعو" {% if teacher.approval_status == 'مدعو' %}selected{% endif %}>مدعو</option>
-                        </select>
-                    </label>
+                <div class="teacher-edit-row">
                     <label>
                         <span>مرتبه علمی</span>
                         <select name="specialty">
+                            <option value="" {% if not teacher.specialty %}selected{% endif %}>انتخاب نشده</option>
                             <option value="مربی" {% if teacher.specialty == 'مربی' %}selected{% endif %}>مربی</option>
                             <option value="استادیار" {% if teacher.specialty == 'استادیار' %}selected{% endif %}>استادیار</option>
                             <option value="دانشیار" {% if teacher.specialty == 'دانشیار' %}selected{% endif %}>دانشیار</option>
@@ -111,10 +104,10 @@
                 </div>
                 <label>
                     <span>تاریخ شروع همکاری</span>
-                    <input value="۱۳۹۵/۰۷/۱۵" readonly>
+                    <input value="{{ teacher.started_label }}" readonly>
                     <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
                 </label>
-                <input type="hidden" name="department" value="{{ primary_label }}">
+                <input type="hidden" name="department" value="{{ department_value }}">
             </section>
 
             <section class="teacher-edit-card teacher-edit-basic">
@@ -125,31 +118,31 @@
                 <div class="teacher-edit-row two">
                     <label>
                         <span>نام</span>
-                        <input name="first_name" value="{{ teacher.first_name|default:'امیرحسین'|fa_digits }}">
+                        <input name="first_name" value="{{ teacher.first_name|default:'' }}">
                     </label>
                     <label>
                         <span>نام خانوادگی</span>
-                        <input name="last_name" value="{{ teacher.last_name|default:'رضایی'|fa_digits }}">
+                        <input name="last_name" value="{{ teacher.last_name|default:'' }}">
                     </label>
                 </div>
                 <div class="teacher-edit-row two">
                     <label>
                         <span>کد ملی</span>
-                        <input name="national_id" value="{{ teacher.national_id|default:'۰۰۱۲۳۴۵۶۷۸'|fa_digits }}">
+                        <input name="national_id" value="{{ teacher.national_id|default:'' }}">
                     </label>
                     <label>
                         <span>شماره پرسنلی</span>
-                        <input name="personnel_code" value="{{ teacher.personnel_code|default:'۱۰۲۴'|fa_digits }}">
+                        <input name="personnel_code" value="{{ teacher.personnel_code|default:'' }}" data-latin-digits>
                     </label>
                 </div>
                 <div class="teacher-edit-row two">
                     <label>
                         <span>شماره همراه</span>
-                        <input name="phone" value="{{ teacher.phone|default:'۰۹۱۲ ۱۲۳ ۴۵۶۷'|fa_digits }}">
+                        <input name="phone" value="{{ teacher.phone|default:'' }}">
                     </label>
                     <label>
                         <span>ایمیل</span>
-                        <input name="email" value="{{ teacher.email|default:'amir.rezaei@iums.ac.ir' }}">
+                        <input name="email" value="{{ teacher.email|default:'' }}">
                     </label>
                 </div>
             </section>

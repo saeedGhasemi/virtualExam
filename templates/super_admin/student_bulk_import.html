@@ -155,8 +155,8 @@
                             <tr class="is-{{ record.level }}" data-review-row data-level="{{ record.level }}" data-search="{{ record.full_name }} {{ record.national_id }} {{ record.student_number }}">
                                 <td>{{ forloop.counter|fa_digits }}</td>
                                 <td>{{ record.full_name }}</td>
-                                <td>{{ record.national_id|fa_digits }}</td>
-                                <td>{{ record.student_number|fa_digits }}</td>
+                                <td><bdi data-latin-digits>{{ record.national_id }}</bdi></td>
+                                <td><bdi data-latin-digits>{{ record.student_number }}</bdi></td>
                                 <td>{{ record.field_of_study }}</td>
                                 <td>
                                     <span class="manager-bulk-status is-{{ record.level }}">{% if record.level == 'error' %}خطا{% elif record.level == 'warning' %}هشدار{% elif record.level == 'ignored' %}نادیده‌گرفته‌شده{% else %}سالم{% endif %}</span>

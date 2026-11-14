@@ -8,7 +8,8 @@
  * - GET forms inside a region (or anywhere, with data-live) are sent with fetch;
  * - links inside a region (or with data-live) that point to this same page with another
  *   query string (?page=2, ?month=5, "?") are followed with fetch;
- * - search boxes in those forms (type=search, name=q, or data-live-input) send while typing.
+ * - search boxes are NOT sent while typing (user's requirement): the search runs only when the
+ *   form is submitted (Enter or the search button), then the results are swapped in.
  * The server renders the normal full page; every region with the same id is taken from the
  * response and swapped in, the address bar is updated (Back/Forward and shared links work).
  * Anything unexpected (other page, redirect to login, file download, error, region missing)
@@ -41,8 +42,6 @@
 
     const REGION = '[data-live-region][id]';
     const SKIP = '[data-live-skip]';
-    const SEARCH_INPUT = 'input[type="search"], input[name="q"], input[data-live-input]';
-    const DEBOUNCE_MS = 450;
     const BUSY_DELAY_MS = 120;
 
     const style = document.createElement('style');
@@ -255,7 +254,6 @@
         const url = formUrl(form, submitter);
         if (new URL(url).origin !== window.location.origin) return;
         event.preventDefault();
-        clearTimeout(form.__mqLiveTimer);
         // a pager made of submit buttons (name="page"): like a paging link
         const paging = !!(submitter && submitter.name === 'page');
         const region = form.closest(REGION);
@@ -278,14 +276,15 @@
         load(url.href, {scrollToRegion: true, hash, target: region ? region.id : ''});
     });
 
-    // Search while typing (debounced); Enter still submits immediately through the submit handler.
-    document.addEventListener('input', (event) => {
+    // Enter in a search box always runs the search: a form with several text boxes and no submit
+    // button has no implicit submission, so it is sent here (nothing is sent while typing).
+    document.addEventListener('keydown', (event) => {
         const input = event.target;
-        if (!input.matches || !input.matches(SEARCH_INPUT) || input.closest(SKIP)) return;
-        const form = input.form;
-        if (!liveForm(form, null)) return;
-        clearTimeout(form.__mqLiveTimer);
-        form.__mqLiveTimer = setTimeout(() => form.requestSubmit(), DEBOUNCE_MS);
+        if (event.key !== 'Enter' || event.isComposing || !input.matches
+            || !input.matches('input[type="search"], input[name="q"], input[data-live-input]')
+            || input.closest(SKIP) || !input.form || !liveForm(input.form, null)) return;
+        event.preventDefault();
+        input.form.requestSubmit();
     });
 
     const markEntry = () => {

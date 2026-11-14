@@ -164,7 +164,7 @@
                     <h2>{{ manager.full_name|default:"مدیر سامانه" }}</h2>
                     <p>{% if role == "admin" %}مدیر سیستم{% else %}مدیر آموزشی{% endif %}</p>
                     <ul>
-                        <li><span>کد پرسنلی:</span><b>{{ manager.personnel_code|default:manager.identifier|default:"ADM-1042" }}</b></li>
+                        <li><span>کد پرسنلی:</span><b><bdi data-latin-digits>{{ manager.personnel_code|default:manager.identifier|default:"ADM-1042" }}</bdi></b></li>
                         <li><span>وضعیت:</span><b class="is-active">{% if manager.status == "inactive" %}غیرفعال{% else %}فعال{% endif %}</b></li>
                     </ul>
                     <hr>

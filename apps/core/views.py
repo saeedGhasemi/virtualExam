@@ -42,7 +42,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.html import format_html, strip_tags
 from django.utils.safestring import mark_safe
 
-from . import account_security, exam_list, question_import_word, question_kinds
+from . import account_security, exam_list, field_rules, question_import_word, question_kinds
 from .rich_text import clean_delta, delta_length, delta_text, delta_to_html
 from .appearance import (
     APPEARANCE_DEFAULTS, COLOR_PRESETS, FONT_SIZE_CHOICES, THEME_CHOICES, clean_appearance_value, save_posted_appearance,
@@ -670,14 +670,40 @@ def erd_sync_login_account(username, *, is_active=True, reset_password=False):
     if not username:
         return None, None
     user, created = User.objects.get_or_create(username=username, defaults={'is_active': is_active})
+    if not created and _erd_login_is_leftover(user):
+        # the login of a deleted account with this username (older deletes kept it): the new account must not get
+        # its password, sessions or authenticator, and the admin must be shown a password for it
+        account_security.forget_login(user)
+        reset_password = True
     generated_password = None
     if created or reset_password:
-        generated_password = get_random_string(10)
+        generated_password = account_security.generate_temporary_password()
         user.set_password(generated_password)
     if user.is_active != is_active:
         user.is_active = is_active
+    if not user.email:  # lets the account sign in with its e-mail too (StyledAuthenticationForm.resolve_username)
+        profile = erd_row("SELECT email FROM profiles WHERE username = %s AND COALESCE(email, '') <> '' LIMIT 1", [username])
+        email = (profile or {}).get('email') or ''
+        if email and not User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+            user.email = email
     user.save()
+    if generated_password:
+        account_security.mark_password_set(user)  # new password: earlier failed sign-ins with this name stop counting
     return user, generated_password
+
+
+def _erd_login_is_leftover(user) -> bool:
+    """An existing auth_user whose profile was created just now, after the login itself: it belonged to an account
+    that was deleted (its profile went, the login stayed) and a new account with the same username was made."""
+    row = erd_row(
+        """
+        SELECT 1 AS hit FROM profiles
+        WHERE username = %s AND created_at > %s AND created_at > %s
+        LIMIT 1
+        """,
+        [user.username, user.date_joined + timedelta(seconds=5), timezone.now() - timedelta(minutes=10)],
+    )
+    return bool(row)
 
 
 @lru_cache(maxsize=64)
@@ -1559,6 +1585,13 @@ class SecureLoginView(LoginView):
             for error in form.non_field_errors():
                 messages.error(self.request, error)
             return super().form_invalid(form)
+        if getattr(form, 'refused', ''):
+            # the password was right but the account may not sign in (pending, inactive, blocked, deleted): say why,
+            # and don't count it as a wrong password (it used to lock a just-registered account after 5 tries)
+            auth_guard.record('login_refused', self.request, username=username)
+            for error in form.non_field_errors():
+                messages.error(self.request, error)
+            return super().form_invalid(form)
         attempts = StyledAuthenticationForm.record_failed_attempt(username, self.request)
         failed_user = User.objects.filter(username=username).first()
         if failed_user:
@@ -1597,6 +1630,15 @@ def register(request):
             email = form.cleaned_data['email']
             number = form.cleaned_data.get('student_number') or ''
             username = form.cleaned_data.get('username') or number or email.split('@')[0]
+            from .deletion import remove_login
+
+            for leftover in erd_rows(  # logins of deleted accounts with this e-mail or username (no profile left)
+                """SELECT u.username FROM auth_user u
+                   WHERE (lower(u.email) = lower(%s) OR lower(u.username) = lower(%s)) AND NOT u.is_superuser
+                     AND NOT EXISTS (SELECT 1 FROM profiles p WHERE p.username = u.username)""",
+                [email, username],
+            ):
+                remove_login(leftover['username'])
             base_username = username[:140] or 'user'
             suffix = 1
             while User.objects.filter(username__iexact=username).exists():
@@ -2177,6 +2219,26 @@ def super_admin_toggle_account_status(request, kind, user_id):
     return redirect(next_url)
 
 
+def _legacy_delete_account(request, profile_id, kind):
+    """The old «حذف» buttons of the admin's «اساتید» / «دانشجویان» / «مدیران آموزشی» pages: the same deletion as the
+    dialog's «فقط خودِ حساب» (deletion.py: links removed, records kept without a name, login removed), so a new
+    account with the same e-mail starts clean. Returns an error message, or '' when deleted."""
+    from .deletion import KIND_ROLES, delete_account
+
+    profile = erd_row('SELECT id, full_name FROM profiles WHERE CAST(id AS TEXT) = %s', [str(profile_id)])
+    if not profile:
+        return 'کاربر پیدا نشد.'
+    if str(profile['id']) == str(getattr(request, 'erd_profile_id', '') or (erd_profile_for_user(request.user) or {}).get('id')):
+        return 'نمی‌توانید حساب خودتان را حذف کنید.'
+    roles = {row['role'] for row in erd_rows('SELECT role FROM user_roles WHERE CAST(user_id AS TEXT) = %s', [str(profile_id)])}
+    if roles - KIND_ROLES[kind] - {None}:
+        return 'این حساب نقش دیگری هم دارد؛ ابتدا آن نقش را از حساب بردارید.'
+    plan = delete_account(profile_id, 'only')
+    log_activity(request.user, 'account_deleted', f"حساب {profile['full_name']} حذف شد (فقط حساب).", request,
+                 {'profile_id': str(profile_id), 'kind': kind, 'mode': 'only', 'deleted': dict(plan.deleted) if plan else {}})
+    return ''
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_delete_account(request, kind, user_id):
     """GET: the «حذف» dialog (only the account / with all its records); POST mode=only|all deletes (deletion.py)."""
@@ -2291,13 +2353,17 @@ def super_admin_user_profile(request, kind, user_id):
             placeholders = ','.join(['%s'] * len(scope_ids))
             scoped_teachers = erd_count('teacher_profiles', f'org_unit_id IN ({placeholders})', scope_ids)
             scoped_students = erd_count('student_profiles', f'org_unit_id IN ({placeholders})', scope_ids)
+            scoped_exams = erd_count(
+                'exams', f'teacher_id IN (SELECT user_id FROM teacher_profiles WHERE org_unit_id IN ({placeholders}))', scope_ids,
+            )
         else:
             scoped_teachers = erd_count('teacher_profiles') if is_system_admin else 0
             scoped_students = erd_count('student_profiles') if is_system_admin else 0
+            scoped_exams = erd_count('exams') if is_system_admin else 0
         stats = [
             {'label': 'اساتید تحت مدیریت', 'value': scoped_teachers, 'tone': 'violet', 'icon': 'users'},
             {'label': 'دانشجویان', 'value': scoped_students, 'tone': 'blue', 'icon': 'graduation'},
-            {'label': 'آزمون‌های برنامه‌ریزی‌شده', 'value': erd_count('exams'), 'tone': 'green', 'icon': 'clipboard'},
+            {'label': 'آزمون‌های برنامه‌ریزی‌شده', 'value': scoped_exams, 'tone': 'green', 'icon': 'clipboard'},
             {'label': 'واحدهای تحت پوشش', 'value': len(manager_scopes) if manager_scopes else ('همه' if is_system_admin else 0), 'tone': 'orange', 'icon': 'building'},
         ]
         permissions = ['مدیریت اساتید', 'مدیریت دانشجویان', 'زمان‌بندی آزمون', 'ساخت آزمون', 'مشاهده بانک سؤال', 'گزارش‌های واحد']
@@ -2311,14 +2377,24 @@ def super_admin_user_profile(request, kind, user_id):
             {'label': 'ایمیل', 'value': user.get('email') or '-'},
             {'label': 'شماره تماس', 'value': user.get('phone') or '-'},
             {'label': 'حساب', 'value': status_labels.get(user.get('status') or 'active'), 'tone': 'active' if (user.get('status') or 'active') == 'active' else 'inactive'},
-            {'label': 'کد پرسنلی', 'value': user.get('personnel_code') or user.get('identifier') or 'ADM'},
+            {'label': 'کد پرسنلی', 'value': user.get('personnel_code') or user.get('identifier') or '-'},
             {'label': 'آخرین ورود', 'value': user.get('last_login_at') or '-'},
         ]
+        security = erd_row(
+            """
+            SELECT p.password_changed_at, COALESCE(tf.enabled, false) AS two_factor
+            FROM profiles p
+            LEFT JOIN auth_user au ON au.username = p.username
+            LEFT JOIN user_two_factor tf ON tf.user_id = au.id
+            WHERE p.id = %s
+            """,
+            [user_id],
+        ) or {}
+        password_changed = erd_datetime(security.get('password_changed_at'))
         manager_status_items = [
             {'label': 'وضعیت حساب', 'value': status_labels.get(user.get('status') or 'active'), 'tone': 'active' if (user.get('status') or 'active') == 'active' else 'inactive'},
-            {'label': 'تایید دو مرحله‌ای', 'value': 'فعال', 'tone': 'active'},
-            {'label': 'آخرین تغییر رمز عبور', 'value': user.get('last_login_at') or '-'},
-            {'label': 'وضعیت فعالیت', 'value': 'مطلوب', 'tone': 'active'},
+            {'label': 'تایید دو مرحله‌ای', 'value': 'فعال' if security.get('two_factor') else 'غیرفعال', 'tone': 'active' if security.get('two_factor') else 'inactive'},
+            {'label': 'آخرین تغییر رمز عبور', 'value': _to_jalali(password_changed) if password_changed else '-'},
         ]
         manager_chart = _profile_activity_chart(user_id)
         info_cards = [
@@ -2362,28 +2438,11 @@ def super_admin_user_profile(request, kind, user_id):
         if not user:
             raise Http404('استاد پیدا نشد.')
         _profile_moment_labels(user)
+        # real values only: a field nobody filled in shows «-», a new teacher shows zeros
         primary = unit_path(user.get('org_unit_id'))
-        if primary.get('label') == '-':
-            primary = {
-                'university': 'دانشگاه علوم پزشکی',
-                'faculty': 'دانشکده پرستاری',
-                'department': 'گروه داخلی جراحی',
-                'label': 'دانشگاه علوم پزشکی ← دانشکده پرستاری ← گروه داخلی جراحی',
-            }
-        generic_teacher_names = {'استاد نمونه', 'استاد', 'Teacher', 'teacher'}
-        if not user.get('full_name') or str(user.get('full_name')).strip() in generic_teacher_names:
-            user['full_name'] = 'دکتر امیرحسین رضایی'
-        user['personnel_code'] = user.get('personnel_code') or user.get('identifier') or '1024'
-        if str(user.get('personnel_code') or '').upper().startswith('TCH-'):
-            user['personnel_code'] = '1024'
-        user['phone'] = user.get('phone') or '0912 123 4567'
-        if not user.get('email') or str(user.get('email')).strip().lower() in {'teacher@example.com', 'teacher@demo.ir', 'demo@teacher.local'}:
-            user['email'] = 'amir.rezaei@iums.ac.ir'
-        user['department'] = user.get('department') or 'ساختمان آموزشی، اتاق 214'
+        user['personnel_code'] = user.get('personnel_code') or user.get('identifier') or ''
         academic_ranks = {'مربی', 'استادیار', 'دانشیار', 'استاد'}
-        user['specialty'] = user.get('specialty') if user.get('specialty') in academic_ranks else 'دانشیار'
-        user['avatar_url'] = user.get('avatar_url') or '/media/avatars/e346e324-6107-519f-b569-57f0cbab4593.jpg'
-        teacher_rank = user.get('specialty') or 'دانشیار'
+        teacher_rank = user.get('specialty') if user.get('specialty') in academic_ranks else ''
         role_label = 'استاد'
         back_url = f'{reverse("core:super_admin_users")}?tab=teachers'
         edit_url = reverse('core:super_admin_teacher_profile_edit', args=[user_id])
@@ -2398,32 +2457,44 @@ def super_admin_user_profile(request, kind, user_id):
             WHERE sg.teacher_id = %s OR gt.teacher_id = %s
             GROUP BY c.title, sg.course_name, c.code, sg.group_code, sg.is_active
             ORDER BY title
-            LIMIT 4
             """,
             [user_id, user_id],
         )
-        if not courses:
-            courses = [
-                {'title': 'پرستاری داخلی جراحی 1', 'code': 'NUR-301', 'students_count': 62, 'is_active': True},
-                {'title': 'روش تحقیق', 'code': 'RES-201', 'students_count': 48, 'is_active': True},
-                {'title': 'مراقبت‌های ویژه', 'code': 'NUR-401', 'students_count': 76, 'is_active': True},
-            ]
-        students_count = _erd_teacher_assigned_student_count(user_id)
+        students_count = _erd_teacher_assigned_student_count(user_id) or 0
         active_courses = sum(1 for course in courses if course.get('is_active') in (True, 1, '1', 'true', 'True'))
-        if not students_count:
-            students_count = 186
-        active_courses = max(active_courses, 4)
+        courses = courses[:4]
         for course in courses:
             course['status_label'] = 'فعال' if course.get('is_active') in (True, 1, '1', 'true', 'True') else 'غیرفعال'
             course['status_tone'] = 'active' if course['status_label'] == 'فعال' else 'inactive'
         teacher_exam_count = erd_count('exams', 'teacher_id = %s', [user_id])
-        if not teacher_exam_count:
-            teacher_exam_count = 12
+        # «میانگین مشارکت»: of the students each of the teacher's started course exams was given to, the share who submitted it
+        participation = erd_row(
+            f"""
+            SELECT COUNT(*) AS expected,
+                   SUM(CASE WHEN EXISTS (
+                       SELECT 1 FROM exam_attempts sub
+                       WHERE sub.exam_id = pairs.exam_id AND sub.student_id = pairs.student_id AND sub.submitted_at IS NOT NULL
+                   ) THEN 1 ELSE 0 END) AS submitted
+            FROM (
+                SELECT DISTINCT e.id AS exam_id, COALESCE(ea.student_profile_id, sgm.student_user_id) AS student_id
+                FROM exams e
+                JOIN exam_assignments ea ON ea.exam_id = e.id
+                LEFT JOIN student_group_members sgm ON sgm.group_id = ea.group_id
+                WHERE e.teacher_id = %s AND COALESCE(e.is_cancelled, false) = false
+                  AND e.start_at IS NOT NULL AND e.start_at <= %s
+                  AND {_sx_exam_mode_sql()} <> '{PRACTICE_EXAM_MODE}'
+            ) pairs
+            WHERE pairs.student_id IS NOT NULL
+            """,
+            [user_id, timezone.now()],
+        ) or {}
+        expected = int(participation.get('expected') or 0)
+        participation_rate = round(int(participation.get('submitted') or 0) * 100 / expected) if expected else 0
         stats = [
             {'label': 'درس فعال', 'value': active_courses, 'tone': 'blue', 'icon': 'book'},
             {'label': 'دانشجو', 'value': students_count, 'tone': 'green', 'icon': 'users'},
             {'label': 'آزمون برگزارشده', 'value': teacher_exam_count, 'tone': 'violet', 'icon': 'clipboard'},
-            {'label': 'میانگین مشارکت', 'value': '۸۴٪', 'tone': 'orange', 'icon': 'trend'},
+            {'label': 'میانگین مشارکت', 'value': f'{participation_rate}٪', 'tone': 'orange', 'icon': 'trend'},
         ]
         teacher_account_items = [
             {'label': 'آخرین ورود', 'value': user.get('last_login_at') or '-'},
@@ -2435,7 +2506,6 @@ def super_admin_user_profile(request, kind, user_id):
             {'label': 'تلفن همراه', 'value': user.get('phone') or '-'},
             {'label': 'ایمیل', 'value': user.get('email') or '-'},
             {'label': 'اتاق / دفتر', 'value': user.get('department') or '-'},
-            {'label': 'نوع همکاری', 'value': 'رسمی'},
             {'label': 'تاریخ شروع همکاری', 'value': user.get('created_at') or '-'},
         ]
         info_cards = [
@@ -2456,7 +2526,6 @@ def super_admin_user_profile(request, kind, user_id):
                     {'label': 'تلفن همراه', 'value': user.get('phone') or '-'},
                     {'label': 'ایمیل', 'value': user.get('email') or '-'},
                     {'label': 'اتاق / دفتر', 'value': user.get('department') or '-'},
-                    {'label': 'نوع همکاری', 'value': 'رسمی'},
                     {'label': 'تاریخ شروع همکاری', 'value': user.get('created_at') or '-'},
                 ],
             },
@@ -2464,7 +2533,6 @@ def super_admin_user_profile(request, kind, user_id):
         actions = [
             {'label': 'ویرایش پروفایل', 'url': edit_url, 'tone': 'primary', 'icon': 'edit'},
             {'label': 'مدیریت درس‌ها', 'url': reverse('core:super_admin_teacher_courses', args=[user_id]), 'tone': 'ghost', 'icon': 'book'},
-            {'label': '', 'url': '#', 'tone': 'ghost', 'icon': 'more'},
         ]
         timeline = _teacher_profile_timeline(user_id)
     else:
@@ -2484,143 +2552,120 @@ def super_admin_user_profile(request, kind, user_id):
         if not user:
             raise Http404('دانشجو پیدا نشد.')
         _profile_moment_labels(user)
+        # Every figure below comes from the student's own records (no sample values): a new student shows zeros
+        # and empty lists. Exams and results use the same helpers as the student's own dashboard.
+        from .student_dashboard import _group_exam_ids, _ordered_rows, student_exam_rows
+
         primary = unit_path(user.get('org_unit_id'))
-        if primary.get('label') == '-':
-            primary = {
-                'university': 'دانشگاه علوم پزشکی شیراز',
-                'faculty': 'دانشکده پرستاری',
-                'department': 'گروه داخلی جراحی',
-                'label': 'دانشگاه ← دانشکده پرستاری ← گروه داخلی جراحی',
-            }
-        generic_student_names = {'دانشجو داوطلب', 'دانشجوی داوطلب', 'Student Applicant', 'student'}
-        if not user.get('full_name') or str(user.get('full_name')).strip() in generic_student_names:
-            user['full_name'] = 'دانش‌آموز نمونه'
-        user['student_number'] = user.get('student_number') or user.get('identifier') or 'STU-1001'
-        user['identifier'] = user.get('identifier') or user.get('student_number')
-        user['national_id'] = user.get('national_id') or '0012345678'
-        user['phone'] = user.get('phone') or '09123456789'
-        if not user.get('email') or str(user.get('email')).strip().lower() in {'student@example.com', 'demo@student.local'}:
-            user['email'] = 'student@demo.ir'
-        user['degree'] = user.get('degree') or 'دانش‌آموز'
-        user['semester'] = user.get('semester') or '1402'
-        user['academic_status'] = user.get('academic_status') or 'active'
-        role_label = 'دانش‌آموز' if user.get('degree') == 'دانش‌آموز' else (f"دانشجوی {user.get('degree') or ''}".strip() or 'دانشجو')
+        role_label = f"دانشجوی {user['degree']}" if user.get('degree') else 'دانشجو'
         back_url = f'{reverse("core:super_admin_users")}?tab=students'
         edit_url = reverse('core:super_admin_student_profile_edit', args=[user_id])
         courses = erd_rows(
             """
-            SELECT COALESCE(c.title, sg.course_name, '-') AS title, COALESCE(c.code, sg.group_code, '-') AS code,
-                   COALESCE(p.full_name, '-') AS teacher_name, COALESCE(c.credit_units, 2) AS units,
-                   COALESCE(sg.is_active, true) AS is_active
+            SELECT sg.id AS group_id, COALESCE(c.title, sg.course_name, '-') AS title,
+                   COALESCE(c.code, sg.group_code, '-') AS code, COALESCE(p.full_name, '-') AS teacher_name,
+                   COALESCE(c.credit_units, 0) AS units,
+                   (COALESCE(sg.is_active, true) AND NOT COALESCE(sg.is_archived, false)) AS is_active
             FROM student_group_members sgm
             JOIN student_groups sg ON sg.id = sgm.group_id
             LEFT JOIN courses c ON c.id = sg.course_id
             LEFT JOIN profiles p ON p.id = sg.teacher_id
             WHERE sgm.student_user_id = %s
-            ORDER BY title
-            LIMIT 5
+            ORDER BY is_active DESC, title
             """,
             [user_id],
         )
-        fallback_courses = not courses
-        if fallback_courses:
-            courses = [
-                {'title': 'پرستاری داخلی جراحی', 'code': 'NUR-301', 'teacher_name': 'دکتر مهدوی', 'units': 3, 'is_active': True},
-                {'title': 'فارماکولوژی', 'code': 'PHA-204', 'teacher_name': 'دکتر سهرابی', 'units': 2, 'is_active': True},
-                {'title': 'اخلاق پرستاری', 'code': 'ETH-112', 'teacher_name': 'دکتر نادری', 'units': 1, 'is_active': True},
-                {'title': 'کارآموزی بالینی', 'code': 'NUR-411', 'teacher_name': 'دکتر رضایی', 'units': 2, 'is_active': False},
-            ]
-        attempts_count = erd_count('exam_attempts', 'student_id = %s', [user_id])
-        active_courses = sum(1 for course in courses if course.get('is_active') in (True, 1, '1', 'true', 'True'))
-        if fallback_courses:
-            active_courses = 5
-        total_units = sum(int(course.get('units') or 0) for course in courses)
-        upcoming_exams = erd_rows(
-            """
-            SELECT DISTINCT e.id, e.title, e.start_at, COALESCE(c.title, '-') AS course_title,
-                   COALESCE(to_char(e.start_at, 'YYYY/MM/DD'), '-') AS exam_date,
-                   COALESCE(to_char(e.start_at, 'HH24:MI'), '-') AS exam_time,
-                   COALESCE(e.duration_minutes, 60) AS duration_minutes,
-                   COALESCE(e.lifecycle_status, e.approval_status, 'scheduled') AS exam_status
-            FROM exams e
-            LEFT JOIN courses c ON c.id = e.course_id
-            LEFT JOIN exam_assignments ea ON ea.exam_id = e.id
-            LEFT JOIN student_group_members sgm ON sgm.group_id = ea.group_id
-            WHERE (ea.student_profile_id = %s OR sgm.student_user_id = %s)
-              AND COALESCE(e.is_cancelled, false) = false
-              AND COALESCE(e.end_at, e.start_at) >= %s
-            ORDER BY e.start_at ASC NULLS LAST, e.title
-            LIMIT 3
-            """,
-            [user_id, user_id, timezone.now()],
-        )
-        student_exams = erd_rows(
-            """
-            SELECT DISTINCT e.id, e.title, e.start_at, COALESCE(c.title, '-') AS course_title,
-                   COALESCE(to_char(e.start_at, 'YYYY/MM/DD'), '-') AS exam_date,
-                   COALESCE(to_char(e.start_at, 'HH24:MI'), '-') AS exam_time,
-                   COALESCE(e.duration_minutes, 60) AS duration_minutes,
-                   COALESCE(e.lifecycle_status, e.approval_status, 'scheduled') AS exam_status,
-                   attempt.status AS attempt_status, attempt.score, attempt.max_score
-            FROM exams e
-            LEFT JOIN courses c ON c.id = e.course_id
-            LEFT JOIN exam_assignments assignment ON assignment.exam_id = e.id
-            LEFT JOIN student_group_members sgm ON sgm.group_id = assignment.group_id
-            LEFT JOIN exam_attempts attempt ON attempt.exam_id = e.id AND attempt.student_id = %s
-            WHERE (assignment.student_profile_id = %s OR sgm.student_user_id = %s OR attempt.student_id = %s)
-              AND COALESCE(e.is_cancelled, false) = false
-            ORDER BY e.start_at ASC NULLS LAST, e.title
-            LIMIT 12
-            """,
-            [user_id, user_id, user_id, user_id],
-        )
-        progress_values = [75, 60, 90, 0, 45]
-        status_values = ['در حال برگزاری', 'در حال برگزاری', 'ثبت نمره', 'هنوز شروع نشده', 'در حال برگزاری']
-        status_tones = ['active', 'active', 'info', 'waiting', 'active']
-        for index, course in enumerate(courses):
-            course['progress'] = progress_values[index % len(progress_values)]
+        exam_rows = student_exam_rows(user_id)
+        rows_by_id = {str(row['id']): row for row in exam_rows}
+        class_exam_ids = _group_exam_ids([str(course['group_id']) for course in courses])
+        done_states = {'pending', 'awaiting_release', 'graded'}
+        for course in courses:
+            course_rows = [rows_by_id[exam_id] for exam_id in class_exam_ids.get(str(course['group_id']), ()) if exam_id in rows_by_id]
+            done = sum(1 for row in course_rows if row['page_state'] in done_states)
+            course['progress'] = round(done * 100 / len(course_rows)) if course_rows else 0
             course['progress_label'] = f"{fa_number(course['progress'])}٪"
-            course['status_label'] = status_values[index % len(status_values)]
-            course['status_tone'] = status_tones[index % len(status_tones)]
-            course['units'] = fa_number(course.get('units') or 0)
-        stats = [
-            {'label': 'معدل کل', 'value': '۱۷.۶۸', 'tone': 'violet', 'icon': 'trend'},
-            {'label': 'واحد گذرانده', 'value': max(total_units + 80, 86), 'tone': 'green', 'icon': 'book'},
-            {'label': 'درس فعال', 'value': active_courses, 'tone': 'blue', 'icon': 'book'},
-            {'label': 'آزمون پیش رو', 'value': len(upcoming_exams) or 3, 'tone': 'orange', 'icon': 'clipboard'},
-        ]
-        for index, exam in enumerate(student_exams):
-            raw_status = exam.get('attempt_status') or exam.get('exam_status') or 'scheduled'
-            if raw_status in {'submitted', 'graded', 'completed'}:
-                exam['status_label'] = 'شرکت‌کرده'
-                exam['status_tone'] = 'active'
-            elif raw_status in {'in_progress', 'active', 'published'}:
-                exam['status_label'] = 'آماده برگزاری'
-                exam['status_tone'] = 'active'
-            else:
-                exam['status_label'] = 'زمان‌بندی‌شده'
-                exam['status_tone'] = 'waiting'
-            exam['duration_label'] = f"{fa_number(exam.get('duration_minutes') or 60)} دقیقه"
-            exam['detail_url'] = f"{reverse('core:super_admin_exams')}?q={exam.get('title') or ''}"
-            exam['score_label'] = '-' if exam.get('score') is None else fa_number(exam.get('score'))
-            exam['tone'] = ['blue', 'violet', 'green', 'orange'][index % 4]
-        scored_values = [float(item.get('score') or 0) for item in student_exams if item.get('score') is not None]
-        average_score = round(sum(scored_values) / len(scored_values), 2) if scored_values else 17.25
-        passed_exams = sum(1 for item in student_exams if (item.get('attempt_status') or '') in {'submitted', 'graded', 'completed'})
+            course['status_label'] = 'در حال گذراندن' if course['is_active'] else 'پایان‌یافته'
+            course['status_tone'] = 'active' if course['is_active'] else 'info'
+            course['units_value'] = int(course.get('units') or 0)
+            course['units'] = fa_number(course['units_value'])
+        current_courses = [course for course in courses if course['is_active']]
+        active_courses = len(current_courses)
+        units_taken = sum(course['units_value'] for course in courses)
+        units_current = sum(course['units_value'] for course in current_courses)
+        units_done = units_taken - units_current
+        average_progress = round(sum(course['progress'] for course in current_courses) / active_courses) if active_courses else 0
+
+        upcoming_rows = sorted((row for row in exam_rows if row['state'] in ('ready', 'upcoming')), key=lambda row: row['starts_at'])
+        upcoming_count = len(upcoming_rows)
+        upcoming_exams = [{
+            'title': row['title'], 'course_title': row['course'], 'exam_date': row['date_label'], 'exam_time': row['time_label'],
+        } for row in upcoming_rows[:3]]
+        tones = ['blue', 'violet', 'green', 'orange']
+        student_exams = [{
+            'title': row['title'],
+            'course_title': row['course'],
+            'exam_date': row['date_label'],
+            'exam_time': row['time_label'],
+            'duration_label': f"{fa_number(row['duration'])} دقیقه",
+            'status_label': row['page_label'],
+            'status_tone': 'active' if row['page_state'] in ('ready', 'in_progress', 'graded') else ('info' if row['page_state'] in done_states else 'waiting'),
+            'detail_url': f"{reverse('core:super_admin_exams')}?q={row['title']}",
+            'tone': tones[index % len(tones)],
+        } for index, row in enumerate(_ordered_rows(exam_rows))]
+        attempts_count = sum(1 for row in exam_rows if row['page_state'] in done_states)
+
+        # graded course-exam results (practice exams never count); scores on a 20 scale like the student's own pages
+        graded = [row for row in _sx_result_rows(user_id, practice=False) if not row['is_pending']]
+        passing = {str(row['id']): float(row['passing_score']) for row in erd_rows(
+            'SELECT id, COALESCE(passing_score, 60) AS passing_score FROM exams WHERE id IN ({})'.format(','.join(['%s'] * len(graded))),
+            [row['exam_id'] for row in graded],
+        )} if graded else {}
+        for row in graded:
+            row['score_20'] = round(float(row['percent'] or 0) / 5, 2)
+            row['passed'] = float(row['percent'] or 0) >= passing.get(str(row['exam_id']), 60.0)
+        average_score = round(sum(row['score_20'] for row in graded) / len(graded), 2) if graded else 0
+        best_score = max((row['score_20'] for row in graded), default=0)
+        failed_count = sum(1 for row in graded if not row['passed'])
+        success_rate = round((len(graded) - failed_count) * 100 / len(graded)) if graded else 0
+        exam_summary = {
+            'success_rate': success_rate,
+            'success_label': f"{fa_number(success_rate)}٪",
+            'average': fa_number(f'{average_score:g}'),
+            'best': fa_number(f'{best_score:g}'),
+            'failed': fa_number(failed_count),
+        }
+        recent_results = [{
+            'title': row['course_title'] or row['title'],
+            'score_label': fa_number(f"{row['score_20']:g}"),
+            'passed': row['passed'],
+        } for row in graded[:2]]
+        unit_summary = {
+            'progress': average_progress,
+            'progress_label': f"{fa_number(average_progress)}٪",
+            'taken': fa_number(units_taken),
+            'current': fa_number(units_current),
+            'done': fa_number(units_done),
+        }
+
         all_activity = _student_profile_activity(user_id)
-        activity_items, activity_total = all_activity[:10], len(all_activity)
-        overview_stats = stats
+        activity_items, activity_total = all_activity, len(all_activity)
+        overview_stats = [
+            {'label': 'معدل کل', 'value': f'{average_score:g}', 'tone': 'violet', 'icon': 'trend'},
+            {'label': 'واحد گذرانده', 'value': units_done, 'tone': 'green', 'icon': 'book'},
+            {'label': 'درس فعال', 'value': active_courses, 'tone': 'blue', 'icon': 'book'},
+            {'label': 'آزمون پیش رو', 'value': upcoming_count, 'tone': 'orange', 'icon': 'clipboard'},
+        ]
         course_stats = [
-            {'label': 'کل درس‌ها', 'value': len(courses) or 12, 'tone': 'blue', 'icon': 'book'},
+            {'label': 'کل درس‌ها', 'value': len(courses), 'tone': 'blue', 'icon': 'book'},
             {'label': 'درس‌های فعال', 'value': active_courses, 'tone': 'violet', 'icon': 'check'},
-            {'label': 'واحدهای ترم', 'value': total_units or 14, 'tone': 'green', 'icon': 'book'},
-            {'label': 'میانگین پیشرفت', 'value': '۶۸٪', 'tone': 'orange', 'icon': 'trend'},
+            {'label': 'واحدهای ترم', 'value': units_current, 'tone': 'green', 'icon': 'book'},
+            {'label': 'میانگین پیشرفت', 'value': f'{average_progress}٪', 'tone': 'orange', 'icon': 'trend'},
         ]
         exam_stats = [
-            {'label': 'کل آزمون‌ها', 'value': len(student_exams) or len(upcoming_exams) or 18, 'tone': 'blue', 'icon': 'calendar'},
-            {'label': 'آزمون‌های پیش‌رو', 'value': len(upcoming_exams) or 3, 'tone': 'violet', 'icon': 'clipboard'},
-            {'label': 'شرکت‌کرده', 'value': passed_exams or attempts_count, 'tone': 'green', 'icon': 'check'},
-            {'label': 'میانگین نمره', 'value': average_score, 'tone': 'orange', 'icon': 'trend'},
+            {'label': 'کل آزمون‌ها', 'value': len(exam_rows), 'tone': 'blue', 'icon': 'calendar'},
+            {'label': 'آزمون‌های پیش‌رو', 'value': upcoming_count, 'tone': 'violet', 'icon': 'clipboard'},
+            {'label': 'شرکت‌کرده', 'value': attempts_count, 'tone': 'green', 'icon': 'check'},
+            {'label': 'میانگین نمره', 'value': f'{average_score:g}', 'tone': 'orange', 'icon': 'trend'},
         ]
         today = timezone.localdate()
         last_login = erd_datetime(user.get('last_login_raw'))
@@ -2636,6 +2681,7 @@ def super_admin_user_profile(request, kind, user_id):
             'exams': exam_stats,
             'activity': activity_stats,
         }.get(student_section, overview_stats)
+        academic_labels = {'active': 'مشغول به تحصیل', 'leave': 'مرخصی', 'graduated': 'فارغ التحصیل', 'inactive': 'غیرفعال'}
         student_detail_items = [
             {'label': 'نام و نام خانوادگی', 'value': user.get('full_name') or '-'},
             {'label': 'شماره دانشجویی', 'value': user.get('student_number') or user.get('identifier') or '-'},
@@ -2644,7 +2690,7 @@ def super_admin_user_profile(request, kind, user_id):
             {'label': 'ایمیل', 'value': user.get('email') or '-'},
             {'label': 'سال ورود', 'value': (user.get('semester') or '').split('-')[0] or '-'},
             {'label': 'مقطع', 'value': user.get('degree') or '-'},
-            {'label': 'وضعیت تحصیلی', 'value': {'active': 'مشغول به تحصیل', 'leave': 'مرخصی', 'graduated': 'فارغ التحصیل', 'inactive': 'غیرفعال'}.get(user.get('academic_status') or 'active')},
+            {'label': 'وضعیت تحصیلی', 'value': academic_labels.get(user.get('academic_status') or '', '-')},
             {'label': 'مسیر سازمانی', 'value': primary['label']},
         ]
         student_account_items = [
@@ -2657,9 +2703,9 @@ def super_admin_user_profile(request, kind, user_id):
                 'title': 'خلاصه انتخاب واحد',
                 'icon': 'chart',
                 'items': [
-                    {'label': 'واحد اخذشده', 'value': max(len(courses) * 3, 0)},
-                    {'label': 'واحد در حال گذراندن', 'value': max(active_courses * 3, 0)},
-                    {'label': 'واحد تکمیل‌شده', 'value': max((len(courses) - active_courses) * 3, 0)},
+                    {'label': 'واحد اخذشده', 'value': units_taken},
+                    {'label': 'واحد در حال گذراندن', 'value': units_current},
+                    {'label': 'واحد تکمیل‌شده', 'value': units_done},
                 ],
             },
             {
@@ -2667,7 +2713,7 @@ def super_admin_user_profile(request, kind, user_id):
                 'icon': 'calendar',
                 'items': [
                     {'label': course.get('title') or 'درس', 'value': course.get('teacher_name') or '-'}
-                    for course in courses[:3]
+                    for course in current_courses[:3]
                 ] or [{'label': 'برنامه‌ای ثبت نشده', 'value': '-'}],
             },
         ]
@@ -2692,12 +2738,6 @@ def super_admin_user_profile(request, kind, user_id):
                 'meta': log.get('entity_type') or 'سامانه',
             }
             for log in recent_logs
-        ]
-    elif not timeline:
-        timeline = [
-            {'title': 'ورود موفق به سامانه', 'meta': user.get('last_login_at') or '-'},
-            {'title': 'به‌روزرسانی اطلاعات پروفایل', 'meta': user.get('created_at') or '-'},
-            {'title': 'بازبینی وضعیت حساب', 'meta': status_labels.get(user.get('status') or 'active')},
         ]
 
     user_status = user.get('status') or 'active'
@@ -2748,6 +2788,9 @@ def super_admin_user_profile(request, kind, user_id):
         'student_exams': locals().get('student_exams', []),
         'activity_items': locals().get('activity_items', []),
         'activity_total': locals().get('activity_total', 0),
+        'unit_summary': locals().get('unit_summary', {}),
+        'exam_summary': locals().get('exam_summary', {}),
+        'recent_results': locals().get('recent_results', []),
     })
 
 
@@ -2885,21 +2928,7 @@ def super_admin_teacher_courses(request, user_id):
         }
 
     primary = unit_path(teacher.get('org_unit_id'))
-    if primary['label'] == '-':
-        primary = {
-            'university': 'دانشگاه علوم پزشکی',
-            'faculty': 'دانشکده پرستاری',
-            'department': 'گروه داخلی جراحی',
-            'label': 'دانشگاه علوم پزشکی ← دانشکده پرستاری ← گروه داخلی جراحی',
-        }
-
-    generic_teacher_names = {'استاد نمونه', 'استاد', 'Teacher', 'teacher'}
-    if not teacher.get('full_name') or str(teacher.get('full_name')).strip() in generic_teacher_names:
-        teacher['full_name'] = 'دکتر امیرحسین رضایی'
-    teacher['personnel_code'] = teacher.get('personnel_code') or teacher.get('identifier') or '1024'
-    if str(teacher.get('personnel_code') or '').upper().startswith('TCH-'):
-        teacher['personnel_code'] = '1024'
-    teacher['avatar_url'] = teacher.get('avatar_url') or '/media/avatars/e346e324-6107-519f-b569-57f0cbab4593.jpg'
+    # stored values only, no sample names / codes / courses
 
     q = request.GET.get('q', '').strip()
     term = request.GET.get('term', '').strip()
@@ -2909,7 +2938,7 @@ def super_admin_teacher_courses(request, user_id):
         SELECT COALESCE(c.id, sg.course_id, sg.id) AS id,
                COALESCE(c.title, sg.course_name, '-') AS title,
                COALESCE(c.code, sg.group_code, '-') AS code,
-               COALESCE(c.credit_units, 3) AS units,
+               COALESCE(c.credit_units, 0) AS units,
                sg.academic_year, sg.semester, sg.group_code,
                COALESCE(sg.is_active, true) AS is_active,
                COUNT(DISTINCT sgm.student_user_id) AS students_count,
@@ -2926,17 +2955,9 @@ def super_admin_teacher_courses(request, user_id):
         """,
         [user_id, user_id, user_id],
     )
-    if not rows:
-        rows = [
-            {'id': 'demo-nur-301', 'title': 'پرستاری داخلی جراحی 1', 'code': 'NUR-301', 'units': 3, 'academic_year': '1405-1406', 'semester': 'نیمسال اول', 'group_code': 'گروه 1', 'is_active': True, 'students_count': 62, 'exams_count': 2},
-            {'id': 'demo-res-201', 'title': 'روش تحقیق', 'code': 'RES-201', 'units': 2, 'academic_year': '1405-1406', 'semester': 'نیمسال اول', 'group_code': 'گروه 2', 'is_active': True, 'students_count': 48, 'exams_count': 1},
-            {'id': 'demo-nur-401', 'title': 'مراقبت‌های ویژه', 'code': 'NUR-401', 'units': 4, 'academic_year': '1405-1406', 'semester': 'نیمسال اول', 'group_code': 'گروه 1', 'is_active': True, 'students_count': 76, 'exams_count': 2},
-            {'id': 'demo-nur-105', 'title': 'اصول و فنون پرستاری', 'code': 'NUR-105', 'units': 3, 'academic_year': '1405-1406', 'semester': 'نیمسال دوم', 'group_code': 'گروه 3', 'is_active': False, 'students_count': 87, 'exams_count': 1},
-        ]
-
     filtered_rows = []
     for row in rows:
-        row['term_label'] = f"{row.get('semester') or 'نیمسال اول'} {row.get('academic_year') or '1405-1406'} - {row.get('group_code') or 'گروه 1'}"
+        row['term_label'] = ' - '.join(part for part in (' '.join(str(v) for v in (row.get('semester'), row.get('academic_year')) if v), row.get('group_code')) if part) or '-'
         row['status'] = 'active' if row.get('is_active') in (True, 1, '1', 'true', 'True') else 'archived'
         row['status_label'] = 'فعال' if row['status'] == 'active' else 'بایگانی‌شده'
         haystack = ' '.join(str(row.get(key) or '') for key in ('title', 'code', 'term_label'))
@@ -2953,10 +2974,10 @@ def super_admin_teacher_courses(request, user_id):
     students_count = sum(int(row.get('students_count') or 0) for row in filtered_rows)
     exams_count = sum(int(row.get('exams_count') or 0) for row in filtered_rows)
     stats = [
-        {'label': 'درس فعال', 'value': max(active_courses, 4), 'tone': 'blue', 'icon': 'book'},
-        {'label': 'دانشجو', 'value': max(students_count, 273), 'tone': 'green', 'icon': 'users'},
-        {'label': 'آزمون برنامه‌ریزی‌شده', 'value': max(exams_count, 6), 'tone': 'violet', 'icon': 'clipboard'},
-        {'label': 'واحد درسی', 'value': max(total_units, 12), 'tone': 'purple', 'icon': 'book'},
+        {'label': 'درس فعال', 'value': active_courses, 'tone': 'blue', 'icon': 'book'},
+        {'label': 'دانشجو', 'value': students_count, 'tone': 'green', 'icon': 'users'},
+        {'label': 'آزمون برنامه‌ریزی‌شده', 'value': exams_count, 'tone': 'violet', 'icon': 'clipboard'},
+        {'label': 'واحد درسی', 'value': total_units, 'tone': 'purple', 'icon': 'book'},
     ]
     for stat in stats:
         stat['value'] = fa_number(stat['value'])
@@ -2983,7 +3004,7 @@ def super_admin_teacher_profile_edit(request, user_id):
     teacher = erd_row(
         """
         SELECT p.id, p.full_name, p.first_name, p.last_name, p.username, p.email, p.phone,
-               p.national_id, p.identifier, p.avatar_url, p.status, p.last_login_at, p.updated_at,
+               p.national_id, p.identifier, p.avatar_url, p.status, p.last_login_at, p.updated_at, p.created_at,
                tp.personnel_code, tp.department, tp.specialty, tp.approval_status, tp.org_unit_id
         FROM teacher_profiles tp
         JOIN profiles p ON p.id = tp.user_id
@@ -3044,14 +3065,13 @@ def super_admin_teacher_profile_edit(request, user_id):
         erd_execute(
             """
             UPDATE teacher_profiles
-            SET personnel_code = %s, department = %s, specialty = %s, approval_status = %s
+            SET personnel_code = %s, department = %s, specialty = %s
             WHERE user_id = %s
             """,
             [
                 request.POST.get('personnel_code', '').strip(),
                 request.POST.get('department', '').strip(),
                 request.POST.get('specialty', '').strip(),
-                request.POST.get('cooperation_type', 'رسمی').strip(),
                 user_id,
             ],
         )
@@ -3059,33 +3079,18 @@ def super_admin_teacher_profile_edit(request, user_id):
             erd_sync_login_account(username, is_active=(status == 'active'))
         return redirect(f'{reverse("core:super_admin_teacher_profile_edit", args=[user_id])}?saved=1')
 
-    if not teacher.get('full_name') or str(teacher.get('full_name')).strip() in {'استاد نمونه', 'استاد', 'Teacher', 'teacher'}:
-        teacher['full_name'] = 'دکتر امیرحسین رضایی'
-    if not teacher.get('first_name') or str(teacher.get('first_name')).strip() in {'استاد', 'استاد نمونه', 'Teacher', 'teacher'}:
-        teacher['first_name'] = 'امیرحسین'
-    if not teacher.get('last_name') or str(teacher.get('last_name')).strip() in {'نمونه', 'Teacher', 'teacher'}:
-        teacher['last_name'] = 'رضایی'
-    teacher['personnel_code'] = teacher.get('personnel_code') or teacher.get('identifier') or '1024'
-    if str(teacher.get('personnel_code') or '').upper().startswith('TCH-'):
-        teacher['personnel_code'] = '1024'
-    teacher['username'] = teacher.get('username') if teacher.get('username') not in {'teacher_demo', 'teacher', 'demo_teacher'} else 'arezaei1024'
-    teacher['username'] = teacher.get('username') or 'arezaei1024'
-    teacher['national_id'] = teacher.get('national_id') or '0012345678'
-    teacher['phone'] = teacher.get('phone') or '0912 123 4567'
-    if not teacher.get('email') or str(teacher.get('email')).strip().lower() in {'teacher@example.com', 'teacher@demo.ir', 'demo@teacher.local'}:
-        teacher['email'] = 'amir.rezaei@iums.ac.ir'
-    teacher['department'] = teacher.get('department') or 'دانشگاه علوم پزشکی ← دانشکده پرستاری ← گروه داخلی جراحی'
-    teacher['specialty'] = teacher.get('specialty') if teacher.get('specialty') in {'مربی', 'استادیار', 'دانشیار', 'استاد'} else 'دانشیار'
-    teacher['approval_status'] = teacher.get('approval_status') or 'رسمی'
-    teacher['avatar_url'] = teacher.get('avatar_url') or '/media/avatars/e346e324-6107-519f-b569-57f0cbab4593.jpg'
+    # The form shows the stored values only (no sample names / codes: saving them would write them into the account).
+    # Personal-data fields stay empty when unknown: the form shows example placeholders (static/js/field-rules.js).
+    teacher['specialty'] = teacher.get('specialty') if teacher.get('specialty') in {'مربی', 'استادیار', 'دانشیار', 'استاد'} else ''
+    started = erd_datetime(teacher.get('created_at'))
+    teacher['started_label'] = _to_jalali(started).split(' ')[0] if started else '-'
     primary_label = unit_path(teacher.get('org_unit_id'))
-    if primary_label == '-':
-        primary_label = 'دانشگاه علوم پزشکی ← دانشکده پرستاری ← گروه داخلی جراحی'
 
     return render(request, 'super_admin/teacher_profile_edit.html', {
         'teacher': teacher,
         'updated_label': relative_time_label(teacher.get('updated_at')) if teacher.get('updated_at') else 'ثبت نشده',
         'primary_label': primary_label,
+        'department_value': primary_label if primary_label != '-' else (teacher.get('department') or ''),
         'saved': request.GET.get('saved') == '1',
         'back_url': reverse('core:super_admin_user_profile', args=['teacher', user_id]),
         'courses_url': reverse('core:super_admin_teacher_courses', args=[user_id]),
@@ -3274,26 +3279,9 @@ def super_admin_student_profile_edit(request, user_id):
     if not student:
         raise Http404('دانشجو پیدا نشد.')
 
-    fallback_path = {
-        'university': 'دانشگاه علوم پزشکی شیراز',
-        'faculty': 'دانشکده پرستاری',
-        'department': 'گروه داخلی جراحی',
-        'label': 'دانشگاه ← دانشکده پرستاری ← گروه داخلی جراحی',
-    }
-    generic_student_names = {'دانشجو داوطلب', 'دانشجوی داوطلب', 'Student Applicant', 'student'}
-    if not student.get('full_name') or str(student.get('full_name')).strip() in generic_student_names:
-        student['full_name'] = 'دانش‌آموز نمونه'
-        student['first_name'] = 'دانش‌آموز'
-        student['last_name'] = 'نمونه'
-    if not student.get('student_number') and not student.get('identifier'):
-        student['student_number'] = 'STU-1001'
-        student['identifier'] = 'STU-1001'
-    student['national_id'] = student.get('national_id') or '0012345678'
-    student['phone'] = student.get('phone') or '09123456789'
-    if not student.get('email') or str(student.get('email')).strip().lower() in {'student@example.com', 'demo@student.local'}:
-        student['email'] = 'student@demo.ir'
-    student['degree'] = student.get('degree') or 'دانش‌آموز'
-    student['semester'] = student.get('semester') or '1402'
+    # Personal-data fields stay empty when unknown: the form shows example placeholders (static/js/field-rules.js).
+    student['degree'] = student.get('degree') or ''
+    student['semester'] = student.get('semester') or ''
     student['academic_status'] = student.get('academic_status') or 'active'
 
     if request.method == 'POST':
@@ -3358,8 +3346,6 @@ def super_admin_student_profile_edit(request, user_id):
         return redirect('core:super_admin_user_profile', kind='student', user_id=user_id)
 
     primary_path = unit_path(student.get('org_unit_id'))
-    if primary_path.get('label') == '-':
-        primary_path = fallback_path
     return render(request, 'super_admin/student_profile_edit.html', {
         'student': student,
         'status': student.get('status') or 'active',
@@ -3610,7 +3596,7 @@ def super_admin_user_detail(request, profile_id):
                 profile.save(update_fields=['role', 'updated_at'])
                 description = f'نقش کاربر به {profile.role.name} تغییر کرد.'
             elif action == SuperAdminUserActionForm.ACTION_RESET:
-                password = form.cleaned_data.get('temporary_password') or get_random_string(10)
+                password = form.cleaned_data.get('temporary_password') or account_security.generate_temporary_password()
                 profile.user.set_password(password)
                 profile.user.save(update_fields=['password'])
                 description = 'رمز عبور کاربر بازنشانی شد.'
@@ -4124,6 +4110,12 @@ def super_admin_teacher_create(request):
         if step == 1:
             for key in ('first_name', 'last_name', 'national_id', 'phone', 'email', 'personnel_code', 'gender', 'birth_date', 'specialty', 'academic_rank'):
                 draft[key] = request.POST.get(key, '').strip()
+            field_errors = field_rules.clean_person_fields(draft)  # same rules as static/js/field-rules.js
+            if field_errors and action != 'save_draft':
+                request.session[session_key] = draft
+                for error in field_errors:
+                    messages.error(request, error)
+                return redirect(f'{reverse("core:super_admin_teacher_create")}?step=1')
             avatar = request.FILES.get('avatar')
             if avatar:
                 extension = (avatar.name.rsplit('.', 1)[-1] if '.' in avatar.name else 'jpg').lower()
@@ -4366,6 +4358,12 @@ def super_admin_manager_create(request):
         if step == 1:
             for key in ('first_name', 'last_name', 'personnel_code', 'national_id', 'birth_date', 'gender', 'email', 'phone'):
                 draft[key] = request.POST.get(key, '').strip()
+            field_errors = field_rules.clean_person_fields(draft)  # same rules as static/js/field-rules.js
+            if field_errors and action != 'save_draft':
+                request.session[session_key] = draft
+                for error in field_errors:
+                    messages.error(request, error)
+                return redirect(f'{reverse("core:super_admin_manager_create")}?step=1')
             avatar = request.FILES.get('avatar')
             if avatar:
                 extension = (avatar.name.rsplit('.', 1)[-1] if '.' in avatar.name else 'jpg').lower()
@@ -4598,9 +4596,9 @@ def super_admin_manager_bulk_import(request):
         'وضعیت حساب',
     ]
     sample_rows = [
-        ['علی', 'محمدی', '0012345678', '884421', '09121234567', 'مدیر واحد', 'واحد منابع انسانی', 'مدیر واحد', 'ali.mohammadi@example.com', 'فعال'],
-        ['مریم', 'احمدی', '0012345679', '884422', '09121234568', 'مدیر آموزشی', 'دانشکده پزشکی', 'مدیر آموزشی', 'm.ahmadi@example.com', 'فعال'],
-        ['رضا', 'کریمی', '0012345680', '884423', '09121234569', 'مدیر سیستم', 'تمام سازمان', 'مدیر سیستم', 'r.karimi@example.com', 'فعال'],
+        ['علی', 'محمدی', '0012345679', '884421', '09121234567', 'مدیر واحد', 'واحد منابع انسانی', 'مدیر واحد', 'ali.mohammadi@example.com', 'فعال'],
+        ['مریم', 'احمدی', '0012345687', '884422', '09121234568', 'مدیر آموزشی', 'دانشکده پزشکی', 'مدیر آموزشی', 'm.ahmadi@example.com', 'فعال'],
+        ['رضا', 'کریمی', '0012345695', '884423', '09121234569', 'مدیر سیستم', 'تمام سازمان', 'مدیر سیستم', 'r.karimi@example.com', 'فعال'],
     ]
     if action == 'sample':
         return xlsx_response('managers-template.xlsx', headers, sample_rows, 'Managers')
@@ -4711,6 +4709,8 @@ def super_admin_manager_bulk_import(request):
             for field in field_defs:
                 if field['required'] and not record.get(field['key']):
                     issues.append(('error', field['key'], f"{field['label']} خالی است."))
+            for key, message in field_rules.record_issues(record):  # same format / length rules as the forms
+                issues.append(('error', key, message))
             if record.get('national_id') and record['national_id'] in seen_national:
                 issues.append(('error', 'national_id', 'کد ملی تکراری است.'))
             if record.get('personnel_code') and record['personnel_code'] in seen_personnel:
@@ -5101,6 +5101,12 @@ def super_admin_student_create(request):
         if step == 1:
             for key in ('first_name', 'last_name', 'student_number', 'national_id', 'phone', 'email', 'gender', 'birth_date'):
                 draft[key] = request.POST.get(key, '').strip()
+            field_errors = field_rules.clean_person_fields(draft)  # same rules as static/js/field-rules.js
+            if field_errors and action != 'save_draft':
+                request.session[session_key] = draft
+                for error in field_errors:
+                    messages.error(request, error)
+                return redirect(f'{reverse("core:super_admin_student_create")}?step=1')
             avatar = request.FILES.get('avatar')
             if avatar:
                 extension = (avatar.name.rsplit('.', 1)[-1] if '.' in avatar.name else 'jpg').lower()
@@ -5454,10 +5460,12 @@ def super_admin_teachers(request):
         teacher_id = request.POST.get('teacher_id')
         wants_json = request.headers.get('x-requested-with') == 'XMLHttpRequest'
         if teacher_id:
-            with connection.cursor() as cursor:
-                cursor.execute("DELETE FROM teacher_profiles WHERE user_id = %s", [teacher_id])
-                cursor.execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [teacher_id, 'teacher'])
-                cursor.execute("DELETE FROM profiles WHERE id = %s", [teacher_id])
+            failure = _legacy_delete_account(request, teacher_id, 'teacher')
+            if failure:
+                if wants_json:
+                    return JsonResponse({'ok': False, 'message': failure}, status=400)
+                messages.error(request, failure)
+                return redirect('core:super_admin_teachers')
             if wants_json:
                 return JsonResponse({'ok': True, 'message': 'استاد حذف شد.', 'teacher_id': teacher_id})
             messages.success(request, 'استاد حذف شد.')
@@ -5683,9 +5691,9 @@ def super_admin_student_bulk_import(request):
 
     headers = ['نام', 'نام خانوادگی', 'کد ملی', 'کد دانشجویی', 'سال ورود', 'مقطع', 'رشته', 'واحد سازمانی', 'شماره همراه', 'ایمیل', 'گروه آموزشی', 'درس‌ها', 'وضعیت حساب']
     sample_rows = [
-        ['علی', 'محمدی', '1234567890', '40123456', '1403', 'کارشناسی', 'مهندسی کامپیوتر', 'دانشکده فنی', '09121234567', 'ali@example.com', 'گروه 1', 'ساختمان داده‌ها، پایگاه داده', 'فعال'],
-        ['سارا', 'رضایی', '1234567891', '40123457', '1402', 'کارشناسی ارشد', 'مدیریت کسب‌وکار', 'دانشکده مدیریت', '09121234568', 'sara@example.com', 'گروه 2', 'روش تحقیق', 'فعال'],
-        ['امیرحسین', 'احمدی', '1234567892', '40123458', '1403', 'دکتری', 'هوش مصنوعی', 'دانشکده فنی', '', 'amir@example.com', '', '', 'فعال'],
+        ['علی', 'محمدی', '1234567891', '40123456', '1403', 'کارشناسی', 'مهندسی کامپیوتر', 'دانشکده فنی', '09121234567', 'ali@example.com', 'گروه 1', 'ساختمان داده‌ها، پایگاه داده', 'فعال'],
+        ['سارا', 'رضایی', '1234567806', '40123457', '1402', 'کارشناسی ارشد', 'مدیریت کسب‌وکار', 'دانشکده مدیریت', '09121234568', 'sara@example.com', 'گروه 2', 'روش تحقیق', 'فعال'],
+        ['امیرحسین', 'احمدی', '1234567814', '40123458', '1403', 'دکتری', 'هوش مصنوعی', 'دانشکده فنی', '', 'amir@example.com', '', '', 'فعال'],
     ]
     if action == 'sample':
         return xlsx_response('students-template.xlsx', headers, sample_rows, 'Students')
@@ -5807,6 +5815,8 @@ def super_admin_student_bulk_import(request):
             for field in field_defs:
                 if field['required'] and not record.get(field['key']):
                     issues.append(('error', field['key'], f"{field['label']} خالی است."))
+            for key, message in field_rules.record_issues(record):  # same format / length rules as the forms
+                issues.append(('error', key, message))
             if record.get('national_id') and record['national_id'] in seen_national:
                 issues.append(('error', 'national_id', 'کد ملی تکراری است.'))
             if record.get('student_number') and record['student_number'] in seen_student:
@@ -6125,8 +6135,8 @@ def super_admin_teacher_bulk_import(request):
 
     headers = ['نام', 'نام خانوادگی', 'کد ملی', 'شماره همراه', 'واحد سازمانی', 'مرتبه علمی', 'نوع همکاری', 'ایمیل', 'کد پرسنلی', 'درس‌ها', 'وضعیت حساب']
     sample_rows = [
-        ['علی', 'رضایی', '0012345678', '09121234567', 'گروه پرستاری داخلی جراحی', 'استادیار', 'تمام وقت', 'ali.rezaei@example.com', 'TCH-1405-01', 'ساختمان داده‌ها، پایگاه داده', 'فعال'],
-        ['سارا', 'محمدی', '0012345679', '09121234568', 'دانشکده روانشناسی', 'دانشیار', 'مدعو', 'sara.mohammadi@example.com', 'TCH-1405-02', 'روش تحقیق', 'فعال'],
+        ['علی', 'رضایی', '0012345679', '09121234567', 'گروه پرستاری داخلی جراحی', 'استادیار', 'تمام وقت', 'ali.rezaei@example.com', 'TCH-1405-01', 'ساختمان داده‌ها، پایگاه داده', 'فعال'],
+        ['سارا', 'محمدی', '0012345687', '09121234568', 'دانشکده روانشناسی', 'دانشیار', 'مدعو', 'sara.mohammadi@example.com', 'TCH-1405-02', 'روش تحقیق', 'فعال'],
     ]
     if action == 'sample':
         return xlsx_response('teachers-template.xlsx', headers, sample_rows, 'Teachers')
@@ -6227,6 +6237,8 @@ def super_admin_teacher_bulk_import(request):
             for field in field_defs:
                 if field['required'] and not record.get(field['key']):
                     issues.append(('error', field['key'], f"{field['label']} خالی است."))
+            for key, message in field_rules.record_issues(record):  # same format / length rules as the forms
+                issues.append(('error', key, message))
             if record.get('national_id') and record['national_id'] in seen_national:
                 issues.append(('error', 'national_id', 'کد ملی تکراری است.'))
             if record.get('phone') and record['phone'] in seen_phone:
@@ -6725,12 +6737,12 @@ def super_admin_students(request):
         student_id = request.POST.get('student_id')
         wants_json = request.headers.get('x-requested-with') == 'XMLHttpRequest'
         if student_id:
-            with connection.cursor() as cursor:
-                cursor.execute("DELETE FROM student_course_enrollments WHERE student_user_id = %s", [student_id])
-                cursor.execute("DELETE FROM student_group_members WHERE student_user_id = %s", [student_id])
-                cursor.execute("DELETE FROM student_profiles WHERE user_id = %s", [student_id])
-                cursor.execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [student_id, 'student'])
-                cursor.execute("DELETE FROM profiles WHERE id = %s", [student_id])
+            failure = _legacy_delete_account(request, student_id, 'student')
+            if failure:
+                if wants_json:
+                    return JsonResponse({'ok': False, 'message': failure}, status=400)
+                messages.error(request, failure)
+                return redirect('core:super_admin_students')
             if wants_json:
                 return JsonResponse({'ok': True, 'message': 'دانشجو حذف شد.', 'student_id': student_id})
             messages.success(request, 'دانشجو حذف شد.')
@@ -8351,7 +8363,7 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         bool(request.POST.get('shuffle_questions')),
         bool(request.POST.get('shuffle_options')),
         bool(request.POST.get('negative_marking')),
-        request.POST.get('negative_factor') or 0,
+        _posted_negative_factor(request.POST),
         _posted_max_attempts(request.POST),
         is_published,
         bool(request.POST.get('show_results_immediately')),
@@ -8479,6 +8491,12 @@ def _exam_wizard_settings_error(request):
     percent = (post.get('min_passing_percent') or '').strip()
     if percent and not 0 <= _sx_float(percent, -1) <= 100:
         return 'نمره قبولی باید درصدی بین ۰ تا ۱۰۰ باشد.'
+    total = (post.get('passing_score_total') or '').strip()
+    if total and _sx_float(total, -1) <= 0:
+        return '«مجموع نمرات کل آزمون» باید بیشتر از صفر باشد.'
+    factor = (post.get('negative_factor') or '').strip()
+    if factor and not 0 <= _sx_float(factor, -1) <= 1:
+        return '«مقدار جریمه برای پاسخ غلط» باید عددی بین ۰ تا ۱ باشد (سهمی از نمره‌ی سؤال که کم می‌شود؛ پاسخ غلط نمره اضافه نمی‌دهد).'
     if post.get('ip_restriction_enabled') and not _parse_ip_networks(post.get('ip_restriction_range')):
         return 'برای «محدودیت IP» یک محدوده‌ی معتبر وارد کنید (مثلاً 192.168.1.0/24؛ چند مورد را با ویرگول جدا کنید).'
     start_at = _parse_exam_wizard_datetime(post.get('start_at'))
@@ -8493,7 +8511,8 @@ def _exam_wizard_settings_error(request):
     if access_start and access_start > start_at:
         return '«شروع دسترسی» نباید بعد از شروع آزمون باشد.'
     if last_entry and not start_at <= last_entry <= end_at:
-        return '«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد.'
+        return (f'«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد (از {_to_jalali(start_at)} تا {_to_jalali(end_at)}); '
+                'اگر محدودیتی نمی‌خواهید، آن را خالی بگذارید.')
     if access_end and access_end < start_at:
         return '«پایان دسترسی» نباید قبل از شروع آزمون باشد.'
     return None
@@ -9755,7 +9774,7 @@ def super_admin_exam_edit(request, exam_id):
                     checked('shuffle_questions'),
                     checked('shuffle_options'),
                     checked('negative_marking'),
-                    request.POST.get('negative_factor') or 0,
+                    _posted_negative_factor(request.POST),
                     _posted_max_attempts(request.POST),
                     checked('allow_partial'),
                     checked('review_answers_enabled'),  # «امکان بازگشت به سوال قبلی» (step 4 of this page)
@@ -10603,11 +10622,12 @@ def super_admin_academic_managers(request):
                 return JsonResponse({'ok': False, 'message': 'شناسه مدیر آموزشی نامعتبر است.'}, status=400)
             messages.error(request, 'شناسه مدیر آموزشی نامعتبر است.')
             return redirect('core:super_admin_academic_managers')
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM academic_manager_scopes WHERE manager_id = %s", [manager_id])
-            cursor.execute("DELETE FROM academic_manager_profiles WHERE user_id = %s", [manager_id])
-            cursor.execute("DELETE FROM user_roles WHERE user_id = %s AND role = %s", [manager_id, 'academic_manager'])
-            cursor.execute("DELETE FROM profiles WHERE id = %s", [manager_id])
+        failure = _legacy_delete_account(request, manager_id, 'manager')
+        if failure:
+            if wants_json:
+                return JsonResponse({'ok': False, 'message': failure}, status=400)
+            messages.error(request, failure)
+            return redirect('core:super_admin_academic_managers')
         if wants_json:
             return JsonResponse({'ok': True, 'message': 'مدیر آموزشی حذف شد.', 'manager_id': manager_id})
         messages.success(request, 'مدیر آموزشی حذف شد.')
@@ -11515,7 +11535,7 @@ def institution_settings(request):
 
 def create_institution_user(institution, cleaned):
     role = SystemRole.objects.get(code=cleaned['user_type'])
-    password = cleaned.get('password') or get_random_string(10)
+    password = cleaned.get('password') or account_security.generate_temporary_password()
     user = User.objects.create_user(
         username=cleaned['username'],
         email=cleaned.get('email') or '',
@@ -16553,6 +16573,11 @@ def _posted_max_attempts(post) -> int:
     except (TypeError, ValueError):
         return 1
     return min(max(value, 0), MAX_ATTEMPTS_LIMIT)
+
+
+def _posted_negative_factor(post) -> float:
+    """«مقدار جریمه برای پاسخ غلط»: a share (0–1) of the question's points taken off; a wrong answer never adds points."""
+    return min(max(_sx_float(post.get('negative_factor'), 0), 0), 1)
 
 
 def _exam_wizard_initial(exam) -> dict:

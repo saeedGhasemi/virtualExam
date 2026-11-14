@@ -71,7 +71,7 @@
                             <td><span class="am-pill">{{ row.faculty|fa_digits }}</span></td>
                             <td><span class="am-pill">{{ row.department_name|fa_digits }}</span></td>
                             <td><span class="am-pill">{{ row.degree|default:"-"|fa_digits }}</span></td>
-                            <td><span class="am-pill"># {{ row.student_number|default:row.identifier|default:"-"|fa_digits }}</span></td>
+                            <td><span class="am-pill"># <bdi data-latin-digits>{{ row.student_number|default:row.identifier|default:"-" }}</bdi></span></td>
                             <td><span class="am-status is-{{ row.academic_status|default:'active' }}">{% if row.academic_status == 'leave' %}مرخصی{% elif row.academic_status == 'graduated' %}فارغ التحصیل{% elif row.academic_status == 'inactive' %}غیرفعال{% else %}شاغل به تحصیل{% endif %}</span></td>
                             <td>{{ row.created_display|jalali_date|default:row.created_display|fa_digits }}</td>
                             <td>
@@ -134,9 +134,9 @@
                     </div>
                     <div class="am-card-avatar">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="{{ row.full_name|default:'دانشجو' }}" onerror="this.replaceWith(Object.assign(document.createElement('span'), {textContent: (this.alt || 'د').trim().slice(0, 1)}))">{% else %}<span>{{ row.full_name|default:"دانشجو"|fa_digits|slice:":1" }}</span>{% endif %}</div>
                     <h3>{{ row.full_name|default:"دانشجو"|fa_digits }}</h3>
-                    <p>{{ row.student_number|default:row.identifier|default:"-"|fa_digits }}</p>
+                    <p><bdi data-latin-digits>{{ row.student_number|default:row.identifier|default:"-" }}</bdi></p>
                     <div class="am-card-details">
-                        <span><b>#</b><em data-card-field="code">{{ row.student_number|default:row.identifier|default:"-"|fa_digits }}</em></span>
+                        <span><b>#</b><em data-card-field="code" data-latin-digits>{{ row.student_number|default:row.identifier|default:"-" }}</em></span>
                         <span><b>دانشگاه</b><em data-card-field="university">{{ row.university|fa_digits }}</em></span>
                         <span><b>دانشکده</b><em data-card-field="faculty">{{ row.faculty|fa_digits }}</em></span>
                         <span><b>گروه</b><em data-card-field="department">{{ row.department_name|fa_digits }}</em></span>
@@ -198,7 +198,7 @@
                     <label>سال ورود <em>*</em><input name="entry_year" inputmode="numeric" placeholder="1403" required></label>
                     <label>نیمسال ورود <em>*</em><select name="semester" required><option value="">انتخاب نیمسال</option><option>نیمسال اول</option><option>نیمسال دوم</option><option>تابستان</option></select></label>
                     <label>مقطع تحصیلی <em>*</em><select name="degree" required><option value="">انتخاب مقطع</option><option>کاردانی</option><option>کارشناسی</option><option>کارشناسی ارشد</option><option>دکتری</option></select></label>
-                    <label>رشته تحصیلی <em>*</em><input name="field_of_study" required></label>
+                    <label>رشته تحصیلی <em>*</em><input name="field_of_study" placeholder="پرستاری" required></label>
                     <label>نوع پذیرش<select name="admission_type"><option>روزانه</option><option>شبانه</option><option>پردیس</option><option>آزاد</option></select></label>
                     <label>وضعیت تحصیلی <em>*</em><select name="academic_status" required><option value="active">در حال تحصیل</option><option value="leave">مرخصی</option><option value="graduated">فارغ التحصیل</option><option value="inactive">غیرفعال</option></select></label>
                 </div>
@@ -248,7 +248,7 @@
                                 <tr data-course-option data-search="{{ course.title }} {{ course.code }} {{ course.teacher_name }} {{ course.semester }}">
                                     <td><input type="checkbox" name="course_ids" value="{{ course.id }}"></td>
                                     <td>{{ course.title|fa_digits }}</td>
-                                    <td>{{ course.code|default:"-"|fa_digits }}</td>
+                                    <td><bdi data-latin-digits>{{ course.code|default:"-" }}</bdi></td>
                                     <td>{{ course.teacher_name|default:"-"|fa_digits }}</td>
                                     <td>{{ course.credit_units|default:"-"|fa_digits }}</td>
                                     <td>{{ course.semester|default:"-"|fa_digits }}</td>
@@ -266,7 +266,7 @@
                     <div class="student-account-fields">
                         <label>نام کاربری <em>*</em><input name="username" required></label>
                         <label>روش تعیین رمز عبور <em>*</em><select name="password_method" required><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option><option value="sms_code">ارسال کد پیامکی</option></select></label>
-                        <label>رمز عبور جدید<input name="password" placeholder="در صورت نیاز"></label>
+                        <label>رمز عبور جدید<input type="password" name="password" autocomplete="new-password" placeholder="در صورت نیاز"></label>
                         <label>وضعیت حساب <em>*</em><select name="status" required><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
                         <label class="student-switch"><input type="checkbox" name="must_change_password" value="1" checked><span></span>اجبار به تغییر رمز در اولین ورود</label>
                         <label class="student-switch"><input type="checkbox" name="send_welcome_message" value="1" checked><span></span>ارسال پیام خوش‌آمدگویی</label>
@@ -605,7 +605,7 @@
             card = document.createElement('article');
             card.className = 'am-person-card';
             card.dataset.studentCard = data.student_id;
-            card.innerHTML = `<div class="am-card-top"><span class="am-status"></span><div class="am-card-action-icons"><button type="button" class="am-card-menu is-danger" data-delete-student="" data-student-name="" title="حذف دانشجو"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button><button type="button" class="am-card-menu" data-card-student-details="" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button><button type="button" class="am-card-menu" data-card-student-edit="" title="ویرایش اطلاعات">✎</button></div></div><div class="am-card-avatar"></div><h3></h3><p></p><div class="am-card-details"><span><b>#</b><em data-card-field="code"></em></span><span><b>دانشگاه</b><em data-card-field="university"></em></span><span><b>دانشکده</b><em data-card-field="faculty"></em></span><span><b>گروه</b><em data-card-field="department"></em></span><span><b>مقطع</b><em data-card-field="degree"></em></span><span><b>رشته</b><em data-card-field="field"></em></span><span><b>ایمیل</b><em data-card-field="email"></em></span></div><footer><small>ثبت: -</small></footer>`;
+            card.innerHTML = `<div class="am-card-top"><span class="am-status"></span><div class="am-card-action-icons"><button type="button" class="am-card-menu is-danger" data-delete-student="" data-student-name="" title="حذف دانشجو"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button><button type="button" class="am-card-menu" data-card-student-details="" title="نمایش کلیه اطلاعات"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg></button><button type="button" class="am-card-menu" data-card-student-edit="" title="ویرایش اطلاعات">✎</button></div></div><div class="am-card-avatar"></div><h3></h3><p></p><div class="am-card-details"><span><b>#</b><em data-card-field="code" data-latin-digits></em></span><span><b>دانشگاه</b><em data-card-field="university"></em></span><span><b>دانشکده</b><em data-card-field="faculty"></em></span><span><b>گروه</b><em data-card-field="department"></em></span><span><b>مقطع</b><em data-card-field="degree"></em></span><span><b>رشته</b><em data-card-field="field"></em></span><span><b>ایمیل</b><em data-card-field="email"></em></span></div><footer><small>ثبت: -</small></footer>`;
             cardGrid.prepend(card);
         }
         const status = card.querySelector('.am-status');

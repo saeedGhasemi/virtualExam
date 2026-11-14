@@ -1,4 +1,4 @@
-"""«حذف» of a course or a student/teacher account, with two choices in one dialog:
+"""«حذف» of a course or a student / teacher / manager account, with two choices in one dialog:
 
 - «فقط خودِ …» (mode=only): the item and its pure link rows (enrolments, group memberships, roles, notifications…)
   are deleted; records that only point at it stay and lose the link (exams/groups of a course keep running without
@@ -9,6 +9,9 @@
 The effect follows the database's foreign keys (read live) plus a few references without a constraint, in one
 transaction (all or nothing). GET on the delete URL returns the dialog body with the counts of a dry run.
 A course's questions always stay in the question bank (they may be used by other courses' exams).
+Deleting an account always removes its login too (auth_user, sessions, authenticator): a login left behind would be
+reused by a new account with the same username / e-mail, with the old password (`delete_account`; every «حذف» of a
+person, old pages included, goes through it).
 """
 from collections import Counter, namedtuple
 
@@ -20,7 +23,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from . import account_security
+from . import account_security, auth_guard
 from .views import (
     _erd_is_admin_request,
     _erd_managed_unit_ids,
@@ -42,6 +45,7 @@ VIRTUAL_REFERENCES = (  # references without a database constraint: (child, colu
     ('account_deletion_requests', 'reviewer_id', 'profiles', 'id'),
     ('teacher_profile_change_requests', 'reviewer_id', 'profiles', 'id'),
     ('profiles', 'deleted_by', 'profiles', 'id'),
+    ('academic_manager_scopes', 'manager_id', 'profiles', 'id'),
 )
 
 # Pure link rows: meaningless without the item, deleted in both modes.
@@ -53,7 +57,7 @@ LINKS = {
     ('exam_staff', 'exam_id'), ('exam_staff', 'teacher_id'), ('exam_questions', 'exam_id'), ('exam_questions', 'question_id'),
     ('question_set_items', 'set_id'), ('question_set_items', 'question_id'), ('group_teachers', 'group_id'),
     ('course_audit_log', 'course_id'), ('user_roles', 'user_id'), ('notifications', 'user_id'),
-    ('account_deletion_requests', 'profile_id'),
+    ('account_deletion_requests', 'profile_id'), ('academic_manager_scopes', 'manager_id'),
 }
 # Records that belong to the item: deleted only with «همراه با همه‌ی سوابق».
 RECORDS = {
@@ -70,7 +74,9 @@ LABELS = {  # shown in the dialog, in this order
     'questions': 'سؤال بانک سؤال', 'question_sets': 'مجموعه سؤال',
     'student_group_members': 'عضویت در گروه', 'student_course_enrollments': 'ثبت‌نام در درس',
 }
-KIND_LABELS = {'student': 'دانشجو', 'teacher': 'استاد'}
+KIND_LABELS = {'student': 'دانشجو', 'teacher': 'استاد', 'manager': 'مدیر'}
+KIND_ROLES = {'student': {'student'}, 'teacher': {'teacher'}, 'manager': {'academic_manager'}}
+KIND_TABS = {'student': 'students', 'teacher': 'teachers', 'manager': 'managers'}
 
 
 def _graph(cursor):
@@ -224,22 +230,27 @@ def delete_course_only(course_id):
 # --- accounts ---------------------------------------------------------------------------------------------------
 
 def account_delete_view(request, kind, user_id):
-    """«حذف» on a student / teacher (called by views.super_admin_delete_account, which checks the role)."""
+    """«حذف» on a student / teacher / manager (called by views.super_admin_delete_account, which checks the role)."""
     if kind not in KIND_LABELS:
         raise Http404
+    if kind == 'manager':
+        from . import org_levels
+
+        if not org_levels.can_manage_structure(request):
+            return HttpResponseForbidden('مدیر بخش نمی‌تواند مدیر حذف کند.')
     profile = erd_row('SELECT id, full_name, username FROM profiles WHERE CAST(id AS TEXT) = %s', [str(user_id)])
     if not profile:
         raise Http404('کاربر پیدا نشد.')
     if not _erd_is_admin_request(request) and not _erd_profile_in_manager_scope(request, user_id, kind):
         return HttpResponseForbidden('این کاربر خارج از محدوده‌ی دسترسی شماست.')
     label = KIND_LABELS[kind]
-    back = _back(request, f"{reverse('core:super_admin_users')}?tab={'teachers' if kind == 'teacher' else 'students'}")
+    back = _back(request, f"{reverse('core:super_admin_users')}?tab={KIND_TABS[kind]}")
     reason = ''
     if str(profile['id']) == str(getattr(request, 'erd_profile_id', '')):
         reason = 'نمی‌توانید حساب خودتان را حذف کنید.'
     else:
         roles = {row['role'] for row in erd_rows('SELECT role FROM user_roles WHERE CAST(user_id AS TEXT) = %s', [str(user_id)])}
-        others = roles - {kind, None}
+        others = roles - KIND_ROLES[kind] - {None}
         if others:
             reason = 'این حساب نقش دیگری هم دارد (مثلاً مدیر یا استاد)؛ ابتدا آن نقش را از حساب بردارید.'
     if request.method != 'POST':
@@ -249,22 +260,40 @@ def account_delete_view(request, kind, user_id):
         messages.error(request, reason)
         return redirect(back)
     mode = _mode(request)
-    user = get_user_model().objects.filter(username=profile['username']).first() if profile.get('username') else None
-
-    def remove_login():
-        if not user:
-            return
-        account_security.end_all_sessions(user)
-        with connection.cursor() as cursor:
-            tables = set(connection.introspection.table_names(cursor))
-            for table in ('user_sessions', 'user_two_factor', 'user_recovery_codes'):
-                if table in tables:
-                    cursor.execute(f'DELETE FROM {connection.ops.quote_name(table)} WHERE user_id = %s', [user.pk])
-        user.delete()
-
-    plan = run('profiles', user_id, mode, after=remove_login)
+    plan = delete_account(user_id, mode)
     log_activity(request.user, 'account_deleted', f"حساب {profile['full_name']} حذف شد ({'با همه‌ی سوابق' if mode == 'all' else 'فقط حساب'}).",
                  request, {'profile_id': str(user_id), 'kind': kind, 'mode': mode, 'deleted': dict(plan.deleted)})
     messages.success(request, f"{label} «{profile['full_name']}» همراه با همه‌ی سوابقش حذف شد." if mode == 'all'
                      else f"{label} «{profile['full_name']}» حذف شد؛ سوابقش بدون نام باقی ماند.")
     return redirect(back)
+
+
+def remove_login(username):
+    """Deletes the auth_user of this username with its sessions / authenticator, and starts the failed sign-in
+    count of the name again (a new account may get it)."""
+    user = get_user_model().objects.filter(username=username).first() if username else None
+    if not user:
+        return
+    account_security.forget_login(user)
+    user.delete()
+    auth_guard.record('account_reset', username=username)
+
+
+def delete_account(profile_id, mode='only'):
+    """Deletes a person's account (profile + links, `mode` as in the dialog) and its login, in one transaction."""
+    profile = erd_row('SELECT username, email FROM profiles WHERE CAST(id AS TEXT) = %s', [str(profile_id)])
+    if not profile:
+        return None
+
+    def after():
+        username = profile.get('username')
+        if not username and profile.get('email'):  # a profile without a username signs in with its e-mail's login
+            match = erd_row(
+                """SELECT u.username FROM auth_user u
+                   WHERE lower(u.email) = lower(%s) AND NOT EXISTS (SELECT 1 FROM profiles p WHERE p.username = u.username)""",
+                [profile['email']],
+            )
+            username = (match or {}).get('username')
+        remove_login(username)
+
+    return run('profiles', profile_id, mode, after=after)

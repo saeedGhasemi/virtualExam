@@ -151,7 +151,7 @@
                             <tr class="is-{{ record.level }}" data-review-row data-level="{{ record.level }}" data-search="{{ record.full_name }} {{ record.national_id }} {{ record.phone }}">
                                 <td>{{ forloop.counter|fa_digits }}</td>
                                 <td>{{ record.full_name }}</td>
-                                <td>{{ record.national_id|fa_digits }}</td>
+                                <td><bdi data-latin-digits>{{ record.national_id }}</bdi></td>
                                 <td>{{ record.phone|fa_digits }}</td>
                                 <td>{{ record.org_unit_label }}</td>
                                 <td>

@@ -389,18 +389,18 @@
                         <div class="ob-panel">
                             <h3>{% include "teacher/_qb_icon.html" with name="osce" %}مشخصات آزمون OSCE</h3>
                             <div class="ob-row is-half">
-                                <label class="ob-field">عنوان آزمون<input type="text" name="exam_title" maxlength="200" value="{{ form.exam_title|default:'' }}" placeholder="مثلاً آزمون OSCE کودکان — نیمسال اول"></label>
+                                <label class="ob-field">عنوان آزمون<input type="text" name="exam_title" maxlength="200" value="{{ form.exam_title|default:'' }}" placeholder="آزمون OSCE کودکان — نیمسال اول"></label>
                                 <label class="ob-field">درس<select name="course_id"><option value="">بدون درس</option>{% for course in osce_course_options %}<option value="{{ course.id }}"{% if form.course_id == course.id|stringformat:'s' %} selected{% endif %}>{{ course.title }}</option>{% endfor %}</select></label>
                             </div>
                         </div>
                         {% endif %}
                         <div class="ob-row is-2">
-                            <label class="ob-field"><span>عنوان ایستگاه <em>*</em></span><input type="text" name="title" maxlength="200" required value="{{ form.title|default:'' }}" data-title-input placeholder="مثلاً ارزیابی معاینه قلب"></label>
-                            <label class="ob-field"><span>کد ایستگاه <em>*</em></span><input type="text" name="code" maxlength="30" required value="{{ form.code|default:'' }}" dir="ltr"></label>
+                            <label class="ob-field"><span>عنوان ایستگاه <em>*</em></span><input type="text" name="title" maxlength="200" required value="{{ form.title|default:'' }}" data-title-input placeholder="ارزیابی معاینه قلب"></label>
+                            <label class="ob-field"><span>کد ایستگاه <em>*</em></span><input type="text" name="code" maxlength="30" required value="{{ form.code|default:'' }}" dir="ltr" placeholder="ST-01"></label>
                         </div>
                         <div class="ob-row is-3">
                             <label class="ob-field">نوع ایستگاه<select name="station_type">{% for key, item in osce_station_types.items %}<option value="{{ key }}"{% if form.station_type == key %} selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></label>
-                            <label class="ob-field">حوزه<input type="text" name="domain" maxlength="120" list="osce-domains" value="{{ form.domain|default:'' }}" placeholder="مثلاً قلب و عروق کودکان"><datalist id="osce-domains">{% for item in osce_domain_suggestions %}<option value="{{ item }}">{% endfor %}</datalist></label>
+                            <label class="ob-field">حوزه<input type="text" name="domain" maxlength="120" list="osce-domains" value="{{ form.domain|default:'' }}" placeholder="قلب و عروق کودکان"><datalist id="osce-domains">{% for item in osce_domain_suggestions %}<option value="{{ item }}">{% endfor %}</datalist></label>
                             <label class="ob-field">سطح دشواری<select name="difficulty">{% for key, label in osce_difficulties.items %}<option value="{{ key }}"{% if form.difficulty == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
                         </div>
                         <label class="ob-field">توضیحات ایستگاه<textarea name="description" maxlength="500" data-count-source placeholder="هدف و محتوای کلی ایستگاه را کوتاه بنویسید...">{{ form.description|default:'' }}</textarea><span class="ob-count" data-count-target>0/500</span></label>
@@ -418,11 +418,11 @@
                             <h3>{% include "teacher/_qb_icon.html" with name="check" %}هدف‌های آموزشی</h3>
                             <div class="ob-objectives" data-objectives>
                                 {% for item in form.objectives %}
-                                    <div class="ob-objective"><input type="text" name="objectives" maxlength="200" value="{{ item }}"><button class="ob-icon-btn is-danger" type="button" data-remove-objective aria-label="حذف هدف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></div>
+                                    <div class="ob-objective"><input type="text" name="objectives" maxlength="200" value="{{ item }}" placeholder="انجام معاینه دقیق قلب"><button class="ob-icon-btn is-danger" type="button" data-remove-objective aria-label="حذف هدف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></div>
                                 {% endfor %}
                             </div>
                             <button class="ob-btn" type="button" data-add-objective style="margin-top:.6rem">{% include "teacher/_qb_icon.html" with name="plus" %}افزودن هدف</button>
-                            <template data-objective-template><div class="ob-objective"><input type="text" name="objectives" maxlength="200" placeholder="مثلاً انجام معاینه دقیق قلب در کودک"><button class="ob-icon-btn is-danger" type="button" data-remove-objective aria-label="حذف هدف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></div></template>
+                            <template data-objective-template><div class="ob-objective"><input type="text" name="objectives" maxlength="200" placeholder="انجام معاینه دقیق قلب در کودک"><button class="ob-icon-btn is-danger" type="button" data-remove-objective aria-label="حذف هدف">{% include "teacher/_qb_icon.html" with name="trash" %}</button></div></template>
                         </div>
                     </aside>
                 </div>
@@ -489,7 +489,7 @@
             <form class="ob-settings" id="osce-settings" method="post" action="{% url 'core:teacher_osce_settings' osce.id %}" hidden>
                 {% csrf_token %}
                 {% if st %}<input type="hidden" name="station_id" value="{{ st.id }}">{% endif %}
-                <label class="ob-field">عنوان آزمون<input type="text" name="exam_title" maxlength="200" required value="{{ osce.title }}"></label>
+                <label class="ob-field">عنوان آزمون<input type="text" name="exam_title" maxlength="200" required value="{{ osce.title }}" placeholder="آزمون OSCE کودکان"></label>
                 <label class="ob-field">درس<select name="course_id"><option value="">بدون درس</option>{% for course in osce_course_options %}<option value="{{ course.id }}"{% if osce.course_id == course.id|stringformat:'s' %} selected{% endif %}>{{ course.title }}</option>{% endfor %}</select></label>
                 <button class="ob-btn is-primary" type="submit">ذخیره مشخصات آزمون</button>
             </form>

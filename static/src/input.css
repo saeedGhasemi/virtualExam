@@ -7001,8 +7001,15 @@
     background-repeat: no-repeat;
   }
 
+  /* Same solid note as field-rules.js messages (.mq-rule-msg): readable on the dark card. */
   .auth-field-error {
-    @apply mt-1 block text-[10px] font-bold leading-4 text-rose-100;
+    @apply mt-1.5 flex items-start gap-1.5 rounded-[0.65rem] border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-right text-[12px] font-semibold leading-5 text-rose-800;
+    overflow-wrap: anywhere;
+  }
+
+  .auth-field-error::before {
+    content: "!";
+    @apply mt-0.5 grid h-[1.1rem] w-[1.1rem] flex-none place-items-center rounded-full bg-rose-600 text-[11px] font-bold leading-none text-white;
   }
 
   .auth-forgot {
@@ -7129,7 +7136,7 @@
   }
 
   .auth-register-field .auth-field-error {
-    @apply mt-1 text-rose-100;
+    @apply mt-1.5 text-rose-800;
   }
 
   .auth-role-picker {

@@ -108,7 +108,7 @@
                 </div>
             </div>
             <div class="gd-meta-row">
-                <div class="gd-meta-item"><span><svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l3.59-3.59a2 2 0 0 0 0-2.59Z"/></svg>کد درس</span><b>{{ group.course_code|default:"-"|fa_digits }}</b></div>
+                <div class="gd-meta-item"><span><svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l3.59-3.59a2 2 0 0 0 0-2.59Z"/></svg>کد درس</span><b><bdi data-latin-digits>{{ group.course_code|default:"-" }}</bdi></b></div>
                 <div class="gd-meta-item"><span><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>گروه</span><b>{{ group.group_code|fa_digits }}</b></div>
                 <div class="gd-meta-item"><span><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>نیمسال</span><b>{{ group.term_label|fa_digits }}</b></div>
                 <div class="gd-meta-item"><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>استاد</span><b>{{ group.teacher_name|fa_digits }}</b></div>
@@ -165,7 +165,7 @@
                             {% for member in members_preview %}
                                 <div class="gd-member-row">
                                     {% if member.avatar_url %}<img class="avatar" src="{{ member.avatar_url }}" alt="">{% else %}<i class="avatar">{{ member.full_name|slice:":1"|default:"د" }}</i>{% endif %}
-                                    <div><strong>{{ member.full_name|fa_digits }}</strong><small>{{ member.student_number|fa_digits }}</small></div>
+                                    <div><strong>{{ member.full_name|fa_digits }}</strong><small><bdi data-latin-digits>{{ member.student_number }}</bdi></small></div>
                                 </div>
                             {% endfor %}
                         </div>

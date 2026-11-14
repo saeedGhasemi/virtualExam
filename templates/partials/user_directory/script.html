@@ -59,7 +59,7 @@
     });
     document.addEventListener('keydown', (event) => { const panel = q('[data-dir-cols]'); if (event.key === 'Escape' && panel) panel.open = false; });
 
-    // search as you type is handled by live-region.js (name="q")
+    // search runs on Enter / the search button (live-region.js), never while typing
     const search = q('[data-dir-search]');
     if (search && search.value) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
 

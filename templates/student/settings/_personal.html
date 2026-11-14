@@ -69,7 +69,7 @@
     if (!file || !/^image\//.test(file.type)) return;
     image.src = URL.createObjectURL(file);
     image.hidden = false;
-    icon.hidden = true;
+    icon.setAttribute('hidden', '');  // an <svg> has no .hidden property: set the attribute
   });
 
   var view = document.querySelector('[data-sst-phone-view]');
@@ -88,7 +88,7 @@
   form.addEventListener('sst:reset', function () {
     image.src = original.src;
     image.hidden = !original.hasImage;
-    icon.hidden = original.hasImage;
+    icon.toggleAttribute('hidden', original.hasImage);
     showPhoneInput(editingAtLoad);
   });
 })();

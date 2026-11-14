@@ -33,7 +33,7 @@
                 <thead><tr><th>نام</th><th>نام کاربری</th><th>نقش</th><th>کد ملی</th><th>شماره دانشجویی</th><th>وضعیت</th></tr></thead>
                 <tbody>
                     {% for profile in profiles %}
-                        <tr><td>{{ profile.full_name }}</td><td>{{ profile.user.username }}</td><td>{{ profile.role.name }}</td><td>{{ profile.national_code|default:"-" }}</td><td>{{ profile.student_number|default:"-" }}</td><td>{{ profile.get_account_status_display }}</td></tr>
+                        <tr><td>{{ profile.full_name }}</td><td>{{ profile.user.username }}</td><td>{{ profile.role.name }}</td><td><bdi data-latin-digits>{{ profile.national_code|default:"-" }}</bdi></td><td><bdi data-latin-digits>{{ profile.student_number|default:"-" }}</bdi></td><td>{{ profile.get_account_status_display }}</td></tr>
                     {% empty %}<tr><td colspan="6">کاربری ثبت نشده است.</td></tr>{% endfor %}
                 </tbody>
             </table>

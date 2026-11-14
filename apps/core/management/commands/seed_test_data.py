@@ -46,6 +46,12 @@ MEDIA_PREFIX = 'question-media/mqtest-'
 NS = uuid.UUID('5b7f3a52-6a3e-4f43-9d1c-6d7e51e2a001')
 
 
+def valid_national_id(nine_digits: str) -> str:
+    """Appends the Iranian check digit, so test accounts pass the national-ID rule (field_rules)."""
+    rest = sum(int(nine_digits[i]) * (10 - i) for i in range(9)) % 11
+    return nine_digits + str(rest if rest < 2 else 11 - rest)
+
+
 def sid(name):
     return str(uuid.uuid5(NS, name))
 
@@ -355,7 +361,7 @@ class Command(BaseCommand):
         self.insert('profiles', {
             'id': profile_id, 'full_name': f'{first} {last} {MARK}', 'first_name': first, 'last_name': f'{last} {MARK}',
             'username': username, 'email': f'{username}@{EMAIL_DOMAIN}', 'phone': f'0990{(9000000 + index * 7919) % 10000000:07d}',
-            'national_id': f'{"8" if role == "teacher" else "7"}99{index:07d}', 'identifier': f'{CODE}-{key.upper()}',
+            'national_id': valid_national_id(f'{"8" if role == "teacher" else "7"}99{index:06d}'), 'identifier': f'{CODE}-{key.upper()}',
             'avatar_url': None, 'status': status, 'gender': gender, 'birth_date': f'13{70 + index % 15}/0{1 + index % 9}/1{index % 9}',
             'password_method': 'manual', 'must_change_password': bool(extras.get('must_change')),
             'email_verified_required': False, 'created_at': now - timedelta(days=40 - index),
@@ -483,7 +489,7 @@ class Command(BaseCommand):
                 self.insert('student_group_members', {
                     'id': sid(f'member:{code}:{member}'), 'group_id': group_id, 'student_user_id': student[member],
                     'full_name': f'{STUDENTS[key_index - 1][1]} {STUDENTS[key_index - 1][2]} {MARK}',
-                    'national_id': f'799{key_index:07d}', 'student_number': f'{CODE}-{member.upper()}'})
+                    'national_id': valid_national_id(f'799{key_index:06d}'), 'student_number': f'{CODE}-{member.upper()}'})
                 self.sql('INSERT INTO student_course_enrollments (id, student_user_id, course_id) VALUES (%s, %s, %s) '
                          'ON CONFLICT (student_user_id, course_id) DO NOTHING', [sid(f'enroll:{member}:{course}'), student[member], course])
         self.insert('group_teachers', {'group_id': group['G1'], 'teacher_id': teacher['t02']})
@@ -805,7 +811,7 @@ class Command(BaseCommand):
             for position, member in enumerate(members, start=1):
                 self.insert('student_group_members', {
                     'id': sid(f'member:{code}:{member}'), 'group_id': group_id, 'student_user_id': student[member],
-                    'full_name': names[member], 'national_id': f'79{int(code[1:]):02d}{position:06d}',
+                    'full_name': names[member], 'national_id': valid_national_id(f'79{int(code[1:]):02d}{position:05d}'),
                     'student_number': f'{CODE}-{member.upper()}'})
                 self.sql('INSERT INTO student_course_enrollments (id, student_user_id, course_id) VALUES (%s, %s, %s) '
                          'ON CONFLICT (student_user_id, course_id) DO NOTHING', [sid(f'enroll:{member}:{course}'), student[member], course])

@@ -36,7 +36,7 @@
                             {% for row in cl.rows %}
                                 <tr>
                                     <td class="is-title"><a href="{% url 'core:teacher_course_detail' row.id %}">{{ row.course_name }}</a></td>
-                                    <td>{{ row.course_code|default:"-" }}</td>
+                                    <td><bdi data-latin-digits>{{ row.course_code|default:"-" }}</bdi></td>
                                     <td>{{ row.group_code|default:"-"|fa_digits }}</td>
                                     <td>{{ row.term_label|default:"-" }}</td>
                                     <td>{{ row.students_count|fa_digits }}</td>
@@ -63,7 +63,7 @@
                                 </div>
                                 <p>
                                     <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>گروه {{ row.group_code|default:"-"|fa_digits }}</span>
-                                    {% if row.course_code %}<span>کد: {{ row.course_code }}</span>{% endif %}
+                                    {% if row.course_code %}<span>کد: <bdi data-latin-digits>{{ row.course_code }}</bdi></span>{% endif %}
                                     {% if row.term_label %}<span>{{ row.term_label }}</span>{% endif %}
                                 </p>
                             </div>
