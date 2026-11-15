@@ -1,11 +1,21 @@
 {% comment %}
 Django messages as a floating toast at the top centre that closes by itself (4.5s; errors/warnings 8s; click closes it at once),
 Used by base.html and base_standalone.html (every page).
+A message that carries a new/temporary password (views pass extra_tags='credential') never closes by itself or on a click:
+the password gets its own box with «کپی», and only the × button closes the toast (user's requirement: it went too fast to copy).
 {% endcomment %}
 {% if messages %}
     <section class="app-messages mq-flash" aria-live="polite" data-mq-flash>
         {% for message in messages %}
-            <div class="alert-message{% if message.tags %} is-{{ message.tags }}{% endif %}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>
+            {% if 'credential' in message.extra_tags %}
+                <div class="alert-message is-{{ message.level_tag|default:'info' }} is-credential" role="alert" data-mq-credential data-latin-digits>
+                    <button type="button" class="mq-flash-close" data-mq-flash-close aria-label="بستن">×</button>
+                    <div class="mq-flash-text">{{ message }}</div>
+                    <p class="mq-flash-note">این رمز فقط همین یک بار نشان داده می‌شود؛ پیش از بستن کپی کنید.</p>
+                </div>
+            {% else %}
+                <div class="alert-message{% if message.level_tag %} is-{{ message.level_tag }}{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>
+            {% endif %}
         {% endfor %}
     </section>
     <style>
@@ -15,6 +25,13 @@ Used by base.html and base_standalone.html (every page).
         .mq-flash .alert-message.is-success{border-color:#bbf7d0;background:rgba(240,253,244,.97);color:#14532d}
         .mq-flash .alert-message.is-error{border-color:#fecaca;background:rgba(254,242,242,.97);color:#7f1d1d}
         .mq-flash .alert-message.is-warning{border-color:#fde68a;background:rgba(255,251,235,.97);color:#78350f}
+        .mq-flash .alert-message.is-credential{position:relative;cursor:default;padding:1rem 2.4rem 1rem 1rem;user-select:text;overflow-wrap:anywhere}
+        .mq-flash .mq-flash-close{position:absolute;top:.4rem;left:.5rem;width:2rem;height:2rem;border:0;border-radius:.5rem;background:transparent;color:inherit;font-size:1.4rem;line-height:1;cursor:pointer}
+        .mq-flash .mq-flash-close:hover{background:rgba(15,23,42,.08)}
+        .mq-flash .mq-flash-pw{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem;margin:.6rem 0 .2rem}
+        .mq-flash .mq-flash-pw code{padding:.35rem .75rem;border:1px dashed currentColor;border-radius:.5rem;background:#fff;color:#0f172a;font-size:1.1rem;letter-spacing:.06em;direction:ltr;unicode-bidi:isolate;user-select:all;overflow-wrap:anywhere}
+        .mq-flash .mq-flash-copy{padding:.35rem .9rem;border:1px solid currentColor;border-radius:.5rem;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer}
+        .mq-flash .mq-flash-note{margin:.35rem 0 0;font-size:.8rem;font-weight:400;opacity:.85}
         @media (prefers-reduced-motion:reduce){.mq-flash.mq-flash{transition:none}}
     </style>
     <script>
@@ -22,6 +39,36 @@ Used by base.html and base_standalone.html (every page).
             const flash = document.querySelector('[data-mq-flash]');
             if (!flash) return;
             const hide = () => { flash.classList.add('is-hiding'); window.setTimeout(() => flash.remove(), 400); };
+            const credentials = flash.querySelectorAll('[data-mq-credential]');
+            const copy = (text, button) => {
+                const done = () => { button.textContent = 'کپی شد ✓'; window.setTimeout(() => { button.textContent = 'کپی رمز'; }, 2000); };
+                const fallback = () => {  // http (local) pages have no navigator.clipboard
+                    const box = document.createElement('textarea');
+                    box.value = text; box.setAttribute('readonly', ''); box.style.cssText = 'position:fixed;opacity:0;top:0';
+                    document.body.appendChild(box); box.select();
+                    try { document.execCommand('copy'); done(); } catch (e) { /* the password stays selectable */ }
+                    box.remove();
+                };
+                if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+            };
+            credentials.forEach((item) => {
+                const textNode = item.querySelector('.mq-flash-text');
+                const match = (textNode.textContent || '').match(/^([\s\S]*?رمز(?: عبور)?(?: اولیه| جدید| موقت)?:)\s*(\S+)\s*$/);
+                if (match) {
+                    textNode.textContent = match[1];
+                    const row = document.createElement('div');
+                    row.className = 'mq-flash-pw';
+                    const code = document.createElement('code');
+                    code.textContent = match[2];
+                    const button = document.createElement('button');
+                    button.type = 'button'; button.className = 'mq-flash-copy'; button.textContent = 'کپی رمز';
+                    button.addEventListener('click', () => copy(match[2], button));
+                    row.append(code, button);
+                    textNode.after(row);
+                }
+                item.querySelector('[data-mq-flash-close]').addEventListener('click', hide);
+            });
+            if (credentials.length) return;  // stays until its × is pressed
             flash.addEventListener('click', hide);
             window.setTimeout(hide, flash.querySelector('.is-error, .is-warning') ? 8000 : 4500);
         })();

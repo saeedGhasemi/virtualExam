@@ -9775,3 +9775,22 @@ class PeopleFiltersTests(_ScopedOrgFixture):
         page, texts = self._questions(student='دانشجوی خارج', teacher=self.teacher_out_id)
         self.assertNotContains(page, 'name="student"')
         self.assertEqual(texts, {'سوال داخل محدوده', 'آ - سوال دوم داخل محدوده'})
+
+
+class CredentialFlashTests(SimpleTestCase):
+    """A message carrying a new password (extra_tags='credential') must stay until closed and offer a copy button."""
+
+    def test_credential_message_is_sticky_and_plain_ones_keep_their_class(self):
+        from django.contrib.messages import constants
+        from django.contrib.messages.storage.base import Message
+        from django.template.loader import render_to_string
+
+        page = render_to_string('partials/flash_messages.html', {'messages': [
+            Message(constants.SUCCESS, 'مدیر جدید ثبت شد. نام کاربری: x — رمز عبور اولیه: Ab1!x&yZ', extra_tags='credential'),
+            Message(constants.SUCCESS, 'ذخیره شد.'),
+        ]})
+        self.assertEqual(page.count('data-mq-credential '), 1)
+        self.assertIn('data-mq-flash-close', page)
+        self.assertIn('class="alert-message is-success is-credential"', page)
+        self.assertIn('<div class="alert-message is-success" role="status">ذخیره شد.</div>', page)
+        self.assertIn('if (credentials.length) return;', page)  # no auto-close timer when a password is shown

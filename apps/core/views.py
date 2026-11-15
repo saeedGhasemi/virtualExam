@@ -3600,7 +3600,7 @@ def super_admin_user_detail(request, profile_id):
                 profile.user.set_password(password)
                 profile.user.save(update_fields=['password'])
                 description = 'رمز عبور کاربر بازنشانی شد.'
-                messages.info(request, f'رمز عبور جدید: {password}')
+                messages.info(request, f'رمز عبور جدید: {password}', extra_tags='credential')
             elif action == SuperAdminUserActionForm.ACTION_TRANSFER:
                 profile.institution_name = form.cleaned_data['institution_name']
                 profile.save(update_fields=['institution_name', 'updated_at'])
@@ -4267,7 +4267,7 @@ def super_admin_teacher_create(request):
 
         request.session.pop(session_key, None)
         if generated_password:
-            messages.success(request, f'استاد جدید با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
+            messages.success(request, f'استاد جدید با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}', extra_tags='credential')
         else:
             messages.success(request, 'استاد جدید با موفقیت ثبت شد.')
         return redirect(f'{reverse("core:super_admin_users")}?tab=teachers')
@@ -4521,7 +4521,7 @@ def super_admin_manager_create(request):
 
         request.session.pop(session_key, None)
         if generated_password:
-            messages.success(request, f'مدیر جدید با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
+            messages.success(request, f'مدیر جدید با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}', extra_tags='credential')
         else:
             messages.success(request, 'مدیر جدید با موفقیت ثبت شد.')
         return redirect(f'{reverse("core:super_admin_users")}?tab=managers')
@@ -5220,7 +5220,7 @@ def super_admin_student_create(request):
 
         request.session.pop(session_key, None)
         if generated_password:
-            messages.success(request, f'دانشجو با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
+            messages.success(request, f'دانشجو با موفقیت ثبت شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}', extra_tags='credential')
         else:
             messages.success(request, 'دانشجو با موفقیت ثبت شد.')
         return redirect(f'{reverse("core:super_admin_users")}?tab=students')
@@ -5582,7 +5582,7 @@ def super_admin_teachers(request):
                 'generated_password': generated_password or '',
             })
         if generated_password:
-            messages.success(request, f'اطلاعات استاد ذخیره شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
+            messages.success(request, f'اطلاعات استاد ذخیره شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}', extra_tags='credential')
         else:
             messages.success(request, 'اطلاعات استاد ذخیره شد.')
         return redirect('core:super_admin_teachers')
@@ -6902,7 +6902,7 @@ def super_admin_students(request):
                 'generated_password': generated_password or '',
             })
         if generated_password:
-            messages.success(request, f'اطلاعات دانشجو ذخیره شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
+            messages.success(request, f'اطلاعات دانشجو ذخیره شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}', extra_tags='credential')
         else:
             messages.success(request, 'اطلاعات دانشجو ذخیره شد.')
         return redirect('core:super_admin_students')
@@ -10894,7 +10894,7 @@ def super_admin_academic_managers(request):
                 'generated_password': generated_password or '',
             })
         if generated_password:
-            messages.success(request, f'اطلاعات مدیر آموزشی ذخیره شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}')
+            messages.success(request, f'اطلاعات مدیر آموزشی ذخیره شد. نام کاربری: {username} — رمز عبور اولیه: {generated_password}', extra_tags='credential')
         else:
             messages.success(request, 'اطلاعات مدیر آموزشی ذخیره شد.')
         return redirect('core:super_admin_academic_managers')
@@ -11801,7 +11801,7 @@ def institution_users(request):
         if form.is_valid():
             profile, password = create_institution_user(institution, form.cleaned_data)
             log_activity(request.user, 'institution_user_created', f'کاربر {profile.full_name} در مؤسسه ایجاد شد.', request, {'profile_id': profile.pk})
-            messages.success(request, f'کاربر ایجاد شد. رمز اولیه: {password}')
+            messages.success(request, f'کاربر ایجاد شد. رمز اولیه: {password}', extra_tags='credential')
             return redirect('core:institution_users')
     elif request.method == 'POST' and request.POST.get('mode') == 'import':
         form = InstitutionUserCreateForm(institution=institution)
