@@ -183,41 +183,55 @@
                         <label>مرتبه علمی <select name="academic_rank"><option value="">انتخاب کنید</option><option {% if draft.academic_rank == "استادیار" %}selected{% endif %}>استادیار</option><option {% if draft.academic_rank == "دانشیار" %}selected{% endif %}>دانشیار</option><option {% if draft.academic_rank == "استاد" %}selected{% endif %}>استاد</option><option {% if draft.academic_rank == "مربی" %}selected{% endif %}>مربی</option></select></label>
                         <label>ساعات تدریس هفتگی <select name="weekly_hours"><option {% if draft.weekly_hours == "۱۲ ساعت" %}selected{% endif %}>۱۲ ساعت</option><option {% if draft.weekly_hours == "۸ ساعت" %}selected{% endif %}>۸ ساعت</option><option {% if draft.weekly_hours == "۱۶ ساعت" %}selected{% endif %}>۱۶ ساعت</option></select></label>
                     </div>
-                    <div class="teacher-wizard-course-tools">
-                        <button type="button" class="teacher-wizard-combo-addbtn">
-                            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                            افزودن درس
-                        </button>
-                        <label>
-                            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                            <input type="search" data-course-search placeholder="نام یا کد درس را جستجو کنید">
+                    {% comment %}Step 3 (user's screenshot 2026-11-15): search box and «افزودن درس» on one aligned row, every course of the
+                       manager's scope (list-pager pages them), only real columns (the old row edit / delete buttons and
+                       the fixed «مدرس اصلی» / «فعال» cells did nothing), a labelled «حداکثر واحد» select.{% endcomment %}
+                    <style>
+                        .tw-course-tools.tw-course-tools{display:flex;flex-direction:row;flex-wrap:wrap;align-items:stretch;justify-content:space-between;gap:.75rem;margin-bottom:1rem}
+                        .tw-course-tools .tw-course-search{position:relative;flex:1 1 16rem;max-width:26rem;width:auto;margin:0}
+                        .tw-course-tools .tw-course-search svg{position:absolute;top:50%;right:.85rem;left:auto;width:1rem;height:1rem;transform:translateY(-50%);pointer-events:none;color:#94a3b8}
+                        .tw-course-tools .tw-course-search input{width:100%;height:2.75rem;margin:0;padding-right:2.4rem;box-sizing:border-box}
+                        .tw-course-tools .tw-course-add.tw-course-add{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.75rem;padding:0 1rem;border:1px solid #bfdbfe;border-radius:.75rem;background:#fff;color:#2563eb;font-size:.85rem;font-weight:600;text-decoration:none;white-space:nowrap}
+                        .tw-course-tools .tw-course-add svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2}
+                        .tw-course-count{align-self:center;color:#64748b;font-size:.8rem;font-weight:600}
+                        .tw-course-table.tw-course-table td{vertical-align:middle}
+                        .tw-course-table .teacher-wizard-check{display:inline-flex;align-items:center;gap:.55rem;text-align:right;overflow-wrap:anywhere}
+                        .tw-course-table .teacher-wizard-check input{flex:none;margin:0}
+                        .tw-foot.tw-foot{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;margin-top:1rem}
+                        .tw-foot .tw-foot-field{display:grid;gap:.4rem;flex:0 1 16rem;min-width:min(16rem,100%)}
+                        .tw-foot .teacher-wizard-switch{min-height:2.75rem;align-items:center}
+                    </style>
+                    <div class="teacher-wizard-course-tools tw-course-tools">
+                        <label class="tw-course-search">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                            <input type="search" data-course-search placeholder="نام یا کد درس را جستجو کنید" aria-label="جستجوی درس">
                         </label>
+                        <span class="tw-course-count" data-course-count></span>
+                        <a class="tw-course-add" href="{% url 'core:super_admin_course_new' %}" target="_blank" rel="noopener" data-no-loader title="درس تازه در زبانه‌ی جدید ساخته می‌شود؛ بعد این صفحه را تازه کنید.">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                            تعریف درس جدید
+                        </a>
                     </div>
                     <div class="teacher-wizard-table-wrap">
-                        <table class="teacher-wizard-table">
-                            <thead><tr><th>درس</th><th>کد درس</th><th>گروه آموزشی</th><th>نقش استاد</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                        <table class="teacher-wizard-table tw-course-table">
+                            <thead><tr><th>درس</th><th>کد درس</th><th>تعداد واحد</th><th>گروه آموزشی</th></tr></thead>
                             <tbody>
-                                {% for course in courses|slice:":8" %}
+                                {% for course in courses %}
                                     <tr data-course-row>
-                                        <td><label class="teacher-wizard-check"><input type="checkbox" name="course_ids" value="{{ course.id }}" {% if course.id|stringformat:"s" in selected_course_ids %}checked{% endif %}> {{ course.title }}</label></td>
+                                        <td><label class="teacher-wizard-check"><input type="checkbox" name="course_ids" value="{{ course.id }}" {% if course.id|stringformat:"s" in selected_course_ids %}checked{% endif %}><span>{{ course.title }}</span></label></td>
                                         <td><bdi data-latin-digits>{{ course.code|default:"-" }}</bdi></td>
+                                        <td>{{ course.credit_units|default:"-"|fa_digits }}</td>
                                         <td>{{ course.unit_name|default:"-" }}</td>
-                                        <td>مدرس اصلی</td>
-                                        <td><span class="teacher-wizard-status">فعال</span></td>
-                                        <td>
-                                            <button type="button" class="teacher-wizard-icon" aria-label="ویرایش"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-                                            <button type="button" class="teacher-wizard-icon is-danger" aria-label="حذف"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-                                        </td>
                                     </tr>
                                 {% empty %}
-                                    <tr><td colspan="6">هنوز درسی در دیتابیس ثبت نشده است.</td></tr>
+                                    <tr><td colspan="4">هنوز درسی در محدوده‌ی شما ثبت نشده است؛ از «تعریف درس جدید» یک درس بسازید.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <div class="teacher-wizard-panel-foot">
+                    <div class="teacher-wizard-panel-foot tw-foot">
                         <label class="teacher-wizard-switch"><input type="checkbox" name="can_design_exam" {% if draft.can_design_exam or not draft %}checked{% endif %}><span></span>امکان طراحی سوال</label>
-                        <label><select name="max_units"><option>حداکثر واحد در هر ترم</option><option {% if draft.max_units == "۱۲ واحد" %}selected{% endif %}>۱۲ واحد</option><option {% if draft.max_units == "۱۶ واحد" %}selected{% endif %}>۱۶ واحد</option></select></label>
+                        <label class="tw-foot-field"><span>حداکثر واحد در هر ترم</span><select name="max_units"><option value="">بدون محدودیت</option><option {% if draft.max_units == "۸ واحد" %}selected{% endif %}>۸ واحد</option><option {% if draft.max_units == "۱۲ واحد" %}selected{% endif %}>۱۲ واحد</option><option {% if draft.max_units == "۱۶ واحد" %}selected{% endif %}>۱۶ واحد</option><option {% if draft.max_units == "۲۰ واحد" %}selected{% endif %}>۲۰ واحد</option></select></label>
                     </div>
                 </section>
             {% else %}
@@ -427,12 +441,24 @@
 
 (() => {
     const search = document.querySelector('[data-course-search]');
+    const count = document.querySelector('[data-course-count]');
+    const fa = (n) => String(n).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const norm = (t) => t.toLowerCase().replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+    const showCount = () => {
+        if (!count) return;
+        const n = document.querySelectorAll('[data-course-row] input[name="course_ids"]:checked').length;
+        count.textContent = n ? `${fa(n)} درس انتخاب شده` : 'هنوز درسی انتخاب نشده';
+    };
     search?.addEventListener('input', () => {
-        const q = search.value.trim().toLowerCase();
+        const q = norm(search.value.trim());
         document.querySelectorAll('[data-course-row]').forEach((row) => {
-            row.hidden = q && !row.textContent.toLowerCase().includes(q);
+            row.hidden = !!q && !norm(row.textContent).includes(q);
         });
     });
+    // Enter in the search box filters only; it must not submit the wizard step.
+    search?.addEventListener('keydown', (event) => { if (event.key === 'Enter') event.preventDefault(); });
+    document.addEventListener('change', (event) => { if (event.target.matches?.('[data-course-row] input[name="course_ids"]')) showCount(); });
+    showCount();
 })();
 </script>
 {% endblock %}

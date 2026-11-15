@@ -813,7 +813,7 @@
     const getManagerFeature = () => document.querySelector('[data-manager-feature]');
     const setFeatureText = (selector, value) => {
         const element = getManagerFeature()?.querySelector(selector);
-        if (element) element.textContent = value || '-';
+        if (element) { element.textContent = value || '-'; element.title = value || ''; }
     };
     const focusManager = (source) => {
         const feature = getManagerFeature();
@@ -847,7 +847,7 @@
     const getStudentFeature = () => document.querySelector('[data-student-feature]');
     const setStudentFeatureText = (selector, value) => {
         const element = getStudentFeature()?.querySelector(selector);
-        if (element) element.textContent = value || '-';
+        if (element) { element.textContent = value || '-'; element.title = value || ''; }
     };
     const focusStudent = (source) => {
         const studentFeature = getStudentFeature();
@@ -881,7 +881,7 @@
     const getTeacherFeature = () => document.querySelector('[data-teacher-feature]');
     const setTeacherFeatureText = (selector, value) => {
         const element = getTeacherFeature()?.querySelector(selector);
-        if (element) element.textContent = value || '-';
+        if (element) { element.textContent = value || '-'; element.title = value || ''; }
     };
     const focusTeacher = (source) => {
         const teacherFeature = getTeacherFeature();
@@ -922,6 +922,12 @@
         const studentLink = event.target.closest('[data-focus-student]');
         if (studentLink) focusStudent(studentLink);
     });
+    // A long name / e-mail / code is cut to fit the summary card; its full text is the tooltip.
+    const titleFeatureTexts = () => document.querySelectorAll('.users-feature-strip strong, .users-feature-strip small, .users-feature-strip b, .users-feature-strip em').forEach((element) => {
+        element.title = element.textContent.trim();
+    });
+    titleFeatureTexts();
+    document.addEventListener('mq:live-load', titleFeatureTexts);
 })();
 </script>
 {% endblock %}

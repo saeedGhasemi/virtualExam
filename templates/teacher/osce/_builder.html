@@ -5,13 +5,13 @@
     .ob *{box-sizing:border-box}
     .ob svg{flex:0 0 auto}
     .ob-top{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
-    .ob-title{display:flex;align-items:flex-start;gap:.5rem;flex:0 0 auto}
+    .ob-title{display:flex;align-items:flex-start;gap:.5rem;flex:1 1 auto;min-width:0}.ob-title > div{min-width:0}
     .ob-title > svg{width:1.6rem;height:1.6rem;color:var(--ob-blue)}
     .ob-title h1{margin:0;font-size:1.3rem;font-weight:700}
-    .ob-title p{margin:.15rem 0 0;color:var(--ob-muted);font-size:.74rem;font-weight:600}
+    .ob-title p{margin:.15rem 0 0;color:var(--ob-muted);font-size:.74rem;font-weight:600;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
     .ob-title + .ob-back{margin-inline-start:auto}
     .ob-preview-link{margin-inline-start:auto;border-color:#bfdbfe;color:var(--ob-blue)}
-    .ob-back{display:inline-flex;align-items:center;gap:.5rem;height:2.7rem;padding:0 1.1rem;border:1px solid #d9e2f0;border-radius:.7rem;background:#fff;color:#334155;font-size:.85rem;font-weight:700;text-decoration:none}
+    .ob-back{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:.5rem;height:2.7rem;padding:0 1.1rem;border:1px solid #d9e2f0;border-radius:.7rem;background:#fff;color:#334155;font-size:.85rem;font-weight:700;text-decoration:none}
     .ob-back svg,.ob-btn svg{width:1.05rem;height:1.05rem}
     .ob-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:1rem;align-items:start}
     .ob-card{border:1px solid var(--ob-line);border-radius:1rem;background:#fff;box-shadow:0 14px 34px rgba(30,64,175,.05)}
@@ -19,7 +19,7 @@
     .ob-head{display:flex;align-items:center;gap:.8rem;margin-bottom:.9rem}
     .ob-head-icon{display:grid;place-items:center;width:2.8rem;height:2.8rem;border-radius:.8rem;background:var(--ob-blue);color:#fff}
     .ob-head-icon svg{width:1.4rem;height:1.4rem}
-    .ob-head h2{margin:0;font-size:1.25rem;font-weight:700}
+    .ob-head h2{margin:0;font-size:1.25rem;font-weight:700;min-width:0;flex:0 1 auto;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.ob-head-icon,.ob-head-edit{flex:none}
     .ob-head-edit{display:grid;place-items:center;width:2rem;height:2rem;border:0;border-radius:.5rem;background:none;color:var(--ob-blue);cursor:pointer}
     .ob-head-edit svg{width:1.1rem;height:1.1rem}
     .ob-head-tools{display:flex;align-items:center;gap:.45rem;margin-inline-start:auto}
@@ -134,7 +134,7 @@
     .ob-check input{width:1.05rem;height:1.05rem;accent-color:var(--ob-blue)}
     .ob-scn-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.3fr) 200px;grid-template-areas:"patient editor subnav" "files files subnav" "notes objectives subnav";gap:.8rem;align-items:start}
     .ob-patient{grid-area:patient}.ob-editor-panel{grid-area:editor}.ob-subnav{grid-area:subnav}.ob-files-panel{grid-area:files}.ob-objectives-panel{grid-area:objectives}.ob-notes-panel{grid-area:notes}
-    .ob-patient-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.7rem;align-items:start}
+    .ob-patient-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:.7rem;align-items:start}
     .ob-patient-fields{display:grid;gap:.6rem}
     .ob-photo{padding:.8rem !important;gap:.6rem !important}
     .ob-photo .teacher-wizard-photo-preview{width:5.5rem;height:5.5rem}
@@ -353,7 +353,7 @@
             {% else %}
             <header class="ob-head">
                 <span class="ob-head-icon">{% include "teacher/_qb_icon.html" with name="osce" %}</span>
-                <h2>{% if st %}ایستگاه {{ st.position|fa_digits }}: {{ st.title }}{% else %}ایستگاه ۱ (جدید){% endif %}</h2>
+                <h2{% if st %} title="{{ st.title }}"{% endif %}>{% if st %}ایستگاه {{ st.position|fa_digits }}: {{ st.title }}{% else %}ایستگاه ۱ (جدید){% endif %}</h2>
                 {% if osce_tab == 'basic' %}<button class="ob-head-edit" type="button" data-focus-title aria-label="ویرایش عنوان ایستگاه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></svg></button>{% endif %}
                 <div class="ob-head-tools">
                     {% if osce_tab == 'basic' %}
@@ -396,7 +396,7 @@
                         {% endif %}
                         <div class="ob-row is-2">
                             <label class="ob-field"><span>عنوان ایستگاه <em>*</em></span><input type="text" name="title" maxlength="200" required value="{{ form.title|default:'' }}" data-title-input placeholder="ارزیابی معاینه قلب"></label>
-                            <label class="ob-field"><span>کد ایستگاه <em>*</em></span><input type="text" name="code" maxlength="30" required value="{{ form.code|default:'' }}" dir="ltr" placeholder="ST-01"></label>
+                            <label class="ob-field"><span>کد ایستگاه <em>*</em></span><input type="text" name="code" maxlength="20" required value="{{ form.code|default:'' }}" dir="ltr" placeholder="ST-01"></label>
                         </div>
                         <div class="ob-row is-3">
                             <label class="ob-field">نوع ایستگاه<select name="station_type">{% for key, item in osce_station_types.items %}<option value="{{ key }}"{% if form.station_type == key %} selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></label>

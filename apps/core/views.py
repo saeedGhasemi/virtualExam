@@ -3872,6 +3872,9 @@ def super_admin_courses(request):
             description = request.POST.get('description', '').strip()
             if not title:
                 return JsonResponse({'ok': False, 'error': 'عنوان درس الزامی است.'}, status=400)
+            credit_units, units_error = _course_units(credit_units)
+            if units_error:
+                return JsonResponse({'ok': False, 'error': units_error}, status=400)
             existing = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [course_id])
             if managed_unit_ids is not None:
                 if existing and str(existing.get('org_unit_id') or '') not in managed_unit_ids:
@@ -3924,6 +3927,19 @@ def super_admin_courses(request):
     })
 
 
+def _course_units(raw):
+    """(credit units as int or None, Persian error or ''): a whole number 0–30 (field_rules.NUMBER_RANGE checks the
+    range for every form; a decimal would fail the smallint column)."""
+    from .field_rules import latin_digits
+
+    text = latin_digits(raw)
+    if not text:
+        return None, ''
+    if not re.fullmatch(r'\d{1,2}', text) or int(text) > 30:
+        return None, '«تعداد واحد» باید عدد صحیح بین ۰ و ۳۰ باشد.'
+    return int(text), ''
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_course_form(request, course_id=None):
     managed_unit_ids = _erd_managed_unit_ids(request)
@@ -3952,8 +3968,9 @@ def super_admin_course_form(request, course_id=None):
             existing = erd_row('SELECT org_unit_id FROM courses WHERE id = %s', [course_id])
             if existing and str(existing.get('org_unit_id') or '') not in managed_unit_ids:
                 return HttpResponseForbidden('این درس خارج از محدوده‌ی دسترسی شماست.')
-        if not title:
-            messages.error(request, 'عنوان درس الزامی است.')
+        credit_units, units_error = _course_units(credit_units)
+        if not title or units_error:
+            messages.error(request, units_error or 'عنوان درس الزامی است.')
         else:
             target_id = course_id or str(uuid.uuid4())
             if course_id and erd_row('SELECT 1 FROM courses WHERE id = %s', [course_id]):
@@ -7074,6 +7091,32 @@ def _legacy_super_admin_groups(request):
     )
 
 
+def _group_form_problem(post):
+    """Persian message when a course-group form's numbers / dates don't fit together, else '' (user's screenshots
+    2026-11-15: a 20-digit capacity, minimum above capacity and registration ending before it opens were accepted).
+    Ranges per field are checked earlier by middleware (field_rules.NUMBER_RANGE); this checks whole numbers and the
+    relations. The browser twin is the submit check in super_admin/group_wizard.html."""
+    from .field_rules import latin_digits
+
+    numbers = {}
+    for name, label in (('capacity', 'ظرفیت'), ('min_students', 'حداقل دانشجو'), ('waitlist_capacity', 'ظرفیت فهرست انتظار')):
+        text = latin_digits(post.get(name))
+        if not text:
+            continue
+        if not re.fullmatch(r'\d{1,6}', text):
+            return f'«{label}» باید عدد صحیح و مثبت باشد.'
+        numbers[name] = int(text)
+    if 'capacity' in numbers and numbers.get('min_students', 0) > numbers['capacity']:
+        return '«حداقل دانشجو» نمی‌تواند از «ظرفیت» بیشتر باشد.'
+    start, end = (post.get('registration_start_at') or '').strip(), (post.get('registration_end_at') or '').strip()
+    try:
+        if start and end and datetime.fromisoformat(end) <= datetime.fromisoformat(start):
+            return 'پایان بازه‌ی ثبت‌نام باید بعد از شروع آن باشد.'
+    except ValueError:
+        return 'تاریخ بازه‌ی ثبت‌نام معتبر نیست؛ آن را با تقویم انتخاب کنید.'
+    return ''
+
+
 @erd_role_required('academic_manager', 'admin')
 def super_admin_group_create(request):
     def parse_local_datetime(value):
@@ -7140,6 +7183,9 @@ def super_admin_group_create(request):
         selected_students = [item for item in request.POST.getlist('student_ids') if item]
         if not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
             return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+        if problem := _group_form_problem(request.POST):
+            messages.error(request, problem)
+            return redirect(request.get_full_path())
         created_by = (erd_profile_for_user(request.user) or {}).get('id')
         optional_columns = [
             ('capacity', int(request.POST.get('capacity') or 30)),
@@ -7324,6 +7370,9 @@ def super_admin_group_edit(request, group_id):
             selected_teachers.insert(0, teacher_id)
         if not _erd_group_assignment_in_scope(request, course_id, selected_teachers):
             return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
+        if problem := _group_form_problem(request.POST):
+            messages.error(request, problem)
+            return redirect(request.get_full_path())
         assignments = [
             ('teacher_id', teacher_id),
             ('course_id', course_id),
@@ -12652,6 +12701,8 @@ def _clean_account_fields(post, profile, user) -> tuple:
         email = (post.get('email') or '').translate(_FA_DIGITS_TO_LATIN).strip().lower()
         try:
             validate_email(email)
+            if field_rules.email_error(email) and not field_rules._already_stored('email', email):
+                raise ValidationError('format')
         except ValidationError:
             errors.append('ایمیل واردشده معتبر نیست.')
         else:
@@ -12664,9 +12715,10 @@ def _clean_account_fields(post, profile, user) -> tuple:
         phone = re.sub(r'[\s\-()]', '', (post.get('phone') or '').translate(_FA_DIGITS_TO_LATIN))
         if phone.startswith('+98'):
             phone = '0' + phone[3:]
-        if phone and not re.fullmatch(r'09\d{9}', phone):
+        if phone and not field_rules._MOBILE.fullmatch(phone) and not field_rules._already_stored('mobile', phone):
             errors.append('شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود؛ مثلاً ۰۹۱۲۳۴۵۶۷۸۹.')
         values['phone'] = phone
+    errors += field_rules.format_errors(post, skip=('email', 'phone', 'mobile'))  # names: shared rules
     return values, errors
 
 
@@ -14784,6 +14836,8 @@ def _teacher_settings_from_post(post, base=None, tab='account') -> tuple:
         try:
             if email:
                 validate_email(email)
+                if field_rules.email_error(email):
+                    raise ValidationError('format')
             values['notification_email'] = email
         except ValidationError:
             errors.append('ایمیل اعلان‌ها معتبر نیست و ذخیره نشد.')
@@ -14995,10 +15049,11 @@ def _save_teacher_personal_info(request, teacher_id) -> list:
     bio = (post.get('bio') or '').strip()
     if not first_name or not last_name:
         errors.append('نام و نام خانوادگی الزامی است.')
-    if phone_posted and not re.fullmatch(r'09\d{9}', phone):
+    if phone_posted and not field_rules._MOBILE.fullmatch(phone):
         errors.append('تلفن همراه باید ۱۱ رقم و با ۰۹ شروع شود.')
-    if landline and not re.fullmatch(r'0\d{9,10}', landline):
+    if landline and not field_rules._LANDLINE.fullmatch(landline) and not field_rules._already_stored('landline', landline):
         errors.append('تلفن ثابت باید با کد شهر و فقط شامل رقم باشد.')
+    errors += field_rules.format_errors(post, skip=('phone', 'landline'))  # names, display name (shared rules)
     if len(bio) > 500:
         errors.append('معرفی کوتاه حداکثر ۵۰۰ نویسه است.')
     avatar_url = None
@@ -18401,6 +18456,9 @@ def exam_manager_exams(request):
 
 @erd_role_required('academic_manager', 'admin')
 def exam_manager_exam_create(request):
+    # The old one-page form (Gregorian date picker, no checks: negative duration / score, year 1000 …; user's
+    # screenshots 2026-11-15) is replaced by the real exam wizard, which validates every step.
+    return redirect('core:super_admin_exam_create')
     courses = _em_course_rows(request)
     groups = _em_exam_groups(request)
     teachers = _em_teacher_options(request)
@@ -18496,6 +18554,9 @@ def exam_manager_exam_questions(request, exam_id):
             )
         messages.success(request, 'سوالات آزمون ذخیره شد.')
         return redirect('core:exam_manager_exam_detail', exam_id=exam_id)
+    # Questions are chosen in the exam wizard (step 3: Persian type names, filters, points); the old picker page
+    # showed raw type codes. An exam students already took opens its settings page instead (the wizard says why).
+    return redirect('core:super_admin_exam_wizard_edit', exam_id=exam_id)
     questions = _em_exam_question_rows(exam_id)
     selected = [q for q in questions if q['is_selected']]
     context = _em_base_context(request, 'exam_questions', 'انتخاب سوالات آزمون', 'exam')
@@ -18669,7 +18730,7 @@ def exam_manager_dashboard(request):
             {'label': 'پاسخ‌های در انتظار تصحیح', 'value': pending_answers, 'hint': 'تصحیح دستی استاد', 'tone': 'blue', 'icon': 'message'},
         ],
         'quick_actions': [
-            {'label': 'ایجاد آزمون جدید', 'url': reverse('core:exam_manager_exam_create'), 'tone': 'primary', 'icon': 'plus'},
+            {'label': 'ایجاد آزمون جدید', 'url': reverse('core:super_admin_exam_create'), 'tone': 'primary', 'icon': 'plus'},
             {'label': 'انتشار آزمون', 'url': reverse('core:exam_manager_active_exams'), 'icon': 'send'},
             {'label': 'مدیریت سوالات', 'url': exams_url, 'icon': 'help'},
             {'label': 'زمان‌بندی آزمون', 'url': reverse('core:exam_manager_calendar'), 'icon': 'calendar'},

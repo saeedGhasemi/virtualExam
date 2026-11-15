@@ -16,6 +16,9 @@ pre { max-width: 100%; overflow-x: auto; }
 }
 
 /* ---------- Super-admin / manager wizards (add student, teacher, manager) ---------- */
+/* The step panel may shrink below its widest content (the course table of «درس‌ها و همکاری» held it at ~440px and
+   cut the page at 240–390px); the table then turns into cards (responsive-tables.js). */
+.teacher-wizard-form > * { min-width: 0; }
 @media (max-width: 1100px) {
   .teacher-wizard-basic, .teacher-wizard-subunits, .teacher-wizard-final { grid-template-columns: minmax(0, 1fr); }
   .teacher-wizard-basic > *, .teacher-wizard-final > *, .teacher-wizard-subunits > * { min-width: 0; }
@@ -1197,3 +1200,26 @@ table.rt-cards > tbody > tr.mq-row-link:hover, [data-row-href]:not(tr):hover { b
 .question-bank-filters input { text-overflow: ellipsis; }
 @media (max-width: 360px) { .question-bank-filters.question-bank-filters input { padding-left: 2.6rem; padding-right: .75rem; } .question-bank-filters svg { left: .8rem; } }
 @media (max-width: 1180px) { .question-bank-filters > button { order: 1; } } /* stacked: «اعمال فیلتر» after every field */
+/* Users page summary card (manager / student / teacher strip under the list): long names, e-mails and codes never run
+   over the numbers or buttons (teacher's report 2026-11-15) — name up to 2 lines, contact / code lines and numbers end
+   in «…» (full text in the tooltip, users.html); the profile column shrinks, the status pill keeps its size. */
+@media (min-width: 1024px) { .users-feature-strip.users-feature-strip { grid-template-columns: minmax(0, 1fr) auto auto; } }
+.users-feature-profile.users-feature-profile > div { flex: 1 1 auto; min-width: 0; }
+.users-feature-profile.users-feature-profile strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.users-feature-profile.users-feature-profile small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.users-feature-profile.users-feature-profile em { flex: none; white-space: nowrap; }
+.users-feature-metrics.users-feature-metrics { min-width: 0; }
+.users-feature-metrics.users-feature-metrics > div { min-width: 0; max-width: 12rem; }
+.users-feature-metrics.users-feature-metrics b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a cut code shows its beginning («1405112…»), not its end */
+.users-feature-metrics.users-feature-metrics b[data-latin-digits], .users-feature-profile.users-feature-profile small[data-feature-code] { direction: ltr; unicode-bidi: plaintext; }
+.users-feature-profile.users-feature-profile small[data-feature-code] { text-align: right; }
+.users-feature-actions.users-feature-actions { min-width: min(250px, 100%); }
+/* Last resort everywhere: a word too long for its box breaks instead of running out of it (break-word doesn't
+   change table / flex sizing, only text that would overflow). */
+body { overflow-wrap: break-word; }
+/* Long unbroken text (user's report 2026-11-15: 100-letter junk in titles, descriptions, OSCE scenario): text boxes,
+   rich editors and headings / paragraphs break such a «word» anywhere instead of scrolling sideways or running over
+   their neighbours. Table cells are left alone (their width is responsive-tables.js's job). */
+textarea, [contenteditable="true"], .ql-editor { overflow-wrap: anywhere; word-break: break-word; }
+h1, h2, h3, h4, h5, h6, p, dd, legend, blockquote, figcaption { overflow-wrap: anywhere; }

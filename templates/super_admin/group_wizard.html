@@ -108,9 +108,9 @@
                     <div class="section">
                         <h2>ظرفیت و ثبت‌نام</h2>
                         <div class="form-grid">
-                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg>ظرفیت *</span><input type="number" name="capacity" value="{{ group.capacity|default:30 }}" min="1" data-capacity></label>
-                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="m17 11 2 2 4-4"/></svg>حداقل دانشجو *</span><input type="number" name="min_students" value="{{ group.min_students|default:10 }}" min="0"></label>
-                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 3"/></svg>ظرفیت فهرست انتظار</span><input type="number" name="waitlist_capacity" value="{{ group.waitlist_capacity|default:5 }}" min="0"></label>
+                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg>ظرفیت *</span><input type="number" name="capacity" value="{{ group.capacity|default:30 }}" min="1" max="1000" step="1" data-capacity></label>
+                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="m17 11 2 2 4-4"/></svg>حداقل دانشجو *</span><input type="number" name="min_students" value="{{ group.min_students|default:10 }}" min="0" max="1000" step="1"></label>
+                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 3"/></svg>ظرفیت فهرست انتظار</span><input type="number" name="waitlist_capacity" value="{{ group.waitlist_capacity|default:5 }}" min="0" max="1000" step="1"></label>
                             <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>باز ثبت‌نام از:</span>
                                 <div class="jalali-field" data-jalali-field>
                                     <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
@@ -292,9 +292,50 @@
         document.querySelector('[data-banner-card]').hidden = step !== 2;
         updateSummary();
     };
-    document.querySelector('[data-next]').addEventListener('click', () => setStep(2));
+    // Step 1 must be valid before step 2 (its fields are hidden there, so the browser could not point at them):
+    // formats / ranges (field-rules.js), minimum ≤ capacity and registration end after start (server twin:
+    // views._group_form_problem). The message shows under the field.
+    const relationNote = (anchor, text) => {
+        const host = anchor.closest('label') || anchor.parentElement;
+        let note = host.querySelector('.gc-relation-msg');
+        if (!note) { note = document.createElement('small'); note.className = 'mq-rule-msg gc-relation-msg'; note.setAttribute('aria-live', 'polite'); host.appendChild(note); }
+        note.textContent = text; note.hidden = !text;
+    };
+    const stepOneOk = () => {
+        const pane = document.querySelector('[data-pane="1"]');
+        const capacity = form.elements.capacity, minimum = form.elements.min_students;
+        const cap = parseInt(capacity?.value, 10), min = parseInt(minimum?.value, 10);
+        if (minimum) {
+            const text = !isNaN(cap) && !isNaN(min) && min > cap ? '«حداقل دانشجو» نمی‌تواند از «ظرفیت» بیشتر باشد.' : '';
+            minimum.setCustomValidity(text); relationNote(minimum, text);
+        }
+        const start = form.elements.registration_start_at?.value, end = form.elements.registration_end_at?.value;
+        const endBox = form.elements.registration_end_at?.closest('[data-jalali-field]')?.querySelector('[data-jalali-display]');
+        const dateText = start && end && end <= start ? 'پایان بازه‌ی ثبت‌نام باید بعد از شروع آن باشد.' : '';
+        if (endBox) relationNote(endBox, dateText);
+        const bad = [...pane.querySelectorAll('input, select, textarea')].find((el) => !el.disabled && !el.checkValidity());
+        if (bad) { bad.reportValidity?.(); bad.focus(); return false; }
+        if (dateText) { endBox?.scrollIntoView({block: 'center'}); return false; }
+        return true;
+    };
+    form.addEventListener('change', (event) => {  // the relation notes update as soon as a value changes
+        if (step !== 1 || !event.target.closest?.('[data-pane="1"]')) return;
+        const minimum = form.elements.min_students, cap = parseInt(form.elements.capacity?.value, 10), min = parseInt(minimum?.value, 10);
+        const text = !isNaN(cap) && !isNaN(min) && min > cap ? '«حداقل دانشجو» نمی‌تواند از «ظرفیت» بیشتر باشد.' : '';
+        if (minimum) { minimum.setCustomValidity(text); relationNote(minimum, text); }
+        const start = form.elements.registration_start_at?.value, end = form.elements.registration_end_at?.value;
+        const endBox = form.elements.registration_end_at?.closest('[data-jalali-field]')?.querySelector('[data-jalali-display]');
+        if (endBox) relationNote(endBox, start && end && end <= start ? 'پایان بازه‌ی ثبت‌نام باید بعد از شروع آن باشد.' : '');
+    });
+    document.querySelector('[data-next]').addEventListener('click', () => { if (stepOneOk()) setStep(2); });
     document.querySelector('[data-prev]').addEventListener('click', () => setStep(1));
-    document.querySelectorAll('[data-step-btn]').forEach((button) => button.addEventListener('click', () => setStep(button.dataset.stepBtn)));
+    document.querySelectorAll('[data-step-btn]').forEach((button) => button.addEventListener('click', () => {
+        if (Number(button.dataset.stepBtn) === 2 && step === 1 && !stepOneOk()) return;
+        setStep(button.dataset.stepBtn);
+    }));
+    form.addEventListener('submit', (event) => {
+        if (!stepOneOk()) { event.preventDefault(); event.stopImmediatePropagation(); setStep(1); stepOneOk(); }
+    }, true);
     form.addEventListener('input', updateSummary);
     form.addEventListener('change', updateSummary);
 

@@ -6,10 +6,59 @@ values that don't fit. Empty values are not errors (required-ness is the caller'
 """
 import re
 
+_FA = str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹')
 _DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
 # Persian / English letters, space, ZWNJ, . ' - ; at least one letter. Kept loose for names seeded with «[آزمایشی]».
 _NAME = re.compile(r"(?=.*[A-Za-zء-ی])[A-Za-zء-غف-ٕپچژکگیآ‌ .'\-\[\]]+")
-_EMAIL = re.compile(r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}$')
+# E-mail like RFC 5321 in practice: local part ≤ 64 (no leading / trailing / double dot), domain labels 1–63 that
+# don't start or end with «-», a 2–24-letter top-level domain; whole address ≤ FIELD_MAX['email'].
+_EMAIL = re.compile(r'^(?=.{6,100}$)(?=[^@]{1,64}@)[A-Za-z0-9_%+\-](?:\.?[A-Za-z0-9_%+\-])*@'
+                    r'(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$')
+# Username: 3–30 English letters / digits starting with a letter; «.», «_», «-» only between them. (An account may
+# also sign in with its e-mail as username: an e-mail is accepted too.)
+_USERNAME = re.compile(r'^[A-Za-z](?:[A-Za-z0-9]|[._\-](?=[A-Za-z0-9])){2,29}$')
+# Personnel / staff code: 3–20 English letters and digits, «-» only between them (data has ADM-1024, MQTEST-T01 …).
+_CODE = re.compile(r'^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){2,19}$')
+_STUDENT_NO = re.compile(r'^\d{4,15}$')
+# Iranian mobile: 09 + operator digit (090–094 Irancell / Rightel / …, 099 MCI / MVNOs) + 8 digits.
+_MOBILE = re.compile(r'^09[0-49]\d{8}$')
+# Landline: 0 + two-digit province code (01x–08x) + 8-digit number = 11 digits.
+_LANDLINE = re.compile(r'^0[1-8]\d{9}$')
+_PERSIAN_LETTER = re.compile(r'[ء-ی]')
+_LATIN_LETTER = re.compile(r'[A-Za-z]')
+NAME_WORD_MAX = 20     # longest single word of a name (عبدالرسول = 9, Venkataraghavan = 15)
+BIRTH_AGE = (15, 100)  # a birth date makes the person 15 … 100 years old
+
+
+def name_error(value: str) -> str:
+    """'' when `value` looks like a real person's name, else a Persian reason (length caps are FIELD_MAX's)."""
+    value = re.sub(r'\s+', ' ', str(value or '')).strip()
+    if not _NAME.fullmatch(value):
+        return 'نام فقط حروف فارسی یا انگلیسی است (بدون رقم و نماد)، مثلاً علی محمدی.'
+    letters = [c for c in value if c.isalpha()]
+    if len(letters) < 2:
+        return 'نام دست‌کم ۲ حرف دارد.'
+    bare = re.sub(r'\[آزمایشی\]', '', value)  # seed marker
+    if _PERSIAN_LETTER.search(bare) and _LATIN_LETTER.search(bare):
+        return 'نام را یا فقط با حروف فارسی بنویسید یا فقط با حروف انگلیسی.'
+    if any(len(word) > NAME_WORD_MAX for word in re.split(r"[\s‌\-.']+", bare)):
+        return f'هر بخش نام حداکثر {str(NAME_WORD_MAX).translate(_FA)} حرف است؛ نام را درست و با فاصله بنویسید.'
+    if re.search(r'(\w)\1\1', bare):
+        return 'یک حرف بیش از دو بار پشت سر هم آمده است؛ نام را درست بنویسید.'
+    return ''
+
+
+def email_error(value: str) -> str:
+    value = latin_digits(value)
+    return '' if _EMAIL.fullmatch(value) else 'ایمیل معتبر نیست؛ مثلاً name@example.com (بخش قبل از @ حداکثر ۶۴ نویسه).'
+
+
+def username_error(value: str) -> str:
+    value = latin_digits(value)
+    if '@' in value:
+        return email_error(value)
+    return '' if _USERNAME.fullmatch(value) else (
+        'نام کاربری ۳ تا ۳۰ نویسه است: با حرف انگلیسی شروع شود و فقط حروف انگلیسی، رقم و . _ - (نه پشت سر هم یا در آخر) داشته باشد، مثلاً ali.mohammadi.')
 
 
 # Longest value a personal / basic-info field may hold, by POST name (teacher's report: a 300-character student
@@ -19,9 +68,11 @@ FIELD_MAX = {
     'national_id': 20, 'national_code': 20,
     'phone': 20, 'mobile': 20, 'phone_number': 20, 'mobile_number': 20, 'landline': 20,
     'birth_date': 20, 'entry_year': 10,
-    'first_name': 80, 'last_name': 80, 'father_name': 80, 'full_name': 160, 'display_name': 160,
-    'student_number': 20, 'student_code': 20, 'personnel_code': 30, 'employee_code': 30, 'identifier': 30,
-    'username': 150, 'email': 254, 'login_email': 254,
+    # Realistic caps like professional sign-up forms (teacher's report 2026-11-15: an 80 + 80-letter junk name, a
+    # 254-character e-mail and a 30-digit code were accepted and broke the users page). Same caps in field-rules.js.
+    'first_name': 30, 'last_name': 40, 'father_name': 30, 'full_name': 80, 'display_name': 60,
+    'student_number': 15, 'student_code': 15, 'personnel_code': 20, 'employee_code': 20, 'identifier': 20,
+    'username': 100, 'email': 100, 'login_email': 100, 'notification_email': 100,
     'field_of_study': 150, 'specialty': 150, 'academic_rank': 150, 'degree': 150, 'semester': 150,
     'class_group': 150, 'responsibility_area': 150, 'department': 150, 'office': 150, 'job_title': 150,
 }
@@ -38,14 +89,103 @@ FIELD_LABELS = {
 }
 
 
+# Titles, names, codes and short free text of records (course, group, org unit, exam, OSCE station …), by POST name:
+# (most characters, longest unbroken word; 0 = no word limit). User's report 2026-11-15: 100-letter unbroken junk in
+# course / unit / group / OSCE / wizard fields was accepted and ran over the pages. Real titles have words ≤ ~20
+# letters; a «word» longer than the limit is keyboard junk. Same table in static/js/field-rules.js (TEXT_RULES).
+TEXT_RULES = {
+    'title': (200, 40), 'exam_title': (200, 40), 'course_title': (200, 40), 'name': (100, 40),
+    'code': (20, 0), 'course_code': (20, 0), 'group_code': (20, 0), 'station_code': (20, 0),
+    'description': (2000, 0), 'class_schedule': (100, 30), 'class_location': (100, 30),
+    'domain': (120, 40), 'objectives': (200, 40), 'new_objective': (200, 40),
+    'patient_age': (40, 20), 'patient_chief_complaint': (200, 40),
+    'field_of_study': (150, 30), 'specialty': (150, 30), 'academic_rank': (150, 30), 'degree': (150, 30),
+    'semester': (150, 30), 'class_group': (150, 30), 'responsibility_area': (150, 30), 'department': (150, 30),
+    'office': (150, 30), 'job_title': (150, 30),
+}
+TEXT_LABELS = {
+    'title': 'عنوان', 'exam_title': 'عنوان آزمون', 'course_title': 'عنوان درس', 'name': 'نام', 'code': 'کد',
+    'course_code': 'کد درس', 'group_code': 'شماره گروه', 'station_code': 'کد ایستگاه', 'description': 'توضیحات',
+    'class_schedule': 'برنامه کلاس', 'class_location': 'مکان کلاس', 'domain': 'حوزه', 'objectives': 'هدف',
+    'new_objective': 'هدف', 'patient_age': 'سن بیمار', 'patient_chief_complaint': 'شکایت اصلی',
+}
+for _name, (_limit, _word) in TEXT_RULES.items():
+    FIELD_MAX[_name] = min(FIELD_MAX.get(_name, _limit), _limit)
+    FIELD_LABELS.setdefault(_name, TEXT_LABELS.get(_name, _name))
+
+# Number boxes, by POST name: (least, most). Wide enough for every page that uses the name (each page sets its own,
+# tighter min / max on the box); they stop negative durations / scores and 20-digit capacities (same report).
+# field-rules.js (NUM_RANGE) has the same names plus max_attempts / min_passing_percent / negative_factor / passing_score_total, which the exam wizard checks
+# itself (it clamps attempts, reports the percent / negative factor on its form); duration 0 is left to the views (OSCE says why).
+NUMBER_RANGE = {
+    'credit_units': (0, 30), 'capacity': (1, 1000), 'min_students': (0, 1000), 'waitlist_capacity': (0, 1000),
+    'duration_minutes': (0, 1440), 'passing_score': (0, 1000), 'pass_score': (0, 1000),
+    'exam_pass_score': (0, 1000), 'study_minutes': (0, 600),
+    'transition_minutes': (0, 600), 'students_per_group': (1, 1000), 'groups_count': (1, 1000),
+    'default_points': (0, 1000), 'correct_threshold': (0, 100),
+    'short_answer_max_chars': (1, 10000), 'media_max_record_seconds': (1, 3600), 'hotspot_max_clicks': (1, 100),
+    'negative_mark': (0, 1000), 'min_correct': (0, 100), 'max_correct': (0, 100),
+}
+NUMBER_LABELS = {
+    'credit_units': 'تعداد واحد', 'capacity': 'ظرفیت', 'min_students': 'حداقل دانشجو',
+    'waitlist_capacity': 'ظرفیت فهرست انتظار', 'duration_minutes': 'مدت زمان (دقیقه)', 'max_attempts': 'تعداد دفعات شرکت',
+    'passing_score': 'نمره قبولی', 'pass_score': 'نمره قبولی', 'exam_pass_score': 'نمره قبولی',
+    'passing_score_total': 'نمره کل', 'study_minutes': 'زمان مطالعه', 'transition_minutes': 'زمان جابه‌جایی',
+    'students_per_group': 'دانشجو در هر گروه', 'groups_count': 'تعداد گروه', 'default_points': 'نمره پیش‌فرض',
+    'min_passing_percent': 'درصد قبولی', 'correct_threshold': 'آستانه درستی', 'short_answer_max_chars': 'حداکثر نویسه',
+    'media_max_record_seconds': 'حداکثر زمان ضبط', 'hotspot_max_clicks': 'حداکثر کلیک', 'negative_factor': 'ضریب نمره منفی',
+    'negative_mark': 'نمره منفی', 'min_correct': 'حداقل پاسخ درست', 'max_correct': 'حداکثر پاسخ درست',
+}
+
+
+def _fa_num(value) -> str:
+    text = f'{value:g}' if isinstance(value, float) else str(value)
+    return text.translate(_FA)
+
+
+def long_word(value: str, limit: int) -> bool:
+    """True when `value` has an unbroken run (no space / ZWNJ / dash / slash) longer than `limit` characters."""
+    return bool(limit) and any(len(word) > limit for word in re.split(r'[\s‌\-/،,;:.()]+', value or ''))
+
+
 def too_long_error(post) -> str:
-    """Persian message for the first POST field longer than FIELD_MAX allows, else ''."""
-    _fa = str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹')
+    """Persian message for the first POST field longer than FIELD_MAX allows (or, for TEXT_RULES fields, with an
+    unbroken word longer than its limit), else ''."""
     for name, limit in FIELD_MAX.items():
         for value in post.getlist(name) if hasattr(post, 'getlist') else [post.get(name)]:
             if value and len(str(value).strip()) > limit:
                 label = FIELD_LABELS.get(name, name)
-                return f'«{label}» حداکثر {str(limit).translate(_fa)} نویسه است؛ مقدار طولانی‌تر ذخیره نشد. آن را کوتاه کنید و دوباره ذخیره کنید.'
+                return f'«{label}» حداکثر {_fa_num(limit)} نویسه است؛ مقدار طولانی‌تر ذخیره نشد. آن را کوتاه کنید و دوباره ذخیره کنید.'
+    for name, (limit, word) in TEXT_RULES.items():
+        for value in post.getlist(name) if hasattr(post, 'getlist') else [post.get(name)]:
+            if value and long_word(str(value), word):
+                label = FIELD_LABELS.get(name, name)
+                return f'«{label}» کلمه‌ای بیش از {_fa_num(word)} نویسه‌ی پشت سر هم دارد؛ متن درست و با فاصله بنویسید.'
+    for name in LATIN_CODES:  # course / unit / station codes: English letters, digits, - and _ (field-rules.js «latin»)
+        for value in post.getlist(name) if hasattr(post, 'getlist') else [post.get(name)]:
+            text = latin_digits(value)
+            if text and not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9_\-]*[A-Za-z0-9])?', text):
+                return f'«{FIELD_LABELS.get(name, name)}» فقط حروف انگلیسی، رقم و «-» دارد، مثلاً PED-101.'
+    return number_error(post)
+
+
+LATIN_CODES = ('code', 'course_code', 'station_code')
+
+
+def number_error(post) -> str:
+    """Persian message for the first NUMBER_RANGE POST field that isn't a number in its range, else ''."""
+    for name, (low, high) in NUMBER_RANGE.items():
+        for value in post.getlist(name) if hasattr(post, 'getlist') else [post.get(name)]:
+            text = latin_digits(value)
+            if not text:
+                continue
+            label = NUMBER_LABELS.get(name, name)
+            try:
+                number = float(text)
+            except ValueError:
+                return f'«{label}» باید عدد باشد.'
+            if number != number or number < low or number > high:
+                return f'«{label}» باید بین {_fa_num(low)} و {_fa_num(high)} باشد.'
     return ''
 
 
@@ -97,8 +237,14 @@ def birth_date_error(value: str) -> str:
     days = 31 if month <= 6 else 30 if month <= 11 else (30 if _jalali_leap(year) else 29)
     if not 1 <= day <= days:
         return 'روز تاریخ تولد در آن ماه وجود ندارد.'
-    if year < 1300 or (year, month, day) > today_jalali():
-        return 'تاریخ تولد باید بین ۱۳۰۰ و امروز باشد.'
+    ty, tm, td = today_jalali()
+    if (year, month, day) > today_jalali():
+        return 'تاریخ تولد نمی‌تواند بعد از امروز باشد.'
+    youngest, oldest = BIRTH_AGE
+    if (year, month, day) > (ty - youngest, tm, td):
+        return f'سن باید دست‌کم {str(youngest).translate(_FA)} سال باشد؛ سال تولد را درست وارد کنید.'
+    if (year, month, day) <= (ty - oldest, tm, td):
+        return f'سن نمی‌تواند بیش از {str(oldest).translate(_FA)} سال باشد؛ سال تولد را درست وارد کنید.'
     return ''
 
 
@@ -137,10 +283,10 @@ def clean_person_fields(data: dict) -> list:
             if re.fullmatch(r'9\d{9}', value):
                 value = '0' + value
             data[key] = value
-            if label == 'mobile' and not re.fullmatch(r'09\d{9}', value):
-                errors.append('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.')
-            if label == 'landline' and not re.fullmatch(r'0\d{9,10}', value):
-                errors.append('تلفن ثابت باید با کد شهر و فقط شامل رقم باشد.')
+            if label == 'mobile' and not _MOBILE.fullmatch(value):
+                errors.append(MOBILE_MESSAGE)
+            if label == 'landline' and not _LANDLINE.fullmatch(value):
+                errors.append(LANDLINE_MESSAGE)
     if data.get('birth_date'):
         value = latin_digits(data['birth_date']).replace('-', '/')
         match = re.fullmatch(r'(\d{4})/(\d{1,2})/(\d{1,2})', value)
@@ -153,23 +299,30 @@ def clean_person_fields(data: dict) -> list:
     for key in ('first_name', 'last_name', 'full_name', 'father_name'):
         if data.get(key):
             data[key] = re.sub(r'\s+', ' ', str(data[key])).strip()
-            if not _NAME.fullmatch(data[key]):
-                errors.append('نام و نام خانوادگی فقط حروف فارسی یا انگلیسی است (بدون رقم و نماد).')
+            message = name_error(data[key])
+            if message:
+                errors.append(f'«{FIELD_LABELS[key]}»: {message}')
                 break
     if data.get('student_number'):
         data['student_number'] = latin_digits(data['student_number'])
-        if not re.fullmatch(r'\d{1,20}', data['student_number']):
-            errors.append('شماره دانشجویی فقط رقم است، مثلاً ۴۰۳۱۲۳۴۵۶.')
+        if not _STUDENT_NO.fullmatch(data['student_number']):
+            errors.append(STUDENT_NO_MESSAGE)
     for key in ('personnel_code', 'identifier'):
         if data.get(key):
             data[key] = latin_digits(data[key])
-            if not re.fullmatch(r'[A-Za-z0-9\-]{1,30}', data[key]):
-                errors.append('کد پرسنلی فقط رقم، حروف انگلیسی و «-» است، مثلاً ۱۴۰۵۱۱۲.')
+            if not _CODE.fullmatch(data[key]):
+                errors.append(CODE_MESSAGE)
     for key in ('email', 'login_email'):
         if data.get(key):
             data[key] = latin_digits(data[key])
-            if not _EMAIL.fullmatch(data[key]) or '..' in data[key]:
-                errors.append('ایمیل معتبر نیست؛ مثلاً name@example.com.')
+            message = email_error(data[key])
+            if message:
+                errors.append(message)
+    if data.get('username'):
+        data['username'] = latin_digits(data['username'])
+        message = username_error(data['username'])
+        if message:
+            errors.append(message)
     return errors
 
 
@@ -184,7 +337,13 @@ _FORMAT_FIELDS = {
     'student_number': 'studentno', 'student_code': 'studentno',
     'personnel_code': 'code', 'employee_code': 'code', 'identifier': 'code',
     'email': 'email', 'login_email': 'email', 'notification_email': 'email',
+    'username': 'username',
 }
+
+MOBILE_MESSAGE = 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود (پیش‌شماره ۰۹۰ تا ۰۹۴ یا ۰۹۹)، مثلاً ۰۹۱۲۳۴۵۶۷۸۹.'
+LANDLINE_MESSAGE = 'تلفن ثابت ۱۱ رقم است و با کد استان شروع می‌شود، مثلاً ۰۲۱۸۸۷۷۶۶۵۵.'
+STUDENT_NO_MESSAGE = 'شماره دانشجویی ۴ تا ۱۵ رقم است، مثلاً ۴۰۳۱۲۳۴۵۶.'
+CODE_MESSAGE = 'کد پرسنلی ۳ تا ۲۰ نویسه است: رقم و حروف انگلیسی، «-» فقط میان آن‌ها، مثلاً ۱۴۰۵۱۱۲ یا TCH-1024.'
 
 
 def _format_message(kind: str, raw: str) -> str:
@@ -194,20 +353,24 @@ def _format_message(kind: str, raw: str) -> str:
     if kind in ('mobile', 'landline'):
         value = re.sub(r'^(\+|00)98', '0', re.sub(r'[\s\-()]', '', value))
         if kind == 'mobile':
-            return '' if re.fullmatch(r'0?9\d{9}', value) else 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود، مثلاً ۰۹۱۲۳۴۵۶۷۸۹.'
-        return '' if re.fullmatch(r'0\d{9,10}', value) else 'تلفن ثابت فقط رقم است و با کد شهر شروع می‌شود، مثلاً ۰۲۱۸۸۷۷۶۶۵۵.'
+            if re.fullmatch(r'9\d{9}', value):
+                value = '0' + value
+            return '' if _MOBILE.fullmatch(value) else MOBILE_MESSAGE
+        return '' if _LANDLINE.fullmatch(value) else LANDLINE_MESSAGE
     if kind == 'birth':
         return birth_date_error(value.replace('-', '/'))
     if kind == 'year':
         return '' if re.fullmatch(r'1[34]\d\d', value) else 'سال را ۴ رقمی و شمسی بنویسید، مثلاً ۱۴۰۳.'
     if kind == 'name':
-        return '' if _NAME.fullmatch(re.sub(r'\s+', ' ', value)) else 'نام فقط حروف فارسی یا انگلیسی است (بدون رقم و نماد)، مثلاً علی محمدی.'
+        return name_error(value)
     if kind == 'studentno':
-        return '' if re.fullmatch(r'\d{1,20}', value) else 'شماره دانشجویی فقط رقم است، مثلاً ۴۰۳۱۲۳۴۵۶.'
+        return '' if _STUDENT_NO.fullmatch(value) else STUDENT_NO_MESSAGE
     if kind == 'code':
-        return '' if re.fullmatch(r'[A-Za-z0-9\-]{1,30}', value) else 'کد پرسنلی فقط رقم، حروف انگلیسی و «-» است، مثلاً ۱۴۰۵۱۱۲.'
+        return '' if _CODE.fullmatch(value) else CODE_MESSAGE
     if kind == 'email':
-        return '' if _EMAIL.fullmatch(value) and '..' not in value else 'ایمیل معتبر نیست؛ مثلاً name@example.com.'
+        return email_error(value)
+    if kind == 'username':
+        return username_error(value)
     return ''
 
 
@@ -223,6 +386,9 @@ _STORED_IN = {
     'code': ("SELECT 1 FROM teacher_profiles WHERE personnel_code = %s LIMIT 1",
              "SELECT 1 FROM profiles WHERE identifier = %s LIMIT 1"),
     'email': ("SELECT 1 FROM profiles WHERE lower(email) = lower(%s) LIMIT 1",),
+    'username': ("SELECT 1 FROM profiles WHERE username = %s LIMIT 1",),
+    'landline': ("SELECT 1 FROM teacher_profiles WHERE landline = %s LIMIT 1",),
+    'birth': ("SELECT 1 FROM profiles WHERE birth_date = %s LIMIT 1",),
 }
 
 
@@ -240,15 +406,27 @@ def _already_stored(kind: str, value: str) -> bool:
     return False
 
 
-def format_error(post) -> str:
-    """Persian message for the first personal POST field whose value doesn't fit its format, else ''."""
+def format_errors(post, skip=()) -> list:
+    """Persian messages for every personal POST field whose value doesn't fit its format (an unchanged stored value
+    passes). Pages that validate on their own form (middleware SELF_VALIDATING) call it with the fields they already
+    check themselves in `skip`."""
+    messages = []
     for name, kind in _FORMAT_FIELDS.items():
+        if name in skip:
+            continue
         for value in post.getlist(name) if hasattr(post, 'getlist') else [post.get(name)]:
             if value and str(value).strip():
                 message = _format_message(kind, str(value).strip())
                 if message and not _already_stored(kind, str(value).strip()):
-                    return f'«{FIELD_LABELS.get(name, name)}»: {message}'
-    return ''
+                    messages.append(f'«{FIELD_LABELS.get(name, name)}»: {message}')
+                    break
+    return messages
+
+
+def format_error(post) -> str:
+    """Persian message for the first personal POST field whose value doesn't fit its format, else ''."""
+    messages = format_errors(post)
+    return messages[0] if messages else ''
 
 
 def record_issues(record: dict) -> list:

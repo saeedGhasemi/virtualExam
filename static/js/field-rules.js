@@ -1,28 +1,33 @@
 /* Input rules for personal-data fields (user's requirement: a field only accepts what fits it, with an example
    placeholder). Found by name or type, so every page gets them without per-page code:
      national  کد ملی       name national_id / national_code …   10 digits + the Iranian check digit
-     mobile    موبایل        name phone / mobile / phone_number …  09xxxxxxxxx (11 digits; +98 / 0098 pasted → 09…)
-     landline  تلفن ثابت     name landline / telephone             0 + city code + number (10–11 digits)
-     birth     تاریخ تولد    name birth_date / birthdate …         Jalali yyyy/mm/dd (slashes added while typing),
-                                                                  a real day, 1300 … today
-     email     ایمیل         type=email or a name ending in "email" Latin address name@domain.tld
+     mobile    موبایل        name phone / mobile / phone_number …  09[0-4 or 9]xxxxxxxx (11 digits; +98 / 0098 pasted → 09…)
+     landline  تلفن ثابت     name landline / telephone             0 + province code 1–8 + 9 digits (11 digits)
+     birth     تاریخ تولد    name birth_date / birthdate …         Jalali yyyy/mm/dd (slashes added while typing), a real
+                                                                  day, age 15 … 100; calendar button (date-field-picker.js)
+     email     ایمیل         type=email or a name ending in "email" name@domain.tld, ≤ 100, part before @ ≤ 64, no ..
      date      تاریخ شمسی    name cooperation_started_at / start_date / end_date   like birth, any year 1300 … 1500
      year      سال           name entry_year / entrance_year              4 digits, 1300 … next year
-     name      نام           name first_name / last_name / full_name …      Persian or English letters, space, ZWNJ
-     studentno ش. دانشجویی   name student_number / student_code            digits only
-     code      کد پرسنلی     name personnel_code / identifier              English letters, digits, «-» (data has ADM-1024 …)
-     username  نام کاربری    name username                                 English letters, digits, . _ - @
+     name      نام           name first_name / last_name / full_name …      Persian or English letters (not both), space,
+                             ZWNJ; ≥ 2 letters, each word ≤ 20, no letter 3× in a row; caps NAME_MAX (first 30, last 40)
+     studentno ش. دانشجویی   name student_number / student_code            4–15 digits
+     code      کد پرسنلی     name personnel_code / identifier              3–20 English letters / digits, «-» between
+     username  نام کاربری    name username                                 3–30: English letter first, then letters,
+                                                                         digits, . _ - (not doubled / last); or an e-mail
      totp      کد ۶ رقمی     name totp_code with maxlength 6 (else otp: a 6-digit or recovery code)  digits
      identity  کد ورود آزمون name identity_code (national ID or student number)  digits
      acyear    سال تحصیلی    name academic_year (data-mq-rule="acyear" elsewhere)  1405-1406 («-» added while typing)
-     latin     کد لاتین      name code / course_code / station_code (course, exam join, OSCE codes)  A-Z 0-9 - _
+     latin     کد لاتین      name code / course_code / station_code / group_code (course, unit, group, exam join, OSCE codes)  A-Z 0-9 - _, ≤ 20
      color     کد رنگ        name settings_primary_color / mqa_color                #RRGGBB
      ip        محدوده IP     name ip_restriction_range, settings_ip_allow_list/_block_list  IPv4/IPv6 or CIDR, comma separated
      decimal   عدد           name numeric_answer / numeric_tolerance (text boxes)   digits, one «.», leading «-»
      clock     ساعت          data-mq-rule="clock" (text boxes such as the OSCE start time)  HH:MM
      number    عدد           every other <input type=number>: digits only (+ «.» when step allows decimals, «-» when
                              min < 0), Persian digits typed become 0-9, a Persian message for min / max / step; an
-                             example placeholder from NUM_PH by name, else the allowed range.
+                             example placeholder from NUM_PH by name, else the allowed range. A box without its own
+                             min / max gets NUM_RANGE[name] (= field_rules.NUMBER_RANGE), else min 0 / max 1000000.
+     text      متن کوتاه     name in TEXT_RULES (title, name, description, class_location, specialty …): any text, at
+                             most N characters and no unbroken «word» longer than W (keyboard junk; = field_rules.TEXT_RULES).
      pwnew     رمز جدید      <input type=password autocomplete="new-password">     English letters, digits, symbols; no space /
                              Persian letters (wrong keyboard layout); the password standard PW_RULES (≥ 8 with upper +
                              lower English letter, digit, symbol = field_rules.PASSWORD_RULES); what is missing is named in
@@ -30,11 +35,13 @@
                              a repeat box (name …2 / confirm…) must equal the form's first new-password box
      pwcur     رمز فعلی      every other <input type=password> (sign-in, current password)   same keys, no length rule
    Kinds after «username» keep a page's own placeholder (it is already an example) and only add one when missing.
-   Every kind caps the length (maxlength; a longer value already saved shows an error until shortened); free-text
-   basic-info boxes (field_of_study, specialty, department …) and other text boxes of a form with personal fields get
-   maxlength 150. Server-side length guard for every POST: middleware.PersonFieldLengthMiddleware (field_rules.FIELD_MAX).
+   Every kind caps the length (maxlength; a longer value already saved shows an error until shortened); text boxes of
+   a form with personal fields get maxlength 150, every other text box 500 and every <textarea> 5000 unless they set
+   their own (user's report 2026-11-15: nothing may take endless text). Server-side length guard for every POST: middleware.PersonFieldLengthMiddleware (field_rules.FIELD_MAX).
    Or set data-mq-rule="<kind>" yourself; data-mq-rule="off" opts an input out. Search boxes (name q) are left alone.
    name / studentno / code / username keep the value the page was rendered with (only what is typed is filtered).
+   A value left exactly as the page rendered it gets only the length check, not the format check: the server lets an
+   unchanged saved value through too (field_rules._STORED_IN), so old data never blocks saving other fields.
    Keys that don't fit are refused as typed (with a short hint under the field), pasted text is cleaned, Persian /
    Arabic digits become 0-9 (that is what the server stores). The example placeholder replaces a page's own unless the
    input has data-keep-placeholder. A wrong value gets a Persian message under the field after leaving it or on submit
@@ -65,7 +72,7 @@
     username: /^username$/i,
     identity: /^identity_code$/i,
     acyear: /^academic_year$/i,
-    latin: /^(code|course_code|station_code|join_code)$/i,
+    latin: /^(code|course_code|station_code|join_code|group_code)$/i,
     color: /^(settings_primary_color|mqa_color)$/i,
     ip: /^(ip_restriction_range|settings_ip_allow_list|settings_ip_block_list)$/i,
     decimal: /^(numeric_answer|numeric_tolerance)$/i
@@ -78,31 +85,76 @@
     mobile: { allow: /\d/, max: 11, mode: 'tel', ph: '۰۹۱۲۳۴۵۶۷۸۹', hint: 'فقط رقم وارد کنید.', auto: 'tel' },
     landline: { allow: /\d/, max: 11, mode: 'tel', ph: '۰۲۱۸۸۷۷۶۶۵۵ (با کد شهر)', hint: 'فقط رقم وارد کنید.' },
     birth: { allow: /[\d\/]/, max: 10, mode: 'numeric', ph: '۱۳۷۸/۰۶/۲۱ (سال/ماه/روز)', hint: 'فقط رقم وارد کنید؛ «/» خودکار گذاشته می‌شود.' },
-    email: { allow: /[A-Za-z0-9.@_%+\-]/, max: 254, mode: 'email', ph: 'name@example.com', hint: 'ایمیل فقط با حروف انگلیسی، رقم و . _ - @ نوشته می‌شود.', auto: 'email' },
+    email: { allow: /[A-Za-z0-9.@_%+\-]/, max: 100, mode: 'email', ph: 'name@example.com', hint: 'ایمیل فقط با حروف انگلیسی، رقم و . _ - @ نوشته می‌شود.', auto: 'email' },
     date: { allow: /[\d\/]/, max: 10, mode: 'numeric', ph: '۱۴۰۵/۰۱/۱۵ (سال/ماه/روز)', hint: 'فقط رقم وارد کنید؛ «/» خودکار گذاشته می‌شود.' },
     year: { allow: /\d/, max: 4, mode: 'numeric', ph: '۱۴۰۳', hint: 'فقط رقم وارد کنید (سال شمسی).' },
     name: { allow: /[A-Za-z\u0621-\u063A\u0641-\u0655\u067E\u0686\u0698\u06A9\u06AF\u06CC\u0622\u200C .'\-]/, max: 80, mode: 'text', rtl: true, raw: true,
       ph: { first_name: 'علی', last_name: 'محمدی', full_name: 'علی محمدی', father_name: 'حسن', display_name: 'دکتر محمدی', '': 'علی محمدی' },
       hint: 'فقط حروف وارد کنید؛ رقم و نماد مجاز نیست.' },
-    studentno: { allow: /\d/, max: 20, mode: 'numeric', raw: true, ph: '۴۰۳۱۲۳۴۵۶', hint: 'فقط رقم وارد کنید.' },
-    code: { allow: /[A-Za-z0-9\-]/, max: 30, mode: 'text', raw: true, ph: '۱۴۰۵۱۱۲',
+    studentno: { allow: /\d/, max: 15, mode: 'numeric', raw: true, ph: '۴۰۳۱۲۳۴۵۶', hint: 'فقط رقم وارد کنید.' },
+    code: { allow: /[A-Za-z0-9\-]/, max: 20, mode: 'text', raw: true, ph: '۱۴۰۵۱۱۲',
       hint: 'فقط رقم، حروف انگلیسی و «-» مجاز است.' },
-    username: { allow: /[A-Za-z0-9._@+\-]/, max: 150, mode: 'text', raw: true, ph: 'ali.mohammadi', hint: 'نام کاربری فقط با حروف انگلیسی، رقم و . _ - نوشته می‌شود.', auto: 'username' },
+    username: { allow: /[A-Za-z0-9._@+\-]/, max: 100, mode: 'text', raw: true, ph: 'ali.mohammadi', hint: 'نام کاربری فقط با حروف انگلیسی، رقم و . _ - نوشته می‌شود.', auto: 'username' },
     totp: { allow: /\d/, max: 6, mode: 'numeric', ph: '۱۲۳۴۵۶', hint: 'فقط رقم وارد کنید (کد ۶ رقمی برنامه).', keepPh: true, auto: 'one-time-code' },
     otp: { allow: /[A-Za-z0-9\-]/, max: 12, mode: 'text', raw: true, ph: '۱۲۳۴۵۶', hint: 'کد ۶ رقمی برنامه یا کد بازیابی (حروف انگلیسی و رقم).', keepPh: true, auto: 'one-time-code' },
     identity: { allow: /\d/, max: 20, mode: 'numeric', ph: '۰۰۱۲۳۴۵۶۷۸', hint: 'فقط رقم وارد کنید (کد ملی یا شماره دانشجویی).', keepPh: true },
     acyear: { allow: /[\d\-]/, max: 9, mode: 'numeric', ph: '۱۴۰۵-۱۴۰۶', hint: 'فقط رقم وارد کنید؛ «-» خودکار گذاشته می‌شود.', keepPh: true },
-    latin: { allow: /[A-Za-z0-9_\-]/, max: 30, mode: 'text', raw: true, ph: 'PED-101', hint: 'فقط حروف انگلیسی، رقم و «-» مجاز است.', keepPh: true },
+    latin: { allow: /[A-Za-z0-9_\-]/, max: 20, mode: 'text', raw: true, ph: 'PED-101', hint: 'فقط حروف انگلیسی، رقم و «-» مجاز است.', keepPh: true },
     color: { allow: /[#0-9A-Fa-f]/, max: 7, mode: 'text', raw: true, ph: '#2563EB', hint: 'کد رنگ فقط # و رقم و حروف A تا F است.', keepPh: true },
     ip: { allow: /[0-9A-Fa-f.:\/, ]/, max: 500, mode: 'text', raw: true, ph: '192.168.1.0/24', hint: 'فقط رقم، «.»، «/» و «,» مجاز است.', keepPh: true },
     decimal: { allow: /[\d.\-]/, max: 20, mode: 'decimal', raw: true, ph: '۲.۵', hint: 'فقط عدد وارد کنید.', keepPh: true },
     clock: { allow: /[\d:]/, max: 5, mode: 'numeric', ph: '۰۹:۰۰', hint: 'فقط رقم وارد کنید؛ «:» خودکار گذاشته می‌شود.', keepPh: true },
     number: { allow: /\d/, max: 20, mode: 'numeric', raw: true, ph: '', hint: 'فقط عدد وارد کنید.', keepPh: true },
+    text: { allow: /[\s\S]/, max: 200, mode: 'text', raw: true, rtl: true, ph: '', hint: '', keepPh: true },
     pwnew: { allow: /[!-~]/, max: 128, mode: 'text', raw: true, ph: 'Sara#1403', keepPh: true, auto: 'new-password',
       hint: 'رمز عبور فقط با حروف انگلیسی، رقم و نمادها نوشته می‌شود (بدون فاصله)؛ زبان صفحه‌کلید را انگلیسی کنید.' },
     pwcur: { allow: /[!-~]/, max: 128, mode: 'text', raw: true, ph: '••••••••', keepPh: true, auto: 'current-password',
       hint: 'رمز عبور فقط با حروف انگلیسی، رقم و نمادها نوشته می‌شود (بدون فاصله)؛ زبان صفحه‌کلید را انگلیسی کنید.' }
   };
+  // Name caps by field (field_rules.FIELD_MAX); other kinds use RULES[kind].max.
+  var NAME_MAX = { first_name: 30, last_name: 40, father_name: 30, full_name: 80, display_name: 60 };
+  function maxOf(kind, el) {
+    if (kind === 'name') return NAME_MAX[((el && el.name) || '').toLowerCase()] || 80;
+    if (kind === 'username' && signInForm(el && el.form)) return 254;
+    if (kind === 'text') return (textRule(el) || [200])[0];
+    return RULES[kind].max;
+  }
+  // A sign-in form (a current-password box, no new-password box): its username box also takes an e-mail or a student
+  // number and old usernames, so it gets no username format rule.
+  function signInForm(f) {
+    if (!f) return false;
+    var current = false;
+    for (var i = 0; i < f.elements.length; i++) {
+      var o = f.elements[i];
+      if ((o.type || '').toLowerCase() !== 'password') continue;
+      if ((o.getAttribute('autocomplete') || '') === 'new-password') return false;
+      current = true;
+    }
+    return current;
+  }
+  // Same patterns as apps/core/field_rules.py.
+  var EMAIL_RE = /^(?=.{6,100}$)(?=[^@]{1,64}@)[A-Za-z0-9_%+\-](?:\.?[A-Za-z0-9_%+\-])*@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$/;
+  var USERNAME_RE = /^[A-Za-z](?:[A-Za-z0-9]|[._\-](?=[A-Za-z0-9])){2,29}$/;
+  var CODE_RE = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){2,19}$/;
+  var FA_LETTER = /[ء-ی]/, LATIN_LETTER = /[A-Za-z]/;
+  var MSG = {
+    email: 'ایمیل معتبر نیست؛ مثلاً name@example.com (بخش قبل از @ حداکثر ۶۴ نویسه).',
+    username: 'نام کاربری ۳ تا ۳۰ نویسه است: با حرف انگلیسی شروع شود و فقط حروف انگلیسی، رقم و . _ - (نه پشت سر هم یا در آخر) داشته باشد، مثلاً ali.mohammadi.',
+    code: 'کد پرسنلی ۳ تا ۲۰ نویسه است: رقم و حروف انگلیسی، «-» فقط میان آن‌ها، مثلاً ۱۴۰۵۱۱۲ یا TCH-1024.',
+    studentno: 'شماره دانشجویی ۴ تا ۱۵ رقم است، مثلاً ۴۰۳۱۲۳۴۵۶.',
+    mobile: 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود (پیش‌شماره ۰۹۰ تا ۰۹۴ یا ۰۹۹)، مثلاً ۰۹۱۲۳۴۵۶۷۸۹.',
+    landline: 'تلفن ثابت ۱۱ رقم است و با کد استان شروع می‌شود، مثلاً ۰۲۱۸۸۷۷۶۶۵۵.'
+  };
+  function nameError(v) {
+    v = v.replace(/\s+/g, ' ');
+    if ((v.match(/[A-Za-zء-غف-يپچژکگیآ]/g) || []).length < 2) return 'نام دست‌کم ۲ حرف دارد، مثلاً علی.';
+    var bare = v.replace(/\[آزمایشی\]/g, '');
+    if (FA_LETTER.test(bare) && LATIN_LETTER.test(bare)) return 'نام را یا فقط با حروف فارسی بنویسید یا فقط با حروف انگلیسی.';
+    var words = bare.split(/[\s‌\-.']+/);
+    for (var i = 0; i < words.length; i++) if (words[i].length > 20) return 'هر بخش نام حداکثر ۲۰ حرف است؛ نام را درست و با فاصله بنویسید.';
+    if (/([A-Za-zء-ی])\1\1/.test(bare)) return 'یک حرف بیش از دو بار پشت سر هم آمده است؛ نام را درست بنویسید.';
+    return '';
+  }
   // The password standard, same order as field_rules.PASSWORD_RULES (server twin).
   var PW_RULES = [
     ['۸ نویسه یا بیشتر', function (v) { return v.length >= 8; }],
@@ -143,6 +195,24 @@
     max_correct: '۳', short_answer_max_chars: '۲۰۰', correct_threshold: '۸۰', passing_score_total: '۱۰۰',
     min_passing_percent: '۶۰', media_rubric_points: '۲'
   };
+  // Ranges for number boxes without their own min / max (same as field_rules.NUMBER_RANGE).
+  var NUM_RANGE = {
+    credit_units: [0, 30], capacity: [1, 1000], min_students: [0, 1000], waitlist_capacity: [0, 1000],
+    duration_minutes: [1, 1440], max_attempts: [0, 100], passing_score: [0, 1000], pass_score: [0, 1000],
+    exam_pass_score: [0, 1000], passing_score_total: [0, 1000], study_minutes: [0, 600], transition_minutes: [0, 600],
+    students_per_group: [1, 1000], groups_count: [1, 1000], default_points: [0, 1000], min_passing_percent: [0, 100],
+    correct_threshold: [0, 100], short_answer_max_chars: [1, 10000], media_max_record_seconds: [1, 3600],
+    hotspot_max_clicks: [1, 100], negative_factor: [0, 1], negative_mark: [0, 1000], min_correct: [0, 100], max_correct: [0, 100]
+  };
+  // Short free text of records: [most characters, longest unbroken word (0 = any)] (same as field_rules.TEXT_RULES).
+  var TEXT_RULES = {
+    title: [200, 40], exam_title: [200, 40], course_title: [200, 40], name: [100, 40], description: [2000, 0],
+    class_schedule: [100, 30], class_location: [100, 30], domain: [120, 40], objectives: [200, 40], new_objective: [200, 40],
+    patient_age: [40, 20], patient_chief_complaint: [200, 40], field_of_study: [150, 30], specialty: [150, 30],
+    academic_rank: [150, 30], degree: [150, 30], semester: [150, 30], class_group: [150, 30], responsibility_area: [150, 30],
+    department: [150, 30], office: [150, 30], job_title: [150, 30]
+  };
+  function textRule(el) { return TEXT_RULES[((el && el.name) || '').toLowerCase()] || null; }
   // A number box: decimals allowed when its step is not a whole number, a minus when min < 0.
   function numSpec(el) {
     var step = (el.getAttribute('step') || '').trim(), min = parseFloat(el.getAttribute('min'));
@@ -180,6 +250,7 @@
     if (type === 'email' || NAMES.email.test(name)) return 'email';
     for (var k in NAMES) if (k !== 'email' && NAMES[k].test(name)) return k;
     if (type === 'tel') return 'mobile';
+    if (type !== 'search' && textRule(el)) return 'text';
     return null;
   }
 
@@ -210,9 +281,12 @@
     var days = mo <= 6 ? 31 : mo <= 11 ? 30 : (jalaliLeap(y) ? 30 : 29);
     if (d < 1 || d > days) return 'این ماه ' + faDigits(days) + ' روز دارد.';
     if (anyYear) return y < 1300 || y > 1500 ? 'سال باید بین ۱۳۰۰ و ۱۵۰۰ باشد.' : '';
-    if (y < 1300) return 'سال تولد باید از ۱۳۰۰ به بعد باشد.';
-    var after = y > today[0] || (y === today[0] && (mo > today[1] || (mo === today[1] && d > today[2])));
-    if (after) return 'تاریخ تولد نمی‌تواند بعد از امروز باشد.';
+    // Same as field_rules.birth_date_error: not after today, age 15 … 100 (BIRTH_AGE).
+    function cmp(a, b) { return a[0] - b[0] || a[1] - b[1] || a[2] - b[2]; }
+    var day = [y, mo, d];
+    if (cmp(day, today) > 0) return 'تاریخ تولد نمی‌تواند بعد از امروز باشد.';
+    if (cmp(day, [today[0] - 15, today[1], today[2]]) > 0) return 'سن باید دست‌کم ۱۵ سال باشد؛ سال تولد را درست وارد کنید.';
+    if (cmp(day, [today[0] - 100, today[1], today[2]]) <= 0) return 'سن نمی‌تواند بیش از ۱۰۰ سال باشد؛ سال تولد را درست وارد کنید.';
     return '';
   }
   function numberError(el, v) {
@@ -239,15 +313,27 @@
     if (kind === 'number') return numberError(el, v);
     if (!v) return '';
     // A value already saved longer than the field allows (typing stops at maxlength; this catches old data).
-    if (kind !== 'mobile' && v.length > RULES[kind].max) return 'حداکثر ' + faDigits(RULES[kind].max) + ' نویسه مجاز است؛ مقدار را کوتاه کنید.';
+    var max = maxOf(kind, el);
+    if (kind !== 'mobile' && v.length > max) return 'حداکثر ' + faDigits(max) + ' نویسه مجاز است؛ مقدار را کوتاه کنید.';
+    if (kind === 'text') {  // keyboard junk is refused even when already saved (the server refuses it too)
+      var word = (textRule(el) || [0, 0])[1], words = v.split(/[\s‌\-\/،,;:.()]+/);
+      for (var w = 0; w < words.length; w++)
+        if (word && words[w].length > word) return 'کلمه‌ای بیش از ' + faDigits(word) + ' نویسه‌ی پشت سر هم دارد؛ متن درست و با فاصله بنویسید.';
+      return '';
+    }
+    // The value the page was rendered with, unchanged: length only (the server lets a stored value through too).
+    if (el && el._mqInitial && v === el._mqInitial && kind !== 'pwnew' && kind !== 'pwcur') return '';
     if (kind === 'national') return nationalOk(v) ? '' : (v.length !== 10 ? 'کد ملی باید ۱۰ رقم باشد.' : 'این کد ملی معتبر نیست؛ رقم‌ها را دوباره بررسی کنید.');
-    if (kind === 'mobile') return /^09\d{9}$/.test(v) ? '' : 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود، مثلاً ۰۹۱۲۳۴۵۶۷۸۹.';
-    if (kind === 'landline') return /^0\d{9,10}$/.test(v) ? '' : 'تلفن ثابت را با کد شهر و با ۰ شروع کنید، مثلاً ۰۲۱۸۸۷۷۶۶۵۵.';
+    if (kind === 'mobile') return /^09[0-49]\d{8}$/.test(v) ? '' : MSG.mobile;
+    if (kind === 'landline') return /^0[1-8]\d{9}$/.test(v) ? '' : MSG.landline;
     if (kind === 'birth') return birthError(v);
     if (kind === 'date') return birthError(v, true);
     if (kind === 'year') return /^\d{4}$/.test(v) && +v >= 1300 && +v <= today[0] + 1 ? '' : 'سال را ۴ رقمی و شمسی بنویسید، مثلاً ۱۴۰۳.';
-    if (kind === 'name') return /[A-Za-z\u0621-\u06CC]/.test(v) ? '' : 'نام باید حروف داشته باشد، مثلاً علی.';
-    if (kind === 'username') return v.length >= 3 ? '' : 'نام کاربری دست‌کم ۳ نویسه است، مثلاً ali.mohammadi.';
+    if (kind === 'name') return nameError(v);
+    if (kind === 'studentno') return /^\d{4,15}$/.test(v) ? '' : MSG.studentno;
+    if (kind === 'code') return CODE_RE.test(v) ? '' : MSG.code;
+    if (kind === 'username' && signInForm(el && el.form)) return '';
+    if (kind === 'username') return v.indexOf('@') >= 0 ? (EMAIL_RE.test(v) ? '' : MSG.email) : (USERNAME_RE.test(v) ? '' : MSG.username);
     if (kind === 'pwnew') {
       if (/[^!-~]/.test(v)) return 'رمز عبور فقط حروف انگلیسی، رقم و نماد دارد؛ فاصله و حروف فارسی مجاز نیست.';
       if (el && pwRepeat(el)) {
@@ -272,7 +358,7 @@
       var cm = /^(\d{1,2}):(\d{2})$/.exec(v);
       return cm && +cm[1] < 24 && +cm[2] < 60 ? '' : 'ساعت را به شکل ساعت:دقیقه بنویسید، مثلاً ۰۹:۰۰.';
     }
-    if (kind === 'email') return /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}$/.test(v) && !/\.\./.test(v) ? '' : 'ایمیل معتبر نیست؛ مثلاً name@example.com.';
+    if (kind === 'email') return EMAIL_RE.test(v) ? '' : MSG.email;
     return '';
   }
 
@@ -289,7 +375,8 @@
     }
     return seg[0] + (i >= 1 ? '/' + seg[1] : '') + (i >= 2 ? '/' + seg[2] : '');
   }
-  function clean(kind, raw) {
+  function clean(kind, raw, el) {
+    if (kind === 'text') return raw;  // free text: Persian digits and every character stay
     var rule = RULES[kind], s = latinDigits(raw);
     if (kind === 'mobile') s = s.replace(/^\s*(\+|00)98/, '0');
     var out = '';
@@ -316,7 +403,7 @@
     if (kind === 'name') out = out.replace(/ {2,}/g, ' ');
     if (kind === 'mobile' && /^98\d/.test(out)) out = '0' + out.slice(2);  // country code typed (+ is refused)
     if (kind === 'mobile' && /^9\d{9}$/.test(out)) out = '0' + out;
-    return out.slice(0, rule.max);
+    return out.slice(0, maxOf(kind, el));
   }
   // Characters that count for the caret: what survives cleaning, minus the slashes birth dates get automatically.
   function weight(kind, s) {
@@ -402,24 +489,31 @@
     return f._mqPerson;
   }
   function capText(el) {
+    if (el.hasAttribute('maxlength') || el.readOnly) return;
+    if (el.tagName === 'TEXTAREA') { el.setAttribute('maxlength', String((textRule(el) || [5000])[0])); return; }
     var type = (el.getAttribute('type') || '').toLowerCase();
-    if (!TEXT_TYPES[type] || type === 'search' || el.name === 'q' || el.hasAttribute('maxlength')) return;
-    if (TEXT_MAX.test(el.name || '') || personForm(el.form)) el.setAttribute('maxlength', '150');
+    if (!TEXT_TYPES[type] || type === 'search' || el.name === 'q') return;
+    el.setAttribute('maxlength', TEXT_MAX.test(el.name || '') || personForm(el.form) ? '150' : '500');
   }
 
   function setup(el) {
     if (el._mqRule !== undefined) return;
     var kind = ruleOf(el);
     el._mqRule = kind;
-    if (!kind) { if (el.tagName === 'INPUT') capText(el); return; }
+    if (!kind) { capText(el); return; }
     var rule = RULES[kind];
     el.classList.add('mq-rule');
-    if (kind === 'number') el.classList.add('mq-rule-num');  // keeps the page's own alignment (scores, points …)
+    if (kind === 'number') {
+      el.classList.add('mq-rule-num');  // keeps the page's own alignment (scores, points …)
+      var range = NUM_RANGE[(el.name || '').toLowerCase()];  // no negative / endless numbers where a page set no limit
+      if (!el.hasAttribute('min')) el.setAttribute('min', String(range ? range[0] : 0));
+      if (!el.hasAttribute('max')) el.setAttribute('max', String(range ? range[1] : 1000000));
+    }
     else if (rule.rtl) el.classList.add('mq-rule-rtl'); else el.setAttribute('dir', 'ltr');
     el.setAttribute('inputmode', kind === 'number' && numSpec(el).dec ? 'decimal' : rule.mode);
     var ownMax = +el.getAttribute('maxlength') || 0;  // a page's own, tighter cap stays (e.g. a 6-digit code)
-    if (el.type !== 'number' && !(rule.keepPh && ownMax && ownMax < rule.max))
-      el.setAttribute('maxlength', String(kind === 'mobile' ? 14 : rule.max)); // room for a pasted +98 / spaces, cleaned at once
+    if (el.type !== 'number' && !(rule.keepPh && ownMax && ownMax < maxOf(kind, el)))
+      el.setAttribute('maxlength', String(kind === 'mobile' ? 14 : maxOf(kind, el))); // room for a pasted +98 / spaces, cleaned at once
     el.setAttribute('autocapitalize', 'off');
     el.setAttribute('spellcheck', 'false');
     if (rule.auto && !el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', rule.auto);
@@ -429,15 +523,17 @@
     ph = el.getAttribute('placeholder') || ph;
     if (!el.hasAttribute('title') && ph) el.setAttribute('title', 'نمونه: ' + ph);
     if (!rule.raw) {
-      var v = clean(kind, el.value);
+      var v = clean(kind, el.value, el);
       if (v !== el.value) el.value = v;
     }
+    el._mqInitial = (el.value || '').trim();  // unchanged = format not re-checked (see header)
+    if (isDate(kind) && window.mqDatePicker) window.mqDatePicker.attach(el, kind);
     if (el.value) check(el, false);
   }
   function scan(root) {
     if (!root || !root.querySelectorAll) return;
-    if (root.tagName === 'INPUT') { setup(root); return; }
-    var list = root.querySelectorAll('input');
+    if (root.tagName === 'INPUT' || root.tagName === 'TEXTAREA') { setup(root); return; }
+    var list = root.querySelectorAll('input, textarea');
     for (var i = 0; i < list.length; i++) setup(list[i]);
   }
   function target(e) {
@@ -478,7 +574,7 @@
     var kind = el._mqRule;
     if (kind === 'number') { check(el, false); return; }  // the browser keeps a number box's value numeric
     var before = el.value, caret = el.selectionStart;
-    var cleaned = clean(kind, before);
+    var cleaned = clean(kind, before, el);
     if (cleaned !== before) {
       var pos = 0, n = 0, want = caret == null || caret >= before.length ? -1 : weight(kind, before.slice(0, caret));
       if (want < 0) pos = cleaned.length;  // typing at the end stays at the end (also after an added 0)
@@ -543,7 +639,8 @@
     el.removeAttribute('maxlength');
     el._mqRule = undefined;
     setup(el);
-    el.value = clean(kind, el.value);
+    el._mqInitial = '';  // what was typed under the other kind gets the full check
+    el.value = clean(kind, el.value, el);
     check(el, !!el.value);
   }
   window.mqFieldRules = { scan: scan, check: check, nationalOk: nationalOk, setRule: setRule };

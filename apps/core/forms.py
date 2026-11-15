@@ -154,10 +154,10 @@ class StyledAuthenticationForm(AuthenticationForm):
 
 
 class PublicRegistrationForm(forms.Form):
-    full_name = forms.CharField(label='نام و نام خانوادگی', max_length=80)  # same cap as field-rules.js «name»
-    username = forms.CharField(label='نام کاربری', max_length=150, required=False)
-    student_number = forms.CharField(label='شماره دانشجویی / کد پرسنلی', max_length=30, required=False)
-    email = forms.EmailField(label='ایمیل', max_length=254)
+    full_name = forms.CharField(label='نام و نام خانوادگی', max_length=80)  # same caps as field_rules.FIELD_MAX
+    username = forms.CharField(label='نام کاربری', max_length=100, required=False)
+    student_number = forms.CharField(label='شماره دانشجویی / کد پرسنلی', max_length=20, required=False)
+    email = forms.EmailField(label='ایمیل', max_length=100)
     password = forms.CharField(label='رمز عبور', min_length=8, max_length=128, widget=forms.PasswordInput)
     role = forms.ChoiceField(
         label='نوع حساب',
@@ -171,15 +171,20 @@ class PublicRegistrationForm(forms.Form):
         full_name = ' '.join(self.cleaned_data.get('full_name', '').split())
         if len(full_name) < 3 or not any(char.isalpha() for char in full_name):
             raise forms.ValidationError('نام و نام خانوادگی را کامل وارد کنید.')
-        from .field_rules import _NAME
-        if not _NAME.fullmatch(full_name):
-            raise forms.ValidationError('نام و نام خانوادگی فقط حروف فارسی یا انگلیسی است (بدون رقم و نماد).')
+        from .field_rules import name_error
+        message = name_error(full_name)
+        if message:
+            raise forms.ValidationError(message)
         return full_name
 
     def clean_username(self):
         username = latin_digits(self.cleaned_data.get('username', '')).strip()
         if not username:
             return ''
+        from .field_rules import username_error
+        message = username_error(username)
+        if message:
+            raise forms.ValidationError(message)
         with connection.cursor() as cursor:  # a deleted account's leftover login doesn't hold the name (see clean_email)
             cursor.execute(
                 "SELECT 1 FROM auth_user u WHERE lower(u.username) = lower(%s) "
@@ -198,6 +203,10 @@ class PublicRegistrationForm(forms.Form):
         email = self.cleaned_data.get('email', '').strip().lower()
         if not email:
             return email
+        from .field_rules import email_error
+        message = email_error(email)
+        if message:
+            raise forms.ValidationError(message)
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1 FROM profiles WHERE lower(email) = %s LIMIT 1", [email])
             in_profiles = cursor.fetchone()
@@ -216,11 +225,12 @@ class PublicRegistrationForm(forms.Form):
         cleaned = super().clean()
         number = cleaned.get('student_number')
         role = cleaned.get('role')
-        if number and role == SystemRole.RoleCode.STUDENT and not re.fullmatch(r'\d{1,20}', number):
-            self.add_error('student_number', 'شماره دانشجویی فقط رقم است (حداکثر ۲۰ رقم)، مثلاً ۴۰۳۱۲۳۴۵۶.')
+        from .field_rules import _CODE, _STUDENT_NO, CODE_MESSAGE, STUDENT_NO_MESSAGE
+        if number and role == SystemRole.RoleCode.STUDENT and not _STUDENT_NO.fullmatch(number):
+            self.add_error('student_number', STUDENT_NO_MESSAGE)
             number = None
-        elif number and role and not re.fullmatch(r'[A-Za-z0-9\-]{1,30}', number):
-            self.add_error('student_number', 'کد پرسنلی فقط رقم، حروف انگلیسی و «-» است (حداکثر ۳۰ نویسه).')
+        elif number and role and role != SystemRole.RoleCode.STUDENT and not _CODE.fullmatch(number):
+            self.add_error('student_number', CODE_MESSAGE)
             number = None
         if number and role:
             # a student number is unique among students, a personnel code among teachers
@@ -438,8 +448,8 @@ class SuperAdminOrgUnitForm(forms.Form):
 
     unit_type = forms.ChoiceField(label='سطح', choices=UNIT_CHOICES)
     parent = forms.ChoiceField(label='دانشگاه', choices=(), required=False)
-    name = forms.CharField(label='نام', max_length=180)
-    code = forms.CharField(label='کد (اختیاری)', max_length=60, required=False)
+    name = forms.CharField(label='نام', max_length=100)  # field_rules.TEXT_RULES: ≤ 100, no word > 40
+    code = forms.CharField(label='کد (اختیاری)', max_length=20, required=False)
     is_active = forms.BooleanField(label='فعال', required=False, initial=True)
 
     def __init__(self, *args, org_units=None, unit_id=None, allow_university=True, parent_ids=None, **kwargs):

@@ -8053,7 +8053,7 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         from django.core.cache import cache
         cache.clear()
         return self.client.post(reverse('core:register'), {
-            'full_name': f'کاربر تازه {username}', 'username': username, 'student_number': number,
+            'full_name': f'New User {username}', 'username': username, 'student_number': number,
             'email': f'{username}@example.com', 'password': 'Strong#Pass99', 'role': role})
 
     def _profile_id(self, username):
@@ -8074,14 +8074,14 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         self.client.force_login(self.admin_user)
         users = reverse('core:super_admin_users')
         listing = self.client.get(users, {'tab': 'students'})
-        self.assertContains(listing, 'کاربر تازه newstudent')
+        self.assertContains(listing, 'New User newstudent')
         self.assertContains(listing, 'پیش‌ثبت‌نام')
         for params, shown in (({'status': 'pending'}, True), ({'status': 'active'}, False), ({'q': 'newstudent'}, True),
                               ({'q': '40199999'}, True), ({'q': 'هیچ‌کس'}, False), ({'entry_year': '1300'}, False),
                               ({'unit': self.ou_scoped}, False), ({'academic_status': 'active'}, True)):
             page = self.client.get(users, {'tab': 'students', **params})
             self.assertEqual(page.status_code, 200, params)
-            self.assertEqual('کاربر تازه newstudent' in page.content.decode(), shown, params)
+            self.assertEqual('New User newstudent' in page.content.decode(), shown, params)
         for section in ('', 'courses', 'activity'):  # «مشاهده» and its «درس‌ها» / «فعالیت» parts
             self.assertEqual(self.client.get(reverse('core:super_admin_user_profile', args=['student', student_id]), {'section': section}).status_code, 200)
         self.assertEqual(self.client.get(reverse('core:super_admin_student_profile_edit', args=[student_id])).status_code, 200)
@@ -8089,7 +8089,7 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         toggle = reverse('core:super_admin_toggle_account_status', args=['student', student_id])
         self.client.post(toggle, {'action': 'activate'})
         self.assertEqual(self._rows('SELECT status FROM profiles WHERE id = %s', [student_id]), [('active',)])
-        self.assertContains(self.client.get(users, {'tab': 'students', 'status': 'active'}), 'کاربر تازه newstudent')
+        self.assertContains(self.client.get(users, {'tab': 'students', 'status': 'active'}), 'New User newstudent')
         ok, page = self._login_ok('newstudent')
         self.assertTrue(ok)
         self.assertEqual(self.client.get(page['Location']).status_code, 200)
@@ -8106,7 +8106,7 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         self.assertFalse(get_user_model().objects.filter(username='newstudent').exists())
         after = self.client.get(users, {'tab': 'students'})
         self.assertContains(after, 'حذف شد')
-        self.assertNotContains(after, 'data-full-name="کاربر تازه newstudent"')  # no longer a row in the list
+        self.assertNotContains(after, 'data-full-name="New User newstudent"')  # no longer a row in the list
 
     def test_new_accounts_profiles_show_real_figures_only(self):
         """A brand-new account's profile shows zeros / «-», never sample values (GPA 17.68, 88 units, fake courses…)."""
@@ -8148,7 +8148,7 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         teacher_id = self._profile_id('newteacher')
         self.client.force_login(self.admin_user)
         listing = self.client.get(reverse('core:super_admin_users'), {'tab': 'teachers', 'status': 'pending'})
-        self.assertContains(listing, 'کاربر تازه newteacher')
+        self.assertContains(listing, 'New User newteacher')
         self.client.post(reverse('core:super_admin_toggle_account_status', args=['teacher', teacher_id]), {'action': 'activate'})
         self.assertEqual(self._rows('SELECT approval_status FROM teacher_profiles WHERE user_id = %s', [teacher_id]), [('approved',)])
         ok, page = self._login_ok('newteacher')
@@ -8176,7 +8176,7 @@ class AdminUsersPageAndRegistrationTests(_EnforcedExamFixture):
         self.assertEqual(self.client.post(toggle, {'action': 'activate'}).status_code, 403)  # no unit yet: not theirs
         with connection.cursor() as cursor:
             cursor.execute('UPDATE student_profiles SET org_unit_id = %s WHERE user_id = %s', [self.ou_scoped, student_id])
-        self.assertContains(self.client.get(reverse('core:super_admin_users'), {'tab': 'students'}), 'کاربر تازه unitstudent')
+        self.assertContains(self.client.get(reverse('core:super_admin_users'), {'tab': 'students'}), 'New User unitstudent')
         self.client.post(toggle, {'action': 'activate'})
         self.assertEqual(self._rows('SELECT status FROM profiles WHERE id = %s', [student_id]), [('active',)])
 
@@ -9626,7 +9626,7 @@ class FieldRulesTests(SimpleTestCase):
     def test_invalid_values_are_reported(self):
         from apps.core.field_rules import clean_person_fields
         self.assertEqual(len(clean_person_fields({'national_id': '0012345678', 'phone': '0812', 'birth_date': '1404/12/30', 'email': 'علی@x'})), 4)
-        self.assertEqual(clean_person_fields({'birth_date': '1403/12/30'}), [])  # 1403 is a leap year
+        self.assertEqual(clean_person_fields({'birth_date': '1375/12/30'}), [])  # 1375 is a leap year
         self.assertEqual(clean_person_fields({'national_id': '', 'phone': ''}), [])
 
     def test_too_long_fields_are_refused_on_every_post(self):
@@ -9693,6 +9693,70 @@ class FieldRulesTests(SimpleTestCase):
         request.user = type('SignedIn', (), {'is_authenticated': True})()
         response = PersonFieldLengthMiddleware(lambda r: None).process_view(request, lambda r: None, (), {})
         self.assertEqual(response.status_code, 400)
+
+
+class ProfessionalFieldRulesTests(SimpleTestCase):
+    """Realistic rules like professional sign-up forms (teacher's report 2026-11-15: an 80 + 80-letter junk name, a
+    254-character e-mail, a 150-character username and a 30-digit personnel code were saved and broke the users page)."""
+
+    JUNK = {
+        'first_name': 'خهشستی نسصتینتسشدینتشدبینتصابیسصتنیاسشنتیاشنتیاشنتیاخهشستی',
+        'email': 'sdadasdlkhqiudh2iuh2iuhkjhkjhsjah' + 'f' * 60 + '@gmail.com',
+        'username': 'sdadasdlkhqiudh2iuh2iuhkjhkjhsjah123333333333333lkhnffffdshfldk',
+        'personnel_code': '123213421321321312312321312321',
+    }
+
+    def test_the_reported_junk_values_are_refused(self):
+        from apps.core.field_rules import format_error, too_long_error
+        for field, value in self.JUNK.items():
+            self.assertTrue(too_long_error({field: value}) or format_error({field: value}), field)
+
+    def test_names(self):
+        from apps.core.field_rules import name_error
+        for good in ('علی', 'محمد رضا', 'عبدالرسول', 'شریعتمداری‌نژاد', 'Ali', "O'Brien", 'Jean-Luc', 'نادری [آزمایشی]'):
+            self.assertEqual(name_error(good), '', good)
+        for bad in ('ع', 'Ali2', 'علی@', 'علیAli', 'ا' * 21, 'سارااا', 'fffff', '...'):
+            self.assertNotEqual(name_error(bad), '', bad)
+
+    def test_emails(self):
+        from apps.core.field_rules import email_error
+        for good in ('a.b@uni.ac.ir', 'name+tag@gmail.com', 'ali_1@my-mail.co', 'x@ab.io'):
+            self.assertEqual(email_error(good), '', good)
+        for bad in ('a..b@x.com', '.ab@x.com', 'ab.@x.com', 'ab@-x.com', 'ab@x-.com', 'ab@x', 'ab@x.c', 'علی@x.com',
+                    'a' * 65 + '@x.com', 'a@' + 'b' * 95 + '.com', 'a b@x.com', 'ab@x..com'):
+            self.assertNotEqual(email_error(bad), '', bad)
+
+    def test_usernames(self):
+        from apps.core.field_rules import username_error
+        for good in ('ali', 'ali.mohammadi', 'mqtest_s01', 'Ali-2', 'alio@gmail.com'):
+            self.assertEqual(username_error(good), '', good)
+        for bad in ('al', '1ali', '_ali', 'ali.', 'ali..m', 'ali__m', 'علی', 'ali m', 'a' * 31):
+            self.assertNotEqual(username_error(bad), '', bad)
+
+    def test_codes_numbers_and_phones(self):
+        from apps.core.field_rules import format_error
+        good = {'personnel_code': 'TCH-1024', 'identifier': 'MQTEST-PEDIATRICS', 'student_number': '403123456',
+                'phone': '09901234567', 'mobile': '09381234567', 'landline': '02188776655'}
+        self.assertEqual(format_error(good), '')
+        for field, value in (('personnel_code', 'T-'), ('personnel_code', 'AB--1'), ('personnel_code', '12'),
+                             ('student_number', '123'), ('student_number', '1' * 16), ('phone', '09512345678'),
+                             ('phone', '09812345678'), ('landline', '0912345678'), ('landline', '09188776655')):
+            self.assertNotEqual(format_error({field: value}), '', (field, value))
+
+    def test_birth_date_age_range(self):
+        from apps.core.field_rules import birth_date_error, today_jalali
+        year, month, day = today_jalali()
+        self.assertEqual(birth_date_error(f'{year - 30}/01/01'), '')
+        self.assertEqual(birth_date_error(f'{year - 15}/{month:02d}/{day:02d}'), '')    # exactly 15 today
+        self.assertIn('۱۵', birth_date_error(f'{year - 10}/01/01'))                     # too young
+        self.assertIn('۱۰۰', birth_date_error(f'{year - 100}/{month:02d}/{day:02d}'))   # 100 years ago
+        self.assertIn('امروز', birth_date_error(f'{year + 1}/01/01'))
+
+    def test_settings_pages_use_the_shared_format_checks(self):
+        # «تنظیمات» / «پروفایل من» show errors on their own form (middleware SELF_VALIDATING) through format_errors.
+        from apps.core.field_rules import format_errors
+        self.assertEqual(format_errors({'first_name': 'علی', 'last_name': 'محمدی'}), [])
+        self.assertEqual(len(format_errors({'first_name': 'Ali2', 'last_name': 'علیAli', 'phone': 'x'}, skip=('phone',))), 2)
 
 
 class PeopleFiltersTests(_ScopedOrgFixture):
@@ -9794,3 +9858,71 @@ class CredentialFlashTests(SimpleTestCase):
         self.assertIn('class="alert-message is-success is-credential"', page)
         self.assertIn('<div class="alert-message is-success" role="status">ذخیره شد.</div>', page)
         self.assertIn('if (credentials.length) return;', page)  # no auto-close timer when a password is shown
+
+
+class RecordFieldRulesTests(SimpleTestCase):
+    """Titles, names, codes and numbers of records (user's 12 screenshots 2026-11-15: 100-letter unbroken junk in
+    course / org unit / group / OSCE fields, 20-digit capacities, negative duration and passing score were saved)."""
+
+    def test_junk_words_and_lengths_are_refused(self):
+        from apps.core.field_rules import too_long_error
+        for post in ({'title': 'jdhaskjdhaskjdhsakjdhaskjdhaskjdhsakjdhaskjdhaskjdhsakjdh'},
+                     {'name': 'lkdjewqkejewhuewqkjlkdjewqkejewhuewqkjlkdjewqkejewhuewqkj'},
+                     {'class_location': 'ک' * 31}, {'specialty': 'jfhdsfhifhskjhkijfhdsfhifhskjhkijfh'},
+                     {'description': 'x' * 2001}, {'title': 'آ ' * 101}):
+            self.assertTrue(too_long_error(post), post)
+        for post in ({'title': '[آزمایشی] بیماری‌های عفونی کودکان'}, {'name': 'دانشگاه علوم پزشکی تهران'},
+                     {'class_schedule': 'شنبه و دوشنبه، ۱۰:۰۰ تا ۱۱:۳۰'}, {'description': 'متن ' * 300},
+                     {'specialty': 'Pediatric Infectious Diseases'}):
+            self.assertEqual(too_long_error(post), '', post)
+
+    def test_codes(self):
+        from apps.core.field_rules import too_long_error
+        for good in ('PED-101', 'MQTEST-C2', 'MATH101', '۱۲۳'):
+            self.assertEqual(too_long_error({'code': good}), '', good)
+        for bad in ('msuadhkjsahdqkjwdhwqiudnqiusdh12', 'PED 101', 'کد۱', '-PED'):
+            self.assertTrue(too_long_error({'code': bad}), bad)
+
+    def test_number_ranges(self):
+        from apps.core.field_rules import number_error
+        for bad in ({'duration_minutes': '-20'}, {'passing_score': '-23'}, {'capacity': '123213213213123'},
+                    {'credit_units': '2313131213'}, {'min_students': 'abc'}, {'waitlist_capacity': '-1'}, {'duration_minutes': '2000'}):
+            self.assertTrue(number_error(bad), bad)
+        for good in ({'duration_minutes': '90'}, {'passing_score': '10'}, {'capacity': '۳۰'}, {'credit_units': ''},
+                     {'negative_mark': '0.25'}):
+            self.assertEqual(number_error(good), '', good)
+
+    def test_group_relations(self):
+        from apps.core.views import _group_form_problem
+        self.assertTrue(_group_form_problem({'capacity': '30', 'min_students': '40'}))
+        self.assertTrue(_group_form_problem({'capacity': '30.5'}))
+        self.assertTrue(_group_form_problem({'registration_start_at': '2026-11-18T00:00', 'registration_end_at': '2026-11-15T00:00'}))
+        self.assertEqual(_group_form_problem({'capacity': '30', 'min_students': '10', 'waitlist_capacity': '5',
+                                              'registration_start_at': '2026-11-15T08:00', 'registration_end_at': '2026-11-18T00:00'}), '')
+
+    def test_course_units(self):
+        from apps.core.views import _course_units
+        self.assertEqual(_course_units('۳'), (3, ''))
+        self.assertEqual(_course_units(''), (None, ''))
+        for bad in ('2.5', '31', '-1', '2313131213'):
+            self.assertTrue(_course_units(bad)[1], bad)
+
+
+class RecordFieldRulesViewTests(_ScopedOrgFixture):
+    def test_course_with_junk_title_or_huge_units_is_not_saved(self):
+        self.client.force_login(self.admin_user)
+        url = reverse('core:super_admin_course_new')
+        for post in ({'title': 'jdhaskjdhaskjdhsakjdhaskjdhaskjdhsakjdhaskjdh', 'credit_units': '3'},
+                     {'title': 'درس آزمون قواعد', 'credit_units': '2313131213'},
+                     {'title': 'درس آزمون قواعد', 'code': 'msuadh kjsah'}):
+            self.client.post(url, post)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM courses WHERE title LIKE 'jdhask%%' OR title = 'درس آزمون قواعد'")
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_old_exam_manager_pages_open_the_wizard(self):
+        self.client.force_login(self.manager_user)
+        response = self.client.get(reverse('core:exam_manager_exam_create'))
+        self.assertRedirects(response, reverse('core:super_admin_exam_create'), fetch_redirect_response=False)
+        response = self.client.get(reverse('core:exam_manager_exam_questions', args=[self.exam_in_id]))
+        self.assertRedirects(response, reverse('core:super_admin_exam_wizard_edit', args=[self.exam_in_id]), fetch_redirect_response=False)

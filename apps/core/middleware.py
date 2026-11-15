@@ -91,8 +91,9 @@ class PersonFieldLengthMiddleware:
     e-mail …), is refused before the view runs:
     JSON 400 for scripts, else the message as a toast and back to the form."""
 
-    # Pages that check these formats themselves and show the error on the form with the typed values kept (nicer than
-    # a toast + redirect); the length caps still apply to them.
+    # Pages that check these formats themselves (wizards: field_rules.clean_person_fields; settings / «پروفایل من»:
+    # their own checks + field_rules.format_errors) and show the error on the form with the typed values kept (nicer
+    # than a toast + redirect); the length caps still apply to them.
     SELF_VALIDATING = {'profile', 'teacher_settings', 'student_settings', 'super_admin_teacher_create',
                        'super_admin_student_create', 'super_admin_manager_create'}
 

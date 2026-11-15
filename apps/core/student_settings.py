@@ -11,7 +11,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db import transaction
 
-from . import account_security
+from . import account_security, field_rules
 from .views import (
     _clean_phone,
     _handle_teacher_security_action,  # shared with the teacher's settings page
@@ -74,8 +74,9 @@ def save_personal_info(request, student_id) -> list:
         errors.append('نام و نام خانوادگی الزامی است.')
     if len(first_name) > NAME_MAX or len(last_name) > NAME_MAX:
         errors.append(f'نام و نام خانوادگی هر کدام حداکثر {NAME_MAX} نویسه است.')
-    if phone_posted and not re.fullmatch(r'09\d{9}', phone):
+    if phone_posted and not field_rules._MOBILE.fullmatch(phone):
         errors.append('شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.')
+    errors += field_rules.format_errors(post, skip=('phone',))  # names (one script, real words …), same as everywhere
     avatar_url = None
     if request.FILES.get('avatar'):
         avatar_url, avatar_error = _save_avatar_upload(request.FILES['avatar'], student_id)
