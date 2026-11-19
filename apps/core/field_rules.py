@@ -529,3 +529,97 @@ class PasswordStrengthValidator:
     def get_help_text(self):
         return {'medium': 'حداقل ۸ نویسه، با حرف انگلیسی و رقم.', 'weak': 'حداقل ۶ نویسه.'}.get(
             current_password_policy(), 'حداقل ۸ نویسه، با حرف بزرگ و کوچک انگلیسی، رقم و نماد.')
+
+
+# ----- tags («تگ‌ها» of the exam wizard) ------------------------------------------------------------------------------
+# Browser twin: TAG_RULES in templates/super_admin/exam_wizard.html (keep both in step). A tag is 2–30 characters of
+# Persian / English letters, digits, space, ZWNJ, «-» and «_» with at least one letter or digit and no word over 25;
+# at most 10 tags. A leading «#» is dropped (hashtag habit); ي/ك → ی/ک, Persian digits → 0-9. Two tags that differ
+# only in case, ZWNJ or spacing are the same tag (the second is refused in the browser and dropped here).
+TAG_MIN, TAG_MAX, TAG_WORD_MAX, TAG_COUNT_MAX = 2, 30, 25, 10
+_TAG_CHARS = re.compile(r'[0-9A-Za-zء-غف-ٕپچژکگیآۀ‌ _\-]+')
+_TAG_LETTER = re.compile(r'[0-9A-Za-zء-غف-ٕپچژکگیآۀ]')
+
+
+def normal_tag(value) -> str:
+    text = latin_digits(value).replace('ي', 'ی').replace('ك', 'ک').lstrip('#').strip()
+    return re.sub(r'\s+', ' ', text).strip(' ‌')
+
+
+def tag_key(value) -> str:
+    """What makes two tags the same: case, ZWNJ and spacing don't count."""
+    return re.sub(r'[\s‌]+', ' ', normal_tag(value)).replace(' ', '').casefold()
+
+
+def tag_error(tag: str) -> str:
+    shown = tag if len(tag) <= TAG_MAX else tag[:TAG_MAX] + '…'
+    if len(tag) > TAG_MAX:
+        return f'تگ «{shown}» بیش از {_fa_num(TAG_MAX)} نویسه است؛ آن را کوتاه‌تر بنویسید.'
+    if not _TAG_CHARS.fullmatch(tag):
+        return f'تگ «{shown}» فقط می‌تواند حرف فارسی یا انگلیسی، رقم، فاصله، «-» و «_» داشته باشد.'
+    if not _TAG_LETTER.search(tag):
+        return f'تگ «{shown}» باید دست‌کم یک حرف یا رقم داشته باشد.'
+    if len(tag) < TAG_MIN:
+        return f'تگ «{shown}» خیلی کوتاه است؛ دست‌کم {_fa_num(TAG_MIN)} نویسه بنویسید.'
+    if long_word(tag, TAG_WORD_MAX):
+        return f'تگ «{shown}» کلمه‌ای بیش از {_fa_num(TAG_WORD_MAX)} نویسه‌ی پشت سر هم دارد؛ تگ را درست و با فاصله بنویسید.'
+    return ''
+
+
+def clean_tags(raw, stored=''):
+    """(tags, error) from the comma-separated «تگ‌ها» field: normalised, duplicates dropped, each checked.
+
+    Tags already saved on the record (`stored`) pass unchanged, so old data never blocks saving other fields."""
+    old = {tag_key(tag) for tag in re.split('[,،\n]', stored or '') if tag.strip()}
+    tags, seen = [], set()
+    old_raw = {tag.strip() for tag in re.split('[,،\n]', stored or '') if tag.strip()}
+    for part in re.split('[,،\n]', str(raw or '')):
+        tag = normal_tag(part)
+        key = tag_key(tag)
+        if not key and part.strip(' ‌') and part.strip() not in old_raw:  # «#####»: nothing of it is left
+            return [], f'تگ «{part.strip()[:TAG_MAX]}» باید دست‌کم یک حرف یا رقم داشته باشد.'
+        if not key or key in seen:
+            continue
+        if key not in old and (error := tag_error(tag)):
+            return [], error
+        seen.add(key)
+        tags.append(tag)
+    if len(tags) > TAG_COUNT_MAX and len(tags) > len(old):
+        return [], f'حداکثر {_fa_num(TAG_COUNT_MAX)} تگ مجاز است؛ تگ‌های اضافه را حذف کنید.'
+    return tags, ''
+
+
+# «محدودیت IP» of an exam (teacher's report 01-09); browser twin ipError in static/js/field-rules.js.
+IP_RANGE_MAX_ITEMS = 20
+IP_RANGE_MAX_CHARS = 500
+IP_PREFIX_MIN = {4: 8, 6: 16}  # a wider range (e.g. 0.0.0.0/0) lets nearly everyone in: not a restriction
+
+
+def ip_range_error(value) -> str:
+    """Why «محدوده IP» text is not a list of IPv4 / IPv6 addresses or CIDR ranges, else '' (empty is '').
+
+    Parts are separated by «,», «،» or spaces; at most 20 parts and 500 characters; no repeated range."""
+    import ipaddress
+
+    text = latin_digits(value or '')
+    if not text:
+        return ''
+    if len(text) > IP_RANGE_MAX_CHARS:
+        return 'حداکثر ۵۰۰ نویسه مجاز است.'
+    parts = [part for part in re.split(r'[\s,،]+', text) if part]
+    if len(parts) > IP_RANGE_MAX_ITEMS:
+        return 'حداکثر ۲۰ نشانی یا محدوده مجاز است.'
+    seen = set()
+    for part in parts:
+        shown = f'⁨{part}⁩'  # isolated: a Latin address inside Persian text
+        try:
+            network = ipaddress.ip_network(part, strict=False)
+        except ValueError:
+            return f'«{shown}» نشانی یا محدوده‌ی IP معتبر نیست؛ مثلاً ⁨192.168.1.0/24⁩ یا ⁨10.0.0.5⁩.'
+        if network.prefixlen < IP_PREFIX_MIN[network.version]:
+            return (f'«{shown}» محدوده‌ی بسیار بزرگی است و عملاً همه را راه می‌دهد؛ پیشوند دست‌کم '
+                    f'⁨/{IP_PREFIX_MIN[network.version]}⁩ باشد.')
+        if network in seen:
+            return f'«{shown}» تکراری است.'
+        seen.add(network)
+    return ''

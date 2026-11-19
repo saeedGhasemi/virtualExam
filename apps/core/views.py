@@ -7989,8 +7989,73 @@ def _store_upload(uploaded, subfolder, allowed_extensions, max_bytes=None):
     return storage.url(filename), None
 
 
-def _save_exam_wizard_upload(request, field_name, subfolder, allowed_extensions):
-    url, _error = _store_upload(request.FILES.get(field_name), subfolder, allowed_extensions)
+# The wizard's file boxes: (POST name, label, subfolder, extensions, most MB). Same limits as their hint text and the
+# browser check in exam_wizard.html (data-upload-drop: data-max-mb / accept).
+EXAM_WIZARD_UPLOADS = (
+    ('cover_image', 'تصویر کاور', 'exam-covers', ('jpg', 'jpeg', 'png'), 2),
+    ('guidance_file', 'فایل راهنما', 'exam-guidance', ('pdf', 'jpg', 'jpeg', 'png'), 10),
+)
+
+
+UPLOAD_IMAGE_MIN_SIDE = 100   # px: smaller is unreadable (teacher's report 01-10); the wizard's JS has the same
+UPLOAD_IMAGE_MAX_SIDE = 8000  # px: a larger picture is not a guide / cover (and costs memory to open)
+
+
+def _upload_problem(uploaded, label, extensions, max_mb) -> str:
+    """Why this uploaded file can't be stored, or '': format by extension and content, empty file, size, image sides."""
+    if not uploaded:
+        return ''
+    from .templatetags.core_extras import fa_digits
+
+    name = uploaded.name or ''
+    extension = (name.rsplit('.', 1)[-1] if '.' in name else '').lower()
+    allowed = '، '.join(sorted({ext.upper() for ext in extensions} - {'JPEG'}))
+    if extension not in extensions:
+        return f'«{label}»: فرمت فایل «{name}» مجاز نیست؛ فقط {allowed}.'
+    if not uploaded.size:
+        return f'«{label}»: فایل «{name}» خالی است.'
+    if uploaded.size > max_mb * 1024 * 1024:
+        return f'«{label}»: حجم فایل «{name}» بیش از {fa_digits(max_mb)} مگابایت است.'
+    try:
+        uploaded.seek(0)
+        if extension == 'pdf':
+            ok = uploaded.read(5) == b'%PDF-'
+        else:
+            from PIL import Image
+
+            with Image.open(uploaded) as image:
+                ok = image.format in (('PNG',) if extension == 'png' else ('JPEG', 'MPO'))  # MPO: some camera JPEGs
+                width, height = image.size
+                image.verify()
+    except Exception:
+        ok = False
+    finally:
+        uploaded.seek(0)
+    if not ok:
+        return f'«{label}»: فایل «{name}» خراب است یا محتوای آن با پسوند {extension.upper()} جور نیست.'
+    if extension != 'pdf' and min(width, height) < UPLOAD_IMAGE_MIN_SIDE:
+        return (f'«{label}»: تصویر «{name}» {fa_digits(width)}×{fa_digits(height)} پیکسل است؛ هر ضلع دست‌کم '
+                f'{fa_digits(UPLOAD_IMAGE_MIN_SIDE)} پیکسل باشد تا خوانا بماند.')
+    if extension != 'pdf' and max(width, height) > UPLOAD_IMAGE_MAX_SIDE:
+        return (f'«{label}»: تصویر «{name}» {fa_digits(width)}×{fa_digits(height)} پیکسل است؛ هر ضلع حداکثر '
+                f'{fa_digits(UPLOAD_IMAGE_MAX_SIDE)} پیکسل.')
+    return ''
+
+
+def _exam_wizard_upload_error(request) -> str:
+    for field, label, _folder, extensions, max_mb in EXAM_WIZARD_UPLOADS:
+        if problem := _upload_problem(request.FILES.get(field), label, extensions, max_mb):
+            return problem + ' فایل درست را دوباره انتخاب کنید.'
+    return ''
+
+
+def _save_exam_wizard_upload(request, field_name):
+    """URL of the wizard file `field_name` stored under MEDIA_ROOT, or None (none sent; checked earlier)."""
+    _field, label, subfolder, extensions, max_mb = next(item for item in EXAM_WIZARD_UPLOADS if item[0] == field_name)
+    uploaded = request.FILES.get(field_name)
+    if not uploaded or _upload_problem(uploaded, label, extensions, max_mb):
+        return None
+    url, _error = _store_upload(uploaded, subfolder, set(extensions), max_mb * 1024 * 1024)
     return url
 
 
@@ -8336,8 +8401,10 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
 
     exam_id = str(uuid.uuid4())
 
-    cover_image_url = _save_exam_wizard_upload(request, 'cover_image', 'exam-covers', {'jpg', 'jpeg', 'png'})
-    guidance_file_url = _save_exam_wizard_upload(request, 'guidance_file', 'exam-guidance', {'pdf', 'jpg', 'jpeg', 'png'})
+    cover_image_url = _save_exam_wizard_upload(request, 'cover_image')
+    guidance_file_url = _save_exam_wizard_upload(request, 'guidance_file')
+    posted_tags = request.POST.get('tags', '')
+    tags, _tags_error = field_rules.clean_tags(posted_tags, posted_tags)  # checked by _exam_wizard_settings_error
 
     optional_columns = [
         ('result_release_mode', request.POST.get('result_release_mode') or 'after_exam'),
@@ -8352,7 +8419,7 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         ('show_feedback', bool(request.POST.get('show_feedback'))),
         ('publish_mode', publish_choice),
         ('exam_mode', request.POST.get('exam_mode') or 'standard'),
-        ('tags', request.POST.get('tags', '').strip()),
+        ('tags', '، '.join(tags)),
         ('grading_template', request.POST.get('grading_template') or 'detailed_score'),
         ('registration_start_at', registration_start_at),
         ('registration_end_at', registration_end_at),
@@ -8390,9 +8457,10 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
         ('passing_percent', passing_percent),
         ('settings_enforced', True),  # these settings were chosen in the wizard, so they apply (see _sx_exam_rules)
     ]
-    if cover_image_url:
+    # A new file replaces the saved one; «×» on a saved file (remove_…) clears it; otherwise it stays.
+    if cover_image_url or (existing_exam_id and request.POST.get('remove_cover_image')):
         optional_columns.append(('cover_image_url', cover_image_url))
-    if guidance_file_url:
+    if guidance_file_url or (existing_exam_id and request.POST.get('remove_guidance_file')):
         optional_columns.append(('guidance_file_url', guidance_file_url))
     insert_columns = [
         'id', 'teacher_id', 'course_id', 'title', 'description', 'duration_minutes', 'start_at', 'end_at',
@@ -8491,6 +8559,11 @@ def _exam_wizard_insert(request, *, title, teacher_id, course_id, first_group, s
 
 
 def _exam_wizard_render(request, resources, **extra):
+    retry = request.session.pop('exam_wizard_retry', None) if request.method == 'GET' else None
+    if retry and retry.get('url') == request.path:
+        extra['wizard_initial'] = retry['initial']
+    if extra.get('saved_exam_id'):
+        extra['exam_history'] = _exam_history(extra['saved_exam_id'])
     question_type_cards = [
         {'key': 'short_answer', 'label': 'پاسخ کوتاه', 'icon': 'text'},
         {'key': 'single', 'label': 'چهارگزینه‌ای', 'icon': 'list'},
@@ -8526,44 +8599,137 @@ def _exam_wizard_render(request, resources, **extra):
     })
 
 
-def _exam_wizard_settings_error(request):
-    """The first problem with the wizard's timing and scoring fields as a message, else None (the wizard checks the same).
+def _exam_wizard_settings_error(request, exam=None):
+    """The first problem with the wizard's files, tags, timing and scoring fields as a message, else None (the wizard
+    checks the same).
 
-    A draft may still lack its start time; an exam sent for approval or published may not."""
+    A draft may still lack its start time; an exam sent for approval or published may not. Tags already saved on
+    `exam` pass unchanged."""
     post = request.POST
+    if upload_error := _exam_wizard_upload_error(request):
+        return upload_error
+    _tags, tags_error = field_rules.clean_tags(post.get('tags'), (exam or {}).get('tags') or '')
+    if tags_error:
+        return tags_error
     try:
         duration = int(post.get('duration_minutes') or 45)
     except (TypeError, ValueError):
         duration = 0
-    if duration <= 0:
-        return 'مدت زمان آزمون باید بیشتر از صفر باشد.'
+    if not 1 <= duration <= EXAM_DURATION_MAX:
+        return 'مدت زمان آزمون باید عددی صحیح از ۱ تا ۱۴۴۰ دقیقه (۲۴ ساعت) باشد.'
+    # Step 5 numbers (teacher's report 01-08): one plain number each, in range, no more decimals than the box allows.
+    for name, label in (('min_passing_percent', 'نمره قبولی (حداقل درصد)'), ('passing_score_total', 'مجموع نمرات کل آزمون'),
+                        ('negative_factor', 'مقدار جریمه برای پاسخ غلط')):
+        raw = (post.get(name) or '').strip()
+        if raw and not re.fullmatch(r'\d+(\.\d+)?', raw):
+            return f'«{label}» باید فقط یک عدد باشد (رقم و حداکثر یک ممیز).'
     percent = (post.get('min_passing_percent') or '').strip()
     if percent and not 0 <= _sx_float(percent, -1) <= 100:
         return 'نمره قبولی باید درصدی بین ۰ تا ۱۰۰ باشد.'
+    if percent and _sx_float(percent, 0) % 1:
+        return '«نمره قبولی (حداقل درصد)» باید عدد صحیح باشد (بدون اعشار)، مثلاً ۶۰.'
+    factor_raw = (post.get('negative_factor') or '').strip()
+    if '.' in factor_raw and len(factor_raw.split('.')[1].rstrip('0')) > 2:
+        return '«مقدار جریمه برای پاسخ غلط» حداکثر دو رقم اعشار دارد، مثلاً ۰٫۲۵.'
+    for key, raw in post.items():
+        if key.startswith('question_points_') and (raw or '').strip():
+            points = raw.strip()
+            if not re.fullmatch(r'\d+(\.\d+)?', points) or not 0.25 <= float(points) <= 1000 or (float(points) * 4) % 1:
+                return 'نمره‌ی هر سؤال باید عددی از ۰٫۲۵ تا ۱۰۰۰ و مضربی از ۰٫۲۵ باشد (مثلاً ۱، ۱٫۵ یا ۲٫۲۵).'
     total = (post.get('passing_score_total') or '').strip()
     if total and _sx_float(total, -1) <= 0:
         return '«مجموع نمرات کل آزمون» باید بیشتر از صفر باشد.'
+    if total and _sx_float(total, 0) > 1000:
+        return '«مجموع نمرات کل آزمون» حداکثر ۱۰۰۰ است.'
+    if total and (_sx_float(total, 0) * 4) % 1:
+        return '«نمره کل آزمون» باید مضربی از ۰٫۲۵ باشد (حداکثر دو رقم اعشار)، مثلاً ۲۰ یا ۱۹٫۷۵.'
     factor = (post.get('negative_factor') or '').strip()
     if factor and not 0 <= _sx_float(factor, -1) <= 1:
         return '«مقدار جریمه برای پاسخ غلط» باید عددی بین ۰ تا ۱ باشد (سهمی از نمره‌ی سؤال که کم می‌شود؛ پاسخ غلط نمره اضافه نمی‌دهد).'
-    if post.get('ip_restriction_enabled') and not _parse_ip_networks(post.get('ip_restriction_range')):
+    # «محدودیت IP» (teacher's report 01-09): checked whenever written; needed when switched on. A range saved earlier
+    # and left unchanged while the switch is off passes (it is not used).
+    ip_range = (post.get('ip_restriction_range') or '').strip()
+    ip_saved = ip_range == ((exam or {}).get('ip_restriction_range') or '').strip()
+    if ip_range and not (ip_saved and not post.get('ip_restriction_enabled')):
+        if ip_error := field_rules.ip_range_error(ip_range):
+            return f'«محدودیت IP»: {ip_error}'
+    if post.get('ip_restriction_enabled') and not _parse_ip_networks(ip_range):
         return 'برای «محدودیت IP» یک محدوده‌ی معتبر وارد کنید (مثلاً 192.168.1.0/24؛ چند مورد را با ویرگول جدا کنید).'
-    start_at = _parse_exam_wizard_datetime(post.get('start_at'))
-    if not start_at:
-        return None if (post.get('publish_choice') or 'draft') == 'draft' else 'تاریخ و زمان شروع آزمون را انتخاب کنید.'
-    end_at = _parse_exam_wizard_datetime(post.get('end_at')) or start_at + timedelta(minutes=duration)
-    if end_at <= start_at:
+    times = {name: _parse_exam_wizard_datetime(post.get(name)) for name in EXAM_TIME_LABELS}
+    for name in EXAM_TIME_LABELS:
+        if (post.get(name) or '').strip() and not times[name]:
+            return f'«{EXAM_TIME_LABELS[name]}» تاریخ و ساعت معتبری نیست؛ آن را دوباره از تقویم انتخاب کنید.'
+    start_at = times['start_at']
+    if not start_at and (post.get('publish_choice') or 'draft') != 'draft':
+        return 'تاریخ و زمان شروع آزمون را انتخاب کنید.'
+    if start_at and not times['end_at']:
+        times['end_at'] = start_at + timedelta(minutes=duration)
+    return exam_timing_problem(times, saved=exam)
+
+
+# The wizard's time fields (POST name = exams column) in the order they happen; the wizard's JS has the same rules.
+EXAM_TIME_LABELS = {
+    'registration_start_at': 'شروع دسترسی',
+    'start_at': 'تاریخ و زمان شروع آزمون',
+    'last_entry_at': 'آخرین زمان مجاز ورود',
+    'registration_end_at': 'پایان دسترسی',
+    'end_at': 'پایان آزمون',
+}
+EXAM_DURATION_MAX = 1440                     # minutes (24 hours), as field_rules.NUMBER_RANGE
+EXAM_TIME_PAST_GRACE = timedelta(minutes=5)  # a time picked «now» stays valid while the form is finished
+EXAM_TIME_HORIZON = timedelta(days=365)      # an exam starts at most a year ahead
+EXAM_ACCESS_LEAD_MAX = timedelta(days=30)    # «شروع دسترسی» at most 30 days before the exam starts
+
+
+def exam_timing_problem(times, saved=None, now=None):
+    """The first problem with an exam's times as a message, else None (teacher's report 01-04…01-07).
+
+    times: {name in EXAM_TIME_LABELS: aware datetime or None}. Order: شروع دسترسی ≤ شروع آزمون < آخرین زمان مجاز ورود
+    ≤ پایان آزمون, and شروع آزمون < پایان دسترسی ≤ پایان آزمون (after the exam's end access is closed anyway) and
+    ≥ آخرین زمان مجاز ورود. A new or changed time may not be in the past (5 minutes' grace), the start not more than a
+    year ahead, «شروع دسترسی» not more than 30 days before the start. A time equal to the one stored on `saved`
+    (an exam row; same minute) skips those three checks, so an exam whose start has passed can still be edited.
+    """
+    now = now or timezone.now()
+    saved = saved or {}
+    start, end = times.get('start_at'), times.get('end_at')
+    access_start, last_entry, access_end = (times.get(name) for name in ('registration_start_at', 'last_entry_at', 'registration_end_at'))
+
+    def fresh(name):
+        value, old = times.get(name), erd_datetime(saved.get(name)) if saved.get(name) else None
+        return bool(value) and not (old and abs((value - old).total_seconds()) < 60)
+
+    def label(name):
+        return f'«{EXAM_TIME_LABELS[name]}»'
+
+    def when(value):
+        return _to_jalali(value)
+
+    for name in EXAM_TIME_LABELS:
+        if fresh(name) and times[name] < now - EXAM_TIME_PAST_GRACE:
+            return f'{label(name)} ({when(times[name])}) گذشته است؛ زمانی از اکنون به بعد انتخاب کنید.'
+    if fresh('start_at') and start > now + EXAM_TIME_HORIZON:
+        return f'{label("start_at")} حداکثر یک سال بعد از امروز (تا {when(now + EXAM_TIME_HORIZON)}) می‌تواند باشد.'
+    if not start:
+        return None
+    if end and end <= start:
         return 'زمان پایان آزمون باید بعد از شروع آن باشد.'
-    access_start = _parse_exam_wizard_datetime(post.get('registration_start_at'))
-    last_entry = _parse_exam_wizard_datetime(post.get('last_entry_at'))
-    access_end = _parse_exam_wizard_datetime(post.get('registration_end_at'))
-    if access_start and access_start > start_at:
-        return '«شروع دسترسی» نباید بعد از شروع آزمون باشد.'
-    if last_entry and not start_at <= last_entry <= end_at:
-        return (f'«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد (از {_to_jalali(start_at)} تا {_to_jalali(end_at)}); '
-                'اگر محدودیتی نمی‌خواهید، آن را خالی بگذارید.')
-    if access_end and access_end < start_at:
-        return '«پایان دسترسی» نباید قبل از شروع آزمون باشد.'
+    if access_start:
+        if access_start > start:
+            return f'{label("registration_start_at")} نباید بعد از شروع آزمون ({when(start)}) باشد.'
+        if fresh('registration_start_at') and start - access_start > EXAM_ACCESS_LEAD_MAX:
+            return f'{label("registration_start_at")} حداکثر ۳۰ روز پیش از شروع آزمون (از {when(start - EXAM_ACCESS_LEAD_MAX)} به بعد) می‌تواند باشد.'
+    if last_entry and not (start < last_entry and (not end or last_entry <= end)):
+        return (f'{label("last_entry_at")} باید بعد از شروع و تا پایان آزمون باشد (بعد از {when(start)}'
+                + (f' تا {when(end)}' if end else '') + ')؛ اگر محدودیتی نمی‌خواهید، آن را خالی بگذارید.')
+    if access_end:
+        if access_end <= start:
+            return f'{label("registration_end_at")} باید بعد از شروع آزمون ({when(start)}) باشد.'
+        if last_entry and access_end < last_entry:
+            return f'{label("registration_end_at")} نباید قبل از «آخرین زمان مجاز ورود» ({when(last_entry)}) باشد.'
+        if end and fresh('registration_end_at') and access_end > end:
+            return (f'{label("registration_end_at")} نباید بعد از پایان آزمون ({when(end)}) باشد؛ پس از پایان آزمون دسترسی '
+                    'خودبه‌خود بسته می‌شود. اگر محدودیتی نمی‌خواهید، آن را خالی بگذارید.')
     return None
 
 
@@ -8619,22 +8785,17 @@ def super_admin_exam_create(request):
         course_id = request.POST.get('course_id') or (first_group or {}).get('course_id')
         teacher_id = request.POST.get('teacher_id') or (first_group or {}).get('selected_teacher_id') or (first_group or {}).get('teacher_id')
         if not title or not course_id or not teacher_id:
-            messages.error(request, 'عنوان آزمون، درس و استاد الزامی است.')
-            return redirect('core:super_admin_exam_create')
+            return _exam_wizard_retry(request, reverse('core:super_admin_exam_create'), 'عنوان آزمون، درس و استاد الزامی است.')
         if not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
             return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         if not selected_groups and not selected_students:
-            messages.error(request, 'حداقل یک گروه یا دانشجو برای آزمون انتخاب کنید.')
-            return redirect('core:super_admin_exam_create')
+            return _exam_wizard_retry(request, reverse('core:super_admin_exam_create'), 'حداقل یک گروه یا دانشجو برای آزمون انتخاب کنید.')
         if not selected_questions:
-            messages.error(request, 'حداقل یک سوال برای آزمون انتخاب کنید.')
-            return redirect('core:super_admin_exam_create')
+            return _exam_wizard_retry(request, reverse('core:super_admin_exam_create'), 'حداقل یک سوال برای آزمون انتخاب کنید.')
         if settings_error := _exam_wizard_settings_error(request):
-            messages.error(request, settings_error)
-            return redirect('core:super_admin_exam_create')
+            return _exam_wizard_retry(request, reverse('core:super_admin_exam_create'), settings_error)
         if conflict := _exam_question_mode_conflict(selected_questions, request.POST.get('exam_mode')):
-            messages.error(request, conflict)
-            return redirect('core:super_admin_exam_create')
+            return _exam_wizard_retry(request, reverse('core:super_admin_exam_create'), conflict)
         if not is_admin:
             if managed_unit_ids is not None and str(course_id) not in {str(c['id']) for c in courses}:
                 return HttpResponseForbidden('درس انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
@@ -8670,6 +8831,7 @@ def super_admin_exam_create(request):
             approval_status='approved' if publish_choice in ('immediate', 'scheduled') else 'pending',
         )
         notified = announce_exam_published(new_exam_id) if is_published else 0
+        log_activity(request.user, 'exam_created', f'آزمون {title} با ویزارد ایجاد شد.', request, {'exam_id': str(new_exam_id)})
         messages.success(request, 'آزمون با موفقیت ایجاد شد' + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
         return redirect('core:super_admin_exams')
 
@@ -8700,12 +8862,11 @@ def super_admin_exam_wizard_edit(request, exam_id):
             'عنوان آزمون و درس الزامی است.' if not posted['title'] or not course_id
             else 'حداقل یک گروه یا دانشجو برای آزمون انتخاب کنید.' if not posted['group_ids'] and not posted['student_ids']
             else 'حداقل یک سوال برای آزمون انتخاب کنید.' if not posted['question_ids']
-            else _exam_wizard_settings_error(request)
+            else _exam_wizard_settings_error(request, exam)
             or _exam_question_mode_conflict(posted['question_ids'], request.POST.get('exam_mode'), exam_id)
         )
         if problem:
-            messages.error(request, problem)
-            return redirect(retry_url)
+            return _exam_wizard_retry(request, retry_url, problem, exam)
         checks = (
             ('courses', [course_id]), ('groups', posted['group_ids']),
             ('students', posted['student_ids'] + posted['excluded_student_ids']),
@@ -8728,6 +8889,7 @@ def super_admin_exam_wizard_edit(request, exam_id):
             choice = exam.get('publish_mode') or 'draft'
             state = {'is_published': was_published, 'lifecycle_status': exam.get('lifecycle_status') or 'draft',
                      'approval_status': exam.get('approval_status') or 'pending'}
+        before = _exam_snapshot(exam_id)
         _exam_wizard_insert(
             request, title=posted['title'], teacher_id=exam['teacher_id'], course_id=course_id, first_group=posted['first_group'],
             selected_questions=posted['question_ids'], selected_groups=posted['group_ids'],
@@ -8741,7 +8903,8 @@ def super_admin_exam_wizard_edit(request, exam_id):
             messages.success(request, 'آزمون ذخیره و منتشر شد' + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
         else:
             messages.success(request, 'تنظیمات آزمون ذخیره شد.')
-        log_activity(request.user, 'exam_wizard_edited', f"تنظیمات آزمون {posted['title']} با ویزارد ویرایش شد.", request, {'exam_id': str(exam_id)})
+        log_activity(request.user, 'exam_wizard_edited', f"تنظیمات آزمون {posted['title']} با ویزارد ویرایش شد.", request,
+                     {'exam_id': str(exam_id), 'changes': _exam_changes(before, _exam_snapshot(exam_id))})
         return redirect(f'{edit_url}?step=5&saved=1')
     return _exam_wizard_render(
         request, resources,
@@ -16893,8 +17056,157 @@ def _exam_wizard_initial(exam) -> dict:
         'staff': [{'teacher_id': str(row['teacher_id']), 'role': row['role']} for row in erd_rows(
             'SELECT teacher_id, role FROM exam_staff WHERE exam_id = %s', [exam_id])],
         'tags': [tag.strip() for tag in re.split('[,،]', exam.get('tags') or '') if tag.strip()],
+        'files': {'cover_image': exam.get('cover_image_url') or '', 'guidance_file': exam.get('guidance_file_url') or ''},
         'publish_choice': 'submit' if exam.get('lifecycle_status') == 'pending_approval' else 'draft',
     }
+
+
+def _exam_wizard_posted_initial(request, exam=None, problem='') -> dict:
+    """The wizard's pre-fill from what was just posted (teacher's report: a refused «ثبت آزمون» came back as an empty
+    wizard on step 1 and everything typed was lost). Same shape as _exam_wizard_initial, plus:
+    posted (unchecked boxes are off), step (where the problem is), problem (shown on that step) and saved_times
+    (the exam's stored times, so «not in the past» still applies to times that were changed)."""
+    post = request.POST
+    lists = {'group_ids', 'student_ids', 'excluded_student_ids', 'question_ids', 'staff_teacher_id', 'staff_role'}
+    fields = {key: post.get(key) for key in post
+              if key not in lists and key != 'csrfmiddlewaretoken' and not key.startswith('question_points_')}
+    saved = _exam_wizard_initial(exam) if exam else {'fields': {}, 'files': {}}
+    files = dict(saved.get('files') or {})
+    for name in ('cover_image', 'guidance_file'):
+        if post.get(f'remove_{name}'):
+            files[name] = ''
+    lost_files = [label for name, label, *_rest in EXAM_WIZARD_UPLOADS if request.FILES.get(name)]
+    return {
+        'posted': True,
+        'fields': fields,
+        'group_ids': [item for item in post.getlist('group_ids') if item],
+        'student_ids': [item for item in post.getlist('student_ids') if item],
+        'excluded_student_ids': [item for item in post.getlist('excluded_student_ids') if item],
+        'question_ids': [item for item in post.getlist('question_ids') if item],
+        'question_points': {key[len('question_points_'):]: post.get(key) for key in post if key.startswith('question_points_')},
+        'staff': [{'teacher_id': teacher, 'role': role} for teacher, role in zip(post.getlist('staff_teacher_id'), post.getlist('staff_role')) if teacher],
+        'tags': [tag.strip() for tag in re.split('[,،]', post.get('tags') or '') if tag.strip()],
+        'files': files,
+        'publish_choice': post.get('publish_choice_ui') or post.get('publish_choice') or 'draft',
+        'saved_times': {name: (saved.get('fields') or {}).get(name, '') for name in EXAM_TIME_LABELS},
+        'step': _exam_wizard_problem_step(problem),
+        'problem': problem + (f' (فایل «{"» و «".join(lost_files)}» را دوباره انتخاب کنید؛ مرورگر فایل انتخاب‌شده را دوباره نمی‌فرستد.)'
+                              if lost_files else ''),
+    }
+
+
+def _exam_wizard_retry(request, retry_url, problem, exam=None):
+    """A refused wizard save: the message, and the posted values kept in the session so the wizard opens again filled in
+    (on the step of the problem) instead of empty (post / redirect / get; read once by _exam_wizard_render)."""
+    messages.error(request, problem)
+    request.session['exam_wizard_retry'] = {'url': retry_url, 'initial': _exam_wizard_posted_initial(request, exam, problem)}
+    return redirect(retry_url)
+
+
+def _exam_wizard_problem_step(problem) -> int:
+    """The wizard step a server message is about (the page opens there, the message on top)."""
+    text = problem or ''
+    for step, words in (
+        (1, ('عنوان آزمون', 'تگ', 'تصویر کاور', 'گروه یا دانشجو')),
+        (2, ('شروع آزمون', 'مدت زمان', 'دسترسی', 'آخرین زمان', 'پایان آزمون', 'گذشته است', 'یک سال')),
+        (3, ('سوال', 'سؤال')),
+        (5, ('نمره', 'جریمه', 'درصد')),
+        (6, ('محدودیت IP', 'فایل راهنما')),
+        (4, ('عوامل', 'استاد')),
+        (1, ('درس',)),
+    ):
+        if any(word in text for word in words):
+            return step
+    return 7
+
+
+# «مشاهده ویرایش‌های قبلی» (teacher's report: the button did nothing): what each save changed, kept in the activity log.
+EXAM_HISTORY_FIELDS = (
+    ('title', 'عنوان'), ('course_id', 'درس'), ('exam_mode', 'نوع آزمون'), ('description', 'توضیحات'), ('tags', 'تگ‌ها'),
+    ('cover_image_url', 'تصویر کاور'), ('start_at', 'زمان شروع'), ('duration_minutes', 'مدت آزمون'),
+    ('registration_start_at', 'شروع دسترسی'), ('last_entry_at', 'آخرین زمان مجاز ورود'),
+    ('registration_end_at', 'پایان دسترسی'), ('max_attempts', 'تعداد تلاش'), ('total_score', 'نمره‌ی کل'),
+    ('passing_percent', 'نمره‌ی قبولی'), ('negative_factor', 'جریمه‌ی پاسخ غلط'), ('ip_restriction_range', 'محدوده‌ی IP'),
+    ('guidance_file_url', 'فایل راهنما'), ('scheduled_publish_at', 'زمان انتشار'),
+)
+EXAM_HISTORY_IGNORED = {'id', 'created_at', 'updated_at', 'end_at', 'teacher_id', 'publish_mode', 'is_published',
+                        'lifecycle_status', 'approval_status', 'approved_at', 'approved_by', 'start_date', 'end_date',
+                        'academic_year', 'semester'}
+EXAM_HISTORY_ACTIONS = {
+    'teacher_exam_created': 'ایجاد آزمون (پیش‌نویس)', 'exam_created': 'ایجاد آزمون', 'teacher_exam_updated': 'ویرایش در ویزارد',
+    'exam_wizard_edited': 'ویرایش کامل در ویزارد', 'teacher_exam_submitted': 'ارسال برای تأیید', 'exam_approved': 'تأیید آزمون',
+    'exam_settings_updated': 'تغییر تنظیمات در مدیریت آزمون', 'exam_duplicated': 'ساخته‌شده با تکثیر',
+    'teacher_exam_duplicated': 'ساخته‌شده با تکثیر',
+}
+
+
+def _exam_snapshot(exam_id) -> dict:
+    """What a wizard save can change, to compare before and after (_exam_changes)."""
+    row = erd_row('SELECT * FROM exams WHERE id = %s', [exam_id]) or {}
+    return {
+        'row': {key: ('' if value is None else str(value)) for key, value in row.items()},
+        'questions': [(str(q['question_id']), str(q['points'])) for q in erd_rows(
+            'SELECT question_id, points FROM exam_questions WHERE exam_id = %s ORDER BY order_index', [exam_id])],
+        'audience': sorted(f"{r['group_id']}:{r['student_profile_id']}" for r in erd_rows(
+            'SELECT group_id, student_profile_id FROM exam_assignments WHERE exam_id = %s', [exam_id])),
+        'staff': sorted(f"{r['teacher_id']}:{r['role']}" for r in erd_rows(
+            'SELECT teacher_id, role FROM exam_staff WHERE exam_id = %s', [exam_id])),
+    }
+
+
+def _exam_changes(before, after) -> list:
+    """The names of what differs between two _exam_snapshot()s, in the wizard's order."""
+    old, new = before['row'], after['row']
+    names = [label for column, label in EXAM_HISTORY_FIELDS if column in new and old.get(column, '') != new.get(column, '')]
+    if [q for q, _p in before['questions']] != [q for q, _p in after['questions']]:
+        names.append('سؤال‌ها و ترتیب آن‌ها')
+    elif before['questions'] != after['questions']:
+        names.append('نمره‌ی سؤال‌ها')
+    if before['audience'] != after['audience']:
+        names.append('گروه‌ها و دانشجویان')
+    if before['staff'] != after['staff']:
+        names.append('عوامل آزمون')
+    known = {column for column, _label in EXAM_HISTORY_FIELDS} | EXAM_HISTORY_IGNORED
+    if any(old.get(key, '') != value for key, value in new.items() if key not in known):
+        names.append('سایر تنظیمات (قوانین، امنیت، نمره‌دهی)')
+    return names
+
+
+def _exam_history(exam_id) -> list:
+    """The exam's saves and state changes, newest first: when, who, what, and which parts changed."""
+    labels = dict(EXAM_HISTORY_FIELDS)
+    rows = erd_rows(
+        """
+        SELECT l.action, l.reason, l.metadata, l.created_at, l.actor_id, p.full_name
+        FROM activity_audit_log l
+        LEFT JOIN profiles p ON p.id = l.actor_id
+        WHERE CAST(l.metadata AS jsonb) ->> 'exam_id' = %s AND l.action = ANY(%s)
+        ORDER BY l.created_at DESC
+        LIMIT 50
+        """,
+        [str(exam_id), list(EXAM_HISTORY_ACTIONS)],
+    )
+    history = []
+    role_of = {}
+    for row in rows:
+        actor = str(row['actor_id'] or '')
+        if actor not in role_of:  # the highest of the actor's roles (user_roles), as erd_primary_role
+            roles = erd_roles_for_profile(actor) if actor else []
+            role_of[actor] = next((role for role in ('admin', 'academic_manager', 'teacher', 'student') if role in roles), '')
+        meta = row['metadata'] if isinstance(row['metadata'], dict) else json.loads(row['metadata'] or '{}')
+        changes = meta.get('changes')
+        if changes is None and meta.get('fields'):  # the exam hub's «تنظیمات» lists columns
+            changes = [labels.get(column, column) for column in meta['fields']]
+        history.append({
+            'action': EXAM_HISTORY_ACTIONS.get(row['action'], row['action']),
+            'note': row['reason'] or '',
+            'at': erd_datetime(row['created_at']),
+            'actor': row['full_name'] or 'کاربر سامانه',
+            'role': erd_role_name(role_of[actor]),
+            'changes': changes or [],
+            'no_change': changes == [],
+        })
+    return history
 
 
 def _teacher_exam_wizard(request, exam=None):
@@ -16910,13 +17222,11 @@ def _teacher_exam_wizard(request, exam=None):
             else 'حداقل یک سوال برای آزمون انتخاب کنید.' if not posted['question_ids']
             else None
         )
-        missing = missing or _exam_wizard_settings_error(request)
+        missing = missing or _exam_wizard_settings_error(request, exam)
         if missing:
-            messages.error(request, missing)
-            return redirect(retry_url)
+            return _exam_wizard_retry(request, retry_url, missing, exam)
         if conflict := _exam_question_mode_conflict(posted['question_ids'], request.POST.get('exam_mode'), exam['id'] if exam else None):
-            messages.error(request, conflict)
-            return redirect(retry_url)
+            return _exam_wizard_retry(request, retry_url, conflict, exam)
         checks = (
             ('courses', [course_id]),
             ('groups', posted['group_ids']),
@@ -16927,6 +17237,7 @@ def _teacher_exam_wizard(request, exam=None):
         if not all(_exam_wizard_ids_in_scope(scope, kind, ids) for kind, ids in checks):
             return HttpResponseForbidden('برخی موارد انتخاب‌شده خارج از درس‌ها، گروه‌ها یا سؤال‌های شماست.')
         submit = request.POST.get('publish_choice') == 'submit'
+        before = _exam_snapshot(exam['id']) if exam else None
         exam_id = _exam_wizard_insert(
             request, title=posted['title'], teacher_id=request.erd_profile_id, course_id=course_id,
             first_group=posted['first_group'], selected_questions=posted['question_ids'],
@@ -16938,12 +17249,13 @@ def _teacher_exam_wizard(request, exam=None):
             existing_exam_id=exam['id'] if exam else None,
         )
         action = 'ویرایش و ' if exam else ''
+        meta = {'exam_id': exam_id, **({'changes': _exam_changes(before, _exam_snapshot(exam_id))} if before else {})}
         if submit:
-            log_activity(request.user, 'teacher_exam_submitted', f"آزمون {posted['title']} {action}برای تأیید ارسال شد.", request, {'exam_id': exam_id})
+            log_activity(request.user, 'teacher_exam_submitted', f"آزمون {posted['title']} {action}برای تأیید ارسال شد.", request, meta)
             messages.success(request, 'آزمون ذخیره و برای تأیید مدیر آموزشی ارسال شد.')
         else:
             log_activity(request.user, 'teacher_exam_updated' if exam else 'teacher_exam_created',
-                         f"آزمون {posted['title']} {action}به‌صورت پیش‌نویس ذخیره شد.", request, {'exam_id': exam_id})
+                         f"آزمون {posted['title']} {action}به‌صورت پیش‌نویس ذخیره شد.", request, meta)
             messages.success(request, 'آزمون به‌صورت پیش‌نویس ذخیره شد.')
         return redirect(f"{reverse('core:teacher_exams')}?{urlencode({'saved': exam_id})}")  # shows its «کد آزمون» card
     return _exam_wizard_render(
@@ -19399,8 +19711,10 @@ def _sx_answer_dashboard(items, current_index):
     }
 
 
-# Extra seconds after the exam timer hits zero, so the browser's final autosave/auto-submit still lands.
-ATTEMPT_GRACE_SECONDS = 60
+# Extra seconds after the exam timer hits zero, so the browser's final autosave/auto-submit still lands (network
+# delay only: the page stops answering at zero and submits within a few seconds; a recording in progress is stopped
+# and stored first, which attempt.html caps below this). Anything arriving later is refused.
+ATTEMPT_GRACE_SECONDS = 30
 
 
 def _sx_attempt_ends_at(started_at, duration_minutes, exam_end_at, extra_minutes=0):
@@ -19419,12 +19733,9 @@ def _sx_attempt_extra_sql(alias='ea'):
     return f'COALESCE({alias}.extra_minutes, 0)' if erd_has_column('exam_attempts', 'extra_minutes') else '0'
 
 
-def _sx_attempt_accepts_answers(attempt_id):
-    """True while the attempt is in progress, not submitted, its exam not cancelled, and within its time limit (plus grace).
-
-    The limit matches the exam page timer (_sx_attempt_ends_at).
-    """
-    attempt = erd_row(
+def _sx_attempt_time_row(attempt_id):
+    """What an attempt's time limit is computed from (None: no such attempt)."""
+    return erd_row(
         f"""
         SELECT ea.submitted_at, ea.status, ea.started_at, ea.exam_id, COALESCE(e.duration_minutes, 90) AS duration_minutes,
                e.end_at, COALESCE(e.is_cancelled, false) AS is_cancelled, {_sx_attempt_extra_sql()} AS extra_minutes
@@ -19434,17 +19745,65 @@ def _sx_attempt_accepts_answers(attempt_id):
         """,
         [attempt_id],
     )
+
+
+def _sx_attempt_deadline(attempt_id, attempt=None):
+    """The moment the attempt's time runs out (without the grace), the same one the exam page counts down to; None
+    when it has not started."""
+    attempt = attempt or _sx_attempt_time_row(attempt_id)
+    started_at = _sx_dt((attempt or {}).get('started_at'))
+    if not started_at:
+        return None
+    rules = _sx_exam_rules(attempt['exam_id'])
+    cutoff = _sx_exam_cutoff(attempt.get('end_at'), rules['registration_end_at'])
+    return _sx_attempt_ends_at(started_at, attempt.get('duration_minutes'), cutoff, attempt.get('extra_minutes'))
+
+
+def _sx_attempt_accepts_answers(attempt_id):
+    """True while the attempt is in progress, not submitted, its exam not cancelled, and within its time limit (plus grace).
+
+    The limit matches the exam page timer (_sx_attempt_ends_at).
+    """
+    attempt = _sx_attempt_time_row(attempt_id)
     if not attempt or attempt.get('submitted_at') or (attempt.get('status') or 'in_progress') != 'in_progress':
         return False
     if attempt.get('is_cancelled'):
         return False
-    started_at = _sx_dt(attempt.get('started_at'))
-    if not started_at:
+    deadline = _sx_attempt_deadline(attempt_id, attempt)
+    if not deadline:
         return True
-    rules = _sx_exam_rules(attempt['exam_id'])
-    cutoff = _sx_exam_cutoff(attempt.get('end_at'), rules['registration_end_at'])
-    deadline = _sx_attempt_ends_at(started_at, attempt.get('duration_minutes'), cutoff, attempt.get('extra_minutes'))         + timedelta(seconds=ATTEMPT_GRACE_SECONDS)
-    return timezone.now() <= deadline
+    return timezone.now() <= deadline + timedelta(seconds=ATTEMPT_GRACE_SECONDS)
+
+
+def _sx_submission_moment(attempt_id, now=None):
+    """The submitted_at an attempt gets: now, but never after its deadline (a submission arriving in the grace time,
+    or an attempt closed by the scheduler after the time ran out, ends at the deadline — like Moodle's overdue
+    handling), so durations and reports never show more time than the exam allowed."""
+    now = now or timezone.now()
+    deadline = _sx_attempt_deadline(attempt_id)
+    return min(now, deadline) if deadline else now
+
+
+def _sx_claim_attempt_close(attempt_id, submitted_at=None, status=None):
+    """Atomically take an open attempt for closing; True only for the one caller that did.
+
+    With submitted_at: the attempt becomes submitted at that moment (grade_attempt keeps it and sets the status);
+    with status (e.g. 'expired'): it is closed without a submission. A second submit click, the page's auto-submit
+    and the scheduler racing for the same attempt cannot grade, log or notify it twice."""
+    sets, params = [], []
+    if submitted_at is not None:
+        sets.append('submitted_at = %s')
+        params.append(submitted_at)
+    if status:
+        sets.append('status = %s')
+        params.append(status)
+    sql = erd_adapt_sql(
+        f"UPDATE exam_attempts SET {', '.join(sets)} WHERE id = %s AND submitted_at IS NULL "
+        "AND COALESCE(status, 'in_progress') IN ('in_progress', '')"
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [*params, attempt_id])
+        return cursor.rowcount == 1
 
 
 def _sx_attempt_device(request, attempt_id) -> str:
@@ -20086,8 +20445,10 @@ def student_exam_start(request, exam_id):
             else:
                 return redirect('core:student_attempt_receipt', attempt_id=latest['id'])
         request.session.pop(_sx_entry_key(exam_id), None)  # each attempt passes the entry step again
+    # Only an attempt still open: one the scheduler closed a moment ago (time up) must not be reopened.
     erd_execute(
-        "UPDATE exam_attempts SET status = %s, started_at = COALESCE(started_at, %s) WHERE id = %s",
+        "UPDATE exam_attempts SET status = %s, started_at = COALESCE(started_at, %s) WHERE id = %s "
+        "AND submitted_at IS NULL AND COALESCE(status, 'in_progress') IN ('in_progress', '')",
         ['in_progress', timezone.now(), attempt['id']],
     )
     return redirect('core:student_attempt', attempt_id=attempt['id'])
@@ -20204,6 +20565,16 @@ def student_attempt(request, attempt_id):
     finished = rows[0].get('submitted_at') or (rows[0].get('status') or 'in_progress') not in ('in_progress', '')
     if finished and request.method == 'GET' and not is_xhr:
         return redirect('core:student_attempt_receipt', attempt_id=attempt_id)
+    if not finished and (_sx_attempt_time_row(attempt_id) or {}).get('is_cancelled'):
+        # The exam was cancelled while it ran: nothing more is taken and the session is let go of the attempt
+        # (the page's live check-in reloads it here within seconds).
+        from . import exam_lock
+
+        exam_lock.unlock(request, attempt_id)
+        if is_xhr:
+            return JsonResponse({'ok': False, 'error': 'این آزمون لغو شده است؛ پاسخ جدید ذخیره نشد.'}, status=409)
+        messages.error(request, 'این آزمون لغو شده است؛ پاسخ‌دهی به آن دیگر ممکن نیست.')
+        return redirect('core:student_exam_schedule')
     rules = _sx_attempt_page_rules(attempt_id, request.erd_profile_id, rows[0]['exam_id'])
     if not rows[0].get('submitted_at') and not _sx_ip_allowed(request, rules):
         if is_xhr:
@@ -20363,8 +20734,11 @@ def student_attempt_submit(request, attempt_id):
     open_attempt = not rows[0].get('submitted_at') and (rows[0].get('status') or 'in_progress') == 'in_progress'
     if open_attempt and not rules['auto_submit_on_time_end'] and not _sx_attempt_accepts_answers(attempt_id):
         # «ارسال خودکار در پایان زمان» off: an attempt not submitted in time is closed, not submitted.
-        erd_execute("UPDATE exam_attempts SET status = 'expired' WHERE id = %s AND submitted_at IS NULL", [attempt_id])
-        rows[0]['status'] = 'expired'
+        if _sx_claim_attempt_close(attempt_id, status='expired'):
+            log_activity(request.user, 'exam_attempt_expired', 'زمان آزمون تمام شد و دانشجو آزمون را ارسال نکرد.', request,
+                         {'attempt_id': attempt_id})
+        current = erd_row('SELECT submitted_at, status FROM exam_attempts WHERE id = %s', [attempt_id]) or {}
+        rows[0]['submitted_at'], rows[0]['status'] = current.get('submitted_at'), current.get('status')
     if rows[0].get('status') == 'expired' and not rows[0].get('submitted_at'):
         from . import exam_lock
 
@@ -20376,14 +20750,16 @@ def student_attempt_submit(request, attempt_id):
         return redirect('core:student_attempt', attempt_id=attempt_id)
     if request.method == 'POST':
         _sx_save_attempt_answers(request, attempt_id)
-        if not erd_row('SELECT submitted_at FROM exam_attempts WHERE id = %s AND submitted_at IS NOT NULL', [attempt_id]):
+        # Only the request that takes the attempt grades it (a double click, the page's auto-submit and the
+        # scheduler may race); it is submitted at the deadline at the latest.
+        if _sx_claim_attempt_close(attempt_id, submitted_at=_sx_submission_moment(attempt_id)):
             try:
                 result = grade_attempt(attempt_id)
             except Exception:
                 # The submission must not be lost: keep it as submitted (ungraded) and leave a trace to regrade it.
                 logger.exception('Grading attempt %s failed; saved as submitted without a score.', attempt_id)
                 result = {'grading_failed': True}
-                erd_execute('UPDATE exam_attempts SET submitted_at = %s, status = %s WHERE id = %s', [timezone.now(), 'submitted', attempt_id])
+                erd_execute("UPDATE exam_attempts SET status = 'submitted' WHERE id = %s", [attempt_id])
                 attempt_receipt_code(attempt_id)
             log_activity(request.user, 'exam_submitted', 'دانشجو آزمون را ارسال کرد.', request, {'attempt_id': attempt_id, **result})
         from . import exam_lock

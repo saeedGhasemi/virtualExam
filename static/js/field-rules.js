@@ -23,9 +23,14 @@
      decimal   عدد           name numeric_answer / numeric_tolerance (text boxes)   digits, one «.», leading «-»
      clock     ساعت          data-mq-rule="clock" (text boxes such as the OSCE start time)  HH:MM
      number    عدد           every other <input type=number>: digits only (+ «.» when step allows decimals, «-» when
-                             min < 0), Persian digits typed become 0-9, a Persian message for min / max / step; an
-                             example placeholder from NUM_PH by name, else the allowed range. A box without its own
-                             min / max gets NUM_RANGE[name] (= field_rules.NUMBER_RANGE), else min 0 / max 1000000.
+                             min < 0), Persian digits typed become 0-9 and the Persian decimal «٫» or «/» becomes «.»,
+                             a Persian message for min / max / step; an example placeholder from NUM_PH by name, else
+                             the allowed range. A box without its own min / max gets NUM_RANGE[name]
+                             (= field_rules.NUMBER_RANGE), else min 0 / max 1000000. No more digits than the max has
+                             (and no more decimals than the step has) can be typed or pasted: the box keeps its last
+                             value and says why. Pasted / dropped text goes in only when it is one number
+                             («۱۲٫۵», «1,250», « 20 »); other text («abc 12») is refused with a hint (user's report
+                             2026-11-19: text could be pasted into «نمره کل آزمون»).
      text      متن کوتاه     name in TEXT_RULES (title, name, description, class_location, specialty …): any text, at
                              most N characters and no unbroken «word» longer than W (keyboard junk; = field_rules.TEXT_RULES).
      pwnew     رمز جدید      <input type=password autocomplete="new-password">     English letters, digits, symbols; no space /
@@ -101,7 +106,7 @@
     acyear: { allow: /[\d\-]/, max: 9, mode: 'numeric', ph: '۱۴۰۵-۱۴۰۶', hint: 'فقط رقم وارد کنید؛ «-» خودکار گذاشته می‌شود.', keepPh: true },
     latin: { allow: /[A-Za-z0-9_\-]/, max: 20, mode: 'text', raw: true, ph: 'PED-101', hint: 'فقط حروف انگلیسی، رقم و «-» مجاز است.', keepPh: true },
     color: { allow: /[#0-9A-Fa-f]/, max: 7, mode: 'text', raw: true, ph: '#2563EB', hint: 'کد رنگ فقط # و رقم و حروف A تا F است.', keepPh: true },
-    ip: { allow: /[0-9A-Fa-f.:\/, ]/, max: 500, mode: 'text', raw: true, ph: '192.168.1.0/24', hint: 'فقط رقم، «.»، «/» و «,» مجاز است.', keepPh: true },
+    ip: { allow: /[0-9A-Fa-f.:\/,، ]/, max: 500, mode: 'text', raw: true, ph: '192.168.1.0/24', hint: 'فقط رقم، «.»، «/»، «,» و برای IPv6 «:» و حروف a تا f مجاز است.', keepPh: true },
     decimal: { allow: /[\d.\-]/, max: 20, mode: 'decimal', raw: true, ph: '۲.۵', hint: 'فقط عدد وارد کنید.', keepPh: true },
     clock: { allow: /[\d:]/, max: 5, mode: 'numeric', ph: '۰۹:۰۰', hint: 'فقط رقم وارد کنید؛ «:» خودکار گذاشته می‌شود.', keepPh: true },
     number: { allow: /\d/, max: 20, mode: 'numeric', raw: true, ph: '', hint: 'فقط عدد وارد کنید.', keepPh: true },
@@ -190,7 +195,7 @@
   var NUM_PH = {
     duration_minutes: '۹۰', study_minutes: '۲', transition_minutes: '۱', max_attempts: '۱', passing_score: '۱۰',
     pass_score: '۱۲', exam_pass_score: '۱۰', capacity: '۳۰', min_students: '۱۰', waitlist_capacity: '۵',
-    credit_units: '۳', negative_factor: '۰.۲۵', negative_mark: '۰.۲۵', groups_count: '۴', students_per_group: '۸',
+    credit_units: '۳', negative_factor: '۰٫۲۵', negative_mark: '۰٫۲۵', groups_count: '۴', students_per_group: '۸',
     default_points: '۱', keep: '۷', hotspot_max_clicks: '۱', media_max_record_seconds: '۱۲۰', min_correct: '۱',
     max_correct: '۳', short_answer_max_chars: '۲۰۰', correct_threshold: '۸۰', passing_score_total: '۱۰۰',
     min_passing_percent: '۶۰', media_rubric_points: '۲'
@@ -224,7 +229,29 @@
     var sp = numSpec(el);
     return (c === '.' && sp.dec) || (c === '-' && sp.neg);
   }
-  function fmtNum(n) { return faDigits(String(n)); }
+  // Most digits before / after the point a number box takes: those of its largest allowed value / its step.
+  function numDigits(el) {
+    var sp = numSpec(el), big = Math.max(Math.abs(isNaN(sp.max) ? 1000000 : sp.max), Math.abs(isNaN(sp.min) ? 0 : sp.min));
+    var dec = !sp.dec ? 0 : sp.step === 'any' ? 6 : Math.max(1, (sp.step.split('.')[1] || '').length);
+    return { int: String(Math.floor(big)).length, dec: dec };
+  }
+  // The number in pasted / dropped text, or null when the text is not one number (for this box).
+  function numberFromText(el, text) {
+    var t = latinDigits(text).replace(/[\u200c\u200e\u200f\s]/g, '').replace(/[٫\/]/g, '.').replace(/[−–]/g, '-').replace(/^\+/, '');
+    if (/[,٬]/.test(t)) {  // thousands separators only in their places: 1,250 / 12,500.5
+      if (!/^-?\d{1,3}([,٬]\d{3})+(\.\d*)?$/.test(t)) return null;
+      t = t.replace(/[,٬]/g, '');
+    }
+    if (!/^-?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+    var sp = numSpec(el);
+    if (t[0] === '-' && !sp.neg) return null;
+    if (t.indexOf('.') >= 0 && !sp.dec) {
+      if (!/\.0*$/.test(t)) return null;
+      t = t.replace(/\.0*$/, '');
+    }
+    return t;
+  }
+  function fmtNum(n) { return faDigits(String(n)).replace('.', '٫'); }
   function isDate(kind) { return kind === 'birth' || kind === 'date'; }
   function placeholderOf(kind, el) {
     if (kind === 'number') {
@@ -292,26 +319,56 @@
   function numberError(el, v) {
     var sp = numSpec(el), n = parseFloat(v), base = isNaN(sp.min) ? 0 : sp.min;
     if (el.validity && el.validity.badInput) return 'فقط عدد وارد کنید.';
+    if (v === '' && el.required) return 'این خانه را پر کنید.';
     if (v === '' || isNaN(n)) return '';
     if (!isNaN(sp.min) && n < sp.min) return 'کمترین مقدار ' + fmtNum(sp.min) + ' است.';
     if (!isNaN(sp.max) && n > sp.max) return 'بیشترین مقدار ' + fmtNum(sp.max) + ' است.';
     if (!sp.dec && Math.floor(n) !== n) return 'عدد باید صحیح باشد (بدون اعشار).';
-    if (el.validity && el.validity.stepMismatch) return 'این عدد با گام ' + fmtNum(sp.step) + ' جور نیست؛ مثلاً ' + fmtNum(base) + ' یا ' + fmtNum(base + parseFloat(sp.step)) + '.';
+    if (el.validity && el.validity.stepMismatch) {  // the two allowed values around the one typed
+      var st = parseFloat(sp.step), lo = +(base + Math.floor((n - base) / st + 1e-9) * st).toFixed(6), hi = +(lo + st).toFixed(6);
+      return 'باید مضربی از ' + fmtNum(st) + ' باشد؛ مثلاً ' + fmtNum(lo) + ' یا ' + fmtNum(hi) + '.';
+    }
     return '';
   }
+  // «محدوده IP» (same as field_rules.ip_range_error): IPv4 / IPv6 addresses or CIDR ranges, separated by «,» «،» or
+  // spaces; ≤ 20 parts; no leading zeros in IPv4; prefix at least /8 (IPv4) or /16 (IPv6); no repeats.
+  function ipv4Ok(a) {
+    var g = a.split('.');
+    if (g.length !== 4) return false;
+    for (var i = 0; i < 4; i++) if (!/^(0|[1-9]\d{0,2})$/.test(g[i]) || +g[i] > 255) return false;
+    return true;
+  }
+  function ipv6Ok(a) {
+    if (!/^[0-9A-Fa-f:]+$/.test(a) || /:::/.test(a)) return false;
+    var halves = a.split('::');
+    if (halves.length > 2) return false;
+    var groups = function (h) { return h ? h.split(':') : []; };
+    var all = groups(halves[0]).concat(halves.length === 2 ? groups(halves[1]) : []);
+    for (var i = 0; i < all.length; i++) if (!/^[0-9A-Fa-f]{1,4}$/.test(all[i])) return false;
+    return halves.length === 2 ? all.length < 8 : all.length === 8;
+  }
   function ipError(v) {
-    var parts = v.split(/[\s,،]+/).filter(Boolean);
+    var iso = function (t) { return '\u2068' + t + '\u2069'; };  // a Latin address inside Persian text
+    var parts = v.split(/[\s,،]+/).filter(Boolean), seen = {};
+    if (parts.length > 20) return 'حداکثر ۲۰ نشانی یا محدوده مجاز است.';
     for (var i = 0; i < parts.length; i++) {
-      var p = parts[i];
-      if (p.indexOf(':') >= 0) { if (!/^[0-9A-Fa-f:]+(\/\d{1,3})?$/.test(p)) return 'نشانی IPv6 «' + p + '» معتبر نیست.'; continue; }
-      var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(\/(\d{1,2}))?$/.exec(p);
-      if (!m || +m[1] > 255 || +m[2] > 255 || +m[3] > 255 || +m[4] > 255 || (m[6] && +m[6] > 32)) return '«' + p + '» نشانی IP معتبر نیست؛ مثلاً 192.168.1.0/24.';
+      var p = parts[i], cut = p.split('/'), addr = cut[0], v6 = addr.indexOf(':') >= 0;
+      var prefix = cut.length === 2 && /^\d{1,3}$/.test(cut[1]) ? +cut[1] : cut.length === 1 ? (v6 ? 128 : 32) : -1;
+      if (cut.length > 2 || prefix < 0 || prefix > (v6 ? 128 : 32) || !(v6 ? ipv6Ok(addr) : ipv4Ok(addr)))
+        return '«' + iso(p) + '» نشانی یا محدوده‌ی IP معتبر نیست؛ مثلاً ' + iso('192.168.1.0/24') + ' یا ' + iso('10.0.0.5') + '.';
+      if (prefix < (v6 ? 16 : 8))
+        return '«' + iso(p) + '» محدوده‌ی بسیار بزرگی است و عملاً همه را راه می‌دهد؛ پیشوند دست‌کم ' + iso(v6 ? '/16' : '/8') + ' باشد.';
+      // the range itself, as the server compares them (192.168.1.5/24 = 192.168.1.0/24, 10.0.0.5 = 10.0.0.5/32)
+      var key = (v6 ? addr.toLowerCase() : String(addr.split('.').reduce(function (n, g) { return n * 256 + +g; }, 0)
+        - addr.split('.').reduce(function (n, g) { return n * 256 + +g; }, 0) % Math.pow(2, 32 - prefix))) + '/' + prefix;
+      if (seen[key]) return '«' + iso(p) + '» تکراری است.';
+      seen[key] = true;
     }
     return '';
   }
   function errorOf(kind, v, el) {
     if (kind === 'number') return numberError(el, v);
-    if (!v) return '';
+    if (!v) return el && el.required && !el.disabled ? 'این خانه را پر کنید.' : '';
     // A value already saved longer than the field allows (typing stops at maxlength; this catches old data).
     var max = maxOf(kind, el);
     if (kind !== 'mobile' && v.length > max) return 'حداکثر ' + faDigits(max) + ' نویسه مجاز است؛ مقدار را کوتاه کنید.';
@@ -550,7 +607,13 @@
     var rule = RULES[el._mqRule], s = latinDigits(e.data), ok = false, k;
     if (el._mqRule === 'number') {
       var only = '';
+      s = s.replace(/[٫\/]/g, '.');  // the Persian keyboard's decimal separator (or «/») is the point
       for (k = 0; k < s.length; k++) if (numAllows(el, s[k])) only += s[k];
+      if (only.indexOf('.') >= 0 && (String(el.value).indexOf('.') >= 0 || only.indexOf('.') !== only.lastIndexOf('.'))) {
+        e.preventDefault();
+        hint(el, 'فقط یک ممیز (نقطه‌ی اعشار) مجاز است.');
+        return;
+      }
       if (only && s === e.data) return;
       if (only) {  // a number box can't hold Persian digits: put in their 0-9 twins instead
         e.preventDefault();
@@ -562,17 +625,76 @@
       if (ok) return;
     }
     e.preventDefault();
-    if (el._mqTouched && el.validationMessage) return;  // an error is already shown there
-    show(el, rule.hint, true);
+    if (el._mqRule === 'number' && s.indexOf('.') >= 0 && !numSpec(el).dec) { hint(el, 'این عدد باید صحیح باشد (بدون اعشار).'); return; }
+    hint(el, rule.hint);
+  }, true);
+  // A short note under the field while typing (not over an error already shown there).
+  function hint(el, text) {
+    if (el._mqTouched && el.validationMessage) return;
+    show(el, text, true);
     clearTimeout(el._mqHintTimer);  // one timer per field, so a hint never outlives its field's next one
     el._mqHintTimer = setTimeout(function () { if (!(el._mqTouched && el.validationMessage)) show(el, '', false); }, 2200);
+  }
+  // Pasted / dropped text into a number box: only one number goes in (the browser would keep the digits of any text,
+  // or nothing of «۱۲٫۵»).
+  function putNumber(e, text) {
+    var el = target(e);
+    if (!el || el._mqRule !== 'number' || text == null) return;
+    e.preventDefault();
+    var num = numberFromText(el, text);
+    if (num === null) { hint(el, 'متن چسبانده‌شده عدد نیست؛ فقط عدد وارد کنید.'); return; }
+    if (e.type === 'drop') el.focus();
+    if (!(document.execCommand && document.execCommand('insertText', false, num))) {
+      el.value = num;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+  document.addEventListener('paste', function (e) {
+    putNumber(e, (e.clipboardData || window.clipboardData || { getData: function () { return null; } }).getData('text'));
+  }, true);
+  document.addEventListener('drop', function (e) { if (e.dataTransfer) putNumber(e, e.dataTransfer.getData('text')); }, true);
+  // A number box keeps its last good value when a key or paste would give it more digits than it takes.
+  function limitNumber(el) {
+    var v = String(el.value), m = /^-?(\d*)(?:\.(\d*))?$/.exec(v);
+    if (!m) return;
+    var d = numDigits(el), intLen = m[1].replace(/^0+(?=\d)/, '').length, decLen = (m[2] || '').length;
+    var max = numSpec(el).max, over = !isNaN(max) && v !== '' && parseFloat(v) > max;
+    if (intLen <= d.int && decLen <= d.dec && !over) {
+      var tidy = v.replace(/^(-?)0+(?=\d)/, '$1').replace(/^(-?)\./, '$10.');  // «025» → «25», «.5» → «0.5»
+      if (tidy !== v) el.value = tidy;
+      el._mqLast = el.value;
+      return;
+    }
+    el.value = el._mqLast != null ? el._mqLast : '';
+    hint(el, over ? 'بیشترین مقدار ' + fmtNum(max) + ' است.'
+      : intLen > d.int ? 'حداکثر ' + faDigits(d.int) + ' رقم پیش از ممیز مجاز است.' : 'حداکثر ' + faDigits(d.dec) + ' رقم اعشار مجاز است.');
+  }
+  document.addEventListener('focusin', function (e) {
+    var el = target(e);
+    if (el && el._mqRule === 'number') el._mqLast = el.value;  // the value at hand (pages also set it by script)
   }, true);
 
   document.addEventListener('input', function (e) {
     var el = target(e);
     if (!el) return;
     var kind = el._mqRule;
-    if (kind === 'number') { check(el, false); return; }  // the browser keeps a number box's value numeric
+    if (kind === 'number') {  // the browser keeps a number box's value numeric …
+      // … except Firefox, which shows typed text it can't read (value '' + badInput) and lets keys that come as
+      // composition (Persian layout, IME) past beforeinput uncancelled: put the last good value back.
+      if (e.isComposing) return;
+      if (el.validity && el.validity.badInput && e.data && /^insert/.test(e.inputType || '')) {
+        var s = latinDigits(e.data).replace(/[٫\/]/g, '.'), only = '';
+        for (var k = 0; k < s.length; k++) if (numAllows(el, s[k])) only += s[k];
+        if (only !== s || /[^\x00-\x7f]/.test(e.data)) {
+          el.value = el._mqLast != null ? el._mqLast : '';
+          if (only && only.indexOf('.') < 0) { el.value = el.value + only; limitNumber(el); }  // Persian digits → 0-9
+          else hint(el, s.indexOf('.') >= 0 && !numSpec(el).dec ? 'این عدد باید صحیح باشد (بدون اعشار).' : RULES.number.hint);
+          check(el, false);
+          return;
+        }
+      }
+      limitNumber(el); check(el, false); return;
+    }
     var before = el.value, caret = el.selectionStart;
     var cleaned = clean(kind, before, el);
     if (cleaned !== before) {

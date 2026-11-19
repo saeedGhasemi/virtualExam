@@ -13,6 +13,9 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+# A day a month ahead (Tehran) for exams made through the wizard: their times may not be in the past (report 01-04).
+FUTURE_DAY = (timezone.localdate() + timedelta(days=30)).isoformat()
+
 
 def _insert(table, columns, values):
     placeholders = ', '.join(['%s'] * len(values))
@@ -799,7 +802,7 @@ class SuperAdminExamWizardTests(_ScopedOrgFixture):
             'group_ids': [self.group_in_id],
             'question_ids': [self.question_in_id],
             'duration_minutes': '90',
-            'start_at': '2026-09-10T09:00',
+            'start_at': f'{FUTURE_DAY}T09:00',
             'publish_choice': 'draft',
         }
         payload.update(overrides)
@@ -2405,7 +2408,7 @@ class EssayAnswerFlowTests(_ScopedOrgFixture):
     def test_answers_are_refused_after_the_time_limit(self):
         url = reverse('core:student_attempt', args=[self.attempt_id])
         self.client.force_login(self.student_user)
-        self._started(90, 30)  # exam has no duration -> 90 minutes; still inside the 60s grace
+        self._started(90, 20)  # exam has no duration -> 90 minutes; still inside the 30 s grace
         self.client.post(url, {f'answer_{self.question_id}': 'در مهلت'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(self._answer(self.question_id), 'در مهلت')
         self._started(92)
@@ -3292,7 +3295,7 @@ class TeacherExamWizardTests(_ScopedOrgFixture):
             'group_ids': [self.group_in_id],
             'question_ids': [self.question_in_id, self.question_in2_id],
             'duration_minutes': '60',
-            'start_at': '2026-11-10T09:00',
+            'start_at': f'{FUTURE_DAY}T09:00',
             'publish_choice': 'draft',
         }
         payload.update(overrides)
@@ -3362,6 +3365,88 @@ class TeacherExamWizardTests(_ScopedOrgFixture):
         response = self.client.post(reverse('core:teacher_exam_create'), self._payload(question_ids=[]))
         self.assertRedirects(response, reverse('core:teacher_exam_create'), fetch_redirect_response=False)
         self.assertEqual(self._exam(), [])
+
+    # ----- step 1 «مشخصات پایه» rules (teacher's report 2026-11-19: cover checks, tags, total score) -----
+    @staticmethod
+    def _png(name='cover.png', size=(400, 200)):
+        from PIL import Image
+
+        data = io.BytesIO()
+        Image.new('RGB', size, (20, 80, 200)).save(data, 'PNG')
+        upload = io.BytesIO(data.getvalue())
+        upload.name = name
+        return upload
+
+    @staticmethod
+    def _bytes(name, content):
+        upload = io.BytesIO(content)
+        upload.name = name
+        return upload
+
+    def _column(self, column, title='آزمون استاد'):
+        with connection.cursor() as cursor:
+            cursor.execute(f'SELECT {column} FROM exams WHERE title = %s', [title])
+            row = cursor.fetchone()
+        return row[0] if row else None
+
+    def test_tags_are_cleaned_deduplicated_and_checked(self):
+        self.client.force_login(self.teacher_user)
+        self.client.post(reverse('core:teacher_exam_create'), self._payload(tags='Ali، ali, ALi ,#فیزیولوژی، كودك، کودک، ۱۴۰۵'))
+        self.assertEqual(self._column('tags'), 'Ali، فیزیولوژی، کودک، 1405')
+        for bad, words in (
+            ('x' * 31, 'بیش از ۳۰'), ('#####', 'حرف یا رقم'), ('a', 'کوتاه'), ('ab;cd', 'فقط می‌تواند'),
+            ('، '.join(f't{i}x' for i in range(11)), 'حداکثر ۱۰'), ('a' * 26 + ' b', 'بیش از ۲۵'),
+        ):
+            response = self.client.post(reverse('core:teacher_exam_create'), self._payload(title='بد', tags=bad), follow=True)
+            self.assertContains(response, words, msg_prefix=bad)
+            self.assertIsNone(self._column('id', 'بد'), bad)
+
+    def test_cover_is_checked_before_saving(self):
+        self.client.force_login(self.teacher_user)
+        for upload, words in (
+            (self._bytes('cover.png', b'not a picture'), 'خراب است'),
+            (self._bytes('cover.pdf', b'%PDF-1.4 x'), 'مجاز نیست'),
+            (self._bytes('cover.png', b''), 'خالی'),
+            (self._bytes('cover.jpg', b'\xff\xd8\xff' + b'0' * (2 * 1024 * 1024)), '۲ مگابایت'),
+            (self._png('cover.jpg'), 'جور نیست'),
+            (self._png('cover.png', size=(60, 400)), 'دست‌کم'),  # report 01-10: unreadably small
+            (self._png('cover.png', size=(8001, 120)), 'حداکثر'),
+        ):
+            response = self.client.post(reverse('core:teacher_exam_create'), self._payload(title='بد', cover_image=upload), follow=True)
+            self.assertContains(response, words, msg_prefix=upload.name)
+            self.assertIsNone(self._column('id', 'بد'))
+        response = self.client.post(reverse('core:teacher_exam_create'), self._payload(
+            guidance_file=self._bytes('guide.pdf', b'hello')), follow=True)
+        self.assertContains(response, 'فایل راهنما')
+        response = self.client.post(reverse('core:teacher_exam_create'), self._payload(
+            title='بد', guidance_file=self._png('guide.png', size=(40, 40))), follow=True)
+        self.assertContains(response, 'دست‌کم')
+        self.assertIsNone(self._column('id', 'بد'))
+        self.client.post(reverse('core:teacher_exam_create'), self._payload(cover_image=self._png()))
+        self.assertRegex(self._column('cover_image_url') or '', r'exam-covers/[0-9a-f]{32}\.png$')
+
+    def test_saved_cover_is_shown_kept_and_removable_in_edit(self):
+        self.client.force_login(self.teacher_user)
+        self.client.post(reverse('core:teacher_exam_create'), self._payload(cover_image=self._png(), tags='قدیمی'))
+        exam_id, cover = self._column('id'), self._column('cover_image_url')
+        with connection.cursor() as cursor:  # a tag saved before the rules: it stays saveable
+            cursor.execute("UPDATE exams SET tags = %s WHERE id = %s", ['x' * 40 + '، قدیمی', exam_id])
+        edit = reverse('core:teacher_exam_edit', args=[exam_id])
+        page = self.client.get(edit)
+        self.assertEqual(page.context['wizard_initial']['files']['cover_image'], cover)
+        self.client.post(edit, self._payload(tags='x' * 40 + '، قدیمی، جدید'))
+        self.assertEqual(self._column('cover_image_url'), cover)  # no new file, no «×»: kept
+        self.assertEqual(self._column('tags'), 'x' * 40 + '، قدیمی، جدید')
+        self.client.post(edit, self._payload(remove_cover_image='1'))
+        self.assertIsNone(self._column('cover_image_url'))
+
+    def test_total_score_range_and_quarter_steps(self):
+        self.client.force_login(self.teacher_user)
+        for bad in ('abc', '0', '1001', '12.3'):
+            self.client.post(reverse('core:teacher_exam_create'), self._payload(title='بد', passing_score_total=bad))
+            self.assertIsNone(self._column('id', 'بد'), bad)
+        self.client.post(reverse('core:teacher_exam_create'), self._payload(passing_score_total='۱۹.۷۵'))
+        self.assertEqual(float(self._column('total_score')), 19.75)
 
     def test_participants_match_is_limited_to_own_group_members(self):
         self.client.force_login(self.teacher_user)
@@ -4859,7 +4944,7 @@ class TeacherExamEditTests(_ScopedOrgFixture):
         self.client.post(reverse('core:teacher_exam_create'), {
             'title': 'آزمون قابل ویرایش', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
             'question_ids': [self.question_in_id, self.question_in2_id], 'duration_minutes': '60',
-            'start_at': '2026-11-10T09:00', 'tags': 'قلب، عروق', 'publish_choice': 'submit',
+            'start_at': f'{FUTURE_DAY}T09:00', 'tags': 'قلب، عروق', 'publish_choice': 'submit',
         })
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM exams WHERE title = 'آزمون قابل ویرایش'")
@@ -4876,7 +4961,7 @@ class TeacherExamEditTests(_ScopedOrgFixture):
         self.assertEqual(response.status_code, 200)
         initial = response.context['wizard_initial']
         self.assertEqual(initial['fields']['title'], 'آزمون قابل ویرایش')
-        self.assertEqual(initial['fields']['start_at'], '2026-11-10T09:00')
+        self.assertEqual(initial['fields']['start_at'], f'{FUTURE_DAY}T09:00')
         self.assertEqual(initial['question_ids'], [self.question_in_id, self.question_in2_id])
         self.assertEqual(initial['group_ids'], [self.group_in_id])
         self.assertEqual(initial['tags'], ['قلب', 'عروق'])
@@ -6473,7 +6558,7 @@ class ExamWizardSettingsSavedTests(_ScopedOrgFixture):
     def _post(self, **overrides):
         payload = {'title': 'آزمون ویزارد', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
                    'question_ids': [self.question_in_id, self.question_in2_id], 'duration_minutes': '60',
-                   'start_at': '2026-12-10T09:00', 'publish_choice': 'submit', 'passing_score_total': '100',
+                   'start_at': f'{FUTURE_DAY}T09:00', 'publish_choice': 'submit', 'passing_score_total': '100',
                    'min_passing_percent': '55', 'academic_term': '1405/دوم', 'grading_method': 'weighted_by_type',
                    f'question_points_{self.question_in_id}': '7.5'}
         payload.update(overrides)
@@ -6506,8 +6591,8 @@ class ExamWizardSettingsSavedTests(_ScopedOrgFixture):
 
     def test_server_refuses_inconsistent_times_and_ip_ranges(self):
         for overrides, message in (
-            ({'last_entry_at': '2026-12-10T12:00'}, 'آخرین زمان مجاز ورود'),
-            ({'registration_start_at': '2026-12-10T10:00'}, 'شروع دسترسی'),
+            ({'last_entry_at': f'{FUTURE_DAY}T12:00'}, 'آخرین زمان مجاز ورود'),
+            ({'registration_start_at': f'{FUTURE_DAY}T10:00'}, 'شروع دسترسی'),
             ({'start_at': ''}, 'تاریخ و زمان شروع آزمون'),
             ({'min_passing_percent': '130'}, 'نمره قبولی'),
             ({'negative_factor': '-0.74'}, 'مقدار جریمه'),  # a wrong answer must never add points
@@ -6521,6 +6606,194 @@ class ExamWizardSettingsSavedTests(_ScopedOrgFixture):
             self.assertEqual(self._exam(), [], overrides)
         self.assertEqual(self._post(start_at='', publish_choice='draft').status_code, 302)  # a draft may lack its date
         self.assertEqual(len(self._exam()), 1)
+
+    def test_server_checks_past_far_and_order_of_step2_times(self):
+        """Teacher's report 01-04…01-07: past / far-future times, the order of access / entry / end, the duration."""
+        day = lambda days, hhmm: f'{(timezone.localdate() + timedelta(days=days)).isoformat()}T{hhmm}'
+        for overrides, message in (
+            ({'start_at': day(-1, '09:00')}, 'گذشته است'),
+            ({'start_at': day(400, '09:00')}, 'حداکثر یک سال'),
+            ({'registration_start_at': day(-2, '09:00')}, 'گذشته است'),
+            ({'registration_start_at': day(30, '09:01')}, 'نباید بعد از شروع آزمون'),
+            ({'start_at': day(45, '09:00'), 'registration_start_at': day(5, '09:00')}, 'حداکثر ۳۰ روز'),  # 40 days before
+            ({'last_entry_at': day(30, '09:00')}, 'آخرین زمان مجاز ورود'),  # equal to the start
+            ({'last_entry_at': day(30, '10:01')}, 'آخرین زمان مجاز ورود'),  # after the end (60 minutes)
+            ({'registration_end_at': day(30, '09:00')}, 'پایان دسترسی'),  # not after the start
+            ({'registration_end_at': day(30, '10:30')}, 'نباید بعد از پایان آزمون'),
+            ({'last_entry_at': day(30, '09:40'), 'registration_end_at': day(30, '09:20')}, 'نباید قبل از «آخرین زمان مجاز ورود»'),
+            ({'duration_minutes': '1441'}, '۱۴۴۰'),
+            ({'duration_minutes': '90.5'}, 'عددی صحیح'),
+            ({'start_at': 'not-a-date'}, 'معتبری نیست'),
+        ):
+            response = self._post(**{'start_at': day(30, '09:00'), **overrides})
+            self.assertRedirects(response, reverse('core:teacher_exam_create'), fetch_redirect_response=False)
+            page = self.client.get(response['Location'])
+            self.assertIn(message, ' '.join(str(m) for m in page.context['messages']), overrides)
+            self.assertEqual(self._exam(), [], overrides)
+        self._post(start_at=day(30, '09:00'), registration_start_at=day(1, '10:00'), last_entry_at=day(30, '09:15'),
+                   registration_end_at=day(30, '10:00'))  # every rule kept: saved
+        self.assertEqual(len(self._exam()), 1)
+
+    def test_server_checks_step5_numbers(self):
+        """Teacher's report 01-08: one plain number per box, whole percent, ≤ 2 decimals of penalty, question points."""
+        for overrides, message in (
+            ({'min_passing_percent': '55.5'}, 'عدد صحیح'),
+            ({'min_passing_percent': '5a'}, 'فقط یک عدد'),
+            ({'passing_score_total': '1.2.3'}, 'فقط یک عدد'),
+            ({'passing_score_total': '1e2'}, 'فقط یک عدد'),
+            ({'negative_factor': '0.255'}, 'دو رقم اعشار'),
+            ({'negative_factor': ' 0.5x'}, 'فقط یک عدد'),
+            ({f'question_points_{self.question_in_id}': '0.3'}, 'نمره‌ی هر سؤال'),
+            ({f'question_points_{self.question_in_id}': '1001'}, 'نمره‌ی هر سؤال'),
+            ({f'question_points_{self.question_in_id}': 'abc'}, 'نمره‌ی هر سؤال'),
+        ):
+            response = self._post(**overrides)
+            self.assertRedirects(response, reverse('core:teacher_exam_create'), fetch_redirect_response=False)
+            page = self.client.get(response['Location'])
+            self.assertIn(message, ' '.join(str(m) for m in page.context['messages']), overrides)
+            self.assertEqual(self._exam(), [], overrides)
+        self._post(min_passing_percent='60', negative_factor='0.25', passing_score_total='19.75')
+        self.assertEqual(len(self._exam()), 1)
+
+    def test_refused_save_comes_back_filled_in(self):
+        """Teacher's report (step 7): a refused «ثبت آزمون» came back as an empty wizard on step 1."""
+        response = self._post(question_ids=[], description='متن نگه‌داشتنی', negative_marking='on')
+        self.assertRedirects(response, reverse('core:teacher_exam_create'), fetch_redirect_response=False)
+        initial = self.client.get(response['Location']).context['wizard_initial']
+        self.assertTrue(initial['posted'])
+        self.assertEqual((initial['fields']['title'], initial['fields']['description']), ('آزمون ویزارد', 'متن نگه‌داشتنی'))
+        self.assertEqual((initial['group_ids'], initial['step']), ([self.group_in_id], 3))
+        self.assertIn('سوال', initial['problem'])
+        self.assertNotIn('posted', self.client.get(response['Location']).context['wizard_initial'])  # read once
+
+    def test_history_lists_each_save_and_what_changed(self):
+        self._post(publish_choice='draft')
+        [(exam_id, *_)] = self._exam()
+        edit = reverse('core:teacher_exam_edit', args=[exam_id])
+        self.assertEqual([item['action'] for item in self.client.get(edit).context['exam_history']], ['ایجاد آزمون (پیش‌نویس)'])
+        payload = {'title': 'آزمون ویزارد', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
+                   'question_ids': [self.question_in_id], 'duration_minutes': '75', 'publish_choice': 'draft',
+                   'start_at': f'{FUTURE_DAY}T09:00', 'passing_score_total': '100', 'min_passing_percent': '55'}
+        self.client.post(edit, payload)
+        page = self.client.get(edit)
+        # one test = one transaction, so both rows have the same created_at: find the edit by its name
+        [latest] = [item for item in page.context['exam_history'] if item['action'] == 'ویرایش در ویزارد']
+        self.assertIn('مدت آزمون', latest['changes'])
+        self.assertIn('سؤال‌ها و ترتیب آن‌ها', latest['changes'])
+        self.assertEqual(latest['role'], 'استاد')
+        self.assertContains(page, 'class="summary-history-btn" data-history-open')
+        self.assertNotContains(self.client.get(reverse('core:teacher_exam_create')), 'class="summary-history-btn"')
+
+    def test_ip_range_rules(self):
+        """Teacher's report 01-09: field_rules.ip_range_error and the wizard's «محدودیت IP»."""
+        from .field_rules import ip_range_error
+
+        for good in ('192.168.1.0/24', '10.0.0.5, 10.0.0.6', '10.0.0.1،172.16.0.0/12', '2001:db8::/32', '۱۰.۰.۰.۵'):
+            self.assertEqual(ip_range_error(good), '', good)
+        for bad, word in (('ffffdd4445dddddfbcccadcdd', 'معتبر نیست'), ('192.168.01.1', 'معتبر نیست'), ('300.1.1.1', 'معتبر نیست'),
+                          ('10.0.0.1/33', 'معتبر نیست'), ('0.0.0.0/0', 'بسیار بزرگ'), ('::/0', 'بسیار بزرگ'),
+                          ('10.0.0.5 10.0.0.5/32', 'تکراری'), ('192.168.1.5/24, 192.168.1.0/24', 'تکراری'),
+                          (', '.join(f'10.0.0.{n}' for n in range(21)), '۲۰'), ('1' * 501, '۵۰۰')):
+            self.assertIn(word, ip_range_error(bad), bad)
+        for overrides in ({'ip_restriction_enabled': '1', 'ip_restriction_range': ''},
+                          {'ip_restriction_range': 'abc.def'},  # junk is refused even with the switch off
+                          {'ip_restriction_enabled': '1', 'ip_restriction_range': '0.0.0.0/0'}):
+            response = self._post(**overrides)
+            page = self.client.get(response['Location'])
+            self.assertIn('محدودیت IP', ' '.join(str(m) for m in page.context['messages']), overrides)
+            self.assertEqual(self._exam(), [], overrides)
+        self._post(ip_restriction_enabled='1', ip_restriction_range='192.168.1.0/24, 10.0.0.5')
+        self.assertEqual(len(self._exam()), 1)
+
+    def test_saved_times_that_have_passed_can_be_kept_on_edit(self):
+        from .views import erd_execute
+
+        self._post()
+        [(exam_id, *_)] = self._exam()
+        past = timezone.localtime().replace(second=0, microsecond=0) - timedelta(days=1)
+        erd_execute('UPDATE exams SET start_at = %s, end_at = %s WHERE id = %s', [past, past + timedelta(minutes=60), exam_id])
+        payload = {'title': 'آزمون ویزارد', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
+                   'question_ids': [self.question_in_id], 'duration_minutes': '60', 'publish_choice': 'draft',
+                   'start_at': past.strftime('%Y-%m-%dT%H:%M')}
+        edit = reverse('core:teacher_exam_edit', args=[exam_id])
+        response = self.client.post(edit, payload)
+        self.assertNotEqual(response['Location'], edit)  # unchanged start: saved
+        moved = (past + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M')
+        response = self.client.post(edit, {**payload, 'start_at': moved})
+        self.assertEqual(response['Location'], edit)  # a changed start may not be in the past
+        self.assertIn('گذشته است', ' '.join(str(m) for m in self.client.get(edit).context['messages']))
+
+    def test_exam_hub_refuses_a_past_start_and_times_out_of_order(self):
+        from .views import erd_datetime, erd_execute, erd_row
+
+        self.client.force_login(self.teacher_user)
+        start = timezone.localtime().replace(second=0, microsecond=0) + timedelta(days=5)
+        erd_execute('UPDATE exams SET start_at = %s, end_at = %s, duration_minutes = 60, last_entry_at = %s WHERE id = %s',
+                    [start, start + timedelta(minutes=60), start + timedelta(minutes=30), self.exam_in_id])
+        action = reverse('core:teacher_exam_hub_action', args=[self.exam_in_id])
+        saved_start = lambda: timezone.localtime(erd_datetime(erd_row('SELECT start_at FROM exams WHERE id = %s', [self.exam_in_id])['start_at']))
+        post = lambda when: self.client.post(action, {'action': 'settings', 'title': 'آزمون داخل محدوده', 'duration_minutes': '60',
+                                                      'start_at': when.strftime('%Y-%m-%dT%H:%M')})
+        post(start - timedelta(days=6))  # in the past
+        self.assertEqual(saved_start(), start)
+        post(start + timedelta(hours=1))  # the saved «آخرین زمان مجاز ورود» would fall before the start
+        self.assertEqual(saved_start(), start)
+        post(start + timedelta(minutes=10))  # still in order: saved
+        self.assertEqual(saved_start(), start + timedelta(minutes=10))
+
+
+class ExamTimingProblemTests(SimpleTestCase):
+    """views.exam_timing_problem: the order and range rules of an exam's times (teacher's report 01-04…01-07)."""
+
+    def setUp(self):
+        self.now = timezone.make_aware(datetime(2026, 11, 19, 10, 0))
+        self.start = self.now + timedelta(days=3)
+
+    def problem(self, saved=None, **times):
+        from .views import exam_timing_problem
+
+        times.setdefault('start_at', self.start)
+        times.setdefault('end_at', times['start_at'] + timedelta(minutes=60) if times['start_at'] else None)
+        return exam_timing_problem(times, saved=saved, now=self.now)
+
+    def test_a_consistent_set_passes(self):
+        self.assertIsNone(self.problem())
+        self.assertIsNone(self.problem(registration_start_at=self.now, last_entry_at=self.start + timedelta(minutes=1),
+                                       registration_end_at=self.start + timedelta(minutes=60)))
+        self.assertIsNone(self.problem(start_at=self.now - timedelta(minutes=4)))  # picked «now» a few minutes ago
+        self.assertIsNone(self.problem(start_at=None, end_at=None))  # a draft without a date
+
+    def test_past_and_far_future(self):
+        self.assertIn('گذشته است', self.problem(start_at=self.now - timedelta(minutes=6)))
+        self.assertIn('گذشته است', self.problem(registration_start_at=self.now - timedelta(days=1)))
+        self.assertIn('گذشته است', self.problem(start_at=None, end_at=None, registration_end_at=self.now - timedelta(hours=1)))
+        self.assertIn('یک سال', self.problem(start_at=self.now + timedelta(days=366)))
+        self.assertIsNone(self.problem(start_at=self.now + timedelta(days=365)))
+
+    def test_saved_values_skip_past_and_range_checks_only(self):
+        past = self.now - timedelta(days=2)
+        saved = {'start_at': past, 'end_at': past + timedelta(minutes=60)}
+        self.assertIsNone(self.problem(saved=saved, start_at=past))
+        self.assertIn('گذشته است', self.problem(saved=saved, start_at=past + timedelta(minutes=5)))
+        # order rules still apply to saved values
+        self.assertIn('آخرین زمان مجاز ورود', self.problem(saved={**saved, 'last_entry_at': past}, start_at=past, last_entry_at=past))
+
+    def test_order(self):
+        s = self.start
+        minute = timedelta(minutes=1)
+        self.assertIn('شروع دسترسی', self.problem(registration_start_at=s + minute))
+        self.assertIsNone(self.problem(registration_start_at=s))
+        self.assertIn('۳۰ روز', self.problem(start_at=self.now + timedelta(days=40), registration_start_at=self.now + timedelta(days=9)))
+        self.assertIn('آخرین زمان مجاز ورود', self.problem(last_entry_at=s))
+        self.assertIn('آخرین زمان مجاز ورود', self.problem(last_entry_at=s + timedelta(minutes=61)))
+        self.assertIsNone(self.problem(last_entry_at=s + timedelta(minutes=60)))
+        self.assertIn('پایان دسترسی', self.problem(registration_end_at=s))
+        self.assertIn('نباید بعد از پایان آزمون', self.problem(registration_end_at=s + timedelta(minutes=61)))
+        self.assertIn('نباید قبل از', self.problem(last_entry_at=s + timedelta(minutes=40), registration_end_at=s + timedelta(minutes=30)))
+        self.assertIn('پایان آزمون باید بعد', self.problem(end_at=s))
+        # a saved «پایان دسترسی» after the end (made before this rule) may stay; it closes nothing later than the end
+        late = s + timedelta(days=1)
+        self.assertIsNone(self.problem(saved={'registration_end_at': late}, registration_end_at=late))
 
 
 class ExamGradingRulesTests(_EnforcedExamFixture):
@@ -6998,7 +7271,7 @@ class ManagerExamEditFixesTests(_EnforcedExamFixture):
         page = self.client.get(url)
         self.assertEqual(page.context['wizard_initial']['question_ids'], [self.single_id, self.multi_id, self.essay_id])
         self.client.post(url, {'title': 'آزمون بازبینی‌شده', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
-                               'question_ids': [self.single_id], 'duration_minutes': '40', 'start_at': '2026-12-01T10:00',
+                               'question_ids': [self.single_id], 'duration_minutes': '40', 'start_at': f'{FUTURE_DAY}T10:00',
                                'webcam_monitoring': '1', 'publish_choice': 'draft'})
         self.assertEqual(self._rows('SELECT title, webcam_monitoring, lifecycle_status, is_published, teacher_id FROM exams WHERE id = %s', [exam_id])[0][:4],
                          ('آزمون بازبینی‌شده', True, 'pending_approval', False))
@@ -7155,13 +7428,18 @@ class ExamTimingScenariosTests(_EnforcedExamFixture):
             self.assertEqual(self.client.get(reverse('core:student_attempt', args=[attempt_id])).context['remaining_seconds'], 20 * 60)
         with self.at(start + timedelta(minutes=30, seconds=59)):  # last second of the 30 minutes
             self.assertEqual(self._save(attempt_id, '1').json(), {'ok': True})
-        with self.at(start + timedelta(minutes=31, seconds=50)):  # inside the 60 s grace for a slow network
+        with self.at(start + timedelta(minutes=31, seconds=25)):  # inside the 30 s grace for a slow network
             self.assertEqual(self.client.get(reverse('core:student_attempt', args=[attempt_id])).context['remaining_seconds'], 0)
             self.assertEqual(self._save(attempt_id, '2').json(), {'ok': True})
-        with self.at(start + timedelta(minutes=32, seconds=1)):  # time is up: nothing more is saved
+        with self.at(start + timedelta(minutes=31, seconds=31)):  # time is up: nothing more is saved
             self.assertEqual(self._save(attempt_id, '3').status_code, 409)
-        self.assertEqual(finalize_expired_attempts(now=start + timedelta(minutes=32, seconds=1)), [attempt_id])  # browser closed
-        [(status, score)] = self._rows('SELECT status, score FROM exam_attempts WHERE id = %s', [attempt_id])
+        self.assertEqual(finalize_expired_attempts(now=start + timedelta(minutes=31, seconds=25)), [])  # grace: not yet
+        self.assertEqual(finalize_expired_attempts(now=start + timedelta(minutes=31, seconds=31)), [attempt_id])  # browser closed
+        self.assertEqual(finalize_expired_attempts(now=start + timedelta(minutes=40)), [])  # closed once
+        [(status, score, submitted_at)] = self._rows('SELECT status, score, submitted_at FROM exam_attempts WHERE id = %s', [attempt_id])
+        # submitted at the deadline, not when the scheduler ran: the attempt lasted exactly its 30 minutes
+        from apps.core.views import _sx_dt
+        self.assertEqual(_sx_dt(submitted_at), start + timedelta(minutes=31))
         # the answer saved in time («2») counts; the essay was left blank, so nothing waits for the teacher
         self.assertEqual((status, float(score)), ('graded', 2.0))
         [(answer,)] = self._rows('SELECT answer FROM attempt_answers WHERE attempt_id = %s AND question_id = %s', [attempt_id, self.single_id])
@@ -7174,10 +7452,102 @@ class ExamTimingScenariosTests(_EnforcedExamFixture):
         with self.at(start + timedelta(minutes=25)):
             attempt_id = self._start(exam_id)
             self.assertEqual(self.client.get(reverse('core:student_attempt', args=[attempt_id])).context['remaining_seconds'], 15 * 60)
-        with self.at(start + timedelta(minutes=40, seconds=30)):
+        with self.at(start + timedelta(minutes=40, seconds=25)):
             self.assertEqual(self._save(attempt_id).json(), {'ok': True})  # grace
-        with self.at(start + timedelta(minutes=41, seconds=1)):
+        with self.at(start + timedelta(minutes=40, seconds=31)):
             self.assertEqual(self._save(attempt_id).status_code, 409)
+
+    def _submissions(self, attempt_id, action='exam_submitted'):
+        return self._rows('SELECT COUNT(*) FROM activity_audit_log WHERE action = %s AND CAST(metadata AS TEXT) LIKE %s',
+                          [action, f'%{attempt_id}%'])[0][0]
+
+    def test_five_minute_exam_closes_at_its_deadline_once(self):
+        from apps.core.exam_schedule import finalize_expired_attempts
+        from apps.core.views import _sx_dt
+        start = self.t0
+        exam_id = self._exam(start_at=start, end_at=start + timedelta(hours=1), duration_minutes=5, auto_submit_on_time_end=True)
+        self.client.force_login(self.student_user)
+        with self.at(start):
+            attempt_id = self._start(exam_id)
+            self.assertEqual(self.client.get(reverse('core:student_attempt', args=[attempt_id])).context['remaining_seconds'], 300)
+        with self.at(start + timedelta(minutes=4, seconds=59)):
+            self.assertEqual(self._save(attempt_id, '2').json(), {'ok': True})
+        submit = reverse('core:student_attempt_submit', args=[attempt_id])
+        with self.at(start + timedelta(minutes=5, seconds=10)):  # the page's auto-submit, a little late on the network
+            self.client.post(submit, {'auto': '1'})
+            self.client.post(submit, {'auto': '1'})  # sent twice (a retry): one submission, graded once
+        self.assertEqual(finalize_expired_attempts(now=start + timedelta(minutes=6)), [])  # already closed
+        [(status, score, submitted_at)] = self._rows('SELECT status, score, submitted_at FROM exam_attempts WHERE id = %s', [attempt_id])
+        self.assertEqual((status, float(score)), ('graded', 2.0))
+        self.assertEqual(_sx_dt(submitted_at), start + timedelta(minutes=5))  # never later than its 5 minutes
+        self.assertEqual(self._submissions(attempt_id), 1)
+        self.assertEqual(self._submissions(attempt_id, 'exam_auto_submitted'), 0)
+        with self.at(start + timedelta(minutes=6)):  # «ادامه‌ی آزمون» on a closed attempt reopens nothing
+            self.assertIsNone(self._start(exam_id))
+        self.assertEqual(self._rows('SELECT status FROM exam_attempts WHERE id = %s', [attempt_id])[0][0], 'graded')
+
+    def test_an_early_submit_keeps_its_own_moment(self):
+        from apps.core.views import _sx_dt
+        start = self.t0
+        exam_id = self._exam(start_at=start, end_at=start + timedelta(hours=1), duration_minutes=5)
+        self.client.force_login(self.student_user)
+        with self.at(start):
+            attempt_id = self._start(exam_id)
+        with self.at(start + timedelta(minutes=2)):
+            self.client.post(reverse('core:student_attempt_submit', args=[attempt_id]))
+        [(submitted_at,)] = self._rows('SELECT submitted_at FROM exam_attempts WHERE id = %s', [attempt_id])
+        self.assertEqual(_sx_dt(submitted_at), start + timedelta(minutes=2))
+
+    def test_without_auto_submit_the_attempt_expires_once(self):
+        from apps.core.exam_schedule import finalize_expired_attempts
+        start = self.t0
+        exam_id = self._exam(start_at=start, end_at=start + timedelta(hours=1), duration_minutes=5, auto_submit_on_time_end=False)
+        self.client.force_login(self.student_user)
+        with self.at(start):
+            attempt_id = self._start(exam_id)
+        with self.at(start + timedelta(minutes=6)):
+            response = self.client.get(reverse('core:student_attempt_submit', args=[attempt_id]))
+            self.assertRedirects(response, reverse('core:student_exam_detail', args=[exam_id]), fetch_redirect_response=False)
+        self.assertEqual(finalize_expired_attempts(now=start + timedelta(minutes=7)), [])
+        self.assertEqual(self._rows('SELECT status, submitted_at FROM exam_attempts WHERE id = %s', [attempt_id])[0], ('expired', None))
+        self.assertEqual(self._submissions(attempt_id, 'exam_attempt_expired'), 1)
+
+    def test_live_check_in_follows_the_server_clock_and_a_cancellation(self):
+        start = self.t0
+        exam_id = self._exam(start_at=start, end_at=start + timedelta(hours=1), duration_minutes=30)
+        self.client.force_login(self.student_user)
+        with self.at(start):
+            attempt_id = self._start(exam_id)
+        live = reverse('core:student_attempt_live', args=[attempt_id])
+        page = reverse('core:student_attempt', args=[attempt_id])
+        with self.at(start + timedelta(minutes=10)):
+            self.assertEqual(self.client.get(live).json()['remaining_seconds'], 20 * 60)
+            # the exam's end is moved earlier: the remaining time shrinks with it (the page clock follows both ways)
+            erd_execute('UPDATE exams SET end_at = %s WHERE id = %s', [start + timedelta(minutes=12), exam_id])
+            self.assertEqual(self.client.get(live).json()['remaining_seconds'], 2 * 60)
+            erd_execute('UPDATE exams SET is_cancelled = %s WHERE id = %s', [True, exam_id])
+            self.assertEqual(self.client.get(live).json(), {'ok': True, 'open': False})
+            self.assertEqual(self._save(attempt_id).status_code, 409)
+            self.assertRedirects(self.client.get(page), reverse('core:student_exam_schedule'), fetch_redirect_response=False)
+
+    def test_scheduler_runs_in_one_process_at_a_time(self):
+        from apps.core import exam_schedule
+        if connection.vendor != 'postgresql':
+            self.skipTest('advisory locks are PostgreSQL only')
+        from django.db import connections
+        other = connections.create_connection('default')
+        try:
+            with other.cursor() as cursor:
+                cursor.execute('SELECT pg_try_advisory_lock(%s)', [exam_schedule.TASKS_LOCK_KEY])
+            with mock.patch.object(exam_schedule, 'finalize_expired_attempts') as finalize:
+                self.assertEqual(exam_schedule.run_due_tasks()['finalized'], [])
+                finalize.assert_not_called()  # another process holds the lock
+            with other.cursor() as cursor:
+                cursor.execute('SELECT pg_advisory_unlock(%s)', [exam_schedule.TASKS_LOCK_KEY])
+            with mock.patch.object(exam_schedule, 'finalize_expired_attempts', return_value=['x']) as finalize:
+                self.assertEqual(exam_schedule.run_due_tasks(only=('finalized',))['finalized'], ['x'])
+        finally:
+            other.close()
 
     def test_no_new_attempt_after_the_exam_end(self):
         start = self.t0
@@ -7261,19 +7631,19 @@ class ExamTimingScenariosTests(_EnforcedExamFixture):
         self.client.force_login(self.teacher_user)
         payload = {'title': 'آزمون زمان', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
                    'question_ids': [self.single_id], 'duration_minutes': '30', 'publish_choice': 'submit',
-                   'start_at': '2026-12-10T16:00', 'end_at': '2026-12-10T17:00', 'last_entry_at': '2026-12-10T15:55'}
+                   'start_at': f'{FUTURE_DAY}T16:00', 'end_at': f'{FUTURE_DAY}T17:00', 'last_entry_at': f'{FUTURE_DAY}T15:55'}
         self.client.post(reverse('core:teacher_exam_create'), payload)
         self.assertEqual(self._rows("SELECT count(*) FROM exams WHERE title = 'آزمون زمان'", []), [(0,)])  # last entry before start
-        self.client.post(reverse('core:teacher_exam_create'), {**payload, 'last_entry_at': '2026-12-10T16:05'})
+        self.client.post(reverse('core:teacher_exam_create'), {**payload, 'last_entry_at': f'{FUTURE_DAY}T16:05'})
         [(start, end, last_entry)] = self._rows("SELECT start_at, end_at, last_entry_at FROM exams WHERE title = 'آزمون زمان'", [])
         from datetime import timezone as dt_timezone
         aware = lambda value: value if timezone.is_aware(value) else value.replace(tzinfo=dt_timezone.utc)  # UTC columns
         local = lambda value: timezone.localtime(aware(value)).strftime('%Y-%m-%d %H:%M')
-        self.assertEqual((local(start), local(end), local(last_entry)), ('2026-12-10 16:00', '2026-12-10 17:00', '2026-12-10 16:05'))
+        self.assertEqual((local(start), local(end), local(last_entry)), (f'{FUTURE_DAY} 16:00', f'{FUTURE_DAY} 17:00', f'{FUTURE_DAY} 16:05'))
         self.assertEqual(timezone.localtime(start).utcoffset(), timedelta(hours=3, minutes=30))
         [(exam_id,)] = self._rows("SELECT id FROM exams WHERE title = 'آزمون زمان'", [])
         fields = self.client.get(reverse('core:teacher_exam_edit', args=[exam_id])).context['wizard_initial']['fields']
-        self.assertEqual((fields['start_at'], fields['last_entry_at']), ('2026-12-10T16:00', '2026-12-10T16:05'))  # edit shows them back
+        self.assertEqual((fields['start_at'], fields['last_entry_at']), (f'{FUTURE_DAY}T16:00', f'{FUTURE_DAY}T16:05'))  # edit shows them back
 
 
 class ExamCodeJoinTests(_EnforcedExamFixture):
@@ -7395,7 +7765,7 @@ class ExamCodeJoinTests(_EnforcedExamFixture):
         self.assertContains(self.client.get(reverse('core:teacher_exams')), code)
         created = self.client.post(reverse('core:teacher_exam_create'), {
             'title': 'آزمون تازه', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id], 'question_ids': [self.single_id],
-            'duration_minutes': '30', 'publish_choice': 'submit', 'start_at': '2026-12-10T16:00'}, follow=True)
+            'duration_minutes': '30', 'publish_choice': 'submit', 'start_at': f'{FUTURE_DAY}T16:00'}, follow=True)
         [(new_id,)] = self._rows("SELECT id FROM exams WHERE title = 'آزمون تازه'", [])
         self.assertContains(created, f'data-copy-code="{self._code(new_id)}"', count=1)  # the new exam's code card
         self.assertContains(created, f'data-xl-copy="{self._code(new_id)}"', count=2)  # its row (table and card view)
@@ -7893,7 +8263,7 @@ class ExamCodeAndAttemptFlowFixesTests(_EnforcedExamFixture):
         self.client.force_login(self.teacher_user)
         self.client.post(reverse('core:teacher_exam_create'), {
             'title': 'آزمون کد بزرگ', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id], 'question_ids': [self.single_id],
-            'duration_minutes': '30', 'publish_choice': 'submit', 'start_at': '2026-12-10T16:00'})
+            'duration_minutes': '30', 'publish_choice': 'submit', 'start_at': f'{FUTURE_DAY}T16:00'})
         [(exam_id,)] = self._rows("SELECT id FROM exams WHERE title = 'آزمون کد بزرگ'", [])
         code = self._code(exam_id)
         page = self.client.get(reverse('core:teacher_exams'), {'saved': str(exam_id)})
@@ -8454,7 +8824,7 @@ class ExamReportTests(_ScopedOrgFixture):
         self.client.post(reverse('core:teacher_exam_create'), {
             'title': 'آزمون گزارش', 'course_id': self.course_in_id, 'group_ids': [self.group_in_id],
             'question_ids': [self.question_in_id, self.question_in2_id], 'duration_minutes': '75',
-            'start_at': '2026-11-10T09:00', 'tags': 'قلب، عروق', 'publish_choice': 'submit',
+            'start_at': f'{FUTURE_DAY}T09:00', 'tags': 'قلب، عروق', 'publish_choice': 'submit',
             'description': 'توضیح آزمون گزارش', 'correction_instructions': 'دستور تصحیح نمونه', 'fullscreen_required': 'on',
         })
         with connection.cursor() as cursor:

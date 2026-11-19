@@ -230,6 +230,10 @@ BACKUP_DIR = os.getenv('BACKUP_DIR', '').strip()
 # off, e.g. when `manage.py backup_database --scheduled` runs from cron instead. Never on during tests.
 AUTO_BACKUP_SCHEDULER = (os.getenv('AUTO_BACKUP_SCHEDULER', '1').strip().lower() not in ('0', 'false', 'no', 'off')
                          and 'test' not in sys.argv[1:2])
+# Each web process runs a thread that closes attempts whose time ran out within seconds and runs the other timed
+# exam tasks every minute (apps/core/exam_schedule.py); 0 turns it off. Never on during tests.
+DUE_TASKS_SCHEDULER = (os.getenv('DUE_TASKS_SCHEDULER', '1').strip().lower() not in ('0', 'false', 'no', 'off')
+                       and 'test' not in sys.argv[1:2])
 # Never mapped to a URL: student answer files are streamed by views after an access check.
 PRIVATE_MEDIA_ROOT = Path(os.getenv('PRIVATE_MEDIA_ROOT', str(BASE_DIR / 'private_media')))
 

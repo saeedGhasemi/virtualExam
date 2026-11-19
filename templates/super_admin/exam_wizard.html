@@ -21,9 +21,11 @@
     .wizard-main{padding:1.25rem}.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.2rem;font-weight:700;color:#315cff}
     .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.form-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.form-grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}.form-grid.five{grid-template-columns:repeat(5,minmax(0,1fr))}
     .field{display:grid;gap:.42rem;color:#34435f;font-size:.84rem;font-weight:700}.field.is-full{grid-column:1/-1}
+    /* step 2 times: boxes line up at the top whatever the hint lengths; hints are quiet text (teacher's report 01-04) */
+    [data-pane="2"] .field.field,[data-pane="5"] .field.field{align-content:start}.field .field-hint,.time-order-hint{display:block;margin:0;color:#65728a;font-size:.76rem;font-weight:400;line-height:1.7}.time-order-hint.time-order-hint{margin:-.35rem 0 .85rem}[data-jalali-display][aria-invalid="true"]{border-color:#e11d48!important;box-shadow:0 0 0 3px rgba(225,29,72,.12)!important}
     .field input,.field select,.field textarea{width:100%;border:1px solid #cbd9ec;border-radius:.72rem;background:#fff;padding:.78rem .9rem;color:#071936;outline:0;font-weight:600}.field textarea{min-height:4.2rem;resize:vertical}
-    .field-unit{position:relative}.field-unit input{padding-left:3.1rem}.field-unit .unit{position:absolute;top:50%;left:.9rem;transform:translateY(-50%);color:#8a94a6;font-size:.76rem;font-weight:600;pointer-events:none}
-    .field-toggle{display:flex;flex-direction:column;justify-content:space-between}.field-toggle>span{display:flex;align-items:center;gap:.3rem}
+    .field-unit .unit-box{position:relative;display:block}.field-unit input{padding-left:3.1rem;width:100%}.field-unit .unit{position:absolute;top:50%;left:.9rem;transform:translateY(-50%);color:#8a94a6;font-size:.76rem;font-weight:600;pointer-events:none}
+    .field-toggle{display:flex;flex-direction:column;justify-content:flex-start;gap:.42rem}.field-toggle .switch-only{align-self:flex-start;align-items:center;min-height:3.1rem}.field-toggle>span{display:flex;align-items:center;gap:.3rem}
     .info-icon{width:.9rem;height:.9rem;color:#9aa7bd;flex-shrink:0}
     .subgrid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}.subgrid.three{grid-template-columns:repeat(3,1fr)}
     .grading-toggle-row{display:flex;justify-content:space-between;align-items:center;gap:2rem;margin-top:1rem;padding-top:1rem;border-top:1px solid #e7eef7;flex-wrap:wrap}.grading-toggle-row .toggle-row{border-bottom:0;padding:0;flex:0 0 auto}
@@ -64,13 +66,26 @@
     .chips-field select{border:0;flex:1;min-width:9rem;padding:.4rem}
     .chip{display:inline-flex;align-items:center;gap:.4rem;border-radius:.6rem;background:#eef1ff;color:#315cff;font-weight:700;font-size:.8rem;padding:.35rem .55rem}
     .chip button{border:0;background:none;color:#315cff;cursor:pointer;font-weight:700;line-height:1}
+    .chips-field{min-width:0}.chips-field .chip{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+    [data-exam-tags-field] input{border:0;flex:1 1 9rem;min-width:0;padding:.4rem;outline:0;background:transparent}
+    [data-exam-tags-field]:focus-within,[data-chips="group"]:focus-within{border-color:#315cff;box-shadow:0 0 0 3px rgba(49,92,255,.12)}
+    .chips-field.is-bad{border-color:#e11d48;box-shadow:0 0 0 3px rgba(225,29,72,.14)}
+    .chip.is-duplicate{animation:mq-chip-flash .9s ease 2}
+    @keyframes mq-chip-flash{50%{background:#fde68a;color:#92400e}}
+    .field > label{color:inherit;font:inherit}
     .upload-drop{position:relative;display:grid;place-items:center;gap:.4rem;border:2px dashed #cbd9ec;border-radius:.9rem;background:#fbfdff;padding:1.5rem;text-align:center;color:#65728a;font-weight:600;min-height:9rem}
     .upload-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
     .upload-drop img{max-height:6.5rem;border-radius:.6rem;object-fit:cover}
     .upload-drop .remove-upload{position:absolute;top:.5rem;left:.5rem;z-index:2;border:0;border-radius:50%;width:1.7rem;height:1.7rem;background:#fff;color:#dc2626;box-shadow:0 6px 16px rgba(30,55,95,.15);cursor:pointer}
     .upload-drop.has-file{border-style:solid;border-color:#a9bfff;background:#f7f8ff}
+    .upload-drop.is-dragover{border-color:#315cff;background:#eef3ff}
+    .upload-drop.is-bad{border-color:#e11d48;background:#fff7f8}
+    .upload-drop:focus-within{outline:2px solid #315cff;outline-offset:2px}
+    .upload-drop .upload-meta{display:block;color:#53617b;font-size:.76rem;font-weight:600;overflow-wrap:anywhere}
+    .upload-drop .upload-meta a{position:relative;z-index:2}
     .upload-drop .file-name{display:flex;align-items:center;gap:.5rem;color:#315cff;font-weight:700}
     .upload-drop .file-name svg{width:1.6rem;height:1.6rem;flex-shrink:0}
+    .upload-hint.upload-hint,.st-ip-hint.st-ip-hint{display:block;margin:.45rem 0 0;color:#65728a;font-size:.74rem;font-weight:400;line-height:1.7}.st-ip-input:disabled{background:#f1f5fb;color:#8a94a6;cursor:not-allowed}
     .participant-pane{display:none}.participant-pane.is-active{display:block}
     .selector-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1rem}.selection-list{border:1px solid #dbe4f1;border-radius:.85rem;background:#fff;overflow:hidden}.selection-toolbar{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:.7rem;padding:.8rem;border-bottom:1px solid #e5ecf6}.selection-toolbar input,.selection-toolbar select{height:2.8rem;border:1px solid #cbd9ec;border-radius:.65rem;padding:0 .8rem;outline:0}
     tr[data-participant-row]:has([data-manual-student]:disabled:checked){background:#f2f5ff}
@@ -224,7 +239,18 @@
     .summary-status.is-pill svg{width:.85rem;height:.85rem}
     .summary-list span{display:flex;align-items:center}
     .summary-list span svg{width:.85rem;height:.85rem;margin-inline-start:.35rem;color:#9aa7bd;flex-shrink:0}
-    .summary-history-btn{display:flex;align-items:center;justify-content:center;gap:.4rem;width:100%;height:2.6rem;margin-top:.7rem;border:1px solid #cbd9ec;border-radius:.7rem;background:#fff;color:#65728a;font-weight:700;font-size:.8rem;cursor:not-allowed}
+    .summary-history-btn{display:flex;align-items:center;justify-content:center;gap:.4rem;width:100%;height:2.6rem;margin-top:.7rem;border:1px solid #cbd9ec;border-radius:.7rem;background:#fff;color:#315cff;font-weight:600;font-size:.8rem;cursor:pointer}.summary-history-btn:hover{background:#f3f6ff;border-color:#315cff}
+    /* «ثبت آزمون» / «ذخیره» with something missing: the list of what to fix, on whatever step (teacher's report, step 7) */
+    .submit-problems{margin:0 0 1rem;padding:.9rem 1rem;border:1px solid #fecdd3;border-radius:.9rem;background:#fff1f2;color:#881337}
+    .submit-problems[hidden]{display:none}.submit-problems h3{margin:0 0 .55rem;font-size:.95rem;font-weight:700;color:#9f1239}
+    .submit-problems ol{display:grid;gap:.45rem;margin:0;padding:0 1.1rem 0 0}.submit-problems li{font-size:.84rem;line-height:1.7}
+    .submit-problems li span{font-weight:400}.submit-problems li b{font-weight:700}
+    .submit-problems button{margin-inline-start:.4rem;border:1px solid #fda4af;border-radius:.5rem;background:#fff;color:#9f1239;font:inherit;font-size:.76rem;font-weight:600;padding:.1rem .55rem;cursor:pointer}
+    .wizard-step.has-problem{box-shadow:inset 0 0 0 2px #fda4af}.wizard-step.has-problem b{background:#e11d48;color:#fff}
+    .history-list{display:grid;gap:.6rem;margin:0;padding:0;list-style:none}.history-list li{border:1px solid #e1e8f3;border-radius:.8rem;padding:.7rem .85rem;background:#fbfdff}
+    .history-list .h-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3rem .8rem}.history-list strong{color:#071936;font-size:.88rem;font-weight:700}
+    .history-list time{color:#65728a;font-size:.78rem}.history-list .h-who{margin:.2rem 0 0;color:#53617b;font-size:.8rem}
+    .history-list .h-changes{display:flex;flex-wrap:wrap;gap:.3rem;margin:.45rem 0 0}.history-list .h-changes span{border-radius:999px;background:#eef3ff;color:#315cff;font-size:.74rem;font-weight:600;padding:.1rem .55rem}
     .summary-history-btn svg{width:.95rem;height:.95rem}
     .step7-columns{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.5fr) minmax(0,1.15fr);gap:1rem}
     .step7-col-stack{display:grid;gap:1rem;align-content:start}
@@ -233,7 +259,7 @@
     .exam-preview-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.55)}
     .exam-preview-panel{position:relative;width:min(760px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:1.1rem;padding:1.4rem;box-shadow:0 30px 70px rgba(15,23,42,.35)}
     .exam-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;position:relative}
-    .exam-preview-head h2{margin:0;color:#315cff;font-size:1.1rem;font-weight:700}
+    .exam-preview-head h2{margin:0;color:#315cff;font-size:1.1rem;font-weight:700}.exam-preview-head .qd-close.qd-close{position:static;flex:none;cursor:pointer}
     .exam-preview-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1.2rem}
     .exam-preview-meta div{border:1px solid #e1e8f3;border-radius:.75rem;background:#fbfdff;padding:.7rem;text-align:center}
     .exam-preview-meta span{display:block;color:#7a8597;font-size:.72rem;font-weight:600;margin-bottom:.25rem}
@@ -283,6 +309,10 @@
 
         <div class="wizard-layout">
             <main class="wizard-card wizard-main">
+                <div class="submit-problems" data-submit-problems role="alert" tabindex="-1" hidden>
+                    <h3 data-submit-problems-title>پیش از ثبت، این موارد را اصلاح کنید</h3>
+                    <ol data-submit-problems-list></ol>
+                </div>
                 <section class="wizard-pane is-active" data-pane="1">
                     <div class="section-title"><h2>مشخصات پایه آزمون</h2><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3v4M15 3v4"/></svg></div>
                     <div class="form-grid two">
@@ -294,31 +324,36 @@
                             <label class="mode-pill"><input type="radio" name="exam_mode" value="standard" checked><span>آزمون عادی</span></label>
                         </div></label>
                         <label class="field">دوره / ترم<select name="academic_term" data-summary="year">{% for term in terms %}<option value="{{ term.year }}/{{ term.semester }}">{{ term.label|fa_digits }}</option>{% endfor %}</select></label>
-                        <label class="field is-full">گروه‌های هدف *
-                            <div class="chips-field" data-chips="group">
-                                <select data-chip-source>
+                        <div class="field is-full"><label for="wizard-group-source">گروه‌های هدف *</label>
+                            <div class="chips-field" data-chips="group" data-focus-inside>
+                                <select id="wizard-group-source" data-chip-source>
                                     <option value="">افزودن گروه...</option>
                                     {% for group in groups %}<option value="{{ group.id }}" data-course-id="{{ group.course_id }}" data-label="{{ group.course_title|fa_digits }} - گروه {{ group.group_code|default:'-'|fa_digits }}" data-teacher-id="{{ group.selected_teacher_id|default:'' }}" data-teacher-name="{{ group.teacher_name|default:'-'|fa_digits }}">{{ group.course_title|fa_digits }} - گروه {{ group.group_code|default:'-'|fa_digits }}</option>{% endfor %}
                                 </select>
                             </div>
-                        </label>
+                        </div>
                         <label class="field is-full">توضیحات آزمون<textarea name="description" maxlength="500"></textarea></label>
-                        <label class="field">تصویر کاور (اختیاری)
-                            <div class="upload-drop" data-upload-drop>
-                                <input type="file" name="cover_image" accept=".jpg,.jpeg,.png" data-upload-input>
+                        <div class="field"><label for="wizard-cover-image">تصویر کاور (اختیاری)</label>
+                            <div class="upload-drop" data-upload-drop data-max-mb="2" data-kind="image" data-label="تصویر کاور">
+                                <input type="file" id="wizard-cover-image" name="cover_image" accept=".jpg,.jpeg,.png,image/jpeg,image/png" data-upload-input aria-describedby="wizard-cover-error">
+                                <input type="hidden" name="remove_cover_image" data-upload-remove-flag>
                                 <button type="button" class="remove-upload" data-remove-upload hidden aria-label="حذف تصویر">×</button>
-                                <span data-upload-placeholder>برای آپلود کلیک کنید یا فایل را اینجا بکشید<br><small>فرمت‌های مجاز: JPG, PNG | حداکثر حجم: ۲ مگابایت</small></span>
+                                <span data-upload-placeholder>برای بارگذاری کلیک کنید یا فایل را اینجا بکشید<br><small>فرمت‌های مجاز: JPG، PNG | حداکثر حجم: ۲ مگابایت</small></span>
                             </div>
-                        </label>
-                        <label class="field">تگ‌ها (اختیاری)
-                            <div class="chips-field" data-exam-tags-field>
-                                <input type="text" data-exam-tags-input placeholder="افزودن تگ و Enter" autocomplete="off">
+                            <small class="field-hint upload-hint">JPG یا PNG، حداکثر ۲ مگابایت، هر ضلع ۱۰۰ تا ۸۰۰۰ پیکسل (پیشنهاد: افقی، مثلاً ۱۲۰۰×۴۰۰).</small>
+                            <small class="mq-rule-msg" id="wizard-cover-error" data-upload-error role="alert" hidden></small>
+                        </div>
+                        <div class="field"><label for="wizard-exam-tags">تگ‌ها (اختیاری)</label>
+                            <div class="chips-field" data-exam-tags-field data-focus-inside>
+                                <input type="text" id="wizard-exam-tags" data-exam-tags-input placeholder="افزودن تگ و Enter" autocomplete="off" maxlength="31" data-mq-rule="off" aria-describedby="wizard-tags-hint wizard-tags-error">
                             </div>
+                            <small id="wizard-tags-hint" class="field-hint" data-exam-tags-hint>حداکثر ۱۰ تگ؛ هر تگ ۲ تا ۳۰ نویسه از حرف، رقم، فاصله، خط تیره یا زیرخط. برای افزودن، Enter یا «،» بزنید.</small>
+                            <small class="mq-rule-msg" id="wizard-tags-error" data-exam-tags-error role="alert" hidden></small>
                             <input type="hidden" name="tags" data-exam-tags-output>
-                        </label>
+                        </div>
                     </div>
                     <div class="subgrid">
-                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid two"><label class="field">نمره کل آزمون<input type="number" step="0.25" min="0.5" placeholder="۲۰" data-total-mirror aria-describedby="total-mirror-hint"><small id="total-mirror-hint" class="field-hint">همان «مجموع نمرات کل آزمون» در مرحله‌ی نمره‌دهی است.</small></label><label class="field">قالب نمره‌دهی<select name="grading_template"><option value="detailed_score">کارنامه‌ی تفصیلی (نمره‌ی هر سؤال)</option><option value="total_score">فقط نمره‌ی کل</option></select></label></div></div>
+                        <div class="mini-card"><h3>شیوه نمره‌دهی</h3><div class="form-grid two"><label class="field">نمره کل آزمون<input type="number" step="0.25" min="0.25" max="1000" placeholder="۱۰۰" data-total-mirror aria-describedby="total-mirror-hint"><small id="total-mirror-hint" class="field-hint">همان «مجموع نمرات کل آزمون» در مرحله‌ی نمره‌دهی است.</small></label><label class="field">قالب نمره‌دهی<select name="grading_template"><option value="detailed_score">کارنامه‌ی تفصیلی (نمره‌ی هر سؤال)</option><option value="total_score">فقط نمره‌ی کل</option></select></label></div></div>
                         <div class="mini-card"><h3>تنظیمات اولیه</h3><label class="toggle-row"><input type="checkbox" name="show_instructions_before_start" checked><span class="switch"></span><span>نمایش دستورالعمل پیش از شروع</span></label></div>
                     </div>
                 </section>
@@ -326,33 +361,42 @@
                 <section class="wizard-pane" data-pane="2">
                     <div class="mini-card"><h3>زمان آزمون</h3><div class="form-grid">
                         <label class="field">تاریخ و زمان شروع آزمون *
-                            <div class="jalali-field" data-jalali-field>
-                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
+                            <div class="jalali-field" data-jalali-field data-jalali-min="now" data-jalali-max-days="365">
+                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی" aria-describedby="start-at-hint start-at-error">
                                 <input type="hidden" name="start_at" data-jalali-value required data-summary="start_at">
                             </div>
+                            <small id="start-at-hint" class="field-hint">از اکنون تا حداکثر یک سال بعد؛ ساعت به وقت ایران.</small>
+                            <small class="mq-rule-msg" id="start-at-error" data-time-error="start_at" role="alert" hidden></small>
                         </label>
-                        <label class="field">مدت زمان آزمون (دقیقه) *<input name="duration_minutes" type="number" min="1" value="90" required data-duration></label>
+                        <label class="field">مدت زمان آزمون (دقیقه) *<input name="duration_minutes" type="number" min="1" max="1440" step="1" value="90" required data-duration aria-describedby="duration-hint"><small id="duration-hint" class="field-hint">عدد صحیح از ۱ تا ۱۴۴۰ دقیقه (۲۴ ساعت).</small></label>
                         <label class="field">زمان پایان (تقریبی)<input type="text" disabled placeholder="بر اساس مدت زمان وارد شده محاسبه می‌شود" data-computed-end></label>
                     </div></div>
-                    <div class="mini-card" style="margin-top:1rem"><h3>بازه ثبت‌نام و دسترسی</h3><div class="form-grid four">
+                    <div class="mini-card" style="margin-top:1rem"><h3>بازه ثبت‌نام و دسترسی</h3>
+                        <p class="field-hint time-order-hint">همه اختیاری‌اند. ترتیب: شروع دسترسی ← شروع آزمون ← آخرین زمان مجاز ورود ← پایان دسترسی ← پایان آزمون؛ زمان گذشته پذیرفته نیست.</p>
+                        <div class="form-grid four">
                         <label class="field">شروع دسترسی
-                            <div class="jalali-field" data-jalali-field>
-                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
+                            <div class="jalali-field" data-jalali-field data-jalali-min="now" data-time-field="registration_start_at">
+                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی" aria-describedby="access-start-hint access-start-error">
                                 <input type="hidden" name="registration_start_at" data-jalali-value>
                             </div>
+                            <small id="access-start-hint" class="field-hint">از این زمان صفحه‌ی ورود (قوانین، احراز هویت) باز می‌شود؛ تا شروع آزمون و حداکثر ۳۰ روز پیش از آن. خالی یعنی بدون محدودیت.</small>
+                            <small class="mq-rule-msg" id="access-start-error" data-time-error="registration_start_at" role="alert" hidden></small>
                         </label>
                         <label class="field">آخرین زمان مجاز ورود
-                            <div class="jalali-field" data-jalali-field data-jalali-default-from="start_at">
-                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی" aria-describedby="last-entry-hint">
+                            <div class="jalali-field" data-jalali-field data-jalali-min="now" data-jalali-default-from="start_at" data-time-field="last_entry_at">
+                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی" aria-describedby="last-entry-hint last-entry-error">
                                 <input type="hidden" name="last_entry_at" data-jalali-value>
                             </div>
-                            <small id="last-entry-hint" class="field-hint">بین شروع و پایان آزمون؛ خالی یعنی تا پایان آزمون.</small>
+                            <small id="last-entry-hint" class="field-hint">بعد از شروع و تا پایان آزمون؛ خالی یعنی تا پایان آزمون.</small>
+                            <small class="mq-rule-msg" id="last-entry-error" data-time-error="last_entry_at" role="alert" hidden></small>
                         </label>
                         <label class="field">پایان دسترسی
-                            <div class="jalali-field" data-jalali-field>
-                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
+                            <div class="jalali-field" data-jalali-field data-jalali-min="now" data-time-field="registration_end_at">
+                                <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی" aria-describedby="access-end-hint access-end-error">
                                 <input type="hidden" name="registration_end_at" data-jalali-value>
                             </div>
+                            <small id="access-end-hint" class="field-hint">پس از آن کسی وارد نمی‌شود و پاسخی ثبت نمی‌شود؛ بعد از شروع (و آخرین زمان ورود) و تا پایان آزمون. خالی یعنی تا پایان آزمون.</small>
+                            <small class="mq-rule-msg" id="access-end-error" data-time-error="registration_end_at" role="alert" hidden></small>
                         </label>
                         <label class="field">تعداد تلاش مجاز<select name="max_attempts"><option value="1">۱</option><option value="2">۲</option><option value="3">۳</option><option value="0">نامحدود</option></select></label>
                     </div></div>
@@ -565,10 +609,10 @@
 
                 <section class="wizard-pane" data-pane="5">
                     <div class="mini-card"><h3>تنظیمات نمره‌دهی و ارزیابی</h3><div class="form-grid five">
-                        <label class="field field-unit">مجموع نمرات کل آزمون *<input type="number" name="passing_score_total" step="0.5" min="0.5" placeholder="۱۰۰" required><span class="unit">نمره</span></label>
-                        <label class="field">نمره قبولی (حداقل درصد) *<input type="number" name="min_passing_percent" min="0" max="100" placeholder="۶۰" required></label>
+                        <label class="field field-unit">مجموع نمرات کل آزمون *<span class="unit-box"><input type="number" name="passing_score_total" step="0.25" min="0.25" max="1000" placeholder="۱۰۰" required aria-describedby="total-hint"><span class="unit">نمره</span></span><small id="total-hint" class="field-hint">۰٫۲۵ تا ۱۰۰۰، مضرب ۰٫۲۵ (مثلاً ۲۰ یا ۱۹٫۷۵).</small></label>
+                        <label class="field">نمره قبولی (حداقل درصد) *<input type="number" name="min_passing_percent" min="0" max="100" step="1" placeholder="۶۰" required aria-describedby="percent-hint"><small id="percent-hint" class="field-hint">عدد صحیح ۰ تا ۱۰۰ (بدون اعشار).</small></label>
                         <div class="field field-toggle"><span>نمره منفی (جریمه)<svg class="info-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span><label class="switch-only"><input type="checkbox" name="negative_marking" checked><span class="switch"></span></label></div>
-                        <label class="field">مقدار جریمه برای پاسخ غلط<input type="number" name="negative_factor" step="0.01" min="0" max="1" value="0.25" aria-describedby="negative-factor-hint"><small id="negative-factor-hint" class="field-hint">سهمی از نمره‌ی همان سؤال که کم می‌شود (۰ تا ۱).</small></label>
+                        <label class="field">مقدار جریمه برای پاسخ غلط<input type="number" name="negative_factor" step="0.01" min="0" max="1" value="0.25" aria-describedby="negative-factor-hint"><small id="negative-factor-hint" class="field-hint">سهمی از نمره‌ی همان سؤال که کم می‌شود: ۰ تا ۱، حداکثر دو رقم اعشار.</small></label>
                         <label class="field">روش نمره‌دهی کل *<select name="grading_method" required><option value="weighted_by_type">نمره‌دهی وزنی بر اساس نوع سوال</option><option value="uniform">یکسان برای همه سوالات</option></select></label>
                     </div>
                     <div class="grading-toggle-row">
@@ -627,7 +671,7 @@
 
                         <label class="security-toggle" style="grid-area:b"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><input type="checkbox" name="device_limit_enabled" checked><span class="switch"></span></div><div><strong>محدودیت دستگاه</strong><p>فقط یک دستگاه در هر بار ورود</p></div></label>
 
-                        <label class="security-toggle" style="grid-area:c"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><input type="checkbox" name="ip_restriction_enabled"><span class="switch"></span></div><div><strong>محدودیت IP<svg class="st-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></strong><p>اجازه فقط از محدوده IP مشخص</p><input class="st-ip-input" name="ip_restriction_range" placeholder="192.168.1.0/24"></div></label>
+                        <label class="security-toggle" style="grid-area:c"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><input type="checkbox" name="ip_restriction_enabled"><span class="switch"></span></div><div><strong>محدودیت IP<svg class="st-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></strong><p>اجازه فقط از محدوده IP مشخص</p><input class="st-ip-input" name="ip_restriction_range" placeholder="192.168.1.0/24" dir="ltr" autocomplete="off" spellcheck="false" aria-describedby="ip-range-hint" data-ip-range><small id="ip-range-hint" class="field-hint st-ip-hint">با روشن کردن کلید فعال می‌شود؛ نشانی یا محدوده، مثلاً <bdi dir="ltr" data-latin-digits>10.0.0.5</bdi> یا <bdi dir="ltr" data-latin-digits>192.168.1.0/24</bdi>؛ چند مورد را با «,» جدا کنید (حداکثر ۲۰).</small></div></label>
 
                         <label class="security-toggle" style="grid-area:d"><div class="st-head"><span class="st-icon"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></span><input type="checkbox" name="fullscreen_required" checked><span class="switch"></span></div><div><strong>اجبار تمام‌صفحه</strong><p>نمایش در حالت تمام‌صفحه</p></div></label>
 
@@ -654,11 +698,14 @@
                     </div>
 
                     <div class="mini-card" style="margin-top:1rem"><h3>پیوست فایل راهنما (اختیاری)</h3>
-                        <div class="upload-drop" data-upload-drop>
-                            <input type="file" name="guidance_file" accept=".pdf,.jpg,.jpeg,.png" data-upload-input>
+                        <div class="upload-drop" data-upload-drop data-max-mb="10" data-kind="file" data-label="فایل راهنما">
+                            <input type="file" name="guidance_file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" data-upload-input aria-label="پیوست فایل راهنما" aria-describedby="wizard-guidance-error">
+                            <input type="hidden" name="remove_guidance_file" data-upload-remove-flag>
                             <button type="button" class="remove-upload" data-remove-upload hidden aria-label="حذف فایل">×</button>
-                            <span data-upload-placeholder><svg viewBox="0 0 24 24" style="width:2rem;height:2rem;margin:0 auto .3rem;display:block;color:#9aa7bd"><path d="M7 18a4.5 4.5 0 0 1-.4-8.98A5.5 5.5 0 0 1 17 8.5a4 4 0 0 1-1 7.9"/><path d="M12 12v7M9 16l3-3 3 3"/></svg>فایل را بکشید و رها کنید یا کلیک کنید<br><small>فرمت‌های مجاز: PDF, JPG, PNG (حداکثر ۱۰ مگابایت)</small></span>
+                            <span data-upload-placeholder><svg viewBox="0 0 24 24" style="width:2rem;height:2rem;margin:0 auto .3rem;display:block;color:#9aa7bd"><path d="M7 18a4.5 4.5 0 0 1-.4-8.98A5.5 5.5 0 0 1 17 8.5a4 4 0 0 1-1 7.9"/><path d="M12 12v7M9 16l3-3 3 3"/></svg>فایل را بکشید و رها کنید یا کلیک کنید<br><small>فرمت‌های مجاز: PDF، JPG، PNG | حداکثر حجم: ۱۰ مگابایت</small></span>
                         </div>
+                        <small class="field-hint upload-hint">یک فایل PDF، JPG یا PNG، حداکثر ۱۰ مگابایت؛ تصویر با هر ضلع ۱۰۰ تا ۸۰۰۰ پیکسل و متن خوانا (برای چند صفحه، PDF بفرستید). دانشجو آن را پیش از شروع آزمون می‌بیند.</small>
+                        <small class="mq-rule-msg" id="wizard-guidance-error" data-upload-error role="alert" hidden></small>
                     </div>
                 </section>
 
@@ -719,7 +766,7 @@
                                 {% else %}
                                 <label><input type="radio" name="publish_choice_ui" value="immediate"><strong>انتشار فوری</strong><span>آزمون بلافاصله برای دانشجویان قابل دسترسی می‌شود</span></label>
                                 <label><input type="radio" name="publish_choice_ui" value="scheduled"><strong>زمان‌بندی انتشار</strong><span>آزمون در زمان مشخص‌شده خودکار منتشر می‌شود</span>
-                                    <div class="jalali-field" data-jalali-field style="margin-top:.5rem">
+                                    <div class="jalali-field" data-jalali-field data-jalali-min="now" data-jalali-max-days="365" style="margin-top:.5rem">
                                         <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
                                         <input type="hidden" name="scheduled_publish_at" data-jalali-value>
                                     </div>
@@ -752,7 +799,7 @@
                         <div><span><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>توضیحات</span><strong data-summary-description>-</strong></div>
                     </div>
                     <div class="summary-status is-pill" data-summary-status><span data-summary-status-text>پیش‌نویس</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
-                    <button type="button" class="summary-history-btn" disabled title="این قابلیت هنوز پیاده‌سازی نشده است"><svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>مشاهده ویرایش‌های قبلی</button>
+                    {% if saved_exam_id %}<button type="button" class="summary-history-btn" data-history-open aria-haspopup="dialog"><svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>مشاهده ویرایش‌های قبلی ({{ exam_history|length|fa_digits }})</button>{% endif %}
                 </div>
                 <div class="question-detail" data-question-detail-view hidden>
                     <div class="qd-head">
@@ -813,6 +860,32 @@
             </div>
         </footer>
     </form>
+
+    {% if saved_exam_id %}
+    <div class="exam-preview-modal" data-history-modal hidden role="dialog" aria-modal="true" aria-labelledby="history-title">
+        <div class="exam-preview-backdrop" data-history-close></div>
+        <div class="exam-preview-panel">
+            <div class="exam-preview-head">
+                <h2 id="history-title">ویرایش‌های قبلی این آزمون</h2>
+                <button type="button" class="qd-close" data-history-close aria-label="بستن">×</button>
+            </div>
+            {% if exam_history %}
+            <ol class="history-list">
+                {% for item in exam_history %}
+                <li>
+                    <div class="h-top"><strong>{{ item.action }}</strong><time>{{ item.at|to_jalali }}</time></div>
+                    <p class="h-who">{{ item.actor|fa_digits }} · {{ item.role }}</p>
+                    {% if item.changes %}<div class="h-changes" aria-label="بخش‌های تغییرکرده">{% for change in item.changes %}<span>{{ change }}</span>{% endfor %}</div>
+                    {% elif item.no_change %}<p class="h-who">بدون تغییر در تنظیمات (فقط دوباره ذخیره شد).</p>{% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="exam-preview-empty">هنوز ویرایشی برای این آزمون ثبت نشده است؛ از این پس هر ذخیره با زمان، کاربر و بخش‌های تغییرکرده اینجا می‌آید.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     <div class="exam-preview-modal" data-exam-preview-modal hidden>
         <div class="exam-preview-backdrop" data-exam-preview-close></div>
@@ -1137,8 +1210,8 @@
         updateCounts(); updateSummary(); updateDistribution(); updateReadiness(); updateScoreAllocation(); updateReviewCards(); renderQuestionPreview();
     };
 
-    document.querySelectorAll('[data-step-button],[data-go-step]').forEach((button) => button.addEventListener('click', () => setStep(button.dataset.stepButton || button.dataset.goStep)));
-    document.querySelector('[data-next-step]').addEventListener('click', () => setStep(step + 1));
+    document.querySelectorAll('[data-step-button],[data-go-step]').forEach((button) => button.addEventListener('click', () => goStep(button.dataset.stepButton || button.dataset.goStep)));
+    document.querySelector('[data-next-step]').addEventListener('click', () => goStep(step + 1));
     document.querySelector('[data-prev-step]').addEventListener('click', () => setStep(step - 1));
     form.addEventListener('input', () => { updateCounts(); updateSummary(); updateDistribution(); updateReadiness(); updateScoreAllocation(); updateReviewCards(); });
     form.addEventListener('change', () => { updateCounts(); updateSummary(); updateDistribution(); updateReadiness(); updateScoreAllocation(); updateReviewCards(); syncCourseFilter(); applyQuestionFilters(); syncGroupOptionsByCourse(); });
@@ -1150,52 +1223,218 @@
         form.querySelector('[data-publish-mode]').value = selected;
     });
 
-    // Timing rules the browser cannot check on hidden date fields (the server checks them again).
-    function timingProblem() {
-        const value = (name) => form.querySelector(`[name="${name}"]`)?.value || '';
-        const time = (name) => (value(name) ? new Date(value(name)).getTime() : null);
-        if (!(Number(value('duration_minutes')) > 0)) return ['duration_minutes', 'مدت زمان آزمون باید بیشتر از صفر باشد.'];
-        const start = time('start_at');
-        // A draft may be saved before its date is known; sending or publishing needs it.
-        if (!start) return value('publish_choice') === 'draft' ? null : ['start_at', 'تاریخ و زمان شروع آزمون را انتخاب کنید.'];
-        const end = start + Number(value('duration_minutes') || 0) * 60000;
-        const accessStart = time('registration_start_at');
-        const lastEntry = time('last_entry_at');
-        const accessEnd = time('registration_end_at');
-        if (accessStart && accessStart > start) return ['registration_start_at', '«شروع دسترسی» نباید بعد از شروع آزمون باشد.'];
-        if (lastEntry && (lastEntry < start || lastEntry > end)) {
-            const from = window.formatJalaliDateTime?.(value('start_at')) || '';
-            const to = document.querySelector('[data-computed-end]')?.value || '';
-            const range = from && to ? ` (از ${from} تا ${to})` : '';
-            return ['last_entry_at', `«آخرین زمان مجاز ورود» باید بین شروع و پایان آزمون باشد${range}؛ اگر محدودیتی نمی‌خواهید، آن را با «پاک کردن» خالی کنید.`];
+    // Step 2 times (teacher's report 01-04…01-07): the same rules as the server's views.exam_timing_problem. Order:
+    // شروع دسترسی ≤ شروع آزمون < آخرین زمان مجاز ورود ≤ پایان آزمون; شروع آزمون < پایان دسترسی ≤ پایان آزمون and ≥ آخرین
+    // زمان مجاز ورود. New / changed times not in the past (5 minutes' grace), the start at most a year ahead, «شروع دسترسی»
+    // at most 30 days before the start; a time still equal to the saved exam's skips those three checks. Times are Tehran
+    // wall minutes. The calendars only offer allowed times (mqJalaliBounds); a later change of another field shows the
+    // message under the field it breaks, and «مرحله بعد» / saving stay on step 2 until it is fixed.
+    const TIME_LABELS = { start_at: 'تاریخ و زمان شروع آزمون', registration_start_at: 'شروع دسترسی', last_entry_at: 'آخرین زمان مجاز ورود', registration_end_at: 'پایان دسترسی' };
+    const DAY = 1440;
+    const savedTimes = (() => {
+        try {
+            const data = JSON.parse(document.getElementById('wizard-initial')?.textContent || '{}');
+            return data.saved_times || data.fields || {};
+        } catch (error) { return {}; }
+    })();
+    const wallMin = (text) => {
+        const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(text || '');
+        return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 60000 : null;
+    };
+    const TEHRAN_CLOCK = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const tehranNow = () => {
+        const p = Object.fromEntries(TEHRAN_CLOCK.formatToParts(new Date()).map((part) => [part.type, part.value]));
+        return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute) / 60000;
+    };
+    const durationValue = () => {
+        const raw = String(form.elements.duration_minutes?.value || '').trim();
+        return /^\d+$/.test(raw) && +raw >= 1 && +raw <= 1440 ? +raw : null;
+    };
+    function timeValues() {
+        const t = {};
+        Object.keys(TIME_LABELS).forEach((name) => { t[name] = wallMin(form.elements[name]?.value); });
+        const minutes = durationValue();
+        t.end_at = t.start_at !== null && minutes ? t.start_at + minutes : null;
+        return t;
+    }
+    function timingProblems(submitting = false) {
+        const problems = {};
+        const add = (name, text) => { if (!problems[name]) problems[name] = text; };
+        const t = timeValues();
+        const now = tehranNow();
+        const fresh = (name) => t[name] !== null && t[name] !== wallMin(savedTimes[name]);
+        const at = (minute) => { const text = window.formatWallMinute?.(minute) || ''; return text ? ` (${text})` : ''; };
+        Object.keys(TIME_LABELS).forEach((name) => {
+            if (fresh(name) && t[name] < now - 5) add(name, `«${TIME_LABELS[name]}»${at(t[name])} گذشته است؛ زمانی از اکنون به بعد انتخاب کنید.`);
+        });
+        const { start_at: start, end_at: end, registration_start_at: accessStart, last_entry_at: lastEntry, registration_end_at: accessEnd } = t;
+        if (start === null) {
+            if (submitting && value('publish_choice') !== 'draft') add('start_at', 'تاریخ و زمان شروع آزمون را انتخاب کنید (برای ارسال یا انتشار لازم است).');
+            return problems;
         }
+        if (fresh('start_at') && start > now + 365 * DAY) add('start_at', `«تاریخ و زمان شروع آزمون» حداکثر یک سال بعد از امروز${at(now + 365 * DAY)} می‌تواند باشد.`);
+        if (accessStart !== null) {
+            if (accessStart > start) add('registration_start_at', `«شروع دسترسی» نباید بعد از شروع آزمون${at(start)} باشد.`);
+            else if (fresh('registration_start_at') && start - accessStart > 30 * DAY) add('registration_start_at', `«شروع دسترسی» حداکثر ۳۰ روز پیش از شروع آزمون${at(start - 30 * DAY)} می‌تواند باشد.`);
+        }
+        if (lastEntry !== null && !(lastEntry > start && (end === null || lastEntry <= end))) {
+            add('last_entry_at', `«آخرین زمان مجاز ورود» باید بعد از شروع آزمون${at(start)}${end !== null ? ` و تا پایان آن${at(end)}` : ''} باشد؛ اگر محدودیتی نمی‌خواهید، آن را با «پاک کردن» خالی کنید.`);
+        }
+        if (accessEnd !== null) {
+            if (accessEnd <= start) add('registration_end_at', `«پایان دسترسی» باید بعد از شروع آزمون${at(start)} باشد.`);
+            else if (lastEntry !== null && accessEnd < lastEntry) add('registration_end_at', `«پایان دسترسی» نباید قبل از «آخرین زمان مجاز ورود»${at(lastEntry)} باشد.`);
+            else if (end !== null && fresh('registration_end_at') && accessEnd > end) add('registration_end_at', `«پایان دسترسی» نباید بعد از پایان آزمون${at(end)} باشد؛ پس از پایان آزمون دسترسی خودبه‌خود بسته می‌شود. اگر محدودیتی نمی‌خواهید، آن را با «پاک کردن» خالی کنید.`);
+        }
+        return problems;
+    }
+    // Writes the messages under the fields; returns the names with a problem, in page order.
+    function showTimingProblems(submitting = false) {
+        const problems = timingProblems(submitting);
+        const names = [];
+        form.querySelectorAll('[data-time-error]').forEach((box) => {
+            const name = box.dataset.timeError;
+            const text = problems[name] || '';
+            if (box.textContent !== text) box.textContent = text;
+            box.hidden = !text;
+            const display = form.elements[name]?.closest('[data-jalali-field]')?.querySelector('[data-jalali-display]');
+            if (text) { display?.setAttribute('aria-invalid', 'true'); names.push(name); } else display?.removeAttribute('aria-invalid');
+        });
+        return names;
+    }
+    function focusTimingProblem(names) {
+        setStep(2);
+        const box = form.querySelector(`[data-time-error="${names[0]}"]`);
+        const display = form.elements[names[0]]?.closest('[data-jalali-field]')?.querySelector('[data-jalali-display]');
+        window.requestAnimationFrame(() => { box?.scrollIntoView({ block: 'center' }); display?.focus({ preventScroll: true }); });
+    }
+    Object.keys(TIME_LABELS).forEach((name) => form.elements[name]?.addEventListener('change', () => showTimingProblems()));
+    form.elements.duration_minutes?.addEventListener('input', () => showTimingProblems());
+    // what each calendar offers (the picker adds «not before now» / «at most a year ahead» from its data-jalali-* attributes)
+    const setBounds = (name, bounds) => {
+        const root = form.elements[name]?.closest('[data-jalali-field]');
+        if (root) root.mqJalaliBounds = () => { const t = timeValues(); return t.start_at === null ? {} : bounds(t); };
+    };
+    setBounds('registration_start_at', (t) => ({ min: t.start_at - 30 * DAY, minLabel: '۳۰ روز پیش از شروع آزمون', max: t.start_at, maxLabel: 'شروع آزمون' }));
+    setBounds('last_entry_at', (t) => ({ min: t.start_at + 1, minLabel: 'بعد از شروع آزمون', max: t.end_at ?? undefined, maxLabel: 'پایان آزمون' }));
+    setBounds('registration_end_at', (t) => {
+        const afterEntry = t.last_entry_at !== null && t.last_entry_at > t.start_at;
+        return { min: afterEntry ? t.last_entry_at : t.start_at + 1, minLabel: afterEntry ? 'آخرین زمان مجاز ورود' : 'بعد از شروع آزمون', max: t.end_at ?? undefined, maxLabel: 'پایان آزمون' };
+    });
+    // leaving step 2 forward (or jumping past it) waits until its times are in order
+    const goStep = (target) => {
+        if (Number(target) > 2 && step <= 2) {
+            const names = showTimingProblems();
+            if (names.length) { focusTimingProblem(names); return; }
+        }
+        setStep(target);
+    };
+
+    // Other rules the browser cannot check on these fields (the server checks them again).
+    function timingProblem() {
         const factor = value('negative_factor');
         if (factor !== '' && (Number(factor) < 0 || Number(factor) > 1)) return ['negative_factor', '«مقدار جریمه برای پاسخ غلط» باید عددی بین ۰ تا ۱ باشد؛ پاسخ غلط نمره اضافه نمی‌دهد.'];
         const total = value('passing_score_total');
         if (total !== '' && !(Number(total) > 0)) return ['passing_score_total', '«مجموع نمرات کل آزمون» باید بیشتر از صفر باشد.'];
-        if (accessEnd && accessEnd < start) return ['registration_end_at', '«پایان دسترسی» نباید قبل از شروع آزمون باشد.'];
         const percent = value('min_passing_percent');
         if (percent !== '' && (Number(percent) < 0 || Number(percent) > 100)) return ['min_passing_percent', 'نمره قبولی باید درصدی بین ۰ تا ۱۰۰ باشد.'];
         return null;
     }
+    function value(name) { return form.querySelector(`[name="${name}"]`)?.value || ''; }
+
+    // «محدودیت IP» (teacher's report 01-09): the range box works only while its switch is on, and is needed then;
+    // its format is checked by field-rules.js (kind «ip») and again by the server (field_rules.ip_range_error).
+    const ipSwitch = form.elements.ip_restriction_enabled;
+    const ipRange = form.querySelector('[data-ip-range]');
+    const syncIpRange = () => {
+        if (!ipSwitch || !ipRange) return;
+        ipRange.disabled = !ipSwitch.checked;
+        ipRange.required = ipSwitch.checked;
+        if (!ipSwitch.checked && ipRange._mqRuleMsg) {  // a message about a switched-off box goes away
+            ipRange._mqRuleMsg.hidden = true;
+            ipRange.classList.remove('mq-rule-bad');
+            ipRange.removeAttribute('aria-invalid');
+        }
+    };
+    ipSwitch?.addEventListener('change', (event) => { syncIpRange(); if (ipSwitch.checked && event.isTrusted) ipRange?.focus(); });
+    syncIpRange();
+
+    // «ثبت آزمون» / «ذخیره پیش‌نویس» with something missing (teacher's report, step 7): the page stays where it is and
+    // lists every problem with its step and a «رفتن و اصلاح» button; the steps with a problem are marked. The server
+    // checks the same; if it still refuses, the wizard comes back filled in on that step (views._exam_wizard_retry).
+    const STEP_NAMES = Object.fromEntries([...document.querySelectorAll('[data-step-button]')].map((b) => [b.dataset.stepButton, b.textContent.replace(/^[\s۰-۹0-9]+/, '').trim()]));
+    const problemsBox = document.querySelector('[data-submit-problems]');
+    const problemsList = document.querySelector('[data-submit-problems-list]');
+    const persian = (text) => /[\u0600-\u06FF]/.test(text || '');
+    const fieldName = (el) => {
+        const label = el.closest('label');
+        const own = label ? [...label.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ') : '';
+        return (own || el.getAttribute('aria-label') || '').replace(/[*\s]+/g, ' ').trim();
+    };
+    let serverProblem = null;  // {step, text} from a refused save, until the page changes
+    function collectProblems(submitting) {
+        const list = [];
+        const seen = new Set();
+        const add = (step, text, el) => {
+            if (el && seen.has(el)) return;
+            if (el) seen.add(el);
+            list.push({ step: Number(step) || 7, text, el });
+        };
+        const paneOf = (el) => el?.closest('[data-pane]')?.dataset.pane || 7;
+        if (!form.elements.title.value.trim()) add(1, '«عنوان آزمون» را بنویسید.', form.elements.title);
+        if (!form.elements.course_id.value) add(1, '«درس» را انتخاب کنید.', form.elements.course_id);
+        if (!selectedGroupInputs().length && !selectedStudentInputs().length) add(1, 'دست‌کم یک «گروه هدف» (یا در مرحله‌ی ۴ یک دانشجو) انتخاب کنید.', form.querySelector('[data-chip-source]'));
+        if (!form.querySelectorAll('[name="question_ids"]').length) add(3, 'دست‌کم یک سؤال برای آزمون انتخاب کنید.', form.querySelector('[data-filter-list="question"]'));
+        const times = timingProblems(submitting);
+        showTimingProblems(submitting);
+        Object.entries(times).forEach(([name, text]) => add(2, text, form.elements[name]?.closest('[data-jalali-field]')?.querySelector('[data-jalali-display]')));
+        form.querySelectorAll('input, select, textarea').forEach((el) => {
+            if (el.disabled || el.type === 'hidden' || el.checkValidity()) return;  // checkValidity: field-rules.js shows its message under the field
+            const message = persian(el.validationMessage) ? el.validationMessage : el.validity.valueMissing ? 'این خانه را پر کنید.' : 'مقدار این خانه درست نیست.';
+            const name = fieldName(el);
+            add(paneOf(el), name ? `«${name}»: ${message}` : message, el);
+        });
+        const other = timingProblem();
+        if (other) { const el = form.querySelector(`[name="${other[0]}"]`); add(paneOf(el), other[1], el); }
+        if (serverProblem && !list.length) add(serverProblem.step, serverProblem.text, null);
+        return list.sort((a, b) => a.step - b.step);
+    }
+    function showProblems(list, title) {
+        document.querySelectorAll('[data-step-button]').forEach((b) => b.classList.toggle('has-problem', list.some((p) => String(p.step) === b.dataset.stepButton)));
+        problemsList.replaceChildren(...list.map((problem) => {
+            const li = document.createElement('li');
+            const where = document.createElement('b');
+            where.textContent = `مرحله‌ی ${fa(problem.step)} (${STEP_NAMES[problem.step] || ''}): `;
+            const text = document.createElement('span');
+            text.textContent = problem.text;
+            const go = document.createElement('button');
+            go.type = 'button';
+            go.textContent = 'رفتن و اصلاح';
+            go.addEventListener('click', () => {
+                setStep(problem.step);
+                window.requestAnimationFrame(() => {
+                    problem.el?.scrollIntoView({ block: 'center' });
+                    problem.el?.focus?.({ preventScroll: true });
+                });
+            });
+            li.append(where, text, go);
+            return li;
+        }));
+        if (title) document.querySelector('[data-submit-problems-title]').textContent = title;
+        problemsBox.hidden = !list.length;
+    }
+    // once shown, the list follows the form (an item goes away when it is fixed)
+    const refreshProblems = () => { if (!problemsBox.hidden) showProblems(collectProblems(true)); };
+    form.addEventListener('change', refreshProblems);
+    form.addEventListener('input', refreshProblems);
 
     form.addEventListener('submit', (event) => {
-        const problem = timingProblem();
-        if (form.checkValidity() && !problem) return;
+        const list = collectProblems(true);
+        if (!list.length) return;
         event.preventDefault();
-        let invalid = form.querySelector(':invalid');
-        if (!invalid && problem) {
-            invalid = form.querySelector(`[name="${problem[0]}"]`);
-            const shown = invalid?.closest('[data-jalali-field]')?.querySelector('[data-jalali-display]') || invalid;
-            const pane = invalid?.closest('[data-pane]');
-            if (pane) setStep(pane.dataset.pane);
-            window.requestAnimationFrame(() => { shown?.focus?.(); alert(problem[1]); });
-            return;
-        }
-        if (!invalid) return;
-        const pane = invalid.closest('[data-pane]');
-        if (pane) setStep(pane.dataset.pane);
-        window.requestAnimationFrame(() => invalid.reportValidity());
+        serverProblem = null;
+        showProblems(list, form.querySelector('[data-publish-mode]').value === 'draft'
+            ? 'برای ذخیره‌ی پیش‌نویس، این موارد را اصلاح کنید' : 'پیش از ثبت آزمون، این موارد را اصلاح کنید');
+        window.requestAnimationFrame(() => { problemsBox.scrollIntoView({ block: 'start' }); problemsBox.focus({ preventScroll: true }); });
     });
 
     document.querySelectorAll('[data-filter-list="question"]').forEach((input) => {
@@ -1602,34 +1841,151 @@
         }
     }
 
+    // A click on the empty space of a chips box puts the caret in its text box / select.
+    document.querySelectorAll('[data-focus-inside]').forEach((box) => box.addEventListener('click', (event) => {
+        if (event.target === box) box.querySelector('input:not([type=hidden]),select')?.focus();
+    }));
+
+    // «تگ‌ها»: same rules as field_rules.clean_tags on the server (TAG_RULES; keep both in step). A tag is 2–30
+    // characters (letters, digits, space, ZWNJ, - _) with a letter or digit and no word over 25; at most 10 tags.
+    // A leading # is dropped, ي/ك → ی/ک, Persian digits → 0-9; a tag that differs only in case / ZWNJ / spacing is a
+    // duplicate: refused with a message and the existing chip flashes. Wrong keys are refused as typed (hint).
+    const TAG_RULES = { min: 2, max: 30, word: 25, count: 10 };
+    const TAG_CHAR = /[0-9A-Za-z\u0621-\u063A\u0641-\u0655\u067E\u0686\u0698\u06A9\u06AF\u06CC\u0622\u06C0\u200c _\-]/;
+    const latinNum = (text) => String(text).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    const normalTag = (value) => latinNum(value).replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim().replace(/^#+/, '').replace(/\s+/g, ' ').replace(/^[\s\u200c]+|[\s\u200c]+$/g, '');
+    const tagKey = (value) => normalTag(value).replace(/[\s\u200c]+/g, '').toLowerCase();
+    const tagError = (tag) => {
+        const shown = tag.length > TAG_RULES.max ? `${tag.slice(0, TAG_RULES.max)}…` : tag;
+        if (tag.length > TAG_RULES.max) return `تگ «${shown}» بیش از ${fa(TAG_RULES.max)} نویسه است؛ آن را کوتاه‌تر بنویسید.`;
+        if ([...tag].some((c) => !TAG_CHAR.test(c))) return `تگ «${shown}» فقط می‌تواند حرف فارسی یا انگلیسی، رقم، فاصله، «-» و «_» داشته باشد.`;
+        if (!/[0-9A-Za-z\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06CC\u06C0]/.test(tag)) return `تگ «${shown}» باید دست‌کم یک حرف یا رقم داشته باشد.`;
+        if (tag.length < TAG_RULES.min) return `تگ «${shown}» خیلی کوتاه است؛ دست‌کم ${fa(TAG_RULES.min)} نویسه بنویسید.`;
+        if (tag.split(/[\s\u200c\-\/،,;:.()]+/).some((w) => w.length > TAG_RULES.word)) return `تگ «${shown}» کلمه‌ای بیش از ${fa(TAG_RULES.word)} نویسه‌ی پشت سر هم دارد؛ تگ را درست و با فاصله بنویسید.`;
+        return '';
+    };
+    const examTags = { add: () => true };  // edit mode puts the saved tags in through examTags.add(tag, true)
     const examTagsField = document.querySelector('[data-exam-tags-field]');
     if (examTagsField) {
         const tagsInput = examTagsField.querySelector('[data-exam-tags-input]');
         const tagsOutput = document.querySelector('[data-exam-tags-output]');
-        const syncTagsOutput = () => {
-            tagsOutput.value = [...examTagsField.querySelectorAll('[data-tag-value]')].map((chip) => chip.dataset.tagValue).join('، ');
+        const tagsError = document.querySelector('[data-exam-tags-error]');
+        let hintTimer = null;
+        const chips = () => [...examTagsField.querySelectorAll('[data-tag-value]')];
+        const showTagMessage = (text, hint = false) => {
+            clearTimeout(hintTimer);
+            tagsError.textContent = text || '';
+            tagsError.hidden = !text;
+            tagsError.classList.toggle('is-hint', !!(text && hint));
+            examTagsField.classList.toggle('is-bad', !!(text && !hint));
+            if (text && hint) hintTimer = setTimeout(() => showTagMessage(''), 2600);
         };
-        const addExamTag = (value) => {
-            value = value.trim();
-            if (!value || examTagsField.querySelector(`[data-tag-value="${value}"]`)) return;
+        const syncTagsOutput = () => {
+            tagsOutput.value = chips().map((chip) => chip.dataset.tagValue).join('، ');
+            const full = chips().length >= TAG_RULES.count;
+            tagsInput.placeholder = full ? `حداکثر ${fa(TAG_RULES.count)} تگ اضافه شده است` : 'افزودن تگ و Enter';
+        };
+        // Adds one tag; returns false (and shows why) when it is refused, 'duplicate' when it is already there.
+        // saved = a tag already stored on the exam.
+        const addExamTag = (raw, saved = false) => {
+            const value = normalTag(raw);
+            if (!value) {  // «#####»: nothing left of it
+                if (saved || !String(raw).trim()) return true;
+                showTagMessage(`تگ «${String(raw).trim()}» باید دست‌کم یک حرف یا رقم داشته باشد.`);
+                return false;
+            }
+            const key = tagKey(value);
+            const same = chips().find((chip) => chip.dataset.tagKey === key);
+            if (same) {
+                if (!saved) {
+                    showTagMessage(`تگ «${same.dataset.tagValue}» قبلاً اضافه شده است؛ تگ تکراری اضافه نمی‌شود.`);
+                    same.classList.remove('is-duplicate'); void same.offsetWidth; same.classList.add('is-duplicate');
+                }
+                return 'duplicate';
+            }
+            const problem = saved ? '' : (chips().length >= TAG_RULES.count ? `حداکثر ${fa(TAG_RULES.count)} تگ مجاز است؛ برای افزودن، یکی از تگ‌ها را حذف کنید.` : tagError(value));
+            if (problem) { showTagMessage(problem); return false; }
             const chip = document.createElement('span');
             chip.className = 'chip';
             chip.dataset.tagValue = value;
-            chip.innerHTML = `${value}<button type="button">×</button>`;
-            chip.querySelector('button').addEventListener('click', () => { chip.remove(); syncTagsOutput(); });
+            chip.dataset.tagKey = key;
+            const text = document.createElement('span');
+            text.textContent = value;  // never innerHTML: a tag is user text
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.textContent = '×';
+            remove.setAttribute('aria-label', `حذف تگ ${value}`);
+            remove.addEventListener('click', () => { chip.remove(); syncTagsOutput(); showTagMessage(''); tagsInput.focus(); });
+            chip.append(text, remove);
             examTagsField.insertBefore(chip, tagsInput);
             syncTagsOutput();
+            showTagMessage('');
+            return true;
+        };
+        examTags.add = addExamTag;
+        // Takes what is in the box; a refused tag stays there to be corrected.
+        const commitTyped = () => {
+            const parts = tagsInput.value.split(/[,،\n]/);
+            const left = parts.filter((part) => addExamTag(part) === false);  // a duplicate is dropped from the box
+            tagsInput.value = left.map((part) => part.trim()).filter(Boolean).join('، ');
+            return !left.some((part) => part.trim());
         };
         tagsInput.addEventListener('keydown', (event) => {
+            if (event.isComposing) return;
             if (event.key === 'Enter' || event.key === ',' || event.key === '،') {
-                event.preventDefault();
-                addExamTag(tagsInput.value);
-                tagsInput.value = '';
+                event.preventDefault();  // Enter never submits the wizard from here
+                commitTyped();
+            } else if (event.key === 'Backspace' && !tagsInput.value) {
+                const last = chips().pop();
+                if (last) { last.remove(); syncTagsOutput(); showTagMessage(''); }
             }
         });
-        tagsInput.addEventListener('blur', () => {
-            if (tagsInput.value.trim()) { addExamTag(tagsInput.value); tagsInput.value = ''; }
+        tagsInput.addEventListener('beforeinput', (event) => {
+            if (!event.data || !/^insert(Text|CompositionText|ReplacementText)?$/.test(event.inputType)) return;
+            const data = latinNum(event.data);
+            if ([...data].every((c) => TAG_CHAR.test(c) || c === '#' || c === ',' || c === '،')) {
+                const room = TAG_RULES.max + 1 - tagsInput.value.length + (tagsInput.selectionEnd - tagsInput.selectionStart);
+                if (data.length <= room || /[,،]/.test(data)) return;
+                event.preventDefault();
+                showTagMessage(`هر تگ حداکثر ${fa(TAG_RULES.max)} نویسه است.`, true);
+                return;
+            }
+            event.preventDefault();
+            showTagMessage('تگ فقط حرف فارسی یا انگلیسی، رقم، فاصله، «-» و «_» می‌گیرد.', true);
         });
+        tagsInput.addEventListener('paste', (event) => {  // a pasted list «الف، ب، ج» becomes one chip per item
+            const text = event.clipboardData?.getData('text') || '';
+            if (!/[,،\n]/.test(text) && text.length + tagsInput.value.length <= TAG_RULES.max + 1) return;
+            event.preventDefault();
+            tagsInput.value = (tagsInput.value ? `${tagsInput.value}، ` : '') + text;
+            commitTyped();
+        });
+        // Second line of defence: Firefox doesn't always let beforeinput be cancelled (composition / some layouts),
+        // so whatever still got in is cleaned here (same rule, caret kept).
+        tagsInput.addEventListener('input', (event) => {
+            if (event.isComposing) return;
+            const raw = tagsInput.value;
+            const clean = [...latinNum(raw)].filter((c) => TAG_CHAR.test(c) || c === '#' || c === ',' || c === '،').join('');
+            if (clean !== raw) {
+                const caret = Math.max(0, (tagsInput.selectionEnd ?? raw.length) - (raw.length - clean.length));
+                tagsInput.value = clean;
+                tagsInput.setSelectionRange(caret, caret);
+                showTagMessage('تگ فقط حرف فارسی یا انگلیسی، رقم، فاصله، «-» و «_» می‌گیرد.', true);
+                return;
+            }
+            if (!tagsError.hidden && !tagsError.classList.contains('is-hint')) showTagMessage('');
+        });
+        tagsInput.addEventListener('compositionend', () => tagsInput.dispatchEvent(new Event('input')));
+        tagsInput.addEventListener('blur', () => { if (tagsInput.value.trim()) commitTyped(); });
+        // Leaving text in the box that is not a valid tag must not be lost silently on save.
+        form.addEventListener('submit', (event) => {
+            if (!tagsInput.value.trim() || commitTyped()) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            setStep(1);
+            requestAnimationFrame(() => { tagsInput.focus(); examTagsField.scrollIntoView({ block: 'center' }); });
+        }, true);
+        syncTagsOutput();
     }
 
     const selectedQuestionsBody = document.querySelector('[data-selected-questions-body]');
@@ -1694,7 +2050,7 @@
             <td>${TYPE_LABELS[bankRow.dataset.type] || bankRow.dataset.type}</td>
             <td>${rowTags(bankRow).map((tag) => `<span class="tag-chip">${tag}</span>`).join('') || '-'}</td>
             <td>${bankRow.dataset.course}</td>
-            <td><input type="number" class="q-points-input" name="question_points_${bankRow.dataset.id}" value="${bankRow.dataset.points}" min="0.25" step="0.25" aria-label="نمره این سؤال در آزمون" data-question-points></td>
+            <td><input type="number" class="q-points-input" name="question_points_${bankRow.dataset.id}" value="${bankRow.dataset.points}" min="0.25" max="1000" step="0.25" aria-label="نمره این سؤال در آزمون" data-question-points></td>
             <td><span class="badge ${bankRow.dataset.difficulty}">${({ easy: 'آسان', hard: 'سخت' })[bankRow.dataset.difficulty] || 'متوسط'}</span></td>
             <td>${bankRow.dataset.teacherName || '-'}</td>
             <td class="row-actions"><button type="button" class="remove-row-btn" data-remove-selected-question aria-label="حذف"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></button><span class="drag-handle" aria-hidden="true">⋮⋮</span></td>
@@ -1901,44 +2257,128 @@
         });
     }
 
+    // «تصویر کاور» / «فایل راهنما»: checked as soon as a file is picked or dropped (format by extension, type and
+    // content, empty file, data-max-mb, a picture must open as one), same as views._upload_problem on the server.
+    // A refused file is taken out of the box and the reason stays under it; a good one shows a preview + name + size.
+    // Edit mode shows the saved file (input.mqShowSaved); «×» on it sets remove_… so saving clears it.
+    const fileSize = (bytes) => bytes >= 1024 * 1024 ? `${fa((bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, ''))} مگابایت` : `${fa(Math.max(1, Math.round(bytes / 1024)))} کیلوبایت`;
+    const fileHead = (file, count) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(new Uint8Array(reader.result));
+        reader.onerror = () => resolve(new Uint8Array());
+        reader.readAsArrayBuffer(file.slice(0, count));
+    });
+    const startsWith = (bytes, sig) => sig.every((b, i) => bytes[i] === b);
     document.querySelectorAll('[data-upload-drop]').forEach((drop) => {
         const input = drop.querySelector('[data-upload-input]');
         const placeholder = drop.querySelector('[data-upload-placeholder]');
         const removeBtn = drop.querySelector('[data-remove-upload]');
-        const placeholderHtml = placeholder.innerHTML;
-        if (!input) return;
+        const removeFlag = drop.querySelector('[data-upload-remove-flag]');
+        const errorEl = drop.parentElement.querySelector('[data-upload-error]');
+        if (!input || !placeholder) return;
+        const label = drop.dataset.label || 'فایل';
+        const iso = (text) => `⁨${text}⁩`;  // first-strong isolate: a Latin file name inside Persian text
+        const maxMb = Number(drop.dataset.maxMb) || 2;
+        const exts = (input.getAttribute('accept') || '').split(',').map((a) => a.trim().toLowerCase()).filter((a) => a.startsWith('.')).map((a) => a.slice(1));
+        const extList = [...new Set(exts.filter((e) => e !== 'jpeg').map((e) => e.toUpperCase()))].join('، ');
+        let savedUrl = '';
+        let objectUrl = '';
+        let checkId = 0;
+        const showError = (text) => {
+            if (errorEl) { errorEl.textContent = text || ''; errorEl.hidden = !text; }
+            drop.classList.toggle('is-bad', !!text);
+            input.toggleAttribute('aria-invalid', !!text);
+        };
         const clearPreview = () => {
+            if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = ''; }
             drop.classList.remove('has-file');
-            drop.querySelector('.upload-preview')?.remove();
-            placeholder.innerHTML = placeholderHtml;
+            drop.querySelectorAll('.upload-preview').forEach((el) => el.remove());
             placeholder.hidden = false;
             removeBtn.hidden = true;
         };
-        input.addEventListener('change', () => {
-            const file = input.files[0];
-            if (!file) { clearPreview(); return; }
+        const showPreview = (src, name, meta, isImage) => {
+            clearPreview();
             drop.classList.add('has-file');
             removeBtn.hidden = false;
-            drop.querySelector('.upload-preview')?.remove();
-            if (file.type.startsWith('image/')) {
+            placeholder.hidden = true;
+            if (isImage) {
                 const img = document.createElement('img');
                 img.className = 'upload-preview';
-                img.src = URL.createObjectURL(file);
-                placeholder.hidden = true;
+                img.alt = name;
+                img.src = src;
                 drop.insertBefore(img, placeholder);
             } else {
-                placeholder.hidden = true;
                 const nameEl = document.createElement('div');
                 nameEl.className = 'upload-preview file-name';
-                nameEl.innerHTML = `<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span>${file.name}</span>`;
+                nameEl.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span></span>';
+                nameEl.querySelector('span').textContent = name;  // a file name is user text
                 drop.insertBefore(nameEl, placeholder);
             }
+            const metaEl = document.createElement('small');
+            metaEl.className = 'upload-preview upload-meta';
+            metaEl.textContent = meta;
+            drop.insertBefore(metaEl, placeholder);
+            return metaEl;
+        };
+        const showSaved = () => {
+            if (!savedUrl || (removeFlag && removeFlag.value)) { clearPreview(); return; }
+            const name = decodeURIComponent(savedUrl.split('/').pop() || '');
+            const isImage = /\.(jpe?g|png)$/i.test(savedUrl);
+            const meta = showPreview(savedUrl, name, 'فایل ذخیره‌شده‌ی فعلی — برای جایگزینی، فایل دیگری انتخاب کنید.', isImage);
+            if (!isImage) {
+                const link = document.createElement('a');
+                link.href = savedUrl; link.target = '_blank'; link.rel = 'noopener'; link.textContent = ' (مشاهده)';
+                meta.append(link);
+            }
+        };
+        input.mqShowSaved = (url) => { savedUrl = url; if (removeFlag) removeFlag.value = ''; showSaved(); };
+        const refuse = (text) => {
+            input.value = '';
+            showError(`${text} فایل دیگری انتخاب کنید.`);
+            showSaved();
+        };
+        input.addEventListener('change', async () => {
+            const id = ++checkId;
+            const file = input.files[0];
+            showError('');
+            if (!file) { showSaved(); return; }
+            const ext = (file.name.includes('.') ? file.name.split('.').pop() : '').toLowerCase();
+            if (input.files.length > 1) return refuse(`«${label}»: فقط یک فایل می‌توان انتخاب کرد.`);
+            const shown = iso(file.name);
+            if (!exts.includes(ext)) return refuse(`«${label}»: فرمت فایل «${shown}» مجاز نیست؛ فقط ${iso(extList)}.`);
+            if (!file.size) return refuse(`«${label}»: فایل «${shown}» خالی است.`);
+            if (file.size > maxMb * 1024 * 1024) return refuse(`«${label}»: حجم فایل «${shown}» ${fileSize(file.size)} است؛ حداکثر ${fa(maxMb)} مگابایت مجاز است.`);
+            const head = await fileHead(file, 8);
+            if (id !== checkId) return;
+            const isPng = startsWith(head, [0x89, 0x50, 0x4E, 0x47]), isJpg = startsWith(head, [0xFF, 0xD8, 0xFF]), isPdf = startsWith(head, [0x25, 0x50, 0x44, 0x46, 0x2D]);
+            const fits = ext === 'pdf' ? isPdf : ext === 'png' ? isPng : isJpg;
+            if (!fits) return refuse(`«${label}»: فایل «${shown}» خراب است یا محتوای آن با پسوند ${iso(ext.toUpperCase())} جور نیست.`);
+            if (ext === 'pdf') {
+                showPreview('', file.name, fileSize(file.size), false);
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            const opened = await new Promise((resolve) => { img.onload = () => resolve(true); img.onerror = () => resolve(false); img.src = url; });
+            if (id !== checkId) { URL.revokeObjectURL(url); return; }
+            if (!opened || !img.naturalWidth) { URL.revokeObjectURL(url); return refuse(`«${label}»: تصویر «${shown}» باز نمی‌شود؛ فایل خراب است.`); }
+            const sides = iso(`${img.naturalWidth}×${img.naturalHeight}`);
+            if (Math.min(img.naturalWidth, img.naturalHeight) < 100) { URL.revokeObjectURL(url); return refuse(`«${label}»: تصویر «${shown}» ${sides} پیکسل است؛ هر ضلع دست‌کم ${fa(100)} پیکسل باشد تا خوانا بماند.`); }
+            if (Math.max(img.naturalWidth, img.naturalHeight) > 8000) { URL.revokeObjectURL(url); return refuse(`«${label}»: تصویر «${shown}» ${sides} پیکسل است؛ هر ضلع حداکثر ${fa(8000)} پیکسل.`); }
+            showPreview(url, file.name, `${iso(file.name)} — ${fileSize(file.size)} — ${iso(`${img.naturalWidth}×${img.naturalHeight}`)} پیکسل`, true);
+            objectUrl = url;
         });
         removeBtn?.addEventListener('click', (event) => {
             event.preventDefault();
-            input.value = '';
-            clearPreview();
+            event.stopPropagation();
+            checkId++;
+            if (input.value) input.value = '';
+            else if (savedUrl && removeFlag) removeFlag.value = '1';  // the saved file: cleared on save
+            showError('');
+            showSaved();
         });
+        ['dragenter', 'dragover'].forEach((type) => drop.addEventListener(type, () => drop.classList.add('is-dragover')));
+        ['dragleave', 'drop'].forEach((type) => drop.addEventListener(type, () => drop.classList.remove('is-dragover')));
     });
 
     function updateExcelStats() {
@@ -2061,7 +2501,12 @@
     const initial = initialEl ? JSON.parse(initialEl.textContent) : null;
     if (initial) {
         restoringSavedExam = true;
-        const truthy = (value) => value === true || value === 1 || value === '1' || value === 'true' || value === 't';
+        const truthy = (value) => value === true || value === 1 || value === '1' || value === 'true' || value === 't' || value === 'on';
+        if (initial.posted) {  // a refused save: a box that was not sent was off
+            form.querySelectorAll('input[type="checkbox"][name]').forEach((box) => {
+                if (!box.disabled && !box.name.endsWith('_ids') && !(box.name in initial.fields)) box.checked = false;
+            });
+        }
         Object.entries(initial.fields || {}).forEach(([name, value]) => {
             const el = form.elements[name];
             if (!el) return;
@@ -2101,8 +2546,8 @@
             const input = selectedQuestionsBody.querySelector(`tr[data-id="${id}"] [data-question-points]`);
             if (saved && input && !input.disabled) { input.value = saved; input.dispatchEvent(new Event('input')); }
         });
-        const tagsInput = document.querySelector('[data-exam-tags-input]');
-        (initial.tags || []).forEach((tag) => { if (tagsInput) { tagsInput.value = tag; tagsInput.dispatchEvent(new Event('blur')); } });
+        (initial.tags || []).forEach((tag) => examTags.add(tag, true));
+        Object.entries(initial.files || {}).forEach(([name, url]) => { if (url) form.querySelector(`[name="${name}"]`)?.mqShowSaved?.(url); });
         const publishRadio = form.querySelector(`[name="publish_choice_ui"][value="${initial.publish_choice}"]`);
         if (publishRadio) publishRadio.checked = true;
         updateCounts();
@@ -2110,12 +2555,30 @@
         restoringSavedExam = false;
     }
 
-    setStep(1);
+    setStep(initial?.posted ? (initial.step || 7) : 1);
+    if (initial?.posted && initial.problem) {
+        serverProblem = { step: initial.step || 7, text: initial.problem };
+        showProblems(collectProblems(true), 'آزمون ذخیره نشد؛ این موارد را اصلاح کنید و دوباره ثبت کنید');
+    }
+
+    // «مشاهده ویرایش‌های قبلی»
+    const historyModal = document.querySelector('[data-history-modal]');
+    document.querySelector('[data-history-open]')?.addEventListener('click', () => { historyModal.hidden = false; historyModal.querySelector('.qd-close')?.focus(); });
+    document.querySelectorAll('[data-history-close]').forEach((el) => el.addEventListener('click', () => {
+        historyModal.hidden = true;
+        document.querySelector('[data-history-open]')?.focus();
+    }));
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (historyModal && !historyModal.hidden) { historyModal.hidden = true; document.querySelector('[data-history-open]')?.focus(); }
+        const preview = document.querySelector('[data-exam-preview-modal]');
+        if (preview && !preview.hidden) preview.hidden = true;
+    });
 })();
 </script>
 <script type="module">
 // one import = the date pickers start too (the same URL is one module, so they never start twice)
-import { wallParts } from "{% static 'js/jalali-datepicker.js' %}?v=tehran-20261114c";
+import { wallParts, formatWallMinute } from "{% static 'js/jalali-datepicker.js' %}?v=tehran-20261119tn";
 import { toJalaali } from "{% static 'js/vendor/jalaali.js' %}";
 const FA_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 const toFaDigits = (value) => String(value).replace(/[0-9]/g, (d) => FA_DIGITS[d]);
@@ -2147,6 +2610,7 @@ window.formatJalaliDateTime = (isoString) => {
     const parts = isoString ? wallParts(isoString) : null;  // a «…Z» moment is shown at Tehran time
     return parts ? jalaliText(parts) : '';
 };
+window.formatWallMinute = formatWallMinute;  // step 2 time messages
 window.dispatchEvent(new Event('jalali-helpers-ready'));
 </script>
 <script>/* Clicking anywhere on a list row ticks its checkbox (not only the small box itself); question-bank rows open the question detail instead. */document.addEventListener('click', (e) => {  const row = e.target.closest('tbody tr');  if (!row || row.matches('[data-question-row]') || e.target.closest('input,a,button,label,select,textarea,summary,details,[contenteditable]')) return;  const boxes = row.querySelectorAll('input[type=checkbox]');  if (boxes.length !== 1 || boxes[0].disabled) return;  boxes[0].click();});</script>

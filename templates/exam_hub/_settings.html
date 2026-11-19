@@ -22,10 +22,10 @@
             <div class="xh-card-head"><h3>{% include 'exam_hub/_icon.html' with i='calendar' %}زمان‌بندی و کوشش</h3></div>
             <div class="xh-grid-fields is-sched">
                 <div class="xh-field"><span>شروع آزمون <i class="xh-req">*</i></span>
-                    <div class="jalali-field xh-datefield" data-jalali-field>{% include 'exam_hub/_icon.html' with i='calendar' %}<input class="xh-input" type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت" aria-label="شروع آزمون" {% if not exam.can.schedule %}disabled{% endif %}><input type="hidden" name="start_at" value="{{ s.start_value }}" data-jalali-value></div>
+                    <div class="jalali-field xh-datefield" data-jalali-field data-jalali-min="now" data-jalali-max-days="366">{% include 'exam_hub/_icon.html' with i='calendar' %}<input class="xh-input" type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت" aria-label="شروع آزمون" {% if not exam.can.schedule %}disabled{% endif %}><input type="hidden" name="start_at" value="{{ s.start_value }}" data-jalali-value></div>
                 </div>
                 <div class="xh-field"><span>پایان آزمون <i class="xh-req">*</i></span>
-                    <div class="jalali-field xh-datefield" data-jalali-field>{% include 'exam_hub/_icon.html' with i='calendar' %}<input class="xh-input" type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت" aria-label="پایان آزمون" {% if not exam.can.schedule %}disabled{% endif %}><input type="hidden" name="end_at" value="{{ s.end_value }}" data-jalali-value></div>
+                    <div class="jalali-field xh-datefield" data-jalali-field data-jalali-min="now" data-jalali-max-days="366">{% include 'exam_hub/_icon.html' with i='calendar' %}<input class="xh-input" type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت" aria-label="پایان آزمون" {% if not exam.can.schedule %}disabled{% endif %}><input type="hidden" name="end_at" value="{{ s.end_value }}" data-jalali-value></div>
                 </div>
                 <label class="xh-field"><span>مدت آزمون (دقیقه) <i class="xh-req">*</i></span>
                     <input class="xh-input" type="number" name="duration_minutes" min="1" max="1440" value="{{ exam.duration_minutes|default:90 }}" required {% if not exam.can.schedule %}disabled{% endif %}>

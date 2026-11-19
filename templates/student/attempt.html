@@ -380,6 +380,18 @@
   };
   window.mqExamWhenSaved = whenSaved;
   window.mqExamPendingSaves = pendingCount;
+  // Time over: everything answered on this device goes to the server now, also the answer on screen that is not
+  // saved yet (autosave off, or waiting for its interval / pause), so the auto-submit counts it.
+  window.mqExamSaveAll = () => {
+    clearTimeout(saveTimer);
+    clearTimeout(stashTimer);
+    dirty = false;
+    stash(true);
+    let changed = false;
+    outbox.forEach((entry) => { if (!entry.ready) { entry.ready = true; changed = true; } });
+    if (changed) writeOutbox();
+    flush();
+  };
   const save = () => {
     dirty = false;
     clearTimeout(saveTimer);
@@ -533,31 +545,58 @@
     if (rules.auto_submit) document.getElementById('auto-submit-form').submit();
     else window.location.href = submitUrl;
   };
+  // Set once the time is over: answering stops at once and nothing may start the time-up a second time.
+  let timeIsUp = false;
   const timeUp = () => {
+    if (timeIsUp) return;
+    timeIsUp = true;
+    remaining = 0;
+    if (timer) showTime(0);
+    // The exam closes at zero: the answer area takes no more input (its values are still sent), and every answer
+    // on this device, the one on screen included, is sent before the submit.
+    if (form) form.inert = true;
+    if (!preview) window.mqExamSaveAll?.();
     // A page part may take over the time-up (the connection dialog does) by cancelling this event.
     if (!document.dispatchEvent(new CustomEvent('exam:time-up', { cancelable: true }))) return;
     if (recordingNow()) {
-      // A take in progress is stopped and stored first (the server accepts answers for a short grace time).
+      // A take in progress is stopped and stored first (the server accepts answers for ATTEMPT_GRACE_SECONDS = 30).
       timeUpAfterRecording = true;
       recorders.forEach((control) => control.stop());  // also one still opening the microphone
       setSaveState('زمان آزمون تمام شد؛ ضبط در حال ذخیره است...', true);
-      setTimeout(() => { if (timeUpAfterRecording) continueTimeUp(); }, 40000);  // never wait past the grace time
+      setTimeout(() => { if (timeUpAfterRecording) continueTimeUp(); }, 22000);  // never wait past the grace time
       return;
     }
     finishTimeUp();
   };
+  window.mqExamTimeIsUp = () => timeIsUp;
   if (timer) {
     showTime(remaining);
     if (remaining > 0) {
-      // Counted from a fixed end moment: a background tab slows timers down, the clock must not.
-      // The live check-in below may move it later («افزودن زمان» by the teacher / academic manager).
+      // Counted from a fixed end moment: a background tab slows timers down, the clock must not. The server's time
+      // is the truth: the live check-in below sets this clock both ways — later for «افزودن زمان», earlier when the
+      // exam's end is moved earlier or the device's clock stood still (sleep, a frozen tab).
       let endsAt = performance.now() + remaining * 1000;
-      window.mqExamSetRemaining = (seconds) => { if (seconds > remaining + 2) endsAt = performance.now() + seconds * 1000; };
-      const ticker = setInterval(() => {
-        remaining = Math.max(0, Math.round((endsAt - performance.now()) / 1000));
+      let lastTick = performance.now();
+      let ticker = 0;
+      const tick = () => {
+        const now = performance.now();
+        if (now - lastTick > 5000) window.mqExamCheckIn?.();  // the device slept or the tab was frozen: ask the server
+        lastTick = now;
+        remaining = Math.max(0, Math.round((endsAt - now) / 1000));
         showTime(remaining);
         if (remaining <= 0) { clearInterval(ticker); timeUp(); }
-      }, 1000);
+      };
+      window.mqExamSetRemaining = (seconds) => {
+        if (timeIsUp || typeof seconds !== 'number' || !Number.isFinite(seconds)) return;
+        const now = performance.now();
+        const shown = Math.max(0, (endsAt - now) / 1000);
+        if (Math.abs(seconds - shown) < 3) return;  // network delay, not a change
+        endsAt = now + Math.max(0, seconds) * 1000;
+        if (seconds - shown >= 30) setSaveState('زمان آزمون شما افزایش یافت.');
+        else if (shown - seconds >= 30) setSaveState('زمان باقی‌مانده‌ی آزمون با سرور هماهنگ شد.', true);
+        tick();
+      };
+      ticker = setInterval(tick, 1000);
     } else {
       timeUp();
     }
@@ -589,17 +628,31 @@
       close.addEventListener('click', () => box.remove());
       box.appendChild(close);
     };
+    let checking = false;
     const checkIn = () => {
-      if (document.hidden) return;
+      if (document.hidden || checking) return;
+      checking = true;
+      const sentAt = performance.now();
       fetch(liveUrl, { mqBackground: true, credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
-          if (!data || !data.open) return;
-          if (typeof data.remaining_seconds === 'number' && window.mqExamSetRemaining) window.mqExamSetRemaining(data.remaining_seconds);
+          if (!data || window.mqExamTimeIsUp?.()) return;
+          if (!data.open) {
+            // Closed on the server (submitted by the scheduler or the proctor, expired, the exam cancelled): the
+            // reload shows the receipt or the reason; answers still on this device are kept for the record.
+            window.mqAllowLeave?.();
+            window.location.reload();
+            return;
+          }
+          // Half the round trip is taken off, so a slow network does not leave the clock behind the server.
+          const latency = Math.max(0, (performance.now() - sentAt) / 2000);
+          if (typeof data.remaining_seconds === 'number' && window.mqExamSetRemaining) window.mqExamSetRemaining(data.remaining_seconds - latency);
           if (data.messages && data.messages.length) showProctorMessage(data.messages);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => { checking = false; });
     };
+    window.mqExamCheckIn = checkIn;
     checkIn();
     setInterval(checkIn, 20000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) checkIn(); });

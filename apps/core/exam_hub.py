@@ -73,6 +73,7 @@ from .views import (
     erd_role_required,
     erd_row,
     erd_rows,
+    exam_timing_problem,
     exam_access_code,
     log_activity,
 )
@@ -1474,6 +1475,13 @@ def _save_settings(request, exam, done):
                 same = True  # no end stored and none posted: the end filled in from the duration is not a change
             if not same:
                 updates[column] = value
+        if 'start_at' in updates or 'end_at' in updates:
+            # the same time rules as the wizard: not in the past, at most a year ahead, and still in order with the
+            # exam's saved access / last-entry times (those are changed in the wizard's «ویرایش کامل»)
+            row = erd_row('SELECT * FROM exams WHERE id = %s', [exam['id']]) or {}
+            times = {name: erd_datetime(row.get(name)) for name in ('registration_start_at', 'last_entry_at', 'registration_end_at')}
+            if problem := exam_timing_problem({**times, 'start_at': start, 'end_at': end}, saved=row):
+                return done(problem, ok=False)
         if current['settings_enforced'] and post.get('autosave_interval_seconds') is not None:
             try:
                 autosave = max(0, min(int(post.get('autosave_interval_seconds') or 0), 300))
@@ -1514,7 +1522,7 @@ def student_attempt_live(request, attempt_id):
     attempt = erd_row(
         f"""
         SELECT ea.id, ea.exam_id, ea.started_at, ea.submitted_at, ea.status, {_sx_attempt_extra_sql()} AS extra_minutes,
-               COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at
+               COALESCE(e.duration_minutes, 90) AS duration_minutes, e.end_at, COALESCE(e.is_cancelled, false) AS is_cancelled
         FROM exam_attempts ea JOIN exams e ON e.id = ea.exam_id
         WHERE ea.id = %s AND ea.student_id = %s
         """,
@@ -1522,7 +1530,8 @@ def student_attempt_live(request, attempt_id):
     )
     if not attempt:
         raise Http404('تلاش آزمون پیدا نشد.')
-    if attempt.get('submitted_at') or attempt.get('status') != 'in_progress':
+    # Closed on the server (submitted, expired, the exam cancelled): the page reloads and the server shows what next.
+    if attempt.get('submitted_at') or (attempt.get('status') or 'in_progress') not in ('in_progress', '') or attempt.get('is_cancelled'):
         return JsonResponse({'ok': True, 'open': False})
     now = timezone.now()
     if erd_has_column('exam_attempts', 'last_seen_at'):
