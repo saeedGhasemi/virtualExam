@@ -105,6 +105,7 @@ from .views import (
     super_admin_dashboard,
     super_admin_emergency_stop,
     super_admin_exam_approve,
+    super_admin_exam_reject,
     super_admin_exam_delete,
     super_admin_exam_duplicate,
     super_admin_exam_create,
@@ -247,6 +248,7 @@ urlpatterns = [
     path('super-admin/exams/active/', super_admin_active_exams, name='super_admin_active_exams'),  # before <exam_id>, or 'active' is read as an id
     path('super-admin/exams/<str:exam_id>/edit/', super_admin_exam_edit, name='super_admin_exam_edit'),
     path('super-admin/exams/<str:exam_id>/approve/', super_admin_exam_approve, name='super_admin_exam_approve'),
+    path('super-admin/exams/<str:exam_id>/return/', super_admin_exam_reject, name='super_admin_exam_reject'),
     path('super-admin/exams/<str:exam_id>/duplicate/', super_admin_exam_duplicate, name='super_admin_exam_duplicate'),
     path('super-admin/exams/<str:exam_id>/delete/', super_admin_exam_delete, name='super_admin_exam_delete'),
     path('super-admin/exams/<str:exam_id>/report/', super_admin_exam_report, name='super_admin_exam_report'),

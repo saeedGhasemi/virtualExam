@@ -4,7 +4,7 @@ import random
 import re
 import tempfile
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -342,10 +342,97 @@ class AcademicTermCurrentTests(_ScopedOrgFixture):
         self.assertIn(self.group_in_id, {row['id'] for row in current.context['rows']})
         archive = self.client.get(reverse('core:super_admin_groups'), {'tab': 'archive'})
         self.assertNotIn(self.group_in_id, {row['id'] for row in archive.context['rows']})
+        # an old marked term is not the group form's default (teacher's report 2026-11-19: 1390-1391 was preselected)
+        from apps.core.views import _today_academic_term
+        today_year, today_semester = _today_academic_term()
         wizard = self.client.get(reverse('core:super_admin_group_create'))
-        self.assertEqual(wizard.context['current_year'], '1403-1404')
-        self.assertEqual(wizard.context['default_semester'], 'اول')
+        self.assertEqual(wizard.context['current_year'], today_year)
+        self.assertEqual(wizard.context['default_semester'], today_semester)
+        self.assertIn('1403-1404', wizard.context['years'])
         self.assertNotIn('1403', wizard.context['years'])
+
+    def test_group_form_uses_the_marked_term_of_this_year(self):
+        from apps.core.views import _today_academic_term
+        today_year, _semester = _today_academic_term()
+        _insert('academic_terms', ['id', 'year', 'semester', 'label', 'is_current'],
+                [str(uuid.uuid4()), today_year, 'نیم‌سال دوم', '', True])
+        self.client.force_login(self.admin_user)
+        wizard = self.client.get(reverse('core:super_admin_group_create'))
+        self.assertEqual(wizard.context['current_year'], today_year)
+        self.assertEqual(wizard.context['default_semester'], 'دوم')
+        self.assertEqual(wizard.context['years'][0], f'{int(today_year[:4]) + 1}-{int(today_year[:4]) + 2}')
+
+    def test_today_academic_term_boundaries(self):
+        from unittest import mock
+        from apps.core.views import _today_academic_term
+        for day, expected in ((date(2026, 11, 19), ('1405-1406', 'اول')), (date(2026, 9, 22), ('1404-1405', 'تابستان')),
+                              (date(2026, 9, 23), ('1405-1406', 'اول')), (date(2027, 2, 1), ('1405-1406', 'دوم')),
+                              (date(2026, 6, 21), ('1404-1405', 'دوم')), (date(2026, 6, 22), ('1404-1405', 'تابستان'))):
+            with mock.patch('apps.core.views.timezone.localdate', return_value=day):
+                self.assertEqual(_today_academic_term(), expected, day)
+
+
+class GroupWizardFeedbackTests(_ScopedOrgFixture):
+    """Teacher's report 2026-11-19 (as academic manager): «ذخیره پیش‌نویس» did nothing, «ذخیره و ادامه» did not say the
+    group was not saved yet, the edit page ended on «ایجاد گروه درسی», graduated / leave showed in English."""
+
+    def setUp(self):
+        self.client.force_login(self.manager_user)
+        from apps.core.views import erd_execute
+        erd_execute("UPDATE student_profiles SET academic_status = 'graduated' WHERE user_id = %s", [self.student_in_id])
+
+    def _post(self, url, **extra):
+        data = {'course_id': self.course_in_id, 'teacher_id': self.teacher_in_id, 'group_code': '07', 'academic_year': '1405-1406',
+                'semester': 'اول', 'capacity': '25', 'min_students': '5', 'waitlist_capacity': '0', 'status': 'active',
+                'class_schedule': 'شنبه ۱۰ تا ۱۲', 'class_location': 'کلاس ۲', 'student_ids': [self.student_in_id]}
+        data.update(extra)
+        return self.client.post(url, data, follow=True)
+
+    def _group(self, code):
+        from apps.core.views import erd_row
+        return erd_row("SELECT * FROM student_groups WHERE course_id = %s AND group_code = %s", [self.course_in_id, code])
+
+    def test_create_page_buttons_notes_and_persian_statuses(self):
+        html = self.client.get(reverse('core:exam_manager_group_create')).content.decode()
+        self.assertIn('name="save_mode" value="draft"', html)
+        self.assertIn('ادامه: افزودن دانشجویان', html)
+        self.assertNotIn('data-next>ذخیره و ادامه', html)
+        self.assertIn('گروه هنوز ذخیره نشده است', html)
+        self.assertIn('فارغ‌التحصیل', html)
+        self.assertNotIn('>graduated<', html)
+
+    def test_draft_button_saves_a_draft_and_says_so(self):
+        response = self._post(reverse('core:exam_manager_group_create'), save_mode='draft')
+        group = self._group('07')
+        self.assertIsNotNone(group)
+        self.assertEqual(group['status'], 'draft')
+        self.assertEqual(response.redirect_chain[-1][0], reverse('core:exam_manager_group_edit', args=[group['id']]))
+        text = ' '.join(str(m) for m in response.context['messages'])
+        self.assertIn('به‌صورت پیش‌نویس ذخیره شد', text)
+        self.assertIn('با 1 دانشجو', text)
+
+    def test_final_create_reports_the_group_and_its_state(self):
+        response = self._post(reverse('core:exam_manager_group_create'))
+        self.assertEqual(self._group('07')['status'], 'active')
+        text = ' '.join(str(m) for m in response.context['messages'])
+        self.assertIn('ایجاد شد (وضعیت: فعال)', text)
+
+    def test_edit_page_saves_changes_with_its_own_button_and_message(self):
+        html = self.client.get(reverse('core:exam_manager_group_edit', args=[self.group_in_id])).content.decode()
+        self.assertIn('ذخیره تغییرات گروه', html)
+        self.assertNotIn('>ایجاد گروه درسی<', html)
+        self.assertNotIn('save_mode', html)
+        self.assertIn('ویرایش گروه درسی', html)
+        response = self._post(reverse('core:exam_manager_group_edit', args=[self.group_in_id]), group_code='03', capacity='40',
+                              registration_start_at='2026-12-01T08:00', registration_end_at='2026-12-10T18:00')
+        text = ' '.join(str(m) for m in response.context['messages'])
+        self.assertIn('تغییرات گروه', text)
+        self.assertNotIn('Group updated', text)
+        from apps.core.views import erd_row
+        row = erd_row('SELECT capacity, group_code, registration_start_at FROM student_groups WHERE id = %s', [self.group_in_id])
+        self.assertEqual((row['capacity'], row['group_code']), (40, '03'))
+        page = self.client.get(reverse('core:exam_manager_group_edit', args=[self.group_in_id])).content.decode()
+        self.assertIn('value="2026-12-01T08:00"', page)  # the stored date comes back as the same Tehran wall time
 
     def test_term_year_is_normalised_on_save_and_bad_year_rejected(self):
         self.client.force_login(self.admin_user)
@@ -400,6 +487,7 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         from .views import erd_execute, erd_row
         erd_execute("UPDATE exams SET lifecycle_status = 'pending_approval', approval_status = 'pending', is_published = false WHERE id = %s", [self.exam_in_id])
         _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'], [str(uuid.uuid4()), self.exam_in_id, self.question_in_id, 1, 1])
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), self.exam_in_id, self.group_in_id])
         self.client.force_login(self.manager_user)
         before = {row['id']: row for row in self.client.get(reverse('core:super_admin_exams')).context['rows']}[self.exam_in_id]
         self.assertTrue(before['can_approve'])
@@ -424,11 +512,15 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         self.assertEqual(self._approve(self.exam_in_id, next='https://evil.example/')['Location'], reverse('core:super_admin_exams'))
         self.assertEqual(self.client.get(reverse('core:super_admin_exam_approve', args=[self.exam_in_id])).status_code, 302)
 
-    def _pending_exam(self, title, questions=1, **columns):
+    def _pending_exam(self, title, questions=1, assigned=True, **columns):
+        """A complete exam sent for approval (questions, a group, a start time) unless told otherwise."""
         exam_id = str(uuid.uuid4())
-        values = {'lifecycle_status': 'pending_approval', 'approval_status': 'pending', 'is_published': False, **columns}
+        values = {'lifecycle_status': 'pending_approval', 'approval_status': 'pending', 'is_published': False,
+                  'start_at': timezone.now() + timedelta(days=1), **columns}
         _insert('exams', ['id', 'title', 'teacher_id', 'course_id'] + list(values),
                 [exam_id, title, self.teacher_in_id, self.course_in_id] + list(values.values()))
+        if assigned:
+            _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), exam_id, self.group_in_id])
         for index in range(questions):
             _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
                     [str(uuid.uuid4()), exam_id, (self.question_in_id, self.question_in2_id)[index % 2], 1, index + 1])
@@ -459,11 +551,17 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
     def test_ajax_refusals_explain_why_and_change_nothing(self):
         empty = self._pending_exam('آزمون بی‌سؤال', questions=0)
         cancelled = self._pending_exam('آزمون لغوشده', is_cancelled=True)
+        # MQ-BC8C44: no questions and no group — the list's «تأیید» must say both, not just stay silent
+        bare = self._pending_exam('آزمون ناقص', questions=0, assigned=False, start_at=None, lifecycle_status='draft')
+        no_group = self._pending_exam('آزمون بی‌گروه', assigned=False)
         self.client.force_login(self.manager_user)
         rows = {row['id']: row for row in self.client.get(reverse('core:super_admin_exams')).context['rows']}
         self.assertIn('سؤالی ندارد', rows[empty]['approve_blocker'])  # the modal says so before sending
         self.assertFalse(rows[cancelled]['can_approve'])
-        for exam_id, reason in ((empty, 'سؤالی ندارد'), (cancelled, 'لغو شده')):
+        for part in ('سؤال', 'گروه یا دانشجوی شرکت‌کننده', 'زمان برگزاری'):
+            self.assertIn(part, rows[bare]['approve_blocker'])
+        self.assertIn('گروه یا دانشجوی شرکت‌کننده', rows[no_group]['approve_blocker'])
+        for exam_id, reason in ((empty, 'سؤالی ندارد'), (cancelled, 'لغو شده'), (bare, 'کامل نیست'), (no_group, 'گروه یا دانشجو')):
             response = self._ajax_approve(exam_id)
             self.assertEqual(response.status_code, 400)
             self.assertFalse(response.json()['ok'])
@@ -472,6 +570,64 @@ class SuperAdminExamsUnificationTests(_ScopedOrgFixture):
         out = self._ajax_approve(self.exam_out_id)
         self.assertEqual(out.status_code, 404)
         self.assertFalse(out.json()['ok'])
+
+    def test_past_deadline_exam_is_approved_only_after_a_warning(self):
+        """MQ-E04631: an exam whose end had passed was approved with the usual «published for students» text."""
+        now = timezone.now()
+        past = self._pending_exam('آزمون موعدگذشته', start_at=now - timedelta(days=2), end_at=now - timedelta(days=1))
+        started = self._pending_exam('آزمون شروع‌شده', start_at=now - timedelta(minutes=10), end_at=now + timedelta(hours=1))
+        self.client.force_login(self.manager_user)
+        page = self.client.get(reverse('core:super_admin_exams'))
+        rows = {row['id']: row for row in page.context['rows']}
+        self.assertIn('موعد این آزمون گذشته است', rows[past]['primary']['approve']['warning'])  # in the modal before sending
+        self.assertTrue(rows[past]['primary']['approve']['past'])
+        self.assertIn('زمان شروع این آزمون گذشته است', rows[started]['primary']['approve']['warning'])
+        self.assertFalse(rows[started]['primary']['approve']['past'])
+        self.assertContains(page, 'data-approve-past')
+        refused = self._ajax_approve(past)  # without the confirmation: refused, nothing changes
+        self.assertEqual(refused.status_code, 409)
+        self.assertTrue(refused.json()['needs_confirm'])
+        self.assertIn('موعد این آزمون گذشته است', refused.json()['message'])
+        self.assertEqual(self._state(past)[0], 'pending')
+        confirmed = self.client.post(reverse('core:super_admin_exam_approve', args=[past]), {'confirm_past': '1'},
+                                     HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertTrue(confirmed.json()['ok'])
+        self.assertIn('دانشجویان نمی‌توانند', confirmed.json()['message'])
+        self.assertEqual(self._state(past)[0], 'approved')
+        self.assertTrue(self._ajax_approve(started).json()['ok'])  # a running window only warns
+
+    def test_edit_page_publish_refuses_an_incomplete_or_past_exam(self):
+        """«ذخیره و انتشار مجدد» of an unpublished exam was a second, unchecked way to approve it."""
+        now = timezone.now()
+        bare = self._pending_exam('ناقص در ویرایش', questions=0, assigned=False)
+        past = self._pending_exam('گذشته در ویرایش', start_at=now - timedelta(days=2), end_at=now - timedelta(days=1))
+        good = self._pending_exam('کامل در ویرایش')
+        self.client.force_login(self.manager_user)
+        for exam_id, reason in ((bare, 'کامل نیست'), (past, 'موعد این آزمون گذشته است')):
+            page = self.client.post(reverse('core:super_admin_exam_edit', args=[exam_id]),
+                                    {'edit_step': '5', 'publish_action': 'republish'}, follow=True)
+            self.assertIn(reason, ' '.join(str(m) for m in page.context['messages']))
+            self.assertEqual(self._state(exam_id), ('pending', 'pending_approval', False))
+        self.client.post(reverse('core:super_admin_exam_edit', args=[good]), {'edit_step': '5', 'publish_action': 'republish'})
+        self.assertEqual(self._state(good), ('approved', 'published', True))
+
+    def test_dashboard_status_counts_match_the_exam_list(self):
+        """The dashboard showed 2 «برنامه‌ریزی‌شده» where the list's filter had 3: an approved exam waiting for its
+        publish time (and a published exam without a start) counted as draft / nowhere."""
+        from .views import _exam_status_counts
+        now = timezone.now()
+        self._pending_exam('منتظر زمان انتشار', lifecycle_status='approved', approval_status='approved', start_at=now + timedelta(days=3))
+        self._pending_exam('منتشرشده بی‌تاریخ', lifecycle_status='published', approval_status='approved', is_published=True)
+        self._pending_exam('پایان‌یافته', lifecycle_status='published', approval_status='approved', is_published=True,
+                           start_at=now - timedelta(days=2), end_at=now - timedelta(days=1))
+        self.client.force_login(self.admin_user)
+        counts = {tab['key']: tab['count'] for tab in self.client.get(reverse('core:super_admin_exams')).context['exam_list']['tabs']}
+        dashboard = {item['label']: item['count'] for item in _exam_status_counts()}
+        self.assertEqual(dashboard['برنامه‌ریزی‌شده'], counts.get('scheduled', 0))
+        self.assertEqual(dashboard['در حال برگزاری'], counts.get('running', 0))
+        self.assertEqual(dashboard['پایان‌یافته'], counts.get('finished', 0))
+        self.assertEqual(dashboard['لغوشده'], counts.get('cancelled', 0))
+        self.assertEqual(dashboard['پیش‌نویس / در انتظار تأیید'], counts.get('draft', 0) + counts.get('pending_approval', 0))
 
     def test_approving_twice_is_harmless(self):
         exam_id = self._pending_exam('آزمون دوبار')
@@ -6132,6 +6288,12 @@ class ManagerExamReviewStepTests(_ScopedOrgFixture):
         self.assertEqual(page.context['stats']['participant_count'], 1)
         self.assertNotContains(page, 'تغییر زمان پایان به ۱۰:۳۰')
 
+        # a first publish here is an approval: refused while the exam has no question, then allowed once it has one
+        from .views import erd_row
+        self.client.post(url, {'edit_step': '5', 'publish_action': 'republish'})
+        self.assertFalse(erd_row('SELECT is_published FROM exams WHERE id = %s', [self.exam_in_id])['is_published'])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                [str(uuid.uuid4()), self.exam_in_id, self.question_in_id, 1, 1])
         self.client.post(url, {'edit_step': '5', 'publish_action': 'republish', 'change_note': 'زمان پایان تمدید شد.', 'notify_participants': 'on'})
         with connection.cursor() as cursor:
             cursor.execute('SELECT user_id, message FROM notifications')
@@ -6449,13 +6611,26 @@ class DashboardChartsRealDataTests(_ScopedOrgFixture):
         self.assertTrue(health['پایگاه داده']['status'].startswith('سالم'))
         from apps.core import auto_backup
         auto_backup.save_config({'enabled': False})  # the folder monitor below applies while automatic backups are off
-        with self.settings(BACKUP_DIR=''):
-            self.assertEqual({i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']['status'], 'پایش نشده')
-        with tempfile.TemporaryDirectory() as folder, self.settings(BACKUP_DIR=folder):
-            self.assertEqual({i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']['status'], 'نسخه‌ای پیدا نشد')
-            open(f'{folder}/db.dump', 'w').close()
-            backup = {i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']
+        from unittest import mock
+        backup_of = lambda: {i['label']: i for i in erd_admin_dashboard_panel()['health_items']}['پشتیبان‌گیری']  # noqa: E731
+        # the review saw «پایش نشده» without BACKUP_DIR: now the default backups folder is looked at too
+        recent = [{'at': timezone.now() - timedelta(hours=5)}]
+        with self.settings(BACKUP_DIR=''), mock.patch.object(auto_backup, 'stored_backups', return_value=recent):
+            backup = backup_of()
+            self.assertNotIn('پایش نشده', backup['status'])
+            self.assertTrue(backup['status'].startswith('آخرین نسخه:'))
+            self.assertIn('خودکار خاموش', backup['status'])
             self.assertEqual(backup['tone'], 'ok')
+            self.assertTrue(backup['url'].endswith('?tab=backup'))  # «جزئیات»: the copies and their restore
+        with self.settings(BACKUP_DIR=''), mock.patch.object(auto_backup, 'stored_backups', return_value=[]):
+            self.assertEqual(backup_of()['tone'], 'bad')
+        with tempfile.TemporaryDirectory() as folder, self.settings(BACKUP_DIR=folder), \
+                mock.patch.object(auto_backup, 'stored_backups', return_value=[]):
+            self.assertIn('نسخه‌ای پیدا نشد', backup_of()['status'])
+            open(f'{folder}/db.dump', 'w').close()
+            self.assertEqual(backup_of()['tone'], 'ok')
+        self.client.force_login(self.admin_user)
+        self.assertContains(self.client.get(reverse('core:dashboard')), 'class="tda-link"')
 
     def test_manager_dashboard_charts_stay_in_scope(self):
         self.client.force_login(self.manager_user)
@@ -10296,3 +10471,127 @@ class RecordFieldRulesViewTests(_ScopedOrgFixture):
         self.assertRedirects(response, reverse('core:super_admin_exam_create'), fetch_redirect_response=False)
         response = self.client.get(reverse('core:exam_manager_exam_questions', args=[self.exam_in_id]))
         self.assertRedirects(response, reverse('core:super_admin_exam_wizard_edit', args=[self.exam_in_id]), fetch_redirect_response=False)
+
+
+class ManagerDashboardPendingLinkTests(_ScopedOrgFixture):
+    """Teacher's report 2026-11-19: «… آزمون در انتظار تأیید» on the manager dashboard opened ?status=draft."""
+
+    def test_pending_exams_link_opens_the_pending_approval_list(self):
+        from apps.core.views import erd_execute
+        erd_execute("UPDATE exams SET lifecycle_status = 'pending_approval' WHERE id = %s", [self.exam_in_id])
+        self.client.force_login(self.manager_user)
+        response = self.client.get(reverse('core:exam_manager_dashboard'))
+        item = next(i for i in response.context['attention_items'] if 'در انتظار تأیید' in i['label'])
+        self.assertTrue(item['url'].endswith('?status=pending_approval'))
+        listing = self.client.get(item['url'])
+        self.assertIn(self.exam_in_id, {str(row['id']) for row in listing.context['rows']})
+
+
+class ExamReturnToTeacherTests(_ScopedOrgFixture):
+    """Teacher's review 2026-11-19: an academic manager must be able to approve *or reject* an exam. «بازگرداندن به
+    استاد» sends a pending exam back as a draft with a required reason the teacher sees."""
+
+    def _pending_exam(self, title, **columns):
+        exam_id = str(uuid.uuid4())
+        values = {'lifecycle_status': 'pending_approval', 'approval_status': 'pending', 'is_published': False,
+                  'start_at': timezone.now() + timedelta(days=1), **columns}
+        _insert('exams', ['id', 'title', 'teacher_id', 'course_id'] + list(values),
+                [exam_id, title, self.teacher_in_id, self.course_in_id] + list(values.values()))
+        _insert('exam_assignments', ['id', 'exam_id', 'group_id'], [str(uuid.uuid4()), exam_id, self.group_in_id])
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                [str(uuid.uuid4()), exam_id, self.question_in_id, 1, 1])
+        return exam_id
+
+    def _return(self, exam_id, reason):
+        return self.client.post(reverse('core:super_admin_exam_reject', args=[exam_id]), {'return_reason': reason},
+                                HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+    def _state(self, exam_id):
+        from .views import erd_row
+        row = erd_row('SELECT approval_status, lifecycle_status, is_published FROM exams WHERE id = %s', [exam_id])
+        return row['approval_status'], row['lifecycle_status'], bool(row['is_published'])
+
+    def test_manager_returns_a_pending_exam_with_a_reason_the_teacher_sees(self):
+        from .views import erd_count, erd_row
+        exam_id = self._pending_exam('آزمون برگشتی')
+        self.client.force_login(self.manager_user)
+        html = self.client.get(reverse('core:exam_manager_exams')).content.decode()
+        self.assertIn(reverse('core:super_admin_exam_reject', args=[exam_id]), html)
+        self.assertIn('بازگرداندن به استاد', html)
+
+        short = self._return(exam_id, 'کوتاه')
+        self.assertEqual(short.status_code, 400)
+        self.assertEqual(self._state(exam_id), ('pending', 'pending_approval', False))
+
+        reason = 'سؤال اول گزینه‌ی درست ندارد؛ آن را اصلاح کنید.'
+        done = self._return(exam_id, reason)
+        self.assertEqual(done.status_code, 200)
+        self.assertTrue(done.json()['ok'])
+        self.assertEqual(self._state(exam_id), ('rejected', 'draft', False))
+        note = erd_row("SELECT message, link FROM notifications WHERE user_id = %s AND title = 'بازگرداندن آزمون برای اصلاح'", [self.teacher_in_id])
+        self.assertIn(reason, note['message'])
+        audit = "action = 'exam_returned' AND CAST(entity_id AS TEXT) = %s"
+        self.assertEqual(erd_count('activity_audit_log', audit, [exam_id]), 1)
+        self.assertEqual(self._return(exam_id, reason).status_code, 409)  # second click: no longer pending, nothing changes
+        self.assertEqual(erd_count('activity_audit_log', audit, [exam_id]), 1)
+        manager_rows = {row['title']: row for row in self.client.get(reverse('core:exam_manager_exams')).context['exam_list']['rows']}
+        self.assertEqual(manager_rows['آزمون برگشتی']['pill_label'], 'بازگردانده به استاد')
+
+        teacher = get_user_model().objects.create_user(username='teacher_in_scope', email='t_ret@example.com', password='x')
+        self.client.force_login(teacher)
+        rows = {row['title']: row for row in self.client.get(reverse('core:teacher_exams')).context['exam_list']['rows']}
+        self.assertEqual(rows['آزمون برگشتی']['pill_label'], 'بازگردانده برای اصلاح')
+        self.assertEqual(rows['آزمون برگشتی']['return_reason'], reason)
+        self.assertIn(reason, self.client.get(reverse('core:teacher_exams')).content.decode())
+        # sent again: pending once more, the old reason is no longer shown
+        self.client.post(reverse('core:teacher_exam_submit', args=[exam_id]))
+        self.assertEqual(self._state(exam_id), ('pending', 'pending_approval', False))
+        rows = {row['title']: row for row in self.client.get(reverse('core:teacher_exams')).context['exam_list']['rows']}
+        self.assertFalse(rows['آزمون برگشتی'].get('return_reason'))
+
+    def test_only_pending_exams_in_scope_can_be_returned(self):
+        published = self._pending_exam('منتشرشده', lifecycle_status='published', approval_status='approved', is_published=True)
+        self.client.force_login(self.manager_user)
+        self.assertEqual(self._return(published, 'این آزمون منتشر شده است و نباید برگردد.').status_code, 409)
+        self.assertEqual(self._state(published), ('approved', 'published', True))
+        self.assertEqual(self._return(self.exam_out_id, 'آزمون خارج از محدوده‌ی این مدیر').status_code, 404)
+        self.client.force_login(get_user_model().objects.create_user(username='teacher_in_scope', email='t_r2@example.com', password='x'))
+        pending = self._pending_exam('ارسال‌شده')
+        response = self._return(pending, 'استاد نباید بتواند این کار را بکند.')
+        self.assertNotEqual(response.status_code, 200)
+        self.assertEqual(self._state(pending), ('pending', 'pending_approval', False))
+
+
+class GroupStudentsAddTests(_ScopedOrgFixture):
+    """Teacher's review 2026-11-19: «افزودن دانشجو به گروه» as academic manager — clear result, capacity, no doubles."""
+
+    def setUp(self):
+        from .views import erd_execute
+        self.client.force_login(self.manager_user)
+        erd_execute('UPDATE student_groups SET capacity = 1 WHERE id = %s', [self.group_in_id])
+        erd_execute("UPDATE student_profiles SET academic_status = 'leave' WHERE user_id = %s", [self.student_in_id])
+        erd_execute("UPDATE profiles SET national_id = '0012345679' WHERE id = %s", [self.student_in_id])
+        self.url = reverse('core:exam_manager_group_students_add', args=[self.group_in_id])
+
+    def _text(self, response):
+        return ' '.join(str(m) for m in response.context['messages'])
+
+    def test_page_labels_statuses_in_persian(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('مرخصی', html)
+        self.assertNotIn('alert(', html)
+
+    def test_add_once_with_message_then_full_and_duplicate_are_explained(self):
+        from .views import erd_count, erd_row
+        response = self.client.post(self.url, {'student_ids': [self.student_in_id, self.student_in_id]}, follow=True)
+        self.assertIn('1 دانشجو به گروه', self._text(response))
+        self.assertEqual(erd_count('student_group_members', 'group_id = %s AND student_user_id = %s', [self.group_in_id, self.student_in_id]), 1)
+        self.assertEqual(erd_row('SELECT national_id FROM student_group_members WHERE group_id = %s', [self.group_in_id])['national_id'], '0012345679')
+        again = self.client.post(self.url, {'student_ids': [self.student_in_id]}, follow=True)
+        self.assertIn('از قبل عضو این گروه بودند', self._text(again))
+        self.assertEqual(erd_count('student_group_members', 'group_id = %s', [self.group_in_id]), 1)
+        outside = self.client.post(self.url, {'student_ids': [self.student_out_id]}, follow=True)
+        self.assertIn('اضافه نشد', self._text(outside))
+        self.assertEqual(erd_count('student_group_members', 'student_user_id = %s', [self.student_out_id]), 0)
+        empty = self.client.post(self.url, {}, follow=True)
+        self.assertIn('دانشجویی انتخاب نشده بود', self._text(empty))

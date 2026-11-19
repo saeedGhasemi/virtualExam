@@ -67,7 +67,7 @@
                     <input type="text" data-search placeholder="جستجوی نام یا شماره دانشجویی...">
                     <select data-filter-field><option value="">همه رشته‌ها</option>{% for f in fields %}<option value="{{ f }}">{{ f }}</option>{% endfor %}</select>
                     <select data-filter-entry><option value="">همه ورودی‌ها</option>{% for y in entry_years %}<option value="{{ y }}">{{ y|fa_digits }}</option>{% endfor %}</select>
-                    <button type="button" class="btn-secondary" data-select-visible><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن همه</button>
+                    <button type="button" class="btn-secondary" data-select-visible{% if not remaining_capacity %} disabled{% endif %}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>افزودن همه</button>
                 </div>
                 <div style="overflow-x:auto">
                     <table class="ga-table">
@@ -75,7 +75,7 @@
                         <tbody>
                             {% for student in eligible_students %}
                                 <tr data-row data-search="{{ student.full_name }} {{ student.student_number }}" data-field="{{ student.field_of_study }}" data-entry="{{ student.entry_year }}">
-                                    <td><input type="checkbox" name="student_ids" value="{{ student.id }}" data-check data-name="{{ student.full_name }}" data-code="{{ student.student_number }}" data-avatar="{{ student.avatar_url|default:'' }}"></td>
+                                    <td><input type="checkbox" name="student_ids" value="{{ student.id }}" data-check data-name="{{ student.full_name }}" data-code="{{ student.student_number }}" data-avatar="{{ student.avatar_url|default:'' }}"{% if not remaining_capacity %} disabled{% endif %} aria-label="انتخاب {{ student.full_name }}"></td>
                                     <td><div class="ga-student-cell">{% if student.avatar_url %}<img class="avatar" src="{{ student.avatar_url }}" alt="">{% else %}<i class="avatar">{{ student.full_name|slice:":1"|default:"د" }}</i>{% endif %}<span>{{ student.full_name|fa_digits }}</span></div></td>
                                     <td><bdi data-latin-digits>{{ student.student_number }}</bdi></td>
                                     <td>{{ student.field_of_study|default:"-"|fa_digits }}</td>
@@ -94,8 +94,9 @@
                 <h2>دانشجویان انتخاب‌شده</h2>
                 <div class="ga-count"><b data-selected-count-2>۰</b> از <b>{{ remaining_capacity|fa_digits }}</b> ظرفیت باقی‌مانده</div>
                 {% if not remaining_capacity %}
-                    <div class="ga-capacity-warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>ظرفیت این گروه تکمیل است.</div>
+                    <div class="ga-capacity-warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>ظرفیت این گروه تکمیل است؛ برای افزودن دانشجو، ظرفیت را در «ویرایش گروه» بیشتر کنید.</div>
                 {% endif %}
+                <div class="ga-capacity-warn" data-capacity-note aria-live="polite" hidden></div>
                 <div class="ga-selected-list" data-selected-list></div>
             </aside>
         </div>
@@ -125,17 +126,28 @@
         });
     };
 
+    // the capacity limit is said on the page (never the browser's alert)
+    const capacityNote = document.querySelector('[data-capacity-note]');
+    const sayCapacity = (text) => { if (capacityNote) { capacityNote.textContent = text; capacityNote.hidden = !text; } };
     form.querySelectorAll('[data-check]').forEach((input) => {
         input.addEventListener('change', () => {
             const checkedCount = form.querySelectorAll('[data-check]:checked').length;
-            if (remainingCapacity && checkedCount > remainingCapacity) {
+            if (checkedCount > remainingCapacity) {
                 input.checked = false;
-                alert(`ظرفیت باقی‌مانده گروه ${fa(remainingCapacity)} نفر است.`);
+                sayCapacity(`ظرفیت باقی‌مانده‌ی گروه ${fa(remainingCapacity)} نفر است؛ برای انتخاب نفر دیگر، یکی از انتخاب‌شده‌ها را بردارید.`);
                 return;
             }
+            sayCapacity('');
             renderSelected();
         });
     });
+    // one submit at a time
+    let sending = false;
+    form.addEventListener('submit', (event) => {
+        if (sending || !form.querySelector('[data-check]:checked')) { event.preventDefault(); return; }
+        sending = true;
+    });
+    window.addEventListener('pageshow', () => { sending = false; });
 
     const rows = Array.from(document.querySelectorAll('[data-row]'));
     const search = document.querySelector('[data-search]');
@@ -162,9 +174,10 @@
     document.querySelector('[data-select-visible]')?.addEventListener('click', () => {
         const visible = filtered();
         const currentlyChecked = form.querySelectorAll('[data-check]:checked').length;
-        const room = remainingCapacity ? Math.max(remainingCapacity - currentlyChecked, 0) : visible.length;
-        visible.slice(0, room).forEach((row) => { const box = row.querySelector('[data-check]'); if (box) box.checked = true; });
-        if (remainingCapacity && visible.length > room) alert(`فقط ${fa(room)} نفر از موارد نمایش‌داده‌شده به دلیل محدودیت ظرفیت انتخاب شدند.`);
+        const unchecked = visible.filter((row) => !row.querySelector('[data-check]')?.checked);
+        const room = Math.max(remainingCapacity - currentlyChecked, 0);
+        unchecked.slice(0, room).forEach((row) => { const box = row.querySelector('[data-check]'); if (box) box.checked = true; });
+        sayCapacity(unchecked.length > room ? `ظرفیت باقی‌مانده ${fa(remainingCapacity)} نفر است؛ فقط ${fa(Math.min(room, unchecked.length))} نفر از فهرست انتخاب شدند.` : '');
         renderSelected();
     });
 

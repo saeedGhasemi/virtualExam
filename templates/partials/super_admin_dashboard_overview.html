@@ -3,6 +3,7 @@
 <section class="super-admin-page super-admin-workspace" dir="rtl" data-fixed-scroll-page>
 <div class="tdash">
     {% include 'partials/dashboard/styles.html' %}
+    <style>.tda-health em{white-space:normal;max-width:100%;text-align:center}</style>
 
     {% include 'partials/dashboard/kpis.html' with kpis=role_panel.dashboard_cards %}
     {% include 'partials/dashboard/kpis.html' with kpis=role_panel.subordinates.tiles no_hint=1 %}
@@ -10,10 +11,10 @@
     <div class="tdash-bottom is-four">
         <section class="tdash-card">
             <header class="tdash-card-head"><h2><i class="tdash-hicon is-teal" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5.5c0 4.6 3.4 8.3 8 9.5 4.6-1.2 8-4.9 8-9.5V6Z"/><path d="m9 12 2 2 4-4"/></svg></i>وضعیت سلامت سامانه</h2></header>
-            <ol class="tda">
+            <ol class="tda tda-health">
                 {% for item in role_panel.health_items %}
                     <li><i aria-hidden="true">{% if forloop.counter == 1 %}<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg>{% elif forloop.counter == 2 %}<svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>{% elif forloop.counter == 3 %}<svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7Z"/></svg>{% else %}<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M21 3v6h-6"/></svg>{% endif %}</i>
-                        <div><b>{{ item.label }}</b><em class="{% if item.tone == 'bad' %}is-bad{% elif item.tone == 'warn' %}is-warn{% else %}is-ok{% endif %}">{{ item.status|fa_digits }}</em></div>
+                        <div><b>{{ item.label }}{% if item.url %} <a class="tda-link" href="{{ item.url }}">{{ item.url_label }}</a>{% endif %}</b><em class="{% if item.tone == 'bad' %}is-bad{% elif item.tone == 'warn' %}is-warn{% else %}is-ok{% endif %}">{{ item.status|fa_digits }}</em></div>
                     </li>
                 {% endfor %}
             </ol>

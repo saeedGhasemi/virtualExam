@@ -1044,27 +1044,31 @@ EXAM_STATUS_COLORS = {'running': '#10b981', 'upcoming': '#0ea5e9', 'finished': '
 
 def _exam_status_counts(where='1=1', params=None, cte='', cte_params=None) -> list:
     """Exams by what they are now: running, upcoming, finished, not yet published, cancelled (optionally scoped
-    by a WITH clause and a condition on `e`)."""
+    by a WITH clause and a condition on `e`). SQL twin of _admin_exam_state, so the dashboards count exactly what
+    the manager/admin exam list's status filters show (an approved exam waiting for its publish time is upcoming)."""
     now = timezone.now()
-    lifecycle = "COALESCE(e.lifecycle_status, '')"
-    published = 'COALESCE(e.is_published, false) = true AND COALESCE(e.is_cancelled, false) = false'
+    state = """CASE
+        WHEN COALESCE(e.is_cancelled, false) THEN 'cancelled'
+        WHEN NOT COALESCE(e.is_published, false) THEN
+            CASE WHEN COALESCE(e.lifecycle_status, '') = 'approved' THEN 'upcoming' ELSE 'unpublished' END
+        WHEN e.start_at IS NOT NULL AND e.start_at <= %s AND (e.end_at IS NULL OR %s <= e.end_at) THEN 'running'
+        WHEN e.end_at < %s THEN 'finished'
+        ELSE 'upcoming' END"""
     row = erd_row(
         f"""
         {cte}
-        SELECT SUM(CASE WHEN {published} AND {lifecycle} NOT IN ('closed', 'archived')
-                         AND e.start_at <= %s AND (e.end_at IS NULL OR e.end_at >= %s) THEN 1 ELSE 0 END) AS running,
-               SUM(CASE WHEN {published} AND {lifecycle} NOT IN ('closed', 'archived') AND e.start_at > %s THEN 1 ELSE 0 END) AS upcoming,
-               SUM(CASE WHEN {published} AND ({lifecycle} IN ('closed', 'archived') OR e.end_at < %s) THEN 1 ELSE 0 END) AS finished,
-               SUM(CASE WHEN COALESCE(e.is_published, false) = false AND COALESCE(e.is_cancelled, false) = false THEN 1 ELSE 0 END) AS unpublished,
-               SUM(CASE WHEN COALESCE(e.is_cancelled, false) = true THEN 1 ELSE 0 END) AS cancelled
-        FROM exams e
-        WHERE {where}
+        SELECT SUM(CASE WHEN s = 'running' THEN 1 ELSE 0 END) AS running,
+               SUM(CASE WHEN s = 'upcoming' THEN 1 ELSE 0 END) AS upcoming,
+               SUM(CASE WHEN s = 'finished' THEN 1 ELSE 0 END) AS finished,
+               SUM(CASE WHEN s = 'unpublished' THEN 1 ELSE 0 END) AS unpublished,
+               SUM(CASE WHEN s = 'cancelled' THEN 1 ELSE 0 END) AS cancelled
+        FROM (SELECT {state} AS s FROM exams e WHERE {where}) states
         """,
-        [*(cte_params or []), now, now, now, now, *(params or [])],
+        [*(cte_params or []), now, now, now, *(params or [])],
     ) or {}
     labels = {
         'running': 'در حال برگزاری',
-        'upcoming': 'زمان‌بندی‌شده',
+        'upcoming': 'برنامه‌ریزی‌شده',  # the list's filter name
         'finished': 'پایان‌یافته',
         'unpublished': 'پیش‌نویس / در انتظار تأیید',
         'cancelled': 'لغوشده',
@@ -1143,25 +1147,34 @@ def _system_health_items() -> list:
     except OSError:
         items.append({'label': 'ذخیره‌سازی', 'status': 'نامشخص', 'tone': 'warn'})
     from apps.core import auto_backup
+    # «جزئیات» opens the backup tab: every stored copy (date, size, kind) and its restore
+    backup = {'label': 'پشتیبان‌گیری', 'url': f"{reverse('core:super_admin_settings')}?tab=backup", 'url_label': 'جزئیات'}
     automatic = auto_backup.health()  # while scheduled backups are on, their own status is what counts
     if automatic:
-        items.append({'label': 'پشتیبان‌گیری', **automatic})
+        items.append({**backup, **automatic})
         return items
-    backup_dir = Path(settings.BACKUP_DIR) if getattr(settings, 'BACKUP_DIR', '') else None
-    if not backup_dir:
-        items.append({'label': 'پشتیبان‌گیری', 'status': 'پایش نشده', 'tone': 'warn'})
-        return items
+    # Automatic backups off: still look where copies are kept (BACKUP_DIR, else BASE_DIR/backups, and the
+    # before-restore folders) instead of «پایش نشده» — it used to look only at BACKUP_DIR and gave up without it.
+    latest = None
     try:
-        files = [path for path in backup_dir.iterdir() if path.is_file()]
+        stored = auto_backup.stored_backups()
+        latest = stored[0]['at'] if stored else None
     except OSError:
-        files = []
-    if not files:
-        items.append({'label': 'پشتیبان‌گیری', 'status': 'نسخه‌ای پیدا نشد', 'tone': 'bad'})
+        pass
+    backup_dir = Path(settings.BACKUP_DIR) if getattr(settings, 'BACKUP_DIR', '') else None
+    if not latest and backup_dir:  # any other file there (e.g. a SQLite copy from backup_database)
+        try:
+            stamps = [path.stat().st_mtime for path in backup_dir.iterdir() if path.is_file()]
+        except OSError:
+            stamps = []
+        if stamps:
+            latest = datetime.fromtimestamp(max(stamps), tz=timezone.get_current_timezone())
+    if not latest:
+        items.append({**backup, 'status': 'پشتیبان خودکار خاموش است و نسخه‌ای پیدا نشد', 'tone': 'bad'})
     else:
-        latest = datetime.fromtimestamp(max(path.stat().st_mtime for path in files), tz=timezone.get_current_timezone())
         items.append({
-            'label': 'پشتیبان‌گیری',
-            'status': f'آخرین نسخه: {_jalali_long_date(latest, with_weekday=False)}',
+            **backup,
+            'status': f'آخرین نسخه: {_jalali_long_date(latest, with_weekday=False)} · خودکار خاموش',
             'tone': 'ok' if (timezone.now() - latest).days <= 2 else 'bad',
         })
     return items
@@ -7091,6 +7104,98 @@ def _legacy_super_admin_groups(request):
     )
 
 
+GROUP_STUDENT_STATUS_LABELS = {
+    'active': 'فعال', 'leave': 'مرخصی', 'graduated': 'فارغ‌التحصیل', 'inactive': 'غیرفعال',
+    'blocked': 'مسدود', 'pending': 'در انتظار', 'suspended': 'تعلیق',
+}
+_ACADEMIC_YEAR_RE = re.compile(r'(\d{4})-(\d{4})')
+
+
+def _today_academic_term():
+    """('YYYY-YYYY', 'اول' | 'دوم' | 'تابستان') for today in Tehran. The academic year starts 1 Mehr; first semester
+    Mehr–Dey, second Bahman–Khordad, summer Tir–Shahrivar."""
+    from .templatetags.core_extras import _gregorian_to_jalali
+
+    today = timezone.localdate()
+    jy, jm, _jd = _gregorian_to_jalali(today.year, today.month, today.day)
+    start = jy if jm >= 7 else jy - 1
+    semester = 'اول' if 7 <= jm <= 10 else 'تابستان' if 4 <= jm <= 6 else 'دوم'
+    return f'{start}-{start + 1}', semester
+
+
+def _valid_academic_year(value) -> str:
+    """The normalised year when it is a real 'YYYY-YYYY+1' pair, else ''."""
+    year = _norm_academic_year(value)
+    match = _ACADEMIC_YEAR_RE.fullmatch(year)
+    return year if match and int(match[2]) == int(match[1]) + 1 else ''
+
+
+def _group_form_local_value(value) -> str:
+    """A stored timestamp as the Jalali picker's hidden value ('YYYY-MM-DDTHH:MM', Tehran wall time), '' if none."""
+    moment = erd_datetime(value) if value else None
+    if not moment or not hasattr(moment, 'hour'):
+        return ''
+    return timezone.localtime(moment).strftime('%Y-%m-%dT%H:%M')
+
+
+def _group_wizard_context(request, group=None) -> dict:
+    """Options + defaults shared by the course-group wizard's create and edit pages.
+
+    Default year/semester = the admin's marked «ترم جاری» when it is today's academic year or the next one, else
+    today's academic term (teacher's report 2026-11-19: the form opened on 1390-1391 because an old term was marked).
+    Student statuses are labelled in Persian (graduated / leave were shown in English)."""
+    courses = _em_course_rows(request)
+    teachers = _em_teacher_options(request)
+    students = _em_student_options(request)
+    for student in students:
+        student.setdefault('class_group', '-')
+        if not student.get('field_of_study'):
+            student['field_of_study'] = '-'
+        status = str(student.get('status') or '').strip().lower()
+        student['status'] = status
+        student['status_label'] = GROUP_STUDENT_STATUS_LABELS.get(status, 'نامشخص')
+    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms WHERE COALESCE(is_active, true) OR is_current ORDER BY year DESC, semester LIMIT 100')
+    today_year, semester = _today_academic_term()
+    start = int(today_year[:4])
+    next_year = f'{start + 1}-{start + 2}'
+    current_year = today_year
+    marked = _current_academic_term()
+    if marked and marked['year_norm'] in (today_year, next_year):  # an admin may mark next year's term early
+        current_year = marked['year_norm']
+        semester = marked['group_semester'] or (semester if current_year == today_year else 'اول')
+    years = {year for year in map(_valid_academic_year, _academic_year_options(terms)) if year}
+    years |= {today_year, next_year}
+    if group:
+        stored = _valid_academic_year(group.get('academic_year'))
+        if stored:
+            current_year = stored
+            years.add(stored)
+    statuses = {}
+    for student in students:
+        if student['status']:
+            statuses.setdefault(student['status'], student['status_label'])
+    route = 'exam_manager' if request.resolver_match.url_name.startswith('exam_manager_') else 'super_admin'
+    return {
+        'courses': courses,
+        'teachers': teachers,
+        'students': students,
+        'years': sorted(years, reverse=True),
+        'current_year': current_year,
+        'default_semester': semester,
+        'student_fields': sorted({s.get('field_of_study') for s in students if s.get('field_of_study') and s.get('field_of_study') != '-'}),
+        'student_entry_years': sorted({s.get('entry_year') for s in students if s.get('entry_year')}, reverse=True),
+        'student_statuses': sorted(statuses.items(), key=lambda item: item[1]),
+        'registration_start_value': _group_form_local_value((group or {}).get('registration_start_at')),
+        'registration_end_value': _group_form_local_value((group or {}).get('registration_end_at')),
+        'back_url': reverse(f'core:{route}_groups'),
+        'route_prefix': route,
+    }
+
+
+def _group_display_name(course_name, group_code) -> str:
+    return f'{course_name} - گروه {group_code}'
+
+
 def _group_form_problem(post):
     """Persian message when a course-group form's numbers / dates don't fit together, else '' (user's screenshots
     2026-11-15: a 20-digit capacity, minimum above capacity and registration ending before it opens were accepted).
@@ -7152,22 +7257,8 @@ def super_admin_group_create(request):
             'Students',
         )
 
-    courses = _em_course_rows(request)
-    teachers = _em_teacher_options(request)
-    students = _em_student_options(request)
-    for student in students:
-        student.setdefault('class_group', '-')
-        if not student.get('field_of_study'):
-            student['field_of_study'] = '-'
-    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms WHERE COALESCE(is_active, true) OR is_current ORDER BY year DESC, semester LIMIT 100')
-    years = _academic_year_options(terms) or ['1405-1406']
-    current_term = _current_academic_term()
-    student_fields = sorted({s.get('field_of_study') for s in students if s.get('field_of_study') and s.get('field_of_study') != '-'})
-    student_entry_years = sorted({s.get('entry_year') for s in students if s.get('entry_year')}, reverse=True)
-    student_statuses = sorted({s.get('status') for s in students if s.get('status')})
-    current_year = current_term['year_norm'] if current_term else years[0]
-    if current_year not in years:
-        years.insert(0, current_year)
+    wizard = _group_wizard_context(request)
+    courses, teachers, current_year = wizard['courses'], wizard['teachers'], wizard['current_year']
     current_course = courses[0] if courses else {}
     current_teacher = teachers[0] if teachers else {}
 
@@ -7181,6 +7272,10 @@ def super_admin_group_create(request):
         academic_year = _norm_academic_year(request.POST.get('academic_year', '')) or current_year
         semester = normalize_semester_value(request.POST.get('semester'))
         selected_students = [item for item in request.POST.getlist('student_ids') if item]
+        # «ذخیره پیش‌نویس» stores the group as a draft at once (from either step); «ایجاد گروه درسی» uses the form's
+        # status (teacher's report 2026-11-19: the draft button did nothing and said nothing).
+        draft_only = request.POST.get('save_mode') == 'draft'
+        status = 'draft' if draft_only else (request.POST.get('status') if request.POST.get('status') in ('active', 'draft') else 'active')
         if not _erd_group_assignment_in_scope(request, course_id, [teacher_id]):
             return HttpResponseForbidden('درس/استاد انتخاب‌شده خارج از محدوده‌ی دسترسی شماست.')
         if problem := _group_form_problem(request.POST):
@@ -7198,7 +7293,7 @@ def super_admin_group_create(request):
             ('class_location', request.POST.get('class_location', '').strip()),
             ('registration_start_at', parse_local_datetime(request.POST.get('registration_start_at'))),
             ('registration_end_at', parse_local_datetime(request.POST.get('registration_end_at'))),
-            ('status', request.POST.get('status') or 'draft'),
+            ('status', status),
         ]
         columns = ['id', 'teacher_id', 'course_id', 'course_name', 'academic_year', 'semester', 'group_code', 'description', 'is_active', 'created_by']
         values = [group_id, teacher_id, course_id, course_name, academic_year, semester, group_code, request.POST.get('description', '').strip(), True, created_by]
@@ -7210,6 +7305,7 @@ def super_admin_group_create(request):
             f"INSERT INTO student_groups ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))})",
             values,
         )
+        added = 0
         with connection.cursor() as cursor:
             if teacher_id:
                 cursor.execute(
@@ -7236,23 +7332,21 @@ def super_admin_group_create(request):
                     """,
                     [str(uuid.uuid4()), group_id, student_id, student.get('full_name') or 'دانشجو', student.get('national_id') or '-', student.get('student_number') or '-'],
                 )
-        messages.success(request, 'گروه درسی جدید با موفقیت ایجاد شد.')
-        return redirect('core:exam_manager_groups' if request.resolver_match.url_name.startswith('exam_manager_') else 'core:super_admin_groups')
+                added += 1
+        name = _group_display_name(course_name, group_code)
+        members = f'با {added} دانشجو' if added else 'بدون دانشجو'
+        if draft_only:
+            messages.success(request, f'گروه «{name}» {members} به‌صورت پیش‌نویس ذخیره شد. هر وقت کامل شد، وضعیت آن را «فعال» کنید و «ذخیره تغییرات گروه» را بزنید.')
+            return redirect(f"core:{wizard['route_prefix']}_group_edit", group_id=group_id)
+        state = 'فعال' if status == 'active' else 'پیش‌نویس'
+        messages.success(request, f'گروه درسی «{name}» {members} ایجاد شد (وضعیت: {state}).')
+        return redirect(f"core:{wizard['route_prefix']}_groups")
 
     return render(request, 'super_admin/group_wizard.html', {
+        **wizard,
         'title': 'ایجاد گروه درسی جدید',
-        'courses': courses,
-        'teachers': teachers,
-        'students': students,
-        'years': years,
-        'current_year': current_year,
-        'default_semester': current_term['group_semester'] if current_term else '',
         'current_course': current_course,
         'current_teacher': current_teacher,
-        'student_fields': student_fields,
-        'student_entry_years': student_entry_years,
-        'student_statuses': student_statuses,
-        'back_url': reverse('core:exam_manager_groups' if request.resolver_match.url_name.startswith('exam_manager_') else 'core:super_admin_groups'),
     })
 
 
@@ -7361,6 +7455,17 @@ def super_admin_group_edit(request, group_id):
             'summer': 'تابستان',
         }.get(value, value or 'اول')
 
+    def parse_local_datetime(value):
+        value = (value or '').strip()
+        if not value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        return timezone.make_aware(parsed, timezone.get_current_timezone()) if timezone.is_naive(parsed) else parsed
+
+    route = 'exam_manager' if request.resolver_match.url_name.startswith('exam_manager_') else 'super_admin'
     if request.method == 'POST':
         course_id = request.POST.get('course_id') or None
         course = erd_row('SELECT title FROM courses WHERE id = %s', [course_id]) if course_id else None
@@ -7376,8 +7481,8 @@ def super_admin_group_edit(request, group_id):
         assignments = [
             ('teacher_id', teacher_id),
             ('course_id', course_id),
-            ('course_name', (course or {}).get('title') or request.POST.get('course_name', '').strip() or group.get('course_name') or 'Course group'),
-            ('academic_year', _norm_academic_year(request.POST.get('academic_year', '')) or group.get('academic_year') or '1403-1404'),
+            ('course_name', (course or {}).get('title') or request.POST.get('course_name', '').strip() or group.get('course_name') or 'گروه درسی'),
+            ('academic_year', _norm_academic_year(request.POST.get('academic_year', '')) or group.get('academic_year') or _today_academic_term()[0]),
             ('semester', normalize_semester_value(request.POST.get('semester'))),
             ('group_code', request.POST.get('group_code', '').strip() or '01'),
             ('description', request.POST.get('description', '').strip()),
@@ -7392,7 +7497,9 @@ def super_admin_group_edit(request, group_id):
             ('offering_type', request.POST.get('offering_type') or 'theory'),
             ('class_schedule', request.POST.get('class_schedule', '').strip()),
             ('class_location', request.POST.get('class_location', '').strip()),
-            ('status', request.POST.get('status') or 'draft'),
+            ('registration_start_at', parse_local_datetime(request.POST.get('registration_start_at'))),
+            ('registration_end_at', parse_local_datetime(request.POST.get('registration_end_at'))),
+            ('status', request.POST.get('status') if request.POST.get('status') in ('active', 'draft') else (group.get('status') or 'draft')),
         ]:
             if erd_has_column('student_groups', column):
                 assignments.append((column, value))
@@ -7400,6 +7507,7 @@ def super_admin_group_edit(request, group_id):
             f"UPDATE student_groups SET {', '.join(f'{column} = %s' for column, _ in assignments)} WHERE id = %s",
             [value for _, value in assignments] + [group_id],
         )
+        added = 0
         with connection.cursor() as cursor:
             cursor.execute('DELETE FROM group_teachers WHERE group_id = %s', [group_id])
             for selected_teacher in dict.fromkeys(selected_teachers):
@@ -7426,23 +7534,17 @@ def super_admin_group_edit(request, group_id):
                     INSERT INTO student_group_members (id, group_id, student_user_id, full_name, national_id, student_number)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    [str(uuid.uuid4()), group_id, student_id, student.get('full_name') or 'Student', student.get('national_id') or '-', student.get('student_number') or '-'],
+                    [str(uuid.uuid4()), group_id, student_id, student.get('full_name') or 'دانشجو', student.get('national_id') or '-', student.get('student_number') or '-'],
                 )
-        messages.success(request, 'Group updated successfully.')
-        return redirect('core:exam_manager_groups' if request.resolver_match.url_name.startswith('exam_manager_') else 'core:super_admin_groups')
+                added += 1
+        saved = dict(assignments)
+        name = _group_display_name(saved['course_name'], saved['group_code'])
+        state = 'فعال' if saved.get('status') == 'active' else 'پیش‌نویس'
+        messages.success(request, f'تغییرات گروه «{name}» ذخیره شد ({added} دانشجو، وضعیت: {state}).')
+        return redirect(f'core:{route}_groups')
 
-    courses = _em_course_rows(request)
-    teachers = _em_teacher_options(request)
-    students = _em_student_options(request)
-    for student in students:
-        student.setdefault('class_group', '-')
-        if not student.get('field_of_study'):
-            student['field_of_study'] = '-'
-    terms = erd_rows('SELECT id, year, semester, label, is_current FROM academic_terms WHERE COALESCE(is_active, true) OR is_current ORDER BY year DESC, semester LIMIT 100')
-    years = _academic_year_options(terms) or ['1405-1406']
-    student_fields = sorted({s.get('field_of_study') for s in students if s.get('field_of_study') and s.get('field_of_study') != '-'})
-    student_entry_years = sorted({s.get('entry_year') for s in students if s.get('entry_year')}, reverse=True)
-    student_statuses = sorted({s.get('status') for s in students if s.get('status')})
+    wizard = _group_wizard_context(request, group)
+    courses, teachers = wizard['courses'], wizard['teachers']
     selected_teacher_ids = [str(row['teacher_id']) for row in erd_rows('SELECT teacher_id FROM group_teachers WHERE group_id = %s', [group_id]) if row.get('teacher_id')]
     if group.get('teacher_id') and str(group['teacher_id']) not in selected_teacher_ids:
         selected_teacher_ids.insert(0, str(group['teacher_id']))
@@ -7450,22 +7552,14 @@ def super_admin_group_edit(request, group_id):
     current_course = next((course for course in courses if str(course.get('id')) == str(group.get('course_id'))), courses[0] if courses else {})
     current_teacher = next((teacher for teacher in teachers if selected_teacher_ids and str(teacher.get('id')) == selected_teacher_ids[0]), teachers[0] if teachers else {})
     return render(request, 'super_admin/group_wizard.html', {
-        'title': 'Edit course group',
-        'courses': courses,
-        'teachers': teachers,
-        'students': students,
-        'years': years,
-        'current_year': _norm_academic_year(group.get('academic_year')) or (years[0] if years else '1403-1404'),
+        **wizard,
+        'title': 'ویرایش گروه درسی',
         'current_course': current_course,
         'current_teacher': current_teacher,
         'group': group,
         'is_edit': True,
         'selected_teacher_ids': selected_teacher_ids,
         'selected_student_ids': selected_student_ids,
-        'student_fields': student_fields,
-        'student_entry_years': student_entry_years,
-        'student_statuses': student_statuses,
-        'back_url': reverse('core:exam_manager_groups' if request.resolver_match.url_name.startswith('exam_manager_') else 'core:super_admin_groups'),
     })
 
 
@@ -7563,26 +7657,54 @@ def super_admin_group_students_add(request, group_id):
     member_ids = {str(item.get('student_user_id')) for item in members}
     remaining_capacity = max(int(group.get('capacity') or 0) - len(members), 0)
     if request.method == 'POST':
-        selected = [item for item in request.POST.getlist('student_ids') if item and item not in member_ids]
-        selected = selected[:remaining_capacity] if remaining_capacity else []
+        # Every case says what happened (teacher's review 2026-11-19): added, already members, over capacity, out of
+        # scope. The insert skips a student who is already a member, so a double click never adds anyone twice.
+        group_name = _group_display_name(group.get('course_title') or 'گروه', group.get('group_code') or '-')
+        chosen = list(dict.fromkeys(item for item in request.POST.getlist('student_ids') if item))
+        if not chosen:
+            messages.warning(request, 'دانشجویی انتخاب نشده بود؛ دانشجویان را از فهرست علامت بزنید و دوباره «افزودن» را بزنید.')
+            return redirect(request.get_full_path())
+        known = {str(item['id']): item for item in students}
+        already = [item for item in chosen if item in member_ids]
+        unknown = [item for item in chosen if item not in member_ids and item not in known]
+        fresh = [item for item in chosen if item not in member_ids and item in known]
+        over = fresh[remaining_capacity:]
         added = 0
-        for student_id in selected:
-            student = next((item for item in students if str(item['id']) == str(student_id)), None)
-            if not student:
-                continue
-            erd_execute(
-                "INSERT INTO student_group_members (id, group_id, student_user_id, full_name, national_id, student_number) VALUES (%s, %s, %s, %s, %s, %s)",
-                [str(uuid.uuid4()), group_id, student_id, student['full_name'], '-', student.get('student_number') or '-'],
+        for student_id in fresh[:remaining_capacity]:
+            student = known[student_id]
+            row = erd_row(
+                """
+                INSERT INTO student_group_members (id, group_id, student_user_id, full_name, national_id, student_number)
+                SELECT %s, %s, %s, %s, COALESCE((SELECT NULLIF(national_id, '') FROM profiles WHERE id = %s), '-'), %s
+                WHERE NOT EXISTS (SELECT 1 FROM student_group_members WHERE group_id = %s AND student_user_id = %s)
+                RETURNING id
+                """,
+                [str(uuid.uuid4()), group_id, student_id, student['full_name'], student_id, student.get('student_number') or '-',
+                 group_id, student_id],
             )
-            added += 1
+            if row:
+                added += 1
+            else:
+                already.append(student_id)
+        notes = []
+        if already:
+            notes.append(f'{len(already)} نفر از قبل عضو این گروه بودند')
+        if over:
+            notes.append(f'{len(over)} نفر به دلیل تکمیل ظرفیت ({group.get("capacity") or 0} نفر) اضافه نشدند')
+        if unknown:
+            notes.append(f'{len(unknown)} نفر خارج از محدوده‌ی دسترسی شما بودند و اضافه نشدند')
+        tail = f" ({'؛ '.join(notes)})" if notes else ''
         if added:
-            messages.success(request, f'{added} دانشجو به گروه اضافه شد.')
-        else:
-            messages.warning(request, 'دانشجویی اضافه نشد (ظرفیت گروه تکمیل است یا موردی انتخاب نشد).')
-        return redirect(manage_url_name, group_id=group_id)
+            messages.success(request, f'{added} دانشجو به گروه «{group_name}» اضافه شد{tail}.')
+            log_activity(request.user, 'group_students_added', f'{added} دانشجو به گروه {group_name} اضافه شد.', request, {'group_id': str(group_id)})
+            return redirect(manage_url_name, group_id=group_id)
+        messages.warning(request, f"دانشجویی به گروه «{group_name}» اضافه نشد{tail or ' (ظرفیت گروه تکمیل است)'}.")
+        return redirect(request.get_full_path())
     eligible = [student for student in students if str(student['id']) not in member_ids]
     for student in eligible:
-        student['status_label'] = 'فعال' if student.get('status') == 'active' else 'غیرفعال'
+        status = str(student.get('status') or '').strip().lower()
+        student['status'] = status
+        student['status_label'] = GROUP_STUDENT_STATUS_LABELS.get(status, 'نامشخص')
     fields = sorted({s.get('field_of_study') for s in eligible if s.get('field_of_study') and s.get('field_of_study') != '-'})
     entry_years = sorted({s.get('entry_year') for s in eligible if s.get('entry_year')}, reverse=True)
     context = {
@@ -8948,8 +9070,30 @@ def _exam_approve_blocker(row) -> str:
     """Why «تأیید» can't publish this exam yet ('' when it can)."""
     if row.get('is_cancelled'):
         return 'آزمون لغو شده است و قابل تأیید نیست.'
-    if not int(row.get('question_count') or 0):
-        return 'این آزمون هنوز سؤالی ندارد؛ پیش از تأیید، از «ویرایش» سؤال‌های آن را انتخاب کنید.'
+    exam_id = row.get('id')
+    questions = row['question_count'] if 'question_count' in row else erd_count('exam_questions', 'exam_id = %s', [exam_id])
+    audience = row['assignment_count'] if 'assignment_count' in row else erd_count('exam_assignments', 'exam_id = %s', [exam_id])
+    missing = [label for label, ok in (('سؤال', int(questions or 0)), ('گروه یا دانشجوی شرکت‌کننده', int(audience or 0)),
+                                       ('زمان برگزاری', row.get('start_at'))) if not ok]
+    if missing:  # same requirements as the teacher's «ارسال برای تأیید» (teacher_exam_submit)
+        if missing == ['سؤال']:
+            return 'این آزمون هنوز سؤالی ندارد؛ پیش از تأیید، از «ویرایش» سؤال‌های آن را انتخاب کنید.'
+        return f"این آزمون کامل نیست و قابل تأیید نیست؛ {' و '.join(missing)} ندارد. از «ویرایش آزمون» آن را کامل کنید."
+    return ''
+
+
+def _exam_approve_warning(row, now=None) -> str:
+    """What the manager should know before «تأیید» of an exam whose time has come ('' when nothing).
+    A past end needs an explicit confirmation (`confirm_past=1`), see super_admin_exam_approve."""
+    from .templatetags.core_extras import to_jalali
+
+    now = now or timezone.now()
+    start_at, end_at = erd_datetime(row.get('start_at')), erd_datetime(row.get('end_at'))
+    if end_at and end_at < now:
+        return (f'موعد این آزمون گذشته است (پایان: {to_jalali(end_at)})؛ پس از تأیید، آزمون «پایان‌یافته» نمایش داده '
+                'می‌شود و دانشجویان نمی‌توانند در آن شرکت کنند. برای برگزاری، ابتدا زمان آزمون را در «ویرایش آزمون» تغییر دهید.')
+    if start_at and start_at <= now:
+        return 'زمان شروع این آزمون گذشته است؛ پس از تأیید، آزمون بی‌درنگ در حال برگزاری خواهد بود و دانشجویان فرصت کمتری دارند.'
     return ''
 
 
@@ -8964,11 +9108,11 @@ def super_admin_exam_approve(request, exam_id):
         back = reverse('core:super_admin_exams')
     wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    def answer(ok, text, status=200):
+    def answer(ok, text, status=200, **extra):
         if wants_json:  # an error stays in the list's confirm modal; on success the list reloads and shows the toast
             if ok:
                 messages.success(request, text)
-            return JsonResponse({'ok': ok, 'message': text}, status=status)
+            return JsonResponse({'ok': ok, 'message': text, **extra}, status=status)
         (messages.success if ok else messages.error)(request, text)
         return redirect(back)
 
@@ -8984,9 +9128,14 @@ def super_admin_exam_approve(request, exam_id):
     if not _exam_needs_approval(exam) and not exam.get('is_cancelled'):
         return answer(True, f"آزمون «{exam['title']}» پیش‌تر تأیید شده است.")
     if blocker := _exam_approve_blocker(exam):
-        return answer(False, blocker, 400)
+        return answer(False, blocker, 400, blocked=True)
 
     now = timezone.now()
+    end_at = erd_datetime(exam.get('end_at'))
+    past_end = bool(end_at and end_at < now)
+    if past_end and request.POST.get('confirm_past') != '1':
+        # the modal shows this before sending; a list opened before the end passed gets it here, then asks again
+        return answer(False, _exam_approve_warning(exam, now), 409, needs_confirm=True)
     publish_at = erd_datetime(exam.get('scheduled_publish_at')) if erd_has_column('exams', 'scheduled_publish_at') else None
     was_published = bool(exam.get('is_published'))
     waits = not was_published and publish_at and publish_at > now
@@ -9001,14 +9150,94 @@ def super_admin_exam_approve(request, exam_id):
          'approved' if waits else ('published' if not was_published else exam.get('lifecycle_status') or 'published'),
          exam_id],
     )
-    notified = 0 if waits or was_published else announce_exam_published(exam_id)
+    # no «new exam» notice to students for an exam they can no longer take
+    notified = 0 if waits or was_published or past_end else announce_exam_published(exam_id)
     log_activity(request.user, 'exam_approved', f"آزمون {exam['title']} از فهرست آزمون‌ها تأیید شد.", request, {'exam_id': str(exam_id)})
     if exam.get('teacher_id'):
         create_notification(exam['teacher_id'], 'تأیید آزمون', f"آزمون «{exam['title']}» توسط مدیر آموزشی تأیید شد.",
                             link=reverse('core:teacher_exams'), notification_type='exam_update')
     if waits:
         return answer(True, f"آزمون «{exam['title']}» تأیید شد و در زمان انتشار تعیین‌شده منتشر می‌شود.")
+    if past_end:
+        return answer(True, f"آزمون «{exam['title']}» تأیید شد؛ موعد آن گذشته است و دانشجویان نمی‌توانند در آن شرکت کنند.")
     return answer(True, f"آزمون «{exam['title']}» تأیید و منتشر شد" + (f' و برای {notified} دانشجو اعلان ارسال شد.' if notified else '.'))
+
+
+EXAM_RETURN_REASON_MIN = 10
+EXAM_RETURN_REASON_MAX = 500
+
+
+def _exam_return_reasons(exam_ids) -> dict:
+    """exam id -> the latest «بازگرداندن به استاد» reason (activity_audit_log, action 'exam_returned')."""
+    ids = [str(item) for item in exam_ids if item]
+    if not ids:
+        return {}
+    rows = erd_rows(
+        f"""
+        SELECT CAST(entity_id AS TEXT) AS exam_id, reason, created_at FROM activity_audit_log
+        WHERE entity_type = 'exam' AND action = 'exam_returned' AND CAST(entity_id AS TEXT) IN ({', '.join(['%s'] * len(ids))})
+        ORDER BY created_at
+        """,
+        ids,
+    )
+    return {row['exam_id']: row['reason'] or '' for row in rows}  # later rows win
+
+
+@erd_role_required('academic_manager', 'admin')
+def super_admin_exam_reject(request, exam_id):
+    """«بازگرداندن به استاد» (teacher's review 2026-11-19: approve *or reject* as academic manager): an exam the
+    teacher sent for approval goes back to them as a draft with a required reason, which they get as a notification
+    and see on their exam list until they send it again. Same JSON / redirect answers as super_admin_exam_approve."""
+    back = request.POST.get('next') or ''
+    if not back.startswith(reverse('core:super_admin_exams')) and not back.startswith(reverse('core:exam_manager_exams')):
+        back = reverse('core:super_admin_exams')
+    wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    def answer(ok, text, status=200, **extra):
+        if wants_json:
+            if ok:
+                messages.success(request, text)
+            return JsonResponse({'ok': ok, 'message': text, **extra}, status=status)
+        (messages.success if ok else messages.error)(request, text)
+        return redirect(back)
+
+    if request.method != 'POST':
+        return redirect(back)
+    exam = erd_row('SELECT * FROM exams WHERE id = %s', [exam_id])
+    if not exam or not _erd_exam_in_manager_scope(request, exam_id):
+        if wants_json:
+            return answer(False, 'آزمون پیدا نشد.', 404)
+        raise Http404('آزمون پیدا نشد.')
+    reason = ' '.join((request.POST.get('return_reason') or '').split())
+    if (exam.get('lifecycle_status') or '') != 'pending_approval' or exam.get('is_published') or exam.get('is_cancelled'):
+        return answer(False, f"آزمون «{exam['title']}» در انتظار تأیید نیست؛ فقط آزمونی که استاد برای تأیید فرستاده و هنوز منتشر نشده به او بازگردانده می‌شود.", 409)
+    if len(reason) < EXAM_RETURN_REASON_MIN:
+        return answer(False, 'علت بازگرداندن را دست‌کم در ۱۰ نویسه بنویسید تا استاد بداند چه چیزی را باید اصلاح کند.', 400, field='return_reason')
+    if len(reason) > EXAM_RETURN_REASON_MAX:
+        return answer(False, 'علت بازگرداندن حداکثر ۵۰۰ نویسه است؛ آن را کوتاه‌تر بنویسید.', 400, field='return_reason')
+    returned = erd_row(  # one click wins: a second (or an approve at the same moment) finds it no longer pending
+        """
+        UPDATE exams SET lifecycle_status = 'draft', approval_status = 'rejected', approved_by = NULL, approved_at = NULL
+        WHERE id = %s AND lifecycle_status = 'pending_approval' AND COALESCE(is_published, false) = false
+        RETURNING id
+        """,
+        [exam_id],
+    )
+    if not returned:
+        return answer(False, f"وضعیت آزمون «{exam['title']}» همین حالا تغییر کرد؛ صفحه را تازه کنید.", 409)
+    erd_execute(
+        """
+        INSERT INTO activity_audit_log (id, actor_id, action, entity_type, entity_id, reason, metadata)
+        VALUES (%s, %s, 'exam_returned', 'exam', %s, %s, %s)
+        """,
+        [str(uuid.uuid4()), str(request.erd_profile_id) if getattr(request, 'erd_profile_id', None) else None, exam_id, reason,
+         json.dumps({'title': exam['title'], 'ip_address': client_ip(request)}, ensure_ascii=False)],
+    )
+    if exam.get('teacher_id'):
+        create_notification(exam['teacher_id'], 'بازگرداندن آزمون برای اصلاح',
+                            f"آزمون «{exam['title']}» برای اصلاح به شما بازگردانده شد. علت: {reason}",
+                            link=f"{reverse('core:teacher_exams')}?status=draft", notification_type='exam_update')
+    return answer(True, f"آزمون «{exam['title']}» با علت ثبت‌شده به استاد بازگردانده شد و به او اطلاع داده شد.")
 
 
 def _manager_exam_list_url(request) -> str:
@@ -9067,7 +9296,11 @@ def _manager_exam_row_actions(row):
     edit = reverse('core:super_admin_exam_edit', args=[exam_id])
     report = reverse('core:super_admin_exam_report', args=[exam_id])
     approve = {'url': reverse('core:super_admin_exam_approve', args=[exam_id]), 'blocker': row.get('approve_blocker') or '',
-               'edit_url': edit} if row.get('can_approve') else None
+               'warning': '' if row.get('approve_blocker') else _exam_approve_warning(row),
+               'past': bool(erd_datetime(row.get('end_at')) and erd_datetime(row.get('end_at')) < timezone.now()),
+               'edit_url': edit,
+               'reject_url': reverse('core:super_admin_exam_reject', args=[exam_id]) if row.get('lifecycle_status') == 'pending_approval' else '',
+               } if row.get('can_approve') else None
     if approve:
         primary = {'label': 'بررسی و تأیید', 'approve': approve, 'tone': 'amber'}
     elif state == 'draft':
@@ -9089,6 +9322,7 @@ def _manager_exam_row_actions(row):
         hub != used and {'label': 'مدیریت آزمون', 'icon': 'live', 'url': hub},
         edit != used and not row['is_cancelled'] and {'label': 'ویرایش آزمون', 'icon': 'edit', 'url': edit},
         approve and {'label': 'تأیید آزمون', 'icon': 'shield', 'approve': approve},
+        approve and approve['reject_url'] and {'label': 'بازگرداندن به استاد', 'icon': 'send', 'approve': approve, 'reject': True},
         {'label': 'تکثیر آزمون', 'icon': 'copy', 'post': post('duplicate')},
         state == 'draft' and not row.get('attempts') and {
             'label': 'حذف پیش‌نویس', 'icon': 'trash', 'post': post('delete'), 'danger': True, 'confirm_ok': 'حذف',
@@ -9096,6 +9330,8 @@ def _manager_exam_row_actions(row):
     ]
     exam_list.present(row, state=state, primary=primary, menu=menu, code=exam_access_code(exam_id),
                       preview_url=f"{reverse('core:exam_preview', args=[exam_id])}?new=1", report_url=report)
+    if state == 'draft' and row.get('approval_status') == 'rejected':
+        row['pill_label'], row['pill_tone'] = 'بازگردانده به استاد', 'red'
 
 
 @erd_role_required('academic_manager', 'admin')
@@ -9348,6 +9584,10 @@ def super_admin_exams(request):
         row['date_label'] = _jalali_long_date(row['start_at'])
         row['time_label'] = timezone.localtime(row['start_at']).strftime('%H:%M') if row['start_at'] else ''
         _manager_exam_row_actions(row)
+    reasons = _exam_return_reasons([row['id'] for row in page_rows if row.get('approval_status') == 'rejected'])
+    for row in page_rows:
+        if row['state'] == 'draft' and row.get('approval_status') == 'rejected':
+            row['return_reason'] = reasons.get(str(row['id']), '')
     courses = sorted({(str(row['course_id']), row['course']) for row in exams if row.get('course_id')}, key=lambda item: item[1] or '')
     group_options = sorted({(str(item['group_id']), f"{item['course_name'] or ''} - گروه {item['group_code']}" if item['group_code'] else (item['course_name'] or ''))
                             for items in exam_groups.values() for item in items}, key=lambda item: item[1])
@@ -10022,7 +10262,15 @@ def super_admin_exam_edit(request, exam_id):
             messages.success(request, 'زمان‌بندی و قوانین آزمون ذخیره شد.')
         elif step == '5':
             publish_action = request.POST.get('publish_action')
-            if publish_action == 'republish':
+            # a first publish here is an approval: an incomplete exam is refused with the reason, like the list's «تأیید»
+            blocker = _exam_approve_blocker(exam) if publish_action == 'republish' and not is_published else ''
+            ends = erd_datetime(exam.get('end_at'))
+            if not blocker and publish_action == 'republish' and not is_published and ends and ends < timezone.now():
+                blocker = ('موعد این آزمون گذشته است و انتشار آن دانشجویی را به آزمون نمی‌رساند؛ ابتدا زمان آزمون را تغییر دهید '
+                           '(یا از «تأیید» در فهرست آزمون‌ها، با پذیرش هشدار، آن را تأیید کنید).')
+            if blocker:
+                messages.error(request, blocker)
+            elif publish_action == 'republish':
                 profile = erd_profile_for_user(request.user)
                 approved_by = profile.get('id') if profile else None
                 erd_execute(
@@ -14415,6 +14663,12 @@ def _teacher_exam_list(teacher_id, filters: dict, page_number) -> dict:
         )
         row['status_label'] = _exam_status_with_approval(row['status_label'], row)  # after the label checks above
         _teacher_exam_row_actions(row, _TEACHER_EXAM_STATE_BY_LABEL.get(row['base_label'], 'draft'))
+    # returned by the academic manager (super_admin_exam_reject): red pill + the reason, until it is sent again
+    reasons = _exam_return_reasons([row['id'] for row in rows if row.get('approval_status') == 'rejected'])
+    for row in rows:
+        if row['state'] == 'draft' and row.get('approval_status') == 'rejected':
+            row['pill_label'], row['pill_tone'] = 'بازگردانده برای اصلاح', 'red'
+            row['return_reason'] = reasons.get(str(row['id']), '')
 
     courses = [{'value': str(row['id']), 'label': row['title']} for row in erd_rows(
         """
@@ -19051,7 +19305,7 @@ def exam_manager_dashboard(request):
         # Only what has something waiting, each with its count and the page that handles it.
         'attention_items': [
             item for item in (
-                {'label': f'{pending_exams} آزمون در انتظار تأیید', 'count': pending_exams, 'url': f'{exams_url}?status=draft', 'color': '#ef4444', 'icon': 'database'},
+                {'label': f'{pending_exams} آزمون در انتظار تأیید', 'count': pending_exams, 'url': f'{exams_url}?status=pending_approval', 'color': '#ef4444', 'icon': 'database'},
                 {'label': f'{teacher_requests} درخواست تغییر مشخصات استاد', 'count': teacher_requests, 'url': reverse('core:exam_manager_teacher_requests'), 'color': '#3b82f6', 'icon': 'user'},
                 {'label': f'{pending_answers} پاسخ در انتظار تصحیح استاد', 'count': pending_answers, 'url': '', 'color': '#f59e0b', 'icon': 'clock'},
             ) if item['count']

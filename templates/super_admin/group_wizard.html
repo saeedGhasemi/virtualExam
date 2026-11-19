@@ -47,6 +47,7 @@
     .row-action-btn{display:inline-grid;width:2.2rem;height:2.2rem;place-items:center;border:1px solid #d4dfef;border-radius:.6rem;color:#53617b;background:#fff}.row-action-btn:hover{border-color:#315cff;color:#315cff}.row-action-btn svg{width:1.05rem;height:1.05rem;fill:currentColor;stroke:none}
     .table-footer{display:flex;align-items:center;justify-content:space-between;padding:1rem;color:#53617b;font-weight:600}.pager{display:flex;gap:.45rem}.pager button,.pager b{display:grid;min-width:2.35rem;height:2.35rem;place-items:center;border:1px solid #d4dfef;border-radius:.6rem;background:#fff;cursor:pointer}.pager b{background:linear-gradient(135deg,#315cff,#7447f5);color:#fff;border:0;cursor:default}.table-footer{flex-wrap:wrap;gap:.6rem}.table-footer select{height:2.35rem;border:1px solid #d4dfef;border-radius:.6rem;background:#fff;padding:0 .5rem}
     .footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1rem;padding:1rem}.footer div{display:flex;gap:.8rem}.btn-primary,.btn-secondary{display:inline-flex;height:3.2rem;align-items:center;justify-content:center;gap:.55rem;border-radius:.78rem;padding:0 1.35rem;font-weight:700;cursor:pointer}.btn-primary{border:0;background:linear-gradient(135deg,#315cff,#7447f5);color:#fff}.btn-secondary{border:1px solid #cbd9ec;background:#fff;color:#315cff}.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+    .gc-save-note{flex:1 1 0;min-width:0;margin:0;color:#8a5a00;font-size:.84rem;font-weight:600;line-height:1.7;text-align:center}
     @media(max-width:1120px){.gc-layout,.student-layout,.excel-layout{grid-template-columns:1fr}.form-grid,.form-grid.two,.student-toolbar,.excel-stats,.excel-found-list{grid-template-columns:1fr 1fr}.gc-steps{max-width:none}}
     @media(max-width:700px){.form-grid,.form-grid.two,.student-toolbar,.excel-stats,.excel-found-list{grid-template-columns:1fr}.footer,.footer div{flex-direction:column;align-items:stretch}.btn-primary,.btn-secondary{width:100%}.gc-top-row{flex-direction:column}.unit-box{flex-wrap:wrap;gap:.6rem 1rem;padding:.75rem .85rem}.unit-box div{min-width:0}.unit-box strong{white-space:nowrap}}
 </style>
@@ -62,7 +63,7 @@
                     <h2><span data-banner-course>{{ current_course.title|default:"درس"|fa_digits }}</span> - گروه <span data-banner-group>۰۱</span></h2>
                     <div class="banner-meta">
                         <span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg><span data-banner-teacher>{{ current_teacher.full_name|default:"-"|fa_digits }}</span></span>
-                        <span><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>{{ current_year|fa_digits }}</span>
+                        <span><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg><span data-banner-year>{{ current_year|fa_digits }}</span></span>
                         <span><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg><b data-banner-selected>۰</b> از <b data-banner-capacity>۳۰</b> نفر</span>
                     </div>
                 </div>
@@ -114,20 +115,20 @@
                             <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>باز ثبت‌نام از:</span>
                                 <div class="jalali-field" data-jalali-field>
                                     <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
-                                    <input type="hidden" name="registration_start_at" data-jalali-value>
+                                    <input type="hidden" name="registration_start_at" value="{{ registration_start_value }}" data-jalali-value>
                                 </div>
                             </label>
                             <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>تا:</span>
                                 <div class="jalali-field" data-jalali-field>
                                     <input type="text" data-jalali-display readonly autocomplete="off" placeholder="انتخاب تاریخ و ساعت شمسی">
-                                    <input type="hidden" name="registration_end_at" data-jalali-value>
+                                    <input type="hidden" name="registration_end_at" value="{{ registration_end_value }}" data-jalali-value>
                                 </div>
                             </label>
-                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>وضعیت</span><select name="status"><option value="draft" {% if group.status == "draft" %}selected{% endif %}>پیش‌نویس</option><option value="active" {% if group.status == "active" %}selected{% endif %}>فعال</option></select></label>
+                            <label class="field"><span class="field-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>وضعیت</span><select name="status"><option value="active">فعال</option><option value="draft" {% if is_edit and group.status == "draft" %}selected{% endif %}>پیش‌نویس</option></select></label>
                         </div>
                         <div class="form-grid two" style="margin-top:1rem">
-                            <label class="toggle-line"><input type="checkbox" name="waitlist_enabled" checked><span class="switch"></span>فعال بودن فهرست انتظار</label>
-                            <label class="toggle-line"><input type="checkbox" name="requires_teacher_approval" checked><span class="switch"></span>ثبت‌نام نیازمند تایید استاد</label>
+                            <label class="toggle-line"><input type="checkbox" name="waitlist_enabled" {% if not is_edit or group.waitlist_enabled %}checked{% endif %}><span class="switch"></span>فعال بودن فهرست انتظار</label>
+                            <label class="toggle-line"><input type="checkbox" name="requires_teacher_approval" {% if not is_edit or group.requires_teacher_approval %}checked{% endif %}><span class="switch"></span>ثبت‌نام نیازمند تایید استاد</label>
                         </div>
                     </div>
                 </section>
@@ -191,7 +192,7 @@
                                         <input data-student-search placeholder="جستجوی نام، شماره دانشجویی...">
                                         <select data-filter-field><option value="">همه رشته‌ها</option>{% for f in student_fields %}<option value="{{ f }}">{{ f }}</option>{% endfor %}</select>
                                         <select data-filter-entry><option value="">همه ورودی‌ها</option>{% for y in student_entry_years %}<option value="{{ y }}">{{ y|fa_digits }}</option>{% endfor %}</select>
-                                        <select data-filter-status><option value="">همه وضعیت‌ها</option>{% for s in student_statuses %}<option value="{{ s }}">{% if s == 'active' %}فعال{% elif s == 'inactive' %}غیرفعال{% elif s == 'blocked' %}مسدود{% elif s == 'pending' %}در انتظار{% else %}{{ s }}{% endif %}</option>{% endfor %}</select>
+                                        <select data-filter-status><option value="">همه وضعیت‌ها</option>{% for value, label in student_statuses %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
                                         <button type="button" data-select-visible><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2"><path d="M12 5v14M5 12h14"/></svg>افزودن انتخاب‌شده‌ها</button>
                                         <button type="button" class="select-all-btn" data-select-all><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></svg>انتخاب همه</button>
                                         <button type="button" class="excel-shortcut-btn" data-goto-excel-tab><svg viewBox="0 0 24 24" style="width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>ورود از فایل اکسل</button>
@@ -207,7 +208,7 @@
                                                         <td><bdi data-latin-digits>{{ student.student_number }}</bdi></td>
                                                         <td>{{ student.field_of_study|fa_digits }}</td>
                                                         <td>{{ student.entry_year|default:"-"|fa_digits }}</td>
-                                                        <td><span class="status {% if student.status != 'active' %}is-inactive{% endif %}">{% if student.status == 'active' %}فعال{% elif student.status == 'inactive' %}غیرفعال{% elif student.status == 'blocked' %}مسدود{% elif student.status == 'pending' %}در انتظار{% else %}{{ student.status }}{% endif %}</span></td>
+                                                        <td><span class="status {% if student.status != 'active' %}is-inactive{% endif %}">{{ student.status_label }}</span></td>
                                                         <td><a class="row-action-btn" href="{% url 'core:super_admin_user_profile' 'student' student.id %}" target="_blank" rel="noopener" title="مشاهده پروفایل دانشجو"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></a></td>
                                                     </tr>
                                                 {% empty %}
@@ -226,13 +227,24 @@
                 </section>
             </main>
         </div>
+        {% comment %}Teacher's report 2026-11-19: «ذخیره پیش‌نویس» did nothing, «ذخیره و ادامه» only moved on without saving and
+           the edit page ended on «ایجاد گروه درسی». Now: the draft button saves a draft at once (create), «ادامه» says
+           it only moves on, the note says what is not saved yet, and edit saves with «ذخیره تغییرات گروه». {% endcomment %}
         <footer class="gc-card footer">
             <a class="btn-secondary" href="{{ back_url }}">انصراف</a>
+            <p class="gc-save-note" data-save-note aria-live="polite"
+               data-note-1="{% if is_edit %}تغییرات تا زدن «ذخیره تغییرات گروه» ذخیره نمی‌شوند.{% else %}گروه هنوز ذخیره نشده است؛ «ادامه» فقط به مرحله‌ی بعد می‌رود. برای ثبت، در مرحله‌ی ۲ «ایجاد گروه درسی» یا همین حالا «ذخیره پیش‌نویس» را بزنید.{% endif %}"
+               data-note-2="{% if is_edit %}تغییرات تا زدن «ذخیره تغییرات گروه» ذخیره نمی‌شوند.{% else %}گروه هنوز ذخیره نشده است؛ برای ثبت، «ایجاد گروه درسی» را بزنید.{% endif %}"></p>
             <div>
                 <button type="button" class="btn-secondary" data-prev hidden>مرحله قبل</button>
-                <button type="button" class="btn-secondary">ذخیره پیش‌نویس</button>
-                <button type="button" class="btn-primary" data-next>ذخیره و ادامه</button>
-                <button type="submit" class="btn-primary" data-submit hidden>ایجاد گروه درسی</button>
+                {% if is_edit %}
+                    <button type="button" class="btn-secondary" data-next>ادامه: دانشجویان گروه</button>
+                    <button type="submit" class="btn-primary" data-save-edit>ذخیره تغییرات گروه</button>
+                {% else %}
+                    <button type="submit" class="btn-secondary" name="save_mode" value="draft" data-save-draft>ذخیره پیش‌نویس</button>
+                    <button type="button" class="btn-primary" data-next>ادامه: افزودن دانشجویان</button>
+                    <button type="submit" class="btn-primary" data-submit hidden>ایجاد گروه درسی</button>
+                {% endif %}
             </div>
         </footer>
     </form>
@@ -272,6 +284,7 @@
         }
         setAllText('[data-banner-selected]', selected);
         setAllText('[data-banner-capacity]', capacity);
+        setText('[data-banner-year]', selectedOptionText(form.elements.academic_year));
         document.querySelector('[data-course-code-text]').textContent = selectedCourse?.dataset.code || '-';  // a code: keeps 0-9
         setText('[data-course-units-text]', `${selectedCourse?.dataset.units || 3} واحد`);
         document.querySelector('[data-course-code]').value = selectedCourse?.dataset.code || '-';
@@ -288,7 +301,10 @@
         else { step1btn.classList.remove('is-done'); badge1.textContent = '۱'; }
         document.querySelector('[data-prev]').hidden = step === 1;
         document.querySelector('[data-next]').hidden = step === 2;
-        document.querySelector('[data-submit]').hidden = step !== 2;
+        const submit = document.querySelector('[data-submit]');
+        if (submit) submit.hidden = step !== 2;
+        const note = document.querySelector('[data-save-note]');
+        if (note) note.textContent = note.getAttribute(`data-note-${step}`) || '';
         document.querySelector('[data-banner-card]').hidden = step !== 2;
         updateSummary();
     };
@@ -336,6 +352,14 @@
     form.addEventListener('submit', (event) => {
         if (!stepOneOk()) { event.preventDefault(); event.stopImmediatePropagation(); setStep(1); stepOneOk(); }
     }, true);
+    // One submit at a time (a double click must not create the group twice); released again if another check stops it.
+    let sending = false;
+    form.addEventListener('submit', (event) => {
+        if (sending) { event.preventDefault(); return; }
+        sending = true;
+        setTimeout(() => { if (event.defaultPrevented) sending = false; }, 0);
+    });
+    window.addEventListener('pageshow', () => { sending = false; });
     form.addEventListener('input', updateSummary);
     form.addEventListener('change', updateSummary);
 

@@ -59,6 +59,12 @@
     .exam-approve-panel{max-width:30rem;text-align:center}.exam-approve-panel h2{margin-top:.9rem}.exam-approve-panel p b{color:#071936}
     .exam-approve-icon{display:grid;width:3.6rem;height:3.6rem;margin:0 auto;place-items:center;border-radius:1rem;background:#eef3ff;color:#315cff}.exam-approve-icon svg{width:1.8rem;height:1.8rem;stroke-width:2.6}
     .exam-approve-panel .exam-approve-error{margin-top:1rem;border:1px solid #fed7aa;border-radius:.75rem;background:#fff7ed;padding:.7rem .9rem;color:#c2410c}.exam-approve-error[hidden],.exam-approve-panel [hidden]{display:none!important}
+    .exam-approve-panel .exam-approve-warning{margin-top:1rem;border:1px solid #fecaca;border-radius:.75rem;background:#fef2f2;padding:.7rem .9rem;color:#b91c1c;font-weight:600;line-height:1.9}
+    .exam-approve-panel .exam-approve-warning.is-soft{border-color:#fde68a;background:#fffbeb;color:#92400e}
+    .exam-approve-panel .exam-approve-warning a{color:inherit;text-decoration:underline}
+    .exam-approve-panel .exam-return-field{display:grid;gap:.4rem;margin-top:1rem;text-align:start;font-weight:600}.exam-return-field em{color:#dc2626;font-style:normal}.exam-return-field small{color:#65728a;font-weight:400}
+    .exam-return-field textarea{width:100%;min-height:5.5rem;resize:vertical;border:1px solid #cbd9ec;border-radius:.75rem;background:#fff;padding:.65rem .8rem;font:inherit;font-weight:400;line-height:1.8}
+    .exam-approve-panel .exam-return-open{color:#b42318;border-color:#fecaca}
     .exam-muted{color:#7a8597}
     .exam-approve-panel footer{display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem;margin-top:1.4rem}.exam-approve-panel footer>*{min-width:8rem}
     @media (max-width:480px){.exam-approve-panel{padding:1.4rem 1rem}.exam-approve-panel footer{flex-direction:column-reverse}.exam-approve-panel footer>*{width:100%}}
@@ -96,11 +102,20 @@
             <button type="button" class="users-modal-close" data-close-approve aria-label="بستن">×</button>
             <span class="exam-approve-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></span>
             <h2 id="examApproveTitle">تأیید آزمون</h2>
-            <p id="examApproveText" data-approve-question>آیا از تأیید آزمون «<b data-approve-name></b>» مطمئن هستید؟ پس از تأیید، آزمون برای دانشجویان منتشر می‌شود (یا اگر زمان انتشار تعیین شده باشد، در همان زمان منتشر خواهد شد).</p>
+            <p id="examApproveText" data-approve-question>آیا از تأیید آزمون «<b data-approve-name></b>» مطمئن هستید؟ <span data-approve-tail>پس از تأیید، آزمون برای دانشجویان منتشر می‌شود (یا اگر زمان انتشار تعیین شده باشد، در همان زمان منتشر خواهد شد).</span></p>
+            <p class="exam-approve-warning" role="alert" data-approve-warning hidden></p>
+            <input type="hidden" name="confirm_past" value="" data-approve-confirm-past>
             <p class="exam-approve-error" role="alert" data-approve-error hidden></p>
             <p style="margin:0"><a href="#" data-approve-preview style="font-weight:700">پیش از تأیید، پیش‌نمایش آزمون را ببینید ←</a></p>
+            {# «بازگرداندن به استاد» (views.super_admin_exam_reject): same dialog, the reason goes to the teacher #}
+            <label class="exam-return-field" data-reject-box hidden>
+                <span>علت بازگرداندن <em>*</em> <small>(برای استاد فرستاده می‌شود)</small></span>
+                <textarea name="return_reason" rows="3" maxlength="500" data-reject-reason placeholder="سؤال ۴ گزینه‌ی درست ندارد و زمان آزمون با آزمون دیگر گروه هم‌زمان است."></textarea>
+            </label>
             <footer>
                 <button type="button" class="users-secondary-action" data-close-approve>انصراف</button>
+                <button type="button" class="users-secondary-action exam-return-open" data-reject-open hidden>بازگرداندن به استاد</button>
+                <button type="button" class="users-secondary-action" data-reject-back hidden>بازگشت به تأیید</button>
                 <button type="submit" class="users-primary-action" data-approve-submit>تأیید آزمون</button>
                 <a class="users-primary-action" href="#" data-approve-edit hidden>ویرایش آزمون</a>
             </footer>
@@ -250,28 +265,113 @@
         approveSubmit.hidden = Boolean(editUrl);
         approveForm.querySelector('[data-approve-question]').hidden = Boolean(editUrl);  // blocked: only say why
     };
+    const approveWarning = approveForm?.querySelector('[data-approve-warning]');
+    const approveConfirmPast = approveForm?.querySelector('[data-approve-confirm-past]');
+    const approveLabel = () => (approveConfirmPast.value ? 'تأیید با وجود موعد گذشته' : 'تأیید آزمون');
+    // the exam's time has come: say so; a past end is approved only after this (confirm_past=1, checked by the server too)
+    const showApproveWarning = (text, past, editUrl = '') => {
+        approveWarning.textContent = text || '';
+        approveWarning.hidden = !text;
+        approveWarning.classList.toggle('is-soft', Boolean(text) && !past);
+        approveConfirmPast.value = past ? '1' : '';
+        const tail = approveForm.querySelector('[data-approve-tail]');
+        if (tail) tail.textContent = past ? 'موعد آن گذشته است و دانشجویان پس از تأیید هم نمی‌توانند در آن شرکت کنند.'
+            : 'پس از تأیید، آزمون برای دانشجویان منتشر می‌شود (یا اگر زمان انتشار تعیین شده باشد، در همان زمان منتشر خواهد شد).';
+        approveSubmit.textContent = approveLabel();
+        if (past && editUrl) { approveEdit.href = editUrl; approveEdit.hidden = false; approveEdit.textContent = 'تغییر زمان آزمون'; }
+    };
+    // «بازگرداندن به استاد»: the dialog switches to a required reason; its own URL; the approve parts step aside
+    const rejectBox = approveForm?.querySelector('[data-reject-box]');
+    const rejectReason = approveForm?.querySelector('[data-reject-reason]');
+    const rejectOpen = approveForm?.querySelector('[data-reject-open]');
+    const rejectBack = approveForm?.querySelector('[data-reject-back]');
+    const approveTitle = approveForm?.querySelector('#examApproveTitle');
+    let rejectMode = false;
+    let approveState = null;  // what the approve view showed, restored by «بازگشت به تأیید»
+    const setRejectMode = (on) => {
+        rejectMode = on;
+        const item = approveOpener;
+        approveForm.action = on ? item.dataset.rejectUrl : item.dataset.approveUrl;
+        approveTitle.textContent = on ? 'بازگرداندن آزمون به استاد' : 'تأیید آزمون';
+        rejectBox.hidden = !on;
+        rejectOpen.hidden = on || !item.dataset.rejectUrl;
+        rejectBack.hidden = !on;
+        approveForm.querySelector('[data-approve-question]').hidden = on || Boolean(item.dataset.approveBlocker);
+        if (on) {
+            approveState = {warning: !approveWarning.hidden, edit: !approveEdit.hidden, submit: !approveSubmit.hidden};
+            approveWarning.hidden = true;
+            approveEdit.hidden = true;
+            approveSubmit.hidden = false;
+            approveSubmit.textContent = 'بازگرداندن به استاد';
+            showApproveErrorText('');
+            rejectReason.focus();
+        } else {
+            if (approveState) {
+                approveWarning.hidden = !approveState.warning;
+                approveEdit.hidden = !approveState.edit;
+                approveSubmit.hidden = !approveState.submit;
+            }
+            approveSubmit.textContent = approveLabel();
+            showApproveErrorText(item.dataset.approveBlocker || '');
+        }
+    };
+    const showApproveErrorText = (text) => { approveError.textContent = text; approveError.hidden = !text; };
+    rejectOpen?.addEventListener('click', () => setRejectMode(true));
+    rejectBack?.addEventListener('click', () => setRejectMode(false));
     // delegated: the table is swapped in place by live-region.js when filters change
     document.addEventListener('click', (event) => {
         const item = event.target.closest('[data-approve-url]');
         if (!item || !approveForm) return;
+        rejectMode = false;
+        approveState = null;
+        approveTitle.textContent = 'تأیید آزمون';
+        rejectBox.hidden = true;
+        rejectReason.value = '';
+        rejectBack.hidden = true;
+        rejectOpen.hidden = !item.dataset.rejectUrl;
         approveOpener = item;
         approveForm.action = item.dataset.approveUrl;
         approveForm.querySelector('[data-approve-name]').textContent = item.dataset.approveTitle || '';
         const approvePreview = approveForm.querySelector('[data-approve-preview]');
         if (approvePreview) { approvePreview.href = item.dataset.previewUrl || '#'; approvePreview.parentElement.hidden = !item.dataset.previewUrl; }
         approveSubmit.disabled = false;
-        approveSubmit.textContent = 'تأیید آزمون';
+        approveEdit.textContent = 'ویرایش آزمون';
         // an exam that can't be published yet (e.g. no questions) says why and offers «ویرایش آزمون» instead
         showApproveError(item.dataset.approveBlocker || '', item.dataset.approveBlocker ? item.dataset.editUrl : '');
+        showApproveWarning(item.dataset.approveBlocker ? '' : item.dataset.approveWarning, 'approvePast' in item.dataset, item.dataset.editUrl);
         approveModal.classList.add('is-open');
         approveModal.setAttribute('aria-hidden', 'false');
-        (approveSubmit.hidden ? approveEdit : approveSubmit).focus();
+        if ('rejectMode' in item.dataset && item.dataset.rejectUrl) { setRejectMode(true); return; }
+        (approveSubmit.hidden ? approveEdit : approveConfirmPast.value ? approveEdit : approveSubmit).focus();
     });
     approveModal?.querySelectorAll('[data-close-approve]').forEach((item) => item.addEventListener('click', closeApprove));
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeApprove(); });
     approveForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (approveSubmit.disabled) return;
+        if (rejectMode) {
+            const reason = rejectReason.value.trim().replace(/\s+/g, ' ');
+            if (reason.length < 10) {
+                showApproveErrorText('علت بازگرداندن را دست‌کم در ۱۰ نویسه بنویسید تا استاد بداند چه چیزی را باید اصلاح کند.');
+                rejectReason.focus();
+                return;
+            }
+            approveSubmit.disabled = true;
+            approveSubmit.textContent = 'در حال بازگرداندن…';
+            showApproveErrorText('');
+            let payload = {};
+            try {
+                const response = await fetch(approveForm.action, {method: 'POST', body: new FormData(approveForm), headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'});
+                payload = await response.json().catch(() => ({}));
+                if (response.ok && payload.ok) { location.reload(); return; }
+            } catch (error) {
+                payload = {message: 'ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید.'};
+            }
+            approveSubmit.disabled = false;
+            approveSubmit.textContent = 'بازگرداندن به استاد';
+            showApproveErrorText(payload.message || 'بازگرداندن آزمون انجام نشد؛ دوباره تلاش کنید.');
+            return;
+        }
         approveSubmit.disabled = true;
         approveSubmit.textContent = 'در حال تأیید…';
         showApproveError('');
@@ -284,8 +384,13 @@
             payload = {message: 'ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید.'};
         }
         approveSubmit.disabled = false;
-        approveSubmit.textContent = 'تأیید آزمون';
-        showApproveError(payload.message || 'تأیید آزمون انجام نشد؛ دوباره تلاش کنید.', payload.message && payload.message.includes('سؤالی ندارد') ? approveOpener?.dataset.editUrl : '');
+        if (payload.needs_confirm) {  // the end passed after the list was opened: warn, then a second click approves
+            showApproveError('');
+            showApproveWarning(payload.message, true, approveOpener?.dataset.editUrl);
+            return;
+        }
+        approveSubmit.textContent = approveLabel();
+        showApproveError(payload.message || 'تأیید آزمون انجام نشد؛ دوباره تلاش کنید.', payload.blocked ? approveOpener?.dataset.editUrl : '');
     });
     form?.addEventListener('submit', async (event) => {
         event.preventDefault();

@@ -3,7 +3,9 @@
  * - Explicit: any element with data-counter="<number>" (optional data-counter-suffix).
  * - Automatic: numbers inside stat/KPI/metric/tile/count containers whose text holds exactly
  *   one number (e.g. "۱۲", "۸۵٪", "+۵۰", "۳۵ دقیقه"); the surrounding text is kept.
- * Opt out with data-no-count on an element or any ancestor. Countdowns, dates, times
+ * Opt out with data-no-count on an element or any ancestor. Counts in navigation / tab strips
+ * (nav, role=tablist|tab, e.g. the exam list's «همه ۴۷») are filter labels, not KPIs: shown as they
+ * are, never animated (an animated «همه ۲۱» beside the pager's «از ۴۷» read as a wrong count). Countdowns, dates, times
  * ("۱۲:۳۰"), codes (data-latin-digits) and editable fields are never touched.
  * Starts when the number scrolls into view (same timing as the admin dashboard), and runs
  * again whenever it is shown anew: content swapped in by live regions (tabs, filters,
@@ -24,7 +26,7 @@
     const NUMBER_RE = new RegExp(`[${DIGIT}](?:[${DIGIT},٬]*[${DIGIT}])?(?:[.٫][${DIGIT}]+)?`, 'g');
     const CONTAINER_RE = /(^|[-_])(stat|stats|kpi|kpis|metric|metrics|tile|tiles|counter|count|counts|summary)([-_]|$)/i;
     const VALUE_TAGS = 'strong, b, em, h2, h3, h4, [class*="value"]';
-    const SKIP = '[data-no-count], [data-countdown], [data-latin-digits], [contenteditable], .ql-editor, input, select, textarea, option, script, style, time';
+    const SKIP = '[data-no-count], nav, [role="tablist"], [role="tab"], [data-countdown], [data-latin-digits], [contenteditable], .ql-editor, input, select, textarea, option, script, style, time';
 
     const claimed = new WeakSet();
 

@@ -188,3 +188,6 @@
     .xl-new,.xl-head-link{padding-inline:.8rem}
 }
 @media print{.xl-filters,.xl-actions,.xl-head-actions{display:none!important}.xl-body .xl-table-wrap{display:block!important}.xl-body .xl-cards{display:none!important}}
+
+/* why the academic manager returned the exam (views.super_admin_exam_reject): teacher and manager lists */
+.xl-return-note{display:block;margin-top:.35rem;padding:.3rem .55rem;border-radius:.5rem;background:#fff1f2;color:#b42318;font-size:.78rem;font-weight:600;line-height:1.6;overflow-wrap:anywhere;text-align:start}

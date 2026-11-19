@@ -4,7 +4,7 @@ Include with: xl (exam_list.listing()), xl_title, xl_subtitle, xl_new_url, xl_li
 xl_teacher_col (show the teacher under the course), and (managers/admin) the «مدیر بخش» / «استاد» selects and the «دانشجو»
 search box from xl.managers / xl.teachers / xl.student_filter (apps/core/people_filters.py), and a block of extra header links via xl_head_links (list of {url,label}).
 {% endcomment %}
-<link rel="stylesheet" href="{% static 'css/exam-list.css' %}?v=xl-20261114rs">
+<link rel="stylesheet" href="{% static 'css/exam-list.css' %}?v=xl-20261119rt">
 {% include 'partials/exam_list/sprite.html' %}
 <div class="xl" data-xl dir="rtl">
     <header class="xl-head">
@@ -58,6 +58,7 @@ search box from xl.managers / xl.teachers / xl.student_filter (apps/core/people_
                                     <td class="is-start">
                                         <strong class="xl-title">{{ exam.title|fa_digits }}</strong>
                                         {% include 'partials/exam_list/code.html' %}
+                                        {% if exam.return_reason %}<small class="xl-return-note">علت بازگرداندن: {{ exam.return_reason }}</small>{% endif %}
                                     </td>
                                     <td class="is-start">
                                         <span class="xl-line">{{ exam.course|fa_digits }}</span>
@@ -84,6 +85,7 @@ search box from xl.managers / xl.teachers / xl.student_filter (apps/core/people_
                             </header>
                             <p class="xl-card-meta"><span>{{ exam.course|fa_digits }}</span><i aria-hidden="true">•</i><span>{% if exam.groups_label %}{{ exam.groups_label|fa_digits }}{% elif exam.assigned %}دانشجویان منتخب{% else %}بدون تخصیص{% endif %}</span>{% if xl_teacher_col and exam.teacher and exam.teacher != '-' %}<i aria-hidden="true">•</i><span>{{ exam.teacher|fa_digits }}</span>{% endif %}</p>
                             {% include 'partials/exam_list/code.html' %}
+                            {% if exam.return_reason %}<small class="xl-return-note">علت بازگرداندن: {{ exam.return_reason }}</small>{% endif %}
                             <ul class="xl-facts">
                                 <li class="is-wide"><svg aria-hidden="true"><use href="#xl-i-calendar"/></svg>{% if exam.date_label %}{{ exam.date_label }}{% else %}<span class="xl-muted">زمان تعیین نشده</span>{% endif %}</li>
                                 <li><svg aria-hidden="true"><use href="#xl-i-clock"/></svg>{% if exam.time_label %}{{ exam.time_label|fa_digits }}{% else %}<span class="xl-muted">—</span>{% endif %}</li>
