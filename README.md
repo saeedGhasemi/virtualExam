@@ -46,7 +46,7 @@ $OLD = "1f9e4ea"                                   # commit فعلی سرور
 $TS  = Get-Date -Format "yyyyMMdd-HHmm"
 git diff --name-only --diff-filter=d $OLD HEAD > files.txt      # فایل‌های جدید/تغییرکرده
 git diff --name-only --diff-filter=D $OLD HEAD > deleted.txt    # فایل‌های حذف‌شده (معمولاً خالی)
-git archive -o deploy.tar HEAD (Get-Content files.txt)
+git -c core.autocrlf=false archive -o deploy.tar HEAD (Get-Content files.txt)   # LF, like the server
 git diff --name-only $OLD HEAD -- apps/core/migrations          # اگر چیزی نشان داد، یعنی تغییر دیتابیس دارد
 ```
 فایل‌های `files.txt`، `deleted.txt` و `deploy.tar` را بعد از ارسال پاک کنید (جزو پروژه نیستند، commit نشوند).
