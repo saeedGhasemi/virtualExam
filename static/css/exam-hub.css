@@ -161,7 +161,7 @@
 .xh-search{position:relative;display:block}
 .xh-search>svg{position:absolute;inset-inline-start:.75rem;top:50%;transform:translateY(-50%);color:#7b879d;pointer-events:none}
 .xh-search .xh-input{padding-inline-start:2.3rem}
-.xh-field{display:grid;gap:.4rem;min-width:0;font-size:.84rem;font-weight:600;color:#26314d}
+.xh-field{display:grid;align-content:start;gap:.4rem;min-width:0;font-size:.84rem;font-weight:600;color:#26314d}
 .xh-req{color:var(--xh-red);font-style:normal}
 .xh-count{text-align:left;color:var(--xh-muted);font-size:.74rem;font-weight:400}
 .xh-textbox{position:relative;display:block}

@@ -10,7 +10,7 @@
             <span class="is-active">{% include "teacher/_qb_icon.html" with name="essay" %}ویرایش دستورالعمل</span>
             <button type="button" data-insert-template>{% include "teacher/_qb_icon.html" with name="text" %}الگوی آماده</button>
         </div>
-        <p class="ob-group-title">متن دستورالعمل دانشجو <em>*</em></p>
+        <p class="ob-group-title">متن دستورالعمل دانشجو <em class="mq-req">*</em></p>
         {% include "teacher/osce/_rich_editor.html" with field="instructions_body" delta=ins.body limit=1500 %}
         {{ osce_instruction_template|json_script:"osce-instruction-template" }}
 

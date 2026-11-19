@@ -2435,11 +2435,18 @@
   }
 
   .super-admin-list-grid {
-    @apply mt-5 grid gap-3 md:grid-cols-2;
+    @apply mt-5 grid gap-3;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @media (min-width: 768px) {
+    .super-admin-list-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .super-admin-row-card {
-    @apply rounded-2xl border border-slate-100 bg-slate-50 p-4 shadow-subtle;
+    @apply min-w-0 rounded-2xl border border-slate-100 bg-slate-50 p-4 shadow-subtle;
   }
 
   .super-admin-row-card strong {
@@ -5904,7 +5911,7 @@
   }
 
   .am-modal {
-    @apply pointer-events-none fixed inset-0 z-50 grid place-items-center opacity-0 transition;
+    @apply pointer-events-none fixed inset-0 z-[100] grid place-items-center opacity-0 transition;
   }
 
   .am-modal.is-open {
@@ -8628,6 +8635,14 @@
     @apply relative z-10 w-full max-w-xl rounded-2xl border border-[#d9e2f2] bg-white p-6 text-right shadow-[0_28px_70px_rgba(15,23,42,0.24)];
   }
 
+  @media (max-width: 480px) {
+    .users-modal-panel {
+      @apply p-4;
+      max-height: calc(100dvh - 1.5rem);
+      overflow-y: auto;
+    }
+  }
+
   .users-modal-close {
     @apply absolute left-5 top-5 grid size-9 place-items-center rounded-lg border border-[#d9e2f2] bg-white text-xl font-black text-[#52637f] transition hover:border-[#3159ff] hover:text-[#3159ff];
   }
@@ -8662,11 +8677,24 @@
   }
 
   .users-admin-grid {
-    @apply mt-6 grid gap-4 sm:grid-cols-2;
+    @apply mt-6 grid gap-4;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @media (min-width: 640px) {
+    .users-admin-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .users-admin-grid label {
-    @apply grid gap-2 text-[12px] font-black text-[#07152f];
+    @apply grid min-w-0 content-start gap-2 text-[12px] font-black text-[#07152f];
+  }
+
+  .users-admin-grid input,
+  .users-admin-grid select {
+    min-width: 0;
+    width: 100%;
   }
 
   .users-admin-grid input,
@@ -9810,6 +9838,28 @@
     @apply block text-[15px] font-black text-[#07152f];
   }
 
+  /* Narrow cards: course name on its own row, count + status under it (four columns left the name 0px wide). */
+  @media (max-width: 560px) {
+    .teacher-course-list article {
+      grid-template-columns: auto auto minmax(0, 1fr);
+      padding-block: .6rem;
+    }
+
+    .teacher-course-list div {
+      grid-column: 1 / -1;
+      order: -1;
+    }
+
+    .teacher-course-list article > svg {
+      display: none;
+    }
+
+    .teacher-course-list span b {
+      display: inline;
+      margin-left: .25rem;
+    }
+  }
+
   .teacher-profile-courses-card > a,
   .teacher-profile-activity-card > a {
     @apply mt-4 inline-flex text-[12px] font-black text-[#3159ff];
@@ -9820,7 +9870,7 @@
   }
 
   .teacher-timeline article {
-    @apply grid grid-cols-[1fr_auto] items-start gap-3 rounded-lg bg-[#f9fbff] px-3 py-2.5;
+    @apply grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-lg bg-[#f9fbff] px-3 py-2.5;
   }
 
   .teacher-timeline article > span {
@@ -9833,6 +9883,7 @@
 
   .teacher-timeline strong {
     @apply block text-[12px] font-black text-[#07152f];
+    overflow-wrap: anywhere;
   }
 
   .teacher-timeline small {
@@ -9895,6 +9946,21 @@
 
   .teacher-course-hero-id {
     @apply flex items-center justify-start gap-6 text-right;
+  }
+
+  .teacher-course-hero-id > div {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .teacher-course-hero-id > div > * {
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 480px) {
+    .teacher-course-hero-id {
+      @apply flex-wrap gap-3;
+    }
   }
 
   .teacher-course-avatar {
@@ -12333,7 +12399,8 @@
   }
 
   .tset-danger > div {
-    @apply flex-1;
+    flex: 1 1 12rem;
+    min-width: 0;
   }
 
   .tset-danger h2 {
@@ -15729,7 +15796,12 @@
   }
 
   .teacher-monitor-hero {
-    @apply mb-4 flex flex-row-reverse items-center justify-between gap-4 p-5;
+    @apply mb-4 flex flex-row-reverse flex-wrap items-center justify-between gap-4 p-5;
+  }
+
+  .teacher-monitor-hero > div {
+    flex: 1 1 14rem;
+    min-width: 0;
   }
 
   .teacher-monitor-hero span {
@@ -17140,6 +17212,34 @@
     @apply text-red-500 not-italic;
   }
 
+  /* Label text + required star on one line, the control on its own row:
+     a star must not push its field below the neighbouring ones. */
+  .student-wizard-fields label,
+  .student-account-fields label {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: start;
+    column-gap: .25rem;
+  }
+
+  .student-wizard-fields label > :not(em),
+  .student-account-fields label > :not(em) {
+    grid-column: 1 / -1;
+  }
+
+  .student-wizard-title {
+    padding-left: 4.5rem;
+  }
+
+  .student-wizard-footer {
+    flex-wrap: wrap;
+  }
+
+  .student-wizard-footer > div {
+    flex-wrap: wrap;
+    margin-right: auto;
+  }
+
   .student-wizard-fields input,
   .student-wizard-fields select,
   .student-account-fields input,
@@ -18341,6 +18441,23 @@
 
     .student-wizard-steps {
       @apply grid-cols-2 px-5;
+    }
+
+    .student-wizard-steps button:nth-child(2n)::after {
+      display: none;
+    }
+
+    .student-wizard-step {
+      @apply px-4 py-5;
+    }
+
+    .student-wizard-title {
+      @apply px-4;
+      padding-left: 3.5rem;
+    }
+
+    .student-wizard-footer {
+      @apply px-4;
     }
 
     .student-wizard-grid,

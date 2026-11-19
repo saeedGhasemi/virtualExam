@@ -74,8 +74,8 @@
   .sap-hero-top h3{margin:.15rem 0 0;font-size:1.1rem;font-weight:700;color:var(--ink)}
   .sap-hero-chips{display:flex;gap:.4rem}
   .sap-detail{display:grid;gap:.1rem;margin-top:.85rem}
-  .sap-detail-row{display:flex;align-items:center;justify-content:space-between;min-height:2.3rem;border-bottom:1px solid #f1f4f9;font-weight:600;font-size:.85rem}
-  .sap-detail-row:last-child{border-bottom:0}
+  .sap-detail-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;column-gap:.6rem;min-height:2.3rem;border-bottom:1px solid #f1f4f9;font-weight:600;font-size:.85rem}
+  .sap-detail-row:last-child{border-bottom:0}.sap-detail-row>:last-child{min-width:0;overflow-wrap:anywhere;margin-right:auto}
   .sap-detail-row span{color:var(--muted);display:flex;align-items:center;gap:.4rem}
   .sap-detail-row span svg{width:.95rem;height:.95rem}
   .sap-progress-wrap{margin-top:.85rem}
@@ -93,7 +93,7 @@
   .sap-score-bar .sap-progress{height:.55rem}
   .sap-score-bar span{display:block;margin-top:.4rem;font-size:.75rem;font-weight:600;color:var(--muted)}
   .sap-security-grid{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:.9rem;align-items:stretch}
-  .sap-field{display:grid;gap:.35rem;font-weight:700;font-size:.85rem;margin-bottom:.7rem}
+  .sap-field{display:grid;align-content:start;gap:.35rem;font-weight:700;font-size:.85rem;margin-bottom:.7rem}
   .sap-field input,.sap-field select,.sap-field textarea{width:100%;height:2.8rem;border:1px solid var(--line);border-radius:.6rem;background:#fff;padding:0 .9rem;text-align:right;outline:0;font-weight:600;color:var(--ink)}
   .sap-field textarea{height:5rem;padding-top:.6rem;resize:vertical}
   .sap-field.is-locked input{background:#f4f6fa;color:var(--muted)}

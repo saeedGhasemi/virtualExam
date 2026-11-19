@@ -684,7 +684,11 @@ table.rt-fit-act > tbody > tr > td.rt-act :is(a, button) { white-space: nowrap !
   .tset-tabs.tset-tabs > a { justify-content: center; gap: .4rem; min-height: 3rem; padding: .5rem .4rem; font-size: .78rem; line-height: 1.35; white-space: normal; text-align: center; min-width: 0; }
   .sst-tabs.sst-tabs > a svg, .tset-tabs.tset-tabs > a svg { display: inline-block !important; flex: 0 0 auto; width: 1.1rem; height: 1.1rem; }
   .tset-card-head { flex-wrap: wrap; row-gap: .75rem; }
-  .tset-card-head > :first-child { flex: 1 1 12rem; min-width: 0; }
+  .tset-card-head > div { flex: 1 1 12rem; min-width: 0; }
+  .tset-card-head > svg { flex: none; }
+}
+@media (max-width: 360px) {
+  .sst-tabs.sst-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
   .tset-card-head > .tset-outline-btn, .tset-card-head > button, .tset-card-head > a { flex: 1 1 100%; }
@@ -1223,3 +1227,36 @@ body { overflow-wrap: break-word; }
    their neighbours. Table cells are left alone (their width is responsive-tables.js's job). */
 textarea, [contenteditable="true"], .ql-editor { overflow-wrap: anywhere; word-break: break-word; }
 h1, h2, h3, h4, h5, h6, p, dd, legend, blockquote, figcaption { overflow-wrap: anywhere; }
+
+/* Required-field star (2026-11-19): in grid / column-flex labels («نام <b class="req">*</b><input>») the star was a grid
+   item of its own, so it dropped onto a line of its own and pushed that field's box below its neighbours' boxes.
+   display:contents merges it into the label's text run (its colour still inherits). Mark new stars with one of these. */
+label > .mq-req, label > .req, label > .xh-req, label > .manager-bulk-req, label > .tset-req, label > .mq-file-req,
+.field > .mq-req, .field > .req { display: contents; }
+
+/* Narrow-phone pass (2026-11-19, Playwright audit at 240–390px: text squeezed to a word or a letter per line). */
+@media (max-width: 560px) {
+  /* question editor head: «1fr auto 1fr» grid left the title 32px wide */
+  .qb .qb-head.qb-head { display: flex; flex-wrap: wrap; }
+  .qb .qb-head.qb-head > * { flex: 1 1 auto; min-width: 0; }
+  /* exam wizard: callout / upload box padding */
+  .upload-drop.upload-drop { padding: 1rem .75rem; }
+  .info-callout.info-callout { padding: .75rem; }
+  /* student profile «upcoming exams» row: day, title, badge — badge goes under */
+  .tstu-upcoming { flex-wrap: wrap; }
+  .tstu-upcoming > div { flex: 1 1 8rem; }
+  /* grading list tabs */
+  .gl-tabs.gl-tabs { flex-wrap: wrap; border-radius: 1rem; }
+  .gl-tabs.gl-tabs a { flex: 1 1 auto; text-align: center; }
+}
+@media (max-width: 480px) {
+  .qp-preview-grid.qp-preview-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); }
+}
+@media (max-width: 420px) {
+  .course-stats.course-stats, .course-editor-summary.course-editor-summary { grid-template-columns: minmax(0, 1fr); }
+  .am-photo-box.am-photo-box { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  .ud-tabs.ud-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* class card: icon above the title instead of beside it */
+  .tclass-card-head.tclass-card-head { flex-wrap: wrap; }
+  .tclass-card-head.tclass-card-head > .tclass-card-title { flex: 1 1 100%; }
+}

@@ -182,9 +182,9 @@
                         <label class="am-upload-button"><input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif">بارگذاری عکس</label>
                     </aside>
                     <div class="student-wizard-fields">
-                        <label>نام <em>*</em><input name="first_name" required></label>
-                        <label>نام خانوادگی <em>*</em><input name="last_name" required></label>
-                        <label>کد / شماره دانشجویی <em>*</em><input name="student_number" required></label>
+                        <label>نام <em class="mq-req">*</em><input name="first_name" required></label>
+                        <label>نام خانوادگی <em class="mq-req">*</em><input name="last_name" required></label>
+                        <label>کد / شماره دانشجویی <em class="mq-req">*</em><input name="student_number" required></label>
                         <label>کد ملی<input name="national_id"></label>
                         <label>شماره همراه<input name="phone" inputmode="tel"></label>
                         <label>ایمیل<input name="email" type="email"></label>
@@ -195,12 +195,12 @@
             <section class="student-wizard-step" data-wizard-step="2" hidden>
                 <h3>اطلاعات تحصیلی و انتساب سازمانی</h3>
                 <div class="student-wizard-fields student-wizard-fields--two">
-                    <label>سال ورود <em>*</em><input name="entry_year" inputmode="numeric" placeholder="1403" required></label>
-                    <label>نیمسال ورود <em>*</em><select name="semester" required><option value="">انتخاب نیمسال</option><option>نیمسال اول</option><option>نیمسال دوم</option><option>تابستان</option></select></label>
-                    <label>مقطع تحصیلی <em>*</em><select name="degree" required><option value="">انتخاب مقطع</option><option>کاردانی</option><option>کارشناسی</option><option>کارشناسی ارشد</option><option>دکتری</option></select></label>
-                    <label>رشته تحصیلی <em>*</em><input name="field_of_study" placeholder="پرستاری" required></label>
+                    <label>سال ورود <em class="mq-req">*</em><input name="entry_year" inputmode="numeric" placeholder="1403" required></label>
+                    <label>نیمسال ورود <em class="mq-req">*</em><select name="semester" required><option value="">انتخاب نیمسال</option><option>نیمسال اول</option><option>نیمسال دوم</option><option>تابستان</option></select></label>
+                    <label>مقطع تحصیلی <em class="mq-req">*</em><select name="degree" required><option value="">انتخاب مقطع</option><option>کاردانی</option><option>کارشناسی</option><option>کارشناسی ارشد</option><option>دکتری</option></select></label>
+                    <label>رشته تحصیلی <em class="mq-req">*</em><input name="field_of_study" placeholder="پرستاری" required></label>
                     <label>نوع پذیرش<select name="admission_type"><option>روزانه</option><option>شبانه</option><option>پردیس</option><option>آزاد</option></select></label>
-                    <label>وضعیت تحصیلی <em>*</em><select name="academic_status" required><option value="active">در حال تحصیل</option><option value="leave">مرخصی</option><option value="graduated">فارغ التحصیل</option><option value="inactive">غیرفعال</option></select></label>
+                    <label>وضعیت تحصیلی <em class="mq-req">*</em><select name="academic_status" required><option value="active">در حال تحصیل</option><option value="leave">مرخصی</option><option value="graduated">فارغ التحصیل</option><option value="inactive">غیرفعال</option></select></label>
                 </div>
                 <div class="student-org-path">
                     <strong>انتساب سازمانی</strong>
@@ -264,10 +264,10 @@
             <section class="student-wizard-step" data-wizard-step="4" hidden>
                 <div class="student-account-grid">
                     <div class="student-account-fields">
-                        <label>نام کاربری <em>*</em><input name="username" required></label>
-                        <label>روش تعیین رمز عبور <em>*</em><select name="password_method" required><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option><option value="sms_code">ارسال کد پیامکی</option></select></label>
+                        <label>نام کاربری <em class="mq-req">*</em><input name="username" required></label>
+                        <label>روش تعیین رمز عبور <em class="mq-req">*</em><select name="password_method" required><option value="activation_link">ارسال لینک فعال‌سازی</option><option value="manual_password">رمز عبور دستی</option><option value="sms_code">ارسال کد پیامکی</option></select></label>
                         <label>رمز عبور جدید<input type="password" name="password" autocomplete="new-password" placeholder="در صورت نیاز"></label>
-                        <label>وضعیت حساب <em>*</em><select name="status" required><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
+                        <label>وضعیت حساب <em class="mq-req">*</em><select name="status" required><option value="active">فعال</option><option value="inactive">غیرفعال</option><option value="blocked">مسدود</option></select></label>
                         <label class="student-switch"><input type="checkbox" name="must_change_password" value="1" checked><span></span>اجبار به تغییر رمز در اولین ورود</label>
                         <label class="student-switch"><input type="checkbox" name="send_welcome_message" value="1" checked><span></span>ارسال پیام خوش‌آمدگویی</label>
                         <label>نقش کاربری<input value="دانشجو" disabled></label>

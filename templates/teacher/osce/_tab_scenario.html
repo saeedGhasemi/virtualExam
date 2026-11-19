@@ -9,10 +9,10 @@
         <h3>{% include "teacher/_qb_icon.html" with name="info" %}مشخصات بیمار استانداردشده</h3>
         <div class="ob-patient-body">
             <div class="ob-patient-fields">
-                <label class="ob-field"><span>سن{% if needs_sp %} <em>*</em>{% endif %}</span><input type="text" name="patient_age" maxlength="40" value="{{ patient.age|default:'' }}" placeholder="۷ سال"></label>
-                <label class="ob-field"><span>جنسیت{% if needs_sp %} <em>*</em>{% endif %}</span><select name="patient_gender"><option value="">انتخاب کنید</option>{% for key, label in osce_patient_genders.items %}<option value="{{ key }}"{% if patient.gender == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-                <label class="ob-field"><span>شکایت اصلی{% if needs_sp %} <em>*</em>{% endif %}</span><input type="text" name="patient_chief_complaint" maxlength="200" value="{{ patient.chief_complaint|default:'' }}" placeholder="تنگی نفس هنگام فعالیت"></label>
-                <label class="ob-field"><span>نقش بیمار{% if needs_sp %} <em>*</em>{% endif %}</span><select name="patient_role"><option value="">انتخاب کنید</option>{% for key, label in osce_patient_roles.items %}<option value="{{ key }}"{% if patient.role == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                <label class="ob-field"><span>سن{% if needs_sp %} <em class="mq-req">*</em>{% endif %}</span><input type="text" name="patient_age" maxlength="40" value="{{ patient.age|default:'' }}" placeholder="۷ سال"></label>
+                <label class="ob-field"><span>جنسیت{% if needs_sp %} <em class="mq-req">*</em>{% endif %}</span><select name="patient_gender"><option value="">انتخاب کنید</option>{% for key, label in osce_patient_genders.items %}<option value="{{ key }}"{% if patient.gender == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                <label class="ob-field"><span>شکایت اصلی{% if needs_sp %} <em class="mq-req">*</em>{% endif %}</span><input type="text" name="patient_chief_complaint" maxlength="200" value="{{ patient.chief_complaint|default:'' }}" placeholder="تنگی نفس هنگام فعالیت"></label>
+                <label class="ob-field"><span>نقش بیمار{% if needs_sp %} <em class="mq-req">*</em>{% endif %}</span><select name="patient_role"><option value="">انتخاب کنید</option>{% for key, label in osce_patient_roles.items %}<option value="{{ key }}"{% if patient.role == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
             </div>
             <div class="teacher-wizard-photo-card ob-photo">
                 <span class="teacher-wizard-photo-label">تصویر بیمار</span>

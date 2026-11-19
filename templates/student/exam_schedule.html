@@ -38,8 +38,8 @@
   .sme-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid #e6edf6;color:#61708d;font-weight:700}
   .sme-pages{display:flex;gap:6px}.sme-pages a,.sme-pages span{display:grid;min-width:38px;height:38px;place-items:center;padding:0 10px;border:1px solid #dbe6f4;border-radius:10px;background:#fff;color:#30415f;font-weight:700}.sme-pages .is-current{background:#075fff;border-color:#075fff;color:#fff}.sme-pages .is-disabled{color:#b3bdcd}
   .sme-empty{padding:40px 20px;text-align:center;color:#64748b;font-weight:700}
-  @media(max-width:1180px){.sme-toolbar{grid-template-columns:1fr 1fr}.sme-note{grid-column:1/-1}}
-  @media(max-width:760px){.sme-tabs{flex-wrap:wrap}.sme-toolbar{grid-template-columns:1fr}.sme-featured{grid-template-columns:1fr}.sme-featured-icon{display:none}.sme-head h1{font-size:1.45rem}}
+  @media(max-width:1180px){.sme-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.sme-note{grid-column:1/-1}}
+  @media(max-width:760px){.sme-tabs{flex-wrap:wrap}.sme-toolbar{grid-template-columns:minmax(0,1fr)}.sme-featured{grid-template-columns:minmax(0,1fr)}.sme-featured-icon{display:none}.sme-head h1{font-size:1.45rem}}
 </style>
 <div class="sme" id="student-exam-schedule" data-live-region>
   <header class="sme-head">

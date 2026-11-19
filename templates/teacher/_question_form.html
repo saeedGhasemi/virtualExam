@@ -43,7 +43,7 @@
     .qb-card-head h3{display:flex;align-items:center;gap:.45rem;margin:0;font-size:.98rem;font-weight:700}
     .qb-card-head h3 svg{color:var(--qb-blue)}
     .qb-card-head small{color:var(--qb-muted);font-size:.72rem;font-weight:600}
-    .qb-field{display:grid;gap:.4rem;margin-bottom:.85rem;font-size:.76rem;font-weight:700;color:#475569}
+    .qb-field{display:grid;align-content:start;gap:.4rem;margin-bottom:.85rem;font-size:.76rem;font-weight:700;color:#475569}
     .qb-field:last-child{margin-bottom:0}
     .qb-field small,.qb-help{color:var(--qb-muted);font-size:.7rem;font-weight:600;line-height:1.7}
     .qb-row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
@@ -444,7 +444,7 @@
         <main class="qb-main">
             <section class="qb-card"{% if qf.type == 'multi' %} data-collapsible{% endif %}>
                 <div class="qb-card-head">
-                    <h3>{% if qf.type == 'multi' %}<button type="button" class="qb-collapse-btn" data-collapse-toggle aria-expanded="true" aria-label="جمع/باز کردن محتوای سؤال"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>{% endif %}محتوای سؤال <sup>*</sup></h3>
+                    <h3>{% if qf.type == 'multi' %}<button type="button" class="qb-collapse-btn" data-collapse-toggle aria-expanded="true" aria-label="جمع/باز کردن محتوای سؤال"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>{% endif %}محتوای سؤال <sup class="mq-req">*</sup></h3>
                     <nav class="qb-pills" data-media-tabs>
                         <button type="button" class="is-active" data-media-tab="text">{% include "teacher/_qb_icon.html" with name="text" %}متن</button>
                         <button type="button" data-media-tab="image">{% include "teacher/_qb_icon.html" with name="image" %}تصویر</button>

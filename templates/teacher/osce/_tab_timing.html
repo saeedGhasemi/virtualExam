@@ -14,7 +14,7 @@
             <section class="ob-panel">
                 <h3>{% include "teacher/_qb_icon.html" with name="clock" %}زمان‌بندی ایستگاه</h3>
                 <div class="ob-row is-3">
-                    <label class="ob-field">مدت زمان فعالیت (دقیقه) <em>*</em><input type="number" name="duration_minutes" min="1" max="180" required value="{{ form.duration_minutes }}" data-time="activity"></label>
+                    <label class="ob-field">مدت زمان فعالیت (دقیقه) <em class="mq-req">*</em><input type="number" name="duration_minutes" min="1" max="180" required value="{{ form.duration_minutes }}" data-time="activity"></label>
                     <label class="ob-field">زمان مطالعه (دقیقه)<input type="number" name="study_minutes" min="0" max="60" value="{{ tm.study_minutes|default_if_none:'2' }}" data-time="study"></label>
                     <label class="ob-field">زمان استراحت / تعویض (دقیقه)<input type="number" name="transition_minutes" min="0" max="30" value="{{ tm.transition_minutes|default_if_none:'1' }}" data-time="transition"></label>
                 </div>
@@ -41,7 +41,7 @@
             </section>
             <section class="ob-panel">
                 <h3>{% include "teacher/_qb_icon.html" with name="case" %}اساتید و ارزیابان</h3>
-                <label class="ob-field">ارزیاب اصلی <em>*</em><select name="primary_examiner" required><option value="">انتخاب استاد</option>{% for person in osce_examiner_options %}<option value="{{ person.id }}"{% if tm.primary_examiner == person.id %} selected{% endif %}>{{ person.name }}</option>{% endfor %}</select></label>
+                <label class="ob-field">ارزیاب اصلی <em class="mq-req">*</em><select name="primary_examiner" required><option value="">انتخاب استاد</option>{% for person in osce_examiner_options %}<option value="{{ person.id }}"{% if tm.primary_examiner == person.id %} selected{% endif %}>{{ person.name }}</option>{% endfor %}</select></label>
                 <label class="ob-field" style="margin-top:.5rem">ارزیاب دوم (در صورت نیاز)<select name="second_examiner"><option value="">بدون ارزیاب دوم</option>{% for person in osce_examiner_options %}<option value="{{ person.id }}"{% if tm.second_examiner == person.id %} selected{% endif %}>{{ person.name }}</option>{% endfor %}</select></label>
                 <label class="ob-switch ob-switch-row" style="margin-top:.5rem">استفاده از ارزیاب همزمان<input type="checkbox" name="concurrent_examiners" value="1"{% if tm.concurrent_examiners %} checked{% endif %}><span></span></label>
                 <small class="ob-aside-hint" style="display:block;margin:.2rem 0 0">دو ارزیاب به‌صورت همزمان حضور دارند (نیازمند ارزیاب دوم).</small>

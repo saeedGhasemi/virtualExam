@@ -48,7 +48,7 @@
     .ob-row.is-2{grid-template-columns:2fr 1fr}
     .ob-row.is-3{grid-template-columns:repeat(3,minmax(0,1fr))}
     .ob-row.is-half{grid-template-columns:1fr 1fr}
-    .ob label.ob-field{display:grid;gap:.35rem;font-size:.82rem;font-weight:700}
+    .ob label.ob-field{display:grid;align-content:start;gap:.35rem;font-size:.82rem;font-weight:700}
     .ob label.ob-field em{color:#dc2626;font-style:normal}
     .ob input[type=text],.ob input[type=number],.ob select,.ob textarea{width:100%;min-height:2.7rem;padding:0 .8rem;border:1px solid #d9e2f0;border-radius:.6rem;background:#fff;color:var(--ob-ink);font:inherit;font-size:.86rem;font-weight:600}
     .ob textarea{min-height:7rem;padding:.7rem .8rem;line-height:1.9;resize:vertical}
@@ -395,8 +395,8 @@
                         </div>
                         {% endif %}
                         <div class="ob-row is-2">
-                            <label class="ob-field"><span>عنوان ایستگاه <em>*</em></span><input type="text" name="title" maxlength="200" required value="{{ form.title|default:'' }}" data-title-input placeholder="ارزیابی معاینه قلب"></label>
-                            <label class="ob-field"><span>کد ایستگاه <em>*</em></span><input type="text" name="code" maxlength="20" required value="{{ form.code|default:'' }}" dir="ltr" placeholder="ST-01"></label>
+                            <label class="ob-field"><span>عنوان ایستگاه <em class="mq-req">*</em></span><input type="text" name="title" maxlength="200" required value="{{ form.title|default:'' }}" data-title-input placeholder="ارزیابی معاینه قلب"></label>
+                            <label class="ob-field"><span>کد ایستگاه <em class="mq-req">*</em></span><input type="text" name="code" maxlength="20" required value="{{ form.code|default:'' }}" dir="ltr" placeholder="ST-01"></label>
                         </div>
                         <div class="ob-row is-3">
                             <label class="ob-field">نوع ایستگاه<select name="station_type">{% for key, item in osce_station_types.items %}<option value="{{ key }}"{% if form.station_type == key %} selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></label>
@@ -437,13 +437,13 @@
                 </div>
                 <div class="ob-type-body">
                     <div>
-                        <p class="ob-group-title">شیوه اجرا <em>*</em></p>
+                        <p class="ob-group-title">شیوه اجرا <em class="mq-req">*</em></p>
                         <div class="ob-mini is-4" role="radiogroup" aria-label="شیوه اجرا">
                             {% for key, label in osce_execution_modes.items %}
                                 <label class="ob-choice"><input type="radio" name="execution_mode" value="{{ key }}"{% if form.details.execution_mode == key %} checked{% endif %}>{% if key == 'standardized_patient' %}{% include "teacher/_qb_icon.html" with name="independent" %}{% elif key == 'virtual_simulation' %}{% include "teacher/_qb_icon.html" with name="eye" %}{% else %}{% include "teacher/_qb_icon.html" with name="case" %}{% endif %}<strong>{{ label }}</strong></label>
                             {% endfor %}
                         </div>
-                        <p class="ob-group-title">روش ارزیابی <em>*</em></p>
+                        <p class="ob-group-title">روش ارزیابی <em class="mq-req">*</em></p>
                         <div class="ob-mini is-3" role="radiogroup" aria-label="روش ارزیابی">
                             {% for key, label in osce_assessment_methods.items %}
                                 <label class="ob-choice"><input type="radio" name="assessment_method" value="{{ key }}"{% if form.details.assessment_method == key %} checked{% endif %}>{% if key == 'checklist' %}{% include "teacher/_qb_icon.html" with name="multi" %}{% elif key == 'global_rating' %}{% include "teacher/_qb_icon.html" with name="ordering" %}{% else %}{% include "teacher/_qb_icon.html" with name="matching" %}{% endif %}<strong>{{ label }}</strong></label>

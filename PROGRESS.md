@@ -1,6 +1,20 @@
 # Progress
 
-_Last updated: 2026-11-19. Every chat updates this file before it ends (see `CLAUDE.md` → Session workflow)._
+_Last updated: 2026-11-20. Every chat updates this file before it ends (see `CLAUDE.md` → Session workflow)._
+
+## 2026-11-20 — v1.8.1: site-wide alignment / overflow pass (committed; deploy: see «Deployment status»)
+- User's screenshot (exam wizard step 1, «شیوه نمره‌دهی»): the select sat lower and taller than «نمره کل آزمون». Cause: `.field` labels are grids with the default `align-content:stretch`, so the shorter column's rows stretched. `align-content:start` on every field wrapper (wizard, group wizard, exam edit + 18 `*-field` classes in other templates / `exam-hub.css`); wizard + group wizard single-line inputs and selects now one exact height (3rem).
+- Required stars: in grid / column labels the `*` was its own grid item on a line of its own, pushing that field below its neighbours. Stars are marked `mq-req` (or the existing `.req`/`.xh-req`/…), and `responsive.css` (end) gives them `display:contents` → new rule in CLAUDE.md.
+- Playwright audit (Edge; scripts in the chat's scratchpad, not in the repo): every page reachable from the nav for `system_admin`, `mqtest_university`, `mqtest_pediatrics`, `mqtest_mohammadi`, `mqtest_s01` (90 pages per role, wizard steps one by one) at 240/320/390/768/1024/1440; checks: page overflow, elements past the screen, misaligned controls in a row, star on its own line, text squeezed to a word/letter per line, clipped buttons. Fixed what it found:
+  - bare `1fr` / `1fr 1fr` grids in media queries → `minmax(0,1fr)` (exam wizard: steps 3–4 were 1000–2700px wide below 1180px; group wizard; exam edit; student exam list toolbar; manager proctors list `super-admin-list-grid` 1230px at 240; users modal grid).
+  - exam edit (`super_admin/exam_edit.html`) at 768: title one letter wide beside the buttons → head stacks below 1180px. Class page head (`class-hub.css`) wraps instead of a fixed 2-column grid. Settings card heads (`responsive.css` `.tset-card-head`) grew the icon instead of the text.
+  - student: exam detail hero at phone width, result page (info grid, status chip, receipt code, topic rows), recorder row (`exam-view.css`).
+  - add-student modal (`input.css`): star, × over the header icon, step lines past the edge, footer wrap; `.am-modal` z-index above the top bar (the bar covered the modal top on phones).
+  - exam wizard: grading toggles cut off, audience tabs → balanced wrapping row, review values wrap, preview cards auto-fit; teacher course list / timeline / course hero (long names), profile detail rows, monitoring card, report head buttons, question editor head, upcoming-exam row, grading tabs, course stats, user-directory tabs, photo box (narrow-phone block at the end of `responsive.css`), report sheet head, account-deletion card.
+  - Last audit run: no page overflow, nothing off-screen, no misaligned fields / stars anywhere; only a few 240px-only spots with narrow but readable text remain (wizard summary labels, wizard step-4 callout, term switch hint, announcements).
+  - Not changed (by design): month calendars show dots/bars on phones; the icon rail is narrow on purpose.
+- Static versions: `dist/styles.css?v=classes-20261119am` (Tailwind rebuilt), `responsive.css?v=responsive-20261119am`, `exam-hub.css?v=xh-20261119al`, `class-hub.css?v=ch-20261119al`, `exam-view.css?v=exam-20261119al`.
+- Tests: full suite 637 OK; `check` clean. Deploy: templates + static CSS (collectstatic), no migrations, no Python change.
 
 ## 2026-11-19 — academic manager review (`mqtest_university`): counter, pending link, group form (committed + deployed as v1.8.0 `b40c793`)
 - Teacher's report: items «approve incomplete / past-deadline exam» and the dashboard count were already done in the entry below; this entry covers the rest.
