@@ -695,12 +695,19 @@ def _grading(exam, request):
 # ---------------------------------------------------------------- results / item analysis
 
 def _item_analysis(exam):
-    """Questions with p (share of the points earned), discrimination (upper − lower 27 %) and the option spread."""
+    """Questions with p (share of the points earned), discrimination (upper − lower 27 %) and the option spread.
+
+    p is the standard difficulty / facility index: the mean score on the question as a share of its points (for a
+    one-answer question the share who got it right; partial credit and essays count what they earned, like Moodle's
+    «Facility index»). score_pct = p in percent is what «میانگین نمره (٪)» shows, so it always agrees with «سختی».
+    Answers still waiting for the teacher's grade are left out of their question's p instead of counting as zero."""
     exam_id = exam['id']
     items = _report_questions(exam_id)
+    graded_by = 'aa.graded_by' if erd_has_column('attempt_answers', 'graded_by') else 'NULL'
     rows = erd_rows(
-        _LATEST_ATTEMPTS + """
+        _LATEST_ATTEMPTS + f"""
         SELECT ea.id AS attempt_id, ea.score, ea.max_score, aa.question_id, aa.points_awarded, aa.is_correct,
+               COALESCE(aa.needs_manual_grading, false) AS needs_manual_grading, {graded_by} AS graded_by,
                COALESCE(eq.points, q.default_points, 1) AS max_points
         FROM exam_attempts ea
         JOIN attempt_answers aa ON aa.attempt_id = ea.id
@@ -710,10 +717,14 @@ def _item_analysis(exam):
         """,
         [exam_id],
     )
-    totals, marks = {}, {}
+    totals, marks, waiting = {}, {}, {}
     for row in rows:
         attempt = str(row['attempt_id'])
         max_points = _sx_float(row['max_points'], 0) or 1
+        if row.get('needs_manual_grading') and not row.get('graded_by') and not _sx_float(row['points_awarded'], 0):
+            waiting.setdefault(str(row['question_id']), set()).add(attempt)  # not graded yet: no evidence either way
+            totals.setdefault(attempt, 0)
+            continue
         share = 1.0 if row.get('is_correct') in (True, 1, '1', 't', 'true') else max(min(_sx_float(row['points_awarded'], 0) / max_points, 1), 0)
         marks.setdefault(str(row['question_id']), {})[attempt] = share
         totals[attempt] = totals.get(attempt, 0) + share * max_points
@@ -722,14 +733,16 @@ def _item_analysis(exam):
     lower, upper = set(ranked[:cut]), set(ranked[-cut:]) if cut else set()
     for item in items:
         scores = marks.get(item['id'], {})
-        n = len(ranked)
-        p = sum(scores.values()) / n if n else None
+        pending = waiting.get(item['id'], set())
+        n = len(ranked) - len(pending)
+        p = sum(scores.values()) / n if n > 0 else None
         d = None
-        if cut:
+        if cut and not pending:
             d = sum(scores.get(a, 0) for a in upper) / cut - sum(scores.get(a, 0) for a in lower) / cut
         item['p'] = round(p, 2) if p is not None else None
         item['d'] = round(d, 2) if d is not None else None
-        item['correct_pct'] = round(item['stats'].get('correct_percent') or 0)
+        item['score_pct'] = round(p * 100) if p is not None else None
+        item['waiting'] = len(pending)
         flags = []
         if d is not None and d < 0:
             flags.append(('negative', 'تمایز منفی', 'red'))
@@ -758,7 +771,7 @@ def _results(exam, request):
     with_d = [i['d'] for i in items if i['d'] is not None]
     kpis = {
         'questions': len(items),
-        'correct': round(sum(i['correct_pct'] for i in items) / len(items)) if items else 0,
+        'score_pct': round(sum(i['score_pct'] for i in scored) / len(scored)) if (scored := [i for i in items if i['score_pct'] is not None]) else None,
         'discrimination': f'{sum(with_d) / len(with_d):.2f}' if with_d else '—',
         'negative': sum(1 for i in items if any(f['key'] == 'negative' for f in i['flags'])),
         'average': f'{sum(scores) / len(scores):.2f}'.rstrip('0').rstrip('.') if scores else '—',
@@ -921,9 +934,9 @@ def _xlsx_items(exam, items):
     sheet = book.active
     sheet.title = 'تحلیل سؤال'
     sheet.sheet_view.rightToLeft = True
-    sheet.append(['#', 'متن سؤال', 'نوع', 'درصد صحیح', 'شاخص دشواری (p)', 'شاخص تمایز', 'پرچم‌ها'])
+    sheet.append(['#', 'متن سؤال', 'نوع', 'میانگین نمره (٪)', 'شاخص دشواری (p)', 'شاخص تمایز', 'پرچم‌ها'])
     for item in items:
-        sheet.append([item['index'], item['text'], item['type_label'], item['correct_pct'], item['p'], item['d'],
+        sheet.append([item['index'], item['text'], item['type_label'], item['score_pct'], item['p'], item['d'],
                       '، '.join(f['label'] for f in item['flags'])])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="exam-{exam["id"][:8]}-analysis.xlsx"'
@@ -1078,7 +1091,7 @@ def _review(exam, request):
         entry = notes.get(key) or {}
         if not negative and not entry.get('flagged'):
             continue
-        evidence = [f"ضریب تمایز: {item['d']}" if item['d'] is not None else '', f"درصد پاسخ درست کل: {item['correct_pct']}٪",
+        evidence = [f"ضریب تمایز: {item['d']}" if item['d'] is not None else '', f"میانگین نمره‌ی سؤال: {item['score_pct']}٪" if item['score_pct'] is not None else '',
                     f"شاخص دشواری: {item['p']}" if item['p'] is not None else '']
         evidence += [n['text'] for n in entry.get('notes', [])]
         out.append({

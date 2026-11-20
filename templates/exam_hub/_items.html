@@ -16,7 +16,7 @@
                 <ul class="xh-options" style="flex:1 1 13rem">
                     {% for o in q.options %}<li class="{% if o.correct %}is-correct{% endif %}">{% if o.correct %}<span class="xh-ok">{% include 'exam_hub/_icon.html' with i='check' %}</span>{% else %}<span></span>{% endif %}<i>{{ o.letter_fa }}</i><span>{{ o.label|default:"گزینه" }}</span><em>{{ o.percent|floatformat:0 }}٪ ({{ o.count }} نفر)</em></li>{% endfor %}
                 </ul>
-                <div class="xh-donut is-grey is-md" style="--p:{{ q.correct_pct }}"><span><b>{{ q.correct_pct }}٪</b><small>درست</small></span></div>
+                <div class="xh-donut is-grey is-md" style="--p:{{ q.score_pct|default:0 }}"><span><b>{% if q.score_pct is not None %}{{ q.score_pct }}٪{% else %}—{% endif %}</b><small>میانگین نمره</small></span></div>
             </div>
             {% elif q.stats.bars %}
             <ul class="xh-options">{% for b in q.stats.bars %}<li class="{% if b.tone == 'correct' %}is-correct{% endif %}">{% if b.tone == 'correct' %}<span class="xh-ok">{% include 'exam_hub/_icon.html' with i='check' %}</span>{% else %}<span></span>{% endif %}<i>{{ forloop.counter }}</i><span>{{ b.label }}</span><em>{{ b.percent|floatformat:0 }}٪ ({{ b.count }} نفر)</em></li>{% endfor %}</ul>
@@ -25,7 +25,7 @@
         <div class="xh-card">
             <div class="xh-card-head"><h3>شاخص‌های تحلیل سؤال</h3></div>
             <div class="xh-cells">
-                <div>درصد صحیح<b>{{ q.correct_pct }}٪</b></div>
+                <div>میانگین نمره<b>{% if q.score_pct is not None %}{{ q.score_pct }}٪{% else %}—{% endif %}</b>{% if q.waiting %}<small class="xh-muted">{{ q.waiting }} پاسخ در انتظار تصحیح، حساب نشده</small>{% endif %}</div>
                 <div>شاخص دشواری (p)<b>{% if q.p is not None %}{{ q.p }}{% else %}—{% endif %}</b></div>
                 <div>شاخص تمایز<b class="{% if q.d is not None and q.d < 0 %}is-red{% endif %}">{% if q.d is not None %}{{ q.d }}{% if q.d < 0 %}{% include 'exam_hub/_icon.html' with i='alert' %}{% endif %}{% else %}—{% endif %}</b></div>
                 <div>بارم سؤال<b>{{ q.points }}</b></div>
@@ -54,7 +54,7 @@
     <div class="xh-main">
         <div class="xh-kpis">
             <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='listnum' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">تعداد سؤال</span><span class="xh-kpi-value">{{ r.kpis.questions }}</span></div></div>
-            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='target2' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین درصد صحیح</span><span class="xh-kpi-value">{{ r.kpis.correct }}٪</span></div></div>
+            <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='target2' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین نمره‌ی سؤال‌ها</span><span class="xh-kpi-value">{% if r.kpis.score_pct is not None %}{{ r.kpis.score_pct }}٪{% else %}—{% endif %}</span></div></div>
             <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='chart' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین شاخص تمایز</span><span class="xh-kpi-value">{{ r.kpis.discrimination }}</span></div></div>
             <div class="xh-kpi"><span class="xh-kpi-ico is-red">{% include 'exam_hub/_icon.html' with i='alert' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">سؤال با تمایز منفی</span><span class="xh-kpi-value" style="color:var(--xh-red)">{{ r.kpis.negative }}</span></div></div>
             <div class="xh-kpi"><span class="xh-kpi-ico">{% include 'exam_hub/_icon.html' with i='clock' %}</span><div class="xh-kpi-body"><span class="xh-kpi-label">میانگین نمره</span><span class="xh-kpi-value">{{ r.kpis.average }}<em>از {{ r.kpis.scale }}</em></span></div></div>
@@ -77,14 +77,14 @@
             </form>
             {% if r.rows %}
             <table class="table">
-                <thead><tr><th>#</th><th>متن کوتاه سؤال</th><th>نوع</th><th>درصد صحیح</th><th>شاخص دشواری (p)</th><th>شاخص تمایز</th><th>پرچم‌ها</th><th>عملیات</th></tr></thead>
+                <thead><tr><th>#</th><th>متن کوتاه سؤال</th><th>نوع</th><th>میانگین نمره (٪)</th><th>شاخص دشواری (p)</th><th>شاخص تمایز</th><th>پرچم‌ها</th><th>عملیات</th></tr></thead>
                 <tbody>
                 {% for i in r.rows %}
                 <tr class="{% if q and q.index == i.index %}xh-row-active{% endif %}">
                     <td>{{ i.index }}</td>
                     <td>{{ i.short }}</td>
                     <td><span class="xh-pill is-blue">{{ i.type_label }}</span></td>
-                    <td><span class="xh-meter"><b>{{ i.correct_pct }}%</b><span class="xh-bar{% if i.correct_pct >= 70 %} is-green{% elif i.correct_pct < 40 %} is-red{% endif %}"><i style="width:{{ i.correct_pct }}%"></i></span></span></td>
+                    <td>{% if i.score_pct is not None %}<span class="xh-meter"><b>{{ i.score_pct }}٪</b><span class="xh-bar{% if i.score_pct >= 70 %} is-green{% elif i.score_pct < 40 %} is-red{% endif %}"><i style="width:{{ i.score_pct }}%"></i></span></span>{% else %}—{% endif %}</td>
                     <td>{% if i.p is not None %}{{ i.p }}{% else %}—{% endif %}</td>
                     <td>{% if i.d is not None %}{% if i.d < 0 %}<span class="xh-neg">{{ i.d }}{% include 'exam_hub/_icon.html' with i='alert' %}</span>{% else %}{{ i.d }}{% endif %}{% else %}—{% endif %}</td>
                     <td><span class="xh-flags">{% for f in i.flags %}<span class="xh-pill is-{% if f.key == 'negative' %}red{% elif f.key == 'hard' %}amber{% else %}blue{% endif %}">{% if f.key == 'negative' %}{% include 'exam_hub/_icon.html' with i='alert' %}{% else %}{% include 'exam_hub/_icon.html' with i='info' %}{% endif %}{{ f.label }}</span>{% empty %}—{% endfor %}</span></td>

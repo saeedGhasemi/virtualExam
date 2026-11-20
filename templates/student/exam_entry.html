@@ -30,6 +30,8 @@
         <div class="sx-form-errors">شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست.</div>
       {% elif attempts_used_up %}
         <div class="sx-form-errors">فرصت‌های شرکت شما در این آزمون تمام شده است.</div>
+      {% elif closed_reason %}
+        <div class="sx-form-errors">{{ closed_reason }}</div>
       {% elif access_not_open %}
         <div class="sx-form-errors">ورود به این آزمون از {{ access_starts_at|to_jalali }} باز می‌شود.</div>
       {% elif can_start %}

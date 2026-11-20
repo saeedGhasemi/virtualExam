@@ -468,7 +468,7 @@
   let recorders = [];
   // Set when the exam time ends during a take: the take is stopped, stored, and then the time-up goes on.
   let timeUpAfterRecording = false;
-  const continueTimeUp = () => { timeUpAfterRecording = false; finishTimeUp(); };
+  const continueTimeUp = () => { timeUpAfterRecording = false; handOverTimeUp(); };
   const initRecorders = () => form?.querySelectorAll('[data-recorder]').forEach((box) => {
     if (box.dataset.qxReady) return;  // a question shown again keeps what was set up the first time
     box.dataset.qxReady = '1';
@@ -543,7 +543,7 @@
     allowLeave();
     if (preview) { window.location.href = `${preview.finish_url}?timeup=1`; return; }
     if (rules.auto_submit) document.getElementById('auto-submit-form').submit();
-    else window.location.href = submitUrl;
+    else window.location.href = `${submitUrl}?timeup=1`;  // not submitted: the server closes it (expired) and says why
   };
   // Set once the time is over: answering stops at once and nothing may start the time-up a second time.
   let timeIsUp = false;
@@ -556,8 +556,6 @@
     // on this device, the one on screen included, is sent before the submit.
     if (form) form.inert = true;
     if (!preview) window.mqExamSaveAll?.();
-    // A page part may take over the time-up (the connection dialog does) by cancelling this event.
-    if (!document.dispatchEvent(new CustomEvent('exam:time-up', { cancelable: true }))) return;
     if (recordingNow()) {
       // A take in progress is stopped and stored first (the server accepts answers for ATTEMPT_GRACE_SECONDS = 30).
       timeUpAfterRecording = true;
@@ -566,8 +564,14 @@
       setTimeout(() => { if (timeUpAfterRecording) continueTimeUp(); }, 22000);  // never wait past the grace time
       return;
     }
-    finishTimeUp();
+    handOverTimeUp();
   };
+  // After a take in progress is stored: a page part may take over the rest of the time-up (the connection dialog
+  // does, to send the answers kept on this device first) by cancelling this event; otherwise the page finishes it.
+  function handOverTimeUp() {
+    if (!document.dispatchEvent(new CustomEvent('exam:time-up', { cancelable: true }))) return;
+    finishTimeUp();
+  }
   window.mqExamTimeIsUp = () => timeIsUp;
   if (timer) {
     showTime(remaining);

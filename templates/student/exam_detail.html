@@ -35,6 +35,8 @@
           <span class="sx-chip orange">شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست.</span>
         {% elif attempts_used_up %}
           <span class="sx-chip gray">فرصت‌های شرکت شما در این آزمون تمام شده است.</span>
+        {% elif closed_reason %}
+          <span class="sx-chip gray">{{ closed_reason }}</span>
         {% elif access_not_open %}
           <span class="sx-chip orange">ورود به آزمون از {{ access_starts_at|to_jalali }} باز می‌شود</span>
         {% elif can_enter %}

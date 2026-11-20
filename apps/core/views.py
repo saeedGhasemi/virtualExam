@@ -19612,6 +19612,7 @@ def _sx_exam_row(exam_id, student_id):
         """,
         [exam_id, student_id, student_id, student_id],
     )
+    open_to_student = bool(rows)
     if not rows:
         # Outside the access rule a student still reaches an exam they already have an attempt on
         # (e.g. it was unpublished mid-attempt); any other exam id is not theirs.
@@ -19642,6 +19643,10 @@ def _sx_exam_row(exam_id, student_id):
     if not rows:
         return None
     row = rows[0]
+    # Reached only through an attempt of the student's own (unpublished / cancelled / no longer assigned since):
+    # its pages and an attempt still running stay reachable, but no new attempt starts (student_exam_start).
+    row['open_to_student'] = open_to_student
+    row['is_cancelled'] = bool((erd_row('SELECT is_cancelled FROM exams WHERE id = %s', [exam_id]) or {}).get('is_cancelled'))
     row['starts_at'] = _sx_dt(row.get('start_at')) or timezone.now()
     row['duration_minutes'] = _em_int(row.get('duration_minutes'), 90)
     row['ends_at'] = _sx_dt(row.get('end_at')) or (row['starts_at'] + timedelta(minutes=row['duration_minutes']))
@@ -20575,15 +20580,33 @@ def _sx_identity_matches(request, code) -> bool:
     return code in known
 
 
+def _sx_entry_window_open(exam, now) -> bool:
+    """A new attempt may start: from the exam's start up to (not at) the end of entry, so it always gets some time."""
+    return exam['starts_at'] <= now < exam['entry_ends_at']
+
+
+def _sx_exam_closed_reason(exam) -> str:
+    """Why no new attempt may start whatever the clock says ('' when nothing stops it)."""
+    if exam.get('is_cancelled'):
+        return 'این آزمون لغو شده است.'
+    if not exam.get('open_to_student', True):
+        return 'این آزمون دیگر برای شرکت در دسترس نیست.'
+    if not exam.get('question_count'):
+        return 'این آزمون هنوز سؤالی ندارد؛ پس از افزودن سؤال‌ها توسط استاد می‌توانید شرکت کنید.'
+    return ''
+
+
 def _sx_entry_context(request, exam, attempt):
     """What the detail and entry pages show about entering: the window, rules, attempts and the IP rule."""
     now = timezone.now()
     access_starts_at = exam.get('access_starts_at')
-    resuming = bool(attempt and attempt.get('status') == 'in_progress' and not attempt.get('submitted_at'))
+    closed = _sx_exam_closed_reason(exam)
+    resuming = bool(attempt and attempt.get('status') == 'in_progress' and not attempt.get('submitted_at')) and not exam.get('is_cancelled')
     used_up = bool(attempt) and not resuming and not _sx_attempts_left(exam, request.erd_profile_id)
     return {
-        'can_enter': (exam['starts_at'] <= now <= exam['entry_ends_at'] or resuming) and not used_up,
-        'entry_expired': now > exam['entry_ends_at'] and not resuming,
+        'can_enter': (_sx_entry_window_open(exam, now) and not closed or resuming) and not used_up,
+        'closed_reason': '' if resuming or used_up else closed,
+        'entry_expired': now >= exam['entry_ends_at'] and not resuming,
         'access_not_open': bool(access_starts_at and now < access_starts_at),
         'access_starts_at': access_starts_at,
         'seconds_until_start': max(0, int((exam['starts_at'] - now).total_seconds())),
@@ -20661,8 +20684,14 @@ def student_exam_start(request, exam_id):
     if request.method != 'POST':  # an attempt is created only by the entry page's button
         return redirect('core:student_exam_detail', exam_id=exam_id)
     attempt = _sx_attempt_for_exam(exam_id, request.erd_profile_id)
+    if exam['is_cancelled']:
+        messages.error(request, 'این آزمون لغو شده است؛ شرکت در آن دیگر ممکن نیست.')
+        return redirect('core:student_exam_schedule')
     # A started attempt may be resumed (its own time limit applies); a new start must fall inside the exam window.
     resuming = bool(attempt and attempt.get('started_at') and attempt.get('status') == 'in_progress' and not attempt.get('submitted_at'))
+    if not resuming and (closed := _sx_exam_closed_reason(exam)):
+        messages.error(request, closed)
+        return redirect('core:student_exam_detail', exam_id=exam_id)
     if not resuming and attempt and not _sx_attempts_left(exam, request.erd_profile_id):
         if attempt.get('submitted_at'):
             return redirect('core:student_attempt_receipt', attempt_id=attempt['id'])
@@ -20672,7 +20701,7 @@ def student_exam_start(request, exam_id):
         messages.error(request, 'شرکت در این آزمون از شبکه‌ی فعلی شما مجاز نیست.')
         return redirect('core:student_exam_detail', exam_id=exam_id)
     now = timezone.now()
-    if not resuming and not exam['starts_at'] <= now <= exam['entry_ends_at']:
+    if not resuming and not _sx_entry_window_open(exam, now):
         messages.error(request, 'آزمون هنوز شروع نشده است.' if now < exam['starts_at'] else 'زمان ورود به این آزمون به پایان رسیده است.')
         return redirect('core:student_exam_detail', exam_id=exam_id)
     if not resuming and exam['needs_entry'] and not request.session.get(_sx_entry_key(exam_id)):
@@ -20976,6 +21005,17 @@ def _sx_practice_attempt_context(attempt_id, student_id, current_answer):
     }
 
 
+def _sx_time_is_up(attempt_id, request) -> bool:
+    """The confirmation page is opened once the time is over («ارسال خودکار» off): the deadline has passed, or the exam
+    page's own clock reached zero (``?timeup=1``; it follows the server within seconds). The grace for a «پایان آزمون»
+    already on its way does not apply to a page opened afterwards."""
+    deadline = _sx_attempt_deadline(attempt_id)
+    if not deadline:
+        return False
+    margin = timedelta(seconds=5 if request.GET.get('timeup') else 0)
+    return timezone.now() >= deadline - margin
+
+
 @never_cache
 @erd_role_required('student')
 def student_attempt_submit(request, attempt_id):
@@ -20986,7 +21026,8 @@ def student_attempt_submit(request, attempt_id):
         return redirect('core:student_attempt', attempt_id=attempt_id)  # shows the take-over screen; nothing is submitted
     rules = _sx_attempt_page_rules(attempt_id, request.erd_profile_id, rows[0]['exam_id'])
     open_attempt = not rows[0].get('submitted_at') and (rows[0].get('status') or 'in_progress') == 'in_progress'
-    if open_attempt and not rules['auto_submit_on_time_end'] and not _sx_attempt_accepts_answers(attempt_id):
+    if open_attempt and not rules['auto_submit_on_time_end'] and (
+            not _sx_attempt_accepts_answers(attempt_id) or (request.method != 'POST' and _sx_time_is_up(attempt_id, request))):
         # «ارسال خودکار در پایان زمان» off: an attempt not submitted in time is closed, not submitted.
         if _sx_claim_attempt_close(attempt_id, status='expired'):
             log_activity(request.user, 'exam_attempt_expired', 'زمان آزمون تمام شد و دانشجو آزمون را ارسال نکرد.', request,

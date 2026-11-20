@@ -5,12 +5,12 @@
             <div class="xh-card-head"><h3>تحلیل سؤالات</h3></div>
             {% if r.mini %}
             <table class="rt-off xh-mini-table">
-                <thead><tr><th>سؤال</th><th>درصد پاسخ صحیح</th><th>سختی</th><th>تمایز</th><th>وضعیت</th></tr></thead>
+                <thead><tr><th>سؤال</th><th>میانگین نمره (٪) <button type="button" class="xh-help" aria-label="راهنمای میانگین نمره" data-help-tip="میانگین نمره‌ای که شرکت‌کنندگان از این سؤال گرفته‌اند، به درصد نمره‌ی سؤال. برای سؤال تک‌پاسخی همان درصد پاسخ درست است؛ نمره‌ی جزئی و تشریحی به اندازه‌ی نمره‌ی گرفته‌شده حساب می‌شود. پاسخ‌های در انتظار تصحیح حساب نمی‌شوند. «سختی» از همین عدد تعیین می‌شود (۷۰٪ و بیشتر آسان، زیر ۴۰٪ سخت).">?</button></th><th>سختی</th><th>تمایز</th><th>وضعیت</th></tr></thead>
                 <tbody>
                 {% for q in r.mini %}
                 <tr>
                     <td><a href="?tab=results&view=items&q_no={{ q.index }}">{{ q.index }}</a></td>
-                    <td>{{ q.correct_pct }}٪</td>
+                    <td>{% if q.score_pct is not None %}{{ q.score_pct }}٪{% else %}—{% endif %}</td>
                     <td>{% if q.level %}<span class="xh-pill is-{{ q.level.1 }}">{{ q.level.0 }}</span>{% else %}—{% endif %}</td>
                     <td>{% if q.d is not None %}<span style="color:{% if q.d < 0 %}var(--xh-red){% elif q.d < 0.3 %}var(--xh-amber){% else %}var(--xh-green){% endif %}">{{ q.d }}</span>{% else %}—{% endif %}</td>
                     <td>{% if q.verdict == 'bad' %}<span style="color:var(--xh-red)" title="تمایز منفی">{% include 'exam_hub/_icon.html' with i='alert' %}</span>{% elif q.verdict == 'warn' %}<span style="color:var(--xh-blue)" title="تمایز کم">{% include 'exam_hub/_icon.html' with i='info' %}</span>{% else %}<span style="color:var(--xh-green)" title="مناسب">{% include 'exam_hub/_icon.html' with i='checkcircle' %}</span>{% endif %}</td>

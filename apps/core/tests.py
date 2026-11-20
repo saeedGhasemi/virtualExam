@@ -4679,6 +4679,9 @@ class StudentExamStartWindowTests(_ScopedOrgFixture):
             cursor.execute('UPDATE exams SET is_published = %s, lifecycle_status = %s, duration_minutes = 30 WHERE id = %s',
                            [True, 'published', cls.exam_in_id])
         _insert('exam_assignments', ['id', 'exam_id', 'student_profile_id'], [str(uuid.uuid4()), cls.exam_in_id, cls.student_in_id])
+        # an exam without questions cannot be started at all (ExamFinalScenarioTests)
+        _insert('exam_questions', ['id', 'exam_id', 'question_id', 'points', 'order_index'],
+                [str(uuid.uuid4()), cls.exam_in_id, cls.question_in_id, 1, 1])
 
     def _window(self, start_minutes, end_minutes):
         now = timezone.now()
